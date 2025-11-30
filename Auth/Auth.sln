@@ -11,6 +11,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AuthShared_Lib", "AuthShare
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Foundation_Lib", "..\..\Foundation\Foundation\Foundation_Lib\Foundation_Lib.csproj", "{98CFA0B5-AB33-23C4-885F-72D540278246}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Auth_Lib", "Auth_Lib\Auth_Lib.csproj", "{928071E0-DF30-4DD3-BDA5-71A245D844CD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Auth_API", "Auth_API\Auth_API.csproj", "{10391633-7D94-4BCA-8ACB-B56E70F11111}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +39,14 @@ Global
 		{98CFA0B5-AB33-23C4-885F-72D540278246}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{98CFA0B5-AB33-23C4-885F-72D540278246}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{98CFA0B5-AB33-23C4-885F-72D540278246}.Release|Any CPU.Build.0 = Release|Any CPU
+		{928071E0-DF30-4DD3-BDA5-71A245D844CD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{928071E0-DF30-4DD3-BDA5-71A245D844CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{928071E0-DF30-4DD3-BDA5-71A245D844CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{928071E0-DF30-4DD3-BDA5-71A245D844CD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10391633-7D94-4BCA-8ACB-B56E70F11111}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10391633-7D94-4BCA-8ACB-B56E70F11111}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10391633-7D94-4BCA-8ACB-B56E70F11111}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10391633-7D94-4BCA-8ACB-B56E70F11111}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
