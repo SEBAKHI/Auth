@@ -6,8 +6,8 @@
     <Name>Auth_DB</Name>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectVersion>4.1</ProjectVersion>
-    <ProjectGuid>{1c8d2825-f004-48dd-b60b-b57faf630ea1}</ProjectGuid>
-    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql150DatabaseSchemaProvider</DSP>
+    <ProjectGuid>{7e042882-7269-4477-8b7f-5ac4505a54b3}</ProjectGuid>
+    <DSP>Microsoft.Data.Tools.Schema.Sql.Sql170DatabaseSchemaProvider</DSP>
     <OutputType>Database</OutputType>
     <RootPath>
     </RootPath>
@@ -58,27 +58,29 @@
     <Folder Include="Properties" />
     <Folder Include="dbo" />
     <Folder Include="dbo\Tables" />
+    <Folder Include="dbo\Tables\Core" />
+    <Folder Include="dbo\Tables\Authentication" />
+    <Folder Include="dbo\Tables\Security" />
+    <Folder Include="dbo\Tables\System" />
     <Folder Include="dbo\StoredProcedures" />
-    <Folder Include="PublishLocations" />
+    <Folder Include="dbo\StoredProcedures\Users" />
+    <Folder Include="dbo\StoredProcedures\Authentication" />
+    <Folder Include="dbo\StoredProcedures\Authorization" />
+    <Folder Include="dbo\StoredProcedures\ApiKeys" />
+    <Folder Include="dbo\StoredProcedures\Roles" />
+    <Folder Include="dbo\StoredProcedures\Permissions" />
+    <Folder Include="dbo\StoredProcedures\Applications" />
+    <Folder Include="dbo\StoredProcedures\TwoFactor" />
+    <Folder Include="dbo\StoredProcedures\Audit" />
+    <Folder Include="dbo\Views" />
+    <Folder Include="dbo\Functions" />
+    <Folder Include="dbo\Functions\Scalar" />
+    <Folder Include="dbo\Functions\TableValued" />
     <Folder Include="dbo\Triggers" />
-    <Folder Include="dbo\Initialize" />
-  </ItemGroup>
-  <ItemGroup>
-    <Build Include="dbo\Tables\Users.sql" />
-    <Build Include="dbo\Tables\RefreshTokens.sql" />
-    <Build Include="dbo\Tables\LoginAttempts.sql" />
-    <Build Include="dbo\Tables\PasswordResetTokens.sql" />
-    <Build Include="dbo\Tables\EmailVerificationTokens.sql" />
-    <Build Include="dbo\StoredProcedures\proc_CleanupExpiredTokens.sql" />
-    <Build Include="dbo\StoredProcedures\proc_GetUserLoginStats.sql" />
-    <Build Include="dbo\Tables\Roles.sql" />
-    <Build Include="dbo\Tables\UserRoles.sql" />
-    <Build Include="dbo\Initialize\proc_CreateDefaultAdminUser.sql" />
-    <Build Include="dbo\Initialize\proc_CreateDefaultRoles.sql" />
-    <Build Include="dbo\Initialize\proc_InitializeDB_InsertDefaultRecords.sql" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="PublishLocations\Auth_DB_Local.publish.xml" />
-    <None Include="PublishLocations\Auth_DB.publish.xml" />
+    <Folder Include="dbo\Types" />
+    <Folder Include="dbo\Scripts" />
+    <Folder Include="dbo\Scripts\SeedData" />
+    <Folder Include="dbo\Scripts\Migrations" />
+    <Folder Include="dbo\PostDeployment" />
   </ItemGroup>
 </Project>
