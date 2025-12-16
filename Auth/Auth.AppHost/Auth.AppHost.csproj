@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Sdk Name="Aspire.AppHost.Sdk" Version="9.5.0" />
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>2bd99a6b-4ae6-4d92-8036-28298a3ef77b</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.5.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AuditLog_API\AuditLog_API.csproj" />
+    <ProjectReference Include="..\Auth_UI\Auth_UI\Auth_UI.csproj" />
+    <ProjectReference Include="..\RolePermission_API\RolePermission_API.csproj" />
+    <ProjectReference Include="..\UserManagement_API\UserManagement_API.csproj" />
+  </ItemGroup>
+
+</Project>

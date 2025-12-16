@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -8,6 +8,17 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Configuration\" />
+    <Folder Include="Middleware\" />
+    <Folder Include="Constants\" />
+    <Folder Include="Models\" />
+    <Folder Include="Transforms\" />
+    <Folder Include="Services\Aggregation\" />
+    <Folder Include="Services\Caching\" />
+    <Folder Include="Services\HealthCheck\" />
   </ItemGroup>
 
 </Project>
