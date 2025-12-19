@@ -15,10 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AuditLog_API\AuditLog_API.csproj" />
     <ProjectReference Include="..\Auth_UI\Auth_UI\Auth_UI.csproj" />
-    <ProjectReference Include="..\RolePermission_API\RolePermission_API.csproj" />
-    <ProjectReference Include="..\UserManagement_API\UserManagement_API.csproj" />
   </ItemGroup>
 
 </Project>

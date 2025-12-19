@@ -12,9 +12,10 @@
     <Folder Include="Application\Mappings\" />
     <Folder Include="Application\Behaviors\" />
     <Folder Include="Application\Services\" />
-    <Folder Include="Application\UseCases\Authentication\" />
     <Folder Include="Application\UseCases\ApiKeys\" />
     <Folder Include="Application\UseCases\Applications\" />
+    <Folder Include="Application\UseCases\Authentication\Commands\" />
+    <Folder Include="Application\UseCases\Authentication\Queries\" />
     <Folder Include="Application\UseCases\Permissions\" />
     <Folder Include="Application\UseCases\Roles\" />
     <Folder Include="Application\UseCases\Users\" />
@@ -23,8 +24,11 @@
     <Folder Include="Domain\Entities\" />
     <Folder Include="Domain\Events\" />
     <Folder Include="Domain\Exceptions\" />
-    <Folder Include="Domain\Interfaces\" />
+    <Folder Include="Domain\Enums\" />
+    <Folder Include="Domain\Interfaces\Repositories\" />
     <Folder Include="Domain\ValueObjects\" />
+    <Folder Include="Foundation\Base\" />
+    <Folder Include="Foundation\Interfaces\" />
     <Folder Include="Infrastructure\Authentication\" />
     <Folder Include="Infrastructure\Authorization\" />
     <Folder Include="Infrastructure\Caching\" />
