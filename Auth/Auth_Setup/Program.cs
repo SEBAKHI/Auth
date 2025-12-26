@@ -1,19 +1,23 @@
-﻿// This is a one-time setup 
-using AuthShared_Lib.Services;
+using Auth_Lib.Infrastructure.Authentication;
 
-Console.WriteLine("=== Secret Setup for UnitedAuth ===");
+Console.WriteLine("=== Auth System Setup ===");
+Console.WriteLine();
 
-// Get connection string
-Console.WriteLine("Enter your Connection String:");
-var connectionString = Console.ReadLine();
+// Use the same settings as appsettings.json
+var hasher = Argon2PasswordHasher.CreateDefault();
 
-// Get JWT Secret
-Console.WriteLine("Enter your JWT Secret Key:");
-var jwtSecret = Console.ReadLine();
+// Generate hash for Admin@123!
+var password = "Admin@123!";
+var hash = hasher.HashPassword(password);
 
-// Store encrypted secrets
-SecretManager.StoreSecret("ConnectionString", connectionString!);
-SecretManager.StoreSecret("JwtSecretKey", jwtSecret!);
+Console.WriteLine($"Password: {password}");
+Console.WriteLine($"Hash:     {hash}");
+Console.WriteLine();
+Console.WriteLine("Run this SQL to update the admin user:");
+Console.WriteLine();
+Console.WriteLine($"UPDATE [dbo].[Users] SET [PasswordHash] = N'{hash}' WHERE [Email] = 'admin@company.com';");
+Console.WriteLine();
 
-Console.WriteLine($"Secrets encrypted and saved to: {Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData)}\\UnitedAuth\\secrets.dat");
-Console.WriteLine("You can now delete this setup file!");
+// Verify it works
+var isValid = hasher.VerifyPassword(password, hash);
+Console.WriteLine($"Verification: {(isValid ? "SUCCESS" : "FAILED")}");

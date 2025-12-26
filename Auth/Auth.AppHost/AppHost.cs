@@ -1,11 +1,16 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-builder.AddProject<Projects.Auth_UI>("auth-ui");
+// Auth API - Core authentication service
+var authApi = builder.AddProject<Projects.Auth_API>("auth-api")
+    .WithExternalHttpEndpoints();
 
-builder.AddProject<Projects.UserManagement_API>("usermanagement-api");
+// API Gateway - YARP reverse proxy
+var apiGateway = builder.AddProject<Projects.API_Gateway>("api-gateway")
+    .WithExternalHttpEndpoints()
+    .WithReference(authApi);
 
-builder.AddProject<Projects.RolePermission_API>("rolepermission-api");
-
-builder.AddProject<Projects.AuditLog_API>("auditlog-api");
+// Auth UI - Frontend
+builder.AddProject<Projects.Auth_UI>("auth-ui")
+    .WithReference(apiGateway);
 
 builder.Build().Run();

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- Authentication Messages - Chinese -->
+  <data name="LoginSuccessful" xml:space="preserve">
+    <value>登录成功</value>
+  </data>
+  <data name="LogoutSuccessful" xml:space="preserve">
+    <value>登出成功</value>
+  </data>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>邮箱或密码无效</value>
+  </data>
+  <data name="AccountLocked" xml:space="preserve">
+    <value>由于多次登录失败，您的账户已被锁定</value>
+  </data>
+  <data name="AccountLockedUntil" xml:space="preserve">
+    <value>您的账户将被锁定至 {0}</value>
+  </data>
+  <data name="AccountInactive" xml:space="preserve">
+    <value>您的账户当前处于非活动状态</value>
+  </data>
+  <data name="AccountPending" xml:space="preserve">
+    <value>您的账户正在等待激活</value>
+  </data>
+  <data name="EmailNotConfirmed" xml:space="preserve">
+    <value>请在登录前确认您的电子邮件地址</value>
+  </data>
+  <data name="TokenExpired" xml:space="preserve">
+    <value>您的会话已过期。请重新登录</value>
+  </data>
+  <data name="TokenInvalid" xml:space="preserve">
+    <value>无效的身份验证令牌</value>
+  </data>
+  <data name="RefreshTokenExpired" xml:space="preserve">
+    <value>您的刷新令牌已过期。请重新登录</value>
+  </data>
+  <data name="RefreshTokenRevoked" xml:space="preserve">
+    <value>您的会话已被撤销</value>
+  </data>
+  <data name="TwoFactorRequired" xml:space="preserve">
+    <value>需要双因素身份验证</value>
+  </data>
+  <data name="TwoFactorCodeInvalid" xml:space="preserve">
+    <value>无效的双因素身份验证代码</value>
+  </data>
+  <data name="PasswordChangeRequired" xml:space="preserve">
+    <value>您必须先更改密码才能继续</value>
+  </data>
+
+  <!-- User Messages - Chinese -->
+  <data name="UserNotFound" xml:space="preserve">
+    <value>用户未找到</value>
+  </data>
+  <data name="UserCreated" xml:space="preserve">
+    <value>用户创建成功</value>
+  </data>
+  <data name="UserUpdated" xml:space="preserve">
+    <value>用户更新成功</value>
+  </data>
+  <data name="UserDeleted" xml:space="preserve">
+    <value>用户删除成功</value>
+  </data>
+  <data name="EmailAlreadyExists" xml:space="preserve">
+    <value>使用此电子邮件地址的用户已存在</value>
+  </data>
+  <data name="CannotDeleteSystemUser" xml:space="preserve">
+    <value>系统用户无法删除</value>
+  </data>
+
+  <!-- Password Messages - Chinese -->
+  <data name="PasswordChanged" xml:space="preserve">
+    <value>密码修改成功</value>
+  </data>
+  <data name="PasswordTooShort" xml:space="preserve">
+    <value>密码长度必须至少为 {0} 个字符</value>
+  </data>
+  <data name="PasswordRequiresUppercase" xml:space="preserve">
+    <value>密码必须包含至少一个大写字母</value>
+  </data>
+  <data name="PasswordRequiresLowercase" xml:space="preserve">
+    <value>密码必须包含至少一个小写字母</value>
+  </data>
+  <data name="PasswordRequiresDigit" xml:space="preserve">
+    <value>密码必须包含至少一个数字</value>
+  </data>
+  <data name="PasswordRequiresSpecialCharacter" xml:space="preserve">
+    <value>密码必须包含至少一个特殊字符</value>
+  </data>
+  <data name="PasswordRecentlyUsed" xml:space="preserve">
+    <value>此密码最近已使用过。请选择其他密码</value>
+  </data>
+  <data name="CurrentPasswordInvalid" xml:space="preserve">
+    <value>当前密码不正确</value>
+  </data>
+
+  <!-- Role Messages - Chinese -->
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>角色未找到</value>
+  </data>
+  <data name="RoleCreated" xml:space="preserve">
+    <value>角色创建成功</value>
+  </data>
+  <data name="RoleUpdated" xml:space="preserve">
+    <value>角色更新成功</value>
+  </data>
+  <data name="RoleDeleted" xml:space="preserve">
+    <value>角色删除成功</value>
+  </data>
+  <data name="RoleAlreadyAssigned" xml:space="preserve">
+    <value>此角色已分配给该用户</value>
+  </data>
+  <data name="CannotDeleteSystemRole" xml:space="preserve">
+    <value>系统角色无法删除</value>
+  </data>
+
+  <!-- Permission Messages - Chinese -->
+  <data name="PermissionDenied" xml:space="preserve">
+    <value>您没有执行此操作的权限</value>
+  </data>
+  <data name="PermissionRequired" xml:space="preserve">
+    <value>所需权限：{0}</value>
+  </data>
+
+  <!-- General Messages - Chinese -->
+  <data name="ValidationError" xml:space="preserve">
+    <value>发生了一个或多个验证错误</value>
+  </data>
+  <data name="InternalError" xml:space="preserve">
+    <value>发生了意外错误。请稍后重试</value>
+  </data>
+  <data name="Unauthorized" xml:space="preserve">
+    <value>您无权访问此资源</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>禁止访问此资源</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>未找到请求的资源</value>
+  </data>
+  <data name="TooManyRequests" xml:space="preserve">
+    <value>请求过多。请稍后重试</value>
+  </data>
+</root>

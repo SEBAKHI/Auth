@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- Authentication Messages - Persian -->
+  <data name="LoginSuccessful" xml:space="preserve">
+    <value>ورود موفق</value>
+  </data>
+  <data name="LogoutSuccessful" xml:space="preserve">
+    <value>خروج موفق</value>
+  </data>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>ایمیل یا رمز عبور نامعتبر است</value>
+  </data>
+  <data name="AccountLocked" xml:space="preserve">
+    <value>حساب کاربری شما به دلیل چندین تلاش ناموفق ورود قفل شده است</value>
+  </data>
+  <data name="AccountLockedUntil" xml:space="preserve">
+    <value>حساب کاربری شما تا {0} قفل است</value>
+  </data>
+  <data name="AccountInactive" xml:space="preserve">
+    <value>حساب کاربری شما در حال حاضر غیرفعال است</value>
+  </data>
+  <data name="AccountPending" xml:space="preserve">
+    <value>حساب کاربری شما در انتظار فعال‌سازی است</value>
+  </data>
+  <data name="EmailNotConfirmed" xml:space="preserve">
+    <value>لطفاً قبل از ورود آدرس ایمیل خود را تأیید کنید</value>
+  </data>
+  <data name="TokenExpired" xml:space="preserve">
+    <value>جلسه شما منقضی شده است. لطفاً دوباره وارد شوید</value>
+  </data>
+  <data name="TokenInvalid" xml:space="preserve">
+    <value>توکن احراز هویت نامعتبر</value>
+  </data>
+  <data name="RefreshTokenExpired" xml:space="preserve">
+    <value>توکن تازه‌سازی شما منقضی شده است. لطفاً دوباره وارد شوید</value>
+  </data>
+  <data name="RefreshTokenRevoked" xml:space="preserve">
+    <value>جلسه شما لغو شده است</value>
+  </data>
+  <data name="TwoFactorRequired" xml:space="preserve">
+    <value>احراز هویت دو مرحله‌ای لازم است</value>
+  </data>
+  <data name="TwoFactorCodeInvalid" xml:space="preserve">
+    <value>کد احراز هویت دو مرحله‌ای نامعتبر است</value>
+  </data>
+  <data name="PasswordChangeRequired" xml:space="preserve">
+    <value>شما باید قبل از ادامه رمز عبور خود را تغییر دهید</value>
+  </data>
+
+  <!-- User Messages - Persian -->
+  <data name="UserNotFound" xml:space="preserve">
+    <value>کاربر یافت نشد</value>
+  </data>
+  <data name="UserCreated" xml:space="preserve">
+    <value>کاربر با موفقیت ایجاد شد</value>
+  </data>
+  <data name="UserUpdated" xml:space="preserve">
+    <value>کاربر با موفقیت به‌روزرسانی شد</value>
+  </data>
+  <data name="UserDeleted" xml:space="preserve">
+    <value>کاربر با موفقیت حذف شد</value>
+  </data>
+  <data name="EmailAlreadyExists" xml:space="preserve">
+    <value>کاربری با این آدرس ایمیل از قبل وجود دارد</value>
+  </data>
+  <data name="CannotDeleteSystemUser" xml:space="preserve">
+    <value>کاربران سیستم قابل حذف نیستند</value>
+  </data>
+
+  <!-- Password Messages - Persian -->
+  <data name="PasswordChanged" xml:space="preserve">
+    <value>رمز عبور با موفقیت تغییر کرد</value>
+  </data>
+  <data name="PasswordTooShort" xml:space="preserve">
+    <value>رمز عبور باید حداقل {0} کاراکتر باشد</value>
+  </data>
+  <data name="PasswordRequiresUppercase" xml:space="preserve">
+    <value>رمز عبور باید حداقل یک حرف بزرگ داشته باشد</value>
+  </data>
+  <data name="PasswordRequiresLowercase" xml:space="preserve">
+    <value>رمز عبور باید حداقل یک حرف کوچک داشته باشد</value>
+  </data>
+  <data name="PasswordRequiresDigit" xml:space="preserve">
+    <value>رمز عبور باید حداقل یک رقم داشته باشد</value>
+  </data>
+  <data name="PasswordRequiresSpecialCharacter" xml:space="preserve">
+    <value>رمز عبور باید حداقل یک کاراکتر خاص داشته باشد</value>
+  </data>
+  <data name="PasswordRecentlyUsed" xml:space="preserve">
+    <value>این رمز عبور اخیراً استفاده شده است. لطفاً رمز عبور دیگری انتخاب کنید</value>
+  </data>
+  <data name="CurrentPasswordInvalid" xml:space="preserve">
+    <value>رمز عبور فعلی نادرست است</value>
+  </data>
+
+  <!-- Role Messages - Persian -->
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>نقش یافت نشد</value>
+  </data>
+  <data name="RoleCreated" xml:space="preserve">
+    <value>نقش با موفقیت ایجاد شد</value>
+  </data>
+  <data name="RoleUpdated" xml:space="preserve">
+    <value>نقش با موفقیت به‌روزرسانی شد</value>
+  </data>
+  <data name="RoleDeleted" xml:space="preserve">
+    <value>نقش با موفقیت حذف شد</value>
+  </data>
+  <data name="RoleAlreadyAssigned" xml:space="preserve">
+    <value>این نقش قبلاً به کاربر اختصاص داده شده است</value>
+  </data>
+  <data name="CannotDeleteSystemRole" xml:space="preserve">
+    <value>نقش‌های سیستم قابل حذف نیستند</value>
+  </data>
+
+  <!-- Permission Messages - Persian -->
+  <data name="PermissionDenied" xml:space="preserve">
+    <value>شما مجوز انجام این عمل را ندارید</value>
+  </data>
+  <data name="PermissionRequired" xml:space="preserve">
+    <value>مجوز لازم: {0}</value>
+  </data>
+
+  <!-- General Messages - Persian -->
+  <data name="ValidationError" xml:space="preserve">
+    <value>یک یا چند خطای اعتبارسنجی رخ داد</value>
+  </data>
+  <data name="InternalError" xml:space="preserve">
+    <value>خطای غیرمنتظره‌ای رخ داد. لطفاً بعداً دوباره تلاش کنید</value>
+  </data>
+  <data name="Unauthorized" xml:space="preserve">
+    <value>شما مجاز به دسترسی به این منبع نیستید</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>دسترسی به این منبع ممنوع است</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>منبع درخواستی یافت نشد</value>
+  </data>
+  <data name="TooManyRequests" xml:space="preserve">
+    <value>درخواست‌های بیش از حد. لطفاً بعداً دوباره تلاش کنید</value>
+  </data>
+</root>

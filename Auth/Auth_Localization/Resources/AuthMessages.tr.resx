@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- Authentication Messages - Turkish -->
+  <data name="LoginSuccessful" xml:space="preserve">
+    <value>Giriş başarılı</value>
+  </data>
+  <data name="LogoutSuccessful" xml:space="preserve">
+    <value>Çıkış başarılı</value>
+  </data>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>Geçersiz e-posta veya şifre</value>
+  </data>
+  <data name="AccountLocked" xml:space="preserve">
+    <value>Hesabınız birden fazla başarısız giriş denemesi nedeniyle kilitlendi</value>
+  </data>
+  <data name="AccountLockedUntil" xml:space="preserve">
+    <value>Hesabınız {0} tarihine kadar kilitli</value>
+  </data>
+  <data name="AccountInactive" xml:space="preserve">
+    <value>Hesabınız şu anda etkin değil</value>
+  </data>
+  <data name="AccountPending" xml:space="preserve">
+    <value>Hesabınız aktivasyon bekliyor</value>
+  </data>
+  <data name="EmailNotConfirmed" xml:space="preserve">
+    <value>Giriş yapmadan önce lütfen e-posta adresinizi onaylayın</value>
+  </data>
+  <data name="TokenExpired" xml:space="preserve">
+    <value>Oturumunuzun süresi doldu. Lütfen tekrar giriş yapın</value>
+  </data>
+  <data name="TokenInvalid" xml:space="preserve">
+    <value>Geçersiz kimlik doğrulama belirteci</value>
+  </data>
+  <data name="RefreshTokenExpired" xml:space="preserve">
+    <value>Yenileme belirtecinizin süresi doldu. Lütfen tekrar giriş yapın</value>
+  </data>
+  <data name="RefreshTokenRevoked" xml:space="preserve">
+    <value>Oturumunuz iptal edildi</value>
+  </data>
+  <data name="TwoFactorRequired" xml:space="preserve">
+    <value>İki faktörlü kimlik doğrulama gerekli</value>
+  </data>
+  <data name="TwoFactorCodeInvalid" xml:space="preserve">
+    <value>Geçersiz iki faktörlü kimlik doğrulama kodu</value>
+  </data>
+  <data name="PasswordChangeRequired" xml:space="preserve">
+    <value>Devam etmeden önce şifrenizi değiştirmelisiniz</value>
+  </data>
+
+  <!-- User Messages - Turkish -->
+  <data name="UserNotFound" xml:space="preserve">
+    <value>Kullanıcı bulunamadı</value>
+  </data>
+  <data name="UserCreated" xml:space="preserve">
+    <value>Kullanıcı başarıyla oluşturuldu</value>
+  </data>
+  <data name="UserUpdated" xml:space="preserve">
+    <value>Kullanıcı başarıyla güncellendi</value>
+  </data>
+  <data name="UserDeleted" xml:space="preserve">
+    <value>Kullanıcı başarıyla silindi</value>
+  </data>
+  <data name="EmailAlreadyExists" xml:space="preserve">
+    <value>Bu e-posta adresine sahip bir kullanıcı zaten var</value>
+  </data>
+  <data name="CannotDeleteSystemUser" xml:space="preserve">
+    <value>Sistem kullanıcıları silinemez</value>
+  </data>
+
+  <!-- Password Messages - Turkish -->
+  <data name="PasswordChanged" xml:space="preserve">
+    <value>Şifre başarıyla değiştirildi</value>
+  </data>
+  <data name="PasswordTooShort" xml:space="preserve">
+    <value>Şifre en az {0} karakter uzunluğunda olmalıdır</value>
+  </data>
+  <data name="PasswordRequiresUppercase" xml:space="preserve">
+    <value>Şifre en az bir büyük harf içermelidir</value>
+  </data>
+  <data name="PasswordRequiresLowercase" xml:space="preserve">
+    <value>Şifre en az bir küçük harf içermelidir</value>
+  </data>
+  <data name="PasswordRequiresDigit" xml:space="preserve">
+    <value>Şifre en az bir rakam içermelidir</value>
+  </data>
+  <data name="PasswordRequiresSpecialCharacter" xml:space="preserve">
+    <value>Şifre en az bir özel karakter içermelidir</value>
+  </data>
+  <data name="PasswordRecentlyUsed" xml:space="preserve">
+    <value>Bu şifre yakın zamanda kullanıldı. Lütfen farklı bir şifre seçin</value>
+  </data>
+  <data name="CurrentPasswordInvalid" xml:space="preserve">
+    <value>Mevcut şifre yanlış</value>
+  </data>
+
+  <!-- Role Messages - Turkish -->
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>Rol bulunamadı</value>
+  </data>
+  <data name="RoleCreated" xml:space="preserve">
+    <value>Rol başarıyla oluşturuldu</value>
+  </data>
+  <data name="RoleUpdated" xml:space="preserve">
+    <value>Rol başarıyla güncellendi</value>
+  </data>
+  <data name="RoleDeleted" xml:space="preserve">
+    <value>Rol başarıyla silindi</value>
+  </data>
+  <data name="RoleAlreadyAssigned" xml:space="preserve">
+    <value>Bu rol kullanıcıya zaten atanmış</value>
+  </data>
+  <data name="CannotDeleteSystemRole" xml:space="preserve">
+    <value>Sistem rolleri silinemez</value>
+  </data>
+
+  <!-- Permission Messages - Turkish -->
+  <data name="PermissionDenied" xml:space="preserve">
+    <value>Bu işlemi gerçekleştirmek için izniniz yok</value>
+  </data>
+  <data name="PermissionRequired" xml:space="preserve">
+    <value>Gerekli izin: {0}</value>
+  </data>
+
+  <!-- General Messages - Turkish -->
+  <data name="ValidationError" xml:space="preserve">
+    <value>Bir veya daha fazla doğrulama hatası oluştu</value>
+  </data>
+  <data name="InternalError" xml:space="preserve">
+    <value>Beklenmeyen bir hata oluştu. Lütfen daha sonra tekrar deneyin</value>
+  </data>
+  <data name="Unauthorized" xml:space="preserve">
+    <value>Bu kaynağa erişim yetkiniz yok</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>Bu kaynağa erişim yasaktır</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>İstenen kaynak bulunamadı</value>
+  </data>
+  <data name="TooManyRequests" xml:space="preserve">
+    <value>Çok fazla istek. Lütfen daha sonra tekrar deneyin</value>
+  </data>
+</root>

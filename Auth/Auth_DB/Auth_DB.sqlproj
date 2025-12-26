@@ -82,5 +82,42 @@
     <Folder Include="dbo\Scripts\SeedData" />
     <Folder Include="dbo\Scripts\Migrations" />
     <Folder Include="dbo\PostDeployment" />
+    <Folder Include="PublishLocations\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Build Include="dbo\Tables\Core\Applications.sql" />
+    <Build Include="dbo\Tables\Core\Users.sql" />
+    <Build Include="dbo\Tables\Core\Roles.sql" />
+    <Build Include="dbo\Tables\Core\Permissions.sql" />
+    <Build Include="dbo\Tables\Core\UserRoles.sql" />
+    <Build Include="dbo\Tables\Core\RolePermissions.sql" />
+    <Build Include="dbo\Tables\Core\UserPermissions.sql" />
+    <Build Include="dbo\Tables\Core\PermissionImplications.sql" />
+    <Build Include="dbo\Tables\Authentication\RefreshTokens.sql" />
+    <Build Include="dbo\Tables\Authentication\UserSessions.sql" />
+    <Build Include="dbo\Tables\Authentication\LoginAttempts.sql" />
+    <Build Include="dbo\Tables\Security\AuditLogs.sql" />
+    <Build Include="dbo\Tables\Security\PasswordHistory.sql" />
+    <Build Include="dbo\StoredProcedures\Users\sp_GetUserById.sql" />
+    <Build Include="dbo\StoredProcedures\Users\sp_GetUserByEmail.sql" />
+    <Build Include="dbo\StoredProcedures\Authentication\sp_ValidateCredentials.sql" />
+    <Build Include="dbo\StoredProcedures\Authentication\sp_RecordLoginAttempt.sql" />
+    <Build Include="dbo\StoredProcedures\Authentication\sp_CheckAccountLockout.sql" />
+    <Build Include="dbo\StoredProcedures\Authentication\sp_CreateRefreshToken.sql" />
+    <Build Include="dbo\StoredProcedures\Authentication\sp_ValidateRefreshToken.sql" />
+    <Build Include="dbo\StoredProcedures\Authentication\sp_RevokeRefreshToken.sql" />
+    <Build Include="dbo\StoredProcedures\Authentication\sp_RevokeAllUserTokens.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="dbo\Scripts\SeedData\01_DefaultApplications.sql" />
+    <None Include="dbo\Scripts\SeedData\02_DefaultRoles.sql" />
+    <None Include="dbo\Scripts\SeedData\03_DefaultPermissions.sql" />
+    <None Include="dbo\Scripts\SeedData\04_PermissionImplications.sql" />
+    <None Include="dbo\Scripts\SeedData\05_RolePermissions.sql" />
+    <None Include="dbo\Scripts\SeedData\06_AdminUser.sql" />
+    <None Include="PublishLocations\Astoom_Auth.publish.xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <PostDeploy Include="dbo\PostDeployment\Script.PostDeployment.sql" />
   </ItemGroup>
 </Project>

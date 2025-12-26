@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- Authentication Messages -->
+  <data name="LoginSuccessful" xml:space="preserve">
+    <value>Login successful</value>
+  </data>
+  <data name="LogoutSuccessful" xml:space="preserve">
+    <value>Logout successful</value>
+  </data>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>Invalid email or password</value>
+  </data>
+  <data name="AccountLocked" xml:space="preserve">
+    <value>Your account has been locked due to multiple failed login attempts</value>
+  </data>
+  <data name="AccountLockedUntil" xml:space="preserve">
+    <value>Your account is locked until {0}</value>
+  </data>
+  <data name="AccountInactive" xml:space="preserve">
+    <value>Your account is currently inactive</value>
+  </data>
+  <data name="AccountPending" xml:space="preserve">
+    <value>Your account is pending activation</value>
+  </data>
+  <data name="EmailNotConfirmed" xml:space="preserve">
+    <value>Please confirm your email address before logging in</value>
+  </data>
+  <data name="TokenExpired" xml:space="preserve">
+    <value>Your session has expired. Please log in again</value>
+  </data>
+  <data name="TokenInvalid" xml:space="preserve">
+    <value>Invalid authentication token</value>
+  </data>
+  <data name="RefreshTokenExpired" xml:space="preserve">
+    <value>Your refresh token has expired. Please log in again</value>
+  </data>
+  <data name="RefreshTokenRevoked" xml:space="preserve">
+    <value>Your session has been revoked</value>
+  </data>
+  <data name="TwoFactorRequired" xml:space="preserve">
+    <value>Two-factor authentication is required</value>
+  </data>
+  <data name="TwoFactorCodeInvalid" xml:space="preserve">
+    <value>Invalid two-factor authentication code</value>
+  </data>
+  <data name="PasswordChangeRequired" xml:space="preserve">
+    <value>You must change your password before continuing</value>
+  </data>
+
+  <!-- User Messages -->
+  <data name="UserNotFound" xml:space="preserve">
+    <value>User not found</value>
+  </data>
+  <data name="UserCreated" xml:space="preserve">
+    <value>User created successfully</value>
+  </data>
+  <data name="UserUpdated" xml:space="preserve">
+    <value>User updated successfully</value>
+  </data>
+  <data name="UserDeleted" xml:space="preserve">
+    <value>User deleted successfully</value>
+  </data>
+  <data name="EmailAlreadyExists" xml:space="preserve">
+    <value>A user with this email address already exists</value>
+  </data>
+  <data name="CannotDeleteSystemUser" xml:space="preserve">
+    <value>System users cannot be deleted</value>
+  </data>
+
+  <!-- Password Messages -->
+  <data name="PasswordChanged" xml:space="preserve">
+    <value>Password changed successfully</value>
+  </data>
+  <data name="PasswordTooShort" xml:space="preserve">
+    <value>Password must be at least {0} characters long</value>
+  </data>
+  <data name="PasswordRequiresUppercase" xml:space="preserve">
+    <value>Password must contain at least one uppercase letter</value>
+  </data>
+  <data name="PasswordRequiresLowercase" xml:space="preserve">
+    <value>Password must contain at least one lowercase letter</value>
+  </data>
+  <data name="PasswordRequiresDigit" xml:space="preserve">
+    <value>Password must contain at least one digit</value>
+  </data>
+  <data name="PasswordRequiresSpecialCharacter" xml:space="preserve">
+    <value>Password must contain at least one special character</value>
+  </data>
+  <data name="PasswordRecentlyUsed" xml:space="preserve">
+    <value>This password has been used recently. Please choose a different password</value>
+  </data>
+  <data name="CurrentPasswordInvalid" xml:space="preserve">
+    <value>Current password is incorrect</value>
+  </data>
+
+  <!-- Role Messages -->
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>Role not found</value>
+  </data>
+  <data name="RoleCreated" xml:space="preserve">
+    <value>Role created successfully</value>
+  </data>
+  <data name="RoleUpdated" xml:space="preserve">
+    <value>Role updated successfully</value>
+  </data>
+  <data name="RoleDeleted" xml:space="preserve">
+    <value>Role deleted successfully</value>
+  </data>
+  <data name="RoleAlreadyAssigned" xml:space="preserve">
+    <value>This role is already assigned to the user</value>
+  </data>
+  <data name="CannotDeleteSystemRole" xml:space="preserve">
+    <value>System roles cannot be deleted</value>
+  </data>
+
+  <!-- Permission Messages -->
+  <data name="PermissionDenied" xml:space="preserve">
+    <value>You do not have permission to perform this action</value>
+  </data>
+  <data name="PermissionRequired" xml:space="preserve">
+    <value>Required permission: {0}</value>
+  </data>
+
+  <!-- General Messages -->
+  <data name="ValidationError" xml:space="preserve">
+    <value>One or more validation errors occurred</value>
+  </data>
+  <data name="InternalError" xml:space="preserve">
+    <value>An unexpected error occurred. Please try again later</value>
+  </data>
+  <data name="Unauthorized" xml:space="preserve">
+    <value>You are not authorized to access this resource</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>Access to this resource is forbidden</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>The requested resource was not found</value>
+  </data>
+  <data name="TooManyRequests" xml:space="preserve">
+    <value>Too many requests. Please try again later</value>
+  </data>
+</root>

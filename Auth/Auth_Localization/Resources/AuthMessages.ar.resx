@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- Authentication Messages - Arabic -->
+  <data name="LoginSuccessful" xml:space="preserve">
+    <value>تم تسجيل الدخول بنجاح</value>
+  </data>
+  <data name="LogoutSuccessful" xml:space="preserve">
+    <value>تم تسجيل الخروج بنجاح</value>
+  </data>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>البريد الإلكتروني أو كلمة المرور غير صحيحة</value>
+  </data>
+  <data name="AccountLocked" xml:space="preserve">
+    <value>تم قفل حسابك بسبب محاولات تسجيل دخول فاشلة متعددة</value>
+  </data>
+  <data name="AccountLockedUntil" xml:space="preserve">
+    <value>حسابك مقفل حتى {0}</value>
+  </data>
+  <data name="AccountInactive" xml:space="preserve">
+    <value>حسابك غير نشط حالياً</value>
+  </data>
+  <data name="AccountPending" xml:space="preserve">
+    <value>حسابك في انتظار التفعيل</value>
+  </data>
+  <data name="EmailNotConfirmed" xml:space="preserve">
+    <value>يرجى تأكيد عنوان بريدك الإلكتروني قبل تسجيل الدخول</value>
+  </data>
+  <data name="TokenExpired" xml:space="preserve">
+    <value>انتهت صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى</value>
+  </data>
+  <data name="TokenInvalid" xml:space="preserve">
+    <value>رمز المصادقة غير صالح</value>
+  </data>
+  <data name="RefreshTokenExpired" xml:space="preserve">
+    <value>انتهت صلاحية رمز التحديث. يرجى تسجيل الدخول مرة أخرى</value>
+  </data>
+  <data name="RefreshTokenRevoked" xml:space="preserve">
+    <value>تم إلغاء جلستك</value>
+  </data>
+  <data name="TwoFactorRequired" xml:space="preserve">
+    <value>المصادقة الثنائية مطلوبة</value>
+  </data>
+  <data name="TwoFactorCodeInvalid" xml:space="preserve">
+    <value>رمز المصادقة الثنائية غير صالح</value>
+  </data>
+  <data name="PasswordChangeRequired" xml:space="preserve">
+    <value>يجب عليك تغيير كلمة المرور قبل المتابعة</value>
+  </data>
+
+  <!-- User Messages - Arabic -->
+  <data name="UserNotFound" xml:space="preserve">
+    <value>المستخدم غير موجود</value>
+  </data>
+  <data name="UserCreated" xml:space="preserve">
+    <value>تم إنشاء المستخدم بنجاح</value>
+  </data>
+  <data name="UserUpdated" xml:space="preserve">
+    <value>تم تحديث المستخدم بنجاح</value>
+  </data>
+  <data name="UserDeleted" xml:space="preserve">
+    <value>تم حذف المستخدم بنجاح</value>
+  </data>
+  <data name="EmailAlreadyExists" xml:space="preserve">
+    <value>يوجد مستخدم بهذا البريد الإلكتروني بالفعل</value>
+  </data>
+  <data name="CannotDeleteSystemUser" xml:space="preserve">
+    <value>لا يمكن حذف مستخدمي النظام</value>
+  </data>
+
+  <!-- Password Messages - Arabic -->
+  <data name="PasswordChanged" xml:space="preserve">
+    <value>تم تغيير كلمة المرور بنجاح</value>
+  </data>
+  <data name="PasswordTooShort" xml:space="preserve">
+    <value>يجب أن تتكون كلمة المرور من {0} حرفاً على الأقل</value>
+  </data>
+  <data name="PasswordRequiresUppercase" xml:space="preserve">
+    <value>يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل</value>
+  </data>
+  <data name="PasswordRequiresLowercase" xml:space="preserve">
+    <value>يجب أن تحتوي كلمة المرور على حرف صغير واحد على الأقل</value>
+  </data>
+  <data name="PasswordRequiresDigit" xml:space="preserve">
+    <value>يجب أن تحتوي كلمة المرور على رقم واحد على الأقل</value>
+  </data>
+  <data name="PasswordRequiresSpecialCharacter" xml:space="preserve">
+    <value>يجب أن تحتوي كلمة المرور على حرف خاص واحد على الأقل</value>
+  </data>
+  <data name="PasswordRecentlyUsed" xml:space="preserve">
+    <value>تم استخدام كلمة المرور هذه مؤخراً. يرجى اختيار كلمة مرور مختلفة</value>
+  </data>
+  <data name="CurrentPasswordInvalid" xml:space="preserve">
+    <value>كلمة المرور الحالية غير صحيحة</value>
+  </data>
+
+  <!-- Role Messages - Arabic -->
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>الدور غير موجود</value>
+  </data>
+  <data name="RoleCreated" xml:space="preserve">
+    <value>تم إنشاء الدور بنجاح</value>
+  </data>
+  <data name="RoleUpdated" xml:space="preserve">
+    <value>تم تحديث الدور بنجاح</value>
+  </data>
+  <data name="RoleDeleted" xml:space="preserve">
+    <value>تم حذف الدور بنجاح</value>
+  </data>
+  <data name="RoleAlreadyAssigned" xml:space="preserve">
+    <value>هذا الدور مخصص للمستخدم بالفعل</value>
+  </data>
+  <data name="CannotDeleteSystemRole" xml:space="preserve">
+    <value>لا يمكن حذف أدوار النظام</value>
+  </data>
+
+  <!-- Permission Messages - Arabic -->
+  <data name="PermissionDenied" xml:space="preserve">
+    <value>ليس لديك صلاحية لتنفيذ هذا الإجراء</value>
+  </data>
+  <data name="PermissionRequired" xml:space="preserve">
+    <value>الصلاحية المطلوبة: {0}</value>
+  </data>
+
+  <!-- General Messages - Arabic -->
+  <data name="ValidationError" xml:space="preserve">
+    <value>حدث خطأ أو أكثر في التحقق</value>
+  </data>
+  <data name="InternalError" xml:space="preserve">
+    <value>حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى لاحقاً</value>
+  </data>
+  <data name="Unauthorized" xml:space="preserve">
+    <value>غير مصرح لك بالوصول إلى هذا المورد</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>الوصول إلى هذا المورد محظور</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>المورد المطلوب غير موجود</value>
+  </data>
+  <data name="TooManyRequests" xml:space="preserve">
+    <value>طلبات كثيرة جداً. يرجى المحاولة مرة أخرى لاحقاً</value>
+  </data>
+</root>

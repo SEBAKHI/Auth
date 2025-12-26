@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- Authentication Messages - French -->
+  <data name="LoginSuccessful" xml:space="preserve">
+    <value>Connexion réussie</value>
+  </data>
+  <data name="LogoutSuccessful" xml:space="preserve">
+    <value>Déconnexion réussie</value>
+  </data>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>Email ou mot de passe invalide</value>
+  </data>
+  <data name="AccountLocked" xml:space="preserve">
+    <value>Votre compte a été verrouillé en raison de plusieurs tentatives de connexion échouées</value>
+  </data>
+  <data name="AccountLockedUntil" xml:space="preserve">
+    <value>Votre compte est verrouillé jusqu'au {0}</value>
+  </data>
+  <data name="AccountInactive" xml:space="preserve">
+    <value>Votre compte est actuellement inactif</value>
+  </data>
+  <data name="AccountPending" xml:space="preserve">
+    <value>Votre compte est en attente d'activation</value>
+  </data>
+  <data name="EmailNotConfirmed" xml:space="preserve">
+    <value>Veuillez confirmer votre adresse email avant de vous connecter</value>
+  </data>
+  <data name="TokenExpired" xml:space="preserve">
+    <value>Votre session a expiré. Veuillez vous reconnecter</value>
+  </data>
+  <data name="TokenInvalid" xml:space="preserve">
+    <value>Jeton d'authentification invalide</value>
+  </data>
+  <data name="RefreshTokenExpired" xml:space="preserve">
+    <value>Votre jeton de rafraîchissement a expiré. Veuillez vous reconnecter</value>
+  </data>
+  <data name="RefreshTokenRevoked" xml:space="preserve">
+    <value>Votre session a été révoquée</value>
+  </data>
+  <data name="TwoFactorRequired" xml:space="preserve">
+    <value>L'authentification à deux facteurs est requise</value>
+  </data>
+  <data name="TwoFactorCodeInvalid" xml:space="preserve">
+    <value>Code d'authentification à deux facteurs invalide</value>
+  </data>
+  <data name="PasswordChangeRequired" xml:space="preserve">
+    <value>Vous devez changer votre mot de passe avant de continuer</value>
+  </data>
+
+  <!-- User Messages - French -->
+  <data name="UserNotFound" xml:space="preserve">
+    <value>Utilisateur non trouvé</value>
+  </data>
+  <data name="UserCreated" xml:space="preserve">
+    <value>Utilisateur créé avec succès</value>
+  </data>
+  <data name="UserUpdated" xml:space="preserve">
+    <value>Utilisateur mis à jour avec succès</value>
+  </data>
+  <data name="UserDeleted" xml:space="preserve">
+    <value>Utilisateur supprimé avec succès</value>
+  </data>
+  <data name="EmailAlreadyExists" xml:space="preserve">
+    <value>Un utilisateur avec cette adresse email existe déjà</value>
+  </data>
+  <data name="CannotDeleteSystemUser" xml:space="preserve">
+    <value>Les utilisateurs système ne peuvent pas être supprimés</value>
+  </data>
+
+  <!-- Password Messages - French -->
+  <data name="PasswordChanged" xml:space="preserve">
+    <value>Mot de passe modifié avec succès</value>
+  </data>
+  <data name="PasswordTooShort" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins {0} caractères</value>
+  </data>
+  <data name="PasswordRequiresUppercase" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins une lettre majuscule</value>
+  </data>
+  <data name="PasswordRequiresLowercase" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins une lettre minuscule</value>
+  </data>
+  <data name="PasswordRequiresDigit" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins un chiffre</value>
+  </data>
+  <data name="PasswordRequiresSpecialCharacter" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins un caractère spécial</value>
+  </data>
+  <data name="PasswordRecentlyUsed" xml:space="preserve">
+    <value>Ce mot de passe a été utilisé récemment. Veuillez en choisir un autre</value>
+  </data>
+  <data name="CurrentPasswordInvalid" xml:space="preserve">
+    <value>Le mot de passe actuel est incorrect</value>
+  </data>
+
+  <!-- Role Messages - French -->
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>Rôle non trouvé</value>
+  </data>
+  <data name="RoleCreated" xml:space="preserve">
+    <value>Rôle créé avec succès</value>
+  </data>
+  <data name="RoleUpdated" xml:space="preserve">
+    <value>Rôle mis à jour avec succès</value>
+  </data>
+  <data name="RoleDeleted" xml:space="preserve">
+    <value>Rôle supprimé avec succès</value>
+  </data>
+  <data name="RoleAlreadyAssigned" xml:space="preserve">
+    <value>Ce rôle est déjà attribué à l'utilisateur</value>
+  </data>
+  <data name="CannotDeleteSystemRole" xml:space="preserve">
+    <value>Les rôles système ne peuvent pas être supprimés</value>
+  </data>
+
+  <!-- Permission Messages - French -->
+  <data name="PermissionDenied" xml:space="preserve">
+    <value>Vous n'avez pas la permission d'effectuer cette action</value>
+  </data>
+  <data name="PermissionRequired" xml:space="preserve">
+    <value>Permission requise: {0}</value>
+  </data>
+
+  <!-- General Messages - French -->
+  <data name="ValidationError" xml:space="preserve">
+    <value>Une ou plusieurs erreurs de validation se sont produites</value>
+  </data>
+  <data name="InternalError" xml:space="preserve">
+    <value>Une erreur inattendue s'est produite. Veuillez réessayer plus tard</value>
+  </data>
+  <data name="Unauthorized" xml:space="preserve">
+    <value>Vous n'êtes pas autorisé à accéder à cette ressource</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>L'accès à cette ressource est interdit</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>La ressource demandée n'a pas été trouvée</value>
+  </data>
+  <data name="TooManyRequests" xml:space="preserve">
+    <value>Trop de requêtes. Veuillez réessayer plus tard</value>
+  </data>
+</root>

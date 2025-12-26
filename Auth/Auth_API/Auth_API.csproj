@@ -8,20 +8,28 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.0" />
+    <PackageReference Include="Microsoft.OpenApi" Version="2.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="FluentValidation.AspNetCore" Version="11.3.0" />
+    <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.0.0" />
+    <PackageReference Include="MediatR" Version="12.4.1" />
+    <PackageReference Include="Asp.Versioning.Mvc" Version="8.1.0" />
+    <PackageReference Include="Asp.Versioning.Mvc.ApiExplorer" Version="8.1.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Common\Behaviors\" />
-    <Folder Include="Common\Middleware\" />
+    <ProjectReference Include="..\Auth_Lib\Auth_Lib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Modules\ApiKeyManagement\Controllers\" />
     <Folder Include="Modules\ApiKeyManagement\Services\" />
     <Folder Include="Modules\AuditLog\Controllers\" />
     <Folder Include="Modules\AuditLog\EventHandlers\" />
     <Folder Include="Modules\AuditLog\Services\" />
-    <Folder Include="Modules\Authentication\Controllers\" />
-    <Folder Include="Modules\Authentication\Commands\" />
-    <Folder Include="Modules\Authentication\Events\" />
-    <Folder Include="Modules\Authentication\Services\" />
     <Folder Include="Modules\PermissionManagement\Controllers\" />
     <Folder Include="Modules\PermissionManagement\Services\" />
     <Folder Include="Modules\RoleManagement\Controllers\" />

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- Authentication Messages - Urdu -->
+  <data name="LoginSuccessful" xml:space="preserve">
+    <value>لاگ ان کامیاب</value>
+  </data>
+  <data name="LogoutSuccessful" xml:space="preserve">
+    <value>لاگ آؤٹ کامیاب</value>
+  </data>
+  <data name="InvalidCredentials" xml:space="preserve">
+    <value>غلط ای میل یا پاس ورڈ</value>
+  </data>
+  <data name="AccountLocked" xml:space="preserve">
+    <value>متعدد ناکام لاگ ان کوششوں کی وجہ سے آپ کا اکاؤنٹ لاک ہو گیا ہے</value>
+  </data>
+  <data name="AccountLockedUntil" xml:space="preserve">
+    <value>آپ کا اکاؤنٹ {0} تک لاک ہے</value>
+  </data>
+  <data name="AccountInactive" xml:space="preserve">
+    <value>آپ کا اکاؤنٹ فی الحال غیر فعال ہے</value>
+  </data>
+  <data name="AccountPending" xml:space="preserve">
+    <value>آپ کا اکاؤنٹ ایکٹیویشن کا انتظار کر رہا ہے</value>
+  </data>
+  <data name="EmailNotConfirmed" xml:space="preserve">
+    <value>لاگ ان سے پہلے براہ کرم اپنا ای میل ایڈریس تصدیق کریں</value>
+  </data>
+  <data name="TokenExpired" xml:space="preserve">
+    <value>آپ کا سیشن ختم ہو گیا ہے۔ براہ کرم دوبارہ لاگ ان کریں</value>
+  </data>
+  <data name="TokenInvalid" xml:space="preserve">
+    <value>غلط توثیق ٹوکن</value>
+  </data>
+  <data name="RefreshTokenExpired" xml:space="preserve">
+    <value>آپ کا ریفریش ٹوکن ختم ہو گیا ہے۔ براہ کرم دوبارہ لاگ ان کریں</value>
+  </data>
+  <data name="RefreshTokenRevoked" xml:space="preserve">
+    <value>آپ کا سیشن منسوخ کر دیا گیا ہے</value>
+  </data>
+  <data name="TwoFactorRequired" xml:space="preserve">
+    <value>دو عنصری توثیق ضروری ہے</value>
+  </data>
+  <data name="TwoFactorCodeInvalid" xml:space="preserve">
+    <value>غلط دو عنصری توثیق کوڈ</value>
+  </data>
+  <data name="PasswordChangeRequired" xml:space="preserve">
+    <value>جاری رکھنے سے پہلے آپ کو اپنا پاس ورڈ تبدیل کرنا ہوگا</value>
+  </data>
+
+  <!-- User Messages - Urdu -->
+  <data name="UserNotFound" xml:space="preserve">
+    <value>صارف نہیں ملا</value>
+  </data>
+  <data name="UserCreated" xml:space="preserve">
+    <value>صارف کامیابی سے بنایا گیا</value>
+  </data>
+  <data name="UserUpdated" xml:space="preserve">
+    <value>صارف کامیابی سے اپ ڈیٹ ہوا</value>
+  </data>
+  <data name="UserDeleted" xml:space="preserve">
+    <value>صارف کامیابی سے حذف ہوا</value>
+  </data>
+  <data name="EmailAlreadyExists" xml:space="preserve">
+    <value>اس ای میل ایڈریس والا صارف پہلے سے موجود ہے</value>
+  </data>
+  <data name="CannotDeleteSystemUser" xml:space="preserve">
+    <value>سسٹم صارفین کو حذف نہیں کیا جا سکتا</value>
+  </data>
+
+  <!-- Password Messages - Urdu -->
+  <data name="PasswordChanged" xml:space="preserve">
+    <value>پاس ورڈ کامیابی سے تبدیل ہو گیا</value>
+  </data>
+  <data name="PasswordTooShort" xml:space="preserve">
+    <value>پاس ورڈ کم از کم {0} حروف کا ہونا چاہیے</value>
+  </data>
+  <data name="PasswordRequiresUppercase" xml:space="preserve">
+    <value>پاس ورڈ میں کم از کم ایک بڑا حرف ہونا چاہیے</value>
+  </data>
+  <data name="PasswordRequiresLowercase" xml:space="preserve">
+    <value>پاس ورڈ میں کم از کم ایک چھوٹا حرف ہونا چاہیے</value>
+  </data>
+  <data name="PasswordRequiresDigit" xml:space="preserve">
+    <value>پاس ورڈ میں کم از کم ایک ہندسہ ہونا چاہیے</value>
+  </data>
+  <data name="PasswordRequiresSpecialCharacter" xml:space="preserve">
+    <value>پاس ورڈ میں کم از کم ایک خاص حرف ہونا چاہیے</value>
+  </data>
+  <data name="PasswordRecentlyUsed" xml:space="preserve">
+    <value>یہ پاس ورڈ حال ہی میں استعمال ہوا ہے۔ براہ کرم کوئی اور پاس ورڈ منتخب کریں</value>
+  </data>
+  <data name="CurrentPasswordInvalid" xml:space="preserve">
+    <value>موجودہ پاس ورڈ غلط ہے</value>
+  </data>
+
+  <!-- Role Messages - Urdu -->
+  <data name="RoleNotFound" xml:space="preserve">
+    <value>کردار نہیں ملا</value>
+  </data>
+  <data name="RoleCreated" xml:space="preserve">
+    <value>کردار کامیابی سے بنایا گیا</value>
+  </data>
+  <data name="RoleUpdated" xml:space="preserve">
+    <value>کردار کامیابی سے اپ ڈیٹ ہوا</value>
+  </data>
+  <data name="RoleDeleted" xml:space="preserve">
+    <value>کردار کامیابی سے حذف ہوا</value>
+  </data>
+  <data name="RoleAlreadyAssigned" xml:space="preserve">
+    <value>یہ کردار صارف کو پہلے سے تفویض ہے</value>
+  </data>
+  <data name="CannotDeleteSystemRole" xml:space="preserve">
+    <value>سسٹم کردار حذف نہیں کیے جا سکتے</value>
+  </data>
+
+  <!-- Permission Messages - Urdu -->
+  <data name="PermissionDenied" xml:space="preserve">
+    <value>آپ کو یہ عمل کرنے کی اجازت نہیں ہے</value>
+  </data>
+  <data name="PermissionRequired" xml:space="preserve">
+    <value>مطلوبہ اجازت: {0}</value>
+  </data>
+
+  <!-- General Messages - Urdu -->
+  <data name="ValidationError" xml:space="preserve">
+    <value>ایک یا زیادہ توثیق کی غلطیاں ہوئیں</value>
+  </data>
+  <data name="InternalError" xml:space="preserve">
+    <value>ایک غیر متوقع غلطی ہوئی۔ براہ کرم بعد میں دوبارہ کوشش کریں</value>
+  </data>
+  <data name="Unauthorized" xml:space="preserve">
+    <value>آپ کو اس وسیلے تک رسائی کی اجازت نہیں ہے</value>
+  </data>
+  <data name="Forbidden" xml:space="preserve">
+    <value>اس وسیلے تک رسائی ممنوع ہے</value>
+  </data>
+  <data name="NotFound" xml:space="preserve">
+    <value>مطلوبہ وسیلہ نہیں ملا</value>
+  </data>
+  <data name="TooManyRequests" xml:space="preserve">
+    <value>بہت زیادہ درخواستیں۔ براہ کرم بعد میں دوبارہ کوشش کریں</value>
+  </data>
+</root>

@@ -1,6 +1,70 @@
 @API_Gateway_HostAddress = http://localhost:5034
 
-GET {{API_Gateway_HostAddress}}/weatherforecast/
+### Gateway Health Check
+GET {{API_Gateway_HostAddress}}/health
+Accept: application/json
+
+###
+
+### Gateway Ready Check
+GET {{API_Gateway_HostAddress}}/ready
+Accept: application/json
+
+###
+
+### Gateway Info
+GET {{API_Gateway_HostAddress}}/
+Accept: application/json
+
+###
+
+### Login via Gateway (v1)
+POST {{API_Gateway_HostAddress}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@authsystem.local",
+  "password": "Admin@123!",
+  "applicationCode": "AUTH_SYSTEM"
+}
+
+###
+
+### Refresh Token via Gateway (v1)
+POST {{API_Gateway_HostAddress}}/api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "your-refresh-token-here"
+}
+
+###
+
+### Logout via Gateway (v1)
+POST {{API_Gateway_HostAddress}}/api/v1/auth/logout
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+{
+  "refreshToken": "your-refresh-token-here"
+}
+
+###
+
+### Get Current User (v1)
+GET {{API_Gateway_HostAddress}}/api/v1/auth/me
+Authorization: Bearer your-access-token-here
+
+###
+
+### OIDC Discovery via Gateway
+GET {{API_Gateway_HostAddress}}/.well-known/openid-configuration
+Accept: application/json
+
+###
+
+### JWKS via Gateway
+GET {{API_Gateway_HostAddress}}/.well-known/jwks.json
 Accept: application/json
 
 ###
