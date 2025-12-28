@@ -1,0 +1,23 @@
+using Auth_Lib.DTOs;
+using ErrorOr;
+using MediatR;
+
+namespace Auth_API.Modules.UserManagement.Commands;
+
+/// <summary>
+/// Command to update an existing user.
+/// </summary>
+public record UpdateUserCommand(
+    Guid Id,
+    string FirstName,
+    string LastName,
+    string? DisplayName = null,
+    string? PhoneNumber = null,
+    string? PreferredLanguage = null,
+    string? TimeZone = null) : IRequest<ErrorOr<UserDto>>
+{
+    /// <summary>
+    /// The ID of the user performing the update (for audit).
+    /// </summary>
+    public Guid ModifiedBy { get; set; }
+}

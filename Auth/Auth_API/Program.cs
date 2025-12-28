@@ -2,15 +2,18 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
+using Auth_API.Authorization;
 using Auth_API.Common.Middleware;
 using Auth_Lib.Application.Abstractions;
 using Auth_Lib.Configuration;
 using Auth_Lib.Domain.Interfaces.Repositories;
 using Auth_Lib.Infrastructure.Authentication;
+using Auth_Lib.Infrastructure.Authorization;
 using Auth_Lib.Infrastructure.Data;
 using Auth_Lib.Validators;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
@@ -43,11 +46,19 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<ILoginAttemptRepository, LoginAttemptRepository>();
+builder.Services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
 // Services
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
 builder.Services.AddScoped<PasswordValidator>();
+builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
+
+// Authorization
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionRequirementHandler>();
+builder.Services.AddHttpContextAccessor();
 
 // MediatR
 builder.Services.AddMediatR(cfg =>
