@@ -13,15 +13,18 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Error
 {
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionRepository _permissionRepository;
     private readonly ILogger<UpdateUserCommandHandler> _logger;
 
     public UpdateUserCommandHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        IPermissionRepository permissionRepository,
         ILogger<UpdateUserCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _permissionRepository = permissionRepository;
         _logger = logger;
     }
 
@@ -45,9 +48,10 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Error
 
         await _userRepository.UpdateAsync(user, cancellationToken);
 
-        // Get user roles
+        // Get user roles and permissions
         var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
         var roleNames = roles.Select(r => r.Code).ToList();
+        var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
 
         _logger.LogInformation(
             "User updated: {UserId} by {ModifiedBy}",
@@ -70,7 +74,8 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Error
             LastLoginAt = user.LastLoginAt,
             CreatedAt = user.CreatedAt,
             ModifiedAt = user.ModifiedAt,
-            Roles = roleNames
+            Roles = roleNames,
+            Permissions = permissions.ToList()
         };
     }
 }

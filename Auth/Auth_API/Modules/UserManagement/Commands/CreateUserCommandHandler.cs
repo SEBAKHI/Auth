@@ -16,6 +16,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
 {
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionRepository _permissionRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
     private readonly ILogger<CreateUserCommandHandler> _logger;
@@ -23,12 +24,14 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
     public CreateUserCommandHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        IPermissionRepository permissionRepository,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
         ILogger<CreateUserCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _permissionRepository = permissionRepository;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
         _logger = logger;
@@ -86,6 +89,9 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
             "User created: {UserId} ({Email}) by {CreatedBy}",
             user.Id, user.Email, request.CreatedBy);
 
+        // Get effective permissions for the user
+        var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
+
         return new UserDto
         {
             Id = user.Id,
@@ -103,7 +109,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
             LastLoginAt = user.LastLoginAt,
             CreatedAt = user.CreatedAt,
             ModifiedAt = user.ModifiedAt,
-            Roles = roleNames
+            Roles = roleNames,
+            Permissions = permissions.ToList()
         };
     }
 }

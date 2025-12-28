@@ -23,6 +23,7 @@ public class UserDto
     public DateTime CreatedAt { get; set; }
     public DateTime? ModifiedAt { get; set; }
     public IReadOnlyList<string> Roles { get; set; } = [];
+    public IReadOnlyList<string> Permissions { get; set; } = [];
 }
 
 /// <summary>

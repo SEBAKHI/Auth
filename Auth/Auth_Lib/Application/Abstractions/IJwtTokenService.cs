@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Auth_Lib.Domain.Entities;
 using ErrorOr;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Auth_Lib.Application.Abstractions;
 
@@ -56,4 +57,10 @@ public interface IJwtTokenService
     /// </summary>
     /// <returns>The public key PEM string.</returns>
     string GetPublicKeyPem();
+
+    /// <summary>
+    /// Gets the security key used for token signing and validation.
+    /// </summary>
+    /// <returns>The RSA security key.</returns>
+    SecurityKey GetSecurityKey();
 }

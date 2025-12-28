@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Asp.Versioning;
 using Auth_API.Modules.Authentication.Commands;
 using Auth_API.Modules.Authentication.Contracts;
+using Auth_Lib.Constants;
 using Auth_Lib.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -124,14 +125,14 @@ public class AuthController : ControllerBase
         var userInfo = new UserInfo
         {
             Id = GetCurrentUserId() ?? Guid.Empty,
-            Email = User.FindFirstValue(ClaimTypes.Email) ?? string.Empty,
-            FirstName = User.FindFirstValue(ClaimTypes.GivenName) ?? string.Empty,
-            LastName = User.FindFirstValue(ClaimTypes.Surname) ?? string.Empty,
-            DisplayName = User.FindFirstValue("name"),
-            PreferredLanguage = User.FindFirstValue("locale"),
-            TimeZone = User.FindFirstValue("timezone"),
-            Roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList(),
-            Permissions = User.FindAll("permissions").Select(c => c.Value).ToList()
+            Email = User.FindFirstValue(JwtClaimNames.Email) ?? string.Empty,
+            FirstName = User.FindFirstValue(JwtClaimNames.GivenName) ?? string.Empty,
+            LastName = User.FindFirstValue(JwtClaimNames.FamilyName) ?? string.Empty,
+            DisplayName = User.FindFirstValue(JwtClaimNames.Name),
+            PreferredLanguage = User.FindFirstValue(JwtClaimNames.Locale),
+            TimeZone = User.FindFirstValue(JwtClaimNames.TimeZone),
+            Roles = User.FindAll(JwtClaimNames.Roles).Select(c => c.Value).ToList(),
+            Permissions = User.FindAll(JwtClaimNames.Permissions).Select(c => c.Value).ToList()
         };
 
         return Ok(userInfo);
@@ -139,8 +140,7 @@ public class AuthController : ControllerBase
 
     private Guid? GetCurrentUserId()
     {
-        var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                          ?? User.FindFirstValue("sub");
+        var userIdClaim = User.FindFirstValue(JwtClaimNames.Subject);
 
         if (Guid.TryParse(userIdClaim, out var userId))
         {

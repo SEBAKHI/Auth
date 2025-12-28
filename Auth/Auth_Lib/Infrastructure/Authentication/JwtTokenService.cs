@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using Auth_Lib.Application.Abstractions;
 using Auth_Lib.Configuration;
+using Auth_Lib.Constants;
 using Auth_Lib.Domain.Entities;
 using Auth_Lib.Errors;
 using ErrorOr;
@@ -40,30 +41,37 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     {
         var claims = new List<Claim>
         {
-            new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new(JwtRegisteredClaimNames.Email, user.Email),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
-            new("name", user.GetFullName()),
+            new(JwtClaimNames.Subject, user.Id.ToString()),
+            new(JwtClaimNames.Email, user.Email),
+            new(JwtClaimNames.JwtId, Guid.NewGuid().ToString()),
+            new(JwtClaimNames.IssuedAt, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
+            new(JwtClaimNames.Name, user.GetFullName()),
+            new(JwtClaimNames.GivenName, user.FirstName),
+            new(JwtClaimNames.FamilyName, user.LastName),
         };
 
         // Add preferred language if set
         if (!string.IsNullOrEmpty(user.PreferredLanguage))
         {
-            claims.Add(new Claim("locale", user.PreferredLanguage));
+            claims.Add(new Claim(JwtClaimNames.Locale, user.PreferredLanguage));
+        }
+
+        // Add timezone if set
+        if (!string.IsNullOrEmpty(user.TimeZone))
+        {
+            claims.Add(new Claim(JwtClaimNames.TimeZone, user.TimeZone));
         }
 
         // Add roles as individual claims
         foreach (var role in roles)
         {
-            claims.Add(new Claim(ClaimTypes.Role, role));
-            claims.Add(new Claim("roles", role));
+            claims.Add(new Claim(JwtClaimNames.Roles, role));
         }
 
         // Add permissions as individual claims
         foreach (var permission in permissions)
         {
-            claims.Add(new Claim("permissions", permission));
+            claims.Add(new Claim(JwtClaimNames.Permissions, permission));
         }
 
         var tokenDescriptor = new SecurityTokenDescriptor
@@ -155,7 +163,7 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         try
         {
             var jwtToken = _tokenHandler.ReadJwtToken(token);
-            var subClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Sub);
+            var subClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtClaimNames.Subject);
 
             if (subClaim != null && Guid.TryParse(subClaim.Value, out var userId))
             {
@@ -212,6 +220,9 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         pem.AppendLine("-----END RSA PUBLIC KEY-----");
         return pem.ToString();
     }
+
+    /// <inheritdoc />
+    public SecurityKey GetSecurityKey() => _securityKey;
 
     private RSA LoadOrGenerateKey()
     {

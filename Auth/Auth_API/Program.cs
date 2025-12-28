@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
@@ -15,8 +16,13 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
+
+// Prevent JWT claim type mapping (e.g., "sub" -> ClaimTypes.NameIdentifier)
+// This ensures we can access claims by their original JWT names
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,7 +56,12 @@ builder.Services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 
 // Services
-builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
+// Create JwtTokenService early so we can use its security key for JWT Bearer configuration
+var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
+    ?? new JwtSettings();
+var jwtTokenService = new JwtTokenService(Options.Create(jwtSettings));
+builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
+
 builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
@@ -99,9 +110,6 @@ builder.Services.AddApiVersioning(options =>
 });
 
 // JWT Authentication
-var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
-    ?? new JwtSettings();
-
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -109,6 +117,9 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    // Disable claim type mapping to preserve original JWT claim names
+    options.MapInboundClaims = false;
+
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
@@ -119,10 +130,10 @@ builder.Services.AddAuthentication(options =>
         ClockSkew = jwtSettings.ClockSkew,
         RequireExpirationTime = true,
         RequireSignedTokens = true,
-        ValidateIssuerSigningKey = true
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = jwtTokenService.GetSecurityKey()
     };
 
-    // The signing key will be resolved at runtime via the JwtTokenService
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>

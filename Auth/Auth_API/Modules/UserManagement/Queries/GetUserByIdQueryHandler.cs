@@ -13,13 +13,16 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
 {
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionRepository _permissionRepository;
 
     public GetUserByIdQueryHandler(
         IUserRepository userRepository,
-        IRoleRepository roleRepository)
+        IRoleRepository roleRepository,
+        IPermissionRepository permissionRepository)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _permissionRepository = permissionRepository;
     }
 
     public async Task<ErrorOr<UserDto>> Handle(GetUserByIdQuery request, CancellationToken cancellationToken)
@@ -31,6 +34,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
         }
 
         var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
+        var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
 
         return new UserDto
         {
@@ -49,7 +53,8 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
             LastLoginAt = user.LastLoginAt,
             CreatedAt = user.CreatedAt,
             ModifiedAt = user.ModifiedAt,
-            Roles = roles.Select(r => r.Code).ToList()
+            Roles = roles.Select(r => r.Code).ToList(),
+            Permissions = permissions.ToList()
         };
     }
 }

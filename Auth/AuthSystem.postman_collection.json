@@ -1,0 +1,839 @@
+{
+	"info": {
+		"_postman_id": "auth-system-collection-v1",
+		"name": "AuthSystem API",
+		"description": "Complete API collection for the Enterprise Authentication System.\n\n## Getting Started\n1. Set the `baseUrl` variable to your API endpoint (default: http://localhost:5000)\n2. Use the Login endpoint to authenticate\n3. The access token will be automatically saved and used for subsequent requests\n\n## Authentication\nMost endpoints require a valid JWT token. After logging in, the token is automatically applied to protected endpoints via the Authorization header.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key": "apiVersion",
+			"value": "v1",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "applicationId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "roleId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "apiKeyId",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Discovery (OIDC)",
+			"description": "OpenID Connect Discovery endpoints for token validation and configuration.",
+			"item": [
+				{
+					"name": "Get OpenID Configuration",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/.well-known/openid-configuration",
+							"host": ["{{baseUrl}}"],
+							"path": [".well-known", "openid-configuration"]
+						},
+						"description": "Returns the OpenID Connect Discovery Document with all supported endpoints and capabilities."
+					},
+					"response": []
+				},
+				{
+					"name": "Get JWKS (JSON Web Key Set)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/.well-known/jwks.json",
+							"host": ["{{baseUrl}}"],
+							"path": [".well-known", "jwks.json"]
+						},
+						"description": "Returns the JSON Web Key Set used for token signature verification."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Public Key (PEM)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/.well-known/public-key.pem",
+							"host": ["{{baseUrl}}"],
+							"path": [".well-known", "public-key.pem"]
+						},
+						"description": "Returns the public key in PEM format for token verification."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Authentication",
+			"description": "Authentication endpoints for login, logout, and token management.",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', jsonData.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', jsonData.refreshToken);",
+									"    pm.collectionVariables.set('userId', jsonData.user.id);",
+									"    console.log('Tokens saved successfully');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"Admin@123\",\n    \"deviceId\": \"postman-client\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "login"]
+						},
+						"description": "Authenticates a user with email and password. Returns JWT access token, refresh token, and user information.\n\n**Rate Limited:** This endpoint is rate-limited to prevent brute force attacks."
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', jsonData.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', jsonData.refreshToken);",
+									"    console.log('Tokens refreshed successfully');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "refresh"]
+						},
+						"description": "Refreshes an expired access token using a valid refresh token."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "me"]
+						},
+						"description": "Returns the current authenticated user's information including roles and permissions."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout (Current Device)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\",\n    \"logoutAllDevices\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "logout"]
+						},
+						"description": "Logs out the current user and revokes the specified refresh token."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout (All Devices)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"logoutAllDevices\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "logout"]
+						},
+						"description": "Logs out the user from all devices by revoking all refresh tokens."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "User Management",
+			"description": "User CRUD operations and role assignment.\n\n**Required Permission:** `users:*`",
+			"item": [
+				{
+					"name": "Get All Users (Paginated)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users?pageNumber=1&pageSize=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users"],
+							"query": [
+								{
+									"key": "pageNumber",
+									"value": "1",
+									"description": "Page number (default: 1)"
+								},
+								{
+									"key": "pageSize",
+									"value": "20",
+									"description": "Items per page (default: 20)"
+								},
+								{
+									"key": "searchTerm",
+									"value": "",
+									"description": "Search by email, name, etc.",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns a paginated list of users.\n\n**Required Permission:** `users:read`"
+					},
+					"response": []
+				},
+				{
+					"name": "Get User by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "{{userId}}"]
+						},
+						"description": "Returns a specific user by their ID.\n\n**Required Permission:** `users:read`"
+					},
+					"response": []
+				},
+				{
+					"name": "Create User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('userId', jsonData.id);",
+									"    console.log('New user ID saved: ' + jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"SecurePass@123\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"displayName\": \"John Doe\",\n    \"phoneNumber\": \"+1234567890\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"UTC\",\n    \"roleIds\": []\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users"]
+						},
+						"description": "Creates a new user account.\n\n**Required Permission:** `users:create`\n\n**Password Requirements:**\n- Minimum 8 characters\n- At least one uppercase letter\n- At least one lowercase letter\n- At least one digit\n- At least one special character"
+					},
+					"response": []
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"John\",\n    \"lastName\": \"Smith\",\n    \"displayName\": \"John Smith\",\n    \"phoneNumber\": \"+1987654321\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"America/New_York\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "{{userId}}"]
+						},
+						"description": "Updates an existing user's profile information.\n\n**Required Permission:** `users:update`"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "{{userId}}"]
+						},
+						"description": "Soft-deletes a user account.\n\n**Required Permission:** `users:delete`"
+					},
+					"response": []
+				},
+				{
+					"name": "Assign Role to User",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"roleId\": \"{{roleId}}\",\n    \"expiresAt\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "{{userId}}", "roles"]
+						},
+						"description": "Assigns a role to a user. Optionally set an expiration date for temporary role assignments.\n\n**Required Permission:** `users:manage-roles`"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Role Management",
+			"description": "Role CRUD operations.\n\n**Required Permission:** `roles:*`",
+			"item": [
+				{
+					"name": "Get All Roles",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/roles?applicationId={{applicationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "roles"],
+							"query": [
+								{
+									"key": "applicationId",
+									"value": "{{applicationId}}",
+									"description": "Filter by application ID (optional)"
+								}
+							]
+						},
+						"description": "Returns all roles, optionally filtered by application.\n\n**Required Permission:** `roles:read`"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Role by ID",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/roles/{{roleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "roles", "{{roleId}}"]
+						},
+						"description": "Returns a specific role by ID with its permissions.\n\n**Required Permission:** `roles:read`"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Role",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('roleId', jsonData.id);",
+									"    console.log('New role ID saved: ' + jsonData.id);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"code\": \"custom_role\",\n    \"name\": \"Custom Role\",\n    \"description\": \"A custom role with specific permissions\",\n    \"permissionIds\": []\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "roles"]
+						},
+						"description": "Creates a new role with optional permissions.\n\n**Required Permission:** `roles:create`"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Role",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Role Name\",\n    \"description\": \"Updated role description\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/roles/{{roleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "roles", "{{roleId}}"]
+						},
+						"description": "Updates an existing role's name and description.\n\n**Required Permission:** `roles:update`\n\n**Note:** System roles cannot be modified."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Role",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/roles/{{roleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "roles", "{{roleId}}"]
+						},
+						"description": "Deletes a role.\n\n**Required Permission:** `roles:delete`\n\n**Note:** System roles cannot be deleted."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Permission Management",
+			"description": "Permission query operations.\n\n**Required Permission:** `permissions:*`",
+			"item": [
+				{
+					"name": "Get All Permissions",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/permissions?applicationId={{applicationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "permissions"],
+							"query": [
+								{
+									"key": "applicationId",
+									"value": "{{applicationId}}",
+									"description": "Filter by application ID (optional)"
+								}
+							]
+						},
+						"description": "Returns all available permissions, optionally filtered by application.\n\n**Required Permission:** `permissions:read`"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "API Key Management",
+			"description": "API Key CRUD operations for service-to-service authentication.\n\n**Required Permission:** `apikeys:*`",
+			"item": [
+				{
+					"name": "Get All API Keys",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/apikeys?applicationId={{applicationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "apikeys"],
+							"query": [
+								{
+									"key": "applicationId",
+									"value": "{{applicationId}}",
+									"description": "Application ID (required)"
+								}
+							]
+						},
+						"description": "Returns all API keys for an application. The actual key values are not returned for security.\n\n**Required Permission:** `apikeys:read`"
+					},
+					"response": []
+				},
+				{
+					"name": "Create API Key",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    pm.collectionVariables.set('apiKeyId', jsonData.apiKey.id);",
+									"    console.log('New API Key ID saved: ' + jsonData.apiKey.id);",
+									"    console.log('IMPORTANT: Save the plainTextKey - it will not be shown again!');",
+									"    console.log('Key: ' + jsonData.plainTextKey);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"name\": \"Production API Key\",\n    \"description\": \"API key for production services\",\n    \"environment\": \"production\",\n    \"rateLimitPerMinute\": 60,\n    \"rateLimitPerDay\": 10000,\n    \"expiresAt\": null,\n    \"permissionIds\": []\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/apikeys",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "apikeys"]
+						},
+						"description": "Creates a new API key for service-to-service authentication.\n\n**Required Permission:** `apikeys:create`\n\n**IMPORTANT:** The plain text key is only returned once during creation. Store it securely!"
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke API Key",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reason\": \"Key compromised or no longer needed\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/apikeys/{{apiKeyId}}/revoke",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "apikeys", "{{apiKeyId}}", "revoke"]
+						},
+						"description": "Revokes an API key. This action cannot be undone.\n\n**Required Permission:** `apikeys:revoke`"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Add any global pre-request logic here"
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Log response time for performance monitoring",
+					"console.log('Response time: ' + pm.response.responseTime + 'ms');"
+				]
+			}
+		}
+	]
+}

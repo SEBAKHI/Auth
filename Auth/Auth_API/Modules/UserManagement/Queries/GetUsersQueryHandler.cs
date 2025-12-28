@@ -12,13 +12,16 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
 {
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionRepository _permissionRepository;
 
     public GetUsersQueryHandler(
         IUserRepository userRepository,
-        IRoleRepository roleRepository)
+        IRoleRepository roleRepository,
+        IPermissionRepository permissionRepository)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _permissionRepository = permissionRepository;
     }
 
     public async Task<ErrorOr<PagedUsersDto>> Handle(GetUsersQuery request, CancellationToken cancellationToken)
@@ -33,6 +36,7 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
         foreach (var user in users)
         {
             var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
+            var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
             userDtos.Add(new UserDto
             {
                 Id = user.Id,
@@ -50,7 +54,8 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
                 LastLoginAt = user.LastLoginAt,
                 CreatedAt = user.CreatedAt,
                 ModifiedAt = user.ModifiedAt,
-                Roles = roles.Select(r => r.Code).ToList()
+                Roles = roles.Select(r => r.Code).ToList(),
+                Permissions = permissions.ToList()
             });
         }
 

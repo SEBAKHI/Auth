@@ -1,47 +1,38 @@
-using Auth_Lib.Application.Abstractions;
+using Auth_Lib.Constants;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Auth_API.Authorization;
 
 /// <summary>
 /// Handler that checks if user has the required permission.
+/// Checks JWT claims first for efficiency, avoiding database calls.
 /// </summary>
 public class PermissionRequirementHandler : AuthorizationHandler<PermissionRequirement>
 {
-    private readonly IPermissionChecker _permissionChecker;
     private readonly ILogger<PermissionRequirementHandler> _logger;
 
-    public PermissionRequirementHandler(
-        IPermissionChecker permissionChecker,
-        ILogger<PermissionRequirementHandler> logger)
+    public PermissionRequirementHandler(ILogger<PermissionRequirementHandler> logger)
     {
-        _permissionChecker = permissionChecker;
         _logger = logger;
     }
 
-    protected override async Task HandleRequirementAsync(
+    protected override Task HandleRequirementAsync(
         AuthorizationHandlerContext context,
         PermissionRequirement requirement)
     {
-        var userIdClaim = context.User.FindFirst("sub")?.Value;
+        var userIdClaim = context.User.FindFirst(JwtClaimNames.Subject)?.Value;
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {
             _logger.LogDebug("No valid user ID claim found for permission check");
-            return; // Not authenticated
+            return Task.CompletedTask; // Not authenticated
         }
 
-        // Get application ID from the JWT 'aud' claim or route
-        Guid? applicationId = null;
-        var audienceClaim = context.User.FindFirst("aud")?.Value;
-        if (!string.IsNullOrEmpty(audienceClaim) && Guid.TryParse(audienceClaim, out var appId))
-        {
-            applicationId = appId;
-        }
+        // Get permissions from JWT claims (they're already embedded in the token)
+        var userPermissions = context.User.FindAll(JwtClaimNames.Permissions)
+            .Select(c => c.Value)
+            .ToList();
 
-        var hasPermission = await _permissionChecker.HasPermissionAsync(
-            userId,
-            requirement.Permission,
-            applicationId);
+        var hasPermission = PermissionMatches(userPermissions, requirement.Permission);
 
         if (hasPermission)
         {
@@ -53,8 +44,40 @@ public class PermissionRequirementHandler : AuthorizationHandler<PermissionRequi
         else
         {
             _logger.LogWarning(
-                "User {UserId} denied access - missing permission {Permission}",
-                userId, requirement.Permission);
+                "User {UserId} denied access - missing permission {Permission}. User permissions: [{UserPermissions}]",
+                userId, requirement.Permission, string.Join(", ", userPermissions));
         }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Checks if the user's permissions match the required permission using wildcard logic.
+    /// </summary>
+    private static bool PermissionMatches(IEnumerable<string> userPermissions, string requiredPermission)
+    {
+        foreach (var heldPermission in userPermissions)
+        {
+            // Global wildcard grants everything
+            if (heldPermission == "*")
+                return true;
+
+            // Exact match
+            if (string.Equals(heldPermission, requiredPermission, StringComparison.OrdinalIgnoreCase))
+                return true;
+
+            // Wildcard matching (e.g., "crm:*" matches "crm:leads:read")
+            if (heldPermission.EndsWith(":*"))
+            {
+                var prefix = heldPermission[..^2]; // Remove ":*"
+                if (requiredPermission.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(requiredPermission, prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
