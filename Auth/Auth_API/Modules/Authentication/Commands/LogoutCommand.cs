@@ -9,5 +9,6 @@ namespace Auth_API.Modules.Authentication.Commands;
 public record LogoutCommand(
     Guid UserId,
     string? RefreshToken,
+    string? AccessToken,
     string? IpAddress,
     bool LogoutAllDevices = false) : IRequest<ErrorOr<Success>>;

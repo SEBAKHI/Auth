@@ -102,6 +102,7 @@ public class AuthController : ControllerBase
         var command = new LogoutCommand(
             userId.Value,
             request?.RefreshToken,
+            GetAccessToken(),
             GetClientIpAddress(),
             request?.LogoutAllDevices ?? false);
 
@@ -165,6 +166,17 @@ public class AuthController : ControllerBase
     private string? GetUserAgent()
     {
         return Request.Headers.UserAgent.FirstOrDefault();
+    }
+
+    private string? GetAccessToken()
+    {
+        var authHeader = Request.Headers.Authorization.FirstOrDefault();
+        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        return authHeader["Bearer ".Length..].Trim();
     }
 
     private IActionResult Problem(IEnumerable<ErrorOr.Error> errors)

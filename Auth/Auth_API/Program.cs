@@ -63,6 +63,7 @@ var jwtTokenService = new JwtTokenService(Options.Create(jwtSettings));
 builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
 
 builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
+builder.Services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
 
@@ -241,6 +242,7 @@ app.UseHttpsRedirection();
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<JwtBlacklistValidationMiddleware>();
 app.UseAuthorization();
 
 // Health check endpoints
