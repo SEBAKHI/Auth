@@ -1,0 +1,1214 @@
+{
+	"info": {
+		"_postman_id": "auth-system-v1",
+		"name": "Auth System API v1",
+		"description": "Complete Postman collection for testing all Auth System API endpoints.\n\n## Authentication\nMost endpoints require JWT Bearer authentication. Use the Login endpoint first to obtain tokens.\n\n## Variables\n- `baseUrl`: API base URL (default: http://localhost:5000)\n- `accessToken`: JWT access token (auto-set after login)\n- `refreshToken`: Refresh token (auto-set after login)\n- `userId`: Current user ID (auto-set after login)\n\n## Argon2id Hashing\nAll secrets, tokens, and API keys are hashed using Argon2id algorithm.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:5000",
+			"type": "string"
+		},
+		{
+			"key": "accessToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refreshToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "userId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "testUserId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "testRoleId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "testApiKeyId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "testSessionId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "applicationId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "resetToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "twoFactorSecret",
+			"value": "",
+			"type": "string"
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{accessToken}}",
+				"type": "string"
+			}
+		]
+	},
+	"item": [
+		{
+			"name": "Discovery",
+			"description": "OpenID Connect Discovery endpoints for OIDC/OAuth2 configuration",
+			"item": [
+				{
+					"name": "OpenID Configuration",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/.well-known/openid-configuration",
+							"host": ["{{baseUrl}}"],
+							"path": [".well-known", "openid-configuration"]
+						},
+						"description": "Returns OpenID Connect discovery document with all supported endpoints and capabilities."
+					},
+					"response": []
+				},
+				{
+					"name": "JWKS (JSON Web Key Set)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/.well-known/jwks.json",
+							"host": ["{{baseUrl}}"],
+							"path": [".well-known", "jwks.json"]
+						},
+						"description": "Returns the JSON Web Key Set containing public keys for token verification."
+					},
+					"response": []
+				},
+				{
+					"name": "Public Key (PEM)",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/.well-known/public-key.pem",
+							"host": ["{{baseUrl}}"],
+							"path": [".well-known", "public-key.pem"]
+						},
+						"description": "Returns the RSA public key in PEM format for token verification."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Authentication",
+			"description": "Core authentication endpoints: login, logout, token refresh, password management",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.accessToken) {",
+									"        pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+									"    }",
+									"    if (jsonData.refreshToken) {",
+									"        pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
+									"    }",
+									"    if (jsonData.user && jsonData.user.id) {",
+									"        pm.collectionVariables.set(\"userId\", jsonData.user.id);",
+									"    }",
+									"    pm.test(\"Login successful\", function () {",
+									"        pm.expect(jsonData.accessToken).to.be.a('string');",
+									"        pm.expect(jsonData.refreshToken).to.be.a('string');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"Admin123!\",\n    \"deviceId\": \"postman-test-device\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Authenticates a user and returns JWT access token and refresh token.\n\nPassword is verified using Argon2id hashing."
+					},
+					"response": []
+				},
+				{
+					"name": "Refresh Token",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.accessToken) {",
+									"        pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
+									"    }",
+									"    if (jsonData.refreshToken) {",
+									"        pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
+									"    }",
+									"    pm.test(\"Token refresh successful\", function () {",
+									"        pm.expect(jsonData.accessToken).to.be.a('string');",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/refresh",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "refresh"]
+						},
+						"description": "Exchanges a valid refresh token for a new access token.\n\nRefresh token is looked up using Argon2id hash."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout (Current Device)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\",\n    \"logoutAllDevices\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "logout"]
+						},
+						"description": "Logs out the current device by revoking the refresh token and blacklisting the access token."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout (All Devices)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"logoutAllDevices\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "logout"]
+						},
+						"description": "Logs out from all devices by revoking all refresh tokens for the user."
+					},
+					"response": []
+				},
+				{
+					"name": "Change Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"currentPassword\": \"OldPassword123!\",\n    \"newPassword\": \"NewPassword456!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/change-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "change-password"]
+						},
+						"description": "Changes the authenticated user's password.\n\nPassword history is checked to prevent reuse. Both old and new passwords are hashed with Argon2id."
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot Password",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.token) {",
+									"        pm.collectionVariables.set(\"resetToken\", jsonData.token);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/forgot-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "forgot-password"]
+						},
+						"description": "Initiates password reset flow by generating a reset token.\n\nThe token is hashed with Argon2id before storage. In production, the token would be sent via email."
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \"NewSecurePassword123!\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/reset-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "reset-password"]
+						},
+						"description": "Resets password using a valid reset token.\n\nToken is verified using Argon2id hash lookup. All existing sessions are terminated."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User (Me)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "me"]
+						},
+						"description": "Returns information about the currently authenticated user from the JWT claims."
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke Token",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"{{refreshToken}}\",\n    \"tokenTypeHint\": \"refresh_token\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/revoke",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "revoke"]
+						},
+						"description": "Revokes a token (access or refresh).\n\nTokenTypeHint can be 'access_token' or 'refresh_token'."
+					},
+					"response": []
+				},
+				{
+					"name": "Introspect Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"{{accessToken}}\",\n    \"tokenTypeHint\": \"access_token\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/introspect",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "introspect"]
+						},
+						"description": "Introspects a token to check if it's active and retrieve its claims.\n\nReturns token metadata including expiration, subject, roles, and permissions."
+					},
+					"response": []
+				},
+				{
+					"name": "Send Email Verification",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/send-verification-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "send-verification-email"]
+						},
+						"description": "Sends a 6-digit OTP to the authenticated user's email for verification.\n\nRequires authentication. OTP expires in 15 minutes.\nRate limited to 3 requests per 60 seconds.\n\nOTP is hashed with Argon2id before storage."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Email",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"otp\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/verify-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "verify-email"]
+						},
+						"description": "Verifies a user's email using the 6-digit OTP sent to their email.\n\nOTP is verified using Argon2id hash comparison.\nMax 5 attempts per OTP. After 5 failed attempts, a new OTP must be requested."
+					},
+					"response": []
+				},
+				{
+					"name": "Resend Email Verification",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/resend-verification-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "resend-verification-email"]
+						},
+						"description": "Resends the email verification OTP to the specified email address.\n\nCan be used when user hasn't received the OTP or it has expired.\nRate limited to 3 requests per 60 seconds per email.\n\nReturns same response for valid/invalid emails to prevent enumeration."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Sessions",
+			"description": "Session management endpoints for viewing and terminating active sessions",
+			"item": [
+				{
+					"name": "Get Active Sessions",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
+									"        pm.collectionVariables.set(\"testSessionId\", jsonData[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/sessions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "sessions"]
+						},
+						"description": "Returns list of active sessions for the authenticated user."
+					},
+					"response": []
+				},
+				{
+					"name": "Terminate Session",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/sessions/{{testSessionId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "sessions", "{{testSessionId}}"]
+						},
+						"description": "Terminates a specific session by ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Terminate All Sessions",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/sessions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "sessions"]
+						},
+						"description": "Terminates all sessions except the current one."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Two-Factor Authentication",
+			"description": "2FA setup and management using TOTP (Time-based One-Time Password)",
+			"item": [
+				{
+					"name": "Setup 2FA",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.secret) {",
+									"        pm.collectionVariables.set(\"twoFactorSecret\", jsonData.secret);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/setup",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "setup"]
+						},
+						"description": "Initiates 2FA setup and returns the secret and QR code URI.\n\nThe secret should be added to an authenticator app (Google Authenticator, Authy, etc.)."
+					},
+					"response": []
+				},
+				{
+					"name": "Enable 2FA",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/enable",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "enable"]
+						},
+						"description": "Enables 2FA by verifying a TOTP code from the authenticator app.\n\nReturns backup recovery codes. Recovery codes are hashed with Argon2id before storage."
+					},
+					"response": []
+				},
+				{
+					"name": "Disable 2FA",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/2fa/disable",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "2fa", "disable"]
+						},
+						"description": "Disables 2FA by verifying a valid TOTP code.\n\nRequires a valid code to prevent unauthorized disabling."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Users",
+			"description": "User management endpoints (requires users:* permissions)",
+			"item": [
+				{
+					"name": "Get Users (Paginated)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users?pageNumber=1&pageSize=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users"],
+							"query": [
+								{
+									"key": "pageNumber",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "20"
+								},
+								{
+									"key": "searchTerm",
+									"value": "",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns paginated list of users.\n\nRequires 'users:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}"]
+						},
+						"description": "Returns a specific user by ID.\n\nRequires 'users:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Create User",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.id) {",
+									"        pm.collectionVariables.set(\"testUserId\", jsonData.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"SecurePassword123!\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"displayName\": \"John Doe\",\n    \"phoneNumber\": \"+1234567890\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"America/New_York\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users"]
+						},
+						"description": "Creates a new user.\n\nRequires 'users:create' permission. Password is hashed with Argon2id."
+					},
+					"response": []
+				},
+				{
+					"name": "Update User",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"John\",\n    \"lastName\": \"Smith\",\n    \"displayName\": \"John Smith\",\n    \"phoneNumber\": \"+1987654321\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"America/Los_Angeles\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}"]
+						},
+						"description": "Updates an existing user.\n\nRequires 'users:update' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}"]
+						},
+						"description": "Soft-deletes a user.\n\nRequires 'users:delete' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Assign Role to User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"roleId\": \"{{testRoleId}}\",\n    \"expiresAt\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "roles"]
+						},
+						"description": "Assigns a role to a user.\n\nRequires 'users:manage-roles' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Lock User Account",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reason\": \"Suspicious activity detected\",\n    \"lockDurationMinutes\": 60\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/lock",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "lock"]
+						},
+						"description": "Locks a user account for specified duration.\n\nRequires 'users:manage' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Unlock User Account",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/unlock",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "unlock"]
+						},
+						"description": "Unlocks a locked user account.\n\nRequires 'users:manage' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Activate User Account",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/activate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "activate"]
+						},
+						"description": "Activates a deactivated user account.\n\nRequires 'users:manage' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate User Account",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/deactivate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "deactivate"]
+						},
+						"description": "Deactivates a user account and terminates all sessions.\n\nRequires 'users:manage' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Profile",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "me"]
+						},
+						"description": "Returns the authenticated user's full profile."
+					},
+					"response": []
+				},
+				{
+					"name": "Update My Profile",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"Updated\",\n    \"lastName\": \"Name\",\n    \"displayName\": \"Updated Name\",\n    \"phoneNumber\": \"+1234567890\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"America/Chicago\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "me"]
+						},
+						"description": "Updates the authenticated user's own profile."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Roles",
+			"description": "Role management endpoints (requires roles:* permissions)",
+			"item": [
+				{
+					"name": "Get All Roles",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
+									"        pm.collectionVariables.set(\"testRoleId\", jsonData[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "roles"],
+							"query": [
+								{
+									"key": "applicationId",
+									"value": "{{applicationId}}",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns all roles, optionally filtered by application.\n\nRequires 'roles:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Role by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/roles/{{testRoleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "roles", "{{testRoleId}}"]
+						},
+						"description": "Returns a specific role by ID.\n\nRequires 'roles:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Role",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.id) {",
+									"        pm.collectionVariables.set(\"testRoleId\", jsonData.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"code\": \"custom-role\",\n    \"name\": \"Custom Role\",\n    \"description\": \"A custom role for testing\",\n    \"permissionIds\": []\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "roles"]
+						},
+						"description": "Creates a new role.\n\nRequires 'roles:create' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Role",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Role Name\",\n    \"description\": \"Updated role description\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/roles/{{testRoleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "roles", "{{testRoleId}}"]
+						},
+						"description": "Updates an existing role.\n\nRequires 'roles:update' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Role",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/roles/{{testRoleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "roles", "{{testRoleId}}"]
+						},
+						"description": "Deletes a role.\n\nRequires 'roles:delete' permission."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Permissions",
+			"description": "Permission management endpoints",
+			"item": [
+				{
+					"name": "Get All Permissions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/permissions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "permissions"],
+							"query": [
+								{
+									"key": "applicationId",
+									"value": "{{applicationId}}",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns all permissions, optionally filtered by application.\n\nRequires 'permissions:read' permission."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "API Keys",
+			"description": "API key management for application authentication (requires apikeys:* permissions)",
+			"item": [
+				{
+					"name": "Get API Keys",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
+									"        pm.collectionVariables.set(\"testApiKeyId\", jsonData[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/apikeys?applicationId={{applicationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "apikeys"],
+							"query": [
+								{
+									"key": "applicationId",
+									"value": "{{applicationId}}"
+								}
+							]
+						},
+						"description": "Returns all API keys for an application.\n\nRequires 'apikeys:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Create API Key",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.id) {",
+									"        pm.collectionVariables.set(\"testApiKeyId\", jsonData.id);",
+									"    }",
+									"    // Note: The apiKey value is only shown once!",
+									"    console.log(\"API Key (save this - only shown once!):\", jsonData.apiKey);",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"name\": \"Test API Key\",\n    \"description\": \"API key for testing\",\n    \"environment\": \"development\",\n    \"rateLimitPerMinute\": 100,\n    \"rateLimitPerDay\": 10000,\n    \"expiresAt\": null,\n    \"permissionIds\": []\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/apikeys",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "apikeys"]
+						},
+						"description": "Creates a new API key.\n\nThe API key is hashed with Argon2id before storage. The plain key is only returned once!\n\nRequires 'apikeys:create' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke API Key",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reason\": \"No longer needed\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/apikeys/{{testApiKeyId}}/revoke",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "apikeys", "{{testApiKeyId}}", "revoke"]
+						},
+						"description": "Revokes an API key, immediately invalidating it.\n\nRequires 'apikeys:revoke' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Rotate API Key",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"gracePeriodMinutes\": 60\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/apikeys/{{testApiKeyId}}/rotate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "apikeys", "{{testApiKeyId}}", "rotate"]
+						},
+						"description": "Rotates an API key, generating a new one while keeping the old one valid for a grace period.\n\nThe new API key is hashed with Argon2id. The plain key is only returned once!\n\nRequires 'apikeys:rotate' permission."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Health & Info",
+			"description": "Health check and information endpoints",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/health",
+							"host": ["{{baseUrl}}"],
+							"path": ["health"]
+						},
+						"description": "Basic health check endpoint."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

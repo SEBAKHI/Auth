@@ -1,6 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Cryptography;
-using System.Text;
 using Auth_Lib.Application.Abstractions;
 using Auth_Lib.Configuration;
 using Auth_Lib.Domain.Interfaces.Repositories;
@@ -17,17 +15,20 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
 {
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ITokenBlacklistService _tokenBlacklistService;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<LogoutCommandHandler> _logger;
 
     public LogoutCommandHandler(
         IRefreshTokenRepository refreshTokenRepository,
         ITokenBlacklistService tokenBlacklistService,
+        IPasswordHasher passwordHasher,
         IOptions<JwtSettings> jwtSettings,
         ILogger<LogoutCommandHandler> logger)
     {
         _refreshTokenRepository = refreshTokenRepository;
         _tokenBlacklistService = tokenBlacklistService;
+        _passwordHasher = passwordHasher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
@@ -50,8 +51,8 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         }
         else if (!string.IsNullOrEmpty(request.RefreshToken))
         {
-            // Revoke only the specific token
-            var tokenHash = ComputeSha256Hash(request.RefreshToken);
+            // Revoke only the specific token using Argon2id hash
+            var tokenHash = _passwordHasher.HashPassword(request.RefreshToken);
             var token = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
 
             if (token != null && !token.IsRevoked)
@@ -115,11 +116,5 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         {
             _logger.LogWarning(ex, "Failed to parse access token for blacklisting");
         }
-    }
-
-    private static string ComputeSha256Hash(string input)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToBase64String(bytes);
     }
 }

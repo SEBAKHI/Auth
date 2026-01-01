@@ -189,6 +189,160 @@ public class UsersController : ControllerBase
             });
     }
 
+    /// <summary>
+    /// Lock a user account.
+    /// </summary>
+    [HttpPost("{id:guid}/lock")]
+    [RequirePermission("users:manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> LockAccount(Guid id, [FromBody] LockAccountRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var command = new LockAccountCommand(
+            id,
+            request.Reason,
+            request.LockDurationMinutes,
+            userId);
+
+        var result = await _mediator.Send(command);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new { error = errors.First().Description })
+                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+    }
+
+    /// <summary>
+    /// Unlock a user account.
+    /// </summary>
+    [HttpPost("{id:guid}/unlock")]
+    [RequirePermission("users:manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UnlockAccount(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        var command = new UnlockAccountCommand(id, userId);
+
+        var result = await _mediator.Send(command);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new { error = errors.First().Description })
+                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+    }
+
+    /// <summary>
+    /// Activate a user account.
+    /// </summary>
+    [HttpPost("{id:guid}/activate")]
+    [RequirePermission("users:manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ActivateAccount(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        var command = new ActivateAccountCommand(id, userId);
+
+        var result = await _mediator.Send(command);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new { error = errors.First().Description })
+                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+    }
+
+    /// <summary>
+    /// Deactivate a user account.
+    /// </summary>
+    [HttpPost("{id:guid}/deactivate")]
+    [RequirePermission("users:manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> DeactivateAccount(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        var command = new DeactivateAccountCommand(id, userId);
+
+        var result = await _mediator.Send(command);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new { error = errors.First().Description })
+                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+    }
+
+    /// <summary>
+    /// Get the current authenticated user's profile.
+    /// </summary>
+    [HttpGet("me")]
+    [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyProfile()
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var query = new GetUserByIdQuery(userId);
+        var result = await _mediator.Send(query);
+
+        return result.Match(
+            user => Ok(user),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new { error = errors.First().Description })
+                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+    }
+
+    /// <summary>
+    /// Update the current authenticated user's profile.
+    /// This is a self-service endpoint that doesn't require admin permissions.
+    /// </summary>
+    [HttpPut("me")]
+    [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateProfileRequest request)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var command = new UpdateProfileCommand(
+            userId,
+            request.FirstName,
+            request.LastName,
+            request.DisplayName,
+            request.PhoneNumber,
+            request.PreferredLanguage,
+            request.TimeZone);
+
+        var result = await _mediator.Send(command);
+
+        return result.Match(
+            user => Ok(user),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new { error = errors.First().Description })
+                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+    }
+
     private Guid GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst("sub")?.Value;
@@ -219,3 +373,15 @@ public record UpdateUserRequest(
 public record AssignRoleRequest(
     Guid RoleId,
     DateTime? ExpiresAt = null);
+
+public record UpdateProfileRequest(
+    string? FirstName = null,
+    string? LastName = null,
+    string? DisplayName = null,
+    string? PhoneNumber = null,
+    string? PreferredLanguage = null,
+    string? TimeZone = null);
+
+public record LockAccountRequest(
+    string Reason,
+    int? LockDurationMinutes = null);

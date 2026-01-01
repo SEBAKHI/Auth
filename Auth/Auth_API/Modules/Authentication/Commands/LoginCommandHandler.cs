@@ -103,6 +103,17 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return UserErrors.InvalidCredentials;
         }
 
+        // Check if email is confirmed (only after successful password verification)
+        if (!user.EmailConfirmed)
+        {
+            await RecordLoginAttemptAsync(user.Id, request.Email, false, "Email not confirmed",
+                request.IpAddress, request.UserAgent, cancellationToken);
+
+            _logger.LogWarning("Login blocked for user {UserId} - email not confirmed", user.Id);
+
+            return UserErrors.EmailNotConfirmed;
+        }
+
         // Check if password needs rehash (parameters changed)
         if (_passwordHasher.NeedsRehash(user.PasswordHash))
         {

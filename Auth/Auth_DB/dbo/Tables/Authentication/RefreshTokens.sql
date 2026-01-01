@@ -3,7 +3,7 @@ CREATE TABLE [dbo].[RefreshTokens]
     [Id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     [UserId] UNIQUEIDENTIFIER NOT NULL,
     [Token] NVARCHAR(500) NOT NULL,
-    [TokenHash] NVARCHAR(128) NOT NULL,
+    [TokenHash] NVARCHAR(500) NOT NULL,   -- Argon2id hash (longer than SHA256)
     [JwtId] NVARCHAR(100) NOT NULL,
     [ApplicationId] UNIQUEIDENTIFIER NULL,
     [DeviceInfo] NVARCHAR(500) NULL,
@@ -21,7 +21,7 @@ CREATE TABLE [dbo].[RefreshTokens]
 );
 GO
 
--- TokenHash is SHA256 hash of Token for secure lookup
+-- TokenHash is Argon2id hash of Token for secure lookup
 -- JwtId links to the 'jti' claim in the access token
 -- ReplacedByToken for token rotation chain tracking
 

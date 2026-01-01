@@ -65,4 +65,12 @@ public interface IUserRepository
     /// Updates a user's password.
     /// </summary>
     Task UpdatePasswordAsync(Guid userId, string passwordHash, Guid modifiedBy, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Confirms a user's email address.
+    /// </summary>
+    /// <param name="userId">The user ID.</param>
+    /// <param name="modifiedBy">Who confirmed the email.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ConfirmEmailAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken = default);
 }

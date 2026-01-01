@@ -28,7 +28,7 @@ public class ApiKey : EntityBase
     public string KeyPrefix { get; private set; } = string.Empty;
 
     /// <summary>
-    /// Gets the SHA256 hash of the full key.
+    /// Gets the Argon2id hash of the full key.
     /// </summary>
     public string KeyHash { get; private set; } = string.Empty;
 

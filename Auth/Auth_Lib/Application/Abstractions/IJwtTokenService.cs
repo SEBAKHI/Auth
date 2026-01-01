@@ -22,7 +22,7 @@ public interface IJwtTokenService
     /// <summary>
     /// Generates a refresh token.
     /// </summary>
-    /// <returns>A tuple containing the plain token and its SHA256 hash.</returns>
+    /// <returns>A tuple containing the plain token and its Argon2id hash.</returns>
     (string Token, string TokenHash) GenerateRefreshToken();
 
     /// <summary>

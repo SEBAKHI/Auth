@@ -107,6 +107,36 @@ public class ApiKeysController : ControllerBase
             });
     }
 
+    /// <summary>
+    /// Rotate an API key, generating a new key while optionally keeping the old key valid for a grace period.
+    /// </summary>
+    [HttpPost("{id:guid}/rotate")]
+    [RequirePermission("apikeys:rotate")]
+    [ProducesResponseType(typeof(RotateApiKeyResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> RotateApiKey(Guid id, [FromBody] RotateApiKeyRequest? request = null)
+    {
+        var userId = GetCurrentUserId();
+        var command = new RotateApiKeyCommand(
+            id,
+            request?.GracePeriodMinutes ?? 60,
+            userId);
+
+        var result = await _mediator.Send(command);
+
+        return result.Match(
+            response => Ok(response),
+            errors => errors.First().Type switch
+            {
+                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
+                ErrorOr.ErrorType.Validation => BadRequest(new { error = errors.First().Description }),
+                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
+            });
+    }
+
     private Guid GetCurrentUserId()
     {
         var userIdClaim = User.FindFirst("sub")?.Value;
@@ -126,3 +156,5 @@ public record CreateApiKeyRequest(
     IReadOnlyList<Guid>? PermissionIds = null);
 
 public record RevokeApiKeyRequest(string? Reason = null);
+
+public record RotateApiKeyRequest(int? GracePeriodMinutes = 60);

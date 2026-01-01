@@ -11,7 +11,10 @@
       "Bash(del /Q \"d:\\\\01 - Companies\\\\00 - Astoom\\\\Repos\\\\AuthSystem\\\\Auth\\\\API_Gateway\\\\Controllers\\\\WeatherForecastController.cs\" \"d:\\\\01 - Companies\\\\00 - Astoom\\\\Repos\\\\AuthSystem\\\\Auth\\\\API_Gateway\\\\WeatherForecast.cs\")",
       "Bash(dotnet build:*)",
       "Bash(dotnet restore:*)",
-      "Bash(dotnet run)"
+      "Bash(dotnet run)",
+      "Bash(xargs:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(git add:*)"
     ]
   }
 }

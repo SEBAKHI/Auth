@@ -21,15 +21,17 @@ namespace Auth_Lib.Infrastructure.Authentication;
 public class JwtTokenService : IJwtTokenService, IDisposable
 {
     private readonly JwtSettings _settings;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly RSA _rsa;
     private readonly RsaSecurityKey _securityKey;
     private readonly SigningCredentials _signingCredentials;
     private readonly JwtSecurityTokenHandler _tokenHandler;
     private bool _disposed;
 
-    public JwtTokenService(IOptions<JwtSettings> settings)
+    public JwtTokenService(IOptions<JwtSettings> settings, IPasswordHasher passwordHasher)
     {
         _settings = settings.Value;
+        _passwordHasher = passwordHasher;
         _rsa = LoadOrGenerateKey();
         _securityKey = new RsaSecurityKey(_rsa) { KeyId = _settings.KeyId };
         _signingCredentials = new SigningCredentials(_securityKey, SecurityAlgorithms.RsaSha256);
@@ -94,7 +96,8 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     {
         var randomBytes = RandomNumberGenerator.GetBytes(64);
         var token = Convert.ToBase64String(randomBytes);
-        var tokenHash = ComputeSha256Hash(token);
+        // Hash the token using Argon2id for secure storage
+        var tokenHash = _passwordHasher.HashPassword(token);
 
         return (token, tokenHash);
     }
@@ -246,12 +249,6 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         // Generate a new key if none provided (for development only)
         // In production, this should be configured
         return rsa;
-    }
-
-    private static string ComputeSha256Hash(string input)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToBase64String(bytes);
     }
 
     private static string Base64UrlEncode(byte[] input)

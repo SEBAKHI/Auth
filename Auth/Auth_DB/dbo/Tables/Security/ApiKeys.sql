@@ -5,7 +5,7 @@ CREATE TABLE [dbo].[ApiKeys]
     [Name] NVARCHAR(200) NOT NULL,
     [Description] NVARCHAR(500) NULL,
     [KeyPrefix] NVARCHAR(10) NOT NULL,      -- First chars for identification (e.g., 'ak_prod_')
-    [KeyHash] NVARCHAR(128) NOT NULL,       -- SHA256 hash of the full key
+    [KeyHash] NVARCHAR(500) NOT NULL,       -- Argon2id hash of the full key
     [Environment] NVARCHAR(20) NOT NULL DEFAULT 'production',  -- 'production', 'staging', 'development'
     [RateLimitPerMinute] INT NOT NULL DEFAULT 60,
     [RateLimitPerDay] INT NOT NULL DEFAULT 10000,

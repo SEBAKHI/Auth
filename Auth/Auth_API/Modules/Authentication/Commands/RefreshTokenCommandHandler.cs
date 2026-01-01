@@ -1,5 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
 using Auth_Lib.Application.Abstractions;
 using Auth_Lib.Configuration;
 using Auth_Lib.Domain.Entities;
@@ -22,6 +20,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
 
@@ -31,6 +30,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
         IJwtTokenService jwtTokenService,
+        IPasswordHasher passwordHasher,
         IOptions<JwtSettings> jwtSettings,
         ILogger<RefreshTokenCommandHandler> logger)
     {
@@ -39,14 +39,15 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
         _jwtTokenService = jwtTokenService;
+        _passwordHasher = passwordHasher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
 
     public async Task<ErrorOr<TokenResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
-        // Hash the incoming token to find it in the database
-        var tokenHash = ComputeSha256Hash(request.RefreshToken);
+        // Hash the incoming token using Argon2id to find it in the database
+        var tokenHash = _passwordHasher.HashPassword(request.RefreshToken);
 
         // Find the refresh token
         var storedToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
@@ -155,11 +156,5 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             ExpiresIn = (int)_jwtSettings.AccessTokenLifetime.TotalSeconds,
             RefreshExpiresIn = refreshExpiresIn
         };
-    }
-
-    private static string ComputeSha256Hash(string input)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToBase64String(bytes);
     }
 }

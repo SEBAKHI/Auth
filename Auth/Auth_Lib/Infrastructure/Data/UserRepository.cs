@@ -327,6 +327,24 @@ public class UserRepository : IUserRepository
             });
     }
 
+    /// <inheritdoc />
+    public async Task ConfirmEmailAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[Users] SET
+                [IsEmailConfirmed] = 1,
+                [ModifiedAt] = GETUTCDATE(),
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @UserId",
+            new
+            {
+                UserId = userId,
+                ModifiedBy = modifiedBy
+            });
+    }
+
     // Internal DTO for mapping from database
     private record UserDto
     {

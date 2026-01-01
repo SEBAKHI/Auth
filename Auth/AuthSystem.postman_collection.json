@@ -45,6 +45,11 @@
 			"key": "apiKeyId",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "sessionId",
+			"value": "",
+			"type": "string"
 		}
 	],
 	"item": [
@@ -268,6 +273,379 @@
 						"description": "Logs out the user from all devices by revoking all refresh tokens."
 					},
 					"response": []
+				},
+				{
+					"name": "Send Email Verification",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/send-verification-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "send-verification-email"]
+						},
+						"description": "Sends a 6-digit OTP to the authenticated user's email for verification.\n\nOTP expires in 15 minutes. Rate limited to 3 requests per 60 seconds."
+					},
+					"response": []
+				},
+				{
+					"name": "Verify Email",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"otp\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/verify-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "verify-email"]
+						},
+						"description": "Verifies a user's email using the 6-digit OTP sent to their email.\n\nMax 5 attempts per OTP."
+					},
+					"response": []
+				},
+				{
+					"name": "Resend Email Verification",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/resend-verification-email",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "resend-verification-email"]
+						},
+						"description": "Resends the email verification OTP to the specified email address.\n\nRate limited to 3 requests per 60 seconds per email."
+					},
+					"response": []
+				},
+				{
+					"name": "Change Password",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"currentPassword\": \"CurrentPass@123\",\n    \"newPassword\": \"NewSecurePass@456\",\n    \"confirmNewPassword\": \"NewSecurePass@456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/change-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "change-password"]
+						},
+						"description": "Changes the authenticated user's password.\n\n**Requires:** Authentication\n\n**Password Requirements:**\n- Minimum 12 characters\n- At least one uppercase letter\n- At least one lowercase letter\n- At least one digit\n- At least one special character\n\n**Security:** All existing sessions will be terminated after password change."
+					},
+					"response": []
+				},
+				{
+					"name": "Forgot Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"user@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/forgot-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "forgot-password"]
+						},
+						"description": "Initiates a password reset flow by generating a reset token.\n\nThe reset token is returned in the response (in production, sent via email).\n\n**Rate Limited:** To prevent abuse."
+					},
+					"response": []
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"reset-token-from-forgot-password\",\n    \"newPassword\": \"NewSecurePass@789\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/reset-password",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "reset-password"]
+						},
+						"description": "Resets a user's password using a valid reset token.\n\nThe token is obtained from the forgot-password endpoint."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Sessions",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/sessions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "sessions"]
+						},
+						"description": "Returns a list of the authenticated user's active sessions including device info, IP address, and activity timestamps."
+					},
+					"response": []
+				},
+				{
+					"name": "Terminate Session",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/sessions/{{sessionId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "sessions", "{{sessionId}}"]
+						},
+						"description": "Terminates a specific session by its ID."
+					},
+					"response": []
+				},
+				{
+					"name": "Terminate All Sessions",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/sessions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "sessions"]
+						},
+						"description": "Terminates all sessions except the current one. Returns the count of terminated sessions."
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"{{accessToken}}\",\n    \"tokenTypeHint\": \"access_token\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/revoke",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "revoke"]
+						},
+						"description": "Revokes an access or refresh token (RFC 7009).\n\n**tokenTypeHint:** 'access_token' or 'refresh_token'"
+					},
+					"response": []
+				},
+				{
+					"name": "Introspect Token",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"token\": \"{{accessToken}}\",\n    \"tokenTypeHint\": \"access_token\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/introspect",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "introspect"]
+						},
+						"description": "Introspects a token and returns its metadata (RFC 7662).\n\nReturns active status, expiration, subject, and other claims."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Two-Factor Authentication",
+			"description": "Two-factor authentication (2FA) setup and management using TOTP.",
+			"item": [
+				{
+					"name": "Setup 2FA",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/2fa/setup",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "2fa", "setup"]
+						},
+						"description": "Initializes 2FA setup by generating a secret and QR code URI.\n\nUse the QR code with an authenticator app (Google Authenticator, Authy, etc.)."
+					},
+					"response": []
+				},
+				{
+					"name": "Enable 2FA",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/2fa/enable",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "2fa", "enable"]
+						},
+						"description": "Enables 2FA after verifying a valid TOTP code from the authenticator app.\n\nReturns recovery codes for backup access."
+					},
+					"response": []
+				},
+				{
+					"name": "Disable 2FA",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/2fa/disable",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "auth", "2fa", "disable"]
+						},
+						"description": "Disables 2FA for the user's account.\n\nRequires a valid TOTP code to confirm the action."
+					},
+					"response": []
 				}
 			]
 		},
@@ -476,6 +854,168 @@
 							"path": ["api", "{{apiVersion}}", "users", "{{userId}}", "roles"]
 						},
 						"description": "Assigns a role to a user. Optionally set an expiration date for temporary role assignments.\n\n**Required Permission:** `users:manage-roles`"
+					},
+					"response": []
+				},
+				{
+					"name": "Lock User Account",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reason\": \"Security violation\",\n    \"lockoutEndUtc\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}/lock",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "{{userId}}", "lock"]
+						},
+						"description": "Locks a user account, preventing login.\n\n**Required Permission:** `users:manage`\n\nOptionally specify lockoutEndUtc for temporary lock."
+					},
+					"response": []
+				},
+				{
+					"name": "Unlock User Account",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}/unlock",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "{{userId}}", "unlock"]
+						},
+						"description": "Unlocks a previously locked user account.\n\n**Required Permission:** `users:manage`"
+					},
+					"response": []
+				},
+				{
+					"name": "Activate User Account",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}/activate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "{{userId}}", "activate"]
+						},
+						"description": "Activates an inactive user account.\n\n**Required Permission:** `users:manage`"
+					},
+					"response": []
+				},
+				{
+					"name": "Deactivate User Account",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}/deactivate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "{{userId}}", "deactivate"]
+						},
+						"description": "Deactivates a user account.\n\n**Required Permission:** `users:manage`"
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Profile",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "me"]
+						},
+						"description": "Returns the current authenticated user's profile information."
+					},
+					"response": []
+				},
+				{
+					"name": "Update My Profile",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"displayName\": \"Johnny\",\n    \"phoneNumber\": \"+1234567890\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"UTC\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "users", "me"]
+						},
+						"description": "Updates the current authenticated user's own profile.\n\nUsers can update their own profile without admin permissions."
 					},
 					"response": []
 				}

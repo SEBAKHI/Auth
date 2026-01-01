@@ -11,6 +11,8 @@ using Auth_Lib.Domain.Interfaces.Repositories;
 using Auth_Lib.Infrastructure.Authentication;
 using Auth_Lib.Infrastructure.Authorization;
 using Auth_Lib.Infrastructure.Data;
+using Auth_Lib.Infrastructure.Email;
+using Auth_Lib.Infrastructure.Security;
 using Auth_Lib.Validators;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -39,6 +41,7 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSett
 builder.Services.Configure<PasswordSettings>(builder.Configuration.GetSection(PasswordSettings.SectionName));
 builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(GatewaySettings.SectionName));
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(EmailSettings.SectionName));
 
 // Database
 var connectionString = builder.Configuration.GetConnectionString("AuthDb")
@@ -54,16 +57,30 @@ builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<ILoginAttemptRepository, LoginAttemptRepository>();
 builder.Services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IPasswordHistoryRepository, PasswordHistoryRepository>();
+builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
+builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
+builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+builder.Services.AddScoped<ITwoFactorAuthRepository, TwoFactorAuthRepository>();
+builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
 
 // Services
+// Create password hasher first (needed for JwtTokenService and TotpService)
+var passwordSettings = builder.Configuration.GetSection(PasswordSettings.SectionName).Get<PasswordSettings>()
+    ?? new PasswordSettings();
+var passwordHasher = new Argon2PasswordHasher(Options.Create(passwordSettings));
+builder.Services.AddSingleton<IPasswordHasher>(passwordHasher);
+
 // Create JwtTokenService early so we can use its security key for JWT Bearer configuration
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
     ?? new JwtSettings();
-var jwtTokenService = new JwtTokenService(Options.Create(jwtSettings));
+var jwtTokenService = new JwtTokenService(Options.Create(jwtSettings), passwordHasher);
 builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
 
-builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
 builder.Services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
+builder.Services.AddSingleton<ITotpService>(sp => new TotpService(sp.GetRequiredService<IPasswordHasher>()));
+builder.Services.AddSingleton<IOtpGenerator, OtpGenerator>();
+builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
 

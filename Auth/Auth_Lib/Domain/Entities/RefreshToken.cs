@@ -19,7 +19,7 @@ public class RefreshToken : EntityBase
     public string Token { get; private set; } = string.Empty;
 
     /// <summary>
-    /// Gets the SHA256 hash of the token value for secure lookups.
+    /// Gets the Argon2id hash of the token value for secure lookups.
     /// </summary>
     public string TokenHash { get; private set; } = string.Empty;
 

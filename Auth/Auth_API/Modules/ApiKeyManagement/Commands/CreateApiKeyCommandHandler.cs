@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using System.Text;
+using Auth_Lib.Application.Abstractions;
 using Auth_Lib.Domain.Entities;
 using Auth_Lib.Domain.Interfaces.Repositories;
 using Auth_Lib.DTOs;
@@ -15,15 +15,18 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
 {
     private readonly IApiKeyRepository _apiKeyRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<CreateApiKeyCommandHandler> _logger;
 
     public CreateApiKeyCommandHandler(
         IApiKeyRepository apiKeyRepository,
         IPermissionRepository permissionRepository,
+        IPasswordHasher passwordHasher,
         ILogger<CreateApiKeyCommandHandler> logger)
     {
         _apiKeyRepository = apiKeyRepository;
         _permissionRepository = permissionRepository;
+        _passwordHasher = passwordHasher;
         _logger = logger;
     }
 
@@ -31,8 +34,8 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
         CreateApiKeyCommand request,
         CancellationToken cancellationToken)
     {
-        // Generate the API key
-        var (apiKeyValue, keyPrefix, keyHash) = GenerateApiKey(request.Environment);
+        // Generate the API key using Argon2id
+        var (apiKeyValue, keyPrefix, keyHash) = GenerateApiKey(request.Environment, _passwordHasher);
 
         // Create the API key entity
         var apiKey = ApiKey.Create(
@@ -77,7 +80,7 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
         };
     }
 
-    private static (string ApiKey, string Prefix, string Hash) GenerateApiKey(string environment)
+    private static (string ApiKey, string Prefix, string Hash) GenerateApiKey(string environment, IPasswordHasher passwordHasher)
     {
         // Generate 32 random bytes
         var randomBytes = RandomNumberGenerator.GetBytes(32);
@@ -96,14 +99,10 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
         };
 
         var apiKey = $"{prefix}{randomPart}";
-        var hash = ComputeSha256Hash(apiKey);
+
+        // Hash the API key using Argon2id
+        var hash = passwordHasher.HashPassword(apiKey);
 
         return (apiKey, prefix, hash);
-    }
-
-    private static string ComputeSha256Hash(string input)
-    {
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(input));
-        return Convert.ToBase64String(bytes);
     }
 }
