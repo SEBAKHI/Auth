@@ -15,20 +15,17 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ITokenBlacklistService _tokenBlacklistService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<RevokeTokenCommandHandler> _logger;
 
     public RevokeTokenCommandHandler(
         IJwtTokenService jwtTokenService,
         ITokenBlacklistService tokenBlacklistService,
         IRefreshTokenRepository refreshTokenRepository,
-        IPasswordHasher passwordHasher,
         ILogger<RevokeTokenCommandHandler> logger)
     {
         _jwtTokenService = jwtTokenService;
         _tokenBlacklistService = tokenBlacklistService;
         _refreshTokenRepository = refreshTokenRepository;
-        _passwordHasher = passwordHasher;
         _logger = logger;
     }
 
@@ -113,10 +110,9 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
         Guid? revokedBy,
         CancellationToken cancellationToken)
     {
-        // Hash the token using Argon2id to find it in the database
-        var tokenHash = _passwordHasher.HashPassword(token);
-
-        var refreshToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        // Find the refresh token by its plain text value
+        // Note: We store the plain token in the database for lookup purposes.
+        var refreshToken = await _refreshTokenRepository.GetByTokenAsync(token, cancellationToken);
 
         if (refreshToken == null)
         {

@@ -114,8 +114,8 @@
 								"exec": [
 									"if (pm.response.code === 200) {",
 									"    var jsonData = pm.response.json();",
-									"    pm.collectionVariables.set('accessToken', jsonData.accessToken);",
-									"    pm.collectionVariables.set('refreshToken', jsonData.refreshToken);",
+									"    pm.collectionVariables.set('accessToken', jsonData.token.accessToken);",
+									"    pm.collectionVariables.set('refreshToken', jsonData.token.refreshToken);",
 									"    pm.collectionVariables.set('userId', jsonData.user.id);",
 									"    console.log('Tokens saved successfully');",
 									"}"
@@ -412,7 +412,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"token\": \"reset-token-from-forgot-password\",\n    \"newPassword\": \"NewSecurePass@789\"\n}"
+							"raw": "{\n    \"token\": \"reset-token-from-forgot-password\",\n    \"newPassword\": \"NewSecurePass@789\",\n    \"confirmNewPassword\": \"NewSecurePass@789\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/reset-password",

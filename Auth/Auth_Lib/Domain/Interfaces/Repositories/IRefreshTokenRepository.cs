@@ -18,6 +18,11 @@ public interface IRefreshTokenRepository
     Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a refresh token by its plain text value.
+    /// </summary>
+    Task<RefreshToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Creates a new refresh token.
     /// </summary>
     Task<RefreshToken> CreateAsync(RefreshToken token, CancellationToken cancellationToken = default);

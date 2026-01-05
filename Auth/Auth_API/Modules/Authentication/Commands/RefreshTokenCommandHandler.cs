@@ -8,6 +8,10 @@ using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
 
+// Note: IPasswordHasher was removed from this handler because Argon2id hashing is non-deterministic
+// (each hash uses a random salt), making token lookup by hash impossible. We now look up
+// tokens by their plain text value stored in the Token column.
+
 namespace Auth_API.Modules.Authentication.Commands;
 
 /// <summary>
@@ -20,7 +24,6 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IJwtTokenService _jwtTokenService;
-    private readonly IPasswordHasher _passwordHasher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
 
@@ -30,7 +33,6 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
         IJwtTokenService jwtTokenService,
-        IPasswordHasher passwordHasher,
         IOptions<JwtSettings> jwtSettings,
         ILogger<RefreshTokenCommandHandler> logger)
     {
@@ -39,18 +41,16 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
         _jwtTokenService = jwtTokenService;
-        _passwordHasher = passwordHasher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
 
     public async Task<ErrorOr<TokenResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
-        // Hash the incoming token using Argon2id to find it in the database
-        var tokenHash = _passwordHasher.HashPassword(request.RefreshToken);
-
-        // Find the refresh token
-        var storedToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        // Find the refresh token by its plain text value
+        // Note: We store the plain token in the database for lookup purposes.
+        // The TokenHash column contains an Argon2id hash for potential additional verification.
+        var storedToken = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken, cancellationToken);
 
         if (storedToken == null)
         {

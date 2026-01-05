@@ -43,6 +43,19 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
+    public async Task<RefreshToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<RefreshTokenDto>(@"
+            SELECT * FROM [dbo].[RefreshTokens]
+            WHERE [Token] = @Token",
+            new { Token = token });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
     public async Task<RefreshToken> CreateAsync(RefreshToken token, CancellationToken cancellationToken = default)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

@@ -26,6 +26,12 @@ GO
 -- ReplacedByToken for token rotation chain tracking
 
 -- Indexes
+-- Token index for plain text lookup (primary lookup method)
+CREATE NONCLUSTERED INDEX [IX_RefreshTokens_Token]
+ON [dbo].[RefreshTokens] ([Token]);
+GO
+
+-- TokenHash index for Argon2id hash (kept for potential additional verification)
 CREATE NONCLUSTERED INDEX [IX_RefreshTokens_TokenHash]
 ON [dbo].[RefreshTokens] ([TokenHash]);
 GO
