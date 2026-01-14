@@ -23,6 +23,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly PasswordSettings _passwordSettings;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<LoginCommandHandler> _logger;
@@ -35,6 +36,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         ILoginAttemptRepository loginAttemptRepository,
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService,
+        IRefreshTokenKeyService refreshTokenKeyService,
         IOptions<PasswordSettings> passwordSettings,
         IOptions<JwtSettings> jwtSettings,
         ILogger<LoginCommandHandler> logger)
@@ -46,6 +48,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         _loginAttemptRepository = loginAttemptRepository;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
+        _refreshTokenKeyService = refreshTokenKeyService;
         _passwordSettings = passwordSettings.Value;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
@@ -130,15 +133,15 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         // Generate tokens
         var accessToken = _jwtTokenService.GenerateAccessToken(user, permissions, roleNames);
         var jwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
-        var (refreshToken, refreshTokenHash) = _jwtTokenService.GenerateRefreshToken();
+        var refreshToken = _jwtTokenService.GenerateRefreshToken();
+        var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);
 
         // Build device info from user agent and device ID
         var deviceInfo = BuildDeviceInfo(request.UserAgent, request.DeviceId);
 
-        // Save refresh token
+        // Save refresh token (only hash is stored, not plain token)
         var refreshTokenEntity = RefreshToken.Create(
             user.Id,
-            refreshToken,
             refreshTokenHash,
             jwtId,
             null, // ApplicationId - can be set if request includes it

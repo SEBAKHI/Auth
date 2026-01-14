@@ -66,4 +66,10 @@ public class JwtSettings
     /// Gets the clock skew as a TimeSpan.
     /// </summary>
     public TimeSpan ClockSkew => TimeSpan.FromSeconds(ClockSkewSeconds);
+
+    /// <summary>
+    /// Gets or sets the DPAPI-encrypted HMAC key for refresh token hashing.
+    /// Generate using KeyGeneratorTool and store the encrypted value here.
+    /// </summary>
+    public string RefreshTokenEncryptedKey { get; set; } = string.Empty;
 }

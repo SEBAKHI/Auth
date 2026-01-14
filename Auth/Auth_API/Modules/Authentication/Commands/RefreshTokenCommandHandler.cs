@@ -8,10 +8,6 @@ using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
 
-// Note: IPasswordHasher was removed from this handler because Argon2id hashing is non-deterministic
-// (each hash uses a random salt), making token lookup by hash impossible. We now look up
-// tokens by their plain text value stored in the Token column.
-
 namespace Auth_API.Modules.Authentication.Commands;
 
 /// <summary>
@@ -24,6 +20,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
 
@@ -33,6 +30,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
         IJwtTokenService jwtTokenService,
+        IRefreshTokenKeyService refreshTokenKeyService,
         IOptions<JwtSettings> jwtSettings,
         ILogger<RefreshTokenCommandHandler> logger)
     {
@@ -41,16 +39,16 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
         _jwtTokenService = jwtTokenService;
+        _refreshTokenKeyService = refreshTokenKeyService;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
 
     public async Task<ErrorOr<TokenResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
-        // Find the refresh token by its plain text value
-        // Note: We store the plain token in the database for lookup purposes.
-        // The TokenHash column contains an Argon2id hash for potential additional verification.
-        var storedToken = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken, cancellationToken);
+        // Compute HMAC-SHA256 hash of the incoming token for lookup
+        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(request.RefreshToken);
+        var storedToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
 
         if (storedToken == null)
         {
@@ -117,14 +115,14 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         // Rotate refresh token if enabled
         if (_jwtSettings.RotateRefreshTokens)
         {
-            var (newToken, newTokenHash) = _jwtTokenService.GenerateRefreshToken();
+            var newToken = _jwtTokenService.GenerateRefreshToken();
+            var newTokenHash = _refreshTokenKeyService.ComputeTokenHash(newToken);
             var newJwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
             newRefreshToken = newToken;
 
-            // Create new token
+            // Create new token (only hash is stored, not plain token)
             var newRefreshTokenEntity = RefreshToken.Create(
                 user.Id,
-                newToken,
                 newTokenHash,
                 newJwtId,
                 storedToken.ApplicationId,
@@ -134,8 +132,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
 
             await _refreshTokenRepository.CreateAsync(newRefreshTokenEntity, cancellationToken);
 
-            // Revoke old token (pass the new token string, not the entity ID)
-            storedToken.Revoke(user.Id, "Rotated", newToken);
+            // Revoke old token (pass the new token hash for tracking, not plain token)
+            storedToken.Revoke(user.Id, "Rotated", newTokenHash);
             await _refreshTokenRepository.UpdateAsync(storedToken, cancellationToken);
 
             refreshExpiresIn = (int)_jwtSettings.RefreshTokenLifetime.TotalSeconds;

@@ -15,17 +15,20 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ITokenBlacklistService _tokenBlacklistService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
+    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly ILogger<RevokeTokenCommandHandler> _logger;
 
     public RevokeTokenCommandHandler(
         IJwtTokenService jwtTokenService,
         ITokenBlacklistService tokenBlacklistService,
         IRefreshTokenRepository refreshTokenRepository,
+        IRefreshTokenKeyService refreshTokenKeyService,
         ILogger<RevokeTokenCommandHandler> logger)
     {
         _jwtTokenService = jwtTokenService;
         _tokenBlacklistService = tokenBlacklistService;
         _refreshTokenRepository = refreshTokenRepository;
+        _refreshTokenKeyService = refreshTokenKeyService;
         _logger = logger;
     }
 
@@ -110,9 +113,9 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
         Guid? revokedBy,
         CancellationToken cancellationToken)
     {
-        // Find the refresh token by its plain text value
-        // Note: We store the plain token in the database for lookup purposes.
-        var refreshToken = await _refreshTokenRepository.GetByTokenAsync(token, cancellationToken);
+        // Compute hash and lookup by hash
+        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(token);
+        var refreshToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
 
         if (refreshToken == null)
         {

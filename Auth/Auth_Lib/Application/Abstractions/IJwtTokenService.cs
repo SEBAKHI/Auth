@@ -20,10 +20,14 @@ public interface IJwtTokenService
     string GenerateAccessToken(User user, IEnumerable<string> permissions, IEnumerable<string> roles);
 
     /// <summary>
-    /// Generates a refresh token.
+    /// Generates a cryptographically secure random refresh token.
     /// </summary>
-    /// <returns>A tuple containing the plain token and its Argon2id hash.</returns>
-    (string Token, string TokenHash) GenerateRefreshToken();
+    /// <returns>The plain text refresh token (64 bytes, base64 encoded).</returns>
+    /// <remarks>
+    /// The token hash should be computed using <see cref="IRefreshTokenKeyService.ComputeTokenHash"/>
+    /// for secure storage in the database.
+    /// </remarks>
+    string GenerateRefreshToken();
 
     /// <summary>
     /// Validates an access token and extracts its claims.

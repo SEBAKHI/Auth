@@ -1,7 +1,6 @@
 CREATE PROCEDURE [dbo].[sp_CreateRefreshToken]
     @UserId UNIQUEIDENTIFIER,
-    @Token NVARCHAR(500),
-    @TokenHash NVARCHAR(128),
+    @TokenHash NVARCHAR(100),
     @JwtId NVARCHAR(100),
     @ApplicationId UNIQUEIDENTIFIER = NULL,
     @DeviceInfo NVARCHAR(500) = NULL,
@@ -17,7 +16,6 @@ BEGIN
     (
         [Id],
         [UserId],
-        [Token],
         [TokenHash],
         [JwtId],
         [ApplicationId],
@@ -30,7 +28,6 @@ BEGIN
     (
         @TokenId,
         @UserId,
-        @Token,
         @TokenHash,
         @JwtId,
         @ApplicationId,

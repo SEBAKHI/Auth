@@ -13,14 +13,9 @@ public interface IRefreshTokenRepository
     Task<RefreshToken?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets a refresh token by its hash.
+    /// Gets a refresh token by its HMAC-SHA256 hash.
     /// </summary>
     Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Gets a refresh token by its plain text value.
-    /// </summary>
-    Task<RefreshToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Creates a new refresh token.

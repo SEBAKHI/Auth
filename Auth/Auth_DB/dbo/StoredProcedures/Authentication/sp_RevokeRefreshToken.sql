@@ -1,8 +1,8 @@
 CREATE PROCEDURE [dbo].[sp_RevokeRefreshToken]
-    @TokenHash NVARCHAR(128),
+    @TokenHash NVARCHAR(100),
     @RevokedBy UNIQUEIDENTIFIER = NULL,
     @ReasonRevoked NVARCHAR(200) = NULL,
-    @ReplacedByToken NVARCHAR(500) = NULL
+    @ReplacedByTokenHash NVARCHAR(100) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -32,7 +32,7 @@ BEGIN
     SET [RevokedAt] = GETUTCDATE(),
         [RevokedBy] = @RevokedBy,
         [ReasonRevoked] = @ReasonRevoked,
-        [ReplacedByToken] = @ReplacedByToken
+        [ReplacedByTokenHash] = @ReplacedByTokenHash
     WHERE [Id] = @TokenId;
 
     SELECT 1 AS [Success], N'Token revoked successfully' AS [Message];

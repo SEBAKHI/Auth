@@ -16,17 +16,20 @@ public class IntrospectTokenQueryHandler : IRequestHandler<IntrospectTokenQuery,
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ITokenBlacklistService _tokenBlacklistService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
+    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly ILogger<IntrospectTokenQueryHandler> _logger;
 
     public IntrospectTokenQueryHandler(
         IJwtTokenService jwtTokenService,
         ITokenBlacklistService tokenBlacklistService,
         IRefreshTokenRepository refreshTokenRepository,
+        IRefreshTokenKeyService refreshTokenKeyService,
         ILogger<IntrospectTokenQueryHandler> logger)
     {
         _jwtTokenService = jwtTokenService;
         _tokenBlacklistService = tokenBlacklistService;
         _refreshTokenRepository = refreshTokenRepository;
+        _refreshTokenKeyService = refreshTokenKeyService;
         _logger = logger;
     }
 
@@ -125,8 +128,9 @@ public class IntrospectTokenQueryHandler : IRequestHandler<IntrospectTokenQuery,
         string token,
         CancellationToken cancellationToken)
     {
-        // Find the refresh token by its plain text value
-        var refreshToken = await _refreshTokenRepository.GetByTokenAsync(token, cancellationToken);
+        // Compute hash and lookup by hash
+        var tokenHash = _refreshTokenKeyService.ComputeTokenHash(token);
+        var refreshToken = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
 
         if (refreshToken == null)
         {

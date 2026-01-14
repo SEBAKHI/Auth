@@ -43,29 +43,15 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task<RefreshToken?> GetByTokenAsync(string token, CancellationToken cancellationToken = default)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        var dto = await connection.QueryFirstOrDefaultAsync<RefreshTokenDto>(@"
-            SELECT * FROM [dbo].[RefreshTokens]
-            WHERE [Token] = @Token",
-            new { Token = token });
-
-        return dto?.ToEntity();
-    }
-
-    /// <inheritdoc />
     public async Task<RefreshToken> CreateAsync(RefreshToken token, CancellationToken cancellationToken = default)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         await connection.ExecuteAsync(
-            "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @Token, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt",
+            "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt",
             new
             {
                 token.UserId,
-                token.Token,
                 token.TokenHash,
                 token.JwtId,
                 token.ApplicationId,
@@ -87,7 +73,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
                 [RevokedAt] = @RevokedAt,
                 [RevokedBy] = @RevokedBy,
                 [ReasonRevoked] = @ReasonRevoked,
-                [ReplacedByToken] = @ReplacedByToken
+                [ReplacedByTokenHash] = @ReplacedByTokenHash
             WHERE [Id] = @Id",
             new
             {
@@ -95,7 +81,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
                 token.RevokedAt,
                 token.RevokedBy,
                 token.ReasonRevoked,
-                token.ReplacedByToken
+                token.ReplacedByTokenHash
             });
     }
 
@@ -178,7 +164,6 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     {
         public Guid Id { get; init; }
         public Guid UserId { get; init; }
-        public string Token { get; init; } = string.Empty;
         public string TokenHash { get; init; } = string.Empty;
         public string JwtId { get; init; } = string.Empty;
         public Guid? ApplicationId { get; init; }
@@ -188,13 +173,12 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         public DateTime ExpiresAt { get; init; }
         public DateTime? RevokedAt { get; init; }
         public Guid? RevokedBy { get; init; }
-        public string? ReplacedByToken { get; init; }
+        public string? ReplacedByTokenHash { get; init; }
         public string? ReasonRevoked { get; init; }
 
         public RefreshToken ToEntity() => new(
             Id,
             UserId,
-            Token,
             TokenHash,
             JwtId,
             ApplicationId,
@@ -204,7 +188,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
             ExpiresAt,
             RevokedAt,
             RevokedBy,
-            ReplacedByToken,
+            ReplacedByTokenHash,
             ReasonRevoked);
     }
 }

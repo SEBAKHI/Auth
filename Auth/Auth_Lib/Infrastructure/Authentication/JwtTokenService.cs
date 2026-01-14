@@ -92,14 +92,10 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     }
 
     /// <inheritdoc />
-    public (string Token, string TokenHash) GenerateRefreshToken()
+    public string GenerateRefreshToken()
     {
         var randomBytes = RandomNumberGenerator.GetBytes(64);
-        var token = Convert.ToBase64String(randomBytes);
-        // Hash the token using Argon2id for secure storage
-        var tokenHash = _passwordHasher.HashPassword(token);
-
-        return (token, tokenHash);
+        return Convert.ToBase64String(randomBytes);
     }
 
     /// <inheritdoc />

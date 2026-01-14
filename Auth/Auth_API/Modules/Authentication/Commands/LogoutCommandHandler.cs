@@ -15,17 +15,20 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
 {
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly ITokenBlacklistService _tokenBlacklistService;
+    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<LogoutCommandHandler> _logger;
 
     public LogoutCommandHandler(
         IRefreshTokenRepository refreshTokenRepository,
         ITokenBlacklistService tokenBlacklistService,
+        IRefreshTokenKeyService refreshTokenKeyService,
         IOptions<JwtSettings> jwtSettings,
         ILogger<LogoutCommandHandler> logger)
     {
         _refreshTokenRepository = refreshTokenRepository;
         _tokenBlacklistService = tokenBlacklistService;
+        _refreshTokenKeyService = refreshTokenKeyService;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
@@ -48,8 +51,9 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         }
         else if (!string.IsNullOrEmpty(request.RefreshToken))
         {
-            // Revoke only the specific token by its plain text value
-            var token = await _refreshTokenRepository.GetByTokenAsync(request.RefreshToken, cancellationToken);
+            // Compute hash and lookup by hash
+            var tokenHash = _refreshTokenKeyService.ComputeTokenHash(request.RefreshToken);
+            var token = await _refreshTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
 
             if (token != null && !token.IsRevoked)
             {

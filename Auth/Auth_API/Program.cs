@@ -5,6 +5,7 @@ using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common.Middleware;
+using Auth_API.Tools;
 using Auth_Lib.Application.Abstractions;
 using Auth_Lib.Configuration;
 using Auth_Lib.Domain.Interfaces.Repositories;
@@ -17,6 +18,7 @@ using Auth_Lib.Validators;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -42,6 +44,13 @@ builder.Services.Configure<PasswordSettings>(builder.Configuration.GetSection(Pa
 builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(GatewaySettings.SectionName));
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(EmailSettings.SectionName));
+
+// Data Protection (DPAPI) for encrypting HMAC keys at rest
+builder.Services.AddDataProtection()
+    .SetApplicationName("AuthSystem")
+    .PersistKeysToFileSystem(new DirectoryInfo(
+        builder.Configuration.GetValue<string>("DataProtection:KeyPath")
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AuthSystem", "Keys")));
 
 // Database
 var connectionString = builder.Configuration.GetConnectionString("AuthDb")
@@ -78,6 +87,7 @@ var jwtTokenService = new JwtTokenService(Options.Create(jwtSettings), passwordH
 builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
 
 builder.Services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
+builder.Services.AddSingleton<IRefreshTokenKeyService, RefreshTokenKeyService>();
 builder.Services.AddSingleton<ITotpService>(sp => new TotpService(sp.GetRequiredService<IPasswordHasher>()));
 builder.Services.AddSingleton<IOtpGenerator, OtpGenerator>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
@@ -270,6 +280,26 @@ app.MapHealthChecks("/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.
 });
 
 app.MapControllers();
+
+// Handle command-line arguments for key generation
+if (args.Contains("--generate-hmac-key"))
+{
+    var dataProtectionProvider = app.Services.GetRequiredService<IDataProtectionProvider>();
+    var encryptedKey = KeyGeneratorTool.GenerateEncryptedHmacKey(dataProtectionProvider);
+
+    Console.WriteLine();
+    Console.WriteLine("=== HMAC Key Generated Successfully ===");
+    Console.WriteLine();
+    Console.WriteLine("Add this to your appsettings.json under the \"Jwt\" section:");
+    Console.WriteLine();
+    Console.WriteLine($"  \"RefreshTokenEncryptedKey\": \"{encryptedKey}\"");
+    Console.WriteLine();
+    Console.WriteLine("IMPORTANT: This key is encrypted using Windows DPAPI.");
+    Console.WriteLine("It can only be decrypted on this machine (or machines sharing the Data Protection key ring).");
+    Console.WriteLine();
+
+    return;
+}
 
 try
 {

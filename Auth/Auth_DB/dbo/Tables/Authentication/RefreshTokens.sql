@@ -2,8 +2,7 @@ CREATE TABLE [dbo].[RefreshTokens]
 (
     [Id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
     [UserId] UNIQUEIDENTIFIER NOT NULL,
-    [Token] NVARCHAR(500) NOT NULL,
-    [TokenHash] NVARCHAR(500) NOT NULL,   -- Argon2id hash (longer than SHA256)
+    [TokenHash] NVARCHAR(100) NOT NULL,   -- HMAC-SHA256 hash (base64 encoded, ~44 chars)
     [JwtId] NVARCHAR(100) NOT NULL,
     [ApplicationId] UNIQUEIDENTIFIER NULL,
     [DeviceInfo] NVARCHAR(500) NULL,
@@ -12,7 +11,7 @@ CREATE TABLE [dbo].[RefreshTokens]
     [ExpiresAt] DATETIME2 NOT NULL,
     [RevokedAt] DATETIME2 NULL,
     [RevokedBy] UNIQUEIDENTIFIER NULL,
-    [ReplacedByToken] NVARCHAR(500) NULL,
+    [ReplacedByTokenHash] NVARCHAR(100) NULL,  -- Hash of the replacement token (for rotation tracking)
     [ReasonRevoked] NVARCHAR(200) NULL,
 
     CONSTRAINT [PK_RefreshTokens] PRIMARY KEY CLUSTERED ([Id]),
@@ -21,18 +20,14 @@ CREATE TABLE [dbo].[RefreshTokens]
 );
 GO
 
--- TokenHash is Argon2id hash of Token for secure lookup
+-- TokenHash is HMAC-SHA256 hash of the plain refresh token
+-- The plain token is NEVER stored in the database for security
 -- JwtId links to the 'jti' claim in the access token
--- ReplacedByToken for token rotation chain tracking
+-- ReplacedByTokenHash tracks the hash of the replacement token for rotation chain tracking
 
 -- Indexes
--- Token index for plain text lookup (primary lookup method)
-CREATE NONCLUSTERED INDEX [IX_RefreshTokens_Token]
-ON [dbo].[RefreshTokens] ([Token]);
-GO
-
--- TokenHash index for Argon2id hash (kept for potential additional verification)
-CREATE NONCLUSTERED INDEX [IX_RefreshTokens_TokenHash]
+-- TokenHash unique index for deterministic lookup (HMAC-SHA256 is deterministic)
+CREATE UNIQUE NONCLUSTERED INDEX [IX_RefreshTokens_TokenHash]
 ON [dbo].[RefreshTokens] ([TokenHash]);
 GO
 

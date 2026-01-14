@@ -1,5 +1,5 @@
 CREATE PROCEDURE [dbo].[sp_ValidateRefreshToken]
-    @TokenHash NVARCHAR(128)
+    @TokenHash NVARCHAR(100)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -7,7 +7,6 @@ BEGIN
     SELECT
         rt.[Id],
         rt.[UserId],
-        rt.[Token],
         rt.[TokenHash],
         rt.[JwtId],
         rt.[ApplicationId],
@@ -17,7 +16,7 @@ BEGIN
         rt.[ExpiresAt],
         rt.[RevokedAt],
         rt.[RevokedBy],
-        rt.[ReplacedByToken],
+        rt.[ReplacedByTokenHash],
         rt.[ReasonRevoked],
         CASE
             WHEN rt.[RevokedAt] IS NOT NULL THEN 0
