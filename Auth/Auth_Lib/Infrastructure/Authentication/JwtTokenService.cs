@@ -9,6 +9,7 @@ using Auth_Lib.Constants;
 using Auth_Lib.Domain.Entities;
 using Auth_Lib.Errors;
 using ErrorOr;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
@@ -22,16 +23,21 @@ public class JwtTokenService : IJwtTokenService, IDisposable
 {
     private readonly JwtSettings _settings;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IDataProtectionProvider? _dataProtectionProvider;
     private readonly RSA _rsa;
     private readonly RsaSecurityKey _securityKey;
     private readonly SigningCredentials _signingCredentials;
     private readonly JwtSecurityTokenHandler _tokenHandler;
     private bool _disposed;
 
-    public JwtTokenService(IOptions<JwtSettings> settings, IPasswordHasher passwordHasher)
+    public JwtTokenService(
+        IOptions<JwtSettings> settings,
+        IPasswordHasher passwordHasher,
+        IDataProtectionProvider? dataProtectionProvider = null)
     {
         _settings = settings.Value;
         _passwordHasher = passwordHasher;
+        _dataProtectionProvider = dataProtectionProvider;
         _rsa = LoadOrGenerateKey();
         _securityKey = new RsaSecurityKey(_rsa) { KeyId = _settings.KeyId };
         _signingCredentials = new SigningCredentials(_securityKey, SecurityAlgorithms.RsaSha256);
@@ -227,7 +233,7 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     {
         var rsa = RSA.Create(2048);
 
-        // Try to load from file
+        // Priority 1: Load from file path
         if (!string.IsNullOrEmpty(_settings.PrivateKeyPath) && File.Exists(_settings.PrivateKeyPath))
         {
             var pem = File.ReadAllText(_settings.PrivateKeyPath);
@@ -235,15 +241,23 @@ public class JwtTokenService : IJwtTokenService, IDisposable
             return rsa;
         }
 
-        // Try to load from PEM string in config
+        // Priority 2: Decrypt DPAPI-encrypted key from config (recommended for production)
+        if (!string.IsNullOrEmpty(_settings.PrivateKeyEncrypted) && _dataProtectionProvider != null)
+        {
+            var pem = RsaKeyService.DecryptPrivateKey(_dataProtectionProvider, _settings.PrivateKeyEncrypted);
+            rsa.ImportFromPem(pem);
+            return rsa;
+        }
+
+        // Priority 3: Load plain PEM from config (legacy/development)
         if (!string.IsNullOrEmpty(_settings.PrivateKeyPem))
         {
             rsa.ImportFromPem(_settings.PrivateKeyPem);
             return rsa;
         }
 
-        // Generate a new key if none provided (for development only)
-        // In production, this should be configured
+        // Priority 4: Generate new key (development only)
+        // In production, this should be configured via one of the above methods
         return rsa;
     }
 

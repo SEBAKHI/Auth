@@ -46,11 +46,18 @@ builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(Ses
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(EmailSettings.SectionName));
 
 // Data Protection (DPAPI) for encrypting HMAC keys at rest
+var dataProtectionKeyPath = builder.Configuration.GetValue<string>("DataProtection:KeyPath");
+if (string.IsNullOrEmpty(dataProtectionKeyPath))
+{
+    dataProtectionKeyPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "AuthSystem",
+        "Keys");
+}
+
 builder.Services.AddDataProtection()
     .SetApplicationName("AuthSystem")
-    .PersistKeysToFileSystem(new DirectoryInfo(
-        builder.Configuration.GetValue<string>("DataProtection:KeyPath")
-        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AuthSystem", "Keys")));
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
 
 // Database
 var connectionString = builder.Configuration.GetConnectionString("AuthDb")
@@ -83,7 +90,15 @@ builder.Services.AddSingleton<IPasswordHasher>(passwordHasher);
 // Create JwtTokenService early so we can use its security key for JWT Bearer configuration
 var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<JwtSettings>()
     ?? new JwtSettings();
-var jwtTokenService = new JwtTokenService(Options.Create(jwtSettings), passwordHasher);
+
+// Build a temporary service provider to get IDataProtectionProvider for decrypting RSA keys
+var tempServiceProvider = builder.Services.BuildServiceProvider();
+var jwtDataProtectionProvider = tempServiceProvider.GetRequiredService<IDataProtectionProvider>();
+
+var jwtTokenService = new JwtTokenService(
+    Options.Create(jwtSettings),
+    passwordHasher,
+    jwtDataProtectionProvider);
 builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
 
 builder.Services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
@@ -295,6 +310,27 @@ if (args.Contains("--generate-hmac-key"))
     Console.WriteLine($"  \"RefreshTokenEncryptedKey\": \"{encryptedKey}\"");
     Console.WriteLine();
     Console.WriteLine("IMPORTANT: This key is encrypted using Windows DPAPI.");
+    Console.WriteLine("It can only be decrypted on this machine (or machines sharing the Data Protection key ring).");
+    Console.WriteLine();
+
+    return;
+}
+
+if (args.Contains("--generate-rsa-key"))
+{
+    var dataProtectionProvider = app.Services.GetRequiredService<IDataProtectionProvider>();
+    var (encryptedPrivateKey, publicKeyPem) = KeyGeneratorTool.GenerateEncryptedRsaKey(dataProtectionProvider);
+
+    Console.WriteLine();
+    Console.WriteLine("=== RSA Key Pair Generated Successfully ===");
+    Console.WriteLine();
+    Console.WriteLine("Add this to your appsettings.json under the \"Jwt\" section:");
+    Console.WriteLine();
+    Console.WriteLine($"  \"PrivateKeyEncrypted\": \"{encryptedPrivateKey}\"");
+    Console.WriteLine();
+    Console.WriteLine("Public Key (for external token validation):");
+    Console.WriteLine(publicKeyPem);
+    Console.WriteLine("IMPORTANT: The private key is encrypted using Windows DPAPI.");
     Console.WriteLine("It can only be decrypted on this machine (or machines sharing the Data Protection key ring).");
     Console.WriteLine();
 

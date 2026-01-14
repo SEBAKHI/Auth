@@ -34,8 +34,16 @@ public class JwtSettings
 
     /// <summary>
     /// Gets or sets the RSA private key as a PEM string (alternative to file path).
+    /// For development use only. Use PrivateKeyEncrypted for production.
     /// </summary>
     public string? PrivateKeyPem { get; set; }
+
+    /// <summary>
+    /// Gets or sets the DPAPI-encrypted RSA private key PEM.
+    /// Generate using --generate-rsa-key and store the encrypted value here.
+    /// This is the recommended approach for production.
+    /// </summary>
+    public string? PrivateKeyEncrypted { get; set; }
 
     /// <summary>
     /// Gets or sets the key ID (kid) for the JWKS endpoint.
