@@ -18,28 +18,39 @@ public class RefreshTokenKeyService : IRefreshTokenKeyService
 
     /// <summary>
     /// Initializes a new instance of the <see cref="RefreshTokenKeyService"/> class.
+    /// Supports two key sources with priority:
+    /// 1. RefreshTokenHmacKeyPlain (from DPAPI secret file) - takes priority
+    /// 2. RefreshTokenEncryptedKey (legacy, DPAPI-encrypted in appsettings.json)
     /// </summary>
-    /// <param name="dataProtectionProvider">The data protection provider for decrypting the HMAC key.</param>
-    /// <param name="settings">The JWT settings containing the encrypted HMAC key.</param>
-    /// <exception cref="InvalidOperationException">Thrown when the encrypted key is not configured.</exception>
+    /// <param name="dataProtectionProvider">The data protection provider for decrypting legacy HMAC key.</param>
+    /// <param name="settings">The JWT settings containing the HMAC key configuration.</param>
+    /// <exception cref="InvalidOperationException">Thrown when no HMAC key is configured.</exception>
     public RefreshTokenKeyService(
         IDataProtectionProvider dataProtectionProvider,
         IOptions<JwtSettings> settings)
     {
+        var plainKey = settings.Value.RefreshTokenHmacKeyPlain;
         var encryptedKey = settings.Value.RefreshTokenEncryptedKey;
 
-        if (string.IsNullOrEmpty(encryptedKey))
+        // Priority 1: Plain key from DPAPI secret file (set by DpapiSecretConfigurationProvider)
+        if (!string.IsNullOrEmpty(plainKey))
+        {
+            _hmacKey = Convert.FromBase64String(plainKey);
+        }
+        // Priority 2: Legacy DPAPI-encrypted key in appsettings.json
+        else if (!string.IsNullOrEmpty(encryptedKey))
+        {
+            var protector = dataProtectionProvider.CreateProtector(ProtectorPurpose);
+            var decryptedKeyBase64 = protector.Unprotect(encryptedKey);
+            _hmacKey = Convert.FromBase64String(decryptedKeyBase64);
+        }
+        else
         {
             throw new InvalidOperationException(
-                "RefreshTokenEncryptedKey is not configured. " +
-                "Generate a key using KeyGeneratorTool and add it to appsettings.json under JwtSettings.RefreshTokenEncryptedKey");
+                "HMAC key is not configured. Either:\n" +
+                "1. Enable AutoGenerateKeys in SecretManagement settings (recommended), or\n" +
+                "2. Generate a key using KeyGeneratorTool and add it to appsettings.json under Jwt:RefreshTokenEncryptedKey");
         }
-
-        var protector = dataProtectionProvider.CreateProtector(ProtectorPurpose);
-
-        // Decrypt the HMAC key at startup
-        var decryptedKeyBase64 = protector.Unprotect(encryptedKey);
-        _hmacKey = Convert.FromBase64String(decryptedKeyBase64);
 
         // Validate key size (should be at least 32 bytes / 256 bits for HMAC-SHA256)
         if (_hmacKey.Length < 32)

@@ -78,6 +78,14 @@ public class JwtSettings
     /// <summary>
     /// Gets or sets the DPAPI-encrypted HMAC key for refresh token hashing.
     /// Generate using KeyGeneratorTool and store the encrypted value here.
+    /// LEGACY: Use RefreshTokenHmacKeyPlain (from DPAPI secret file) instead.
     /// </summary>
     public string RefreshTokenEncryptedKey { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the plain text HMAC key (base64 encoded) for refresh token hashing.
+    /// This is set automatically by the DPAPI secret configuration provider.
+    /// Takes priority over RefreshTokenEncryptedKey when both are configured.
+    /// </summary>
+    public string? RefreshTokenHmacKeyPlain { get; set; }
 }
