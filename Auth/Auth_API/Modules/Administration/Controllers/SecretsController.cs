@@ -1,11 +1,11 @@
 using System.Security.Claims;
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Modules.Administration.Contracts;
+using Auth_API.Modules.Administration.Filters;
 using Auth_Lib.Application.Abstractions;
-using Auth_Lib.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
 namespace Auth_API.Modules.Administration.Controllers;
 
@@ -19,19 +19,17 @@ namespace Auth_API.Modules.Administration.Controllers;
 [Route("api/v{version:apiVersion}/admin/[controller]")]
 [Produces("application/json")]
 [Authorize]
+[RequireAdminApiEnabled]
 public class SecretsController : ControllerBase
 {
     private readonly IDpapiSecretService _secretService;
-    private readonly SecretManagementSettings _settings;
     private readonly ILogger<SecretsController> _logger;
 
     public SecretsController(
         IDpapiSecretService secretService,
-        IOptions<SecretManagementSettings> settings,
         ILogger<SecretsController> logger)
     {
         _secretService = secretService;
-        _settings = settings.Value;
         _logger = logger;
     }
 
@@ -49,11 +47,6 @@ public class SecretsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetStatus(CancellationToken cancellationToken)
     {
-        if (!_settings.EnableAdminApi)
-        {
-            return Forbid("Secret management admin API is disabled.");
-        }
-
         var status = await _secretService.GetStatusAsync(cancellationToken);
         return Ok(status);
     }
@@ -73,11 +66,6 @@ public class SecretsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GenerateRsaKey(CancellationToken cancellationToken)
     {
-        if (!_settings.EnableAdminApi)
-        {
-            return Forbid("Secret management admin API is disabled.");
-        }
-
         var userId = User.FindFirstValue("sub") ?? "unknown";
         _logger.LogWarning(
             "RSA key regeneration requested by user {UserId} - all access tokens will be invalidated",
@@ -108,11 +96,6 @@ public class SecretsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GenerateHmacKey(CancellationToken cancellationToken)
     {
-        if (!_settings.EnableAdminApi)
-        {
-            return Forbid("Secret management admin API is disabled.");
-        }
-
         var userId = User.FindFirstValue("sub") ?? "unknown";
         _logger.LogWarning(
             "HMAC key regeneration requested by user {UserId} - all refresh tokens will be invalidated",
@@ -141,11 +124,6 @@ public class SecretsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GenerateGatewayToken(CancellationToken cancellationToken)
     {
-        if (!_settings.EnableAdminApi)
-        {
-            return Forbid("Secret management admin API is disabled.");
-        }
-
         var userId = User.FindFirstValue("sub") ?? "unknown";
         _logger.LogWarning(
             "Gateway token regeneration requested by user {UserId}",
@@ -183,11 +161,6 @@ public class SecretsController : ControllerBase
         [FromBody] SetSecretRequest request,
         CancellationToken cancellationToken)
     {
-        if (!_settings.EnableAdminApi)
-        {
-            return Forbid("Secret management admin API is disabled.");
-        }
-
         if (!IsValidSecretKey(key))
         {
             return BadRequest(new ProblemDetails
@@ -228,11 +201,6 @@ public class SecretsController : ControllerBase
         string key,
         CancellationToken cancellationToken)
     {
-        if (!_settings.EnableAdminApi)
-        {
-            return Forbid("Secret management admin API is disabled.");
-        }
-
         var removed = await _secretService.RemoveSecretAsync($"Custom:{key}", cancellationToken);
 
         if (!removed)
@@ -260,77 +228,4 @@ public class SecretsController : ControllerBase
                key.Length <= 100 &&
                key.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '.');
     }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// Response DTOs
-// ═══════════════════════════════════════════════════════════════════════════
-
-/// <summary>
-/// Response for RSA key generation.
-/// </summary>
-public record RsaKeyGenerationResponse
-{
-    /// <summary>
-    /// Whether the operation was successful.
-    /// </summary>
-    public bool Success { get; init; }
-
-    /// <summary>
-    /// Human-readable message describing the result.
-    /// </summary>
-    public string Message { get; init; } = string.Empty;
-
-    /// <summary>
-    /// The public key in PEM format for external token validation.
-    /// </summary>
-    public string PublicKeyPem { get; init; } = string.Empty;
-}
-
-/// <summary>
-/// Response for HMAC key generation.
-/// </summary>
-public record HmacKeyGenerationResponse
-{
-    /// <summary>
-    /// Whether the operation was successful.
-    /// </summary>
-    public bool Success { get; init; }
-
-    /// <summary>
-    /// Human-readable message describing the result.
-    /// </summary>
-    public string Message { get; init; } = string.Empty;
-}
-
-/// <summary>
-/// Response for gateway token generation.
-/// </summary>
-public record GatewayTokenGenerationResponse
-{
-    /// <summary>
-    /// Whether the operation was successful.
-    /// </summary>
-    public bool Success { get; init; }
-
-    /// <summary>
-    /// Human-readable message describing the result.
-    /// </summary>
-    public string Message { get; init; } = string.Empty;
-
-    /// <summary>
-    /// The generated gateway token. Store this securely - it will not be shown again.
-    /// </summary>
-    public string Token { get; init; } = string.Empty;
-}
-
-/// <summary>
-/// Request for setting a secret value.
-/// </summary>
-public record SetSecretRequest
-{
-    /// <summary>
-    /// The secret value to store.
-    /// </summary>
-    public string Value { get; init; } = string.Empty;
 }
