@@ -26,4 +26,10 @@ public record ResetPasswordRequest
     [Required(ErrorMessage = "Password confirmation is required.")]
     [Compare(nameof(NewPassword), ErrorMessage = "New password and confirmation do not match.")]
     public required string ConfirmNewPassword { get; init; }
+
+    /// <summary>
+    /// Gets whether to terminate all sessions after resetting the password.
+    /// If not specified, uses server configuration default (typically true).
+    /// </summary>
+    public bool? TerminateSessions { get; init; }
 }

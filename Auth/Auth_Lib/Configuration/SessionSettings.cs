@@ -40,6 +40,18 @@ public class SessionSettings
     public int IdleTimeoutMinutes { get; set; } = 30;
 
     /// <summary>
+    /// Gets or sets whether to terminate all sessions when a user changes their password.
+    /// Default is true for security. Can be overridden per-request.
+    /// </summary>
+    public bool TerminateSessionsOnPasswordChange { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether to terminate all sessions when a user resets their password.
+    /// Default is true for security (account may be compromised). Can be overridden per-request.
+    /// </summary>
+    public bool TerminateSessionsOnPasswordReset { get; set; } = true;
+
+    /// <summary>
     /// Gets the session lifetime as a TimeSpan.
     /// </summary>
     public TimeSpan Lifetime => TimeSpan.FromHours(LifetimeHours);

@@ -20,6 +20,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IUserSessionRepository _userSessionRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordSettings _passwordSettings;
+    private readonly SessionSettings _sessionSettings;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
 
     public ResetPasswordCommandHandler(
@@ -29,6 +30,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IUserSessionRepository userSessionRepository,
         IPasswordHasher passwordHasher,
         IOptions<PasswordSettings> passwordSettings,
+        IOptions<SessionSettings> sessionSettings,
         ILogger<ResetPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -37,6 +39,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _userSessionRepository = userSessionRepository;
         _passwordHasher = passwordHasher;
         _passwordSettings = passwordSettings.Value;
+        _sessionSettings = sessionSettings.Value;
         _logger = logger;
     }
 
@@ -132,15 +135,28 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
             _passwordSettings.HistoryCount,
             cancellationToken);
 
-        // Terminate all existing sessions for security
-        await _userSessionRepository.TerminateAllForUserAsync(
-            user.Id,
-            "Password reset",
-            cancellationToken);
+        // Determine whether to terminate sessions
+        var shouldTerminateSessions = request.TerminateSessions
+            ?? _sessionSettings.TerminateSessionsOnPasswordReset;
 
-        _logger.LogInformation(
-            "Password reset successfully for user {UserId}",
-            user.Id);
+        if (shouldTerminateSessions)
+        {
+            // Terminate all existing sessions for security
+            await _userSessionRepository.TerminateAllForUserAsync(
+                user.Id,
+                "Password reset",
+                cancellationToken);
+
+            _logger.LogInformation(
+                "Password reset for user {UserId}, terminated all sessions",
+                user.Id);
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Password reset for user {UserId}, sessions preserved per request/configuration",
+                user.Id);
+        }
 
         return Result.Success;
     }

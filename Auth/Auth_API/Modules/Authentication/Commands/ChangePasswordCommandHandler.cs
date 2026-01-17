@@ -19,6 +19,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
     private readonly IUserSessionRepository _userSessionRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordSettings _passwordSettings;
+    private readonly SessionSettings _sessionSettings;
     private readonly ILogger<ChangePasswordCommandHandler> _logger;
 
     public ChangePasswordCommandHandler(
@@ -27,6 +28,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         IUserSessionRepository userSessionRepository,
         IPasswordHasher passwordHasher,
         IOptions<PasswordSettings> passwordSettings,
+        IOptions<SessionSettings> sessionSettings,
         ILogger<ChangePasswordCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -34,6 +36,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         _userSessionRepository = userSessionRepository;
         _passwordHasher = passwordHasher;
         _passwordSettings = passwordSettings.Value;
+        _sessionSettings = sessionSettings.Value;
         _logger = logger;
     }
 
@@ -113,15 +116,44 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
             _passwordSettings.HistoryCount,
             cancellationToken);
 
-        // Terminate all existing sessions for security (force re-login)
-        await _userSessionRepository.TerminateAllForUserAsync(
-            request.UserId,
-            "Password changed",
-            cancellationToken);
+        // Determine whether to terminate sessions
+        var shouldTerminateSessions = request.TerminateSessions
+            ?? _sessionSettings.TerminateSessionsOnPasswordChange;
 
-        _logger.LogInformation(
-            "Password changed successfully for user {UserId}",
-            request.UserId);
+        if (shouldTerminateSessions)
+        {
+            if (request.CurrentSessionId.HasValue)
+            {
+                // Terminate all sessions except the current one
+                await _userSessionRepository.TerminateOtherSessionsAsync(
+                    request.UserId,
+                    request.CurrentSessionId.Value,
+                    "Password changed",
+                    cancellationToken);
+
+                _logger.LogInformation(
+                    "Password changed for user {UserId}, terminated other sessions (current session preserved)",
+                    request.UserId);
+            }
+            else
+            {
+                // Terminate all sessions
+                await _userSessionRepository.TerminateAllForUserAsync(
+                    request.UserId,
+                    "Password changed",
+                    cancellationToken);
+
+                _logger.LogInformation(
+                    "Password changed for user {UserId}, terminated all sessions",
+                    request.UserId);
+            }
+        }
+        else
+        {
+            _logger.LogInformation(
+                "Password changed for user {UserId}, sessions preserved per request/configuration",
+                request.UserId);
+        }
 
         return Result.Success;
     }

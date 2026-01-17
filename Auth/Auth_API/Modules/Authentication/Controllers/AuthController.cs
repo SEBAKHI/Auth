@@ -136,7 +136,9 @@ public class AuthController : ControllerBase
         var command = new ChangePasswordCommand(
             userId.Value,
             request.CurrentPassword,
-            request.NewPassword);
+            request.NewPassword,
+            request.TerminateSessions,
+            GetCurrentSessionId());
 
         var result = await _mediator.Send(command);
 
@@ -177,7 +179,11 @@ public class AuthController : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {
-        var command = new ResetPasswordCommand(request.Token, request.NewPassword);
+        var command = new ResetPasswordCommand(
+            request.Token,
+            request.NewPassword,
+            request.TerminateSessions);
+
         var result = await _mediator.Send(command);
 
         return result.Match<IActionResult>(
