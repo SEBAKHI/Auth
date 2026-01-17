@@ -18,8 +18,28 @@ public interface IUserRepository
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Checks if a user exists with the given email.
+    /// Checks if an email address is reserved (used by any user, including soft-deleted users).
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This method intentionally includes soft-deleted users to enforce the email reservation policy.
+    /// Once an email is used, it remains reserved forever and cannot be reused by new accounts.
+    /// </para>
+    /// <para>
+    /// This follows enterprise identity management best practices (Microsoft, Google) to prevent:
+    /// <list type="bullet">
+    ///   <item><description>Identity confusion (new user receiving old user's communications)</description></item>
+    ///   <item><description>Audit trail corruption (same email mapping to different users over time)</description></item>
+    ///   <item><description>Legal/compliance issues with eDiscovery and data retention</description></item>
+    /// </list>
+    /// </para>
+    /// <para>
+    /// Note: This differs from <see cref="GetByEmailAsync"/> which only returns active users.
+    /// </para>
+    /// </remarks>
+    /// <param name="email">The email address to check.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns><c>true</c> if the email is reserved (used by any user); otherwise, <c>false</c>.</returns>
     Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default);
 
     /// <summary>
