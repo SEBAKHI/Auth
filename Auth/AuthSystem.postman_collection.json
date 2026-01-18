@@ -366,7 +366,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"currentPassword\": \"CurrentPass@123\",\n    \"newPassword\": \"NewSecurePass@456\",\n    \"confirmNewPassword\": \"NewSecurePass@456\"\n}"
+							"raw": "{\n    \"currentPassword\": \"CurrentPass@123\",\n    \"newPassword\": \"NewSecurePass@456\",\n    \"confirmNewPassword\": \"NewSecurePass@456\",\n    \"terminateSessions\": true\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/change-password",
@@ -412,7 +412,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"token\": \"reset-token-from-forgot-password\",\n    \"newPassword\": \"NewSecurePass@789\",\n    \"confirmNewPassword\": \"NewSecurePass@789\"\n}"
+							"raw": "{\n    \"token\": \"reset-token-from-forgot-password\",\n    \"newPassword\": \"NewSecurePass@789\",\n    \"confirmNewPassword\": \"NewSecurePass@789\",\n    \"terminateSessions\": true\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/{{apiVersion}}/auth/reset-password",
@@ -879,14 +879,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"reason\": \"Security violation\",\n    \"lockoutEndUtc\": null\n}"
+							"raw": "{\n    \"reason\": \"Security violation\",\n    \"lockDurationMinutes\": null\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/{{apiVersion}}/users/{{userId}}/lock",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "{{apiVersion}}", "users", "{{userId}}", "lock"]
 						},
-						"description": "Locks a user account, preventing login.\n\n**Required Permission:** `users:manage`\n\nOptionally specify lockoutEndUtc for temporary lock."
+						"description": "Locks a user account, preventing login.\n\n**Required Permission:** `users:manage`\n\nOptionally specify lockDurationMinutes for temporary lock (e.g., 60 for 1 hour)."
 					},
 					"response": []
 				},
@@ -1339,6 +1339,198 @@
 							"path": ["api", "{{apiVersion}}", "apikeys", "{{apiKeyId}}", "revoke"]
 						},
 						"description": "Revokes an API key. This action cannot be undone.\n\n**Required Permission:** `apikeys:revoke`"
+					},
+					"response": []
+				},
+				{
+					"name": "Rotate API Key",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"gracePeriodMinutes\": 60\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/apikeys/{{apiKeyId}}/rotate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "apikeys", "{{apiKeyId}}", "rotate"]
+						},
+						"description": "Rotates an API key, generating a new key while optionally keeping the old key valid for a grace period.\n\n**Required Permission:** `apikeys:rotate`\n\n**gracePeriodMinutes:** How long the old key remains valid (default: 60 minutes).\n\n**IMPORTANT:** The new plain text key is only returned once. Store it securely!"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Administration",
+			"description": "Administrative endpoints for secret management.\n\n**Note:** Only available when SecretManagement:EnableAdminApi is true.\n\n**Required Permission:** `secrets.manage`",
+			"item": [
+				{
+					"name": "Get Secrets Status",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/admin/secrets/status",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "admin", "secrets", "status"]
+						},
+						"description": "Gets the status of all configured secrets.\n\nDoes not return actual secret values, only whether they are configured.\n\n**Required Permission:** `secrets.manage`"
+					},
+					"response": []
+				},
+				{
+					"name": "Generate RSA Key",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/admin/secrets/generate/rsa",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "admin", "secrets", "generate", "rsa"]
+						},
+						"description": "Regenerates the RSA key pair used for JWT signing.\n\n**WARNING:** This will invalidate ALL existing access tokens immediately. Users will need to re-authenticate.\n\n**Required Permission:** `secrets.manage`"
+					},
+					"response": []
+				},
+				{
+					"name": "Generate HMAC Key",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/admin/secrets/generate/hmac",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "admin", "secrets", "generate", "hmac"]
+						},
+						"description": "Regenerates the HMAC key used for refresh token hashing.\n\n**WARNING:** This will invalidate ALL existing refresh tokens. Users will need to re-authenticate.\n\n**Required Permission:** `secrets.manage`"
+					},
+					"response": []
+				},
+				{
+					"name": "Generate Gateway Token",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/admin/secrets/generate/gateway-token",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "admin", "secrets", "generate", "gateway-token"]
+						},
+						"description": "Regenerates the gateway token used for inter-service authentication.\n\n**WARNING:** The API Gateway must be reconfigured with the new token.\n\n**Required Permission:** `secrets.manage`"
+					},
+					"response": []
+				},
+				{
+					"name": "Set Custom Secret",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"value\": \"my-secret-value\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/admin/secrets/custom/my_custom_key",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "admin", "secrets", "custom", "my_custom_key"]
+						},
+						"description": "Sets a custom secret value.\n\nCustom secrets are stored under the Custom namespace in the secret file.\n\n**Key format:** Alphanumeric with underscores or dots only, max 100 characters.\n\n**Required Permission:** `secrets.manage`"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Custom Secret",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{accessToken}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/{{apiVersion}}/admin/secrets/custom/my_custom_key",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "{{apiVersion}}", "admin", "secrets", "custom", "my_custom_key"]
+						},
+						"description": "Deletes a custom secret.\n\n**Required Permission:** `secrets.manage`"
 					},
 					"response": []
 				}
