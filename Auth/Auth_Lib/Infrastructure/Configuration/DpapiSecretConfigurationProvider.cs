@@ -111,9 +111,11 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
         }
 
         // Gateway settings - Token for inter-service authentication
+        // Maps to both Auth API (ExpectedToken) and API Gateway (Token) keys
         if (!string.IsNullOrEmpty(secrets.GatewayToken))
         {
-            Data["Gateway:ExpectedToken"] = secrets.GatewayToken;
+            Data["Gateway:ExpectedToken"] = secrets.GatewayToken;  // Auth API expects this
+            Data["Gateway:Token"] = secrets.GatewayToken;          // API Gateway sends this
         }
 
         // Connection strings (when SQL authentication is used)

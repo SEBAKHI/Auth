@@ -15,6 +15,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Auth_Lib\Auth_Lib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Folder Include="Configuration\" />
     <Folder Include="Constants\" />
     <Folder Include="Models\" />

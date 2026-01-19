@@ -20,6 +20,7 @@ using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
@@ -319,20 +320,70 @@ builder.Services.AddOpenApi("v1", options =>
 builder.Services.AddHealthChecks()
     .AddSqlServer(connectionString, name: "database", tags: ["ready"]);
 
-// CORS
+// CORS - configured per environment (OWASP A02: Security Misconfiguration)
+var corsSettings = builder.Configuration.GetSection("Cors");
+var allowedOrigins = corsSettings.GetSection("AllowedOrigins").Get<string[]>() ?? [];
+var allowCredentials = corsSettings.GetValue("AllowCredentials", false);
+
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        if (allowedOrigins.Length > 0 && !allowedOrigins.Contains("*"))
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+
+            if (allowCredentials)
+                policy.AllowCredentials();
+        }
+        else if (builder.Environment.IsDevelopment())
+        {
+            // Allow any origin in development only
+            policy.AllowAnyOrigin()
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
+        else
+        {
+            throw new InvalidOperationException(
+                "CORS AllowedOrigins must be explicitly configured in production. " +
+                "Set Cors:AllowedOrigins in appsettings.json");
+        }
     });
 });
+
+// HSTS - only configure for production (OWASP A02: Security Misconfiguration)
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHsts(options =>
+    {
+        options.MaxAge = TimeSpan.FromDays(365);
+        options.IncludeSubDomains = true;
+        options.Preload = true;
+    });
+}
 
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
+
+// HSTS - add Strict-Transport-Security header in production (OWASP A02)
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
+// Forward headers from reverse proxy (OWASP A07: proper IP detection)
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+});
+
+// Security headers middleware (OWASP A02: Security Misconfiguration)
+app.UseMiddleware<SecurityHeadersMiddleware>();
+
 app.UseSerilogRequestLogging();
 
 // Exception handling middleware

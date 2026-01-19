@@ -24,7 +24,7 @@ public static class SecretConfigurationExtensions
     /// - JwtPrivateKeyPem -> Jwt:PrivateKeyPem
     /// - RefreshTokenHmacKey -> Jwt:RefreshTokenHmacKeyPlain
     /// - SmtpPassword -> Email:Password
-    /// - GatewayToken -> Gateway:ExpectedToken
+    /// - GatewayToken -> Gateway:ExpectedToken (Auth API) AND Gateway:Token (API Gateway)
     /// - ConnectionStrings.AuthDb -> ConnectionStrings:AuthDb
     /// </remarks>
     public static IConfigurationBuilder AddDpapiSecrets(

@@ -1,5 +1,7 @@
 using System.Threading.RateLimiting;
 using API_Gateway.Middleware;
+using Auth_Lib.Infrastructure.Configuration;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
 using Yarp.ReverseProxy.Transforms;
@@ -15,21 +17,57 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
+// Configure Data Protection (required for DPAPI secrets)
+var dataProtectionPath = builder.Configuration["DataProtection:KeyPath"];
+if (string.IsNullOrEmpty(dataProtectionPath))
+{
+    dataProtectionPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "AuthSystem",
+        "Keys");
+}
+
+builder.Services.AddDataProtection()
+    .SetApplicationName("AuthSystem")
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath));
+
+// Build a temporary DataProtectionProvider to load DPAPI secrets into configuration
+var tempServices = new ServiceCollection();
+tempServices.AddDataProtection()
+    .SetApplicationName("AuthSystem")
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath));
+
+using var tempProvider = tempServices.BuildServiceProvider();
+var dataProtectionProvider = tempProvider.GetRequiredService<IDataProtectionProvider>();
+
+// Add DPAPI secrets to configuration (overrides appsettings.json values)
+builder.Configuration.AddDpapiSecrets(dataProtectionProvider);
+
 // Gateway Configuration
-var gatewayToken = builder.Configuration["Gateway:Token"]
-    ?? throw new InvalidOperationException("Gateway token is not configured");
+var gatewayToken = builder.Configuration["Gateway:Token"];
+
+// In production, gateway token must be configured (via DPAPI secrets file)
+if (string.IsNullOrEmpty(gatewayToken) && !builder.Environment.IsDevelopment())
+{
+    throw new InvalidOperationException(
+        "Gateway token is not configured. In production, ensure the DPAPI secrets file " +
+        "contains the GatewayToken. File location: " + SecretConfigurationExtensions.GetDefaultSecretFilePath());
+}
 
 // YARP Reverse Proxy
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
     .AddTransforms(builderContext =>
     {
-        // Add gateway token to all proxied requests
-        builderContext.AddRequestTransform(context =>
+        // Add gateway token to all proxied requests (only if configured)
+        if (!string.IsNullOrEmpty(gatewayToken))
         {
-            context.ProxyRequest.Headers.Add("X-Gateway-Token", gatewayToken);
-            return ValueTask.CompletedTask;
-        });
+            builderContext.AddRequestTransform(context =>
+            {
+                context.ProxyRequest.Headers.Add("X-Gateway-Token", gatewayToken);
+                return ValueTask.CompletedTask;
+            });
+        }
 
         // Forward client IP
         builderContext.AddXForwardedFor();

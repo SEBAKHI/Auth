@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Auth_Lib.Configuration;
 using Microsoft.Extensions.Options;
@@ -53,7 +55,16 @@ public class GatewayTokenValidationMiddleware
         }
 
         var token = tokenHeader.ToString();
-        if (string.IsNullOrEmpty(token) || token != gatewaySettings.ExpectedToken)
+
+        // Use constant-time comparison to prevent timing attacks
+        var expectedToken = gatewaySettings.ExpectedToken ?? string.Empty;
+        var expectedBytes = Encoding.UTF8.GetBytes(expectedToken);
+        var actualBytes = Encoding.UTF8.GetBytes(token ?? string.Empty);
+
+        var isValidToken = expectedBytes.Length == actualBytes.Length &&
+                          CryptographicOperations.FixedTimeEquals(expectedBytes, actualBytes);
+
+        if (string.IsNullOrEmpty(token) || !isValidToken)
         {
             _logger.LogWarning(
                 "Request rejected: Invalid gateway token. Path: {Path}, IP: {IP}",
