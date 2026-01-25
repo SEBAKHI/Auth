@@ -390,6 +390,15 @@ PRINT 'Created role permissions';
 GO
 
 -- ============================================
+-- STEP 5.5: ORGANIZATION ROLES AND PERMISSIONS
+-- ============================================
+PRINT '';
+PRINT 'Step 5.5: Creating organization roles and permissions...';
+
+:r .\dbo\Scripts\SeedData\07_OrganizationRolesPermissions.sql
+GO
+
+-- ============================================
 -- STEP 6: ADMIN USER
 -- ============================================
 PRINT '';

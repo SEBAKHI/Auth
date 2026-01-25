@@ -146,6 +146,7 @@ builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
 builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 builder.Services.AddScoped<ITwoFactorAuthRepository, TwoFactorAuthRepository>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
+builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 
 // Services
 // Create password hasher first (needed for JwtTokenService and TotpService)

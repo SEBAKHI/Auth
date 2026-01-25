@@ -18,6 +18,12 @@ public interface IRoleRepository
     Task<Role?> GetByCodeAsync(Guid applicationId, string code, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets a role by its code, optionally within an application.
+    /// Pass null applicationId for organization-level roles.
+    /// </summary>
+    Task<Role?> GetByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets all roles for an application.
     /// </summary>
     Task<IReadOnlyList<Role>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken = default);

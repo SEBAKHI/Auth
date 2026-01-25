@@ -60,6 +60,26 @@
 			"key": "twoFactorSecret",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "organizationId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "invitationToken",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "testMemberUserId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "testPermissionId",
+			"value": "",
+			"type": "string"
 		}
 	],
 	"auth": {
@@ -1184,6 +1204,403 @@
 						"description": "Rotates an API key, generating a new one while keeping the old one valid for a grace period.\n\nThe new API key is hashed with Argon2id. The plain key is only returned once!\n\nRequires 'apikeys:rotate' permission."
 					},
 					"response": []
+				}
+			]
+		},
+		{
+			"name": "Organizations",
+			"description": "Multi-tenant organization management endpoints for managing organizations, members, invitations, app subscriptions, and permissions",
+			"item": [
+				{
+					"name": "Organization CRUD",
+					"description": "Create, read, update, and delete organizations",
+					"item": [
+						{
+							"name": "Get My Organizations",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    var jsonData = pm.response.json();",
+											"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
+											"        pm.collectionVariables.set(\"organizationId\", jsonData[0].id);",
+											"    }",
+											"    pm.test(\"Returns array of organizations\", function () {",
+											"        pm.expect(jsonData).to.be.an('array');",
+											"    });",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations"]
+								},
+								"description": "Returns all organizations the current user is a member of.\n\nAuthenticated users can see their own organizations."
+							},
+							"response": []
+						},
+						{
+							"name": "Create Organization",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    var jsonData = pm.response.json();",
+											"    if (jsonData.id) {",
+											"        pm.collectionVariables.set(\"organizationId\", jsonData.id);",
+											"    }",
+											"    pm.test(\"Organization created successfully\", function () {",
+											"        pm.expect(jsonData.id).to.be.a('string');",
+											"        pm.expect(jsonData.code).to.be.a('string');",
+											"    });",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"code\": \"acme-corp\",\n    \"name\": \"Acme Corporation\",\n    \"description\": \"A sample organization for testing\",\n    \"contactEmail\": \"admin@acme.com\",\n    \"website\": \"https://acme.com\",\n    \"logoUrl\": null\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations"]
+								},
+								"description": "Creates a new organization. The authenticated user becomes the organization owner.\n\nCode must be unique (slug format, lowercase, hyphens allowed)."
+							},
+							"response": []
+						},
+						{
+							"name": "Get Organization by ID",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}"]
+								},
+								"description": "Returns detailed information about a specific organization.\n\nRequires membership in the organization."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Organization",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"name\": \"Acme Corporation Updated\",\n    \"description\": \"Updated description\",\n    \"contactEmail\": \"contact@acme.com\",\n    \"website\": \"https://www.acme.com\",\n    \"logoUrl\": \"https://acme.com/logo.png\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}"]
+								},
+								"description": "Updates an organization's details.\n\nRequires 'org:update' permission or org-owner/org-admin role."
+							},
+							"response": []
+						},
+						{
+							"name": "Delete Organization",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}"]
+								},
+								"description": "Deletes an organization (soft delete).\n\nRequires 'org:delete' permission (typically org-owner only)."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Members",
+					"description": "Manage organization members",
+					"item": [
+						{
+							"name": "Get Organization Members",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 200) {",
+											"    var jsonData = pm.response.json();",
+											"    if (jsonData.items && jsonData.items.length > 0) {",
+											"        // Find a member that is not the current user for testing",
+											"        var currentUserId = pm.collectionVariables.get(\"userId\");",
+											"        var otherMember = jsonData.items.find(m => m.userId !== currentUserId);",
+											"        if (otherMember) {",
+											"            pm.collectionVariables.set(\"testMemberUserId\", otherMember.userId);",
+											"        }",
+											"    }",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members?pageNumber=1&pageSize=20",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "members"],
+									"query": [
+										{
+											"key": "pageNumber",
+											"value": "1"
+										},
+										{
+											"key": "pageSize",
+											"value": "20"
+										},
+										{
+											"key": "searchTerm",
+											"value": "",
+											"disabled": true
+										}
+									]
+								},
+								"description": "Returns a paginated list of organization members.\n\nRequires 'org:members:read' permission."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Member Role",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"roleId\": \"{{testRoleId}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/role",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "role"]
+								},
+								"description": "Updates a member's organization-level role (e.g., org-admin, org-member).\n\nRequires 'org:members:manage' permission.\nCannot change the owner's role."
+							},
+							"response": []
+						},
+						{
+							"name": "Remove Member",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}"]
+								},
+								"description": "Removes a member from the organization.\n\nRequires 'org:members:manage' permission.\nCannot remove the organization owner."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Invitations",
+					"description": "Invite users to join organizations",
+					"item": [
+						{
+							"name": "Get Pending Invitations",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/invitations",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "invitations"]
+								},
+								"description": "Returns all pending invitations for an organization.\n\nRequires 'org:members:read' permission."
+							},
+							"response": []
+						},
+						{
+							"name": "Invite Member",
+							"event": [
+								{
+									"listen": "test",
+									"script": {
+										"exec": [
+											"if (pm.response.code === 201) {",
+											"    var jsonData = pm.response.json();",
+											"    if (jsonData.token) {",
+											"        pm.collectionVariables.set(\"invitationToken\", jsonData.token);",
+											"        console.log(\"Invitation token (for testing):\", jsonData.token);",
+											"    }",
+											"    pm.test(\"Invitation created successfully\", function () {",
+											"        pm.expect(jsonData.id).to.be.a('string');",
+											"        pm.expect(jsonData.email).to.be.a('string');",
+											"    });",
+											"}"
+										],
+										"type": "text/javascript"
+									}
+								}
+							],
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"email\": \"newmember@example.com\",\n    \"roleId\": \"{{testRoleId}}\",\n    \"expiresInDays\": 7\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/invitations",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "invitations"]
+								},
+								"description": "Sends an invitation to join the organization.\n\nRequires 'org:members:invite' permission.\nThe invitation token is returned (in dev/test environments) and also sent via email in production."
+							},
+							"response": []
+						},
+						{
+							"name": "Accept Invitation",
+							"request": {
+								"method": "POST",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/invitations/{{invitationToken}}/accept",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "invitations", "{{invitationToken}}", "accept"]
+								},
+								"description": "Accepts an organization invitation.\n\nRequires authentication. The invitation must not be expired and must not already be accepted/declined."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Applications",
+					"description": "Manage organization app subscriptions",
+					"item": [
+						{
+							"name": "Enable Application",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"subscriptionTier\": \"pro\",\n    \"expiresAt\": null\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "applications"]
+								},
+								"description": "Enables an application for the organization (creates a subscription).\n\nRequires 'org:apps:manage' permission.\nMembers can then be granted access to this app."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Member App Roles",
+					"description": "Assign application-level roles to members within the organization",
+					"item": [
+						{
+							"name": "Assign App Role to Member",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"roleId\": \"{{testRoleId}}\",\n    \"expiresAt\": null\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/roles",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "roles"]
+								},
+								"description": "Assigns an application-level role to a member.\n\nExample: Assign \"Data Transfer Editor\" role which bundles multiple permissions.\n\nRequires 'org:members:manage' permission.\nThe app must be enabled for the organization."
+							},
+							"response": []
+						}
+					]
+				},
+				{
+					"name": "Member Permissions",
+					"description": "Grant individual permissions to members within the organization",
+					"item": [
+						{
+							"name": "Grant Permission to Member",
+							"request": {
+								"method": "POST",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"permissionId\": \"{{testPermissionId}}\",\n    \"expiresAt\": null\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/permissions",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "permissions"]
+								},
+								"description": "Grants a specific permission to a member for an application.\n\nUse this for granular control when roles are too broad.\nFor example: Grant only 'data-transfer:export' without full editor access.\n\nRequires 'org:members:manage' permission.\nThe app must be enabled for the organization."
+							},
+							"response": []
+						}
+					]
 				}
 			]
 		},

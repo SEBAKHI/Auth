@@ -42,6 +42,20 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
+    public async Task<Role?> GetByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<RoleDto>(@"
+            SELECT * FROM [dbo].[Roles]
+            WHERE (@ApplicationId IS NULL AND [ApplicationId] IS NULL OR [ApplicationId] = @ApplicationId)
+              AND [Code] = @Code",
+            new { ApplicationId = applicationId, Code = code.ToUpperInvariant() });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Role>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken = default)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
