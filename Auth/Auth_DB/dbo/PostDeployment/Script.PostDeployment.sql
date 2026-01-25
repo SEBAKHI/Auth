@@ -395,7 +395,7 @@ GO
 PRINT '';
 PRINT 'Step 5.5: Creating organization roles and permissions...';
 
-:r .\dbo\Scripts\SeedData\07_OrganizationRolesPermissions.sql
+:r ..\Scripts\SeedData\07_OrganizationRolesPermissions.sql
 GO
 
 -- ============================================
