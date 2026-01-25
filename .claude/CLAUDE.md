@@ -307,38 +307,120 @@ Before implementing any UI, consider:
 | **What might go wrong?** | Anticipate errors and edge cases |
 | **How will they feel?** | Emotional design impacts engagement and trust |
 
-#### 3. UX Heuristics Checklist (Nielsen's 10)
+#### 3. Jakob Nielsen's 10 Usability Heuristics
 
-```markdown
-□ 1. Visibility of system status
-     → Always keep users informed about what's happening
-
-□ 2. Match between system and real world
-     → Use familiar language and concepts
-
-□ 3. User control and freedom
-     → Provide undo, redo, cancel, and escape routes
-
-□ 4. Consistency and standards
-     → Follow platform conventions and internal patterns
-
-□ 5. Error prevention
-     → Prevent problems before they occur
-
-□ 6. Recognition rather than recall
-     → Make options visible, don't rely on memory
-
-□ 7. Flexibility and efficiency of use
-     → Provide shortcuts for expert users
-
-□ 8. Aesthetic and minimalist design
-     → Remove unnecessary elements
-
-□ 9. Help users recognize, diagnose, and recover from errors
-     → Clear error messages with solutions
-
-□ 10. Help and documentation
-      → Provide searchable, task-focused help
+```
+┌─────────────────────────────────────────────────────────────┐
+│        NIELSEN'S 10 USABILITY HEURISTICS                    │
+│        (Essential principles for user interface design)     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. VISIBILITY OF SYSTEM STATUS                             │
+│     Definition: Keep users informed about what is going on  │
+│     through appropriate feedback within reasonable time.    │
+│     Why: Users need to understand outcomes of interactions  │
+│     to determine next steps. Builds trust.                  │
+│     Tips:                                                   │
+│     • Communicate state before consequential actions        │
+│     • Provide immediate feedback when possible              │
+│     • Show progress indicators for longer operations        │
+│     Example: "You Are Here" indicators on maps              │
+│                                                             │
+│  2. MATCH BETWEEN SYSTEM AND REAL WORLD                     │
+│     Definition: Speak users' language using familiar words, │
+│     phrases, and concepts rather than internal jargon.      │
+│     Why: Aligns with user mental models for intuitive use.  │
+│     Tips:                                                   │
+│     • Avoid internal terminology without explanation        │
+│     • Conduct user research to discover familiar language   │
+│     • Follow real-world conventions and information order   │
+│     Example: Stovetop controls matching burner layout       │
+│                                                             │
+│  3. USER CONTROL AND FREEDOM                                │
+│     Definition: Provide clearly marked "emergency exit" to  │
+│     leave unwanted actions without extended processes.      │
+│     Why: Users make mistakes; escape routes reduce anxiety. │
+│     Tips:                                                   │
+│     • Support Undo and Redo functionality                   │
+│     • Provide clear Cancel buttons                          │
+│     • Make exits discoverable and prominent                 │
+│     Example: Gmail's "Undo Send" feature                    │
+│                                                             │
+│  4. CONSISTENCY AND STANDARDS                               │
+│     Definition: Users shouldn't wonder if different words,  │
+│     situations, or actions mean the same thing.             │
+│     Why: Inconsistency increases cognitive load.            │
+│     Tips:                                                   │
+│     • Maintain internal consistency within product          │
+│     • Follow platform and industry conventions              │
+│     • Use predictable patterns for learnability             │
+│     Example: Hotel check-in at front entrance (expected)    │
+│                                                             │
+│  5. ERROR PREVENTION                                        │
+│     Definition: Prevent problems from occurring in the      │
+│     first place through careful design.                     │
+│     Why: Better than good error messages after the fact.    │
+│     Tips:                                                   │
+│     • Prioritize preventing high-cost errors                │
+│     • Provide constraints and good defaults (prevent slips) │
+│     • Include confirmation dialogs (prevent mistakes)       │
+│     Example: Guard rails on mountain roads                  │
+│                                                             │
+│  6. RECOGNITION RATHER THAN RECALL                          │
+│     Definition: Minimize memory load by making elements,    │
+│     actions, and options visible.                           │
+│     Why: Human short-term memory is limited.                │
+│     Tips:                                                   │
+│     • Make information visible or easily retrievable        │
+│     • Provide help in context                               │
+│     • Show recent items and suggestions                     │
+│     Example: Dropdown menus vs. requiring typed commands    │
+│                                                             │
+│  7. FLEXIBILITY AND EFFICIENCY OF USE                       │
+│     Definition: Provide shortcuts for expert users while    │
+│     keeping interface accessible to novices.                │
+│     Why: Different users have different efficiency needs.   │
+│     Tips:                                                   │
+│     • Provide keyboard shortcuts                            │
+│     • Enable personalization and customization              │
+│     • Allow tailoring of frequent actions                   │
+│     Example: Ctrl+C/V shortcuts hidden from beginners       │
+│                                                             │
+│  8. AESTHETIC AND MINIMALIST DESIGN                         │
+│     Definition: Avoid irrelevant or rarely needed info.     │
+│     Extra info competes with and diminishes relevant info.  │
+│     Why: Focus on essentials; clutter distracts.            │
+│     Tips:                                                   │
+│     • Keep content focused on user goals                    │
+│     • Remove distracting unnecessary elements               │
+│     • Prioritize primary features visually                  │
+│     Example: Google's minimalist search homepage            │
+│                                                             │
+│  9. HELP USERS RECOGNIZE, DIAGNOSE, RECOVER FROM ERRORS     │
+│     Definition: Express errors in plain language, indicate  │
+│     the problem precisely, suggest solutions constructively.│
+│     Why: Users need to understand what went wrong and how   │
+│     to fix it without technical knowledge.                  │
+│     Tips:                                                   │
+│     • Use traditional error visuals (bold, red text)        │
+│     • Explain problems in user-friendly language            │
+│     • Offer immediate solutions or workarounds              │
+│     Example: "Password must be 8+ characters" vs "Error 401"│
+│                                                             │
+│  10. HELP AND DOCUMENTATION                                 │
+│     Definition: Provide documentation when needed, though   │
+│     ideally the system needs no additional explanation.     │
+│     Why: Complex tasks may require guidance.                │
+│     Tips:                                                   │
+│     • Make help content searchable and accessible           │
+│     • Present documentation in context when needed          │
+│     • Provide concise, task-focused steps                   │
+│     Example: Tooltips, inline help, contextual guides       │
+│                                                             │
+│  Source: Nielsen Norman Group (1994, updated 2024)          │
+│  These heuristics have remained relevant for 30+ years.     │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 #### 4. Interaction Design Patterns
