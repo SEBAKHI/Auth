@@ -14,7 +14,10 @@
       "Bash(dotnet run)",
       "Bash(xargs:*)",
       "Bash(powershell -Command:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(dotnet --version:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(dotnet test:*)"
     ]
   }
 }

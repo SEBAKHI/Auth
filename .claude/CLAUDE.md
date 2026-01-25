@@ -4,6 +4,8 @@
 > **Think deeply, plan thoroughly, implement carefully, and validate relentlessly—you have the full capability to build production-grade systems, so use your complete reasoning ability on every decision, no matter how small.**
 
 ---
+Each time you read the file, type the following words: "I am reading the instructions contained in file [file name] from folder [folder path]"
+---
 
 ## Table of Contents
 
