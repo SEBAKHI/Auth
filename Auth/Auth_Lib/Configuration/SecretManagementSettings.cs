@@ -8,15 +8,23 @@ public class SecretManagementSettings
 {
     public const string SectionName = "SecretManagement";
 
-    /// <summary>
-    /// Path to the DPAPI-encrypted secrets file.
-    /// Default: %LOCALAPPDATA%\AuthSystem\Secrets\secrets.dpapi
-    /// </summary>
-    public string SecretFilePath { get; set; } = Path.Combine(
+    private static readonly string DefaultSecretFilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "AuthSystem",
         "Secrets",
         "secrets.dpapi");
+
+    private string _secretFilePath = DefaultSecretFilePath;
+
+    /// <summary>
+    /// Path to the DPAPI-encrypted secrets file.
+    /// Default: %LOCALAPPDATA%\AuthSystem\Secrets\secrets.dpapi
+    /// </summary>
+    public string SecretFilePath
+    {
+        get => _secretFilePath;
+        set => _secretFilePath = string.IsNullOrWhiteSpace(value) ? DefaultSecretFilePath : value;
+    }
 
     /// <summary>
     /// Whether to auto-generate missing cryptographic keys on first startup.
