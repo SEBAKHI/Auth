@@ -24,7 +24,7 @@ GO
 
 CREATE NONCLUSTERED INDEX [IX_PasswordResetTokens_TokenHash]
 ON [dbo].[PasswordResetTokens] ([TokenHash])
-WHERE [UsedAt] IS NULL AND [ExpiresAt] > GETUTCDATE();
+WHERE [UsedAt] IS NULL;
 GO
 
 CREATE NONCLUSTERED INDEX [IX_PasswordResetTokens_ExpiresAt]

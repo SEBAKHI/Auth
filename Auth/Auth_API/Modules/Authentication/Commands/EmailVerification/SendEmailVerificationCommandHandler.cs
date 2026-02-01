@@ -79,6 +79,14 @@ public class SendEmailVerificationCommandHandler
         var otp = _otpGenerator.GenerateNumericOtp(6);
         var otpHash = _passwordHasher.HashPassword(otp);
 
+        // Log OTP when email is disabled (development mode)
+        if (!_emailSettings.Enabled)
+        {
+            _logger.LogWarning(
+                "Email disabled - OTP for {Email}: {Otp} (expires in {Minutes} minutes)",
+                MaskEmail(user.Email), otp, _emailSettings.OtpExpirationMinutes);
+        }
+
         // Create token
         var token = EmailVerificationToken.Create(
             user.Id,

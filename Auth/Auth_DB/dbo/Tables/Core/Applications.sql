@@ -9,6 +9,7 @@ CREATE TABLE [dbo].[Applications]
     [ContactEmail] NVARCHAR(255) NULL,
     [IsActive] BIT NOT NULL DEFAULT 1,
     [AllowSelfRegistration] BIT NOT NULL DEFAULT 0,
+    [RequireEmailVerification] BIT NOT NULL DEFAULT 0,
     [RequireTwoFactor] BIT NOT NULL DEFAULT 0,
     [SessionTimeoutMinutes] INT NOT NULL DEFAULT 60,
     [MaxConcurrentSessions] INT NOT NULL DEFAULT 5,
