@@ -12,6 +12,6 @@ public record ForgotPasswordCommand(string Email) : IRequest<ErrorOr<ForgotPassw
 /// <summary>
 /// Response from the forgot password command.
 /// </summary>
-/// <param name="Token">The reset token (in production, this would be sent via email).</param>
 /// <param name="ExpiresAt">When the token expires.</param>
-public record ForgotPasswordResponse(string Token, DateTime ExpiresAt);
+/// <param name="MaskedEmail">The masked email address for user feedback.</param>
+public record ForgotPasswordResponse(DateTime ExpiresAt, string MaskedEmail);

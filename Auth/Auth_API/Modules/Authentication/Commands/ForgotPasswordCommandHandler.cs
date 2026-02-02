@@ -1,9 +1,11 @@
 using System.Security.Cryptography;
 using Auth_Lib.Application.Abstractions;
+using Auth_Lib.Configuration;
 using Auth_Lib.Domain.Entities;
 using Auth_Lib.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Auth_API.Modules.Authentication.Commands;
 
@@ -15,6 +17,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
     private readonly IUserRepository _userRepository;
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly EmailSettings _emailSettings;
     private readonly ILogger<ForgotPasswordCommandHandler> _logger;
 
     // Token expiration in minutes
@@ -24,11 +27,13 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         IUserRepository userRepository,
         IPasswordResetTokenRepository passwordResetTokenRepository,
         IPasswordHasher passwordHasher,
+        IOptions<EmailSettings> emailSettings,
         ILogger<ForgotPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;
         _passwordResetTokenRepository = passwordResetTokenRepository;
         _passwordHasher = passwordHasher;
+        _emailSettings = emailSettings.Value;
         _logger = logger;
     }
 
@@ -45,12 +50,12 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         {
             _logger.LogInformation(
                 "Password reset requested for non-existent email: {Email}",
-                request.Email);
+                MaskEmail(request.Email));
 
             // Return fake response to prevent enumeration
             return new ForgotPasswordResponse(
-                GenerateSecureToken(),
-                DateTime.UtcNow.AddMinutes(TokenExpirationMinutes));
+                DateTime.UtcNow.AddMinutes(TokenExpirationMinutes),
+                MaskEmail(request.Email));
         }
 
         // Invalidate any existing reset tokens for this user
@@ -68,13 +73,20 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
 
         await _passwordResetTokenRepository.CreateAsync(resetToken, cancellationToken);
 
+        // Log token when email is disabled (development mode)
+        if (!_emailSettings.Enabled)
+        {
+            _logger.LogWarning(
+                "Email disabled - Password reset token for {Email}: {Token} (expires in {Minutes} minutes)",
+                MaskEmail(user.Email), token, TokenExpirationMinutes);
+        }
+
         _logger.LogInformation(
             "Password reset token generated for user {UserId}",
             user.Id);
 
-        // In a production system, the token would be sent via email
-        // For now, we return it directly (useful for testing)
-        return new ForgotPasswordResponse(token, resetToken.ExpiresAt);
+        // Token is sent via email in production, logged to console in development
+        return new ForgotPasswordResponse(resetToken.ExpiresAt, MaskEmail(user.Email));
     }
 
     /// <summary>
@@ -94,5 +106,22 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
             .Replace('+', '-')
             .Replace('/', '_')
             .TrimEnd('=');
+    }
+
+    /// <summary>
+    /// Masks an email address for safe display (e.g., a****n@example.com).
+    /// </summary>
+    private static string MaskEmail(string email)
+    {
+        var atIndex = email.IndexOf('@');
+        if (atIndex <= 1) return email;
+
+        var localPart = email[..atIndex];
+        var domain = email[atIndex..];
+
+        if (localPart.Length <= 2)
+            return $"{localPart[0]}***{domain}";
+
+        return $"{localPart[0]}{new string('*', Math.Min(localPart.Length - 2, 4))}{localPart[^1]}{domain}";
     }
 }
