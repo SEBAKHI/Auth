@@ -17,7 +17,8 @@
       "Bash(git add:*)",
       "Bash(dotnet --version:*)",
       "Bash(dotnet sln:*)",
-      "Bash(dotnet test:*)"
+      "Bash(dotnet test:*)",
+      "Bash(Get-ChildItem -Path \"d:\\\\01 - Companies\\\\00 - Astoom\\\\Repos\\\\AuthSystem\\\\Auth\\\\Auth_API\\\\Modules\\\\RoleManagement\" -Recurse -Name)"
     ]
   }
 }

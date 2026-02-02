@@ -91,4 +91,53 @@ public interface IPermissionRepository
     /// Gets permissions assigned to a role.
     /// </summary>
     Task<IReadOnlyList<Permission>> GetRolePermissionsAsync(Guid roleId, CancellationToken cancellationToken = default);
+
+    #region Permission Implications
+
+    /// <summary>
+    /// Gets all implications for a permission (permissions that are implied when this permission is granted).
+    /// </summary>
+    Task<IReadOnlyList<PermissionImplication>> GetImplicationsAsync(Guid permissionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets permissions that imply the specified permission (reverse lookup).
+    /// </summary>
+    Task<IReadOnlyList<PermissionImplication>> GetImpliedByAsync(Guid permissionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Adds a permission implication.
+    /// </summary>
+    Task<PermissionImplication> AddImplicationAsync(PermissionImplication implication, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a permission implication.
+    /// </summary>
+    Task RemoveImplicationAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if a permission implication exists.
+    /// </summary>
+    Task<bool> ImplicationExistsAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if adding an implication would create a circular reference.
+    /// </summary>
+    Task<bool> WouldCreateCircularImplicationAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default);
+
+    #endregion
+
+    #region Paginated Queries
+
+    /// <summary>
+    /// Gets permissions with pagination and optional filtering.
+    /// </summary>
+    Task<(IReadOnlyList<Permission> Permissions, int TotalCount)> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        Guid? applicationId = null,
+        string? search = null,
+        bool? isActive = null,
+        CancellationToken cancellationToken = default);
+
+    #endregion
 }

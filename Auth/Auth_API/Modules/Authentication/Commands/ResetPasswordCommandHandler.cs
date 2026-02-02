@@ -45,15 +45,32 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
 
     public async Task<ErrorOr<Success>> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
     {
-        // Hash the provided token using Argon2id to look up in database
-        var tokenHash = _passwordHasher.HashPassword(request.Token);
+        // Look up user by email first (same pattern as login)
+        var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
 
-        // Find the reset token
-        var resetToken = await _passwordResetTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
+        if (user == null)
+        {
+            // Use same error message to prevent email enumeration
+            _logger.LogWarning("Password reset attempted for non-existent email");
+            return PasswordResetErrors.InvalidOrExpiredToken;
+        }
+
+        // Get the latest valid token for this user
+        var resetToken = await _passwordResetTokenRepository.GetLatestValidTokenForUserAsync(user.Id, cancellationToken);
 
         if (resetToken == null)
         {
-            _logger.LogWarning("Invalid or expired password reset token used");
+            _logger.LogWarning("No valid password reset token found for user {UserId}", user.Id);
+            return PasswordResetErrors.InvalidOrExpiredToken;
+        }
+
+        // Verify the submitted token against the stored hash using VerifyPassword
+        // (same pattern as password verification during login)
+        if (!_passwordHasher.VerifyPassword(request.Token, resetToken.TokenHash))
+        {
+            _logger.LogWarning(
+                "Invalid password reset token submitted for user {UserId}",
+                user.Id);
             return PasswordResetErrors.InvalidOrExpiredToken;
         }
 
@@ -62,17 +79,6 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         {
             _logger.LogWarning(
                 "Attempted to use invalid reset token for user {UserId}",
-                resetToken.UserId);
-            return PasswordResetErrors.InvalidOrExpiredToken;
-        }
-
-        // Get the user
-        var user = await _userRepository.GetByIdAsync(resetToken.UserId, cancellationToken);
-
-        if (user == null)
-        {
-            _logger.LogError(
-                "Password reset token references non-existent user {UserId}",
                 resetToken.UserId);
             return PasswordResetErrors.InvalidOrExpiredToken;
         }

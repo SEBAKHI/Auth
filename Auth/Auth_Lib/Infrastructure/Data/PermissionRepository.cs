@@ -342,6 +342,165 @@ public class PermissionRepository : IPermissionRepository
         return dtos.Select(dto => dto.ToEntity()).ToList();
     }
 
+    #region Permission Implications
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PermissionImplication>> GetImplicationsAsync(Guid permissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<PermissionImplicationDto>(@"
+            SELECT * FROM [dbo].[PermissionImplications]
+            WHERE [PermissionId] = @PermissionId",
+            new { PermissionId = permissionId });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PermissionImplication>> GetImpliedByAsync(Guid permissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<PermissionImplicationDto>(@"
+            SELECT * FROM [dbo].[PermissionImplications]
+            WHERE [ImpliedPermissionId] = @PermissionId",
+            new { PermissionId = permissionId });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<PermissionImplication> AddImplicationAsync(PermissionImplication implication, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            INSERT INTO [dbo].[PermissionImplications] (
+                [Id], [PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy]
+            ) VALUES (
+                @Id, @PermissionId, @ImpliedPermissionId, @CreatedAt, @CreatedBy
+            )",
+            new
+            {
+                implication.Id,
+                implication.PermissionId,
+                implication.ImpliedPermissionId,
+                implication.CreatedAt,
+                implication.CreatedBy
+            });
+
+        return implication;
+    }
+
+    /// <inheritdoc />
+    public async Task RemoveImplicationAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            DELETE FROM [dbo].[PermissionImplications]
+            WHERE [PermissionId] = @PermissionId AND [ImpliedPermissionId] = @ImpliedPermissionId",
+            new { PermissionId = permissionId, ImpliedPermissionId = impliedPermissionId });
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> ImplicationExistsAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var count = await connection.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1) FROM [dbo].[PermissionImplications]
+            WHERE [PermissionId] = @PermissionId AND [ImpliedPermissionId] = @ImpliedPermissionId",
+            new { PermissionId = permissionId, ImpliedPermissionId = impliedPermissionId });
+
+        return count > 0;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> WouldCreateCircularImplicationAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default)
+    {
+        // If permissionId == impliedPermissionId, it's directly circular
+        if (permissionId == impliedPermissionId)
+            return true;
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Check if adding this implication would create a cycle using recursive CTE
+        var wouldCreateCycle = await connection.ExecuteScalarAsync<int>(@"
+            ;WITH ImplicationChain AS (
+                -- Start from the permission we're about to imply
+                SELECT [ImpliedPermissionId]
+                FROM [dbo].[PermissionImplications]
+                WHERE [PermissionId] = @ImpliedPermissionId
+
+                UNION ALL
+
+                -- Follow the chain of implications
+                SELECT pi.[ImpliedPermissionId]
+                FROM [dbo].[PermissionImplications] pi
+                INNER JOIN ImplicationChain ic ON pi.[PermissionId] = ic.[ImpliedPermissionId]
+            )
+            SELECT COUNT(1) FROM ImplicationChain
+            WHERE [ImpliedPermissionId] = @PermissionId",
+            new { PermissionId = permissionId, ImpliedPermissionId = impliedPermissionId });
+
+        return wouldCreateCycle > 0;
+    }
+
+    #endregion
+
+    #region Paginated Queries
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<Permission> Permissions, int TotalCount)> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        Guid? applicationId = null,
+        string? search = null,
+        bool? isActive = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var whereClause = "WHERE 1=1";
+        if (applicationId.HasValue)
+            whereClause += " AND [ApplicationId] = @ApplicationId";
+        if (!string.IsNullOrWhiteSpace(search))
+            whereClause += " AND ([Code] LIKE @Search OR [Name] LIKE @Search OR [Description] LIKE @Search)";
+        if (isActive.HasValue)
+            whereClause += " AND [IsActive] = @IsActive";
+
+        var countSql = $"SELECT COUNT(1) FROM [dbo].[Permissions] {whereClause}";
+        var totalCount = await connection.ExecuteScalarAsync<int>(countSql, new
+        {
+            ApplicationId = applicationId,
+            Search = $"%{search}%",
+            IsActive = isActive
+        });
+
+        var offset = (pageNumber - 1) * pageSize;
+        var dataSql = $@"
+            SELECT * FROM [dbo].[Permissions]
+            {whereClause}
+            ORDER BY [Level], [Code]
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
+
+        var dtos = await connection.QueryAsync<PermissionDto>(dataSql, new
+        {
+            ApplicationId = applicationId,
+            Search = $"%{search}%",
+            IsActive = isActive,
+            Offset = offset,
+            PageSize = pageSize
+        });
+
+        var permissions = dtos.Select(dto => dto.ToEntity()).ToList();
+        return (permissions, totalCount);
+    }
+
+    #endregion
+
     /// <summary>
     /// Checks if a permission code matches a required permission using wildcard logic.
     /// </summary>
@@ -396,5 +555,21 @@ public class PermissionRepository : IPermissionRepository
             CreatedBy,
             ModifiedAt,
             ModifiedBy);
+    }
+
+    private record PermissionImplicationDto
+    {
+        public Guid Id { get; init; }
+        public Guid PermissionId { get; init; }
+        public Guid ImpliedPermissionId { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public Guid CreatedBy { get; init; }
+
+        public PermissionImplication ToEntity() => new(
+            Id,
+            PermissionId,
+            ImpliedPermissionId,
+            CreatedAt,
+            CreatedBy);
     }
 }

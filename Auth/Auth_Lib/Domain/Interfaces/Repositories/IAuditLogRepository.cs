@@ -13,6 +13,11 @@ public interface IAuditLogRepository
     Task CreateAsync(AuditLog auditLog, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets an audit log by its ID.
+    /// </summary>
+    Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets audit logs with filtering and pagination.
     /// </summary>
     Task<(IReadOnlyList<AuditLog> Logs, int TotalCount)> GetPagedAsync(

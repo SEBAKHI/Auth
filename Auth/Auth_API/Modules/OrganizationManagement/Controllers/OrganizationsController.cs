@@ -304,6 +304,31 @@ public class OrganizationsController : ControllerBase
     #region Applications
 
     /// <summary>
+    /// Get all enabled applications for an organization.
+    /// </summary>
+    [HttpGet("{id:guid}/applications")]
+    [RequirePermission("org:apps:read")]
+    [ProducesResponseType(typeof(IReadOnlyList<OrganizationApplicationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetApplications(Guid id)
+    {
+        var userId = GetCurrentUserId();
+        var query = new GetOrganizationApplicationsQuery(id) { RequestedBy = userId };
+        var result = await _mediator.Send(query);
+
+        return result.Match(
+            apps => Ok(apps),
+            errors => errors.First().Type switch
+            {
+                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
+                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
+                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
+            });
+    }
+
+    /// <summary>
     /// Enable an application for an organization.
     /// </summary>
     [HttpPost("{id:guid}/applications")]
@@ -323,11 +348,64 @@ public class OrganizationsController : ControllerBase
         var result = await _mediator.Send(command);
 
         return result.Match(
-            app => CreatedAtAction(nameof(GetOrganization), new { id }, app),
+            app => CreatedAtAction(nameof(GetApplications), new { id }, app),
             errors => errors.First().Type switch
             {
                 ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
                 ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
+                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
+                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
+            });
+    }
+
+    /// <summary>
+    /// Update an application subscription for an organization.
+    /// </summary>
+    [HttpPut("{id:guid}/applications/{applicationId:guid}")]
+    [RequirePermission("org:apps:manage")]
+    [ProducesResponseType(typeof(OrganizationApplicationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> UpdateApplication(Guid id, Guid applicationId, [FromBody] UpdateApplicationRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var command = new UpdateOrganizationApplicationCommand(id, applicationId, request.SubscriptionTier, request.ExpiresAt, request.IsActive)
+        {
+            ModifiedBy = userId
+        };
+        var result = await _mediator.Send(command);
+
+        return result.Match(
+            app => Ok(app),
+            errors => errors.First().Type switch
+            {
+                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
+                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
+                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
+            });
+    }
+
+    /// <summary>
+    /// Disable an application for an organization.
+    /// </summary>
+    [HttpDelete("{id:guid}/applications/{applicationId:guid}")]
+    [RequirePermission("org:apps:manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> DisableApplication(Guid id, Guid applicationId)
+    {
+        var userId = GetCurrentUserId();
+        var command = new DisableApplicationCommand(id, applicationId) { DisabledBy = userId };
+        var result = await _mediator.Send(command);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => errors.First().Type switch
+            {
+                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
                 ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
                 _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
             });
@@ -442,6 +520,11 @@ public record EnableApplicationRequest(
     Guid ApplicationId,
     string? SubscriptionTier = null,
     DateTime? ExpiresAt = null);
+
+public record UpdateApplicationRequest(
+    string? SubscriptionTier = null,
+    DateTime? ExpiresAt = null,
+    bool? IsActive = null);
 
 public record AssignAppRoleRequest(
     Guid ApplicationId,

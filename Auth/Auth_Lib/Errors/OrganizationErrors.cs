@@ -49,6 +49,10 @@ public static class OrganizationErrors
         code: "Organization.NotMember",
         description: "User is not a member of this organization.");
 
+    public static Error NotAMember => Error.Forbidden(
+        code: "Organization.NotAMember",
+        description: "You are not a member of this organization.");
+
     public static Error CannotRemoveOwner => Error.Forbidden(
         code: "Organization.CannotRemoveOwner",
         description: "The organization owner cannot be removed. Transfer ownership first.");

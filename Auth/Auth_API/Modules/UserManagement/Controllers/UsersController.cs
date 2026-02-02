@@ -190,6 +190,122 @@ public class UsersController : ControllerBase
     }
 
     /// <summary>
+    /// Get all roles assigned to a user.
+    /// </summary>
+    [HttpGet("{id:guid}/roles")]
+    [RequirePermission("users:read")]
+    [ProducesResponseType(typeof(IReadOnlyList<UserRoleDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetUserRoles(Guid id)
+    {
+        var query = new GetUserRolesQuery(id);
+        var result = await _mediator.Send(query);
+
+        return result.Match(
+            roles => Ok(roles),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new { error = errors.First().Description })
+                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+    }
+
+    /// <summary>
+    /// Remove a role from a user.
+    /// </summary>
+    [HttpDelete("{id:guid}/roles/{roleId:guid}")]
+    [RequirePermission("users:manage-roles")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> RemoveRole(Guid id, Guid roleId)
+    {
+        var userId = GetCurrentUserId();
+        var command = new RemoveUserRoleCommand(id, roleId) { RemovedBy = userId };
+        var result = await _mediator.Send(command);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new { error = errors.First().Description })
+                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+    }
+
+    /// <summary>
+    /// Get all direct permissions granted to a user.
+    /// </summary>
+    [HttpGet("{id:guid}/permissions")]
+    [RequirePermission("users:read")]
+    [ProducesResponseType(typeof(IReadOnlyList<UserPermissionDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetUserPermissions(Guid id)
+    {
+        var query = new GetUserPermissionsQuery(id);
+        var result = await _mediator.Send(query);
+
+        return result.Match(
+            permissions => Ok(permissions),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new { error = errors.First().Description })
+                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+    }
+
+    /// <summary>
+    /// Grant a permission directly to a user.
+    /// </summary>
+    [HttpPost("{id:guid}/permissions")]
+    [RequirePermission("users:manage-permissions")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GrantPermission(Guid id, [FromBody] GrantPermissionRequest request)
+    {
+        var userId = GetCurrentUserId();
+        var command = new GrantUserPermissionCommand(id, request.PermissionId, request.ApplicationId, request.ExpiresAt)
+        {
+            GrantedBy = userId
+        };
+
+        var result = await _mediator.Send(command);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => errors.First().Type switch
+            {
+                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
+                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
+                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
+            });
+    }
+
+    /// <summary>
+    /// Revoke a permission from a user.
+    /// </summary>
+    [HttpDelete("{id:guid}/permissions/{permissionId:guid}")]
+    [RequirePermission("users:manage-permissions")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> RevokePermission(Guid id, Guid permissionId)
+    {
+        var userId = GetCurrentUserId();
+        var command = new RevokeUserPermissionCommand(id, permissionId) { RevokedBy = userId };
+        var result = await _mediator.Send(command);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new { error = errors.First().Description })
+                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+    }
+
+    /// <summary>
     /// Lock a user account.
     /// </summary>
     [HttpPost("{id:guid}/lock")]
@@ -385,3 +501,8 @@ public record UpdateProfileRequest(
 public record LockAccountRequest(
     string Reason,
     int? LockDurationMinutes = null);
+
+public record GrantPermissionRequest(
+    Guid PermissionId,
+    Guid? ApplicationId = null,
+    DateTime? ExpiresAt = null);

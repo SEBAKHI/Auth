@@ -93,4 +93,62 @@ public interface IUserRepository
     /// <param name="modifiedBy">Who confirmed the email.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task ConfirmEmailAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken = default);
+
+    #region User Roles
+
+    /// <summary>
+    /// Gets all role assignments for a user.
+    /// </summary>
+    Task<IReadOnlyList<UserRole>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a specific role assignment for a user.
+    /// </summary>
+    Task<UserRole?> GetUserRoleAsync(Guid userId, Guid roleId, Guid? applicationId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Assigns a role to a user.
+    /// </summary>
+    Task<UserRole> AssignRoleAsync(UserRole userRole, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Removes a role assignment from a user.
+    /// </summary>
+    Task RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if a user has a specific role.
+    /// </summary>
+    Task<bool> HasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default);
+
+    #endregion
+
+    #region User Permissions (Direct Grants)
+
+    /// <summary>
+    /// Gets all direct permission grants for a user.
+    /// </summary>
+    Task<IReadOnlyList<UserPermission>> GetUserPermissionsAsync(Guid userId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets a specific permission grant for a user.
+    /// </summary>
+    Task<UserPermission?> GetUserPermissionAsync(Guid userId, Guid permissionId, Guid? applicationId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Grants a permission directly to a user.
+    /// </summary>
+    Task<UserPermission> GrantPermissionAsync(UserPermission userPermission, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Revokes a direct permission from a user.
+    /// </summary>
+    Task RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if a user has a specific direct permission grant.
+    /// </summary>
+    Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken = default);
+
+    #endregion
 }

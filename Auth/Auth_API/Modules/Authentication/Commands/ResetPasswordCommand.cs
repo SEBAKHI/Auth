@@ -6,6 +6,7 @@ namespace Auth_API.Modules.Authentication.Commands;
 /// <summary>
 /// Command to reset a user's password using a reset token.
 /// </summary>
+/// <param name="Email">The user's email address for token lookup.</param>
 /// <param name="Token">The password reset token.</param>
 /// <param name="NewPassword">The new password to set.</param>
 /// <param name="TerminateSessions">
@@ -13,6 +14,7 @@ namespace Auth_API.Modules.Authentication.Commands;
 /// Null means use server configuration default.
 /// </param>
 public record ResetPasswordCommand(
+    string Email,
     string Token,
     string NewPassword,
     bool? TerminateSessions = null) : IRequest<ErrorOr<Success>>;

@@ -80,6 +80,16 @@
 			"key": "testPermissionId",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "testAuditLogId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "impliedPermissionId",
+			"value": "",
+			"type": "string"
 		}
 	],
 	"auth": {
@@ -380,14 +390,14 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \"NewSecurePassword123!\"\n}"
+							"raw": "{\n    \"email\": \"admin@company.com\",\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \"NewSecurePassword123!\",\n    \"confirmNewPassword\": \"NewSecurePassword123!\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/reset-password",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "reset-password"]
 						},
-						"description": "Resets password using a valid reset token.\n\nToken is verified using Argon2id hash lookup. All existing sessions are terminated."
+						"description": "Resets password using a valid reset token.\n\nRequires email for efficient token lookup. Token is verified using Argon2id VerifyPassword pattern (same as login). All existing sessions are terminated by default."
 					},
 					"response": []
 				},
@@ -697,7 +707,7 @@
 								}
 							]
 						},
-						"description": "Returns paginated list of users.\n\nRequires 'users:read' permission."
+						"description": "Returns paginated list of users.\n\nRequires 'auth:users:read' permission."
 					},
 					"response": []
 				},
@@ -711,7 +721,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}"]
 						},
-						"description": "Returns a specific user by ID.\n\nRequires 'users:read' permission."
+						"description": "Returns a specific user by ID.\n\nRequires 'auth:users:read' permission."
 					},
 					"response": []
 				},
@@ -750,7 +760,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users"]
 						},
-						"description": "Creates a new user.\n\nRequires 'users:create' permission. Password is hashed with Argon2id."
+						"description": "Creates a new user.\n\nRequires 'auth:users:create' permission. Password is hashed with Argon2id."
 					},
 					"response": []
 				},
@@ -773,7 +783,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}"]
 						},
-						"description": "Updates an existing user.\n\nRequires 'users:update' permission."
+						"description": "Updates an existing user.\n\nRequires 'auth:users:update' permission."
 					},
 					"response": []
 				},
@@ -787,7 +797,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}"]
 						},
-						"description": "Soft-deletes a user.\n\nRequires 'users:delete' permission."
+						"description": "Soft-deletes a user.\n\nRequires 'auth:users:delete' permission."
 					},
 					"response": []
 				},
@@ -810,7 +820,118 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}", "roles"]
 						},
-						"description": "Assigns a role to a user.\n\nRequires 'users:manage-roles' permission."
+						"description": "Assigns a role to a user.\n\nRequires 'auth:users:manage-roles' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Roles",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
+									"        pm.collectionVariables.set(\"testRoleId\", jsonData[0].roleId);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "roles"]
+						},
+						"description": "Returns all roles assigned to a user.\n\nRequires 'auth:users:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Role from User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/roles/{{testRoleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "roles", "{{testRoleId}}"]
+						},
+						"description": "Removes a role from a user.\n\nRequires 'auth:users:manage-roles' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Permissions",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
+									"        pm.collectionVariables.set(\"testPermissionId\", jsonData[0].permissionId);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/permissions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "permissions"]
+						},
+						"description": "Returns all direct permissions granted to a user.\n\nRequires 'auth:users:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Grant Permission to User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"permissionId\": \"{{testPermissionId}}\",\n    \"applicationId\": null,\n    \"expiresAt\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/permissions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "permissions"]
+						},
+						"description": "Grants a direct permission to a user.\n\nRequires 'auth:users:manage-permissions' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke Permission from User",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/permissions/{{testPermissionId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "permissions", "{{testPermissionId}}"]
+						},
+						"description": "Revokes a direct permission from a user.\n\nRequires 'auth:users:manage-permissions' permission."
 					},
 					"response": []
 				},
@@ -833,7 +954,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}", "lock"]
 						},
-						"description": "Locks a user account for specified duration.\n\nRequires 'users:manage' permission."
+						"description": "Locks a user account for specified duration.\n\nRequires 'auth:users:manage' permission."
 					},
 					"response": []
 				},
@@ -847,7 +968,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}", "unlock"]
 						},
-						"description": "Unlocks a locked user account.\n\nRequires 'users:manage' permission."
+						"description": "Unlocks a locked user account.\n\nRequires 'auth:users:manage' permission."
 					},
 					"response": []
 				},
@@ -861,7 +982,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}", "activate"]
 						},
-						"description": "Activates a deactivated user account.\n\nRequires 'users:manage' permission."
+						"description": "Activates a deactivated user account.\n\nRequires 'auth:users:manage' permission."
 					},
 					"response": []
 				},
@@ -875,7 +996,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}", "deactivate"]
 						},
-						"description": "Deactivates a user account and terminates all sessions.\n\nRequires 'users:manage' permission."
+						"description": "Deactivates a user account and terminates all sessions.\n\nRequires 'auth:users:manage' permission."
 					},
 					"response": []
 				},
@@ -955,7 +1076,7 @@
 								}
 							]
 						},
-						"description": "Returns all roles, optionally filtered by application.\n\nRequires 'roles:read' permission."
+						"description": "Returns all roles, optionally filtered by application.\n\nRequires 'auth:roles:read' permission."
 					},
 					"response": []
 				},
@@ -969,7 +1090,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "roles", "{{testRoleId}}"]
 						},
-						"description": "Returns a specific role by ID.\n\nRequires 'roles:read' permission."
+						"description": "Returns a specific role by ID.\n\nRequires 'auth:roles:read' permission."
 					},
 					"response": []
 				},
@@ -1008,7 +1129,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "roles"]
 						},
-						"description": "Creates a new role.\n\nRequires 'roles:create' permission."
+						"description": "Creates a new role.\n\nRequires 'auth:roles:create' permission."
 					},
 					"response": []
 				},
@@ -1031,7 +1152,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "roles", "{{testRoleId}}"]
 						},
-						"description": "Updates an existing role.\n\nRequires 'roles:update' permission."
+						"description": "Updates an existing role.\n\nRequires 'auth:roles:update' permission."
 					},
 					"response": []
 				},
@@ -1045,7 +1166,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "roles", "{{testRoleId}}"]
 						},
-						"description": "Deletes a role.\n\nRequires 'roles:delete' permission."
+						"description": "Deletes a role.\n\nRequires 'auth:roles:delete' permission."
 					},
 					"response": []
 				}
@@ -1053,10 +1174,29 @@
 		},
 		{
 			"name": "Permissions",
-			"description": "Permission management endpoints",
+			"description": "Permission management endpoints (requires permissions:* permissions)",
 			"item": [
 				{
 					"name": "Get All Permissions",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
+									"        pm.collectionVariables.set(\"testPermissionId\", jsonData[0].id);",
+									"        if (jsonData.length > 1) {",
+									"            pm.collectionVariables.set(\"impliedPermissionId\", jsonData[1].id);",
+									"        }",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
 					"request": {
 						"method": "GET",
 						"header": [],
@@ -1072,7 +1212,475 @@
 								}
 							]
 						},
-						"description": "Returns all permissions, optionally filtered by application.\n\nRequires 'permissions:read' permission."
+						"description": "Returns all permissions, optionally filtered by application.\n\nRequires 'auth:permissions:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Permission by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "permissions", "{{testPermissionId}}"]
+						},
+						"description": "Returns a specific permission by ID.\n\nRequires 'auth:permissions:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Permission",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.id) {",
+									"        pm.collectionVariables.set(\"testPermissionId\", jsonData.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"code\": \"custom:permission:test\",\n    \"name\": \"Custom Test Permission\",\n    \"description\": \"A custom permission for testing\",\n    \"parentId\": null,\n    \"isWildcard\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/permissions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "permissions"]
+						},
+						"description": "Creates a new permission.\n\nRequires 'auth:permissions:create' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Permission",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Permission Name\",\n    \"description\": \"Updated permission description\",\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "permissions", "{{testPermissionId}}"]
+						},
+						"description": "Updates an existing permission.\n\nRequires 'auth:permissions:update' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Permission",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "permissions", "{{testPermissionId}}"]
+						},
+						"description": "Deletes a permission.\n\nRequires 'auth:permissions:delete' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Permission Implications",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}/implications",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "permissions", "{{testPermissionId}}", "implications"]
+						},
+						"description": "Returns all permissions that are implied by this permission.\n\nPermission implications create a hierarchy where having a parent permission automatically grants implied child permissions.\n\nRequires 'auth:permissions:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Add Permission Implication",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"impliedPermissionId\": \"{{impliedPermissionId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}/implications",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "permissions", "{{testPermissionId}}", "implications"]
+						},
+						"description": "Adds a permission implication (the specified permission will imply the target permission).\n\nFor example, if 'users:*' implies 'users:read', having 'users:*' automatically grants 'users:read'.\n\nRequires 'auth:permissions:manage' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Remove Permission Implication",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}/implications/{{impliedPermissionId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "permissions", "{{testPermissionId}}", "implications", "{{impliedPermissionId}}"]
+						},
+						"description": "Removes a permission implication.\n\nRequires 'auth:permissions:manage' permission."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Applications",
+			"description": "Application management endpoints (requires applications:* permissions)",
+			"item": [
+				{
+					"name": "Get All Applications",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.items && jsonData.items.length > 0) {",
+									"        pm.collectionVariables.set(\"applicationId\", jsonData.items[0].id);",
+									"    } else if (Array.isArray(jsonData) && jsonData.length > 0) {",
+									"        pm.collectionVariables.set(\"applicationId\", jsonData[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications?pageNumber=1&pageSize=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "applications"],
+							"query": [
+								{
+									"key": "pageNumber",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "20"
+								},
+								{
+									"key": "searchTerm",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "isActive",
+									"value": "true",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns paginated list of applications.\n\nRequires 'auth:applications:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Application by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "applications", "{{applicationId}}"]
+						},
+						"description": "Returns a specific application by ID.\n\nRequires 'auth:applications:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Application",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.id) {",
+									"        pm.collectionVariables.set(\"applicationId\", jsonData.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"code\": \"my-app\",\n    \"name\": \"My Application\",\n    \"description\": \"A custom application\",\n    \"baseUrl\": \"https://myapp.example.com\",\n    \"callbackUrls\": [\"https://myapp.example.com/callback\"],\n    \"logoutUrls\": [\"https://myapp.example.com/logout\"],\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "applications"]
+						},
+						"description": "Creates a new application.\n\nRequires 'auth:applications:create' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Application",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Application Name\",\n    \"description\": \"Updated application description\",\n    \"baseUrl\": \"https://updated-app.example.com\",\n    \"callbackUrls\": [\"https://updated-app.example.com/callback\"],\n    \"logoutUrls\": [\"https://updated-app.example.com/logout\"],\n    \"isActive\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "applications", "{{applicationId}}"]
+						},
+						"description": "Updates an existing application.\n\nRequires 'auth:applications:update' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Application",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "applications", "{{applicationId}}"]
+						},
+						"description": "Deletes an application (soft delete).\n\nRequires 'auth:applications:delete' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Application Roles",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "applications", "{{applicationId}}", "roles"]
+						},
+						"description": "Returns all roles defined for an application.\n\nRequires 'auth:applications:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Application Permissions",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/permissions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "applications", "{{applicationId}}", "permissions"]
+						},
+						"description": "Returns all permissions defined for an application.\n\nRequires 'auth:applications:read' permission."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Audit Logs",
+			"description": "Audit log query endpoints (requires auditlogs:* permissions)",
+			"item": [
+				{
+					"name": "Get Audit Logs (Paginated)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.items && jsonData.items.length > 0) {",
+									"        pm.collectionVariables.set(\"testAuditLogId\", jsonData.items[0].id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit-logs?pageNumber=1&pageSize=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit-logs"],
+							"query": [
+								{
+									"key": "pageNumber",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "20"
+								},
+								{
+									"key": "action",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "entityType",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "startDate",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "endDate",
+									"value": "",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Returns paginated list of audit logs with optional filtering.\n\nFilters available:\n- action: Filter by action type (e.g., 'Login', 'Create', 'Update', 'Delete')\n- entityType: Filter by entity type (e.g., 'User', 'Role', 'Permission')\n- startDate/endDate: Filter by date range\n\nRequires 'auth:audit:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Audit Log by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit-logs/{{testAuditLogId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit-logs", "{{testAuditLogId}}"]
+						},
+						"description": "Returns a specific audit log entry by ID.\n\nRequires 'auth:audit:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Audit Logs by User",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit-logs/users/{{testUserId}}?pageNumber=1&pageSize=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit-logs", "users", "{{testUserId}}"],
+							"query": [
+								{
+									"key": "pageNumber",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Returns all audit logs for a specific user.\n\nRequires 'auth:audit:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Audit Logs by Entity",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit-logs/entities/User/{{testUserId}}?pageNumber=1&pageSize=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit-logs", "entities", "User", "{{testUserId}}"],
+							"query": [
+								{
+									"key": "pageNumber",
+									"value": "1"
+								},
+								{
+									"key": "pageSize",
+									"value": "20"
+								}
+							]
+						},
+						"description": "Returns all audit logs for a specific entity.\n\nEntity types: User, Role, Permission, Organization, Application, ApiKey\n\nRequires 'auth:audit:read' permission."
+					},
+					"response": []
+				},
+				{
+					"name": "Export Audit Logs",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"format\": \"csv\",\n    \"startDate\": \"2024-01-01T00:00:00Z\",\n    \"endDate\": \"2024-12-31T23:59:59Z\",\n    \"action\": null,\n    \"entityType\": null,\n    \"userId\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/audit-logs/export",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "audit-logs", "export"]
+						},
+						"description": "Exports audit logs in specified format (CSV or JSON).\n\nRequires 'auth:audit:export' permission."
 					},
 					"response": []
 				}
@@ -1114,7 +1722,7 @@
 								}
 							]
 						},
-						"description": "Returns all API keys for an application.\n\nRequires 'apikeys:read' permission."
+						"description": "Returns all API keys for an application.\n\nRequires 'auth:apikeys:read' permission."
 					},
 					"response": []
 				},
@@ -1155,7 +1763,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "apikeys"]
 						},
-						"description": "Creates a new API key.\n\nThe API key is hashed with Argon2id before storage. The plain key is only returned once!\n\nRequires 'apikeys:create' permission."
+						"description": "Creates a new API key.\n\nThe API key is hashed with Argon2id before storage. The plain key is only returned once!\n\nRequires 'auth:apikeys:create' permission."
 					},
 					"response": []
 				},
@@ -1178,7 +1786,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "apikeys", "{{testApiKeyId}}", "revoke"]
 						},
-						"description": "Revokes an API key, immediately invalidating it.\n\nRequires 'apikeys:revoke' permission."
+						"description": "Revokes an API key, immediately invalidating it.\n\nRequires 'auth:apikeys:revoke' permission."
 					},
 					"response": []
 				},
@@ -1201,7 +1809,7 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "apikeys", "{{testApiKeyId}}", "rotate"]
 						},
-						"description": "Rotates an API key, generating a new one while keeping the old one valid for a grace period.\n\nThe new API key is hashed with Argon2id. The plain key is only returned once!\n\nRequires 'apikeys:rotate' permission."
+						"description": "Rotates an API key, generating a new one while keeping the old one valid for a grace period.\n\nThe new API key is hashed with Argon2id. The plain key is only returned once!\n\nRequires 'auth:apikeys:rotate' permission."
 					},
 					"response": []
 				}
@@ -1520,6 +2128,20 @@
 					"description": "Manage organization app subscriptions",
 					"item": [
 						{
+							"name": "Get Organization Applications",
+							"request": {
+								"method": "GET",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "applications"]
+								},
+								"description": "Returns all applications enabled for this organization.\n\nRequires 'org:apps:read' permission."
+							},
+							"response": []
+						},
+						{
 							"name": "Enable Application",
 							"request": {
 								"method": "POST",
@@ -1539,6 +2161,43 @@
 									"path": ["api", "v1", "organizations", "{{organizationId}}", "applications"]
 								},
 								"description": "Enables an application for the organization (creates a subscription).\n\nRequires 'org:apps:manage' permission.\nMembers can then be granted access to this app."
+							},
+							"response": []
+						},
+						{
+							"name": "Update Application Subscription",
+							"request": {
+								"method": "PUT",
+								"header": [
+									{
+										"key": "Content-Type",
+										"value": "application/json"
+									}
+								],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"subscriptionTier\": \"enterprise\",\n    \"expiresAt\": \"2025-12-31T23:59:59Z\",\n    \"isActive\": true\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications/{{applicationId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "applications", "{{applicationId}}"]
+								},
+								"description": "Updates an organization's application subscription settings.\n\nCan change subscription tier, expiration date, or active status.\n\nRequires 'org:apps:manage' permission."
+							},
+							"response": []
+						},
+						{
+							"name": "Disable Application",
+							"request": {
+								"method": "DELETE",
+								"header": [],
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications/{{applicationId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "organizations", "{{organizationId}}", "applications", "{{applicationId}}"]
+								},
+								"description": "Disables an application for the organization (removes the subscription).\n\nRequires 'org:apps:manage' permission."
 							},
 							"response": []
 						}

@@ -345,6 +345,212 @@ public class UserRepository : IUserRepository
             });
     }
 
+    #region User Roles
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<UserRole>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<UserRoleInternalDto>(@"
+            SELECT * FROM [dbo].[UserRoles]
+            WHERE [UserId] = @UserId AND [IsActive] = 1",
+            new { UserId = userId });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<UserRole?> GetUserRoleAsync(Guid userId, Guid roleId, Guid? applicationId = null, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var sql = @"
+            SELECT * FROM [dbo].[UserRoles]
+            WHERE [UserId] = @UserId AND [RoleId] = @RoleId AND [IsActive] = 1";
+
+        if (applicationId.HasValue)
+            sql += " AND [ApplicationId] = @ApplicationId";
+        else
+            sql += " AND [ApplicationId] IS NULL";
+
+        var dto = await connection.QueryFirstOrDefaultAsync<UserRoleInternalDto>(sql, new
+        {
+            UserId = userId,
+            RoleId = roleId,
+            ApplicationId = applicationId
+        });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<UserRole> AssignRoleAsync(UserRole userRole, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            INSERT INTO [dbo].[UserRoles] (
+                [Id], [UserId], [RoleId], [ApplicationId], [AssignedAt], [AssignedBy], [ExpiresAt], [IsActive]
+            ) VALUES (
+                @Id, @UserId, @RoleId, @ApplicationId, @AssignedAt, @AssignedBy, @ExpiresAt, @IsActive
+            )",
+            new
+            {
+                userRole.Id,
+                userRole.UserId,
+                userRole.RoleId,
+                userRole.ApplicationId,
+                userRole.AssignedAt,
+                userRole.AssignedBy,
+                userRole.ExpiresAt,
+                userRole.IsActive
+            });
+
+        return userRole;
+    }
+
+    /// <inheritdoc />
+    public async Task RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId = null, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var sql = @"
+            UPDATE [dbo].[UserRoles] SET [IsActive] = 0
+            WHERE [UserId] = @UserId AND [RoleId] = @RoleId";
+
+        if (applicationId.HasValue)
+            sql += " AND [ApplicationId] = @ApplicationId";
+        else
+            sql += " AND [ApplicationId] IS NULL";
+
+        await connection.ExecuteAsync(sql, new
+        {
+            UserId = userId,
+            RoleId = roleId,
+            ApplicationId = applicationId
+        });
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> HasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var count = await connection.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1) FROM [dbo].[UserRoles]
+            WHERE [UserId] = @UserId AND [RoleId] = @RoleId AND [IsActive] = 1
+              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
+            new { UserId = userId, RoleId = roleId });
+
+        return count > 0;
+    }
+
+    #endregion
+
+    #region User Permissions (Direct Grants)
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<UserPermission>> GetUserPermissionsAsync(Guid userId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<UserPermissionInternalDto>(@"
+            SELECT * FROM [dbo].[UserPermissions]
+            WHERE [UserId] = @UserId AND [IsActive] = 1",
+            new { UserId = userId });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<UserPermission?> GetUserPermissionAsync(Guid userId, Guid permissionId, Guid? applicationId = null, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var sql = @"
+            SELECT * FROM [dbo].[UserPermissions]
+            WHERE [UserId] = @UserId AND [PermissionId] = @PermissionId AND [IsActive] = 1";
+
+        if (applicationId.HasValue)
+            sql += " AND [ApplicationId] = @ApplicationId";
+        else
+            sql += " AND [ApplicationId] IS NULL";
+
+        var dto = await connection.QueryFirstOrDefaultAsync<UserPermissionInternalDto>(sql, new
+        {
+            UserId = userId,
+            PermissionId = permissionId,
+            ApplicationId = applicationId
+        });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<UserPermission> GrantPermissionAsync(UserPermission userPermission, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            INSERT INTO [dbo].[UserPermissions] (
+                [Id], [UserId], [PermissionId], [ApplicationId], [GrantedAt], [GrantedBy], [ExpiresAt], [IsActive]
+            ) VALUES (
+                @Id, @UserId, @PermissionId, @ApplicationId, @GrantedAt, @GrantedBy, @ExpiresAt, @IsActive
+            )",
+            new
+            {
+                userPermission.Id,
+                userPermission.UserId,
+                userPermission.PermissionId,
+                userPermission.ApplicationId,
+                userPermission.GrantedAt,
+                userPermission.GrantedBy,
+                userPermission.ExpiresAt,
+                userPermission.IsActive
+            });
+
+        return userPermission;
+    }
+
+    /// <inheritdoc />
+    public async Task RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId = null, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var sql = @"
+            UPDATE [dbo].[UserPermissions] SET [IsActive] = 0
+            WHERE [UserId] = @UserId AND [PermissionId] = @PermissionId";
+
+        if (applicationId.HasValue)
+            sql += " AND [ApplicationId] = @ApplicationId";
+        else
+            sql += " AND [ApplicationId] IS NULL";
+
+        await connection.ExecuteAsync(sql, new
+        {
+            UserId = userId,
+            PermissionId = permissionId,
+            ApplicationId = applicationId
+        });
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var count = await connection.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1) FROM [dbo].[UserPermissions]
+            WHERE [UserId] = @UserId AND [PermissionId] = @PermissionId AND [IsActive] = 1
+              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
+            new { UserId = userId, PermissionId = permissionId });
+
+        return count > 0;
+    }
+
+    #endregion
+
     // Internal DTO for mapping from database
     private record UserDto
     {
@@ -402,5 +608,49 @@ public class UserRepository : IUserRepository
             CreatedBy,
             ModifiedAt,
             ModifiedBy);
+    }
+
+    private record UserRoleInternalDto
+    {
+        public Guid Id { get; init; }
+        public Guid UserId { get; init; }
+        public Guid RoleId { get; init; }
+        public Guid? ApplicationId { get; init; }
+        public DateTime AssignedAt { get; init; }
+        public Guid AssignedBy { get; init; }
+        public DateTime? ExpiresAt { get; init; }
+        public bool IsActive { get; init; }
+
+        public UserRole ToEntity() => new(
+            Id,
+            UserId,
+            RoleId,
+            ApplicationId,
+            AssignedAt,
+            AssignedBy,
+            ExpiresAt,
+            IsActive);
+    }
+
+    private record UserPermissionInternalDto
+    {
+        public Guid Id { get; init; }
+        public Guid UserId { get; init; }
+        public Guid PermissionId { get; init; }
+        public Guid? ApplicationId { get; init; }
+        public DateTime GrantedAt { get; init; }
+        public Guid GrantedBy { get; init; }
+        public DateTime? ExpiresAt { get; init; }
+        public bool IsActive { get; init; }
+
+        public UserPermission ToEntity() => new(
+            Id,
+            UserId,
+            PermissionId,
+            ApplicationId,
+            GrantedAt,
+            GrantedBy,
+            ExpiresAt,
+            IsActive);
     }
 }

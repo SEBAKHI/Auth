@@ -171,7 +171,7 @@ public class AuthController : ControllerBase
     /// <summary>
     /// Resets a user's password using a reset token.
     /// </summary>
-    /// <param name="request">Reset token and new password.</param>
+    /// <param name="request">Email, reset token and new password.</param>
     /// <returns>Success status</returns>
     [HttpPost("reset-password")]
     [AllowAnonymous]
@@ -180,6 +180,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {
         var command = new ResetPasswordCommand(
+            request.Email,
             request.Token,
             request.NewPassword,
             request.TerminateSessions);

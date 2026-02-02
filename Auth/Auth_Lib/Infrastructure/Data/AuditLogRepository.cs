@@ -51,6 +51,19 @@ public class AuditLogRepository : IAuditLogRepository
     }
 
     /// <inheritdoc />
+    public async Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<AuditLogDto>(@"
+            SELECT * FROM [dbo].[AuditLogs]
+            WHERE [Id] = @Id",
+            new { Id = id });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
     public async Task<(IReadOnlyList<AuditLog> Logs, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,

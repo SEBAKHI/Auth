@@ -46,4 +46,39 @@ public interface IApplicationRepository
     /// Deletes an application.
     /// </summary>
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets applications with pagination and optional filtering.
+    /// </summary>
+    Task<(IReadOnlyList<AppEntity> Applications, int TotalCount)> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? search = null,
+        bool? isActive = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if an application has active API keys.
+    /// </summary>
+    Task<bool> HasActiveApiKeysAsync(Guid applicationId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if an application has active user role assignments.
+    /// </summary>
+    Task<bool> HasActiveUserAssignmentsAsync(Guid applicationId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if an application is enabled for any organizations.
+    /// </summary>
+    Task<bool> HasActiveOrganizationsAsync(Guid applicationId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets roles for an application.
+    /// </summary>
+    Task<IReadOnlyList<Auth_Lib.Domain.Entities.Role>> GetRolesAsync(Guid applicationId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets permissions for an application.
+    /// </summary>
+    Task<IReadOnlyList<Auth_Lib.Domain.Entities.Permission>> GetPermissionsAsync(Guid applicationId, CancellationToken cancellationToken = default);
 }

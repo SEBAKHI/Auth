@@ -41,4 +41,13 @@ public interface IPasswordResetTokenRepository
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task CleanupExpiredAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the latest valid (unused and not expired) password reset token for a user.
+    /// Returns the most recently created token for efficient Argon2id verification.
+    /// </summary>
+    /// <param name="userId">The user ID to get the token for.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The latest valid token if exists, null otherwise.</returns>
+    Task<PasswordResetToken?> GetLatestValidTokenForUserAsync(Guid userId, CancellationToken cancellationToken = default);
 }
