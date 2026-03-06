@@ -2260,10 +2260,10 @@ For every endpoint, component, service, and database operation, ask yourself:
 │  ❌ SHA-256/SHA-512 - NOT APPROVED for passwords            │
 │  ❌ MD5 - NEVER USE                                         │
 │                                                             │
-│  Argon2id Configuration:                                    │
-│  • Memory: 64 MB minimum (65536 KB)                         │
-│  • Iterations: 3 minimum                                    │
-│  • Parallelism: 4                                           │
+│  Argon2id Configuration (OWASP 2024 Baseline):              │
+│  • Memory: 19 MiB minimum (19456 KB)                        │
+│  • Iterations: 2 minimum                                    │
+│  • Parallelism: 1                                           │
 │  • Salt: 16 bytes, cryptographically random                 │
 │  • Hash length: 32 bytes                                    │
 │                                                             │

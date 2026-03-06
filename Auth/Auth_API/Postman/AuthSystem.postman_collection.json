@@ -90,6 +90,11 @@
 			"key": "impliedPermissionId",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "secretKey",
+			"value": "my-custom-secret-key",
+			"type": "string"
 		}
 	],
 	"auth": {
@@ -105,64 +110,50 @@
 	"item": [
 		{
 			"name": "Discovery",
-			"description": "OpenID Connect Discovery endpoints for OIDC/OAuth2 configuration",
 			"item": [
 				{
 					"name": "OpenID Configuration",
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
+						"auth": { "type": "noauth" },
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/.well-known/openid-configuration",
 							"host": ["{{baseUrl}}"],
 							"path": [".well-known", "openid-configuration"]
 						},
-						"description": "Returns OpenID Connect discovery document with all supported endpoints and capabilities."
-					},
-					"response": []
+						"description": "Returns the OpenID Connect discovery document."
+					}
 				},
 				{
 					"name": "JWKS (JSON Web Key Set)",
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
+						"auth": { "type": "noauth" },
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/.well-known/jwks.json",
 							"host": ["{{baseUrl}}"],
 							"path": [".well-known", "jwks.json"]
 						},
-						"description": "Returns the JSON Web Key Set containing public keys for token verification."
-					},
-					"response": []
+						"description": "Returns the JSON Web Key Set for JWT verification."
+					}
 				},
 				{
 					"name": "Public Key (PEM)",
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
+						"auth": { "type": "noauth" },
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/.well-known/public-key.pem",
 							"host": ["{{baseUrl}}"],
 							"path": [".well-known", "public-key.pem"]
 						},
-						"description": "Returns the RSA public key in PEM format for token verification."
-					},
-					"response": []
+						"description": "Returns the RSA public key in PEM format."
+					}
 				}
 			]
 		},
 		{
 			"name": "Authentication",
-			"description": "Core authentication endpoints: login, logout, token refresh, password management",
 			"item": [
 				{
 					"name": "Login",
@@ -172,20 +163,10 @@
 							"script": {
 								"exec": [
 									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.accessToken) {",
-									"        pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
-									"    }",
-									"    if (jsonData.refreshToken) {",
-									"        pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
-									"    }",
-									"    if (jsonData.user && jsonData.user.id) {",
-									"        pm.collectionVariables.set(\"userId\", jsonData.user.id);",
-									"    }",
-									"    pm.test(\"Login successful\", function () {",
-									"        pm.expect(jsonData.accessToken).to.be.a('string');",
-									"        pm.expect(jsonData.refreshToken).to.be.a('string');",
-									"    });",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', json.accessToken || '');",
+									"    pm.collectionVariables.set('refreshToken', json.refreshToken || '');",
+									"    pm.collectionVariables.set('userId', json.userId || '');",
 									"}"
 								],
 								"type": "text/javascript"
@@ -193,28 +174,20 @@
 						}
 					],
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
+						"auth": { "type": "noauth" },
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"Admin123!\",\n    \"deviceId\": \"postman-test-device\"\n}"
+							"raw": "{\n    \"email\": \"admin@example.com\",\n    \"password\": \"Admin1234!\",\n    \"applicationId\": \"{{applicationId}}\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/login",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "login"]
 						},
-						"description": "Authenticates a user and returns JWT access token and refresh token.\n\nPassword is verified using Argon2id hashing."
-					},
-					"response": []
+						"description": "Authenticates a user and returns JWT access and refresh tokens."
+					}
 				},
 				{
 					"name": "Refresh Token",
@@ -224,16 +197,9 @@
 							"script": {
 								"exec": [
 									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.accessToken) {",
-									"        pm.collectionVariables.set(\"accessToken\", jsonData.accessToken);",
-									"    }",
-									"    if (jsonData.refreshToken) {",
-									"        pm.collectionVariables.set(\"refreshToken\", jsonData.refreshToken);",
-									"    }",
-									"    pm.test(\"Token refresh successful\", function () {",
-									"        pm.expect(jsonData.accessToken).to.be.a('string');",
-									"    });",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', json.accessToken || '');",
+									"    pm.collectionVariables.set('refreshToken', json.refreshToken || '');",
 									"}"
 								],
 								"type": "text/javascript"
@@ -241,16 +207,9 @@
 						}
 					],
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
+						"auth": { "type": "noauth" },
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
@@ -260,108 +219,49 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "refresh"]
 						},
-						"description": "Exchanges a valid refresh token for a new access token.\n\nRefresh token is looked up using Argon2id hash."
-					},
-					"response": []
+						"description": "Exchanges a refresh token for a new access token."
+					}
 				},
 				{
-					"name": "Logout (Current Device)",
+					"name": "Logout",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\",\n    \"logoutAllDevices\": false\n}"
+							"raw": "{\n    \"refreshToken\": \"{{refreshToken}}\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/logout",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "logout"]
 						},
-						"description": "Logs out the current device by revoking the refresh token and blacklisting the access token."
-					},
-					"response": []
-				},
-				{
-					"name": "Logout (All Devices)",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"logoutAllDevices\": true\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/auth/logout",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "auth", "logout"]
-						},
-						"description": "Logs out from all devices by revoking all refresh tokens for the user."
-					},
-					"response": []
+						"description": "Logs out the current user and invalidates the refresh token."
+					}
 				},
 				{
 					"name": "Change Password",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"currentPassword\": \"OldPassword123!\",\n    \"newPassword\": \"NewPassword456!\"\n}"
+							"raw": "{\n    \"currentPassword\": \"OldPassword123!\",\n    \"newPassword\": \"NewPassword456!\",\n    \"confirmNewPassword\": \"NewPassword456!\",\n    \"terminateSessions\": true\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/change-password",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "change-password"]
 						},
-						"description": "Changes the authenticated user's password.\n\nPassword history is checked to prevent reuse. Both old and new passwords are hashed with Argon2id."
-					},
-					"response": []
+						"description": "Changes the current user's password. terminateSessions=true ends all other sessions."
+					}
 				},
 				{
 					"name": "Forgot Password",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.token) {",
-									"        pm.collectionVariables.set(\"resetToken\", jsonData.token);",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
+						"auth": { "type": "noauth" },
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"email\": \"user@example.com\"\n}"
@@ -371,152 +271,109 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "forgot-password"]
 						},
-						"description": "Initiates password reset flow by generating a reset token.\n\nThe token is hashed with Argon2id before storage. In production, the token would be sent via email."
-					},
-					"response": []
+						"description": "Sends a password reset email to the specified address."
+					}
 				},
 				{
 					"name": "Reset Password",
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
+						"auth": { "type": "noauth" },
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"admin@company.com\",\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \"NewSecurePassword123!\",\n    \"confirmNewPassword\": \"NewSecurePassword123!\"\n}"
+							"raw": "{\n    \"email\": \"user@example.com\",\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \"NewPassword789!\",\n    \"confirmNewPassword\": \"NewPassword789!\",\n    \"terminateSessions\": true\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/reset-password",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "reset-password"]
 						},
-						"description": "Resets password using a valid reset token.\n\nRequires email for efficient token lookup. Token is verified using Argon2id VerifyPassword pattern (same as login). All existing sessions are terminated by default."
-					},
-					"response": []
+						"description": "Resets the user's password using the token received via email."
+					}
 				},
 				{
 					"name": "Get Current User (Me)",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/me",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "me"]
 						},
-						"description": "Returns information about the currently authenticated user from the JWT claims."
-					},
-					"response": []
+						"description": "Returns the currently authenticated user's profile."
+					}
 				},
 				{
 					"name": "Revoke Token",
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"token\": \"{{refreshToken}}\",\n    \"tokenTypeHint\": \"refresh_token\"\n}"
+							"raw": "{\n    \"token\": \"{{refreshToken}}\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/revoke",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "revoke"]
 						},
-						"description": "Revokes a token (access or refresh).\n\nTokenTypeHint can be 'access_token' or 'refresh_token'."
-					},
-					"response": []
+						"description": "Revokes a specific refresh token."
+					}
 				},
 				{
 					"name": "Introspect Token",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"token\": \"{{accessToken}}\",\n    \"tokenTypeHint\": \"access_token\"\n}"
+							"raw": "{\n    \"token\": \"{{accessToken}}\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/introspect",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "introspect"]
 						},
-						"description": "Introspects a token to check if it's active and retrieve its claims.\n\nReturns token metadata including expiration, subject, roles, and permissions."
-					},
-					"response": []
+						"description": "Returns metadata about the provided token (active, expiry, scopes, etc.)."
+					}
 				},
 				{
-					"name": "Send Email Verification",
+					"name": "Send Verification Email",
 					"request": {
 						"method": "POST",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/send-verification-email",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "send-verification-email"]
 						},
-						"description": "Sends a 6-digit OTP to the authenticated user's email for verification.\n\nRequires authentication. OTP expires in 15 minutes.\nRate limited to 3 requests per 60 seconds.\n\nOTP is hashed with Argon2id before storage."
-					},
-					"response": []
+						"description": "Sends an email verification link to the current user's email address."
+					}
 				},
 				{
 					"name": "Verify Email",
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
+						"auth": { "type": "noauth" },
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"userId\": \"{{userId}}\",\n    \"otp\": \"123456\"\n}"
+							"raw": "{\n    \"token\": \"<email-verification-token>\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/verify-email",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "verify-email"]
 						},
-						"description": "Verifies a user's email using the 6-digit OTP sent to their email.\n\nOTP is verified using Argon2id hash comparison.\nMax 5 attempts per OTP. After 5 failed attempts, a new OTP must be requested."
-					},
-					"response": []
+						"description": "Verifies the user's email address using the token from the verification email."
+					}
 				},
 				{
-					"name": "Resend Email Verification",
+					"name": "Resend Verification Email",
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
+						"auth": { "type": "noauth" },
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"email\": \"user@example.com\"\n}"
@@ -526,120 +383,72 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "resend-verification-email"]
 						},
-						"description": "Resends the email verification OTP to the specified email address.\n\nCan be used when user hasn't received the OTP or it has expired.\nRate limited to 3 requests per 60 seconds per email.\n\nReturns same response for valid/invalid emails to prevent enumeration."
-					},
-					"response": []
-				}
-			]
-		},
-		{
-			"name": "Sessions",
-			"description": "Session management endpoints for viewing and terminating active sessions",
-			"item": [
+						"description": "Resends the email verification link."
+					}
+				},
 				{
-					"name": "Get Active Sessions",
-					"event": [
+					"name": "Sessions",
+					"item": [
 						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
-									"        pm.collectionVariables.set(\"testSessionId\", jsonData[0].id);",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
+							"name": "Get Active Sessions",
+							"request": {
+								"method": "GET",
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/auth/sessions",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "auth", "sessions"]
+								},
+								"description": "Returns all active sessions for the current user."
+							}
+						},
+						{
+							"name": "Terminate Session",
+							"request": {
+								"method": "DELETE",
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/auth/sessions/{{testSessionId}}",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "auth", "sessions", "{{testSessionId}}"]
+								},
+								"description": "Terminates a specific session by ID."
+							}
+						},
+						{
+							"name": "Terminate All Sessions",
+							"request": {
+								"method": "DELETE",
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/auth/sessions",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "auth", "sessions"]
+								},
+								"description": "Terminates all sessions for the current user."
 							}
 						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/auth/sessions",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "auth", "sessions"]
-						},
-						"description": "Returns list of active sessions for the authenticated user."
-					},
-					"response": []
-				},
-				{
-					"name": "Terminate Session",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/auth/sessions/{{testSessionId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "auth", "sessions", "{{testSessionId}}"]
-						},
-						"description": "Terminates a specific session by ID."
-					},
-					"response": []
-				},
-				{
-					"name": "Terminate All Sessions",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/auth/sessions",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "auth", "sessions"]
-						},
-						"description": "Terminates all sessions except the current one."
-					},
-					"response": []
+					]
 				}
 			]
 		},
 		{
 			"name": "Two-Factor Authentication",
-			"description": "2FA setup and management using TOTP (Time-based One-Time Password)",
 			"item": [
 				{
 					"name": "Setup 2FA",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.secret) {",
-									"        pm.collectionVariables.set(\"twoFactorSecret\", jsonData.secret);",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
 					"request": {
 						"method": "POST",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/2fa/setup",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "setup"]
 						},
-						"description": "Initiates 2FA setup and returns the secret and QR code URI.\n\nThe secret should be added to an authenticator app (Google Authenticator, Authy, etc.)."
-					},
-					"response": []
+						"description": "Generates a TOTP secret and QR code for 2FA setup. Returns secret and QR code URI."
+					}
 				},
 				{
 					"name": "Enable 2FA",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"code\": \"123456\"\n}"
@@ -649,20 +458,14 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "enable"]
 						},
-						"description": "Enables 2FA by verifying a TOTP code from the authenticator app.\n\nReturns backup recovery codes. Recovery codes are hashed with Argon2id before storage."
-					},
-					"response": []
+						"description": "Enables 2FA after verifying the TOTP code from the authenticator app."
+					}
 				},
 				{
 					"name": "Disable 2FA",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"code\": \"123456\"\n}"
@@ -672,58 +475,73 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "2fa", "disable"]
 						},
-						"description": "Disables 2FA by verifying a valid TOTP code.\n\nRequires a valid code to prevent unauthorized disabling."
-					},
-					"response": []
+						"description": "Disables 2FA after verifying the current TOTP code."
+					}
 				}
 			]
 		},
 		{
 			"name": "Users",
-			"description": "User management endpoints (requires users:* permissions)",
 			"item": [
 				{
-					"name": "Get Users (Paginated)",
+					"name": "Get All Users",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users?pageNumber=1&pageSize=20",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users"],
 							"query": [
-								{
-									"key": "pageNumber",
-									"value": "1"
-								},
-								{
-									"key": "pageSize",
-									"value": "20"
-								},
-								{
-									"key": "searchTerm",
-									"value": "",
-									"disabled": true
-								}
+								{ "key": "pageNumber", "value": "1" },
+								{ "key": "pageSize", "value": "20" },
+								{ "key": "search", "value": "", "disabled": true },
+								{ "key": "isActive", "value": "true", "disabled": true },
+								{ "key": "isLocked", "value": "false", "disabled": true }
 							]
 						},
-						"description": "Returns paginated list of users.\n\nRequires 'auth:users:read' permission."
-					},
-					"response": []
+						"description": "Returns a paginated list of users with optional filtering."
+					}
 				},
 				{
 					"name": "Get User by ID",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}"]
 						},
-						"description": "Returns a specific user by ID.\n\nRequires 'auth:users:read' permission."
-					},
-					"response": []
+						"description": "Returns a specific user by their ID."
+					}
+				},
+				{
+					"name": "Get Current User Profile (Me)",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "me"]
+						},
+						"description": "Returns the currently authenticated user's profile."
+					}
+				},
+				{
+					"name": "Update Current User Profile (Me)",
+					"request": {
+						"method": "PUT",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"phoneNumber\": \"+1234567890\",\n    \"profilePictureUrl\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "me"]
+						},
+						"description": "Updates the currently authenticated user's profile."
+					}
 				},
 				{
 					"name": "Create User",
@@ -733,10 +551,8 @@
 							"script": {
 								"exec": [
 									"if (pm.response.code === 201) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.id) {",
-									"        pm.collectionVariables.set(\"testUserId\", jsonData.id);",
-									"    }",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('testUserId', json.id || '');",
 									"}"
 								],
 								"type": "text/javascript"
@@ -745,354 +561,197 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"SecurePassword123!\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"displayName\": \"John Doe\",\n    \"phoneNumber\": \"+1234567890\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"America/New_York\"\n}"
+							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"Password123!\",\n    \"firstName\": \"New\",\n    \"lastName\": \"User\",\n    \"phoneNumber\": null,\n    \"roleIds\": []\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users"]
 						},
-						"description": "Creates a new user.\n\nRequires 'auth:users:create' permission. Password is hashed with Argon2id."
-					},
-					"response": []
+						"description": "Creates a new user. roleIds is optional — provide role GUIDs to assign roles immediately."
+					}
 				},
 				{
 					"name": "Update User",
 					"request": {
 						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"firstName\": \"John\",\n    \"lastName\": \"Smith\",\n    \"displayName\": \"John Smith\",\n    \"phoneNumber\": \"+1987654321\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"America/Los_Angeles\"\n}"
+							"raw": "{\n    \"firstName\": \"Updated\",\n    \"lastName\": \"User\",\n    \"phoneNumber\": \"+1987654321\",\n    \"profilePictureUrl\": null\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}"]
 						},
-						"description": "Updates an existing user.\n\nRequires 'auth:users:update' permission."
-					},
-					"response": []
+						"description": "Updates a user's profile information."
+					}
 				},
 				{
 					"name": "Delete User",
 					"request": {
 						"method": "DELETE",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}"]
 						},
-						"description": "Soft-deletes a user.\n\nRequires 'auth:users:delete' permission."
-					},
-					"response": []
+						"description": "Soft-deletes a user account."
+					}
 				},
 				{
-					"name": "Assign Role to User",
+					"name": "Lock User",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"roleId\": \"{{testRoleId}}\",\n    \"expiresAt\": null\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/roles",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "users", "{{testUserId}}", "roles"]
-						},
-						"description": "Assigns a role to a user.\n\nRequires 'auth:users:manage-roles' permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Get User Roles",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
-									"        pm.collectionVariables.set(\"testRoleId\", jsonData[0].roleId);",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/roles",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "users", "{{testUserId}}", "roles"]
-						},
-						"description": "Returns all roles assigned to a user.\n\nRequires 'auth:users:read' permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Remove Role from User",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/roles/{{testRoleId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "users", "{{testUserId}}", "roles", "{{testRoleId}}"]
-						},
-						"description": "Removes a role from a user.\n\nRequires 'auth:users:manage-roles' permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Get User Permissions",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
-									"        pm.collectionVariables.set(\"testPermissionId\", jsonData[0].permissionId);",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/permissions",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "users", "{{testUserId}}", "permissions"]
-						},
-						"description": "Returns all direct permissions granted to a user.\n\nRequires 'auth:users:read' permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Grant Permission to User",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"permissionId\": \"{{testPermissionId}}\",\n    \"applicationId\": null,\n    \"expiresAt\": null\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/permissions",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "users", "{{testUserId}}", "permissions"]
-						},
-						"description": "Grants a direct permission to a user.\n\nRequires 'auth:users:manage-permissions' permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Revoke Permission from User",
-					"request": {
-						"method": "DELETE",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/permissions/{{testPermissionId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "users", "{{testUserId}}", "permissions", "{{testPermissionId}}"]
-						},
-						"description": "Revokes a direct permission from a user.\n\nRequires 'auth:users:manage-permissions' permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Lock User Account",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"reason\": \"Suspicious activity detected\",\n    \"lockDurationMinutes\": 60\n}"
+							"raw": "{\n    \"reason\": \"Suspicious activity detected\",\n    \"lockUntil\": null\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/lock",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}", "lock"]
 						},
-						"description": "Locks a user account for specified duration.\n\nRequires 'auth:users:manage' permission."
-					},
-					"response": []
+						"description": "Locks a user account. lockUntil is optional; if null, locks indefinitely."
+					}
 				},
 				{
-					"name": "Unlock User Account",
+					"name": "Unlock User",
 					"request": {
 						"method": "POST",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/unlock",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}", "unlock"]
 						},
-						"description": "Unlocks a locked user account.\n\nRequires 'auth:users:manage' permission."
-					},
-					"response": []
+						"description": "Unlocks a previously locked user account."
+					}
 				},
 				{
-					"name": "Activate User Account",
+					"name": "Activate User",
 					"request": {
 						"method": "POST",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/activate",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}", "activate"]
 						},
-						"description": "Activates a deactivated user account.\n\nRequires 'auth:users:manage' permission."
-					},
-					"response": []
+						"description": "Activates a deactivated user account."
+					}
 				},
 				{
-					"name": "Deactivate User Account",
+					"name": "Deactivate User",
 					"request": {
 						"method": "POST",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/deactivate",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "users", "{{testUserId}}", "deactivate"]
 						},
-						"description": "Deactivates a user account and terminates all sessions.\n\nRequires 'auth:users:manage' permission."
-					},
-					"response": []
+						"description": "Deactivates a user account."
+					}
 				},
 				{
-					"name": "Get My Profile",
+					"name": "Get User Roles",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/users/me",
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/roles",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "users", "me"]
+							"path": ["api", "v1", "users", "{{testUserId}}", "roles"]
 						},
-						"description": "Returns the authenticated user's full profile."
-					},
-					"response": []
+						"description": "Returns all roles assigned to the specified user."
+					}
 				},
 				{
-					"name": "Update My Profile",
+					"name": "Assign Role to User",
 					"request": {
-						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"firstName\": \"Updated\",\n    \"lastName\": \"Name\",\n    \"displayName\": \"Updated Name\",\n    \"phoneNumber\": \"+1234567890\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"America/Chicago\"\n}"
+							"raw": "{\n    \"roleId\": \"{{testRoleId}}\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/users/me",
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/roles",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "users", "me"]
+							"path": ["api", "v1", "users", "{{testUserId}}", "roles"]
 						},
-						"description": "Updates the authenticated user's own profile."
-					},
-					"response": []
+						"description": "Assigns a role to the specified user."
+					}
+				},
+				{
+					"name": "Remove Role from User",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/roles/{{testRoleId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "roles", "{{testRoleId}}"]
+						},
+						"description": "Removes a role assignment from the specified user."
+					}
+				},
+				{
+					"name": "Get User Permissions",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/permissions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "permissions"]
+						},
+						"description": "Returns all effective permissions for the specified user."
+					}
+				},
+				{
+					"name": "Check User Permission",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/permissions/users:read",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "users", "{{testUserId}}", "permissions", "users:read"]
+						},
+						"description": "Checks if the user has a specific permission code."
+					}
 				}
 			]
 		},
 		{
 			"name": "Roles",
-			"description": "Role management endpoints (requires roles:* permissions)",
 			"item": [
 				{
 					"name": "Get All Roles",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
-									"        pm.collectionVariables.set(\"testRoleId\", jsonData[0].id);",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/roles",
+							"raw": "{{baseUrl}}/api/v1/roles?applicationId={{applicationId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "roles"],
 							"query": [
-								{
-									"key": "applicationId",
-									"value": "{{applicationId}}",
-									"disabled": true
-								}
+								{ "key": "applicationId", "value": "{{applicationId}}", "disabled": true }
 							]
 						},
-						"description": "Returns all roles, optionally filtered by application.\n\nRequires 'auth:roles:read' permission."
-					},
-					"response": []
+						"description": "Returns all roles, optionally filtered by application."
+					}
 				},
 				{
 					"name": "Get Role by ID",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/roles/{{testRoleId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "roles", "{{testRoleId}}"]
 						},
-						"description": "Returns a specific role by ID.\n\nRequires 'auth:roles:read' permission."
-					},
-					"response": []
+						"description": "Returns a specific role by ID."
+					}
 				},
 				{
 					"name": "Create Role",
@@ -1102,10 +761,8 @@
 							"script": {
 								"exec": [
 									"if (pm.response.code === 201) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.id) {",
-									"        pm.collectionVariables.set(\"testRoleId\", jsonData.id);",
-									"    }",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('testRoleId', json.id || '');",
 									"}"
 								],
 								"type": "text/javascript"
@@ -1114,121 +771,79 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"code\": \"custom-role\",\n    \"name\": \"Custom Role\",\n    \"description\": \"A custom role for testing\",\n    \"permissionIds\": []\n}"
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"name\": \"Test Role\",\n    \"description\": \"A role created for testing\",\n    \"permissionIds\": []\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/roles",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "roles"]
 						},
-						"description": "Creates a new role.\n\nRequires 'auth:roles:create' permission."
-					},
-					"response": []
+						"description": "Creates a new role for the specified application."
+					}
 				},
 				{
 					"name": "Update Role",
 					"request": {
 						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Updated Role Name\",\n    \"description\": \"Updated role description\"\n}"
+							"raw": "{\n    \"name\": \"Updated Role Name\",\n    \"description\": \"Updated role description\",\n    \"permissionIds\": []\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/roles/{{testRoleId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "roles", "{{testRoleId}}"]
 						},
-						"description": "Updates an existing role.\n\nRequires 'auth:roles:update' permission."
-					},
-					"response": []
+						"description": "Updates an existing role's name, description, and permission assignments."
+					}
 				},
 				{
 					"name": "Delete Role",
 					"request": {
 						"method": "DELETE",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/roles/{{testRoleId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "roles", "{{testRoleId}}"]
 						},
-						"description": "Deletes a role.\n\nRequires 'auth:roles:delete' permission."
-					},
-					"response": []
+						"description": "Deletes a role. Fails if the role is a system role or still in use."
+					}
 				}
 			]
 		},
 		{
 			"name": "Permissions",
-			"description": "Permission management endpoints (requires permissions:* permissions)",
 			"item": [
 				{
 					"name": "Get All Permissions",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
-									"        pm.collectionVariables.set(\"testPermissionId\", jsonData[0].id);",
-									"        if (jsonData.length > 1) {",
-									"            pm.collectionVariables.set(\"impliedPermissionId\", jsonData[1].id);",
-									"        }",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/permissions",
+							"raw": "{{baseUrl}}/api/v1/permissions?applicationId={{applicationId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "permissions"],
 							"query": [
-								{
-									"key": "applicationId",
-									"value": "{{applicationId}}",
-									"disabled": true
-								}
+								{ "key": "applicationId", "value": "{{applicationId}}", "disabled": true }
 							]
 						},
-						"description": "Returns all permissions, optionally filtered by application.\n\nRequires 'auth:permissions:read' permission."
-					},
-					"response": []
+						"description": "Returns all permissions, optionally filtered by application."
+					}
 				},
 				{
 					"name": "Get Permission by ID",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "permissions", "{{testPermissionId}}"]
 						},
-						"description": "Returns a specific permission by ID.\n\nRequires 'auth:permissions:read' permission."
-					},
-					"response": []
+						"description": "Returns a specific permission by ID."
+					}
 				},
 				{
 					"name": "Create Permission",
@@ -1238,10 +853,8 @@
 							"script": {
 								"exec": [
 									"if (pm.response.code === 201) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.id) {",
-									"        pm.collectionVariables.set(\"testPermissionId\", jsonData.id);",
-									"    }",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('testPermissionId', json.id || '');",
 									"}"
 								],
 								"type": "text/javascript"
@@ -1250,86 +863,65 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"code\": \"custom:permission:test\",\n    \"name\": \"Custom Test Permission\",\n    \"description\": \"A custom permission for testing\",\n    \"parentId\": null,\n    \"isWildcard\": false\n}"
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"code\": \"reports:read\",\n    \"name\": \"Read Reports\",\n    \"description\": \"Allows reading reports\",\n    \"parentId\": null\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/permissions",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "permissions"]
 						},
-						"description": "Creates a new permission.\n\nRequires 'auth:permissions:create' permission."
-					},
-					"response": []
+						"description": "Creates a new permission. parentId is optional for hierarchical permissions."
+					}
 				},
 				{
 					"name": "Update Permission",
 					"request": {
 						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Updated Permission Name\",\n    \"description\": \"Updated permission description\",\n    \"isActive\": true\n}"
+							"raw": "{\n    \"name\": \"Updated Permission Name\",\n    \"description\": \"Updated permission description\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "permissions", "{{testPermissionId}}"]
 						},
-						"description": "Updates an existing permission.\n\nRequires 'auth:permissions:update' permission."
-					},
-					"response": []
+						"description": "Updates a permission's name and description."
+					}
 				},
 				{
 					"name": "Delete Permission",
 					"request": {
 						"method": "DELETE",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "permissions", "{{testPermissionId}}"]
 						},
-						"description": "Deletes a permission.\n\nRequires 'auth:permissions:delete' permission."
-					},
-					"response": []
+						"description": "Deletes a permission. Fails if the permission is a system permission."
+					}
 				},
 				{
 					"name": "Get Permission Implications",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}/implications",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "permissions", "{{testPermissionId}}", "implications"]
 						},
-						"description": "Returns all permissions that are implied by this permission.\n\nPermission implications create a hierarchy where having a parent permission automatically grants implied child permissions.\n\nRequires 'auth:permissions:read' permission."
-					},
-					"response": []
+						"description": "Returns all permissions implied by the specified permission."
+					}
 				},
 				{
 					"name": "Add Permission Implication",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
 							"raw": "{\n    \"impliedPermissionId\": \"{{impliedPermissionId}}\"\n}"
@@ -1339,29 +931,25 @@
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "permissions", "{{testPermissionId}}", "implications"]
 						},
-						"description": "Adds a permission implication (the specified permission will imply the target permission).\n\nFor example, if 'users:*' implies 'users:read', having 'users:*' automatically grants 'users:read'.\n\nRequires 'auth:permissions:manage' permission."
-					},
-					"response": []
+						"description": "Adds an implication: having testPermissionId also grants impliedPermissionId."
+					}
 				},
 				{
 					"name": "Remove Permission Implication",
 					"request": {
 						"method": "DELETE",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/permissions/{{testPermissionId}}/implications/{{impliedPermissionId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "permissions", "{{testPermissionId}}", "implications", "{{impliedPermissionId}}"]
 						},
-						"description": "Removes a permission implication.\n\nRequires 'auth:permissions:manage' permission."
-					},
-					"response": []
+						"description": "Removes an implication between two permissions."
+					}
 				}
 			]
 		},
 		{
 			"name": "Applications",
-			"description": "Application management endpoints (requires applications:* permissions)",
 			"item": [
 				{
 					"name": "Get All Applications",
@@ -1371,11 +959,9 @@
 							"script": {
 								"exec": [
 									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.items && jsonData.items.length > 0) {",
-									"        pm.collectionVariables.set(\"applicationId\", jsonData.items[0].id);",
-									"    } else if (Array.isArray(jsonData) && jsonData.length > 0) {",
-									"        pm.collectionVariables.set(\"applicationId\", jsonData[0].id);",
+									"    const json = pm.response.json();",
+									"    if (json.items && json.items.length > 0) {",
+									"        pm.collectionVariables.set('applicationId', json.items[0].id || '');",
 									"    }",
 									"}"
 								],
@@ -1385,49 +971,55 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/applications?pageNumber=1&pageSize=20",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "applications"],
 							"query": [
-								{
-									"key": "pageNumber",
-									"value": "1"
-								},
-								{
-									"key": "pageSize",
-									"value": "20"
-								},
-								{
-									"key": "searchTerm",
-									"value": "",
-									"disabled": true
-								},
-								{
-									"key": "isActive",
-									"value": "true",
-									"disabled": true
-								}
+								{ "key": "pageNumber", "value": "1" },
+								{ "key": "pageSize", "value": "20" },
+								{ "key": "search", "value": "", "disabled": true },
+								{ "key": "isActive", "value": "true", "disabled": true }
 							]
 						},
-						"description": "Returns paginated list of applications.\n\nRequires 'auth:applications:read' permission."
-					},
-					"response": []
+						"description": "Returns a paginated list of applications."
+					}
 				},
 				{
 					"name": "Get Application by ID",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "applications", "{{applicationId}}"]
 						},
-						"description": "Returns a specific application by ID.\n\nRequires 'auth:applications:read' permission."
-					},
-					"response": []
+						"description": "Returns a specific application by ID."
+					}
+				},
+				{
+					"name": "Get Application Roles",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "applications", "{{applicationId}}", "roles"]
+						},
+						"description": "Returns all roles defined for the specified application."
+					}
+				},
+				{
+					"name": "Get Application Permissions",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/permissions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "applications", "{{applicationId}}", "permissions"]
+						},
+						"description": "Returns all permissions defined for the specified application."
+					}
 				},
 				{
 					"name": "Create Application",
@@ -1437,10 +1029,8 @@
 							"script": {
 								"exec": [
 									"if (pm.response.code === 201) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.id) {",
-									"        pm.collectionVariables.set(\"applicationId\", jsonData.id);",
-									"    }",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('applicationId', json.id || '');",
 									"}"
 								],
 								"type": "text/javascript"
@@ -1449,107 +1039,64 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"code\": \"my-app\",\n    \"name\": \"My Application\",\n    \"description\": \"A custom application\",\n    \"baseUrl\": \"https://myapp.example.com\",\n    \"callbackUrls\": [\"https://myapp.example.com/callback\"],\n    \"logoutUrls\": [\"https://myapp.example.com/logout\"],\n    \"isActive\": true\n}"
+							"raw": "{\n    \"code\": \"my-app\",\n    \"name\": \"My Application\",\n    \"description\": \"A custom application\",\n    \"baseUrl\": \"https://myapp.example.com\",\n    \"logoUrl\": null,\n    \"contactEmail\": \"admin@myapp.example.com\",\n    \"allowSelfRegistration\": false,\n    \"requireTwoFactor\": false,\n    \"requireEmailVerification\": true,\n    \"sessionTimeoutMinutes\": 60,\n    \"maxConcurrentSessions\": 5\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/applications",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "applications"]
 						},
-						"description": "Creates a new application.\n\nRequires 'auth:applications:create' permission."
-					},
-					"response": []
+						"description": "Creates a new application registration."
+					}
 				},
 				{
 					"name": "Update Application",
 					"request": {
 						"method": "PUT",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"name\": \"Updated Application Name\",\n    \"description\": \"Updated application description\",\n    \"baseUrl\": \"https://updated-app.example.com\",\n    \"callbackUrls\": [\"https://updated-app.example.com/callback\"],\n    \"logoutUrls\": [\"https://updated-app.example.com/logout\"],\n    \"isActive\": true\n}"
+							"raw": "{\n    \"name\": \"Updated Application Name\",\n    \"description\": \"Updated application description\",\n    \"baseUrl\": \"https://updated-app.example.com\",\n    \"logoUrl\": null,\n    \"contactEmail\": \"admin@updated-app.example.com\",\n    \"allowSelfRegistration\": false,\n    \"requireTwoFactor\": false,\n    \"requireEmailVerification\": true,\n    \"sessionTimeoutMinutes\": 120,\n    \"maxConcurrentSessions\": 10\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "applications", "{{applicationId}}"]
 						},
-						"description": "Updates an existing application.\n\nRequires 'auth:applications:update' permission."
-					},
-					"response": []
+						"description": "Updates an existing application's settings."
+					}
 				},
 				{
 					"name": "Delete Application",
 					"request": {
 						"method": "DELETE",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "applications", "{{applicationId}}"]
 						},
-						"description": "Deletes an application (soft delete).\n\nRequires 'auth:applications:delete' permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Get Application Roles",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/roles",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "applications", "{{applicationId}}", "roles"]
-						},
-						"description": "Returns all roles defined for an application.\n\nRequires 'auth:applications:read' permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Get Application Permissions",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/applications/{{applicationId}}/permissions",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "applications", "{{applicationId}}", "permissions"]
-						},
-						"description": "Returns all permissions defined for an application.\n\nRequires 'auth:applications:read' permission."
-					},
-					"response": []
+						"description": "Deletes an application. Fails if the application has active users or organizations."
+					}
 				}
 			]
 		},
 		{
 			"name": "Audit Logs",
-			"description": "Audit log query endpoints (requires auditlogs:* permissions)",
 			"item": [
 				{
-					"name": "Get Audit Logs (Paginated)",
+					"name": "Get Audit Logs",
 					"event": [
 						{
 							"listen": "test",
 							"script": {
 								"exec": [
 									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.items && jsonData.items.length > 0) {",
-									"        pm.collectionVariables.set(\"testAuditLogId\", jsonData.items[0].id);",
+									"    const json = pm.response.json();",
+									"    if (json.items && json.items.length > 0) {",
+									"        pm.collectionVariables.set('testAuditLogId', json.items[0].id || '');",
 									"    }",
 									"}"
 								],
@@ -1559,172 +1106,115 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/audit-logs?pageNumber=1&pageSize=20",
+							"raw": "{{baseUrl}}/api/v1/audit-logs?pageNumber=1&pageSize=50",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "audit-logs"],
 							"query": [
-								{
-									"key": "pageNumber",
-									"value": "1"
-								},
-								{
-									"key": "pageSize",
-									"value": "20"
-								},
-								{
-									"key": "action",
-									"value": "",
-									"disabled": true
-								},
-								{
-									"key": "entityType",
-									"value": "",
-									"disabled": true
-								},
-								{
-									"key": "startDate",
-									"value": "",
-									"disabled": true
-								},
-								{
-									"key": "endDate",
-									"value": "",
-									"disabled": true
-								}
+								{ "key": "pageNumber", "value": "1" },
+								{ "key": "pageSize", "value": "50" },
+								{ "key": "userId", "value": "", "disabled": true },
+								{ "key": "applicationId", "value": "", "disabled": true },
+								{ "key": "actionType", "value": "", "disabled": true },
+								{ "key": "action", "value": "", "disabled": true },
+								{ "key": "fromDate", "value": "2024-01-01T00:00:00Z", "disabled": true },
+								{ "key": "toDate", "value": "2024-12-31T23:59:59Z", "disabled": true },
+								{ "key": "isSuccess", "value": "true", "disabled": true }
 							]
 						},
-						"description": "Returns paginated list of audit logs with optional filtering.\n\nFilters available:\n- action: Filter by action type (e.g., 'Login', 'Create', 'Update', 'Delete')\n- entityType: Filter by entity type (e.g., 'User', 'Role', 'Permission')\n- startDate/endDate: Filter by date range\n\nRequires 'auth:audit:read' permission."
-					},
-					"response": []
+						"description": "Returns a paginated list of audit log entries with optional filtering."
+					}
 				},
 				{
 					"name": "Get Audit Log by ID",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/audit-logs/{{testAuditLogId}}",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "audit-logs", "{{testAuditLogId}}"]
 						},
-						"description": "Returns a specific audit log entry by ID.\n\nRequires 'auth:audit:read' permission."
-					},
-					"response": []
+						"description": "Returns a specific audit log entry by ID."
+					}
 				},
 				{
 					"name": "Get Audit Logs by User",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/audit-logs/users/{{testUserId}}?pageNumber=1&pageSize=20",
+							"raw": "{{baseUrl}}/api/v1/audit-logs/users/{{testUserId}}?pageNumber=1&pageSize=50",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "audit-logs", "users", "{{testUserId}}"],
 							"query": [
-								{
-									"key": "pageNumber",
-									"value": "1"
-								},
-								{
-									"key": "pageSize",
-									"value": "20"
-								}
+								{ "key": "pageNumber", "value": "1" },
+								{ "key": "pageSize", "value": "50" },
+								{ "key": "fromDate", "value": "2024-01-01T00:00:00Z", "disabled": true },
+								{ "key": "toDate", "value": "2024-12-31T23:59:59Z", "disabled": true }
 							]
 						},
-						"description": "Returns all audit logs for a specific user.\n\nRequires 'auth:audit:read' permission."
-					},
-					"response": []
+						"description": "Returns audit logs for a specific user."
+					}
 				},
 				{
 					"name": "Get Audit Logs by Entity",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/audit-logs/entities/User/{{testUserId}}?pageNumber=1&pageSize=20",
+							"raw": "{{baseUrl}}/api/v1/audit-logs/entities/User/{{testUserId}}",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "audit-logs", "entities", "User", "{{testUserId}}"],
-							"query": [
-								{
-									"key": "pageNumber",
-									"value": "1"
-								},
-								{
-									"key": "pageSize",
-									"value": "20"
-								}
-							]
+							"path": ["api", "v1", "audit-logs", "entities", "User", "{{testUserId}}"]
 						},
-						"description": "Returns all audit logs for a specific entity.\n\nEntity types: User, Role, Permission, Organization, Application, ApiKey\n\nRequires 'auth:audit:read' permission."
-					},
-					"response": []
+						"description": "Returns all audit logs for a specific entity (e.g., User, Role, Permission)."
+					}
 				},
 				{
 					"name": "Export Audit Logs",
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"format\": \"csv\",\n    \"startDate\": \"2024-01-01T00:00:00Z\",\n    \"endDate\": \"2024-12-31T23:59:59Z\",\n    \"action\": null,\n    \"entityType\": null,\n    \"userId\": null\n}"
+							"raw": "{\n    \"format\": \"csv\",\n    \"userId\": null,\n    \"applicationId\": null,\n    \"actionType\": null,\n    \"action\": null,\n    \"fromDate\": \"2024-01-01T00:00:00Z\",\n    \"toDate\": \"2024-12-31T23:59:59Z\",\n    \"isSuccess\": null,\n    \"maxRecords\": 10000\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/audit-logs/export",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "audit-logs", "export"]
 						},
-						"description": "Exports audit logs in specified format (CSV or JSON).\n\nRequires 'auth:audit:export' permission."
-					},
-					"response": []
+						"description": "Exports audit logs to CSV or JSON file. format must be 'csv' or 'json'."
+					}
 				}
 			]
 		},
 		{
 			"name": "API Keys",
-			"description": "API key management for application authentication (requires apikeys:* permissions)",
 			"item": [
 				{
-					"name": "Get API Keys",
-					"event": [
-						{
-							"listen": "test",
-							"script": {
-								"exec": [
-									"if (pm.response.code === 200) {",
-									"    var jsonData = pm.response.json();",
-									"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
-									"        pm.collectionVariables.set(\"testApiKeyId\", jsonData[0].id);",
-									"    }",
-									"}"
-								],
-								"type": "text/javascript"
-							}
-						}
-					],
+					"name": "Get All API Keys",
 					"request": {
 						"method": "GET",
-						"header": [],
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/apikeys?applicationId={{applicationId}}",
+							"raw": "{{baseUrl}}/api/v1/api-keys?applicationId={{applicationId}}",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "apikeys"],
+							"path": ["api", "v1", "api-keys"],
 							"query": [
-								{
-									"key": "applicationId",
-									"value": "{{applicationId}}"
-								}
+								{ "key": "applicationId", "value": "{{applicationId}}", "disabled": true }
 							]
 						},
-						"description": "Returns all API keys for an application.\n\nRequires 'auth:apikeys:read' permission."
-					},
-					"response": []
+						"description": "Returns all API keys, optionally filtered by application."
+					}
+				},
+				{
+					"name": "Get API Key by ID",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/api-keys/{{testApiKeyId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "api-keys", "{{testApiKeyId}}"]
+						},
+						"description": "Returns a specific API key by ID."
+					}
 				},
 				{
 					"name": "Create API Key",
@@ -1734,12 +1224,8 @@
 							"script": {
 								"exec": [
 									"if (pm.response.code === 201) {",
-									"    var jsonData = pm.response.json();",
-									"    if (jsonData.id) {",
-									"        pm.collectionVariables.set(\"testApiKeyId\", jsonData.id);",
-									"    }",
-									"    // Note: The apiKey value is only shown once!",
-									"    console.log(\"API Key (save this - only shown once!):\", jsonData.apiKey);",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('testApiKeyId', json.id || '');",
 									"}"
 								],
 								"type": "text/javascript"
@@ -1748,516 +1234,371 @@
 					],
 					"request": {
 						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"name\": \"Test API Key\",\n    \"description\": \"API key for testing\",\n    \"environment\": \"development\",\n    \"rateLimitPerMinute\": 100,\n    \"rateLimitPerDay\": 10000,\n    \"expiresAt\": null,\n    \"permissionIds\": []\n}"
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"name\": \"My API Key\",\n    \"description\": \"API key for testing\",\n    \"environment\": \"Development\",\n    \"rateLimitPerMinute\": 60,\n    \"rateLimitPerDay\": 10000,\n    \"expiresAt\": null,\n    \"permissionIds\": []\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/apikeys",
+							"raw": "{{baseUrl}}/api/v1/api-keys",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "apikeys"]
+							"path": ["api", "v1", "api-keys"]
 						},
-						"description": "Creates a new API key.\n\nThe API key is hashed with Argon2id before storage. The plain key is only returned once!\n\nRequires 'auth:apikeys:create' permission."
-					},
-					"response": []
+						"description": "Creates a new API key. The raw key value is only returned once at creation."
+					}
 				},
 				{
 					"name": "Revoke API Key",
 					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"reason\": \"No longer needed\"\n}"
-						},
+						"method": "DELETE",
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/apikeys/{{testApiKeyId}}/revoke",
+							"raw": "{{baseUrl}}/api/v1/api-keys/{{testApiKeyId}}",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "apikeys", "{{testApiKeyId}}", "revoke"]
+							"path": ["api", "v1", "api-keys", "{{testApiKeyId}}"]
 						},
-						"description": "Revokes an API key, immediately invalidating it.\n\nRequires 'auth:apikeys:revoke' permission."
-					},
-					"response": []
-				},
-				{
-					"name": "Rotate API Key",
-					"request": {
-						"method": "POST",
-						"header": [
-							{
-								"key": "Content-Type",
-								"value": "application/json"
-							}
-						],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"gracePeriodMinutes\": 60\n}"
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/apikeys/{{testApiKeyId}}/rotate",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "apikeys", "{{testApiKeyId}}", "rotate"]
-						},
-						"description": "Rotates an API key, generating a new one while keeping the old one valid for a grace period.\n\nThe new API key is hashed with Argon2id. The plain key is only returned once!\n\nRequires 'auth:apikeys:rotate' permission."
-					},
-					"response": []
+						"description": "Revokes and deletes the specified API key."
+					}
 				}
 			]
 		},
 		{
 			"name": "Organizations",
-			"description": "Multi-tenant organization management endpoints for managing organizations, members, invitations, app subscriptions, and permissions",
 			"item": [
 				{
-					"name": "Organization CRUD",
-					"description": "Create, read, update, and delete organizations",
+					"name": "Get All Organizations",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const json = pm.response.json();",
+									"    if (json.items && json.items.length > 0) {",
+									"        pm.collectionVariables.set('organizationId', json.items[0].id || '');",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations?pageNumber=1&pageSize=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations"],
+							"query": [
+								{ "key": "pageNumber", "value": "1" },
+								{ "key": "pageSize", "value": "20" },
+								{ "key": "search", "value": "", "disabled": true },
+								{ "key": "isActive", "value": "true", "disabled": true }
+							]
+						},
+						"description": "Returns a paginated list of organizations."
+					}
+				},
+				{
+					"name": "Get Organization by ID",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}"]
+						},
+						"description": "Returns a specific organization by ID."
+					}
+				},
+				{
+					"name": "Create Organization",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('organizationId', json.id || '');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"My Organization\",\n    \"description\": \"An organization for testing\",\n    \"domain\": \"myorg.example.com\",\n    \"logoUrl\": null,\n    \"contactEmail\": \"admin@myorg.example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations"]
+						},
+						"description": "Creates a new organization."
+					}
+				},
+				{
+					"name": "Update Organization",
+					"request": {
+						"method": "PUT",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"name\": \"Updated Organization Name\",\n    \"description\": \"Updated description\",\n    \"domain\": \"updated.example.com\",\n    \"logoUrl\": null,\n    \"contactEmail\": \"admin@updated.example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}"]
+						},
+						"description": "Updates an existing organization."
+					}
+				},
+				{
+					"name": "Delete Organization",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}"]
+						},
+						"description": "Deletes an organization."
+					}
+				},
+				{
+					"name": "Get Organization Members",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members?pageNumber=1&pageSize=20",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "members"],
+							"query": [
+								{ "key": "pageNumber", "value": "1" },
+								{ "key": "pageSize", "value": "20" }
+							]
+						},
+						"description": "Returns all members of the specified organization."
+					}
+				},
+				{
+					"name": "Invite Member",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"newmember@example.com\",\n    \"roleId\": \"{{testRoleId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/invite",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "invite"]
+						},
+						"description": "Sends an invitation email to a new member."
+					}
+				},
+				{
+					"name": "Remove Member",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}"]
+						},
+						"description": "Removes a member from the organization."
+					}
+				},
+				{
+					"name": "Get Organization Applications",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "applications"]
+						},
+						"description": "Returns all applications associated with the organization."
+					}
+				},
+				{
+					"name": "Add Application to Organization",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "applications"]
+						},
+						"description": "Associates an application with the organization."
+					}
+				},
+				{
+					"name": "Remove Application from Organization",
+					"request": {
+						"method": "DELETE",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications/{{applicationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "applications", "{{applicationId}}"]
+						},
+						"description": "Removes an application association from the organization."
+					}
+				},
+				{
+					"name": "Get Member Application Roles",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/applications/{{applicationId}}/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "applications", "{{applicationId}}", "roles"]
+						},
+						"description": "Returns roles assigned to a member within a specific application context."
+					}
+				},
+				{
+					"name": "Assign Member Application Role",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"roleId\": \"{{testRoleId}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/applications/{{applicationId}}/roles",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "applications", "{{applicationId}}", "roles"]
+						},
+						"description": "Assigns a role to a member within a specific application context."
+					}
+				},
+				{
+					"name": "Get Member Application Permissions",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/applications/{{applicationId}}/permissions",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "applications", "{{applicationId}}", "permissions"]
+						},
+						"description": "Returns effective permissions for a member within a specific application context."
+					}
+				}
+			]
+		},
+		{
+			"name": "Invitations",
+			"item": [
+				{
+					"name": "Accept Invitation",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/invitations/{{invitationToken}}/accept",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "invitations", "{{invitationToken}}", "accept"]
+						},
+						"description": "Accepts an organization membership invitation using the token from the invitation email."
+					}
+				}
+			]
+		},
+		{
+			"name": "Administration",
+			"item": [
+				{
+					"name": "Secrets",
 					"item": [
 						{
-							"name": "Get My Organizations",
-							"event": [
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"if (pm.response.code === 200) {",
-											"    var jsonData = pm.response.json();",
-											"    if (Array.isArray(jsonData) && jsonData.length > 0) {",
-											"        pm.collectionVariables.set(\"organizationId\", jsonData[0].id);",
-											"    }",
-											"    pm.test(\"Returns array of organizations\", function () {",
-											"        pm.expect(jsonData).to.be.an('array');",
-											"    });",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
+							"name": "Get Secrets Status",
 							"request": {
 								"method": "GET",
-								"header": [],
 								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations",
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/status",
 									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations"]
+									"path": ["api", "v1", "admin", "secrets", "status"]
 								},
-								"description": "Returns all organizations the current user is a member of.\n\nAuthenticated users can see their own organizations."
-							},
-							"response": []
+								"description": "Returns the current status of all managed secrets (RSA keys, HMAC keys, gateway token). Does not expose secret values."
+							}
 						},
 						{
-							"name": "Create Organization",
-							"event": [
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"if (pm.response.code === 201) {",
-											"    var jsonData = pm.response.json();",
-											"    if (jsonData.id) {",
-											"        pm.collectionVariables.set(\"organizationId\", jsonData.id);",
-											"    }",
-											"    pm.test(\"Organization created successfully\", function () {",
-											"        pm.expect(jsonData.id).to.be.a('string');",
-											"        pm.expect(jsonData.code).to.be.a('string');",
-											"    });",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
+							"name": "Generate RSA Key",
 							"request": {
 								"method": "POST",
-								"header": [
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"code\": \"acme-corp\",\n    \"name\": \"Acme Corporation\",\n    \"description\": \"A sample organization for testing\",\n    \"contactEmail\": \"admin@acme.com\",\n    \"website\": \"https://acme.com\",\n    \"logoUrl\": null\n}"
-								},
 								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations",
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/generate/rsa",
 									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations"]
+									"path": ["api", "v1", "admin", "secrets", "generate", "rsa"]
 								},
-								"description": "Creates a new organization. The authenticated user becomes the organization owner.\n\nCode must be unique (slug format, lowercase, hyphens allowed)."
-							},
-							"response": []
+								"description": "Generates a new RSA key pair and stores it securely. Used for JWT signing."
+							}
 						},
 						{
-							"name": "Get Organization by ID",
+							"name": "Generate HMAC Key",
 							"request": {
-								"method": "GET",
-								"header": [],
+								"method": "POST",
 								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}",
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/generate/hmac",
 									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}"]
+									"path": ["api", "v1", "admin", "secrets", "generate", "hmac"]
 								},
-								"description": "Returns detailed information about a specific organization.\n\nRequires membership in the organization."
-							},
-							"response": []
+								"description": "Generates a new HMAC key and stores it securely."
+							}
 						},
 						{
-							"name": "Update Organization",
+							"name": "Generate Gateway Token",
+							"request": {
+								"method": "POST",
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/generate/gateway-token",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "admin", "secrets", "generate", "gateway-token"]
+								},
+								"description": "Generates a new gateway authentication token and stores it securely."
+							}
+						},
+						{
+							"name": "Set Custom Secret",
 							"request": {
 								"method": "PUT",
-								"header": [
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"name\": \"Acme Corporation Updated\",\n    \"description\": \"Updated description\",\n    \"contactEmail\": \"contact@acme.com\",\n    \"website\": \"https://www.acme.com\",\n    \"logoUrl\": \"https://acme.com/logo.png\"\n}"
+									"raw": "{\n    \"value\": \"my-secret-value\"\n}"
 								},
 								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}",
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/custom/{{secretKey}}",
 									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}"]
+									"path": ["api", "v1", "admin", "secrets", "custom", "{{secretKey}}"]
 								},
-								"description": "Updates an organization's details.\n\nRequires 'org:update' permission or org-owner/org-admin role."
-							},
-							"response": []
+								"description": "Stores a custom secret under the specified key. Use the secretKey variable to set the key name."
+							}
 						},
 						{
-							"name": "Delete Organization",
+							"name": "Delete Custom Secret",
 							"request": {
 								"method": "DELETE",
-								"header": [],
 								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}",
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/custom/{{secretKey}}",
 									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}"]
+									"path": ["api", "v1", "admin", "secrets", "custom", "{{secretKey}}"]
 								},
-								"description": "Deletes an organization (soft delete).\n\nRequires 'org:delete' permission (typically org-owner only)."
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "Members",
-					"description": "Manage organization members",
-					"item": [
-						{
-							"name": "Get Organization Members",
-							"event": [
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"if (pm.response.code === 200) {",
-											"    var jsonData = pm.response.json();",
-											"    if (jsonData.items && jsonData.items.length > 0) {",
-											"        // Find a member that is not the current user for testing",
-											"        var currentUserId = pm.collectionVariables.get(\"userId\");",
-											"        var otherMember = jsonData.items.find(m => m.userId !== currentUserId);",
-											"        if (otherMember) {",
-											"            pm.collectionVariables.set(\"testMemberUserId\", otherMember.userId);",
-											"        }",
-											"    }",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members?pageNumber=1&pageSize=20",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "members"],
-									"query": [
-										{
-											"key": "pageNumber",
-											"value": "1"
-										},
-										{
-											"key": "pageSize",
-											"value": "20"
-										},
-										{
-											"key": "searchTerm",
-											"value": "",
-											"disabled": true
-										}
-									]
-								},
-								"description": "Returns a paginated list of organization members.\n\nRequires 'org:members:read' permission."
-							},
-							"response": []
-						},
-						{
-							"name": "Update Member Role",
-							"request": {
-								"method": "PUT",
-								"header": [
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"roleId\": \"{{testRoleId}}\"\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/role",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "role"]
-								},
-								"description": "Updates a member's organization-level role (e.g., org-admin, org-member).\n\nRequires 'org:members:manage' permission.\nCannot change the owner's role."
-							},
-							"response": []
-						},
-						{
-							"name": "Remove Member",
-							"request": {
-								"method": "DELETE",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}"]
-								},
-								"description": "Removes a member from the organization.\n\nRequires 'org:members:manage' permission.\nCannot remove the organization owner."
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "Invitations",
-					"description": "Invite users to join organizations",
-					"item": [
-						{
-							"name": "Get Pending Invitations",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/invitations",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "invitations"]
-								},
-								"description": "Returns all pending invitations for an organization.\n\nRequires 'org:members:read' permission."
-							},
-							"response": []
-						},
-						{
-							"name": "Invite Member",
-							"event": [
-								{
-									"listen": "test",
-									"script": {
-										"exec": [
-											"if (pm.response.code === 201) {",
-											"    var jsonData = pm.response.json();",
-											"    if (jsonData.token) {",
-											"        pm.collectionVariables.set(\"invitationToken\", jsonData.token);",
-											"        console.log(\"Invitation token (for testing):\", jsonData.token);",
-											"    }",
-											"    pm.test(\"Invitation created successfully\", function () {",
-											"        pm.expect(jsonData.id).to.be.a('string');",
-											"        pm.expect(jsonData.email).to.be.a('string');",
-											"    });",
-											"}"
-										],
-										"type": "text/javascript"
-									}
-								}
-							],
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"email\": \"newmember@example.com\",\n    \"roleId\": \"{{testRoleId}}\",\n    \"expiresInDays\": 7\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/invitations",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "invitations"]
-								},
-								"description": "Sends an invitation to join the organization.\n\nRequires 'org:members:invite' permission.\nThe invitation token is returned (in dev/test environments) and also sent via email in production."
-							},
-							"response": []
-						},
-						{
-							"name": "Accept Invitation",
-							"request": {
-								"method": "POST",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/invitations/{{invitationToken}}/accept",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "invitations", "{{invitationToken}}", "accept"]
-								},
-								"description": "Accepts an organization invitation.\n\nRequires authentication. The invitation must not be expired and must not already be accepted/declined."
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "Applications",
-					"description": "Manage organization app subscriptions",
-					"item": [
-						{
-							"name": "Get Organization Applications",
-							"request": {
-								"method": "GET",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "applications"]
-								},
-								"description": "Returns all applications enabled for this organization.\n\nRequires 'org:apps:read' permission."
-							},
-							"response": []
-						},
-						{
-							"name": "Enable Application",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"subscriptionTier\": \"pro\",\n    \"expiresAt\": null\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "applications"]
-								},
-								"description": "Enables an application for the organization (creates a subscription).\n\nRequires 'org:apps:manage' permission.\nMembers can then be granted access to this app."
-							},
-							"response": []
-						},
-						{
-							"name": "Update Application Subscription",
-							"request": {
-								"method": "PUT",
-								"header": [
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"subscriptionTier\": \"enterprise\",\n    \"expiresAt\": \"2025-12-31T23:59:59Z\",\n    \"isActive\": true\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications/{{applicationId}}",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "applications", "{{applicationId}}"]
-								},
-								"description": "Updates an organization's application subscription settings.\n\nCan change subscription tier, expiration date, or active status.\n\nRequires 'org:apps:manage' permission."
-							},
-							"response": []
-						},
-						{
-							"name": "Disable Application",
-							"request": {
-								"method": "DELETE",
-								"header": [],
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/applications/{{applicationId}}",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "applications", "{{applicationId}}"]
-								},
-								"description": "Disables an application for the organization (removes the subscription).\n\nRequires 'org:apps:manage' permission."
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "Member App Roles",
-					"description": "Assign application-level roles to members within the organization",
-					"item": [
-						{
-							"name": "Assign App Role to Member",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"roleId\": \"{{testRoleId}}\",\n    \"expiresAt\": null\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/roles",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "roles"]
-								},
-								"description": "Assigns an application-level role to a member.\n\nExample: Assign \"Data Transfer Editor\" role which bundles multiple permissions.\n\nRequires 'org:members:manage' permission.\nThe app must be enabled for the organization."
-							},
-							"response": []
-						}
-					]
-				},
-				{
-					"name": "Member Permissions",
-					"description": "Grant individual permissions to members within the organization",
-					"item": [
-						{
-							"name": "Grant Permission to Member",
-							"request": {
-								"method": "POST",
-								"header": [
-									{
-										"key": "Content-Type",
-										"value": "application/json"
-									}
-								],
-								"body": {
-									"mode": "raw",
-									"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"permissionId\": \"{{testPermissionId}}\",\n    \"expiresAt\": null\n}"
-								},
-								"url": {
-									"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/permissions",
-									"host": ["{{baseUrl}}"],
-									"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "permissions"]
-								},
-								"description": "Grants a specific permission to a member for an application.\n\nUse this for granular control when roles are too broad.\nFor example: Grant only 'data-transfer:export' without full editor access.\n\nRequires 'org:members:manage' permission.\nThe app must be enabled for the organization."
-							},
-							"response": []
+								"description": "Deletes a custom secret by its key name."
+							}
 						}
 					]
 				}
@@ -2265,24 +1606,19 @@
 		},
 		{
 			"name": "Health & Info",
-			"description": "Health check and information endpoints",
 			"item": [
 				{
 					"name": "Health Check",
 					"request": {
-						"auth": {
-							"type": "noauth"
-						},
+						"auth": { "type": "noauth" },
 						"method": "GET",
-						"header": [],
 						"url": {
 							"raw": "{{baseUrl}}/health",
 							"host": ["{{baseUrl}}"],
 							"path": ["health"]
 						},
-						"description": "Basic health check endpoint."
-					},
-					"response": []
+						"description": "Returns the health status of the API and its dependencies."
+					}
 				}
 			]
 		}
