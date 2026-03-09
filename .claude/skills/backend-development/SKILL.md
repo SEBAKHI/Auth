@@ -8,49 +8,11 @@ user-invocable: true
 
 ## Architecture Principles
 
-### 1. Clean Architecture Layers
+### 1. Clean Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    CLEAN ARCHITECTURE                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  Presentation Layer (Controllers, API Endpoints)     │   │
-│  │  - HTTP request/response handling                    │   │
-│  │  - Input validation                                  │   │
-│  │  - Authentication/Authorization                      │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                          │                                  │
-│                          ▼                                  │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  Application Layer (Use Cases, Services)             │   │
-│  │  - Business logic orchestration                      │   │
-│  │  - Transaction management                            │   │
-│  │  - DTO transformations                               │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                          │                                  │
-│                          ▼                                  │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  Domain Layer (Entities, Value Objects)              │   │
-│  │  - Business rules                                    │   │
-│  │  - Domain events                                     │   │
-│  │  - Repository interfaces                             │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                          │                                  │
-│                          ▼                                  │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  Infrastructure Layer (DB, External Services)        │   │
-│  │  - Repository implementations                        │   │
-│  │  - External API clients                              │   │
-│  │  - Caching, messaging, logging                       │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-
-Dependency Rule: Dependencies point INWARD only.
-Outer layers can depend on inner layers, never the reverse.
-```
+> **For full layer structure, folder conventions, responsibilities, restrictions, and dependency graph, invoke `/clean-architecture-structure`.**
+>
+> Key rule: Dependencies flow inward. Domain depends on nothing. API → Application → Domain. Infrastructure/Persistence → Application/Domain.
 
 ### 2. SOLID Principles Application
 

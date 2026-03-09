@@ -90,6 +90,7 @@ Detailed standards are maintained as skill files. **Invoke the relevant skill be
 |-------|-------------|-------------|
 | Core Agent Behavior | `/core-agent-behavior` | Starting any task; communication rules; quality trade-off decisions |
 | Implementation Strategy | `/implementation-strategy` | Before writing ANY code; architecture planning; risk identification |
+| Clean Architecture Structure | `/clean-architecture-structure` | Project structure, layer organization, folder conventions, dependency rules |
 | Backend Development | `/backend-development` | APIs, services, repositories, databases, caching, logging |
 | Product Development | `/product-development` | User stories, sprint planning, feature prioritization, stakeholder comms |
 | Security Mindset | `/security-mindset` | Auth, encryption, data handling, any endpoint; MANDATORY for all features |
