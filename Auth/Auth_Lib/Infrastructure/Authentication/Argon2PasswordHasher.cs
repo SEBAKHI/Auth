@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
-using Auth_Lib.Application.Abstractions;
-using Auth_Lib.Configuration;
+using Auth_Lib.Application.Interfaces;
+using Auth_Lib.Infrastructure.Configuration;
 using Konscious.Security.Cryptography;
 using Microsoft.Extensions.Options;
 

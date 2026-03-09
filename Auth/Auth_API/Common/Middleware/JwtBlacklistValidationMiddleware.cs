@@ -1,7 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
-using Auth_Lib.Application.Abstractions;
-using Auth_Lib.Constants;
+using Auth_Lib.Application.Interfaces;
+using Auth_Lib.Domain.Constants;
 
 namespace Auth_API.Common.Middleware;
 

@@ -1,8 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Auth_Lib.Application.Abstractions;
-using Auth_Lib.Configuration;
+using Auth_Lib.Application.Interfaces;
+using Auth_Lib.Infrastructure.Configuration;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

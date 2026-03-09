@@ -1,4 +1,4 @@
-using Auth_Lib.Constants;
+using Auth_Lib.Domain.Constants;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Auth_API.Authorization;

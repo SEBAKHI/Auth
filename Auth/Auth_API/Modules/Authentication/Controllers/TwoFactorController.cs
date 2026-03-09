@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Asp.Versioning;
-using Auth_API.Modules.Authentication.Commands.TwoFactor;
-using Auth_Lib.Constants;
+using Auth_Lib.Application.Features.Authentication.DisableTwoFactor;
+using Auth_Lib.Application.Features.Authentication.EnableTwoFactor;
+using Auth_Lib.Application.Features.Authentication.SetupTwoFactor;
+using Auth_Lib.Domain.Constants;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

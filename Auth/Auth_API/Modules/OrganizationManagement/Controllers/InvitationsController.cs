@@ -1,6 +1,6 @@
 using Asp.Versioning;
-using Auth_API.Modules.OrganizationManagement.Commands;
-using Auth_Lib.DTOs;
+using Auth_Lib.Application.Features.Organizations.AcceptInvitation;
+using Auth_Lib.Application.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

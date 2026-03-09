@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Auth_Lib.Configuration;
+using Auth_Lib.Infrastructure.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Auth_API.Common.Middleware;

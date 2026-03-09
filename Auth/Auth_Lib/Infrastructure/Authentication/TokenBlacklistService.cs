@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using Auth_Lib.Application.Abstractions;
+using Auth_Lib.Application.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace Auth_Lib.Infrastructure.Authentication;

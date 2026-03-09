@@ -1,8 +1,14 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
-using Auth_API.Modules.PermissionManagement.Commands;
-using Auth_API.Modules.PermissionManagement.Queries;
-using Auth_Lib.DTOs;
+using Auth_Lib.Application.Features.Permissions.AddPermissionImplication;
+using Auth_Lib.Application.Features.Permissions.CreatePermission;
+using Auth_Lib.Application.Features.Permissions.DeletePermission;
+using Auth_Lib.Application.Features.Permissions.GetPermissionById;
+using Auth_Lib.Application.Features.Permissions.GetPermissionImplications;
+using Auth_Lib.Application.Features.Permissions.GetPermissions;
+using Auth_Lib.Application.Features.Permissions.RemovePermissionImplication;
+using Auth_Lib.Application.Features.Permissions.UpdatePermission;
+using Auth_Lib.Application.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

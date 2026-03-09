@@ -1,8 +1,13 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
-using Auth_API.Modules.ApplicationManagement.Commands;
-using Auth_API.Modules.ApplicationManagement.Queries;
-using Auth_Lib.DTOs;
+using Auth_Lib.Application.Features.Applications.CreateApplication;
+using Auth_Lib.Application.Features.Applications.DeleteApplication;
+using Auth_Lib.Application.Features.Applications.GetApplicationById;
+using Auth_Lib.Application.Features.Applications.GetApplicationPermissions;
+using Auth_Lib.Application.Features.Applications.GetApplicationRoles;
+using Auth_Lib.Application.Features.Applications.GetApplications;
+using Auth_Lib.Application.Features.Applications.UpdateApplication;
+using Auth_Lib.Application.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

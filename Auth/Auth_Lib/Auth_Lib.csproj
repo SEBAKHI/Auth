@@ -22,33 +22,8 @@
     <PackageReference Include="Microsoft.AspNetCore.DataProtection" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Application\EventHandlers\" />
-    <Folder Include="Application\Abstractions\" />
-    <Folder Include="Application\Mappings\" />
-    <Folder Include="Application\Behaviors\" />
-    <Folder Include="Application\Services\" />
-    <Folder Include="Application\UseCases\ApiKeys\" />
-    <Folder Include="Application\UseCases\Applications\" />
-    <Folder Include="Application\UseCases\Authentication\Commands\" />
-    <Folder Include="Application\UseCases\Authentication\Queries\" />
-    <Folder Include="Application\UseCases\Permissions\" />
-    <Folder Include="Application\UseCases\Roles\" />
-    <Folder Include="Application\UseCases\Users\" />
-    <Folder Include="Contracts\Responses\" />
-    <Folder Include="Contracts\Requests\" />
-    <Folder Include="Domain\Events\" />
-    <Folder Include="Domain\Exceptions\" />
-    <Folder Include="Domain\ValueObjects\" />
-    <Folder Include="Infrastructure\Authorization\" />
-    <Folder Include="Infrastructure\Caching\" />
-    <Folder Include="Infrastructure\External\" />
-    <Folder Include="DTOs\" />
-    <Folder Include="Constants\" />
-    <Folder Include="Enums\" />
-    <Folder Include="Validators\" />
-  </ItemGroup>
 
 </Project>

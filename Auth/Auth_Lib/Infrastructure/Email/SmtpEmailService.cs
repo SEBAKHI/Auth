@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Mail;
-using Auth_Lib.Application.Abstractions;
-using Auth_Lib.Configuration;
+using Auth_Lib.Application.Interfaces;
+using Auth_Lib.Infrastructure.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 

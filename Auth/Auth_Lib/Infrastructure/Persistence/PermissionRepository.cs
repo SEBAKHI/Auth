@@ -1,0 +1,575 @@
+using Auth_Lib.Domain.Entities;
+using Auth_Lib.Domain.Interfaces.Repositories;
+using Dapper;
+
+namespace Auth_Lib.Infrastructure.Persistence;
+
+/// <summary>
+/// Dapper implementation of the permission repository.
+/// </summary>
+public class PermissionRepository : IPermissionRepository
+{
+    private readonly IDbConnectionFactory _connectionFactory;
+
+    public PermissionRepository(IDbConnectionFactory connectionFactory)
+    {
+        _connectionFactory = connectionFactory;
+    }
+
+    /// <inheritdoc />
+    public async Task<Permission?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<PermissionDto>(
+            "SELECT * FROM [dbo].[Permissions] WHERE [Id] = @Id",
+            new { Id = id });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<Permission?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<PermissionDto>(@"
+            SELECT * FROM [dbo].[Permissions]
+            WHERE [Code] = @Code",
+            new { Code = code.ToLowerInvariant() });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Permission>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<PermissionDto>(@"
+            SELECT * FROM [dbo].[Permissions]
+            WHERE [ApplicationId] = @ApplicationId AND [IsActive] = 1
+            ORDER BY [Level], [Name]",
+            new { ApplicationId = applicationId });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Permission>> GetByLevelAsync(
+        byte level,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<PermissionDto>(@"
+            SELECT * FROM [dbo].[Permissions]
+            WHERE [Level] = @Level AND [IsActive] = 1
+            ORDER BY [Name]",
+            new { Level = level });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Permission>> GetChildPermissionsAsync(
+        Guid parentId,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<PermissionDto>(@"
+            SELECT * FROM [dbo].[Permissions]
+            WHERE [ParentId] = @ParentId AND [IsActive] = 1
+            ORDER BY [Name]",
+            new { ParentId = parentId });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> GetUserEffectivePermissionsAsync(
+        Guid userId,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Get permissions from roles and direct grants
+        var permissions = await connection.QueryAsync<string>(@"
+            WITH RolePermissions AS (
+                -- Permissions from roles
+                SELECT DISTINCT p.[Code]
+                FROM [dbo].[Permissions] p
+                INNER JOIN [dbo].[RolePermissions] rp ON p.[Id] = rp.[PermissionId]
+                INNER JOIN [dbo].[UserRoles] ur ON rp.[RoleId] = ur.[RoleId]
+                WHERE ur.[UserId] = @UserId
+                  AND ur.[IsActive] = 1
+                  AND p.[IsActive] = 1
+                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+            ),
+            DirectPermissions AS (
+                -- Direct user permission grants
+                SELECT DISTINCT p.[Code]
+                FROM [dbo].[Permissions] p
+                INNER JOIN [dbo].[UserPermissions] up ON p.[Id] = up.[PermissionId]
+                WHERE up.[UserId] = @UserId
+                  AND up.[IsActive] = 1
+                  AND p.[IsActive] = 1
+                  AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())
+            )
+            SELECT [Code] FROM RolePermissions
+            UNION
+            SELECT [Code] FROM DirectPermissions",
+            new { UserId = userId });
+
+        return permissions.ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> GetUserEffectivePermissionsAsync(
+        Guid userId,
+        Guid applicationId,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var permissions = await connection.QueryAsync<string>(@"
+            WITH RolePermissions AS (
+                SELECT DISTINCT p.[Code]
+                FROM [dbo].[Permissions] p
+                INNER JOIN [dbo].[RolePermissions] rp ON p.[Id] = rp.[PermissionId]
+                INNER JOIN [dbo].[Roles] r ON rp.[RoleId] = r.[Id]
+                INNER JOIN [dbo].[UserRoles] ur ON r.[Id] = ur.[RoleId]
+                WHERE ur.[UserId] = @UserId
+                  AND r.[ApplicationId] = @ApplicationId
+                  AND ur.[IsActive] = 1
+                  AND r.[IsActive] = 1
+                  AND p.[IsActive] = 1
+                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+            ),
+            DirectPermissions AS (
+                SELECT DISTINCT p.[Code]
+                FROM [dbo].[Permissions] p
+                INNER JOIN [dbo].[UserPermissions] up ON p.[Id] = up.[PermissionId]
+                WHERE up.[UserId] = @UserId
+                  AND (up.[ApplicationId] = @ApplicationId OR up.[ApplicationId] IS NULL)
+                  AND up.[IsActive] = 1
+                  AND p.[IsActive] = 1
+                  AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())
+            )
+            SELECT [Code] FROM RolePermissions
+            UNION
+            SELECT [Code] FROM DirectPermissions",
+            new { UserId = userId, ApplicationId = applicationId });
+
+        return permissions.ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> UserHasPermissionAsync(
+        Guid userId,
+        string permissionCode,
+        CancellationToken cancellationToken = default)
+    {
+        var permissions = await GetUserEffectivePermissionsAsync(userId, cancellationToken);
+
+        // Check for exact match or wildcard match
+        return permissions.Any(p => PermissionMatches(p, permissionCode));
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var count = await connection.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1) FROM [dbo].[Permissions]
+            WHERE [Code] = @Code",
+            new { Code = code.ToLowerInvariant() });
+
+        return count > 0;
+    }
+
+    /// <inheritdoc />
+    public async Task<Permission> CreateAsync(Permission permission, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            INSERT INTO [dbo].[Permissions] (
+                [Id], [ApplicationId], [Code], [Name], [Description],
+                [ParentId], [Level], [IsWildcard], [IsActive],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+            ) VALUES (
+                @Id, @ApplicationId, @Code, @Name, @Description,
+                @ParentId, @Level, @IsWildcard, @IsActive,
+                @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
+            )",
+            new
+            {
+                permission.Id,
+                permission.ApplicationId,
+                permission.Code,
+                permission.Name,
+                permission.Description,
+                permission.ParentId,
+                permission.Level,
+                permission.IsWildcard,
+                permission.IsActive,
+                permission.CreatedAt,
+                permission.CreatedBy,
+                permission.ModifiedAt,
+                permission.ModifiedBy
+            });
+
+        return permission;
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateAsync(Permission permission, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[Permissions] SET
+                [Name] = @Name,
+                [Description] = @Description,
+                [IsActive] = @IsActive,
+                [ModifiedAt] = @ModifiedAt,
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @Id",
+            new
+            {
+                permission.Id,
+                permission.Name,
+                permission.Description,
+                permission.IsActive,
+                permission.ModifiedAt,
+                permission.ModifiedBy
+            });
+    }
+
+    /// <inheritdoc />
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Only delete if not a wildcard permission (system permissions)
+        await connection.ExecuteAsync(
+            "DELETE FROM [dbo].[Permissions] WHERE [Id] = @Id AND [IsWildcard] = 0",
+            new { Id = id });
+    }
+
+    /// <inheritdoc />
+    public async Task GrantToRoleAsync(RolePermission rolePermission, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            INSERT INTO [dbo].[RolePermissions] (
+                [Id], [RoleId], [PermissionId], [GrantedAt], [GrantedBy]
+            ) VALUES (
+                @Id, @RoleId, @PermissionId, @GrantedAt, @GrantedBy
+            )",
+            new
+            {
+                rolePermission.Id,
+                rolePermission.RoleId,
+                rolePermission.PermissionId,
+                rolePermission.GrantedAt,
+                rolePermission.GrantedBy
+            });
+    }
+
+    /// <inheritdoc />
+    public async Task RevokeFromRoleAsync(Guid roleId, Guid permissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            DELETE FROM [dbo].[RolePermissions]
+            WHERE [RoleId] = @RoleId AND [PermissionId] = @PermissionId",
+            new { RoleId = roleId, PermissionId = permissionId });
+    }
+
+    /// <inheritdoc />
+    public async Task GrantToUserAsync(UserPermission userPermission, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            INSERT INTO [dbo].[UserPermissions] (
+                [Id], [UserId], [PermissionId], [ApplicationId], [GrantedAt], [GrantedBy], [ExpiresAt], [IsActive]
+            ) VALUES (
+                @Id, @UserId, @PermissionId, @ApplicationId, @GrantedAt, @GrantedBy, @ExpiresAt, @IsActive
+            )",
+            new
+            {
+                userPermission.Id,
+                userPermission.UserId,
+                userPermission.PermissionId,
+                userPermission.ApplicationId,
+                userPermission.GrantedAt,
+                userPermission.GrantedBy,
+                userPermission.ExpiresAt,
+                userPermission.IsActive
+            });
+    }
+
+    /// <inheritdoc />
+    public async Task RevokeFromUserAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[UserPermissions] SET [IsActive] = 0
+            WHERE [UserId] = @UserId AND [PermissionId] = @PermissionId",
+            new { UserId = userId, PermissionId = permissionId });
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Permission>> GetRolePermissionsAsync(Guid roleId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<PermissionDto>(@"
+            SELECT p.* FROM [dbo].[Permissions] p
+            INNER JOIN [dbo].[RolePermissions] rp ON p.[Id] = rp.[PermissionId]
+            WHERE rp.[RoleId] = @RoleId AND p.[IsActive] = 1
+            ORDER BY p.[Level], p.[Name]",
+            new { RoleId = roleId });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    #region Permission Implications
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PermissionImplication>> GetImplicationsAsync(Guid permissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<PermissionImplicationDto>(@"
+            SELECT * FROM [dbo].[PermissionImplications]
+            WHERE [PermissionId] = @PermissionId",
+            new { PermissionId = permissionId });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PermissionImplication>> GetImpliedByAsync(Guid permissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<PermissionImplicationDto>(@"
+            SELECT * FROM [dbo].[PermissionImplications]
+            WHERE [ImpliedPermissionId] = @PermissionId",
+            new { PermissionId = permissionId });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<PermissionImplication> AddImplicationAsync(PermissionImplication implication, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            INSERT INTO [dbo].[PermissionImplications] (
+                [Id], [PermissionId], [ImpliedPermissionId], [CreatedAt], [CreatedBy]
+            ) VALUES (
+                @Id, @PermissionId, @ImpliedPermissionId, @CreatedAt, @CreatedBy
+            )",
+            new
+            {
+                implication.Id,
+                implication.PermissionId,
+                implication.ImpliedPermissionId,
+                implication.CreatedAt,
+                implication.CreatedBy
+            });
+
+        return implication;
+    }
+
+    /// <inheritdoc />
+    public async Task RemoveImplicationAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            DELETE FROM [dbo].[PermissionImplications]
+            WHERE [PermissionId] = @PermissionId AND [ImpliedPermissionId] = @ImpliedPermissionId",
+            new { PermissionId = permissionId, ImpliedPermissionId = impliedPermissionId });
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> ImplicationExistsAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var count = await connection.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1) FROM [dbo].[PermissionImplications]
+            WHERE [PermissionId] = @PermissionId AND [ImpliedPermissionId] = @ImpliedPermissionId",
+            new { PermissionId = permissionId, ImpliedPermissionId = impliedPermissionId });
+
+        return count > 0;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> WouldCreateCircularImplicationAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default)
+    {
+        // If permissionId == impliedPermissionId, it's directly circular
+        if (permissionId == impliedPermissionId)
+            return true;
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Check if adding this implication would create a cycle using recursive CTE
+        var wouldCreateCycle = await connection.ExecuteScalarAsync<int>(@"
+            ;WITH ImplicationChain AS (
+                -- Start from the permission we're about to imply
+                SELECT [ImpliedPermissionId]
+                FROM [dbo].[PermissionImplications]
+                WHERE [PermissionId] = @ImpliedPermissionId
+
+                UNION ALL
+
+                -- Follow the chain of implications
+                SELECT pi.[ImpliedPermissionId]
+                FROM [dbo].[PermissionImplications] pi
+                INNER JOIN ImplicationChain ic ON pi.[PermissionId] = ic.[ImpliedPermissionId]
+            )
+            SELECT COUNT(1) FROM ImplicationChain
+            WHERE [ImpliedPermissionId] = @PermissionId",
+            new { PermissionId = permissionId, ImpliedPermissionId = impliedPermissionId });
+
+        return wouldCreateCycle > 0;
+    }
+
+    #endregion
+
+    #region Paginated Queries
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<Permission> Permissions, int TotalCount)> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        Guid? applicationId = null,
+        string? search = null,
+        bool? isActive = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var whereClause = "WHERE 1=1";
+        if (applicationId.HasValue)
+            whereClause += " AND [ApplicationId] = @ApplicationId";
+        if (!string.IsNullOrWhiteSpace(search))
+            whereClause += " AND ([Code] LIKE @Search OR [Name] LIKE @Search OR [Description] LIKE @Search)";
+        if (isActive.HasValue)
+            whereClause += " AND [IsActive] = @IsActive";
+
+        var countSql = $"SELECT COUNT(1) FROM [dbo].[Permissions] {whereClause}";
+        var totalCount = await connection.ExecuteScalarAsync<int>(countSql, new
+        {
+            ApplicationId = applicationId,
+            Search = $"%{search}%",
+            IsActive = isActive
+        });
+
+        var offset = (pageNumber - 1) * pageSize;
+        var dataSql = $@"
+            SELECT * FROM [dbo].[Permissions]
+            {whereClause}
+            ORDER BY [Level], [Code]
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
+
+        var dtos = await connection.QueryAsync<PermissionDto>(dataSql, new
+        {
+            ApplicationId = applicationId,
+            Search = $"%{search}%",
+            IsActive = isActive,
+            Offset = offset,
+            PageSize = pageSize
+        });
+
+        var permissions = dtos.Select(dto => dto.ToEntity()).ToList();
+        return (permissions, totalCount);
+    }
+
+    #endregion
+
+    /// <summary>
+    /// Checks if a permission code matches a required permission using wildcard logic.
+    /// </summary>
+    private static bool PermissionMatches(string heldPermission, string requiredPermission)
+    {
+        // Global wildcard grants everything
+        if (heldPermission == "*")
+            return true;
+
+        // Exact match
+        if (string.Equals(heldPermission, requiredPermission, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Wildcard matching (e.g., "crm:*" matches "crm:leads:read")
+        if (heldPermission.EndsWith(":*"))
+        {
+            var prefix = heldPermission[..^2]; // Remove ":*"
+            return requiredPermission.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(requiredPermission, prefix, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    private record PermissionDto
+    {
+        public Guid Id { get; init; }
+        public Guid? ApplicationId { get; init; }
+        public string Code { get; init; } = string.Empty;
+        public string Name { get; init; } = string.Empty;
+        public string? Description { get; init; }
+        public Guid? ParentId { get; init; }
+        public byte Level { get; init; }
+        public bool IsWildcard { get; init; }
+        public bool IsActive { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public Guid CreatedBy { get; init; }
+        public DateTime? ModifiedAt { get; init; }
+        public Guid? ModifiedBy { get; init; }
+
+        public Permission ToEntity() => new(
+            Id,
+            ApplicationId,
+            Code,
+            Name,
+            Description,
+            ParentId,
+            Level,
+            IsWildcard,
+            IsActive,
+            CreatedAt,
+            CreatedBy,
+            ModifiedAt,
+            ModifiedBy);
+    }
+
+    private record PermissionImplicationDto
+    {
+        public Guid Id { get; init; }
+        public Guid PermissionId { get; init; }
+        public Guid ImpliedPermissionId { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public Guid CreatedBy { get; init; }
+
+        public PermissionImplication ToEntity() => new(
+            Id,
+            PermissionId,
+            ImpliedPermissionId,
+            CreatedAt,
+            CreatedBy);
+    }
+}

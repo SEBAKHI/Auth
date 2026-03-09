@@ -1,8 +1,10 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
-using Auth_API.Modules.ApiKeyManagement.Commands;
-using Auth_API.Modules.ApiKeyManagement.Queries;
-using Auth_Lib.DTOs;
+using Auth_Lib.Application.Features.ApiKeys.CreateApiKey;
+using Auth_Lib.Application.Features.ApiKeys.GetApiKeys;
+using Auth_Lib.Application.Features.ApiKeys.RevokeApiKey;
+using Auth_Lib.Application.Features.ApiKeys.RotateApiKey;
+using Auth_Lib.Application.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

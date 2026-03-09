@@ -1,4 +1,4 @@
-using Auth_Lib.Application.Abstractions;
+using Auth_Lib.Application.Interfaces;
 using Auth_Lib.Domain.Interfaces.Repositories;
 
 namespace Auth_Lib.Infrastructure.Authorization;

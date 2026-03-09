@@ -1,4 +1,4 @@
-using Auth_Lib.Foundation.Base;
+using Auth_Lib.Domain.Primitives;
 
 namespace Auth_Lib.Domain.Entities;
 
