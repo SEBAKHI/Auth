@@ -1,4 +1,4 @@
-using Auth_Lib.Infrastructure.Authentication;
+using Auth.Infrastructure.Authentication;
 
 Console.WriteLine("=== Auth System Setup ===");
 Console.WriteLine();

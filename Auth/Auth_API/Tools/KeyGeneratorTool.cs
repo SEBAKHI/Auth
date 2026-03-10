@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
-using Auth_Lib.Infrastructure.Authentication;
-using Auth_Lib.Infrastructure.Security;
+using Auth.Infrastructure.Authentication;
+using Auth.Infrastructure.Security;
 using Microsoft.AspNetCore.DataProtection;
 
 namespace Auth_API.Tools;

@@ -1,5 +1,5 @@
-using Auth_Lib.Domain.Entities;
-using Auth_Lib.Domain.Enums;
+using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 
 namespace Auth_API.Tests.Helpers;
 

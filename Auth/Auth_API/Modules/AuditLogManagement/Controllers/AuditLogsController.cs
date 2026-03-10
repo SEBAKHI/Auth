@@ -1,11 +1,11 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
-using Auth_Lib.Application.Features.AuditLogs.ExportAuditLogs;
-using Auth_Lib.Application.Features.AuditLogs.GetAuditLogById;
-using Auth_Lib.Application.Features.AuditLogs.GetAuditLogs;
-using Auth_Lib.Application.Features.AuditLogs.GetAuditLogsByEntity;
-using Auth_Lib.Application.Features.AuditLogs.GetAuditLogsByUser;
-using Auth_Lib.Application.DTOs;
+using Auth.Application.Features.AuditLogs.ExportAuditLogs;
+using Auth.Application.Features.AuditLogs.GetAuditLogById;
+using Auth.Application.Features.AuditLogs.GetAuditLogs;
+using Auth.Application.Features.AuditLogs.GetAuditLogsByEntity;
+using Auth.Application.Features.AuditLogs.GetAuditLogsByUser;
+using Auth.Application.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

@@ -25,7 +25,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Auth_API\Auth_API.csproj" />
-    <ProjectReference Include="..\Auth_Lib\Auth_Lib.csproj" />
+    <ProjectReference Include="..\Auth.Infrastructure\Auth.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

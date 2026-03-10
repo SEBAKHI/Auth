@@ -1,6 +1,6 @@
 using Asp.Versioning;
-using Auth_Lib.Application.Features.Organizations.AcceptInvitation;
-using Auth_Lib.Application.DTOs;
+using Auth.Application.Features.Organizations.AcceptInvitation;
+using Auth.Application.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

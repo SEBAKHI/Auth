@@ -1,11 +1,11 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
-using Auth_Lib.Application.Features.Roles.CreateRole;
-using Auth_Lib.Application.Features.Roles.DeleteRole;
-using Auth_Lib.Application.Features.Roles.GetRoleById;
-using Auth_Lib.Application.Features.Roles.GetRoles;
-using Auth_Lib.Application.Features.Roles.UpdateRole;
-using Auth_Lib.Application.DTOs;
+using Auth.Application.Features.Roles.CreateRole;
+using Auth.Application.Features.Roles.DeleteRole;
+using Auth.Application.Features.Roles.GetRoleById;
+using Auth.Application.Features.Roles.GetRoles;
+using Auth.Application.Features.Roles.UpdateRole;
+using Auth.Application.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

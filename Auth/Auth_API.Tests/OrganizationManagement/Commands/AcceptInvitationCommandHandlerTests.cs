@@ -1,8 +1,8 @@
-using Auth_Lib.Application.Features.Organizations.AcceptInvitation;
+using Auth.Application.Features.Organizations.AcceptInvitation;
 using Auth_API.Tests.Helpers;
-using Auth_Lib.Domain.Entities;
-using Auth_Lib.Domain.Interfaces.Repositories;
-using Auth_Lib.Application.DTOs;
+using Auth.Domain.Entities;
+using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.DTOs;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 

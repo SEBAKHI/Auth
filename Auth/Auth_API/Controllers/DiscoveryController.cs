@@ -1,6 +1,6 @@
 using Asp.Versioning;
-using Auth_Lib.Application.Interfaces;
-using Auth_Lib.Infrastructure.Configuration;
+using Auth.Application.Interfaces;
+using Auth.Application.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;

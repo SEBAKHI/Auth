@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using Auth_Lib.Domain.Enums;
+using Auth.Domain.Enums;
 
 namespace Auth_API.Modules.Authentication.Contracts;
 

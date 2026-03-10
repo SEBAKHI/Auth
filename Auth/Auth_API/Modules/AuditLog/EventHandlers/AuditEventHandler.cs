@@ -1,6 +1,10 @@
-using Auth_Lib.Domain.Entities;
-using Auth_Lib.Domain.Events;
-using Auth_Lib.Domain.Interfaces.Repositories;
+using Auth.Domain.Entities;
+using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Features.Authentication.ChangePassword;
+using Auth.Application.Features.Authentication.Login;
+using Auth.Application.Features.Authentication.Logout;
+using Auth.Application.Features.Users.AssignRole;
+using Auth.Application.Features.Users.CreateUser;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -28,7 +32,7 @@ public class AuditEventHandler :
 
     public async Task Handle(UserCreatedEvent notification, CancellationToken cancellationToken)
     {
-        var log = Auth_Lib.Domain.Entities.AuditLog.CreateSuccess(
+        var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "UserManagement",
             action: "user.created",
             userId: notification.CreatedBy,
@@ -42,7 +46,7 @@ public class AuditEventHandler :
 
     public async Task Handle(UserLoggedInEvent notification, CancellationToken cancellationToken)
     {
-        var log = Auth_Lib.Domain.Entities.AuditLog.CreateSuccess(
+        var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Authentication",
             action: "user.login",
             userId: notification.UserId,
@@ -57,7 +61,7 @@ public class AuditEventHandler :
 
     public async Task Handle(UserLoggedOutEvent notification, CancellationToken cancellationToken)
     {
-        var log = Auth_Lib.Domain.Entities.AuditLog.CreateSuccess(
+        var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Authentication",
             action: notification.AllDevices ? "user.logout.all" : "user.logout",
             userId: notification.UserId,
@@ -70,7 +74,7 @@ public class AuditEventHandler :
 
     public async Task Handle(PasswordChangedEvent notification, CancellationToken cancellationToken)
     {
-        var log = Auth_Lib.Domain.Entities.AuditLog.CreateSuccess(
+        var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Security",
             action: "password.changed",
             userId: notification.ChangedBy,
@@ -83,7 +87,7 @@ public class AuditEventHandler :
 
     public async Task Handle(RoleAssignedEvent notification, CancellationToken cancellationToken)
     {
-        var log = Auth_Lib.Domain.Entities.AuditLog.CreateSuccess(
+        var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Authorization",
             action: "role.assigned",
             userId: notification.AssignedBy,

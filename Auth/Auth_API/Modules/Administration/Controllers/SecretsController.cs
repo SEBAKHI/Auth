@@ -3,7 +3,7 @@ using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Modules.Administration.Contracts;
 using Auth_API.Modules.Administration.Filters;
-using Auth_Lib.Application.Interfaces;
+using Auth.Application.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

@@ -1,8 +1,8 @@
-using Auth_Lib.Application.Features.Organizations.GetOrganizationById;
+using Auth.Application.Features.Organizations.GetOrganizationById;
 using Auth_API.Tests.Helpers;
-using Auth_Lib.Domain.Entities;
-using Auth_Lib.Domain.Interfaces.Repositories;
-using Auth_Lib.Application.DTOs;
+using Auth.Domain.Entities;
+using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.DTOs;
 using ErrorOr;
 
 namespace Auth_API.Tests.OrganizationManagement.Queries;

@@ -1,0 +1,215 @@
+using Auth.Domain.Primitives;
+
+namespace Auth.Domain.Entities;
+
+/// <summary>
+/// Represents an invitation to join an organization.
+/// Invitations are sent via email and can be accepted, declined, or expire.
+/// </summary>
+public class OrganizationInvitation : EntityBase
+{
+    /// <summary>
+    /// Gets the ID of the organization.
+    /// </summary>
+    public Guid OrganizationId { get; private set; }
+
+    /// <summary>
+    /// Gets the email address the invitation was sent to.
+    /// </summary>
+    public string Email { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the ID of the organization-level role to assign upon acceptance.
+    /// </summary>
+    public Guid RoleId { get; private set; }
+
+    /// <summary>
+    /// Gets the secure token used to accept/decline the invitation.
+    /// </summary>
+    public string Token { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Gets the status of the invitation.
+    /// </summary>
+    public InvitationStatus Status { get; private set; }
+
+    /// <summary>
+    /// Gets the UTC timestamp when the invitation expires.
+    /// </summary>
+    public DateTime ExpiresAt { get; private set; }
+
+    /// <summary>
+    /// Gets the ID of the user who sent the invitation.
+    /// </summary>
+    public Guid InvitedBy { get; private set; }
+
+    /// <summary>
+    /// Gets the UTC timestamp when the invitation was accepted.
+    /// </summary>
+    public DateTime? AcceptedAt { get; private set; }
+
+    /// <summary>
+    /// Gets the ID of the user who accepted the invitation.
+    /// This may differ from the email if the user already has an account with a different email.
+    /// </summary>
+    public Guid? AcceptedByUserId { get; private set; }
+
+    /// <summary>
+    /// Gets the UTC timestamp when the invitation was created.
+    /// </summary>
+    public DateTime CreatedAt { get; private set; }
+
+    private OrganizationInvitation() : base()
+    {
+    }
+
+    public OrganizationInvitation(
+        Guid id,
+        Guid organizationId,
+        string email,
+        Guid roleId,
+        string token,
+        InvitationStatus status,
+        DateTime expiresAt,
+        Guid invitedBy,
+        DateTime? acceptedAt,
+        Guid? acceptedByUserId,
+        DateTime createdAt) : base(id)
+    {
+        OrganizationId = organizationId;
+        Email = email;
+        RoleId = roleId;
+        Token = token;
+        Status = status;
+        ExpiresAt = expiresAt;
+        InvitedBy = invitedBy;
+        AcceptedAt = acceptedAt;
+        AcceptedByUserId = acceptedByUserId;
+        CreatedAt = createdAt;
+    }
+
+    /// <summary>
+    /// Creates a new organization invitation.
+    /// </summary>
+    /// <param name="organizationId">The organization ID</param>
+    /// <param name="email">The email to invite</param>
+    /// <param name="roleId">The org-level role to assign upon acceptance</param>
+    /// <param name="token">The secure invitation token</param>
+    /// <param name="invitedBy">Who sent the invitation</param>
+    /// <param name="expiresInDays">Number of days until expiration (default 7)</param>
+    /// <returns>New OrganizationInvitation instance</returns>
+    public static OrganizationInvitation Create(
+        Guid organizationId,
+        string email,
+        Guid roleId,
+        string token,
+        Guid invitedBy,
+        int expiresInDays = 7)
+    {
+        return new OrganizationInvitation
+        {
+            OrganizationId = organizationId,
+            Email = email.ToLowerInvariant().Trim(),
+            RoleId = roleId,
+            Token = token,
+            Status = InvitationStatus.Pending,
+            ExpiresAt = DateTime.UtcNow.AddDays(expiresInDays),
+            InvitedBy = invitedBy,
+            CreatedAt = DateTime.UtcNow
+        };
+    }
+
+    /// <summary>
+    /// Checks if the invitation can be accepted (pending and not expired).
+    /// </summary>
+    public bool CanBeAccepted()
+    {
+        return Status == InvitationStatus.Pending && !IsExpired();
+    }
+
+    /// <summary>
+    /// Checks if the invitation has expired.
+    /// </summary>
+    public bool IsExpired()
+    {
+        return DateTime.UtcNow >= ExpiresAt;
+    }
+
+    /// <summary>
+    /// Accepts the invitation.
+    /// </summary>
+    /// <param name="acceptedByUserId">The user ID who accepted</param>
+    public void Accept(Guid acceptedByUserId)
+    {
+        if (!CanBeAccepted())
+            throw new InvalidOperationException("Invitation cannot be accepted");
+
+        Status = InvitationStatus.Accepted;
+        AcceptedAt = DateTime.UtcNow;
+        AcceptedByUserId = acceptedByUserId;
+    }
+
+    /// <summary>
+    /// Declines the invitation.
+    /// </summary>
+    public void Decline()
+    {
+        if (Status != InvitationStatus.Pending)
+            throw new InvalidOperationException("Only pending invitations can be declined");
+
+        Status = InvitationStatus.Declined;
+    }
+
+    /// <summary>
+    /// Cancels the invitation (by org admin).
+    /// </summary>
+    public void Cancel()
+    {
+        if (Status != InvitationStatus.Pending)
+            throw new InvalidOperationException("Only pending invitations can be cancelled");
+
+        Status = InvitationStatus.Cancelled;
+    }
+
+    /// <summary>
+    /// Marks the invitation as expired.
+    /// </summary>
+    public void MarkExpired()
+    {
+        if (Status == InvitationStatus.Pending)
+        {
+            Status = InvitationStatus.Expired;
+        }
+    }
+}
+
+/// <summary>
+/// Represents the status of an organization invitation.
+/// </summary>
+public enum InvitationStatus
+{
+    /// <summary>
+    /// Invitation is pending response.
+    /// </summary>
+    Pending = 0,
+
+    /// <summary>
+    /// Invitation was accepted.
+    /// </summary>
+    Accepted = 1,
+
+    /// <summary>
+    /// Invitation was declined.
+    /// </summary>
+    Declined = 2,
+
+    /// <summary>
+    /// Invitation expired before response.
+    /// </summary>
+    Expired = 3,
+
+    /// <summary>
+    /// Invitation was cancelled by org admin.
+    /// </summary>
+    Cancelled = 4
+}

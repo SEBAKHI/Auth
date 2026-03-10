@@ -1,7 +1,7 @@
 using Auth_API.Tests.Helpers;
-using Auth_Lib.Domain.Entities;
-using Auth_Lib.Domain.Interfaces.Repositories;
-using Auth_Lib.Infrastructure.Authorization;
+using Auth.Domain.Entities;
+using Auth.Domain.Interfaces.Repositories;
+using Auth.Infrastructure.Authorization;
 
 namespace Auth_API.Tests.Authorization;
 

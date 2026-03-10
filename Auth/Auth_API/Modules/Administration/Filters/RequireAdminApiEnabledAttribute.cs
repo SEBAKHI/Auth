@@ -1,4 +1,4 @@
-using Auth_Lib.Infrastructure.Configuration;
+using Auth.Application.Configuration;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.Extensions.Options;
