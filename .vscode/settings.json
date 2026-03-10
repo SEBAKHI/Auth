@@ -1,3 +1,5 @@
 {
-    "chat.useAgentSkills": true
+    "chat.useAgentSkills": true,
+    "claudeCode.initialPermissionMode": "plan",
+    "claudeCode.selectedModel": "opus"
 }
