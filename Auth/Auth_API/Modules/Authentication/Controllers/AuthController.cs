@@ -5,6 +5,7 @@ using Auth.Application.Features.Authentication.ForgotPassword;
 using Auth.Application.Features.Authentication.IntrospectToken;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.Logout;
+using Auth.Application.Features.Authentication.Register;
 using Auth.Application.Features.Authentication.RefreshToken;
 using Auth.Application.Features.Authentication.ResendEmailVerification;
 using Auth.Application.Features.Authentication.ResetPassword;
@@ -68,6 +69,38 @@ public class AuthController : ControllerBase
 
         return result.Match<IActionResult>(
             response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Registers a new user account with email and password.
+    /// Creates a personal organization and sends email verification.
+    /// </summary>
+    /// <param name="request">Registration details</param>
+    /// <returns>Registration confirmation with user ID and masked email</returns>
+    [HttpPost("register")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    {
+        var command = new RegisterCommand(
+            request.Email,
+            request.Password,
+            request.FirstName,
+            request.LastName,
+            request.DisplayName,
+            request.PhoneNumber,
+            request.PreferredLanguage,
+            request.TimeZone);
+
+        var result = await _mediator.Send(command);
+
+        return result.Match<IActionResult>(
+            response => StatusCode(StatusCodes.Status201Created, response),
             errors => Problem(errors));
     }
 

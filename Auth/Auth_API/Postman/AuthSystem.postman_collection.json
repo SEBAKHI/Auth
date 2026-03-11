@@ -95,6 +95,11 @@
 			"key": "secretKey",
 			"value": "my-custom-secret-key",
 			"type": "string"
+		},
+		{
+			"key": "registeredUserId",
+			"value": "",
+			"type": "string"
 		}
 	],
 	"auth": {
@@ -189,6 +194,43 @@
 						"description": "Authenticates a user and returns JWT access and refresh tokens."
 					}
 				},
+			{
+				"name": "Register",
+				"event": [
+					{
+						"listen": "test",
+						"script": {
+							"exec": [
+								"if (pm.response.code === 201) {",
+								"    const json = pm.response.json();",
+								"    pm.collectionVariables.set('registeredUserId', json.userId || '');",
+								"    pm.test('Registration successful', function() {",
+								"        pm.expect(json.userId).to.not.be.empty;",
+								"        pm.expect(json.maskedEmail).to.not.be.empty;",
+								"        pm.expect(json.message).to.include('verify');",
+								"    });",
+								"}"
+							],
+							"type": "text/javascript"
+						}
+					}
+				],
+				"request": {
+					"auth": { "type": "noauth" },
+					"method": "POST",
+					"header": [{ "key": "Content-Type", "value": "application/json" }],
+					"body": {
+						"mode": "raw",
+						"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"MyStr0ng!Pass#2024\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"displayName\": \"John Doe\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"UTC\"\n}"
+					},
+					"url": {
+						"raw": "{{baseUrl}}/api/v1/auth/register",
+						"host": ["{{baseUrl}}"],
+						"path": ["api", "v1", "auth", "register"]
+					},
+					"description": "Registers a new user account with email and password. Auto-creates a personal organization (user becomes org-owner). Sends a verification email - user must verify before they can login.\n\nReturns: userId, maskedEmail, and a message about next steps."
+				}
+			},
 				{
 					"name": "Refresh Token",
 					"event": [
@@ -358,14 +400,14 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"token\": \"<email-verification-token>\"\n}"
+							"raw": "{\n    \"userId\": \"{{registeredUserId}}\",\n    \"otp\": \"123456\"\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/verify-email",
 							"host": ["{{baseUrl}}"],
 							"path": ["api", "v1", "auth", "verify-email"]
 						},
-						"description": "Verifies the user's email address using the token from the verification email."
+						"description": "Verifies the user's email address using the 6-digit OTP from the verification email. Requires userId (GUID) and otp (6-digit string)."
 					}
 				},
 				{
