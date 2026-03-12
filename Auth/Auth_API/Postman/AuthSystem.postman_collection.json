@@ -207,6 +207,7 @@
 								"    pm.test('Registration successful', function() {",
 								"        pm.expect(json.userId).to.not.be.empty;",
 								"        pm.expect(json.maskedEmail).to.not.be.empty;",
+								"        pm.expect(json.organizationCreated).to.be.a('boolean');",
 								"        pm.expect(json.message).to.include('verify');",
 								"    });",
 								"}"
@@ -221,14 +222,14 @@
 					"header": [{ "key": "Content-Type", "value": "application/json" }],
 					"body": {
 						"mode": "raw",
-						"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"MyStr0ng!Pass#2024\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"displayName\": \"John Doe\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"UTC\"\n}"
+						"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"MyStr0ng!Pass#2024\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"displayName\": \"John Doe\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"UTC\",\n    \"createOrganization\": false\n}"
 					},
 					"url": {
 						"raw": "{{baseUrl}}/api/v1/auth/register",
 						"host": ["{{baseUrl}}"],
 						"path": ["api", "v1", "auth", "register"]
 					},
-					"description": "Registers a new user account with email and password. Auto-creates a personal organization (user becomes org-owner). Sends a verification email - user must verify before they can login.\n\nReturns: userId, maskedEmail, and a message about next steps."
+					"description": "Registers a new user account with email and password. Optionally creates a personal organization when createOrganization is set to true (default: false). Sends a verification email - user must verify before they can login.\n\nReturns: userId, maskedEmail, organizationCreated, and a message about next steps."
 				}
 			},
 				{
