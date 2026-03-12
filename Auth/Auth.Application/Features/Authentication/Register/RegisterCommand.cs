@@ -6,7 +6,7 @@ namespace Auth.Application.Features.Authentication.Register;
 
 /// <summary>
 /// Command to register a new user account with email and password.
-/// Creates the user, auto-creates a personal organization, and sends email verification.
+/// Creates the user, optionally creates a personal organization, and sends email verification.
 /// </summary>
 public record RegisterCommand(
     string Email,
@@ -16,4 +16,5 @@ public record RegisterCommand(
     string? DisplayName = null,
     string? PhoneNumber = null,
     string? PreferredLanguage = null,
-    string? TimeZone = null) : IRequest<ErrorOr<RegisterResponse>>;
+    string? TimeZone = null,
+    bool CreateOrganization = false) : IRequest<ErrorOr<RegisterResponse>>;

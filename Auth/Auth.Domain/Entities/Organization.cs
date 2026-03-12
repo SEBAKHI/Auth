@@ -51,6 +51,12 @@ public class Organization : AuditableEntityBase
     /// </summary>
     public bool IsActive { get; private set; }
 
+    /// <summary>
+    /// Gets whether the organization was automatically created by the system
+    /// (e.g., during user registration) rather than manually by a user.
+    /// </summary>
+    public bool IsAutoCreated { get; private set; }
+
     private Organization() : base()
     {
     }
@@ -65,6 +71,7 @@ public class Organization : AuditableEntityBase
         string contactEmail,
         Guid ownerId,
         bool isActive,
+        bool isAutoCreated,
         DateTime createdAt,
         Guid createdBy,
         DateTime? modifiedAt,
@@ -78,6 +85,7 @@ public class Organization : AuditableEntityBase
         ContactEmail = contactEmail;
         OwnerId = ownerId;
         IsActive = isActive;
+        IsAutoCreated = isAutoCreated;
         CreatedAt = createdAt;
         CreatedBy = createdBy;
         ModifiedAt = modifiedAt;
@@ -102,7 +110,8 @@ public class Organization : AuditableEntityBase
         Guid ownerId,
         string? description = null,
         string? logoUrl = null,
-        string? website = null)
+        string? website = null,
+        bool isAutoCreated = false)
     {
         var organization = new Organization
         {
@@ -113,7 +122,8 @@ public class Organization : AuditableEntityBase
             Website = website?.Trim(),
             ContactEmail = contactEmail.ToLowerInvariant().Trim(),
             OwnerId = ownerId,
-            IsActive = true
+            IsActive = true,
+            IsAutoCreated = isAutoCreated
         };
         organization.SetCreated(ownerId);
         return organization;

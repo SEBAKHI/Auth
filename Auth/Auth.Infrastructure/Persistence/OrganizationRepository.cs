@@ -27,7 +27,7 @@ public class OrganizationRepository : IOrganizationRepository
         var dto = await connection.QueryFirstOrDefaultAsync<OrganizationDto>(@"
             SELECT
                 [Id], [Code], [Name], [Description], [LogoUrl], [Website],
-                [ContactEmail], [OwnerId], [IsActive],
+                [ContactEmail], [OwnerId], [IsActive], [IsAutoCreated],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Organizations]
             WHERE [Id] = @Id",
@@ -44,7 +44,7 @@ public class OrganizationRepository : IOrganizationRepository
         var dto = await connection.QueryFirstOrDefaultAsync<OrganizationDto>(@"
             SELECT
                 [Id], [Code], [Name], [Description], [LogoUrl], [Website],
-                [ContactEmail], [OwnerId], [IsActive],
+                [ContactEmail], [OwnerId], [IsActive], [IsAutoCreated],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Organizations]
             WHERE [Code] = @Code",
@@ -74,7 +74,7 @@ public class OrganizationRepository : IOrganizationRepository
         var dtos = await connection.QueryAsync<OrganizationDto>(@"
             SELECT
                 [Id], [Code], [Name], [Description], [LogoUrl], [Website],
-                [ContactEmail], [OwnerId], [IsActive],
+                [ContactEmail], [OwnerId], [IsActive], [IsAutoCreated],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Organizations]
             WHERE [OwnerId] = @OwnerId
@@ -92,11 +92,11 @@ public class OrganizationRepository : IOrganizationRepository
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[Organizations] (
                 [Id], [Code], [Name], [Description], [LogoUrl], [Website],
-                [ContactEmail], [OwnerId], [IsActive],
+                [ContactEmail], [OwnerId], [IsActive], [IsAutoCreated],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             ) VALUES (
                 @Id, @Code, @Name, @Description, @LogoUrl, @Website,
-                @ContactEmail, @OwnerId, @IsActive,
+                @ContactEmail, @OwnerId, @IsActive, @IsAutoCreated,
                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
             )",
             new
@@ -110,6 +110,7 @@ public class OrganizationRepository : IOrganizationRepository
                 organization.ContactEmail,
                 organization.OwnerId,
                 organization.IsActive,
+                organization.IsAutoCreated,
                 organization.CreatedAt,
                 organization.CreatedBy,
                 organization.ModifiedAt,
@@ -195,7 +196,7 @@ public class OrganizationRepository : IOrganizationRepository
         var dtos = await connection.QueryAsync<OrganizationDto>(@"
             SELECT
                 o.[Id], o.[Code], o.[Name], o.[Description], o.[LogoUrl], o.[Website],
-                o.[ContactEmail], o.[OwnerId], o.[IsActive],
+                o.[ContactEmail], o.[OwnerId], o.[IsActive], o.[IsAutoCreated],
                 o.[CreatedAt], o.[CreatedBy], o.[ModifiedAt], o.[ModifiedBy]
             FROM [dbo].[Organizations] o
             INNER JOIN [dbo].[OrganizationUsers] ou ON o.[Id] = ou.[OrganizationId]
@@ -1134,6 +1135,7 @@ public class OrganizationRepository : IOrganizationRepository
         public string ContactEmail { get; init; } = string.Empty;
         public Guid OwnerId { get; init; }
         public bool IsActive { get; init; }
+        public bool IsAutoCreated { get; init; }
         public DateTime CreatedAt { get; init; }
         public Guid CreatedBy { get; init; }
         public DateTime? ModifiedAt { get; init; }
@@ -1149,6 +1151,7 @@ public class OrganizationRepository : IOrganizationRepository
             ContactEmail,
             OwnerId,
             IsActive,
+            IsAutoCreated,
             CreatedAt,
             CreatedBy,
             ModifiedAt,

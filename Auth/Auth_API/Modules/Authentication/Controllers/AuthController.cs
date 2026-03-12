@@ -95,7 +95,8 @@ public class AuthController : ControllerBase
             request.DisplayName,
             request.PhoneNumber,
             request.PreferredLanguage,
-            request.TimeZone);
+            request.TimeZone,
+            request.CreateOrganization);
 
         var result = await _mediator.Send(command);
 

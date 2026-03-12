@@ -57,4 +57,10 @@ public record RegisterRequest
     /// </summary>
     [StringLength(50)]
     public string? TimeZone { get; init; }
+
+    /// <summary>
+    /// Gets whether to create a personal organization during registration.
+    /// Defaults to false.
+    /// </summary>
+    public bool CreateOrganization { get; init; } = false;
 }

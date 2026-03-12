@@ -82,6 +82,7 @@ public static class TestHelpers
             contactEmail: contactEmail ?? $"contact@{orgId:N}.test.com",
             ownerId: owner,
             isActive: isActive,
+            isAutoCreated: false,
             createdAt: DateTime.UtcNow,
             createdBy: createdBy ?? owner,
             modifiedAt: null,

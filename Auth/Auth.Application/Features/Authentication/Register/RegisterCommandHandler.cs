@@ -12,7 +12,7 @@ namespace Auth.Application.Features.Authentication.Register;
 
 /// <summary>
 /// Handler for public self-registration.
-/// Creates a user, auto-creates a personal organization, and sends email verification.
+/// Creates a user, optionally creates a personal organization, and sends email verification.
 /// </summary>
 public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<RegisterResponse>>
 {
@@ -78,8 +78,12 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
 
         await _userRepository.CreateAsync(user, cancellationToken);
 
-        // Auto-create personal organization
-        await CreatePersonalOrganizationAsync(user, cancellationToken);
+        // Optionally create personal organization
+        var organizationCreated = false;
+        if (request.CreateOrganization)
+        {
+            organizationCreated = await CreatePersonalOrganizationAsync(user, cancellationToken);
+        }
 
         // Send verification email
         var verificationResult = await _mediator.Send(
@@ -102,10 +106,11 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         return new RegisterResponse(
             user.Id,
             maskedEmail,
-            "Registration successful. Please verify your email to sign in.");
+            "Registration successful. Please verify your email to sign in.",
+            organizationCreated);
     }
 
-    private async Task CreatePersonalOrganizationAsync(User user, CancellationToken cancellationToken)
+    private async Task<bool> CreatePersonalOrganizationAsync(User user, CancellationToken cancellationToken)
     {
         // Get the org-owner role (null applicationId for organization-level roles)
         var ownerRole = await _roleRepository.GetByCodeAsync((Guid?)null, OrgOwnerRoleCode, cancellationToken);
@@ -114,7 +119,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
             _logger.LogError(
                 "Organization owner role '{RoleCode}' not found in database. Skipping org creation for user {UserId}",
                 OrgOwnerRoleCode, user.Id);
-            return;
+            return false;
         }
 
         // Generate a unique org code
@@ -130,7 +135,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
             code: orgCode,
             name: $"{user.FirstName}'s Organization",
             contactEmail: user.Email,
-            ownerId: user.Id);
+            ownerId: user.Id,
+            isAutoCreated: true);
 
         await _organizationRepository.CreateAsync(organization, cancellationToken);
 
@@ -146,6 +152,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         _logger.LogInformation(
             "Personal organization created: {OrganizationId} ({OrganizationCode}) for user {UserId}",
             organization.Id, organization.Code, user.Id);
+
+        return true;
     }
 
     private static string GenerateOrgCode(string firstName, string lastName)

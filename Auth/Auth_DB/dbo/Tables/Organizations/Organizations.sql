@@ -9,6 +9,7 @@ CREATE TABLE [dbo].[Organizations]
     [ContactEmail] NVARCHAR(255) NOT NULL,
     [OwnerId] UNIQUEIDENTIFIER NOT NULL,
     [IsActive] BIT NOT NULL DEFAULT 1,
+    [IsAutoCreated] BIT NOT NULL DEFAULT 0,
     [CreatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     [CreatedBy] UNIQUEIDENTIFIER NOT NULL,
     [ModifiedAt] DATETIME2 NULL,
