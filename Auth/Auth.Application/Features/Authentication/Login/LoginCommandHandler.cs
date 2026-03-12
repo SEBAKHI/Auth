@@ -3,7 +3,6 @@ using Auth.Application.Configuration;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
-using RefreshTokenEntity = Auth.Domain.Entities.RefreshToken;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -18,40 +17,25 @@ namespace Auth.Application.Features.Authentication.Login;
 public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginResponse>>
 {
     private readonly IUserRepository _userRepository;
-    private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IRoleRepository _roleRepository;
-    private readonly IPermissionRepository _permissionRepository;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IPasswordHasher _passwordHasher;
-    private readonly IJwtTokenService _jwtTokenService;
-    private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly PasswordSettings _passwordSettings;
-    private readonly JwtSettings _jwtSettings;
     private readonly ILogger<LoginCommandHandler> _logger;
 
     public LoginCommandHandler(
         IUserRepository userRepository,
-        IRefreshTokenRepository refreshTokenRepository,
-        IRoleRepository roleRepository,
-        IPermissionRepository permissionRepository,
         ILoginAttemptRepository loginAttemptRepository,
         IPasswordHasher passwordHasher,
-        IJwtTokenService jwtTokenService,
-        IRefreshTokenKeyService refreshTokenKeyService,
+        ILoginResponseBuilder loginResponseBuilder,
         IOptions<PasswordSettings> passwordSettings,
-        IOptions<JwtSettings> jwtSettings,
         ILogger<LoginCommandHandler> logger)
     {
         _userRepository = userRepository;
-        _refreshTokenRepository = refreshTokenRepository;
-        _roleRepository = roleRepository;
-        _permissionRepository = permissionRepository;
         _loginAttemptRepository = loginAttemptRepository;
         _passwordHasher = passwordHasher;
-        _jwtTokenService = jwtTokenService;
-        _refreshTokenKeyService = refreshTokenKeyService;
+        _loginResponseBuilder = loginResponseBuilder;
         _passwordSettings = passwordSettings.Value;
-        _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
 
@@ -86,6 +70,15 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
                 request.IpAddress, request.UserAgent, cancellationToken);
 
             return UserErrors.AccountLockedUntil(user.LockoutEnd);
+        }
+
+        // Guard: external-only users (no password) cannot use password login
+        if (user.PasswordHash is null)
+        {
+            await RecordLoginAttemptAsync(user.Id, request.Email, false, "No password set",
+                request.IpAddress, request.UserAgent, cancellationToken);
+
+            return UserErrors.InvalidCredentials;
         }
 
         // Verify password
@@ -126,69 +119,9 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             _logger.LogInformation("Rehashed password for user {UserId} due to parameter changes", user.Id);
         }
 
-        // Get roles and permissions
-        var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
-        var roleNames = roles.Select(r => r.Code).ToList();
-        var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
-
-        // Generate tokens
-        var accessToken = _jwtTokenService.GenerateAccessToken(user, permissions, roleNames);
-        var jwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
-        var refreshToken = _jwtTokenService.GenerateRefreshToken();
-        var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);
-
-        // Build device info from user agent and device ID
+        // Build device info and delegate token generation to shared builder
         var deviceInfo = BuildDeviceInfo(request.UserAgent, request.DeviceId);
-
-        // Save refresh token (only hash is stored, not plain token)
-        var refreshTokenEntity = RefreshTokenEntity.Create(
-            user.Id,
-            refreshTokenHash,
-            jwtId,
-            null, // ApplicationId - can be set if request includes it
-            _jwtSettings.RefreshTokenLifetime,
-            request.IpAddress,
-            deviceInfo);
-
-        await _refreshTokenRepository.CreateAsync(refreshTokenEntity, cancellationToken);
-
-        // Record successful login
-        await _userRepository.RecordSuccessfulLoginAsync(user.Id, cancellationToken);
-        await RecordLoginAttemptAsync(user.Id, request.Email, true, null,
-            request.IpAddress, request.UserAgent, cancellationToken);
-
-        _logger.LogInformation("User {UserId} logged in successfully from {IpAddress}",
-            user.Id, request.IpAddress);
-
-        // Build response
-        var tokenResponse = new TokenResponse
-        {
-            AccessToken = accessToken,
-            RefreshToken = refreshToken,
-            ExpiresIn = (int)_jwtSettings.AccessTokenLifetime.TotalSeconds,
-            RefreshExpiresIn = (int)_jwtSettings.RefreshTokenLifetime.TotalSeconds
-        };
-
-        var userInfo = new UserInfo
-        {
-            Id = user.Id,
-            Email = user.Email,
-            FirstName = user.FirstName,
-            LastName = user.LastName,
-            DisplayName = user.DisplayName,
-            PreferredLanguage = user.PreferredLanguage,
-            TimeZone = user.TimeZone,
-            Roles = roleNames,
-            Permissions = permissions.ToList()
-        };
-
-        return new LoginResponse
-        {
-            Token = tokenResponse,
-            User = userInfo,
-            RequiresPasswordChange = user.MustChangePassword,
-            RequiresTwoFactor = user.TwoFactorEnabled
-        };
+        return await _loginResponseBuilder.BuildAsync(user, request.IpAddress, deviceInfo, cancellationToken);
     }
 
     private static ErrorOr<Success> CheckAccountStatus(User user)

@@ -16,30 +16,25 @@ namespace Auth.Application.Features.Authentication.Register;
 /// </summary>
 public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<RegisterResponse>>
 {
-    private const string OrgOwnerRoleCode = "org-owner";
-
     private readonly IUserRepository _userRepository;
-    private readonly IOrganizationRepository _organizationRepository;
-    private readonly IRoleRepository _roleRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
+    private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
     private readonly IMediator _mediator;
     private readonly ILogger<RegisterCommandHandler> _logger;
 
     public RegisterCommandHandler(
         IUserRepository userRepository,
-        IOrganizationRepository organizationRepository,
-        IRoleRepository roleRepository,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
+        IPersonalOrganizationCreator personalOrganizationCreator,
         IMediator mediator,
         ILogger<RegisterCommandHandler> logger)
     {
         _userRepository = userRepository;
-        _organizationRepository = organizationRepository;
-        _roleRepository = roleRepository;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
+        _personalOrganizationCreator = personalOrganizationCreator;
         _mediator = mediator;
         _logger = logger;
     }
@@ -82,7 +77,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         var organizationCreated = false;
         if (request.CreateOrganization)
         {
-            organizationCreated = await CreatePersonalOrganizationAsync(user, cancellationToken);
+            organizationCreated = await _personalOrganizationCreator.CreateAsync(user, cancellationToken);
         }
 
         // Send verification email
@@ -108,72 +103,6 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
             maskedEmail,
             "Registration successful. Please verify your email to sign in.",
             organizationCreated);
-    }
-
-    private async Task<bool> CreatePersonalOrganizationAsync(User user, CancellationToken cancellationToken)
-    {
-        // Get the org-owner role (null applicationId for organization-level roles)
-        var ownerRole = await _roleRepository.GetByCodeAsync((Guid?)null, OrgOwnerRoleCode, cancellationToken);
-        if (ownerRole == null)
-        {
-            _logger.LogError(
-                "Organization owner role '{RoleCode}' not found in database. Skipping org creation for user {UserId}",
-                OrgOwnerRoleCode, user.Id);
-            return false;
-        }
-
-        // Generate a unique org code
-        var orgCode = GenerateOrgCode(user.FirstName, user.LastName);
-
-        // Ensure code uniqueness
-        while (await _organizationRepository.ExistsByCodeAsync(orgCode, cancellationToken))
-        {
-            orgCode = GenerateOrgCode(user.FirstName, user.LastName);
-        }
-
-        var organization = Organization.Create(
-            code: orgCode,
-            name: $"{user.FirstName}'s Organization",
-            contactEmail: user.Email,
-            ownerId: user.Id,
-            isAutoCreated: true);
-
-        await _organizationRepository.CreateAsync(organization, cancellationToken);
-
-        // Add user as org-owner
-        var membership = OrganizationUser.Create(
-            organizationId: organization.Id,
-            userId: user.Id,
-            roleId: ownerRole.Id,
-            invitedBy: user.Id);
-
-        await _organizationRepository.AddMemberAsync(membership, cancellationToken);
-
-        _logger.LogInformation(
-            "Personal organization created: {OrganizationId} ({OrganizationCode}) for user {UserId}",
-            organization.Id, organization.Code, user.Id);
-
-        return true;
-    }
-
-    private static string GenerateOrgCode(string firstName, string lastName)
-    {
-        var basePart = $"{firstName}-{lastName}"
-            .ToLowerInvariant()
-            .Replace(" ", "-");
-
-        // Remove invalid characters (keep only lowercase letters, digits, hyphens)
-        var cleanCode = new string(basePart
-            .Where(c => char.IsLetterOrDigit(c) || c == '-')
-            .ToArray())
-            .Trim('-');
-
-        // Append a short unique suffix
-        var suffix = Guid.NewGuid().ToString("N")[..6];
-
-        return string.IsNullOrEmpty(cleanCode)
-            ? $"org-{suffix}"
-            : $"{cleanCode}-{suffix}";
     }
 
     private static string MaskEmail(string email)

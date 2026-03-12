@@ -233,6 +233,54 @@
 				}
 			},
 				{
+					"name": "Get External Providers",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/external-providers",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "external-providers"]
+						},
+						"description": "Returns a list of enabled external authentication providers. Used by the frontend to render 'Continue with {Name}' buttons with icons."
+					}
+				},
+				{
+					"name": "External Login (Google)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', json.tokens.accessToken || '');",
+									"    pm.collectionVariables.set('refreshToken', json.tokens.refreshToken || '');",
+									"    pm.collectionVariables.set('userId', json.user.id || '');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"provider\": \"google\",\n    \"idToken\": \"<paste-google-id-token-here>\",\n    \"nonce\": null,\n    \"createOrganization\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/external-login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "external-login"]
+						},
+						"description": "Authenticates a user via an external provider (e.g., Google). Send the provider's ID token obtained from the frontend SDK. If the user doesn't exist, a new account is created (with email auto-verified). If they do exist, they are logged in. Optionally creates a personal organization when createOrganization is set to true (default: false).\n\nTo test: obtain a Google ID token from Google Sign-In JS SDK or OAuth Playground, paste it in the idToken field."
+					}
+				},
+				{
 					"name": "Refresh Token",
 					"event": [
 						{

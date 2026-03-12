@@ -543,6 +543,15 @@ PRINT 'Admin user setup complete';
 GO
 
 -- ============================================
+-- STEP 7: EXTERNAL AUTH PROVIDERS
+-- ============================================
+PRINT '';
+PRINT 'Step 7: Creating external auth providers...';
+
+:r ..\Scripts\SeedData\09_ExternalAuthProviders.sql
+GO
+
+-- ============================================
 -- COMPLETION
 -- ============================================
 PRINT '';

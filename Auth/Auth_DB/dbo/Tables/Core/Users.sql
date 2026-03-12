@@ -4,7 +4,7 @@ CREATE TABLE [dbo].[Users]
     [Username] NVARCHAR(50) NOT NULL,
     [Email] NVARCHAR(255) NOT NULL,
     [NormalizedEmail] NVARCHAR(255) NOT NULL,
-    [PasswordHash] NVARCHAR(500) NOT NULL,
+    [PasswordHash] NVARCHAR(500) NULL,
     [FirstName] NVARCHAR(100) NULL,
     [LastName] NVARCHAR(100) NULL,
     [FullName] AS (ISNULL([FirstName], N'') + N' ' + ISNULL([LastName], N'')) PERSISTED,

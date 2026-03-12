@@ -15,6 +15,7 @@ using Auth.Infrastructure.Persistence;
 using Auth.Infrastructure.Email;
 using Auth.Infrastructure.Configuration;
 using Auth.Infrastructure.Security;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Validators;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -47,6 +48,7 @@ builder.Services.Configure<PasswordSettings>(builder.Configuration.GetSection(Pa
 builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(GatewaySettings.SectionName));
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(EmailSettings.SectionName));
+builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
 
 // Data Protection (DPAPI) for encrypting HMAC keys at rest
 var dataProtectionKeyPath = builder.Configuration.GetValue<string>("DataProtection:KeyPath");
@@ -147,6 +149,8 @@ builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepo
 builder.Services.AddScoped<ITwoFactorAuthRepository, TwoFactorAuthRepository>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+builder.Services.AddScoped<IExternalAuthProviderRepository, ExternalAuthProviderRepository>();
+builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
 
 // Services
 // Create password hasher first (needed for JwtTokenService and TotpService)
@@ -176,6 +180,14 @@ builder.Services.AddSingleton<IOtpGenerator, OtpGenerator>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
+
+// External Authentication
+builder.Services.AddSingleton<IExternalAuthProvider, GoogleAuthProvider>();
+builder.Services.AddSingleton<IExternalAuthProviderFactory, ExternalAuthProviderFactory>();
+
+// Shared Application Services
+builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
+builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
 
 // Authorization
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();

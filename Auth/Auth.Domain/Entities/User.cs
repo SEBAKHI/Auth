@@ -20,8 +20,9 @@ public class User : AuditableEntityBase
 
     /// <summary>
     /// Gets the Argon2id password hash.
+    /// Null for users who authenticate exclusively via external providers (Google, Apple, etc.).
     /// </summary>
-    public string PasswordHash { get; private set; } = string.Empty;
+    public string? PasswordHash { get; private set; }
 
     /// <summary>
     /// Gets the user's first name.
@@ -121,7 +122,7 @@ public class User : AuditableEntityBase
         Guid id,
         string email,
         string normalizedEmail,
-        string passwordHash,
+        string? passwordHash,
         string firstName,
         string lastName,
         string? displayName,
@@ -202,6 +203,42 @@ public class User : AuditableEntityBase
             TimeZone = timeZone,
             IsSystemUser = false,
             PasswordChangedAt = DateTime.UtcNow
+        };
+        user.SetCreated(createdBy);
+        return user;
+    }
+
+    /// <summary>
+    /// Creates a new user from an external authentication provider (Google, Apple, etc.).
+    /// Email is considered verified by the provider. No local password is set.
+    /// </summary>
+    public static User CreateFromExternalProvider(
+        string email,
+        string firstName,
+        string lastName,
+        Guid createdBy,
+        string? displayName = null,
+        string? profileImageUrl = null,
+        string preferredLanguage = "en",
+        string timeZone = "UTC")
+    {
+        var user = new User
+        {
+            Email = email,
+            NormalizedEmail = email.ToUpperInvariant(),
+            PasswordHash = null,
+            FirstName = firstName,
+            LastName = lastName,
+            DisplayName = displayName ?? $"{firstName} {lastName}",
+            Status = UserStatus.Active,
+            EmailConfirmed = true,
+            PhoneConfirmed = false,
+            TwoFactorEnabled = false,
+            FailedLoginAttempts = 0,
+            MustChangePassword = false,
+            PreferredLanguage = preferredLanguage,
+            TimeZone = timeZone,
+            IsSystemUser = false
         };
         user.SetCreated(createdBy);
         return user;

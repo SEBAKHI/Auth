@@ -5,6 +5,7 @@ using Auth.Application.Features.Authentication.ForgotPassword;
 using Auth.Application.Features.Authentication.IntrospectToken;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.Logout;
+using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Features.Authentication.Register;
 using Auth.Application.Features.Authentication.RefreshToken;
 using Auth.Application.Features.Authentication.ResendEmailVerification;
@@ -102,6 +103,54 @@ public class AuthController : ControllerBase
 
         return result.Match<IActionResult>(
             response => StatusCode(StatusCodes.Status201Created, response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Returns enabled external authentication providers for UI rendering.
+    /// </summary>
+    /// <returns>List of enabled providers with code, name, and icon URL</returns>
+    [HttpGet("external-providers")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(IReadOnlyList<ExternalAuthProviderResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetExternalProviders()
+    {
+        var query = new GetExternalProvidersQuery();
+        var result = await _mediator.Send(query);
+
+        return result.Match<IActionResult>(
+            providers => Ok(providers),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Authenticates a user via an external provider (e.g., Google).
+    /// Creates a new account if the user doesn't exist, or logs in if they do.
+    /// </summary>
+    /// <param name="request">External provider token and details</param>
+    /// <returns>JWT tokens and user information</returns>
+    [HttpPost("external-login")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ExternalLogin([FromBody] ExternalLoginRequest request)
+    {
+        var command = new ExternalLoginCommand(
+            request.Provider,
+            request.IdToken,
+            request.Nonce,
+            request.CreateOrganization,
+            GetClientIpAddress(),
+            GetUserAgent());
+
+        var result = await _mediator.Send(command);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
             errors => Problem(errors));
     }
 
