@@ -57,6 +57,148 @@ Authorization: Bearer your-access-token-here
 
 ###
 
+### ==========================================
+### Applications via Gateway (v1)
+### ==========================================
+
+### List Applications
+GET {{API_Gateway_HostAddress}}/api/v1/applications
+Accept: application/json
+Authorization: Bearer your-access-token-here
+
+###
+
+### Get Application by ID
+GET {{API_Gateway_HostAddress}}/api/v1/applications/your-application-id-here
+Accept: application/json
+Authorization: Bearer your-access-token-here
+
+###
+
+### Create Application
+POST {{API_Gateway_HostAddress}}/api/v1/applications
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+{
+  "name": "My Application",
+  "code": "MY_APP",
+  "description": "A sample application"
+}
+
+###
+
+### ==========================================
+### Organizations via Gateway (v1)
+### ==========================================
+
+### List Organizations
+GET {{API_Gateway_HostAddress}}/api/v1/organizations
+Accept: application/json
+Authorization: Bearer your-access-token-here
+
+###
+
+### Get Organization by ID
+GET {{API_Gateway_HostAddress}}/api/v1/organizations/your-organization-id-here
+Accept: application/json
+Authorization: Bearer your-access-token-here
+
+###
+
+### Create Organization
+POST {{API_Gateway_HostAddress}}/api/v1/organizations
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+{
+  "name": "My Organization",
+  "slug": "my-org"
+}
+
+###
+
+### Get Organization Members
+GET {{API_Gateway_HostAddress}}/api/v1/organizations/your-organization-id-here/members
+Accept: application/json
+Authorization: Bearer your-access-token-here
+
+###
+
+### Invite Member to Organization
+POST {{API_Gateway_HostAddress}}/api/v1/organizations/your-organization-id-here/invitations
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+{
+  "email": "newmember@example.com",
+  "role": "Member"
+}
+
+###
+
+### ==========================================
+### Invitations via Gateway (v1)
+### ==========================================
+
+### Accept Organization Invitation
+POST {{API_Gateway_HostAddress}}/api/v1/invitations/your-invitation-token-here/accept
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+###
+
+### ==========================================
+### Audit Logs via Gateway (v1)
+### ==========================================
+
+### List Audit Logs
+GET {{API_Gateway_HostAddress}}/api/v1/audit-logs
+Accept: application/json
+Authorization: Bearer your-access-token-here
+
+###
+
+### Get Audit Log by ID
+GET {{API_Gateway_HostAddress}}/api/v1/audit-logs/your-audit-log-id-here
+Accept: application/json
+Authorization: Bearer your-access-token-here
+
+###
+
+### Export Audit Logs
+POST {{API_Gateway_HostAddress}}/api/v1/audit-logs/export
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+{
+  "format": "csv"
+}
+
+###
+
+### ==========================================
+### Admin Secrets via Gateway (v1)
+### ==========================================
+
+### Get Secrets Status
+GET {{API_Gateway_HostAddress}}/api/v1/admin/secrets/status
+Accept: application/json
+Authorization: Bearer your-access-token-here
+
+###
+
+### Generate RSA Key Pair
+POST {{API_Gateway_HostAddress}}/api/v1/admin/secrets/generate/rsa
+Content-Type: application/json
+Authorization: Bearer your-access-token-here
+
+###
+
+### ==========================================
+### Discovery via Gateway
+### ==========================================
+
 ### OIDC Discovery via Gateway
 GET {{API_Gateway_HostAddress}}/.well-known/openid-configuration
 Accept: application/json

@@ -131,6 +131,18 @@ builder.Services.AddRateLimiter(options =>
         });
     });
 
+    options.AddPolicy("admin", context =>
+    {
+        var clientId = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        return RateLimitPartition.GetFixedWindowLimiter(clientId, _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = builder.Configuration.GetValue("RateLimiting:AdminPermitLimit", 10),
+            Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:AdminWindowSeconds", 60)),
+            QueueLimit = 0
+        });
+    });
+
     options.OnRejected = async (context, token) =>
     {
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
