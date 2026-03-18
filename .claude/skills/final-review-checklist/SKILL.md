@@ -1,6 +1,6 @@
 ---
 name: final-review-checklist
-description: Load this skill before marking any implementation as complete. Run through all 9 review sections: code quality, security, testing, frontend, backend, documentation, operational readiness, runtime stability, and failure mode verification.
+description: Load this skill before marking any implementation as complete. Run through all 10 review sections: code quality, security, testing, frontend, backend, documentation, operational readiness, runtime stability, failure mode verification, and architectural principles compliance.
 user-invocable: true
 ---
 
@@ -81,6 +81,18 @@ user-invocable: true
 - [ ] Retry logic implemented
 - [ ] Timeout values appropriate
 - [ ] Fallback behaviors verified
+
+### 10. Architectural Principles Compliance
+- [ ] Clean Architecture: no inward dependency violations
+- [ ] DDD: entities have behavior, no anemic models, value objects used where appropriate
+- [ ] SOLID: each class single responsibility, interfaces segregated, dependencies inverted
+- [ ] OOP: all four pillars enforced — encapsulation (private fields, controlled access, no public setters on domain entities, state changes through behavior methods), abstraction (complexity hidden behind interfaces, program to abstractions not implementations), inheritance (used judiciously, prefer composition, leverage base classes for shared behavior), polymorphism (interfaces and virtual methods for varying behavior, no if/switch on type — use polymorphic dispatch)
+- [ ] CQRS: commands and queries separated, no mixed read/write handlers
+- [ ] MediatR: endpoints use ISender, side effects use INotification, cross-cutting concerns use IPipelineBehavior
+- [ ] ErrorOr: all handlers return ErrorOr<T>, no exceptions for business rules
+- [ ] Strategy Pattern: no if/switch on type strings for polymorphic behavior, interface + factory pattern used
+- [ ] Event-Driven: events are immutable records with clear contracts, handlers are idempotent, correct ordering maintained
+- [ ] DRY: no duplicated logic across handlers or services, shared logic extracted into base classes/extensions/shared services
 
 ---
 
