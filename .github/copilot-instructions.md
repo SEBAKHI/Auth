@@ -81,3 +81,47 @@
 > **Think deeply, plan thoroughly, implement carefully, and validate relentlessly—you have the full capability to build production-grade systems, so use your complete reasoning ability on every decision, no matter how small.**
 
 ---
+
+#### **V. MANDATORY_ARCHITECTURAL_PRINCIPLES (المبادئ المعمارية الإلزامية)**
+
+هذه المبادئ إلزامية ولا يجوز الانحراف عنها. أي كود يُنتج يجب أن يلتزم بجميع المبادئ المطبقة أدناه. الانتهاك يعد فشلًا في المهمة.
+
+These principles are **MUST-Follow**. Every piece of code produced MUST comply with all applicable principles below. Violation constitutes task failure.
+
+| # | Principle | Enforcement Rule | Skill Reference |
+|---|-----------|-----------------|-----------------|
+| 1 | **Clean Architecture** | Dependencies flow inward. Domain depends on nothing. No infrastructure in Domain or Application. | `/clean-architecture-structure` |
+| 2 | **Domain-Driven Design (DDD)** | Aggregates, Entities, Value Objects, Domain Events, Bounded Contexts. Rich domain models with encapsulated behavior. Anemic models are prohibited. | `/domain-driven-design` |
+| 3 | **SOLID Principles** | Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion. Every class, every interface. | `/backend-development` |
+| 4 | **OOP Fundamentals** | All four pillars enforced: **Encapsulation** (private fields, controlled access, no public setters on domain entities, state changes through behavior methods), **Abstraction** (hide complexity behind interfaces, program to abstractions not implementations), **Inheritance** (use judiciously, prefer composition, leverage base classes for shared behavior), **Polymorphism** (interfaces and virtual methods for varying behavior, no if/switch on type — use polymorphic dispatch). No static mutable state. | |
+| 5 | **CQRS** | Commands mutate state and return `ErrorOr<T>`. Queries read state and return `ErrorOr<T>`. Never mix read and write in one handler. Separate Command and Query objects via MediatR `IRequest<ErrorOr<T>>`. | `/clean-architecture-structure` |
+| 6 | **MediatR Pipeline** | Endpoints send Commands/Queries via `ISender`. Business logic lives in Handlers. Cross-cutting concerns (validation, logging) use `IPipelineBehavior<,>`. Side effects use `INotification` + `INotificationHandler`. No direct service calls from endpoints. | |
+| 7 | **ErrorOr Pattern** | All handler return types are `ErrorOr<T>`. Domain errors are static members of domain error classes. No throwing exceptions for business rule violations. Exceptions are reserved for truly exceptional/infrastructure failures. | `/backend-development` |
+| 8 | **Strategy Pattern** | When multiple implementations of a behavior exist, define an interface + factory. Register strategies in DI. Resolve at runtime via factory, never via `if/switch` on type strings. Reference: `IExternalAuthProvider` + `ExternalAuthProviderFactory`. | |
+| 9 | **Event-Driven Architecture** | Domain events for intra-process side effects via MediatR. Integration events for inter-service communication. Typed contracts, ordering guarantees, idempotent consumers. No re-processing unless on failure. | `/event-driven-architecture` |
+| 10 | **DRY (Don't Repeat Yourself)** | Extract shared logic into base classes, extension methods, or shared services. If the same logic appears in 2+ places, refactor immediately. Shared constants in Domain `Constants/`. Shared validators as reusable `FluentValidation` rules. | |
+
+**Enforcement Rule:** Before completing any implementation, verify compliance with ALL 10 principles using `/final-review-checklist` (Section 10). Any principle violation blocks completion.
+
+---
+
+## Skills Index
+
+Detailed standards are maintained as skill files. **Invoke the relevant skill before starting any work in that domain.**
+
+| Skill | Invoke With | When to Use |
+|-------|-------------|-------------|
+| Core Agent Behavior | `/core-agent-behavior` | Starting any task; communication rules; quality trade-off decisions |
+| Implementation Strategy | `/implementation-strategy` | Before writing ANY code; architecture planning; risk identification |
+| Clean Architecture Structure | `/clean-architecture-structure` | Project structure, layer organization, folder conventions, dependency rules |
+| Backend Development | `/backend-development` | APIs, services, repositories, databases, caching, logging |
+| Product Development | `/product-development` | User stories, sprint planning, feature prioritization, stakeholder comms |
+| Security Mindset | `/security-mindset` | Auth, encryption, data handling, any endpoint; MANDATORY for all features |
+| Failure Mode Design | `/failure-mode-design` | External integrations, circuit breakers, graceful degradation |
+| Quality Assurance | `/quality-assurance` | Writing tests, coverage review, test strategy |
+| Documentation Standards | `/documentation-standards` | XML doc comments, README files, ADRs |
+| Domain-Driven Design | `/domain-driven-design` | Aggregates, entities, value objects, domain events, bounded contexts |
+| Event-Driven Architecture | `/event-driven-architecture` | Domain events, integration events, contracts, ordering, idempotency |
+| Final Review Checklist | `/final-review-checklist` | Before marking any implementation complete |
+
+> **Skills are located in `.claude/skills/<name>/SKILL.md`**
