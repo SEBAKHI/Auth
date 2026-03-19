@@ -1,4 +1,6 @@
+using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
+using ErrorOr;
 
 namespace Auth.Domain.Entities;
 
@@ -139,36 +141,67 @@ public class OrganizationInvitation : EntityBase
     /// Accepts the invitation.
     /// </summary>
     /// <param name="acceptedByUserId">The user ID who accepted</param>
-    public void Accept(Guid acceptedByUserId)
+    public ErrorOr<Success> Accept(Guid acceptedByUserId)
     {
         if (!CanBeAccepted())
-            throw new InvalidOperationException("Invitation cannot be accepted");
+        {
+            return Status switch
+            {
+                InvitationStatus.Accepted => OrganizationErrors.InvitationAlreadyAccepted,
+                InvitationStatus.Declined => OrganizationErrors.InvitationAlreadyDeclined,
+                InvitationStatus.Cancelled => OrganizationErrors.InvitationAlreadyCancelled,
+                _ when IsExpired() => OrganizationErrors.InvitationExpired,
+                _ => Error.Validation(code: "Organization.InvitationCannotBeAccepted",
+                    description: "Invitation cannot be accepted.")
+            };
+        }
 
         Status = InvitationStatus.Accepted;
         AcceptedAt = DateTime.UtcNow;
         AcceptedByUserId = acceptedByUserId;
+        return Result.Success;
     }
 
     /// <summary>
     /// Declines the invitation.
     /// </summary>
-    public void Decline()
+    public ErrorOr<Success> Decline()
     {
         if (Status != InvitationStatus.Pending)
-            throw new InvalidOperationException("Only pending invitations can be declined");
+        {
+            return Status switch
+            {
+                InvitationStatus.Accepted => OrganizationErrors.InvitationAlreadyAccepted,
+                InvitationStatus.Declined => OrganizationErrors.InvitationAlreadyDeclined,
+                InvitationStatus.Cancelled => OrganizationErrors.InvitationAlreadyCancelled,
+                _ => Error.Validation(code: "Organization.InvitationNotPending",
+                    description: "Only pending invitations can be declined.")
+            };
+        }
 
         Status = InvitationStatus.Declined;
+        return Result.Success;
     }
 
     /// <summary>
     /// Cancels the invitation (by org admin).
     /// </summary>
-    public void Cancel()
+    public ErrorOr<Success> Cancel()
     {
         if (Status != InvitationStatus.Pending)
-            throw new InvalidOperationException("Only pending invitations can be cancelled");
+        {
+            return Status switch
+            {
+                InvitationStatus.Accepted => OrganizationErrors.InvitationAlreadyAccepted,
+                InvitationStatus.Declined => OrganizationErrors.InvitationAlreadyDeclined,
+                InvitationStatus.Cancelled => OrganizationErrors.InvitationAlreadyCancelled,
+                _ => Error.Validation(code: "Organization.InvitationNotPending",
+                    description: "Only pending invitations can be cancelled.")
+            };
+        }
 
         Status = InvitationStatus.Cancelled;
+        return Result.Success;
     }
 
     /// <summary>

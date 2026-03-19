@@ -1,5 +1,6 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Application.Validators;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -19,6 +20,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IPasswordHistoryRepository _passwordHistoryRepository;
     private readonly IUserSessionRepository _userSessionRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly PasswordValidator _passwordValidator;
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
@@ -29,6 +31,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IPasswordHistoryRepository passwordHistoryRepository,
         IUserSessionRepository userSessionRepository,
         IPasswordHasher passwordHasher,
+        PasswordValidator passwordValidator,
         IOptions<PasswordSettings> passwordSettings,
         IOptions<SessionSettings> sessionSettings,
         ILogger<ResetPasswordCommandHandler> logger)
@@ -38,6 +41,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _passwordHistoryRepository = passwordHistoryRepository;
         _userSessionRepository = userSessionRepository;
         _passwordHasher = passwordHasher;
+        _passwordValidator = passwordValidator;
         _passwordSettings = passwordSettings.Value;
         _sessionSettings = sessionSettings.Value;
         _logger = logger;
@@ -84,7 +88,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         }
 
         // Validate password strength
-        var passwordValidation = ValidatePasswordStrength(request.NewPassword);
+        var passwordValidation = _passwordValidator.Validate(request.NewPassword);
         if (passwordValidation.IsError)
         {
             return passwordValidation.Errors;
@@ -162,41 +166,6 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
             _logger.LogInformation(
                 "Password reset for user {UserId}, sessions preserved per request/configuration",
                 user.Id);
-        }
-
-        return Result.Success;
-    }
-
-    private ErrorOr<Success> ValidatePasswordStrength(string password)
-    {
-        if (string.IsNullOrEmpty(password))
-        {
-            return UserErrors.PasswordTooWeak;
-        }
-
-        if (password.Length < _passwordSettings.MinimumLength)
-        {
-            return UserErrors.PasswordTooWeak;
-        }
-
-        if (_passwordSettings.RequireUppercase && !password.Any(char.IsUpper))
-        {
-            return UserErrors.PasswordTooWeak;
-        }
-
-        if (_passwordSettings.RequireLowercase && !password.Any(char.IsLower))
-        {
-            return UserErrors.PasswordTooWeak;
-        }
-
-        if (_passwordSettings.RequireDigit && !password.Any(char.IsDigit))
-        {
-            return UserErrors.PasswordTooWeak;
-        }
-
-        if (_passwordSettings.RequireSpecialCharacter && !password.Any(c => !char.IsLetterOrDigit(c)))
-        {
-            return UserErrors.PasswordTooWeak;
         }
 
         return Result.Success;

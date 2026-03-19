@@ -20,6 +20,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
+    private readonly IPublisher _publisher;
     private readonly PasswordSettings _passwordSettings;
     private readonly ILogger<LoginCommandHandler> _logger;
 
@@ -28,6 +29,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         ILoginAttemptRepository loginAttemptRepository,
         IPasswordHasher passwordHasher,
         ILoginResponseBuilder loginResponseBuilder,
+        IPublisher publisher,
         IOptions<PasswordSettings> passwordSettings,
         ILogger<LoginCommandHandler> logger)
     {
@@ -35,6 +37,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         _loginAttemptRepository = loginAttemptRepository;
         _passwordHasher = passwordHasher;
         _loginResponseBuilder = loginResponseBuilder;
+        _publisher = publisher;
         _passwordSettings = passwordSettings.Value;
         _logger = logger;
     }
@@ -121,7 +124,13 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
 
         // Build device info and delegate token generation to shared builder
         var deviceInfo = BuildDeviceInfo(request.UserAgent, request.DeviceId);
-        return await _loginResponseBuilder.BuildAsync(user, request.IpAddress, deviceInfo, cancellationToken);
+        var loginResponse = await _loginResponseBuilder.BuildAsync(user, request.IpAddress, deviceInfo, cancellationToken);
+
+        await _publisher.Publish(
+            new UserLoggedInEvent(user.Id, user.Email, request.IpAddress, request.UserAgent),
+            cancellationToken);
+
+        return loginResponse;
     }
 
     private static ErrorOr<Success> CheckAccountStatus(User user)

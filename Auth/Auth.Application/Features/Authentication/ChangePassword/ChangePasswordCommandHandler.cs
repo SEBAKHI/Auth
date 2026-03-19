@@ -1,5 +1,6 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Application.Validators;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -18,6 +19,8 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
     private readonly IPasswordHistoryRepository _passwordHistoryRepository;
     private readonly IUserSessionRepository _userSessionRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly PasswordValidator _passwordValidator;
+    private readonly IPublisher _publisher;
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
     private readonly ILogger<ChangePasswordCommandHandler> _logger;
@@ -27,6 +30,8 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         IPasswordHistoryRepository passwordHistoryRepository,
         IUserSessionRepository userSessionRepository,
         IPasswordHasher passwordHasher,
+        PasswordValidator passwordValidator,
+        IPublisher publisher,
         IOptions<PasswordSettings> passwordSettings,
         IOptions<SessionSettings> sessionSettings,
         ILogger<ChangePasswordCommandHandler> logger)
@@ -35,6 +40,8 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         _passwordHistoryRepository = passwordHistoryRepository;
         _userSessionRepository = userSessionRepository;
         _passwordHasher = passwordHasher;
+        _passwordValidator = passwordValidator;
+        _publisher = publisher;
         _passwordSettings = passwordSettings.Value;
         _sessionSettings = sessionSettings.Value;
         _logger = logger;
@@ -61,7 +68,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         }
 
         // Validate password strength
-        var passwordValidation = ValidatePasswordStrength(request.NewPassword);
+        var passwordValidation = _passwordValidator.Validate(request.NewPassword);
         if (passwordValidation.IsError)
         {
             return passwordValidation.Errors;
@@ -155,40 +162,9 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
                 request.UserId);
         }
 
-        return Result.Success;
-    }
-
-    private ErrorOr<Success> ValidatePasswordStrength(string password)
-    {
-        if (string.IsNullOrEmpty(password))
-        {
-            return UserErrors.PasswordTooWeak;
-        }
-
-        if (password.Length < _passwordSettings.MinimumLength)
-        {
-            return UserErrors.PasswordTooWeak;
-        }
-
-        if (_passwordSettings.RequireUppercase && !password.Any(char.IsUpper))
-        {
-            return UserErrors.PasswordTooWeak;
-        }
-
-        if (_passwordSettings.RequireLowercase && !password.Any(char.IsLower))
-        {
-            return UserErrors.PasswordTooWeak;
-        }
-
-        if (_passwordSettings.RequireDigit && !password.Any(char.IsDigit))
-        {
-            return UserErrors.PasswordTooWeak;
-        }
-
-        if (_passwordSettings.RequireSpecialCharacter && !password.Any(c => !char.IsLetterOrDigit(c)))
-        {
-            return UserErrors.PasswordTooWeak;
-        }
+        await _publisher.Publish(
+            new PasswordChangedEvent(request.UserId, request.UserId),
+            cancellationToken);
 
         return Result.Success;
     }

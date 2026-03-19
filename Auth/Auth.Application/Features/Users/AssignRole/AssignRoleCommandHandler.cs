@@ -13,15 +13,18 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
 {
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IPublisher _publisher;
     private readonly ILogger<AssignRoleCommandHandler> _logger;
 
     public AssignRoleCommandHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        IPublisher publisher,
         ILogger<AssignRoleCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -63,6 +66,10 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
         _logger.LogInformation(
             "Role {RoleId} ({RoleName}) assigned to user {UserId} by {AssignedBy}",
             request.RoleId, role.Name, request.UserId, request.AssignedBy);
+
+        await _publisher.Publish(
+            new RoleAssignedEvent(request.UserId, request.RoleId, role.Name, request.AssignedBy),
+            cancellationToken);
 
         return Result.Success;
     }

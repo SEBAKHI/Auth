@@ -4,6 +4,13 @@ using Auth_API.Authorization;
 using Auth_API.Modules.Administration.Contracts;
 using Auth_API.Modules.Administration.Filters;
 using Auth.Application.Interfaces;
+using Auth.Application.Features.Secrets.DeleteCustomSecret;
+using Auth.Application.Features.Secrets.GenerateGatewayToken;
+using Auth.Application.Features.Secrets.GenerateHmacKey;
+using Auth.Application.Features.Secrets.GenerateRsaKey;
+using Auth.Application.Features.Secrets.GetSecretStatus;
+using Auth.Application.Features.Secrets.SetCustomSecret;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,15 +29,11 @@ namespace Auth_API.Modules.Administration.Controllers;
 [RequireAdminApiEnabled]
 public class SecretsController : ControllerBase
 {
-    private readonly IDpapiSecretService _secretService;
-    private readonly ILogger<SecretsController> _logger;
+    private readonly ISender _sender;
 
-    public SecretsController(
-        IDpapiSecretService secretService,
-        ILogger<SecretsController> logger)
+    public SecretsController(ISender sender)
     {
-        _secretService = secretService;
-        _logger = logger;
+        _sender = sender;
     }
 
     /// <summary>
@@ -47,8 +50,13 @@ public class SecretsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetStatus(CancellationToken cancellationToken)
     {
-        var status = await _secretService.GetStatusAsync(cancellationToken);
-        return Ok(status);
+        var result = await _sender.Send(new GetSecretStatusQuery(), cancellationToken);
+
+        return result.Match(
+            status => Ok(status),
+            errors => Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: errors.First().Description));
     }
 
     /// <summary>
@@ -66,19 +74,19 @@ public class SecretsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GenerateRsaKey(CancellationToken cancellationToken)
     {
-        var userId = User.FindFirstValue("sub") ?? "unknown";
-        _logger.LogWarning(
-            "RSA key regeneration requested by user {UserId} - all access tokens will be invalidated",
-            userId);
+        var userId = GetUserId();
+        var result = await _sender.Send(new GenerateRsaKeyCommand(userId), cancellationToken);
 
-        var publicKeyPem = await _secretService.GenerateRsaKeyPairAsync(cancellationToken);
-
-        return Ok(new RsaKeyGenerationResponse
-        {
-            Success = true,
-            Message = "RSA key pair regenerated successfully. All existing access tokens are now invalid. Users must re-authenticate.",
-            PublicKeyPem = publicKeyPem
-        });
+        return result.Match(
+            publicKeyPem => Ok(new RsaKeyGenerationResponse
+            {
+                Success = true,
+                Message = "RSA key pair regenerated successfully. All existing access tokens are now invalid. Users must re-authenticate.",
+                PublicKeyPem = publicKeyPem
+            }),
+            errors => Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: errors.First().Description));
     }
 
     /// <summary>
@@ -96,18 +104,18 @@ public class SecretsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GenerateHmacKey(CancellationToken cancellationToken)
     {
-        var userId = User.FindFirstValue("sub") ?? "unknown";
-        _logger.LogWarning(
-            "HMAC key regeneration requested by user {UserId} - all refresh tokens will be invalidated",
-            userId);
+        var userId = GetUserId();
+        var result = await _sender.Send(new GenerateHmacKeyCommand(userId), cancellationToken);
 
-        await _secretService.GenerateHmacKeyAsync(cancellationToken);
-
-        return Ok(new HmacKeyGenerationResponse
-        {
-            Success = true,
-            Message = "HMAC key regenerated successfully. All existing refresh tokens are now invalid. Users must re-authenticate."
-        });
+        return result.Match(
+            _ => Ok(new HmacKeyGenerationResponse
+            {
+                Success = true,
+                Message = "HMAC key regenerated successfully. All existing refresh tokens are now invalid. Users must re-authenticate."
+            }),
+            errors => Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: errors.First().Description));
     }
 
     /// <summary>
@@ -124,19 +132,19 @@ public class SecretsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GenerateGatewayToken(CancellationToken cancellationToken)
     {
-        var userId = User.FindFirstValue("sub") ?? "unknown";
-        _logger.LogWarning(
-            "Gateway token regeneration requested by user {UserId}",
-            userId);
+        var userId = GetUserId();
+        var result = await _sender.Send(new GenerateGatewayTokenCommand(userId), cancellationToken);
 
-        var token = await _secretService.GenerateGatewayTokenAsync(cancellationToken);
-
-        return Ok(new GatewayTokenGenerationResponse
-        {
-            Success = true,
-            Message = "Gateway token regenerated successfully. Update API Gateway configuration with the new token.",
-            Token = token
-        });
+        return result.Match(
+            token => Ok(new GatewayTokenGenerationResponse
+            {
+                Success = true,
+                Message = "Gateway token regenerated successfully. Update API Gateway configuration with the new token.",
+                Token = token
+            }),
+            errors => Problem(
+                statusCode: StatusCodes.Status500InternalServerError,
+                title: errors.First().Description));
     }
 
     /// <summary>
@@ -161,25 +169,16 @@ public class SecretsController : ControllerBase
         [FromBody] SetSecretRequest request,
         CancellationToken cancellationToken)
     {
-        if (!IsValidSecretKey(key))
-        {
-            return BadRequest(new ProblemDetails
-            {
-                Title = "Invalid Key",
-                Detail = "Secret key must be alphanumeric with underscores or dots only, and less than 100 characters.",
-                Status = StatusCodes.Status400BadRequest
-            });
-        }
+        var userId = GetUserId();
+        var result = await _sender.Send(
+            new SetCustomSecretCommand(key, request.Value, userId),
+            cancellationToken);
 
-        var userId = User.FindFirstValue("sub") ?? "unknown";
-        await _secretService.SetSecretAsync($"Custom:{key}", request.Value, cancellationToken);
-
-        _logger.LogInformation(
-            "Custom secret {Key} set by user {UserId}",
-            key,
-            userId);
-
-        return NoContent();
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(
+                statusCode: StatusCodes.Status400BadRequest,
+                title: errors.First().Description));
     }
 
     /// <summary>
@@ -201,31 +200,28 @@ public class SecretsController : ControllerBase
         string key,
         CancellationToken cancellationToken)
     {
-        var removed = await _secretService.RemoveSecretAsync($"Custom:{key}", cancellationToken);
+        var userId = GetUserId();
+        var result = await _sender.Send(
+            new DeleteCustomSecretCommand(key, userId),
+            cancellationToken);
 
-        if (!removed)
-        {
-            return NotFound(new ProblemDetails
-            {
-                Title = "Secret Not Found",
-                Detail = $"Custom secret '{key}' was not found.",
-                Status = StatusCodes.Status404NotFound
-            });
-        }
-
-        var userId = User.FindFirstValue("sub") ?? "unknown";
-        _logger.LogInformation(
-            "Custom secret {Key} deleted by user {UserId}",
-            key,
-            userId);
-
-        return NoContent();
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
+                ? NotFound(new ProblemDetails
+                {
+                    Title = "Secret Not Found",
+                    Detail = errors.First().Description,
+                    Status = StatusCodes.Status404NotFound
+                })
+                : Problem(
+                    statusCode: StatusCodes.Status500InternalServerError,
+                    title: errors.First().Description));
     }
 
-    private static bool IsValidSecretKey(string key)
+    private Guid GetUserId()
     {
-        return !string.IsNullOrWhiteSpace(key) &&
-               key.Length <= 100 &&
-               key.All(c => char.IsLetterOrDigit(c) || c == '_' || c == '.');
+        var sub = User.FindFirstValue("sub");
+        return Guid.TryParse(sub, out var userId) ? userId : Guid.Empty;
     }
 }

@@ -97,7 +97,10 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
         if (existingMembership != null)
         {
             // Already a member - just mark invitation as accepted
-            invitation.Accept(request.AcceptedBy);
+            var acceptResult = invitation.Accept(request.AcceptedBy);
+            if (acceptResult.IsError)
+                return acceptResult.Errors;
+
             await _organizationRepository.UpdateInvitationAsync(invitation, cancellationToken);
 
             return new InvitationAcceptResultDto
@@ -120,7 +123,10 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
         await _organizationRepository.AddMemberAsync(membership, cancellationToken);
 
         // Mark invitation as accepted
-        invitation.Accept(request.AcceptedBy);
+        var acceptResult2 = invitation.Accept(request.AcceptedBy);
+        if (acceptResult2.IsError)
+            return acceptResult2.Errors;
+
         await _organizationRepository.UpdateInvitationAsync(invitation, cancellationToken);
 
         var role = await _roleRepository.GetByIdAsync(invitation.RoleId, cancellationToken);

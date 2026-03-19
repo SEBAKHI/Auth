@@ -16,6 +16,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
     private readonly ITokenBlacklistService _tokenBlacklistService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<LogoutCommandHandler> _logger;
 
@@ -24,6 +25,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         ITokenBlacklistService tokenBlacklistService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IJwtTokenService jwtTokenService,
+        IPublisher publisher,
         IOptions<JwtSettings> jwtSettings,
         ILogger<LogoutCommandHandler> logger)
     {
@@ -31,6 +33,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         _tokenBlacklistService = tokenBlacklistService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _jwtTokenService = jwtTokenService;
+        _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
@@ -70,6 +73,10 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
             // No specific token provided, just acknowledge the logout
             _logger.LogInformation("User {UserId} logout acknowledged (no token to revoke)", request.UserId);
         }
+
+        await _publisher.Publish(
+            new UserLoggedOutEvent(request.UserId, request.LogoutAllDevices),
+            cancellationToken);
 
         return Result.Success;
     }

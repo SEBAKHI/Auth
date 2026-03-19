@@ -1,4 +1,6 @@
+using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
+using ErrorOr;
 
 namespace Auth.Domain.Entities;
 
@@ -92,13 +94,14 @@ public class PasswordResetToken : EntityBase
     /// <summary>
     /// Marks this token as used.
     /// </summary>
-    public void MarkAsUsed()
+    public ErrorOr<Success> MarkAsUsed()
     {
         if (UsedAt.HasValue)
         {
-            throw new InvalidOperationException("Token has already been used.");
+            return PasswordResetErrors.TokenAlreadyUsed;
         }
 
         UsedAt = DateTime.UtcNow;
+        return Result.Success;
     }
 }

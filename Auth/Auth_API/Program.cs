@@ -18,6 +18,7 @@ using Auth.Infrastructure.Security;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Validators;
 using FluentValidation;
+using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
@@ -185,6 +186,10 @@ builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
 builder.Services.AddSingleton<IExternalAuthProvider, GoogleAuthProvider>();
 builder.Services.AddSingleton<IExternalAuthProviderFactory, ExternalAuthProviderFactory>();
 
+// Integration Events
+builder.Services.AddSingleton<Auth.Application.IntegrationEvents.IIntegrationEventPublisher,
+    Auth.Infrastructure.IntegrationEvents.NoOpIntegrationEventPublisher>();
+
 // Shared Application Services
 builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
@@ -199,6 +204,8 @@ builder.Services.AddMediatR(cfg =>
 {
     cfg.RegisterServicesFromAssemblyContaining<Program>();
     cfg.RegisterServicesFromAssemblyContaining<IPasswordHasher>();
+    cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(Auth.Application.Behaviors.LoggingBehavior<,>));
+    cfg.AddBehavior(typeof(IPipelineBehavior<,>), typeof(Auth.Application.Behaviors.ValidationBehavior<,>));
 });
 
 // FluentValidation
