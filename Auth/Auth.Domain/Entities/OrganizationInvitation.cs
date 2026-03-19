@@ -1,5 +1,6 @@
 using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 
 namespace Auth.Domain.Entities;
@@ -18,7 +19,7 @@ public class OrganizationInvitation : EntityBase
     /// <summary>
     /// Gets the email address the invitation was sent to.
     /// </summary>
-    public string Email { get; private set; } = string.Empty;
+    public Email Email { get; private set; } = Email.From(string.Empty);
 
     /// <summary>
     /// Gets the ID of the organization-level role to assign upon acceptance.
@@ -79,7 +80,7 @@ public class OrganizationInvitation : EntityBase
         DateTime createdAt) : base(id)
     {
         OrganizationId = organizationId;
-        Email = email;
+        Email = Email.From(email);
         RoleId = roleId;
         Token = token;
         Status = status;
@@ -111,7 +112,7 @@ public class OrganizationInvitation : EntityBase
         return new OrganizationInvitation
         {
             OrganizationId = organizationId,
-            Email = email.ToLowerInvariant().Trim(),
+            Email = Email.From(email.ToLowerInvariant().Trim()),
             RoleId = roleId,
             Token = token,
             Status = InvitationStatus.Pending,

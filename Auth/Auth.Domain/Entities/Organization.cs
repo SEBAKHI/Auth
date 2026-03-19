@@ -1,4 +1,5 @@
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Entities;
 
@@ -37,7 +38,7 @@ public class Organization : AuditableEntityBase
     /// <summary>
     /// Gets the primary contact email for the organization.
     /// </summary>
-    public string ContactEmail { get; private set; } = string.Empty;
+    public Email ContactEmail { get; private set; } = Email.From(string.Empty);
 
     /// <summary>
     /// Gets the ID of the user who owns the organization.
@@ -82,7 +83,7 @@ public class Organization : AuditableEntityBase
         Description = description;
         LogoUrl = logoUrl;
         Website = website;
-        ContactEmail = contactEmail;
+        ContactEmail = Email.From(contactEmail);
         OwnerId = ownerId;
         IsActive = isActive;
         IsAutoCreated = isAutoCreated;
@@ -120,7 +121,7 @@ public class Organization : AuditableEntityBase
             Description = description?.Trim(),
             LogoUrl = logoUrl?.Trim(),
             Website = website?.Trim(),
-            ContactEmail = contactEmail.ToLowerInvariant().Trim(),
+            ContactEmail = Email.From(contactEmail.ToLowerInvariant().Trim()),
             OwnerId = ownerId,
             IsActive = true,
             IsAutoCreated = isAutoCreated
@@ -144,7 +145,7 @@ public class Organization : AuditableEntityBase
         Description = description?.Trim();
         LogoUrl = logoUrl?.Trim();
         Website = website?.Trim();
-        ContactEmail = contactEmail.ToLowerInvariant().Trim();
+        ContactEmail = Email.From(contactEmail.ToLowerInvariant().Trim());
         SetModified(modifiedBy);
     }
 

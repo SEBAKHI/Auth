@@ -57,11 +57,11 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
 
         // Get inviter info
         var inviter = await _userRepository.GetByIdAsync(request.InvitedBy, cancellationToken);
-        var inviterEmail = inviter?.Email?.ToLowerInvariant();
+        var inviterEmail = inviter?.Email?.Value;
         var requestEmail = request.Email.ToLowerInvariant();
 
         // Cannot invite self
-        if (inviterEmail == requestEmail)
+        if (string.Equals(inviterEmail, requestEmail, StringComparison.OrdinalIgnoreCase))
         {
             return OrganizationErrors.CannotInviteSelf;
         }
@@ -86,7 +86,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             request.OrganizationId,
             cancellationToken);
 
-        if (pendingInvitations.Any(i => i.Email.Equals(request.Email, StringComparison.OrdinalIgnoreCase)))
+        if (pendingInvitations.Any(i => string.Equals(i.Email.Value, request.Email, StringComparison.OrdinalIgnoreCase)))
         {
             return OrganizationErrors.PendingInvitationExists(request.Email);
         }

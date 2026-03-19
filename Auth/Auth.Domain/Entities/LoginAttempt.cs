@@ -1,4 +1,5 @@
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Entities;
 
@@ -15,7 +16,7 @@ public class LoginAttempt : EntityBase
     /// <summary>
     /// Gets the email address used in the attempt.
     /// </summary>
-    public string Email { get; private set; } = string.Empty;
+    public Email Email { get; private set; } = Email.From(string.Empty);
 
     /// <summary>
     /// Gets whether the attempt was successful.
@@ -69,7 +70,7 @@ public class LoginAttempt : EntityBase
         Guid? applicationId) : base(id)
     {
         UserId = userId;
-        Email = email;
+        Email = Email.From(email);
         IsSuccess = isSuccess;
         FailureReason = failureReason;
         IpAddress = ipAddress;
@@ -90,7 +91,7 @@ public class LoginAttempt : EntityBase
         return new LoginAttempt
         {
             UserId = userId,
-            Email = email,
+            Email = Email.From(email),
             IsSuccess = true,
             IpAddress = ipAddress,
             UserAgent = userAgent,
@@ -112,7 +113,7 @@ public class LoginAttempt : EntityBase
         return new LoginAttempt
         {
             UserId = userId,
-            Email = email,
+            Email = Email.From(email),
             IsSuccess = false,
             FailureReason = failureReason,
             IpAddress = ipAddress,

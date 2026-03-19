@@ -1,5 +1,6 @@
 using Auth.Domain.Enums;
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Entities;
 
@@ -11,7 +12,7 @@ public class User : AuditableEntityBase
     /// <summary>
     /// Gets the user's email address (used for login).
     /// </summary>
-    public string Email { get; private set; } = string.Empty;
+    public Email Email { get; private set; } = Email.From(string.Empty);
 
     /// <summary>
     /// Gets the normalized email address for lookups.
@@ -42,7 +43,7 @@ public class User : AuditableEntityBase
     /// <summary>
     /// Gets the user's phone number.
     /// </summary>
-    public string? PhoneNumber { get; private set; }
+    public PhoneNumber? PhoneNumber { get; private set; }
 
     /// <summary>
     /// Gets the user's account status.
@@ -146,13 +147,13 @@ public class User : AuditableEntityBase
         DateTime? modifiedAt,
         Guid? modifiedBy) : base(id)
     {
-        Email = email;
+        Email = Email.From(email);
         NormalizedEmail = normalizedEmail;
         PasswordHash = passwordHash;
         FirstName = firstName;
         LastName = lastName;
         DisplayName = displayName;
-        PhoneNumber = phoneNumber;
+        PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber);
         Status = status;
         EmailConfirmed = emailConfirmed;
         PhoneConfirmed = phoneConfirmed;
@@ -184,15 +185,16 @@ public class User : AuditableEntityBase
         string preferredLanguage = "en",
         string timeZone = "UTC")
     {
+        var emailVo = Email.From(email.ToLowerInvariant());
         var user = new User
         {
-            Email = email,
-            NormalizedEmail = email.ToUpperInvariant(),
+            Email = emailVo,
+            NormalizedEmail = emailVo.ToNormalized(),
             PasswordHash = passwordHash,
             FirstName = firstName,
             LastName = lastName,
             DisplayName = displayName ?? $"{firstName} {lastName}",
-            PhoneNumber = phoneNumber,
+            PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber),
             Status = UserStatus.Active,
             EmailConfirmed = false,
             PhoneConfirmed = false,
@@ -222,10 +224,11 @@ public class User : AuditableEntityBase
         string preferredLanguage = "en",
         string timeZone = "UTC")
     {
+        var emailVo = Email.From(email.ToLowerInvariant());
         var user = new User
         {
-            Email = email,
-            NormalizedEmail = email.ToUpperInvariant(),
+            Email = emailVo,
+            NormalizedEmail = emailVo.ToNormalized(),
             PasswordHash = null,
             FirstName = firstName,
             LastName = lastName,
@@ -256,7 +259,7 @@ public class User : AuditableEntityBase
         FirstName = firstName;
         LastName = lastName;
         DisplayName = displayName;
-        PhoneNumber = phoneNumber;
+        PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber);
         PreferredLanguage = preferredLanguage;
         TimeZone = timeZone;
         SetModified(modifiedBy);

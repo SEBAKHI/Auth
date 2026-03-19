@@ -1,5 +1,6 @@
 using Auth.Domain.Errors;
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 using ErrorOr;
 
 namespace Auth.Domain.Entities;
@@ -28,7 +29,7 @@ public class EmailVerificationToken : EntityBase
     /// <summary>
     /// Gets the email address the OTP was sent to.
     /// </summary>
-    public string Email { get; private set; } = string.Empty;
+    public Email Email { get; private set; } = Email.From(string.Empty);
 
     /// <summary>
     /// Gets the UTC timestamp when this token expires.
@@ -86,7 +87,7 @@ public class EmailVerificationToken : EntityBase
     {
         UserId = userId;
         OtpHash = otpHash;
-        Email = email;
+        Email = Email.From(email);
         ExpiresAt = expiresAt;
         UsedAt = usedAt;
         AttemptCount = attemptCount;
@@ -111,7 +112,7 @@ public class EmailVerificationToken : EntityBase
         {
             UserId = userId,
             OtpHash = otpHash,
-            Email = email.ToLowerInvariant(),
+            Email = Email.From(email.ToLowerInvariant()),
             ExpiresAt = now.AddMinutes(expirationMinutes),
             UsedAt = null,
             AttemptCount = 0,

@@ -84,7 +84,7 @@ public class UserRepository : IUserRepository
             new
             {
                 user.Id,
-                Username = user.Email.Split('@')[0],
+                Username = user.Email.Value.Split('@')[0],
                 user.Email,
                 user.NormalizedEmail,
                 user.PasswordHash,

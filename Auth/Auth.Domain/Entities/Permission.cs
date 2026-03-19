@@ -1,4 +1,5 @@
 using Auth.Domain.Primitives;
+using Auth.Domain.ValueObjects;
 
 namespace Auth.Domain.Entities;
 
@@ -17,7 +18,7 @@ public class Permission : AuditableEntityBase
     /// <summary>
     /// Gets the permission code using colon-separated hierarchy (e.g., "crm:leads:read").
     /// </summary>
-    public string Code { get; private set; } = string.Empty;
+    public PermissionCode Code { get; private set; } = PermissionCode.From(string.Empty);
 
     /// <summary>
     /// Gets the display name of the permission.
@@ -69,7 +70,7 @@ public class Permission : AuditableEntityBase
         Guid? modifiedBy) : base(id)
     {
         ApplicationId = applicationId;
-        Code = code;
+        Code = PermissionCode.From(code);
         Name = name;
         Description = description;
         ParentId = parentId;
@@ -90,16 +91,16 @@ public class Permission : AuditableEntityBase
         Guid? parentId,
         Guid createdBy)
     {
-        var normalizedCode = code.ToLowerInvariant();
+        var permissionCode = PermissionCode.From(code.ToLowerInvariant());
         var permission = new Permission
         {
             ApplicationId = applicationId,
-            Code = normalizedCode,
+            Code = permissionCode,
             Name = name,
             Description = description,
             ParentId = parentId,
-            Level = CalculateLevel(normalizedCode),
-            IsWildcard = normalizedCode == "*" || normalizedCode.EndsWith(":*"),
+            Level = permissionCode.Level,
+            IsWildcard = permissionCode.IsWildcard,
             IsActive = true
         };
         permission.SetCreated(createdBy);
@@ -130,49 +131,15 @@ public class Permission : AuditableEntityBase
 
     /// <summary>
     /// Checks if this permission matches the required permission using wildcard logic.
+    /// Delegates to <see cref="PermissionCode.Matches"/>.
     /// </summary>
     /// <param name="requiredPermission">The permission code to check against.</param>
     /// <returns>True if this permission grants access to the required permission.</returns>
-    public bool Matches(string requiredPermission)
-    {
-        // Global wildcard grants everything
-        if (Code == "*")
-            return true;
-
-        // Exact match
-        if (string.Equals(Code, requiredPermission, StringComparison.OrdinalIgnoreCase))
-            return true;
-
-        // Wildcard matching (e.g., "crm:*" matches "crm:leads:read")
-        if (Code.EndsWith(":*"))
-        {
-            var prefix = Code[..^2]; // Remove ":*"
-            return requiredPermission.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ||
-                   string.Equals(requiredPermission, prefix, StringComparison.OrdinalIgnoreCase);
-        }
-
-        return false;
-    }
+    public bool Matches(string requiredPermission) => Code.Matches(requiredPermission);
 
     /// <summary>
     /// Gets the parent permission code (e.g., "crm:leads:read" -> "crm:leads:*").
+    /// Delegates to <see cref="PermissionCode.GetParentCode"/>.
     /// </summary>
-    public string? GetParentCode()
-    {
-        if (Code == "*") return null;
-
-        var lastColon = Code.LastIndexOf(':');
-        if (lastColon <= 0) return "*";
-
-        return Code[..lastColon] + ":*";
-    }
-
-    /// <summary>
-    /// Calculates the hierarchy level based on the permission code.
-    /// </summary>
-    private static byte CalculateLevel(string code)
-    {
-        if (code == "*") return 0;
-        return (byte)(code.Count(c => c == ':') + 1);
-    }
+    public string? GetParentCode() => Code.GetParentCode();
 }

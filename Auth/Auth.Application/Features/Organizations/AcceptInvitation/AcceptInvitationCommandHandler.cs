@@ -70,8 +70,8 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
             return Error.NotFound(code: "User.NotFound", description: "User not found.");
         }
 
-        // Verify email matches (case-insensitive)
-        if (!invitation.Email.Equals(user.Email, StringComparison.OrdinalIgnoreCase))
+        // Verify email matches (both are normalized lowercase by Email value object)
+        if (invitation.Email != user.Email)
         {
             return OrganizationErrors.InvitationEmailMismatch;
         }
