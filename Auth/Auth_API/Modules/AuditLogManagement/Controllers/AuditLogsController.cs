@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Modules.AuditLogManagement.Contracts;
 using Auth.Application.Features.AuditLogs.ExportAuditLogs;
 using Auth.Application.Features.AuditLogs.GetAuditLogById;
 using Auth.Application.Features.AuditLogs.GetAuditLogs;
@@ -152,21 +153,4 @@ public class AuditLogsController : ApiController
             errors => Problem(errors));
     }
 
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("sub")?.Value;
-        return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
-    }
 }
-
-// Request DTO
-public record ExportAuditLogsRequest(
-    string Format = "csv",
-    Guid? UserId = null,
-    Guid? ApplicationId = null,
-    string? ActionType = null,
-    string? Action = null,
-    DateTime? FromDate = null,
-    DateTime? ToDate = null,
-    bool? IsSuccess = null,
-    int MaxRecords = 10000);

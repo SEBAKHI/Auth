@@ -42,4 +42,10 @@ public abstract class ApiController : ControllerBase
 
         return StatusCode(statusCode, problemDetails);
     }
+
+    protected Guid GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst("sub")?.Value;
+        return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
+    }
 }

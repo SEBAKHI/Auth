@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Modules.RoleManagement.Contracts;
 using Auth.Application.Features.Roles.CreateRole;
 using Auth.Application.Features.Roles.DeleteRole;
 using Auth.Application.Features.Roles.GetRoleById;
@@ -139,21 +140,4 @@ public class RolesController : ApiController
             errors => Problem(errors));
     }
 
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("sub")?.Value;
-        return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
-    }
 }
-
-// Request DTOs
-public record CreateRoleRequest(
-    Guid ApplicationId,
-    string Code,
-    string Name,
-    string? Description = null,
-    IReadOnlyList<Guid>? PermissionIds = null);
-
-public record UpdateRoleRequest(
-    string Name,
-    string? Description = null);

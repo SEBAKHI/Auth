@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Modules.OrganizationManagement.Contracts;
 using Auth.Application.Features.Organizations.AssignAppRole;
 using Auth.Application.Features.Organizations.CreateOrganization;
 using Auth.Application.Features.Organizations.DeleteOrganization;
@@ -424,53 +425,4 @@ public class OrganizationsController : ApiController
 
     #endregion
 
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("sub")?.Value;
-        return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
-    }
 }
-
-#region Request DTOs
-
-public record CreateOrganizationRequest(
-    string Code,
-    string Name,
-    string ContactEmail,
-    string? Description = null,
-    string? LogoUrl = null,
-    string? Website = null);
-
-public record UpdateOrganizationRequest(
-    string Name,
-    string ContactEmail,
-    string? Description = null,
-    string? LogoUrl = null,
-    string? Website = null,
-    bool? IsActive = null);
-
-public record UpdateMemberRoleRequest(Guid RoleId);
-
-public record InviteMemberRequest(string Email, Guid RoleId);
-
-public record EnableApplicationRequest(
-    Guid ApplicationId,
-    string? SubscriptionTier = null,
-    DateTime? ExpiresAt = null);
-
-public record UpdateApplicationRequest(
-    string? SubscriptionTier = null,
-    DateTime? ExpiresAt = null,
-    bool? IsActive = null);
-
-public record AssignAppRoleRequest(
-    Guid ApplicationId,
-    Guid RoleId,
-    DateTime? ExpiresAt = null);
-
-public record GrantPermissionRequest(
-    Guid ApplicationId,
-    Guid PermissionId,
-    DateTime? ExpiresAt = null);
-
-#endregion

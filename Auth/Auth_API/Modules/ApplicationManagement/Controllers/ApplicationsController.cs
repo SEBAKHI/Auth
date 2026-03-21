@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Modules.ApplicationManagement.Contracts;
 using Auth.Application.Features.Applications.CreateApplication;
 using Auth.Application.Features.Applications.DeleteApplication;
 using Auth.Application.Features.Applications.GetApplicationById;
@@ -202,35 +203,4 @@ public class ApplicationsController : ApiController
             errors => Problem(errors));
     }
 
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("sub")?.Value;
-        return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
-    }
 }
-
-// Request DTOs
-public record CreateApplicationRequest(
-    string Code,
-    string Name,
-    string? Description = null,
-    string? BaseUrl = null,
-    string? LogoUrl = null,
-    string? ContactEmail = null,
-    bool AllowSelfRegistration = false,
-    bool RequireTwoFactor = false,
-    bool RequireEmailVerification = false,
-    int SessionTimeoutMinutes = 60,
-    int MaxConcurrentSessions = 5);
-
-public record UpdateApplicationRequest(
-    string Name,
-    string? Description = null,
-    string? BaseUrl = null,
-    string? LogoUrl = null,
-    string? ContactEmail = null,
-    bool AllowSelfRegistration = false,
-    bool RequireTwoFactor = false,
-    bool RequireEmailVerification = false,
-    int SessionTimeoutMinutes = 60,
-    int MaxConcurrentSessions = 5);

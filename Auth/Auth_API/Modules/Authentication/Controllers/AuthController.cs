@@ -191,13 +191,13 @@ public class AuthController : ApiController
     public async Task<IActionResult> Logout([FromBody] LogoutRequest? request)
     {
         var userId = GetCurrentUserId();
-        if (userId == null)
+        if (userId == Guid.Empty)
         {
             return Unauthorized();
         }
 
         var command = new LogoutCommand(
-            userId.Value,
+            userId,
             request?.RefreshToken,
             GetAccessToken(),
             GetClientIpAddress(),
@@ -223,13 +223,13 @@ public class AuthController : ApiController
     public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
         var userId = GetCurrentUserId();
-        if (userId == null)
+        if (userId == Guid.Empty)
         {
             return Unauthorized();
         }
 
         var command = new ChangePasswordCommand(
-            userId.Value,
+            userId,
             request.CurrentPassword,
             request.NewPassword,
             request.TerminateSessions,
@@ -298,12 +298,12 @@ public class AuthController : ApiController
     public async Task<IActionResult> GetSessions()
     {
         var userId = GetCurrentUserId();
-        if (userId == null)
+        if (userId == Guid.Empty)
         {
             return Unauthorized();
         }
 
-        var query = new GetUserSessionsQuery(userId.Value, GetCurrentSessionId());
+        var query = new GetUserSessionsQuery(userId, GetCurrentSessionId());
         var result = await _sender.Send(query);
 
         return result.Match<IActionResult>(
@@ -324,12 +324,12 @@ public class AuthController : ApiController
     public async Task<IActionResult> TerminateSession(Guid sessionId)
     {
         var userId = GetCurrentUserId();
-        if (userId == null)
+        if (userId == Guid.Empty)
         {
             return Unauthorized();
         }
 
-        var command = new TerminateSessionCommand(userId.Value, sessionId);
+        var command = new TerminateSessionCommand(userId, sessionId);
         var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
@@ -348,13 +348,13 @@ public class AuthController : ApiController
     public async Task<IActionResult> TerminateAllSessions()
     {
         var userId = GetCurrentUserId();
-        if (userId == null)
+        if (userId == Guid.Empty)
         {
             return Unauthorized();
         }
 
         // Exclude current session
-        var command = new TerminateAllSessionsCommand(userId.Value, GetCurrentSessionId());
+        var command = new TerminateAllSessionsCommand(userId, GetCurrentSessionId());
         var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
@@ -374,7 +374,7 @@ public class AuthController : ApiController
     {
         var userInfo = new UserInfo
         {
-            Id = GetCurrentUserId() ?? Guid.Empty,
+            Id = GetCurrentUserId(),
             Email = User.FindFirstValue(JwtClaimNames.Email) ?? string.Empty,
             FirstName = User.FindFirstValue(JwtClaimNames.GivenName) ?? string.Empty,
             LastName = User.FindFirstValue(JwtClaimNames.FamilyName) ?? string.Empty,
@@ -388,17 +388,6 @@ public class AuthController : ApiController
         return Ok(userInfo);
     }
 
-    private Guid? GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirstValue(JwtClaimNames.Subject);
-
-        if (Guid.TryParse(userIdClaim, out var userId))
-        {
-            return userId;
-        }
-
-        return null;
-    }
 
     private Guid? GetCurrentSessionId()
     {
@@ -491,12 +480,12 @@ public class AuthController : ApiController
     public async Task<IActionResult> SendVerificationEmail()
     {
         var userId = GetCurrentUserId();
-        if (userId == null)
+        if (userId == Guid.Empty)
         {
             return Unauthorized();
         }
 
-        var command = new SendEmailVerificationCommand(userId.Value);
+        var command = new SendEmailVerificationCommand(userId);
         var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(

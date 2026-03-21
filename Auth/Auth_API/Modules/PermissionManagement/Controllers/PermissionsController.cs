@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Modules.PermissionManagement.Contracts;
 using Auth.Application.Features.Permissions.AddPermissionImplication;
 using Auth.Application.Features.Permissions.CreatePermission;
 using Auth.Application.Features.Permissions.DeletePermission;
@@ -211,24 +212,4 @@ public class PermissionsController : ApiController
             errors => Problem(errors));
     }
 
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("sub")?.Value;
-        return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
-    }
 }
-
-// Request DTOs
-public record CreatePermissionRequest(
-    Guid ApplicationId,
-    string Code,
-    string Name,
-    string? Description = null,
-    Guid? ParentId = null);
-
-public record UpdatePermissionRequest(
-    string Name,
-    string? Description = null);
-
-public record AddImplicationRequest(
-    Guid ImpliedPermissionId);

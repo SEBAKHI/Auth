@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Modules.UserManagement.Contracts;
 using Auth.Application.Features.Users.ActivateAccount;
 using Auth.Application.Features.Users.AssignRole;
 using Auth.Application.Features.Users.CreateUser;
@@ -434,50 +435,4 @@ public class UsersController : ApiController
             errors => Problem(errors));
     }
 
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("sub")?.Value;
-        return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
-    }
 }
-
-// Request DTOs
-public record CreateUserRequest(
-    string Email,
-    string Password,
-    string FirstName,
-    string LastName,
-    string? DisplayName = null,
-    string? PhoneNumber = null,
-    string? PreferredLanguage = null,
-    string? TimeZone = null,
-    IReadOnlyList<Guid>? RoleIds = null);
-
-public record UpdateUserRequest(
-    string FirstName,
-    string LastName,
-    string? DisplayName = null,
-    string? PhoneNumber = null,
-    string? PreferredLanguage = null,
-    string? TimeZone = null);
-
-public record AssignRoleRequest(
-    Guid RoleId,
-    DateTime? ExpiresAt = null);
-
-public record UpdateProfileRequest(
-    string? FirstName = null,
-    string? LastName = null,
-    string? DisplayName = null,
-    string? PhoneNumber = null,
-    string? PreferredLanguage = null,
-    string? TimeZone = null);
-
-public record LockAccountRequest(
-    string Reason,
-    int? LockDurationMinutes = null);
-
-public record GrantPermissionRequest(
-    Guid PermissionId,
-    Guid? ApplicationId = null,
-    DateTime? ExpiresAt = null);

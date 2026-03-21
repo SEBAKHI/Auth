@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
+using Auth_API.Modules.ApiKeyManagement.Contracts;
 using Auth.Application.Features.ApiKeys.CreateApiKey;
 using Auth.Application.Features.ApiKeys.GetApiKeys;
 using Auth.Application.Features.ApiKeys.RevokeApiKey;
@@ -128,24 +129,4 @@ public class ApiKeysController : ApiController
             errors => Problem(errors));
     }
 
-    private Guid GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst("sub")?.Value;
-        return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
-    }
 }
-
-// Request DTOs
-public record CreateApiKeyRequest(
-    Guid ApplicationId,
-    string Name,
-    string? Description = null,
-    string? Environment = null,
-    int? RateLimitPerMinute = null,
-    int? RateLimitPerDay = null,
-    DateTime? ExpiresAt = null,
-    IReadOnlyList<Guid>? PermissionIds = null);
-
-public record RevokeApiKeyRequest(string? Reason = null);
-
-public record RotateApiKeyRequest(int? GracePeriodMinutes = 60);

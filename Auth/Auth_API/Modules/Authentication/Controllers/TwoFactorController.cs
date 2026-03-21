@@ -5,6 +5,7 @@ using Auth.Application.Features.Authentication.EnableTwoFactor;
 using Auth.Application.Features.Authentication.SetupTwoFactor;
 using Auth.Domain.Constants;
 using Auth_API.Common;
+using Auth_API.Modules.Authentication.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -42,12 +43,12 @@ public class TwoFactorController : ApiController
     public async Task<IActionResult> Setup()
     {
         var userId = GetCurrentUserId();
-        if (userId == null)
+        if (userId == Guid.Empty)
         {
             return Unauthorized();
         }
 
-        var command = new SetupTwoFactorCommand(userId.Value);
+        var command = new SetupTwoFactorCommand(userId);
         var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
@@ -67,12 +68,12 @@ public class TwoFactorController : ApiController
     public async Task<IActionResult> Enable([FromBody] TwoFactorVerifyRequest request)
     {
         var userId = GetCurrentUserId();
-        if (userId == null)
+        if (userId == Guid.Empty)
         {
             return Unauthorized();
         }
 
-        var command = new EnableTwoFactorCommand(userId.Value, request.Code);
+        var command = new EnableTwoFactorCommand(userId, request.Code);
         var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
@@ -92,12 +93,12 @@ public class TwoFactorController : ApiController
     public async Task<IActionResult> Disable([FromBody] TwoFactorVerifyRequest request)
     {
         var userId = GetCurrentUserId();
-        if (userId == null)
+        if (userId == Guid.Empty)
         {
             return Unauthorized();
         }
 
-        var command = new DisableTwoFactorCommand(userId.Value, request.Code);
+        var command = new DisableTwoFactorCommand(userId, request.Code);
         var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
@@ -105,27 +106,5 @@ public class TwoFactorController : ApiController
             errors => Problem(errors));
     }
 
-    private Guid? GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirstValue(JwtClaimNames.Subject);
 
-        if (Guid.TryParse(userIdClaim, out var userId))
-        {
-            return userId;
-        }
-
-        return null;
-    }
-
-}
-
-/// <summary>
-/// Request model for two-factor verification.
-/// </summary>
-public record TwoFactorVerifyRequest
-{
-    /// <summary>
-    /// The 6-digit TOTP code from the authenticator app.
-    /// </summary>
-    public required string Code { get; init; }
 }
