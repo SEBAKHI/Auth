@@ -17,7 +17,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task<RefreshToken?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<RefreshToken?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -29,7 +29,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
+    public async Task<RefreshToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -43,7 +43,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task<RefreshToken> CreateAsync(RefreshToken token, CancellationToken cancellationToken = default)
+    public async Task<RefreshToken> CreateAsync(RefreshToken token, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -64,7 +64,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(RefreshToken token, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(RefreshToken token, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -90,7 +90,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         Guid userId,
         Guid? revokedBy,
         string reason,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -110,7 +110,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         string deviceInfo,
         Guid? revokedBy,
         string reason,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -134,7 +134,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<RefreshToken>> GetActiveTokensForUserAsync(
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -150,7 +150,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupExpiredAsync(DateTime olderThan, CancellationToken cancellationToken = default)
+    public async Task CleanupExpiredAsync(DateTime olderThan, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

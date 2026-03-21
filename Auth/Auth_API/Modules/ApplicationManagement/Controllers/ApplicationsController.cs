@@ -44,10 +44,11 @@ public class ApplicationsController : ApiController
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null,
-        [FromQuery] bool? isActive = null)
+        [FromQuery] bool? isActive = null,
+        CancellationToken cancellationToken = default)
     {
         var query = new GetApplicationsQuery(pageNumber, pageSize, search, isActive);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             applications => Ok(applications),
@@ -63,10 +64,10 @@ public class ApplicationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetApplication(Guid id)
+    public async Task<IActionResult> GetApplication(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetApplicationByIdQuery(id);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             application => Ok(application),
@@ -82,10 +83,10 @@ public class ApplicationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetApplicationRoles(Guid id)
+    public async Task<IActionResult> GetApplicationRoles(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetApplicationRolesQuery(id);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             roles => Ok(roles),
@@ -101,10 +102,10 @@ public class ApplicationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetApplicationPermissions(Guid id)
+    public async Task<IActionResult> GetApplicationPermissions(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetApplicationPermissionsQuery(id);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             permissions => Ok(permissions),
@@ -121,7 +122,7 @@ public class ApplicationsController : ApiController
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> CreateApplication([FromBody] CreateApplicationRequest request)
+    public async Task<IActionResult> CreateApplication([FromBody] CreateApplicationRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new CreateApplicationCommand(
@@ -140,7 +141,7 @@ public class ApplicationsController : ApiController
             CreatedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             application => CreatedAtAction(nameof(GetApplication), new { id = application.Id }, application),
@@ -156,7 +157,7 @@ public class ApplicationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UpdateApplication(Guid id, [FromBody] UpdateApplicationRequest request)
+    public async Task<IActionResult> UpdateApplication(Guid id, [FromBody] UpdateApplicationRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new UpdateApplicationCommand(
@@ -175,7 +176,7 @@ public class ApplicationsController : ApiController
             ModifiedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             application => Ok(application),
@@ -192,11 +193,11 @@ public class ApplicationsController : ApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> DeleteApplication(Guid id)
+    public async Task<IActionResult> DeleteApplication(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new DeleteApplicationCommand(id) { DeletedBy = userId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),

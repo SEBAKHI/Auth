@@ -10,7 +10,7 @@ public interface ILoginAttemptRepository
     /// <summary>
     /// Records a login attempt.
     /// </summary>
-    Task CreateAsync(LoginAttempt attempt, CancellationToken cancellationToken = default);
+    Task CreateAsync(LoginAttempt attempt, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets recent login attempts for a user.
@@ -18,7 +18,7 @@ public interface ILoginAttemptRepository
     Task<IReadOnlyList<LoginAttempt>> GetRecentByUserAsync(
         Guid userId,
         int count,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets recent login attempts for an email.
@@ -26,7 +26,7 @@ public interface ILoginAttemptRepository
     Task<IReadOnlyList<LoginAttempt>> GetRecentByEmailAsync(
         string email,
         int count,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets recent login attempts from an IP address.
@@ -34,7 +34,7 @@ public interface ILoginAttemptRepository
     Task<IReadOnlyList<LoginAttempt>> GetRecentByIpAsync(
         string ipAddress,
         int count,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Counts failed attempts for an email within a time window.
@@ -42,7 +42,7 @@ public interface ILoginAttemptRepository
     Task<int> CountFailedAttemptsAsync(
         string email,
         TimeSpan window,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Counts failed attempts from an IP within a time window.
@@ -50,10 +50,10 @@ public interface ILoginAttemptRepository
     Task<int> CountFailedAttemptsByIpAsync(
         string ipAddress,
         TimeSpan window,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Cleans up old login attempts.
     /// </summary>
-    Task CleanupOldAttemptsAsync(DateTime olderThan, CancellationToken cancellationToken = default);
+    Task CleanupOldAttemptsAsync(DateTime olderThan, CancellationToken cancellationToken);
 }

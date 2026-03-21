@@ -64,11 +64,11 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var canRead = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:read", _dataTransferAppId);
+            _userId, "data-transfer:read", _dataTransferAppId, CancellationToken.None);
         var canExport = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:export", _dataTransferAppId);
+            _userId, "data-transfer:export", _dataTransferAppId, CancellationToken.None);
         var canDelete = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:delete", _dataTransferAppId);
+            _userId, "data-transfer:delete", _dataTransferAppId, CancellationToken.None);
 
         // Assert
         canRead.Should().BeTrue("Jane has data-transfer:read permission");
@@ -92,7 +92,7 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var canRead = await _permissionChecker.HasPermissionAsync(
-            _userId, "mail-merge:read", _mailMergeAppId);
+            _userId, "mail-merge:read", _mailMergeAppId, CancellationToken.None);
 
         // Assert
         canRead.Should().BeFalse("App is not enabled for the organization");
@@ -112,7 +112,7 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var canRead = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:read", _dataTransferAppId);
+            _userId, "data-transfer:read", _dataTransferAppId, CancellationToken.None);
 
         // Assert
         canRead.Should().BeFalse("Jane has no permissions for this app");
@@ -131,7 +131,7 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var canRead = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:read", _dataTransferAppId);
+            _userId, "data-transfer:read", _dataTransferAppId, CancellationToken.None);
 
         // Assert
         canRead.Should().BeFalse("User has no active memberships");
@@ -172,11 +172,11 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var permissions = await _permissionChecker.GetUserPermissionsAsync(
-            _userId, _dataTransferAppId);
+            _userId, _dataTransferAppId, CancellationToken.None);
         var canRead = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:read", _dataTransferAppId);
+            _userId, "data-transfer:read", _dataTransferAppId, CancellationToken.None);
         var canWrite = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:write", _dataTransferAppId);
+            _userId, "data-transfer:write", _dataTransferAppId, CancellationToken.None);
 
         // Assert
         permissions.Should().HaveCount(2);
@@ -211,7 +211,7 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var permissions = await _permissionChecker.GetUserPermissionsAsync(
-            _userId, _dataTransferAppId);
+            _userId, _dataTransferAppId, CancellationToken.None);
 
         // Assert
         permissions.Should().ContainSingle()
@@ -254,9 +254,9 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var dtPermissions = await _permissionChecker.GetUserPermissionsAsync(
-            _userId, _dataTransferAppId);
+            _userId, _dataTransferAppId, CancellationToken.None);
         var mmPermissions = await _permissionChecker.GetUserPermissionsAsync(
-            _userId, _mailMergeAppId);
+            _userId, _mailMergeAppId, CancellationToken.None);
 
         // Assert
         dtPermissions.Should().ContainSingle()
@@ -283,13 +283,13 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var canRead = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:read", _dataTransferAppId);
+            _userId, "data-transfer:read", _dataTransferAppId, CancellationToken.None);
         var canWrite = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:write", _dataTransferAppId);
+            _userId, "data-transfer:write", _dataTransferAppId, CancellationToken.None);
         var canAdmin = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:admin:settings", _dataTransferAppId);
+            _userId, "data-transfer:admin:settings", _dataTransferAppId, CancellationToken.None);
         var canOther = await _permissionChecker.HasPermissionAsync(
-            _userId, "mail-merge:read", _dataTransferAppId);
+            _userId, "mail-merge:read", _dataTransferAppId, CancellationToken.None);
 
         // Assert
         canRead.Should().BeTrue();
@@ -312,7 +312,7 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var canAnything = await _permissionChecker.HasPermissionAsync(
-            _userId, "absolutely:anything:here", _dataTransferAppId);
+            _userId, "absolutely:anything:here", _dataTransferAppId, CancellationToken.None);
 
         // Assert
         canAnything.Should().BeTrue("Global wildcard grants everything");
@@ -332,11 +332,11 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var canViewReports = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:reports:view", _dataTransferAppId);
+            _userId, "data-transfer:reports:view", _dataTransferAppId, CancellationToken.None);
         var canExportReports = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:reports:export", _dataTransferAppId);
+            _userId, "data-transfer:reports:export", _dataTransferAppId, CancellationToken.None);
         var canRead = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:read", _dataTransferAppId);
+            _userId, "data-transfer:read", _dataTransferAppId, CancellationToken.None);
 
         // Assert
         canViewReports.Should().BeTrue();
@@ -367,7 +367,7 @@ public class OrganizationAuthorizationIntegrationTests
             new[] { "data-transfer:read", "data-transfer:write" });
 
         // Act
-        var permissions = await _permissionChecker.GetUserPermissionsAsync(_userId, _dataTransferAppId);
+        var permissions = await _permissionChecker.GetUserPermissionsAsync(_userId, _dataTransferAppId, CancellationToken.None);
 
         // Assert
         permissions.Should().HaveCount(4);
@@ -394,7 +394,7 @@ public class OrganizationAuthorizationIntegrationTests
             new[] { "data-transfer:read", "data-transfer:write" }); // read is duplicate
 
         // Act
-        var permissions = await _permissionChecker.GetUserPermissionsAsync(_userId, _dataTransferAppId);
+        var permissions = await _permissionChecker.GetUserPermissionsAsync(_userId, _dataTransferAppId, CancellationToken.None);
 
         // Assert
         permissions.Should().HaveCount(3);
@@ -420,12 +420,14 @@ public class OrganizationAuthorizationIntegrationTests
         var hasAny = await _permissionChecker.HasAnyPermissionAsync(
             _userId,
             new[] { "data-transfer:read", "data-transfer:write", "data-transfer:delete" },
-            _dataTransferAppId);
+            _dataTransferAppId,
+            CancellationToken.None);
 
         var hasNone = await _permissionChecker.HasAnyPermissionAsync(
             _userId,
             new[] { "data-transfer:admin", "data-transfer:delete" },
-            _dataTransferAppId);
+            _dataTransferAppId,
+            CancellationToken.None);
 
         // Assert
         hasAny.Should().BeTrue("Has at least one of the permissions");
@@ -447,12 +449,14 @@ public class OrganizationAuthorizationIntegrationTests
         var hasAll = await _permissionChecker.HasAllPermissionsAsync(
             _userId,
             new[] { "data-transfer:read", "data-transfer:write" },
-            _dataTransferAppId);
+            _dataTransferAppId,
+            CancellationToken.None);
 
         var missingOne = await _permissionChecker.HasAllPermissionsAsync(
             _userId,
             new[] { "data-transfer:read", "data-transfer:delete" },
-            _dataTransferAppId);
+            _dataTransferAppId,
+            CancellationToken.None);
 
         // Assert
         hasAll.Should().BeTrue("Has all required permissions");
@@ -475,7 +479,8 @@ public class OrganizationAuthorizationIntegrationTests
         var hasAll = await _permissionChecker.HasAllPermissionsAsync(
             _userId,
             new[] { "data-transfer:read", "data-transfer:write", "data-transfer:delete", "data-transfer:admin" },
-            _dataTransferAppId);
+            _dataTransferAppId,
+            CancellationToken.None);
 
         // Assert
         hasAll.Should().BeTrue("Wildcard covers all data-transfer permissions");
@@ -500,7 +505,7 @@ public class OrganizationAuthorizationIntegrationTests
             .ReturnsAsync(new List<string> { "direct:permission" });
 
         // Act
-        var permissions = await _permissionChecker.GetUserPermissionsAsync(_userId, _dataTransferAppId);
+        var permissions = await _permissionChecker.GetUserPermissionsAsync(_userId, _dataTransferAppId, CancellationToken.None);
 
         // Assert
         permissions.Should().ContainSingle()
@@ -520,7 +525,7 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var hasEmpty = await _permissionChecker.HasPermissionAsync(
-            _userId, "", _dataTransferAppId);
+            _userId, "", _dataTransferAppId, CancellationToken.None);
 
         // Assert
         hasEmpty.Should().BeFalse("Empty permission should never match");
@@ -539,11 +544,11 @@ public class OrganizationAuthorizationIntegrationTests
 
         // Act
         var canReadLower = await _permissionChecker.HasPermissionAsync(
-            _userId, "data-transfer:read", _dataTransferAppId);
+            _userId, "data-transfer:read", _dataTransferAppId, CancellationToken.None);
         var canReadUpper = await _permissionChecker.HasPermissionAsync(
-            _userId, "DATA-TRANSFER:READ", _dataTransferAppId);
+            _userId, "DATA-TRANSFER:READ", _dataTransferAppId, CancellationToken.None);
         var canReadMixed = await _permissionChecker.HasPermissionAsync(
-            _userId, "Data-Transfer:Read", _dataTransferAppId);
+            _userId, "Data-Transfer:Read", _dataTransferAppId, CancellationToken.None);
 
         // Assert
         canReadLower.Should().BeTrue();
@@ -569,7 +574,7 @@ public class OrganizationAuthorizationIntegrationTests
         SetupUserInOrganization(_userId, _acmeOrgId, isActive: true);
 
         // Act
-        var permissions = await _permissionChecker.GetUserPermissionsAsync(_userId, applicationId: null);
+        var permissions = await _permissionChecker.GetUserPermissionsAsync(_userId, applicationId: null, CancellationToken.None);
 
         // Assert
         permissions.Should().ContainSingle()

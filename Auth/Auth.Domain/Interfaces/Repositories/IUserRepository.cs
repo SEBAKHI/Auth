@@ -10,12 +10,12 @@ public interface IUserRepository
     /// <summary>
     /// Gets a user by their unique identifier.
     /// </summary>
-    Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets a user by their email address.
     /// </summary>
-    Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default);
+    Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if an email address is reserved (used by any user, including soft-deleted users).
@@ -40,22 +40,22 @@ public interface IUserRepository
     /// <param name="email">The email address to check.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns><c>true</c> if the email is reserved (used by any user); otherwise, <c>false</c>.</returns>
-    Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default);
+    Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new user.
     /// </summary>
-    Task<User> CreateAsync(User user, CancellationToken cancellationToken = default);
+    Task<User> CreateAsync(User user, CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates an existing user.
     /// </summary>
-    Task UpdateAsync(User user, CancellationToken cancellationToken = default);
+    Task UpdateAsync(User user, CancellationToken cancellationToken);
 
     /// <summary>
     /// Deletes a user by their identifier.
     /// </summary>
-    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets users with pagination.
@@ -63,28 +63,28 @@ public interface IUserRepository
     Task<(IReadOnlyList<User> Users, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
-        string? searchTerm = null,
-        CancellationToken cancellationToken = default);
+        string? searchTerm,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Records a successful login for a user.
     /// </summary>
-    Task RecordSuccessfulLoginAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task RecordSuccessfulLoginAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Records a failed login attempt for a user.
     /// </summary>
-    Task RecordFailedLoginAsync(Guid userId, int maxAttempts, TimeSpan lockoutDuration, CancellationToken cancellationToken = default);
+    Task RecordFailedLoginAsync(Guid userId, int maxAttempts, TimeSpan lockoutDuration, CancellationToken cancellationToken);
 
     /// <summary>
     /// Unlocks a user account.
     /// </summary>
-    Task UnlockAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken = default);
+    Task UnlockAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates a user's password.
     /// </summary>
-    Task UpdatePasswordAsync(Guid userId, string passwordHash, Guid modifiedBy, CancellationToken cancellationToken = default);
+    Task UpdatePasswordAsync(Guid userId, string passwordHash, Guid modifiedBy, CancellationToken cancellationToken);
 
     /// <summary>
     /// Confirms a user's email address.
@@ -92,34 +92,34 @@ public interface IUserRepository
     /// <param name="userId">The user ID.</param>
     /// <param name="modifiedBy">Who confirmed the email.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task ConfirmEmailAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken = default);
+    Task ConfirmEmailAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken);
 
     #region User Roles
 
     /// <summary>
     /// Gets all role assignments for a user.
     /// </summary>
-    Task<IReadOnlyList<UserRole>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<UserRole>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets a specific role assignment for a user.
     /// </summary>
-    Task<UserRole?> GetUserRoleAsync(Guid userId, Guid roleId, Guid? applicationId = null, CancellationToken cancellationToken = default);
+    Task<UserRole?> GetUserRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Assigns a role to a user.
     /// </summary>
-    Task<UserRole> AssignRoleAsync(UserRole userRole, CancellationToken cancellationToken = default);
+    Task<UserRole> AssignRoleAsync(UserRole userRole, CancellationToken cancellationToken);
 
     /// <summary>
     /// Removes a role assignment from a user.
     /// </summary>
-    Task RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId = null, CancellationToken cancellationToken = default);
+    Task RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if a user has a specific role.
     /// </summary>
-    Task<bool> HasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default);
+    Task<bool> HasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken);
 
     #endregion
 
@@ -128,27 +128,27 @@ public interface IUserRepository
     /// <summary>
     /// Gets all direct permission grants for a user.
     /// </summary>
-    Task<IReadOnlyList<UserPermission>> GetUserPermissionsAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<UserPermission>> GetUserPermissionsAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets a specific permission grant for a user.
     /// </summary>
-    Task<UserPermission?> GetUserPermissionAsync(Guid userId, Guid permissionId, Guid? applicationId = null, CancellationToken cancellationToken = default);
+    Task<UserPermission?> GetUserPermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Grants a permission directly to a user.
     /// </summary>
-    Task<UserPermission> GrantPermissionAsync(UserPermission userPermission, CancellationToken cancellationToken = default);
+    Task<UserPermission> GrantPermissionAsync(UserPermission userPermission, CancellationToken cancellationToken);
 
     /// <summary>
     /// Revokes a direct permission from a user.
     /// </summary>
-    Task RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId = null, CancellationToken cancellationToken = default);
+    Task RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if a user has a specific direct permission grant.
     /// </summary>
-    Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken = default);
+    Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken);
 
     #endregion
 }

@@ -17,7 +17,7 @@ public class PasswordHistoryRepository : IPasswordHistoryRepository
     }
 
     /// <inheritdoc />
-    public async Task AddAsync(PasswordHistory history, CancellationToken cancellationToken = default)
+    public async Task AddAsync(PasswordHistory history, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -40,7 +40,7 @@ public class PasswordHistoryRepository : IPasswordHistoryRepository
     public async Task<IReadOnlyList<string>> GetRecentHashesAsync(
         Guid userId,
         int count,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -58,7 +58,7 @@ public class PasswordHistoryRepository : IPasswordHistoryRepository
     public async Task CleanupOldHistoryAsync(
         Guid userId,
         int keepCount,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

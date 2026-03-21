@@ -52,10 +52,11 @@ public class UsersController : ApiController
     public async Task<IActionResult> GetUsers(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? searchTerm = null)
+        [FromQuery] string? searchTerm = null,
+        CancellationToken cancellationToken = default)
     {
         var query = new GetUsersQuery(pageNumber, pageSize, searchTerm);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             users => Ok(users),
@@ -71,10 +72,10 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetUser(Guid id)
+    public async Task<IActionResult> GetUser(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetUserByIdQuery(id);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             user => Ok(user),
@@ -90,7 +91,7 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request)
+    public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new CreateUserCommand(
@@ -107,7 +108,7 @@ public class UsersController : ApiController
             CreatedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             user => CreatedAtAction(nameof(GetUser), new { id = user.Id }, user),
@@ -123,7 +124,7 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest request)
+    public async Task<IActionResult> UpdateUser(Guid id, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new UpdateUserCommand(
@@ -138,7 +139,7 @@ public class UsersController : ApiController
             ModifiedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             user => Ok(user),
@@ -154,11 +155,11 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> DeleteUser(Guid id)
+    public async Task<IActionResult> DeleteUser(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new DeleteUserCommand(id) { DeletedBy = userId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -175,7 +176,7 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> AssignRole(Guid id, [FromBody] AssignRoleRequest request)
+    public async Task<IActionResult> AssignRole(Guid id, [FromBody] AssignRoleRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new AssignRoleCommand(id, request.RoleId, request.ExpiresAt)
@@ -183,7 +184,7 @@ public class UsersController : ApiController
             AssignedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -199,10 +200,10 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetUserRoles(Guid id)
+    public async Task<IActionResult> GetUserRoles(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetUserRolesQuery(id);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             roles => Ok(roles),
@@ -218,11 +219,11 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RemoveRole(Guid id, Guid roleId)
+    public async Task<IActionResult> RemoveRole(Guid id, Guid roleId, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new RemoveUserRoleCommand(id, roleId) { RemovedBy = userId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -238,10 +239,10 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetUserPermissions(Guid id)
+    public async Task<IActionResult> GetUserPermissions(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetUserPermissionsQuery(id);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             permissions => Ok(permissions),
@@ -258,7 +259,7 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GrantPermission(Guid id, [FromBody] GrantPermissionRequest request)
+    public async Task<IActionResult> GrantPermission(Guid id, [FromBody] GrantPermissionRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new GrantUserPermissionCommand(id, request.PermissionId, request.ApplicationId, request.ExpiresAt)
@@ -266,7 +267,7 @@ public class UsersController : ApiController
             GrantedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -282,11 +283,11 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RevokePermission(Guid id, Guid permissionId)
+    public async Task<IActionResult> RevokePermission(Guid id, Guid permissionId, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new RevokeUserPermissionCommand(id, permissionId) { RevokedBy = userId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -302,7 +303,7 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> LockAccount(Guid id, [FromBody] LockAccountRequest request)
+    public async Task<IActionResult> LockAccount(Guid id, [FromBody] LockAccountRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new LockAccountCommand(
@@ -311,7 +312,7 @@ public class UsersController : ApiController
             request.LockDurationMinutes,
             userId);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -327,12 +328,12 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UnlockAccount(Guid id)
+    public async Task<IActionResult> UnlockAccount(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new UnlockAccountCommand(id, userId);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -348,12 +349,12 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> ActivateAccount(Guid id)
+    public async Task<IActionResult> ActivateAccount(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new ActivateAccountCommand(id, userId);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -369,12 +370,12 @@ public class UsersController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> DeactivateAccount(Guid id)
+    public async Task<IActionResult> DeactivateAccount(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new DeactivateAccountCommand(id, userId);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -387,7 +388,7 @@ public class UsersController : ApiController
     [HttpGet("me")]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetMyProfile()
+    public async Task<IActionResult> GetMyProfile(CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -396,7 +397,7 @@ public class UsersController : ApiController
         }
 
         var query = new GetUserByIdQuery(userId);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             user => Ok(user),
@@ -411,7 +412,7 @@ public class UsersController : ApiController
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateProfileRequest request)
+    public async Task<IActionResult> UpdateMyProfile([FromBody] UpdateProfileRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -428,7 +429,7 @@ public class UsersController : ApiController
             request.PreferredLanguage,
             request.TimeZone);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             user => Ok(user),

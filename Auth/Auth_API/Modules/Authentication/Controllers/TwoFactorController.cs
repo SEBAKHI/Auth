@@ -40,7 +40,7 @@ public class TwoFactorController : ApiController
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> Setup()
+    public async Task<IActionResult> Setup(CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -49,7 +49,7 @@ public class TwoFactorController : ApiController
         }
 
         var command = new SetupTwoFactorCommand(userId);
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -65,7 +65,7 @@ public class TwoFactorController : ApiController
     [ProducesResponseType(typeof(EnableTwoFactorResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Enable([FromBody] TwoFactorVerifyRequest request)
+    public async Task<IActionResult> Enable([FromBody] TwoFactorVerifyRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -74,7 +74,7 @@ public class TwoFactorController : ApiController
         }
 
         var command = new EnableTwoFactorCommand(userId, request.Code);
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -90,7 +90,7 @@ public class TwoFactorController : ApiController
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Disable([FromBody] TwoFactorVerifyRequest request)
+    public async Task<IActionResult> Disable([FromBody] TwoFactorVerifyRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -99,7 +99,7 @@ public class TwoFactorController : ApiController
         }
 
         var command = new DisableTwoFactorCommand(userId, request.Code);
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),

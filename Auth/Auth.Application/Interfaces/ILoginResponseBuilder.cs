@@ -17,5 +17,5 @@ public interface ILoginResponseBuilder
     /// <param name="deviceInfo">The client's device info (user agent + device ID).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The login response with tokens and user info.</returns>
-    Task<LoginResponse> BuildAsync(User user, string? ipAddress, string? deviceInfo, CancellationToken cancellationToken = default);
+    Task<LoginResponse> BuildAsync(User user, string? ipAddress, string? deviceInfo, CancellationToken cancellationToken);
 }

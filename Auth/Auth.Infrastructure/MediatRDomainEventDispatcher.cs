@@ -16,7 +16,7 @@ public class MediatRDomainEventDispatcher : IDomainEventDispatcher
         _publisher = publisher;
     }
 
-    public async Task DispatchEventsAsync(AggregateRoot aggregateRoot, CancellationToken cancellationToken = default)
+    public async Task DispatchEventsAsync(AggregateRoot aggregateRoot, CancellationToken cancellationToken)
     {
         var domainEvents = aggregateRoot.DomainEvents.ToList();
         aggregateRoot.ClearDomainEvents();

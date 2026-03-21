@@ -24,8 +24,8 @@ public class PermissionChecker : IPermissionChecker
     public async Task<bool> HasPermissionAsync(
         Guid userId,
         string permission,
-        Guid? applicationId = null,
-        CancellationToken cancellationToken = default)
+        Guid? applicationId,
+        CancellationToken cancellationToken)
     {
         var permissions = await GetUserPermissionsAsync(userId, applicationId, cancellationToken);
         return PermissionMatches(permissions, permission);
@@ -35,8 +35,8 @@ public class PermissionChecker : IPermissionChecker
     public async Task<bool> HasAnyPermissionAsync(
         Guid userId,
         IEnumerable<string> permissions,
-        Guid? applicationId = null,
-        CancellationToken cancellationToken = default)
+        Guid? applicationId,
+        CancellationToken cancellationToken)
     {
         var userPermissions = await GetUserPermissionsAsync(userId, applicationId, cancellationToken);
         return permissions.Any(p => PermissionMatches(userPermissions, p));
@@ -46,8 +46,8 @@ public class PermissionChecker : IPermissionChecker
     public async Task<bool> HasAllPermissionsAsync(
         Guid userId,
         IEnumerable<string> permissions,
-        Guid? applicationId = null,
-        CancellationToken cancellationToken = default)
+        Guid? applicationId,
+        CancellationToken cancellationToken)
     {
         var userPermissions = await GetUserPermissionsAsync(userId, applicationId, cancellationToken);
         return permissions.All(p => PermissionMatches(userPermissions, p));
@@ -56,8 +56,8 @@ public class PermissionChecker : IPermissionChecker
     /// <inheritdoc />
     public async Task<IReadOnlyList<string>> GetUserPermissionsAsync(
         Guid userId,
-        Guid? applicationId = null,
-        CancellationToken cancellationToken = default)
+        Guid? applicationId,
+        CancellationToken cancellationToken)
     {
         var allPermissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 

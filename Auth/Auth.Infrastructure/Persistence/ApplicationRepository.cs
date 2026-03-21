@@ -18,7 +18,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<AppEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<AppEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -36,7 +36,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<AppEntity?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+    public async Task<AppEntity?> GetByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -54,7 +54,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<AppEntity>> GetAllAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<AppEntity>> GetAllAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -71,7 +71,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<AppEntity>> GetActiveAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<AppEntity>> GetActiveAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -89,7 +89,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -102,7 +102,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<AppEntity> CreateAsync(AppEntity application, CancellationToken cancellationToken = default)
+    public async Task<AppEntity> CreateAsync(AppEntity application, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -143,7 +143,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(AppEntity application, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(AppEntity application, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -183,7 +183,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -198,9 +198,9 @@ public class ApplicationRepository : IApplicationRepository
     public async Task<(IReadOnlyList<AppEntity> Applications, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
-        string? search = null,
-        bool? isActive = null,
-        CancellationToken cancellationToken = default)
+        string? search,
+        bool? isActive,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -246,7 +246,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> HasActiveApiKeysAsync(Guid applicationId, CancellationToken cancellationToken = default)
+    public async Task<bool> HasActiveApiKeysAsync(Guid applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -261,7 +261,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> HasActiveUserAssignmentsAsync(Guid applicationId, CancellationToken cancellationToken = default)
+    public async Task<bool> HasActiveUserAssignmentsAsync(Guid applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -276,7 +276,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> HasActiveOrganizationsAsync(Guid applicationId, CancellationToken cancellationToken = default)
+    public async Task<bool> HasActiveOrganizationsAsync(Guid applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -291,7 +291,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Role>> GetRolesAsync(Guid applicationId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Role>> GetRolesAsync(Guid applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -309,7 +309,7 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Permission>> GetPermissionsAsync(Guid applicationId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Permission>> GetPermissionsAsync(Guid applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

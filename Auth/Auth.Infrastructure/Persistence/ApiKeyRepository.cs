@@ -17,7 +17,7 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task<ApiKey?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<ApiKey?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -29,7 +29,7 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task<ApiKey?> GetByHashAsync(string keyHash, CancellationToken cancellationToken = default)
+    public async Task<ApiKey?> GetByHashAsync(string keyHash, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -44,7 +44,7 @@ public class ApiKeyRepository : IApiKeyRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<ApiKey>> GetByApplicationAsync(
         Guid applicationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -58,7 +58,7 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task<ApiKey> CreateAsync(ApiKey apiKey, CancellationToken cancellationToken = default)
+    public async Task<ApiKey> CreateAsync(ApiKey apiKey, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -94,7 +94,7 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(ApiKey apiKey, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(ApiKey apiKey, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -116,7 +116,7 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -132,7 +132,7 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task AddScopeAsync(ApiKeyScope scope, CancellationToken cancellationToken = default)
+    public async Task AddScopeAsync(ApiKeyScope scope, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -153,7 +153,7 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task RemoveScopeAsync(Guid apiKeyId, Guid permissionId, CancellationToken cancellationToken = default)
+    public async Task RemoveScopeAsync(Guid apiKeyId, Guid permissionId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -164,7 +164,7 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<string>> GetScopesAsync(Guid apiKeyId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<string>> GetScopesAsync(Guid apiKeyId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -179,7 +179,7 @@ public class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc />
-    public async Task RecordUsageAsync(Guid apiKeyId, CancellationToken cancellationToken = default)
+    public async Task RecordUsageAsync(Guid apiKeyId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

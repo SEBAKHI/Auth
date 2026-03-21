@@ -17,7 +17,7 @@ public class LoginAttemptRepository : ILoginAttemptRepository
     }
 
     /// <inheritdoc />
-    public async Task CreateAsync(LoginAttempt attempt, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(LoginAttempt attempt, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -47,7 +47,7 @@ public class LoginAttemptRepository : ILoginAttemptRepository
     public async Task<IReadOnlyList<LoginAttempt>> GetRecentByUserAsync(
         Guid userId,
         int count,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -67,7 +67,7 @@ public class LoginAttemptRepository : ILoginAttemptRepository
     public async Task<IReadOnlyList<LoginAttempt>> GetRecentByEmailAsync(
         string email,
         int count,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -87,7 +87,7 @@ public class LoginAttemptRepository : ILoginAttemptRepository
     public async Task<IReadOnlyList<LoginAttempt>> GetRecentByIpAsync(
         string ipAddress,
         int count,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -107,7 +107,7 @@ public class LoginAttemptRepository : ILoginAttemptRepository
     public async Task<int> CountFailedAttemptsAsync(
         string email,
         TimeSpan window,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -125,7 +125,7 @@ public class LoginAttemptRepository : ILoginAttemptRepository
     public async Task<int> CountFailedAttemptsByIpAsync(
         string ipAddress,
         TimeSpan window,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -140,7 +140,7 @@ public class LoginAttemptRepository : ILoginAttemptRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupOldAttemptsAsync(DateTime olderThan, CancellationToken cancellationToken = default)
+    public async Task CleanupOldAttemptsAsync(DateTime olderThan, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

@@ -10,12 +10,12 @@ public interface IAuditLogRepository
     /// <summary>
     /// Creates a new audit log entry.
     /// </summary>
-    Task CreateAsync(AuditLog auditLog, CancellationToken cancellationToken = default);
+    Task CreateAsync(AuditLog auditLog, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets an audit log by its ID.
     /// </summary>
-    Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets audit logs with filtering and pagination.
@@ -23,14 +23,14 @@ public interface IAuditLogRepository
     Task<(IReadOnlyList<AuditLog> Logs, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
-        Guid? userId = null,
-        Guid? applicationId = null,
-        string? actionType = null,
-        string? action = null,
-        DateTime? fromDate = null,
-        DateTime? toDate = null,
-        bool? isSuccess = null,
-        CancellationToken cancellationToken = default);
+        Guid? userId,
+        Guid? applicationId,
+        string? actionType,
+        string? action,
+        DateTime? fromDate,
+        DateTime? toDate,
+        bool? isSuccess,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets audit logs for a specific entity.
@@ -38,17 +38,17 @@ public interface IAuditLogRepository
     Task<IReadOnlyList<AuditLog>> GetByEntityAsync(
         string entityType,
         Guid entityId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets audit logs by correlation ID.
     /// </summary>
     Task<IReadOnlyList<AuditLog>> GetByCorrelationIdAsync(
         string correlationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Cleans up old audit logs.
     /// </summary>
-    Task CleanupOldLogsAsync(DateTime olderThan, CancellationToken cancellationToken = default);
+    Task CleanupOldLogsAsync(DateTime olderThan, CancellationToken cancellationToken);
 }

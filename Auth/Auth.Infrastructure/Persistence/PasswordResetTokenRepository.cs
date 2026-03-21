@@ -17,7 +17,7 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task<PasswordResetToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
+    public async Task<PasswordResetToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -34,7 +34,7 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task CreateAsync(PasswordResetToken token, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(PasswordResetToken token, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -56,7 +56,7 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken = default)
+    public async Task MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -69,7 +69,7 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -82,7 +82,7 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupExpiredAsync(CancellationToken cancellationToken = default)
+    public async Task CleanupExpiredAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -93,7 +93,7 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task<PasswordResetToken?> GetLatestValidTokenForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<PasswordResetToken?> GetLatestValidTokenForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

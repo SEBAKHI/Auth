@@ -47,11 +47,11 @@ public class OrganizationsController : ApiController
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<OrganizationSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetMyOrganizations()
+    public async Task<IActionResult> GetMyOrganizations(CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var query = new GetUserOrganizationsQuery(userId);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             organizations => Ok(organizations),
@@ -66,11 +66,11 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetOrganization(Guid id)
+    public async Task<IActionResult> GetOrganization(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var query = new GetOrganizationByIdQuery(id) { RequestedBy = userId };
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             organization => Ok(organization),
@@ -85,7 +85,7 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> CreateOrganization([FromBody] CreateOrganizationRequest request)
+    public async Task<IActionResult> CreateOrganization([FromBody] CreateOrganizationRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new CreateOrganizationCommand(
@@ -99,7 +99,7 @@ public class OrganizationsController : ApiController
             CreatedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             organization => CreatedAtAction(nameof(GetOrganization), new { id = organization.Id }, organization),
@@ -115,7 +115,7 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UpdateOrganization(Guid id, [FromBody] UpdateOrganizationRequest request)
+    public async Task<IActionResult> UpdateOrganization(Guid id, [FromBody] UpdateOrganizationRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new UpdateOrganizationCommand(
@@ -130,7 +130,7 @@ public class OrganizationsController : ApiController
             ModifiedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             organization => Ok(organization),
@@ -145,11 +145,11 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> DeleteOrganization(Guid id)
+    public async Task<IActionResult> DeleteOrganization(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new DeleteOrganizationCommand(id) { RequestedBy = userId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -171,11 +171,12 @@ public class OrganizationsController : ApiController
         Guid id,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null)
+        [FromQuery] string? search = null,
+        CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
         var query = new GetOrganizationMembersQuery(id, pageNumber, pageSize, search) { RequestedBy = userId };
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             members => Ok(members),
@@ -194,11 +195,12 @@ public class OrganizationsController : ApiController
     public async Task<IActionResult> UpdateMemberRole(
         Guid orgId,
         Guid userId,
-        [FromBody] UpdateMemberRoleRequest request)
+        [FromBody] UpdateMemberRoleRequest request,
+        CancellationToken cancellationToken)
     {
         var currentUserId = GetCurrentUserId();
         var command = new UpdateMemberRoleCommand(orgId, userId, request.RoleId) { ModifiedBy = currentUserId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             member => Ok(member),
@@ -214,11 +216,11 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RemoveMember(Guid orgId, Guid userId)
+    public async Task<IActionResult> RemoveMember(Guid orgId, Guid userId, CancellationToken cancellationToken)
     {
         var currentUserId = GetCurrentUserId();
         var command = new RemoveMemberCommand(orgId, userId) { RemovedBy = currentUserId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -238,11 +240,11 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetPendingInvitations(Guid id)
+    public async Task<IActionResult> GetPendingInvitations(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var query = new GetPendingInvitationsQuery(id) { RequestedBy = userId };
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             invitations => Ok(invitations),
@@ -259,11 +261,11 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> InviteMember(Guid id, [FromBody] InviteMemberRequest request)
+    public async Task<IActionResult> InviteMember(Guid id, [FromBody] InviteMemberRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new InviteMemberCommand(id, request.Email, request.RoleId) { InvitedBy = userId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             invitation => CreatedAtAction(nameof(GetPendingInvitations), new { id }, invitation),
@@ -283,11 +285,11 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetApplications(Guid id)
+    public async Task<IActionResult> GetApplications(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var query = new GetOrganizationApplicationsQuery(id) { RequestedBy = userId };
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             apps => Ok(apps),
@@ -304,14 +306,14 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> EnableApplication(Guid id, [FromBody] EnableApplicationRequest request)
+    public async Task<IActionResult> EnableApplication(Guid id, [FromBody] EnableApplicationRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new EnableApplicationCommand(id, request.ApplicationId, request.SubscriptionTier, request.ExpiresAt)
         {
             EnabledBy = userId
         };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             app => CreatedAtAction(nameof(GetApplications), new { id }, app),
@@ -327,14 +329,14 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UpdateApplication(Guid id, Guid applicationId, [FromBody] UpdateApplicationRequest request)
+    public async Task<IActionResult> UpdateApplication(Guid id, Guid applicationId, [FromBody] UpdateApplicationRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new UpdateOrganizationApplicationCommand(id, applicationId, request.SubscriptionTier, request.ExpiresAt, request.IsActive)
         {
             ModifiedBy = userId
         };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             app => Ok(app),
@@ -350,11 +352,11 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> DisableApplication(Guid id, Guid applicationId)
+    public async Task<IActionResult> DisableApplication(Guid id, Guid applicationId, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new DisableApplicationCommand(id, applicationId) { DisabledBy = userId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -378,14 +380,15 @@ public class OrganizationsController : ApiController
     public async Task<IActionResult> AssignAppRole(
         Guid orgId,
         Guid userId,
-        [FromBody] AssignAppRoleRequest request)
+        [FromBody] AssignAppRoleRequest request,
+        CancellationToken cancellationToken)
     {
         var currentUserId = GetCurrentUserId();
         var command = new AssignAppRoleCommand(orgId, userId, request.ApplicationId, request.RoleId, request.ExpiresAt)
         {
             AssignedBy = currentUserId
         };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             role => CreatedAtAction(nameof(GetMembers), new { id = orgId }, role),
@@ -409,14 +412,15 @@ public class OrganizationsController : ApiController
     public async Task<IActionResult> GrantPermission(
         Guid orgId,
         Guid userId,
-        [FromBody] GrantPermissionRequest request)
+        [FromBody] GrantPermissionRequest request,
+        CancellationToken cancellationToken)
     {
         var currentUserId = GetCurrentUserId();
         var command = new GrantPermissionCommand(orgId, userId, request.ApplicationId, request.PermissionId, request.ExpiresAt)
         {
             GrantedBy = currentUserId
         };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             permission => CreatedAtAction(nameof(GetMembers), new { id = orgId }, permission),

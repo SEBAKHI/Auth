@@ -40,10 +40,10 @@ public class PermissionsController : ApiController
     [ProducesResponseType(typeof(IReadOnlyList<PermissionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetPermissions([FromQuery] Guid? applicationId = null)
+    public async Task<IActionResult> GetPermissions([FromQuery] Guid? applicationId = null, CancellationToken cancellationToken = default)
     {
         var query = new GetPermissionsQuery(applicationId);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             permissions => Ok(permissions),
@@ -59,10 +59,10 @@ public class PermissionsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetPermission(Guid id)
+    public async Task<IActionResult> GetPermission(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetPermissionByIdQuery(id);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             permission => Ok(permission),
@@ -79,7 +79,7 @@ public class PermissionsController : ApiController
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> CreatePermission([FromBody] CreatePermissionRequest request)
+    public async Task<IActionResult> CreatePermission([FromBody] CreatePermissionRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new CreatePermissionCommand(
@@ -92,7 +92,7 @@ public class PermissionsController : ApiController
             CreatedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             permission => CreatedAtAction(nameof(GetPermission), new { id = permission.Id }, permission),
@@ -108,7 +108,7 @@ public class PermissionsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UpdatePermission(Guid id, [FromBody] UpdatePermissionRequest request)
+    public async Task<IActionResult> UpdatePermission(Guid id, [FromBody] UpdatePermissionRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new UpdatePermissionCommand(id, request.Name, request.Description)
@@ -116,7 +116,7 @@ public class PermissionsController : ApiController
             ModifiedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             permission => Ok(permission),
@@ -132,11 +132,11 @@ public class PermissionsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> DeletePermission(Guid id)
+    public async Task<IActionResult> DeletePermission(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new DeletePermissionCommand(id) { DeletedBy = userId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -152,10 +152,10 @@ public class PermissionsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetPermissionImplications(Guid id)
+    public async Task<IActionResult> GetPermissionImplications(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetPermissionImplicationsQuery(id);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             implications => Ok(implications),
@@ -173,7 +173,7 @@ public class PermissionsController : ApiController
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> AddPermissionImplication(Guid id, [FromBody] AddImplicationRequest request)
+    public async Task<IActionResult> AddPermissionImplication(Guid id, [FromBody] AddImplicationRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new AddPermissionImplicationCommand(id, request.ImpliedPermissionId)
@@ -181,7 +181,7 @@ public class PermissionsController : ApiController
             CreatedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => StatusCode(StatusCodes.Status201Created),
@@ -197,7 +197,7 @@ public class PermissionsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RemovePermissionImplication(Guid id, Guid impliedId)
+    public async Task<IActionResult> RemovePermissionImplication(Guid id, Guid impliedId, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new RemovePermissionImplicationCommand(id, impliedId)
@@ -205,7 +205,7 @@ public class PermissionsController : ApiController
             RemovedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),

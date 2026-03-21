@@ -21,5 +21,5 @@ public interface IExternalAuthProvider
     /// <param name="nonce">Optional nonce for token replay prevention.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The extracted user information or an error.</returns>
-    Task<ErrorOr<ExternalUserInfo>> ValidateTokenAsync(string idToken, string? nonce, CancellationToken cancellationToken = default);
+    Task<ErrorOr<ExternalUserInfo>> ValidateTokenAsync(string idToken, string? nonce, CancellationToken cancellationToken);
 }

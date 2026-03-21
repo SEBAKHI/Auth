@@ -10,45 +10,45 @@ public interface IUserSessionRepository
     /// <summary>
     /// Gets a session by its ID.
     /// </summary>
-    Task<UserSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<UserSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets a session by its token hash.
     /// </summary>
-    Task<UserSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default);
+    Task<UserSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new session.
     /// </summary>
-    Task<UserSession> CreateAsync(UserSession session, CancellationToken cancellationToken = default);
+    Task<UserSession> CreateAsync(UserSession session, CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates a session.
     /// </summary>
-    Task UpdateAsync(UserSession session, CancellationToken cancellationToken = default);
+    Task UpdateAsync(UserSession session, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all active sessions for a user.
     /// </summary>
-    Task<IReadOnlyList<UserSession>> GetActiveSessionsForUserAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<UserSession>> GetActiveSessionsForUserAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Terminates all sessions for a user.
     /// </summary>
-    Task TerminateAllForUserAsync(Guid userId, string reason, CancellationToken cancellationToken = default);
+    Task TerminateAllForUserAsync(Guid userId, string reason, CancellationToken cancellationToken);
 
     /// <summary>
     /// Terminates all sessions for a user except the specified one.
     /// </summary>
-    Task TerminateOtherSessionsAsync(Guid userId, Guid exceptSessionId, string reason, CancellationToken cancellationToken = default);
+    Task TerminateOtherSessionsAsync(Guid userId, Guid exceptSessionId, string reason, CancellationToken cancellationToken);
 
     /// <summary>
     /// Terminates a specific session.
     /// </summary>
-    Task TerminateAsync(Guid sessionId, string reason, CancellationToken cancellationToken = default);
+    Task TerminateAsync(Guid sessionId, string reason, CancellationToken cancellationToken);
 
     /// <summary>
     /// Cleans up expired sessions.
     /// </summary>
-    Task CleanupExpiredAsync(CancellationToken cancellationToken = default);
+    Task CleanupExpiredAsync(CancellationToken cancellationToken);
 }

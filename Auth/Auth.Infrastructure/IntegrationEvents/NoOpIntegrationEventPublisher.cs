@@ -17,7 +17,7 @@ public class NoOpIntegrationEventPublisher : IIntegrationEventPublisher
         _logger = logger;
     }
 
-    public Task PublishAsync<T>(T @event, CancellationToken cancellationToken = default)
+    public Task PublishAsync<T>(T @event, CancellationToken cancellationToken)
         where T : IntegrationEvent
     {
         _logger.LogDebug(

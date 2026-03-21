@@ -100,7 +100,7 @@ if (secretManagementSettings.AutoGenerateKeys && !File.Exists(secretManagementSe
         Options.Create(secretManagementSettings),
         new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>());
 
-    var keyGenResult = secretService.GenerateMissingKeysAsync().GetAwaiter().GetResult();
+    var keyGenResult = secretService.GenerateMissingKeysAsync(CancellationToken.None).GetAwaiter().GetResult();
 
     Log.Information("Generated keys: {Keys}", string.Join(", ", keyGenResult.GeneratedKeys));
 

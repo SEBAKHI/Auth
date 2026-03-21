@@ -18,7 +18,7 @@ public class AuditLogRepository : IAuditLogRepository
     }
 
     /// <inheritdoc />
-    public async Task CreateAsync(AuditLog auditLog, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(AuditLog auditLog, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -51,7 +51,7 @@ public class AuditLogRepository : IAuditLogRepository
     }
 
     /// <inheritdoc />
-    public async Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -67,14 +67,14 @@ public class AuditLogRepository : IAuditLogRepository
     public async Task<(IReadOnlyList<AuditLog> Logs, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
-        Guid? userId = null,
-        Guid? applicationId = null,
-        string? actionType = null,
-        string? action = null,
-        DateTime? fromDate = null,
-        DateTime? toDate = null,
-        bool? isSuccess = null,
-        CancellationToken cancellationToken = default)
+        Guid? userId,
+        Guid? applicationId,
+        string? actionType,
+        string? action,
+        DateTime? fromDate,
+        DateTime? toDate,
+        bool? isSuccess,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -136,7 +136,7 @@ public class AuditLogRepository : IAuditLogRepository
     public async Task<IReadOnlyList<AuditLog>> GetByEntityAsync(
         string entityType,
         Guid entityId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -152,7 +152,7 @@ public class AuditLogRepository : IAuditLogRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<AuditLog>> GetByCorrelationIdAsync(
         string correlationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -162,7 +162,7 @@ public class AuditLogRepository : IAuditLogRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupOldLogsAsync(DateTime olderThan, CancellationToken cancellationToken = default)
+    public async Task CleanupOldLogsAsync(DateTime olderThan, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

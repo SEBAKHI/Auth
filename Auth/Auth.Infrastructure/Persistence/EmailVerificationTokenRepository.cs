@@ -17,7 +17,7 @@ public class EmailVerificationTokenRepository : IEmailVerificationTokenRepositor
     }
 
     /// <inheritdoc />
-    public async Task<EmailVerificationToken?> GetValidTokenForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<EmailVerificationToken?> GetValidTokenForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -35,7 +35,7 @@ public class EmailVerificationTokenRepository : IEmailVerificationTokenRepositor
     }
 
     /// <inheritdoc />
-    public async Task CreateAsync(EmailVerificationToken token, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(EmailVerificationToken token, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -59,7 +59,7 @@ public class EmailVerificationTokenRepository : IEmailVerificationTokenRepositor
     }
 
     /// <inheritdoc />
-    public async Task MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken = default)
+    public async Task MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -72,7 +72,7 @@ public class EmailVerificationTokenRepository : IEmailVerificationTokenRepositor
     }
 
     /// <inheritdoc />
-    public async Task IncrementAttemptCountAsync(Guid tokenId, CancellationToken cancellationToken = default)
+    public async Task IncrementAttemptCountAsync(Guid tokenId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -84,7 +84,7 @@ public class EmailVerificationTokenRepository : IEmailVerificationTokenRepositor
     }
 
     /// <inheritdoc />
-    public async Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -97,7 +97,7 @@ public class EmailVerificationTokenRepository : IEmailVerificationTokenRepositor
     }
 
     /// <inheritdoc />
-    public async Task<int> GetRecentTokenCountAsync(string email, TimeSpan window, CancellationToken cancellationToken = default)
+    public async Task<int> GetRecentTokenCountAsync(string email, TimeSpan window, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -111,7 +111,7 @@ public class EmailVerificationTokenRepository : IEmailVerificationTokenRepositor
     }
 
     /// <inheritdoc />
-    public async Task CleanupExpiredAsync(CancellationToken cancellationToken = default)
+    public async Task CleanupExpiredAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

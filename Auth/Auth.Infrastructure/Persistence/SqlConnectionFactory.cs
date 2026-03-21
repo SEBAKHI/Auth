@@ -17,7 +17,7 @@ public class SqlConnectionFactory : IDbConnectionFactory
     }
 
     /// <inheritdoc />
-    public async Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken = default)
+    public async Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken)
     {
         var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);

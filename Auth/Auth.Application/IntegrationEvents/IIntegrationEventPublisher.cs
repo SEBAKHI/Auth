@@ -12,6 +12,6 @@ public interface IIntegrationEventPublisher
     /// <typeparam name="T">The integration event type.</typeparam>
     /// <param name="event">The event to publish.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task PublishAsync<T>(T @event, CancellationToken cancellationToken = default)
+    Task PublishAsync<T>(T @event, CancellationToken cancellationToken)
         where T : IntegrationEvent;
 }

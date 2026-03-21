@@ -16,8 +16,8 @@ public interface IPermissionChecker
     Task<bool> HasPermissionAsync(
         Guid userId,
         string permission,
-        Guid? applicationId = null,
-        CancellationToken cancellationToken = default);
+        Guid? applicationId,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if a user has any of the specified permissions.
@@ -25,8 +25,8 @@ public interface IPermissionChecker
     Task<bool> HasAnyPermissionAsync(
         Guid userId,
         IEnumerable<string> permissions,
-        Guid? applicationId = null,
-        CancellationToken cancellationToken = default);
+        Guid? applicationId,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if a user has all of the specified permissions.
@@ -34,14 +34,14 @@ public interface IPermissionChecker
     Task<bool> HasAllPermissionsAsync(
         Guid userId,
         IEnumerable<string> permissions,
-        Guid? applicationId = null,
-        CancellationToken cancellationToken = default);
+        Guid? applicationId,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all effective permissions for a user.
     /// </summary>
     Task<IReadOnlyList<string>> GetUserPermissionsAsync(
         Guid userId,
-        Guid? applicationId = null,
-        CancellationToken cancellationToken = default);
+        Guid? applicationId,
+        CancellationToken cancellationToken);
 }

@@ -19,7 +19,7 @@ public interface IEmailService
         string recipientName,
         string otp,
         int expirationMinutes,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Sends a generic email.
@@ -34,6 +34,6 @@ public interface IEmailService
         string toEmail,
         string subject,
         string htmlBody,
-        string? textBody = null,
-        CancellationToken cancellationToken = default);
+        string? textBody,
+        CancellationToken cancellationToken);
 }

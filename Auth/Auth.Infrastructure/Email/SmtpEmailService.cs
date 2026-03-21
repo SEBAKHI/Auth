@@ -29,7 +29,7 @@ public class SmtpEmailService : IEmailService
         string recipientName,
         string otp,
         int expirationMinutes,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var subject = "Verify Your Email Address";
 
@@ -101,8 +101,8 @@ Please do not reply to this email.";
         string toEmail,
         string subject,
         string htmlBody,
-        string? textBody = null,
-        CancellationToken cancellationToken = default)
+        string? textBody,
+        CancellationToken cancellationToken)
     {
         if (!_settings.Enabled)
         {

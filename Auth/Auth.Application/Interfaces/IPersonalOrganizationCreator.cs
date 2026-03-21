@@ -14,5 +14,5 @@ public interface IPersonalOrganizationCreator
     /// <param name="user">The user to create the organization for.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True if created successfully, false if the org-owner role was not found.</returns>
-    Task<bool> CreateAsync(User user, CancellationToken cancellationToken = default);
+    Task<bool> CreateAsync(User user, CancellationToken cancellationToken);
 }

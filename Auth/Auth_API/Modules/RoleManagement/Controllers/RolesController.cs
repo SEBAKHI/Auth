@@ -38,10 +38,10 @@ public class RolesController : ApiController
     [ProducesResponseType(typeof(IReadOnlyList<RoleDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetRoles([FromQuery] Guid? applicationId = null)
+    public async Task<IActionResult> GetRoles([FromQuery] Guid? applicationId, CancellationToken cancellationToken)
     {
         var query = new GetRolesQuery(applicationId);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             roles => Ok(roles),
@@ -57,10 +57,10 @@ public class RolesController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetRole(Guid id)
+    public async Task<IActionResult> GetRole(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetRoleByIdQuery(id);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             role => Ok(role),
@@ -76,7 +76,7 @@ public class RolesController : ApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request)
+    public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new CreateRoleCommand(
@@ -89,7 +89,7 @@ public class RolesController : ApiController
             CreatedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             role => CreatedAtAction(nameof(GetRole), new { id = role.Id }, role),
@@ -105,7 +105,7 @@ public class RolesController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request)
+    public async Task<IActionResult> UpdateRole(Guid id, [FromBody] UpdateRoleRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new UpdateRoleCommand(id, request.Name, request.Description)
@@ -113,7 +113,7 @@ public class RolesController : ApiController
             ModifiedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             role => Ok(role),
@@ -129,11 +129,11 @@ public class RolesController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> DeleteRole(Guid id)
+    public async Task<IActionResult> DeleteRole(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new DeleteRoleCommand(id) { DeletedBy = userId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),

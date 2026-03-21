@@ -47,12 +47,13 @@ public class AuditLogsController : ApiController
         [FromQuery] string? action = null,
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
-        [FromQuery] bool? isSuccess = null)
+        [FromQuery] bool? isSuccess = null,
+        CancellationToken cancellationToken = default)
     {
         var query = new GetAuditLogsQuery(
             pageNumber, pageSize, userId, applicationId,
             actionType, action, fromDate, toDate, isSuccess);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             logs => Ok(logs),
@@ -68,10 +69,10 @@ public class AuditLogsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetAuditLog(Guid id)
+    public async Task<IActionResult> GetAuditLog(Guid id, CancellationToken cancellationToken)
     {
         var query = new GetAuditLogByIdQuery(id);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             log => Ok(log),
@@ -92,10 +93,11 @@ public class AuditLogsController : ApiController
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 50,
         [FromQuery] DateTime? fromDate = null,
-        [FromQuery] DateTime? toDate = null)
+        [FromQuery] DateTime? toDate = null,
+        CancellationToken cancellationToken = default)
     {
         var query = new GetAuditLogsByUserQuery(userId, pageNumber, pageSize, fromDate, toDate);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             logs => Ok(logs),
@@ -110,10 +112,10 @@ public class AuditLogsController : ApiController
     [ProducesResponseType(typeof(IReadOnlyList<AuditLogDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetAuditLogsByEntity(string entityType, Guid entityId)
+    public async Task<IActionResult> GetAuditLogsByEntity(string entityType, Guid entityId, CancellationToken cancellationToken)
     {
         var query = new GetAuditLogsByEntityQuery(entityType, entityId);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             logs => Ok(logs),
@@ -129,7 +131,7 @@ public class AuditLogsController : ApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> ExportAuditLogs([FromBody] ExportAuditLogsRequest request)
+    public async Task<IActionResult> ExportAuditLogs([FromBody] ExportAuditLogsRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new ExportAuditLogsCommand(
@@ -146,7 +148,7 @@ public class AuditLogsController : ApiController
             RequestedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             export => File(export.Content, export.ContentType, export.FileName),

@@ -17,7 +17,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task<Permission?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Permission?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -29,7 +29,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task<Permission?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+    public async Task<Permission?> GetByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -42,7 +42,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Permission>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Permission>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -58,7 +58,7 @@ public class PermissionRepository : IPermissionRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<Permission>> GetByLevelAsync(
         byte level,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -74,7 +74,7 @@ public class PermissionRepository : IPermissionRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<Permission>> GetChildPermissionsAsync(
         Guid parentId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -90,7 +90,7 @@ public class PermissionRepository : IPermissionRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<string>> GetUserEffectivePermissionsAsync(
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -129,7 +129,7 @@ public class PermissionRepository : IPermissionRepository
     public async Task<IReadOnlyList<string>> GetUserEffectivePermissionsAsync(
         Guid userId,
         Guid applicationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -169,7 +169,7 @@ public class PermissionRepository : IPermissionRepository
     public async Task<bool> UserHasPermissionAsync(
         Guid userId,
         string permissionCode,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var permissions = await GetUserEffectivePermissionsAsync(userId, cancellationToken);
 
@@ -178,7 +178,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -191,7 +191,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task<Permission> CreateAsync(Permission permission, CancellationToken cancellationToken = default)
+    public async Task<Permission> CreateAsync(Permission permission, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -226,7 +226,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(Permission permission, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(Permission permission, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -250,7 +250,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -261,7 +261,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task GrantToRoleAsync(RolePermission rolePermission, CancellationToken cancellationToken = default)
+    public async Task GrantToRoleAsync(RolePermission rolePermission, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -282,7 +282,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task RevokeFromRoleAsync(Guid roleId, Guid permissionId, CancellationToken cancellationToken = default)
+    public async Task RevokeFromRoleAsync(Guid roleId, Guid permissionId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -293,7 +293,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task GrantToUserAsync(UserPermission userPermission, CancellationToken cancellationToken = default)
+    public async Task GrantToUserAsync(UserPermission userPermission, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -317,7 +317,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task RevokeFromUserAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken = default)
+    public async Task RevokeFromUserAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -328,7 +328,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Permission>> GetRolePermissionsAsync(Guid roleId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Permission>> GetRolePermissionsAsync(Guid roleId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -345,7 +345,7 @@ public class PermissionRepository : IPermissionRepository
     #region Permission Implications
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<PermissionImplication>> GetImplicationsAsync(Guid permissionId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PermissionImplication>> GetImplicationsAsync(Guid permissionId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -358,7 +358,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<PermissionImplication>> GetImpliedByAsync(Guid permissionId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<PermissionImplication>> GetImpliedByAsync(Guid permissionId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -371,7 +371,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task<PermissionImplication> AddImplicationAsync(PermissionImplication implication, CancellationToken cancellationToken = default)
+    public async Task<PermissionImplication> AddImplicationAsync(PermissionImplication implication, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -394,7 +394,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task RemoveImplicationAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default)
+    public async Task RemoveImplicationAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -405,7 +405,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> ImplicationExistsAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default)
+    public async Task<bool> ImplicationExistsAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -418,7 +418,7 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> WouldCreateCircularImplicationAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken = default)
+    public async Task<bool> WouldCreateCircularImplicationAsync(Guid permissionId, Guid impliedPermissionId, CancellationToken cancellationToken)
     {
         // If permissionId == impliedPermissionId, it's directly circular
         if (permissionId == impliedPermissionId)
@@ -456,10 +456,10 @@ public class PermissionRepository : IPermissionRepository
     public async Task<(IReadOnlyList<Permission> Permissions, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
-        Guid? applicationId = null,
-        string? search = null,
-        bool? isActive = null,
-        CancellationToken cancellationToken = default)
+        Guid? applicationId,
+        string? search,
+        bool? isActive,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

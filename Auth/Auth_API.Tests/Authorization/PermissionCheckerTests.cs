@@ -39,7 +39,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "users:read", "users:create" });
 
         // Act
-        var result = await _permissionChecker.HasPermissionAsync(userId, permission);
+        var result = await _permissionChecker.HasPermissionAsync(userId, permission, null, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
@@ -57,7 +57,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "users:read", "users:create" });
 
         // Act
-        var result = await _permissionChecker.HasPermissionAsync(userId, permission);
+        var result = await _permissionChecker.HasPermissionAsync(userId, permission, null, CancellationToken.None);
 
         // Assert
         result.Should().BeFalse();
@@ -75,7 +75,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "*" });
 
         // Act
-        var result = await _permissionChecker.HasPermissionAsync(userId, permission);
+        var result = await _permissionChecker.HasPermissionAsync(userId, permission, null, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
@@ -93,7 +93,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "users:*" });
 
         // Act
-        var result = await _permissionChecker.HasPermissionAsync(userId, permission);
+        var result = await _permissionChecker.HasPermissionAsync(userId, permission, null, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
@@ -111,7 +111,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "users:*" });
 
         // Act
-        var result = await _permissionChecker.HasPermissionAsync(userId, permission);
+        var result = await _permissionChecker.HasPermissionAsync(userId, permission, null, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
@@ -129,7 +129,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "users:*" });
 
         // Act
-        var result = await _permissionChecker.HasPermissionAsync(userId, permission);
+        var result = await _permissionChecker.HasPermissionAsync(userId, permission, null, CancellationToken.None);
 
         // Assert
         result.Should().BeFalse();
@@ -147,7 +147,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "users:read" });
 
         // Act
-        var result = await _permissionChecker.HasPermissionAsync(userId, permission);
+        var result = await _permissionChecker.HasPermissionAsync(userId, permission, null, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
@@ -169,7 +169,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "users:create" });
 
         // Act
-        var result = await _permissionChecker.HasAnyPermissionAsync(userId, permissions);
+        var result = await _permissionChecker.HasAnyPermissionAsync(userId, permissions, null, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
@@ -187,7 +187,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "roles:read" });
 
         // Act
-        var result = await _permissionChecker.HasAnyPermissionAsync(userId, permissions);
+        var result = await _permissionChecker.HasAnyPermissionAsync(userId, permissions, null, CancellationToken.None);
 
         // Assert
         result.Should().BeFalse();
@@ -209,7 +209,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "users:read", "users:create", "users:delete" });
 
         // Act
-        var result = await _permissionChecker.HasAllPermissionsAsync(userId, permissions);
+        var result = await _permissionChecker.HasAllPermissionsAsync(userId, permissions, null, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
@@ -227,7 +227,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "users:read", "users:create" });
 
         // Act
-        var result = await _permissionChecker.HasAllPermissionsAsync(userId, permissions);
+        var result = await _permissionChecker.HasAllPermissionsAsync(userId, permissions, null, CancellationToken.None);
 
         // Assert
         result.Should().BeFalse();
@@ -245,7 +245,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "users:*" });
 
         // Act
-        var result = await _permissionChecker.HasAllPermissionsAsync(userId, permissions);
+        var result = await _permissionChecker.HasAllPermissionsAsync(userId, permissions, null, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
@@ -287,7 +287,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "org:permission1", "org:permission2" });
 
         // Act
-        var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId);
+        var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId, CancellationToken.None);
 
         // Assert
         result.Should().HaveCount(3);
@@ -325,7 +325,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(false);
 
         // Act
-        var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId);
+        var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId, CancellationToken.None);
 
         // Assert
         result.Should().HaveCount(1);
@@ -370,7 +370,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "shared:permission", "org:only" });
 
         // Act
-        var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId);
+        var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId, CancellationToken.None);
 
         // Assert - should have 3 unique permissions, not 4
         result.Should().HaveCount(3);
@@ -420,7 +420,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "org2:permission" });
 
         // Act
-        var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId);
+        var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId, CancellationToken.None);
 
         // Assert
         result.Should().HaveCount(2);
@@ -459,7 +459,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "data-transfer:export", "data-transfer:import" });
 
         // Act
-        var result = await _permissionChecker.HasPermissionAsync(userId, permission, applicationId);
+        var result = await _permissionChecker.HasPermissionAsync(userId, permission, applicationId, CancellationToken.None);
 
         // Assert
         result.Should().BeTrue();
@@ -476,7 +476,7 @@ public class PermissionCheckerTests
             .ReturnsAsync(new List<string> { "some:permission" });
 
         // Act
-        var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId: null);
+        var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId: null, CancellationToken.None);
 
         // Assert
         result.Should().HaveCount(1);

@@ -25,7 +25,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -37,7 +37,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken = default)
+    public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -49,7 +49,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -61,7 +61,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task<User> CreateAsync(User user, CancellationToken cancellationToken = default)
+    public async Task<User> CreateAsync(User user, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -112,7 +112,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(User user, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(User user, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -164,7 +164,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -182,8 +182,8 @@ public class UserRepository : IUserRepository
     public async Task<(IReadOnlyList<User> Users, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
-        string? searchTerm = null,
-        CancellationToken cancellationToken = default)
+        string? searchTerm,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -234,7 +234,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task RecordSuccessfulLoginAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task RecordSuccessfulLoginAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -253,7 +253,7 @@ public class UserRepository : IUserRepository
         Guid userId,
         int maxAttempts,
         TimeSpan lockoutDuration,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -282,7 +282,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task UnlockAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken = default)
+    public async Task UnlockAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -307,7 +307,7 @@ public class UserRepository : IUserRepository
         Guid userId,
         string passwordHash,
         Guid modifiedBy,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -328,7 +328,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task ConfirmEmailAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken = default)
+    public async Task ConfirmEmailAsync(Guid userId, Guid modifiedBy, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -348,7 +348,7 @@ public class UserRepository : IUserRepository
     #region User Roles
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<UserRole>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<UserRole>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -361,7 +361,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task<UserRole?> GetUserRoleAsync(Guid userId, Guid roleId, Guid? applicationId = null, CancellationToken cancellationToken = default)
+    public async Task<UserRole?> GetUserRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -385,7 +385,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task<UserRole> AssignRoleAsync(UserRole userRole, CancellationToken cancellationToken = default)
+    public async Task<UserRole> AssignRoleAsync(UserRole userRole, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -411,7 +411,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId = null, CancellationToken cancellationToken = default)
+    public async Task RemoveRoleAsync(Guid userId, Guid roleId, Guid? applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -433,7 +433,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> HasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default)
+    public async Task<bool> HasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -451,7 +451,7 @@ public class UserRepository : IUserRepository
     #region User Permissions (Direct Grants)
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<UserPermission>> GetUserPermissionsAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<UserPermission>> GetUserPermissionsAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -464,7 +464,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task<UserPermission?> GetUserPermissionAsync(Guid userId, Guid permissionId, Guid? applicationId = null, CancellationToken cancellationToken = default)
+    public async Task<UserPermission?> GetUserPermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -488,7 +488,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task<UserPermission> GrantPermissionAsync(UserPermission userPermission, CancellationToken cancellationToken = default)
+    public async Task<UserPermission> GrantPermissionAsync(UserPermission userPermission, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -514,7 +514,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId = null, CancellationToken cancellationToken = default)
+    public async Task RevokePermissionAsync(Guid userId, Guid permissionId, Guid? applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -536,7 +536,7 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken = default)
+    public async Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

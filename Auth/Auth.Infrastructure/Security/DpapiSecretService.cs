@@ -50,7 +50,7 @@ public class DpapiSecretService : IDpapiSecretService
 
     public string GetSecretFilePath() => _settings.SecretFilePath;
 
-    public async Task<SecretConfiguration> LoadSecretsAsync(CancellationToken cancellationToken = default)
+    public async Task<SecretConfiguration> LoadSecretsAsync(CancellationToken cancellationToken)
     {
         await _fileLock.WaitAsync(cancellationToken);
         try
@@ -91,7 +91,7 @@ public class DpapiSecretService : IDpapiSecretService
         }
     }
 
-    public async Task SaveSecretsAsync(SecretConfiguration secrets, CancellationToken cancellationToken = default)
+    public async Task SaveSecretsAsync(SecretConfiguration secrets, CancellationToken cancellationToken)
     {
         await _fileLock.WaitAsync(cancellationToken);
         try
@@ -129,13 +129,13 @@ public class DpapiSecretService : IDpapiSecretService
     // Individual Secret Operations
     // ═══════════════════════════════════════════════════════════════
 
-    public async Task<string?> GetSecretAsync(string key, CancellationToken cancellationToken = default)
+    public async Task<string?> GetSecretAsync(string key, CancellationToken cancellationToken)
     {
         var secrets = await LoadSecretsAsync(cancellationToken);
         return GetSecretValue(secrets, key);
     }
 
-    public async Task SetSecretAsync(string key, string value, CancellationToken cancellationToken = default)
+    public async Task SetSecretAsync(string key, string value, CancellationToken cancellationToken)
     {
         var secrets = await LoadSecretsAsync(cancellationToken);
 
@@ -148,7 +148,7 @@ public class DpapiSecretService : IDpapiSecretService
         _logger.LogInformation("Secret {Key} updated", key);
     }
 
-    public async Task<bool> RemoveSecretAsync(string key, CancellationToken cancellationToken = default)
+    public async Task<bool> RemoveSecretAsync(string key, CancellationToken cancellationToken)
     {
         var secrets = await LoadSecretsAsync(cancellationToken);
 
@@ -171,7 +171,7 @@ public class DpapiSecretService : IDpapiSecretService
     // Key Generation Operations
     // ═══════════════════════════════════════════════════════════════
 
-    public async Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken = default)
+    public async Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken)
     {
         using var rsa = RSA.Create(RsaKeySizeBits);
 
@@ -193,7 +193,7 @@ public class DpapiSecretService : IDpapiSecretService
         return publicKeyPem;
     }
 
-    public async Task GenerateHmacKeyAsync(CancellationToken cancellationToken = default)
+    public async Task GenerateHmacKeyAsync(CancellationToken cancellationToken)
     {
         var keyBytes = RandomNumberGenerator.GetBytes(HmacKeySizeBytes);
         var keyBase64 = Convert.ToBase64String(keyBytes);
@@ -211,7 +211,7 @@ public class DpapiSecretService : IDpapiSecretService
         _logger.LogWarning("Generated new HMAC-SHA256 key ({Bytes} bytes) - all existing refresh tokens are now invalid", HmacKeySizeBytes);
     }
 
-    public async Task<string> GenerateGatewayTokenAsync(CancellationToken cancellationToken = default)
+    public async Task<string> GenerateGatewayTokenAsync(CancellationToken cancellationToken)
     {
         var tokenBytes = RandomNumberGenerator.GetBytes(GatewayTokenSizeBytes);
         var token = Convert.ToBase64String(tokenBytes);
@@ -230,7 +230,7 @@ public class DpapiSecretService : IDpapiSecretService
         return token;
     }
 
-    public async Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken = default)
+    public async Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken)
     {
         var result = new KeyGenerationResult();
         var secrets = await LoadSecretsAsync(cancellationToken);
@@ -301,7 +301,7 @@ public class DpapiSecretService : IDpapiSecretService
     // Status Operations
     // ═══════════════════════════════════════════════════════════════
 
-    public async Task<SecretStatusResult> GetStatusAsync(CancellationToken cancellationToken = default)
+    public async Task<SecretStatusResult> GetStatusAsync(CancellationToken cancellationToken)
     {
         var result = new SecretStatusResult
         {

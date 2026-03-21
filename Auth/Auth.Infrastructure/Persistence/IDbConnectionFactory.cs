@@ -11,5 +11,5 @@ public interface IDbConnectionFactory
     /// Creates a new database connection.
     /// </summary>
     /// <returns>An open database connection.</returns>
-    Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken = default);
+    Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken);
 }

@@ -53,7 +53,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         User user,
         string? ipAddress,
         string? deviceInfo,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         // Get roles and permissions
         var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);

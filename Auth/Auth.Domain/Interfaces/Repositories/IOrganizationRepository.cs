@@ -13,37 +13,37 @@ public interface IOrganizationRepository
     /// <summary>
     /// Gets an organization by its ID.
     /// </summary>
-    Task<Organization?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default);
+    Task<Organization?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets an organization by its code.
     /// </summary>
-    Task<Organization?> GetByCodeAsync(string code, CancellationToken cancellationToken = default);
+    Task<Organization?> GetByCodeAsync(string code, CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if an organization code exists.
     /// </summary>
-    Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken = default);
+    Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all organizations owned by a user.
     /// </summary>
-    Task<IReadOnlyList<Organization>> GetByOwnerAsync(Guid ownerId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<Organization>> GetByOwnerAsync(Guid ownerId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new organization.
     /// </summary>
-    Task<Organization> CreateAsync(Organization organization, CancellationToken cancellationToken = default);
+    Task<Organization> CreateAsync(Organization organization, CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates an existing organization.
     /// </summary>
-    Task UpdateAsync(Organization organization, CancellationToken cancellationToken = default);
+    Task UpdateAsync(Organization organization, CancellationToken cancellationToken);
 
     /// <summary>
     /// Deletes an organization and all related data.
     /// </summary>
-    Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
+    Task DeleteAsync(Guid id, CancellationToken cancellationToken);
 
     #endregion
 
@@ -55,28 +55,28 @@ public interface IOrganizationRepository
     Task<OrganizationUser?> GetMembershipAsync(
         Guid organizationId,
         Guid userId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all organizations a user is a member of.
     /// </summary>
     Task<IReadOnlyList<Organization>> GetUserOrganizationsAsync(
         Guid userId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all active organization memberships for a user.
     /// </summary>
     Task<IReadOnlyList<OrganizationUser>> GetUserMembershipsAsync(
         Guid userId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all members of an organization.
     /// </summary>
     Task<IReadOnlyList<OrganizationUser>> GetMembersAsync(
         Guid organizationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets members of an organization with pagination.
@@ -85,22 +85,22 @@ public interface IOrganizationRepository
         Guid organizationId,
         int pageNumber,
         int pageSize,
-        string? searchTerm = null,
-        CancellationToken cancellationToken = default);
+        string? searchTerm,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Adds a user to an organization.
     /// </summary>
     Task<OrganizationUser> AddMemberAsync(
         OrganizationUser membership,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates a member's organization role.
     /// </summary>
     Task UpdateMemberAsync(
         OrganizationUser membership,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Removes a user from an organization.
@@ -108,7 +108,7 @@ public interface IOrganizationRepository
     Task RemoveMemberAsync(
         Guid organizationId,
         Guid userId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if a user is a member of an organization.
@@ -116,7 +116,7 @@ public interface IOrganizationRepository
     Task<bool> IsMemberAsync(
         Guid organizationId,
         Guid userId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     #endregion
 
@@ -127,7 +127,7 @@ public interface IOrganizationRepository
     /// </summary>
     Task<IReadOnlyList<OrganizationApplication>> GetEnabledApplicationsAsync(
         Guid organizationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets a specific application subscription for an organization.
@@ -135,21 +135,21 @@ public interface IOrganizationRepository
     Task<OrganizationApplication?> GetApplicationSubscriptionAsync(
         Guid organizationId,
         Guid applicationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Enables an application for an organization.
     /// </summary>
     Task<OrganizationApplication> EnableApplicationAsync(
         OrganizationApplication subscription,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates an application subscription.
     /// </summary>
     Task UpdateApplicationSubscriptionAsync(
         OrganizationApplication subscription,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Disables an application for an organization.
@@ -157,7 +157,7 @@ public interface IOrganizationRepository
     Task DisableApplicationAsync(
         Guid organizationId,
         Guid applicationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if an application is enabled for an organization.
@@ -165,7 +165,7 @@ public interface IOrganizationRepository
     Task<bool> IsApplicationEnabledAsync(
         Guid organizationId,
         Guid applicationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     #endregion
 
@@ -177,7 +177,7 @@ public interface IOrganizationRepository
     Task<IReadOnlyList<OrganizationUserRole>> GetUserAppRolesAsync(
         Guid organizationId,
         Guid userId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all app-level role assignments for a user within an organization for a specific app.
@@ -186,14 +186,14 @@ public interface IOrganizationRepository
         Guid organizationId,
         Guid userId,
         Guid applicationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Assigns an app-level role to a user within an organization.
     /// </summary>
     Task<OrganizationUserRole> AssignAppRoleAsync(
         OrganizationUserRole assignment,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Removes an app-level role from a user within an organization.
@@ -203,7 +203,7 @@ public interface IOrganizationRepository
         Guid userId,
         Guid applicationId,
         Guid roleId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if a user has a specific app-level role within an organization.
@@ -213,7 +213,7 @@ public interface IOrganizationRepository
         Guid userId,
         Guid applicationId,
         Guid roleId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     #endregion
 
@@ -225,7 +225,7 @@ public interface IOrganizationRepository
     Task<IReadOnlyList<OrganizationUserPermission>> GetUserPermissionsAsync(
         Guid organizationId,
         Guid userId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all individual permission grants for a user within an organization for a specific app.
@@ -234,14 +234,14 @@ public interface IOrganizationRepository
         Guid organizationId,
         Guid userId,
         Guid applicationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Grants a permission to a user within an organization.
     /// </summary>
     Task<OrganizationUserPermission> GrantPermissionAsync(
         OrganizationUserPermission grant,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Revokes a permission from a user within an organization.
@@ -251,7 +251,7 @@ public interface IOrganizationRepository
         Guid userId,
         Guid applicationId,
         Guid permissionId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if a user has a specific permission within an organization for an app.
@@ -261,7 +261,7 @@ public interface IOrganizationRepository
         Guid userId,
         Guid applicationId,
         Guid permissionId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     #endregion
 
@@ -275,7 +275,7 @@ public interface IOrganizationRepository
         Guid organizationId,
         Guid userId,
         Guid applicationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if a user has access to an application through any of their organizations.
@@ -286,7 +286,7 @@ public interface IOrganizationRepository
     Task<bool> HasAppAccessAsync(
         Guid userId,
         Guid applicationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if a user has a specific permission for an app through any of their organizations.
@@ -296,7 +296,7 @@ public interface IOrganizationRepository
         Guid userId,
         Guid applicationId,
         string permissionCode,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     #endregion
 
@@ -307,54 +307,54 @@ public interface IOrganizationRepository
     /// </summary>
     Task<OrganizationInvitation?> GetInvitationByIdAsync(
         Guid id,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets an invitation by its token.
     /// </summary>
     Task<OrganizationInvitation?> GetInvitationByTokenAsync(
         string token,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all pending invitations for an organization.
     /// </summary>
     Task<IReadOnlyList<OrganizationInvitation>> GetPendingInvitationsAsync(
         Guid organizationId,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets all pending invitations for an email address.
     /// </summary>
     Task<IReadOnlyList<OrganizationInvitation>> GetPendingInvitationsByEmailAsync(
         string email,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new invitation.
     /// </summary>
     Task<OrganizationInvitation> CreateInvitationAsync(
         OrganizationInvitation invitation,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Updates an invitation.
     /// </summary>
     Task UpdateInvitationAsync(
         OrganizationInvitation invitation,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Deletes an invitation.
     /// </summary>
     Task DeleteInvitationAsync(
         Guid id,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Marks expired invitations as expired.
     /// </summary>
-    Task MarkExpiredInvitationsAsync(CancellationToken cancellationToken = default);
+    Task MarkExpiredInvitationsAsync(CancellationToken cancellationToken);
 
     #endregion
 }

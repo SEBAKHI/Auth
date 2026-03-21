@@ -58,7 +58,7 @@ public class AuthController : ApiController
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
         var command = new LoginCommand(
             request.Email,
@@ -67,7 +67,7 @@ public class AuthController : ApiController
             GetUserAgent(),
             request.DeviceId);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -87,7 +87,7 @@ public class AuthController : ApiController
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
         var command = new RegisterCommand(
             request.Email,
@@ -100,7 +100,7 @@ public class AuthController : ApiController
             request.TimeZone,
             request.CreateOrganization);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             response => StatusCode(StatusCodes.Status201Created, response),
@@ -114,10 +114,10 @@ public class AuthController : ApiController
     [HttpGet("external-providers")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(IReadOnlyList<ExternalAuthProviderResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetExternalProviders()
+    public async Task<IActionResult> GetExternalProviders(CancellationToken cancellationToken)
     {
         var query = new GetExternalProvidersQuery();
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match<IActionResult>(
             providers => Ok(providers),
@@ -138,7 +138,7 @@ public class AuthController : ApiController
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> ExternalLogin([FromBody] ExternalLoginRequest request)
+    public async Task<IActionResult> ExternalLogin([FromBody] ExternalLoginRequest request, CancellationToken cancellationToken)
     {
         var command = new ExternalLoginCommand(
             request.Provider,
@@ -148,7 +148,7 @@ public class AuthController : ApiController
             GetClientIpAddress(),
             GetUserAgent());
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -165,14 +165,14 @@ public class AuthController : ApiController
     [ProducesResponseType(typeof(TokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request, CancellationToken cancellationToken)
     {
         var command = new RefreshTokenCommand(
             request.RefreshToken,
             GetClientIpAddress(),
             GetUserAgent());
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -188,7 +188,7 @@ public class AuthController : ApiController
     [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Logout([FromBody] LogoutRequest? request)
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest? request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -203,7 +203,7 @@ public class AuthController : ApiController
             GetClientIpAddress(),
             request?.LogoutAllDevices ?? false);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -220,7 +220,7 @@ public class AuthController : ApiController
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -235,7 +235,7 @@ public class AuthController : ApiController
             request.TerminateSessions,
             GetCurrentSessionId());
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -253,10 +253,10 @@ public class AuthController : ApiController
     [ProducesResponseType(typeof(ForgotPasswordResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
     {
         var command = new ForgotPasswordCommand(request.Email);
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -272,7 +272,7 @@ public class AuthController : ApiController
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+    public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
     {
         var command = new ResetPasswordCommand(
             request.Email,
@@ -280,7 +280,7 @@ public class AuthController : ApiController
             request.NewPassword,
             request.TerminateSessions);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -295,7 +295,7 @@ public class AuthController : ApiController
     [Authorize]
     [ProducesResponseType(typeof(IReadOnlyList<SessionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetSessions()
+    public async Task<IActionResult> GetSessions(CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -304,7 +304,7 @@ public class AuthController : ApiController
         }
 
         var query = new GetUserSessionsQuery(userId, GetCurrentSessionId());
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match<IActionResult>(
             sessions => Ok(sessions),
@@ -321,7 +321,7 @@ public class AuthController : ApiController
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> TerminateSession(Guid sessionId)
+    public async Task<IActionResult> TerminateSession(Guid sessionId, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -330,7 +330,7 @@ public class AuthController : ApiController
         }
 
         var command = new TerminateSessionCommand(userId, sessionId);
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -345,7 +345,7 @@ public class AuthController : ApiController
     [Authorize]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> TerminateAllSessions()
+    public async Task<IActionResult> TerminateAllSessions(CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -355,7 +355,7 @@ public class AuthController : ApiController
 
         // Exclude current session
         var command = new TerminateAllSessionsCommand(userId, GetCurrentSessionId());
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             count => Ok(new { terminatedCount = count }),
@@ -428,7 +428,7 @@ public class AuthController : ApiController
     [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RevokeToken([FromBody] RevokeTokenRequest request)
+    public async Task<IActionResult> RevokeToken([FromBody] RevokeTokenRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
 
@@ -437,7 +437,7 @@ public class AuthController : ApiController
             request.TokenTypeHint,
             userId);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => Ok(),
@@ -453,13 +453,13 @@ public class AuthController : ApiController
     [Authorize]
     [ProducesResponseType(typeof(IntrospectTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> IntrospectToken([FromBody] IntrospectTokenRequest request)
+    public async Task<IActionResult> IntrospectToken([FromBody] IntrospectTokenRequest request, CancellationToken cancellationToken)
     {
         var query = new IntrospectTokenQuery(
             request.Token,
             request.TokenTypeHint);
 
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -477,7 +477,7 @@ public class AuthController : ApiController
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> SendVerificationEmail()
+    public async Task<IActionResult> SendVerificationEmail(CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -486,7 +486,7 @@ public class AuthController : ApiController
         }
 
         var command = new SendEmailVerificationCommand(userId);
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -504,10 +504,10 @@ public class AuthController : ApiController
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
+    public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request, CancellationToken cancellationToken)
     {
         var command = new VerifyEmailCommand(request.UserId, request.Otp);
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -525,10 +525,10 @@ public class AuthController : ApiController
     [ProducesResponseType(typeof(ResendEmailVerificationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendEmailVerificationRequest request)
+    public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendEmailVerificationRequest request, CancellationToken cancellationToken)
     {
         var command = new ResendEmailVerificationCommand(request.Email);
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),

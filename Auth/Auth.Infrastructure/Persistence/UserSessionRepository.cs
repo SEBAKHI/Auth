@@ -35,7 +35,7 @@ public class UserSessionRepository : IUserSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task<UserSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<UserSession?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -47,7 +47,7 @@ public class UserSessionRepository : IUserSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task<UserSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken = default)
+    public async Task<UserSession?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -59,7 +59,7 @@ public class UserSessionRepository : IUserSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task<UserSession> CreateAsync(UserSession session, CancellationToken cancellationToken = default)
+    public async Task<UserSession> CreateAsync(UserSession session, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -97,7 +97,7 @@ public class UserSessionRepository : IUserSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(UserSession session, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(UserSession session, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -122,7 +122,7 @@ public class UserSessionRepository : IUserSessionRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<UserSession>> GetActiveSessionsForUserAsync(
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -142,7 +142,7 @@ public class UserSessionRepository : IUserSessionRepository
     public async Task TerminateAllForUserAsync(
         Guid userId,
         string reason,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -160,7 +160,7 @@ public class UserSessionRepository : IUserSessionRepository
         Guid userId,
         Guid exceptSessionId,
         string reason,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -175,7 +175,7 @@ public class UserSessionRepository : IUserSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task TerminateAsync(Guid sessionId, string reason, CancellationToken cancellationToken = default)
+    public async Task TerminateAsync(Guid sessionId, string reason, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -189,7 +189,7 @@ public class UserSessionRepository : IUserSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupExpiredAsync(CancellationToken cancellationToken = default)
+    public async Task CleanupExpiredAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

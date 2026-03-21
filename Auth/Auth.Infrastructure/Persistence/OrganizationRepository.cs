@@ -20,7 +20,7 @@ public class OrganizationRepository : IOrganizationRepository
     #region Organization CRUD
 
     /// <inheritdoc />
-    public async Task<Organization?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Organization?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -37,7 +37,7 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task<Organization?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+    public async Task<Organization?> GetByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -54,7 +54,7 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -67,7 +67,7 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Organization>> GetByOwnerAsync(Guid ownerId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Organization>> GetByOwnerAsync(Guid ownerId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -85,7 +85,7 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task<Organization> CreateAsync(Organization organization, CancellationToken cancellationToken = default)
+    public async Task<Organization> CreateAsync(Organization organization, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -121,7 +121,7 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(Organization organization, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(Organization organization, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -151,7 +151,7 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -170,7 +170,7 @@ public class OrganizationRepository : IOrganizationRepository
     public async Task<OrganizationUser?> GetMembershipAsync(
         Guid organizationId,
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -189,7 +189,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<Organization>> GetUserOrganizationsAsync(
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -210,7 +210,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<OrganizationUser>> GetUserMembershipsAsync(
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -230,7 +230,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<OrganizationUser>> GetMembersAsync(
         Guid organizationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -252,8 +252,8 @@ public class OrganizationRepository : IOrganizationRepository
         Guid organizationId,
         int pageNumber,
         int pageSize,
-        string? searchTerm = null,
-        CancellationToken cancellationToken = default)
+        string? searchTerm,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -302,7 +302,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<OrganizationUser> AddMemberAsync(
         OrganizationUser membership,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -338,7 +338,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task UpdateMemberAsync(
         OrganizationUser membership,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -365,7 +365,7 @@ public class OrganizationRepository : IOrganizationRepository
     public async Task RemoveMemberAsync(
         Guid organizationId,
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -379,7 +379,7 @@ public class OrganizationRepository : IOrganizationRepository
     public async Task<bool> IsMemberAsync(
         Guid organizationId,
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -398,7 +398,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<OrganizationApplication>> GetEnabledApplicationsAsync(
         Guid organizationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -418,7 +418,7 @@ public class OrganizationRepository : IOrganizationRepository
     public async Task<OrganizationApplication?> GetApplicationSubscriptionAsync(
         Guid organizationId,
         Guid applicationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -437,7 +437,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<OrganizationApplication> EnableApplicationAsync(
         OrganizationApplication subscription,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -473,7 +473,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task UpdateApplicationSubscriptionAsync(
         OrganizationApplication subscription,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -500,7 +500,7 @@ public class OrganizationRepository : IOrganizationRepository
     public async Task DisableApplicationAsync(
         Guid organizationId,
         Guid applicationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -521,7 +521,7 @@ public class OrganizationRepository : IOrganizationRepository
     public async Task<bool> IsApplicationEnabledAsync(
         Guid organizationId,
         Guid applicationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -544,7 +544,7 @@ public class OrganizationRepository : IOrganizationRepository
     public async Task<IReadOnlyList<OrganizationUserRole>> GetUserAppRolesAsync(
         Guid organizationId,
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -565,7 +565,7 @@ public class OrganizationRepository : IOrganizationRepository
         Guid organizationId,
         Guid userId,
         Guid applicationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -587,7 +587,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<OrganizationUserRole> AssignAppRoleAsync(
         OrganizationUserRole assignment,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -627,7 +627,7 @@ public class OrganizationRepository : IOrganizationRepository
         Guid userId,
         Guid applicationId,
         Guid roleId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -652,7 +652,7 @@ public class OrganizationRepository : IOrganizationRepository
         Guid userId,
         Guid applicationId,
         Guid roleId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -683,7 +683,7 @@ public class OrganizationRepository : IOrganizationRepository
     public async Task<IReadOnlyList<OrganizationUserPermission>> GetUserPermissionsAsync(
         Guid organizationId,
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -704,7 +704,7 @@ public class OrganizationRepository : IOrganizationRepository
         Guid organizationId,
         Guid userId,
         Guid applicationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -726,7 +726,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<OrganizationUserPermission> GrantPermissionAsync(
         OrganizationUserPermission grant,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -766,7 +766,7 @@ public class OrganizationRepository : IOrganizationRepository
         Guid userId,
         Guid applicationId,
         Guid permissionId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -791,7 +791,7 @@ public class OrganizationRepository : IOrganizationRepository
         Guid userId,
         Guid applicationId,
         Guid permissionId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -823,7 +823,7 @@ public class OrganizationRepository : IOrganizationRepository
         Guid organizationId,
         Guid userId,
         Guid applicationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -862,7 +862,7 @@ public class OrganizationRepository : IOrganizationRepository
     public async Task<bool> HasAppAccessAsync(
         Guid userId,
         Guid applicationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -913,7 +913,7 @@ public class OrganizationRepository : IOrganizationRepository
         Guid userId,
         Guid applicationId,
         string permissionCode,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -970,7 +970,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<OrganizationInvitation?> GetInvitationByIdAsync(
         Guid id,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -988,7 +988,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<OrganizationInvitation?> GetInvitationByTokenAsync(
         string token,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -1006,7 +1006,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<OrganizationInvitation>> GetPendingInvitationsAsync(
         Guid organizationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -1025,7 +1025,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<OrganizationInvitation>> GetPendingInvitationsByEmailAsync(
         string email,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -1044,7 +1044,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task<OrganizationInvitation> CreateInvitationAsync(
         OrganizationInvitation invitation,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -1077,7 +1077,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task UpdateInvitationAsync(
         OrganizationInvitation invitation,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -1099,7 +1099,7 @@ public class OrganizationRepository : IOrganizationRepository
     /// <inheritdoc />
     public async Task DeleteInvitationAsync(
         Guid id,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -1110,7 +1110,7 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task MarkExpiredInvitationsAsync(CancellationToken cancellationToken = default)
+    public async Task MarkExpiredInvitationsAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

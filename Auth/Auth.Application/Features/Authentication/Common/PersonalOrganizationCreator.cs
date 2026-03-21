@@ -28,7 +28,7 @@ public class PersonalOrganizationCreator : IPersonalOrganizationCreator
     }
 
     /// <inheritdoc />
-    public async Task<bool> CreateAsync(User user, CancellationToken cancellationToken = default)
+    public async Task<bool> CreateAsync(User user, CancellationToken cancellationToken)
     {
         // Get the org-owner role (null applicationId for organization-level roles)
         var ownerRole = await _roleRepository.GetByCodeAsync((Guid?)null, OrgOwnerRoleCode, cancellationToken);

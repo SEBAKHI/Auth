@@ -28,7 +28,7 @@ public interface IDpapiSecretService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The decrypted secret configuration, or empty configuration if file doesn't exist.</returns>
     /// <exception cref="SecretDecryptionException">When decryption fails.</exception>
-    Task<SecretConfiguration> LoadSecretsAsync(CancellationToken cancellationToken = default);
+    Task<SecretConfiguration> LoadSecretsAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// Encrypts and saves the secret configuration to the DPAPI file.
@@ -36,7 +36,7 @@ public interface IDpapiSecretService
     /// </summary>
     /// <param name="secrets">The secrets to save.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task SaveSecretsAsync(SecretConfiguration secrets, CancellationToken cancellationToken = default);
+    Task SaveSecretsAsync(SecretConfiguration secrets, CancellationToken cancellationToken);
 
     // ═══════════════════════════════════════════════════════════════
     // Individual Secret Operations
@@ -48,7 +48,7 @@ public interface IDpapiSecretService
     /// <param name="key">The secret key (e.g., "SmtpPassword", "GatewayToken", "Custom:mykey").</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The secret value or null if not found.</returns>
-    Task<string?> GetSecretAsync(string key, CancellationToken cancellationToken = default);
+    Task<string?> GetSecretAsync(string key, CancellationToken cancellationToken);
 
     /// <summary>
     /// Sets a specific secret value.
@@ -56,7 +56,7 @@ public interface IDpapiSecretService
     /// <param name="key">The secret key.</param>
     /// <param name="value">The secret value.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task SetSecretAsync(string key, string value, CancellationToken cancellationToken = default);
+    Task SetSecretAsync(string key, string value, CancellationToken cancellationToken);
 
     /// <summary>
     /// Removes a specific secret (custom secrets only).
@@ -64,7 +64,7 @@ public interface IDpapiSecretService
     /// <param name="key">The secret key (must be in Custom dictionary).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True if the secret was removed, false if it didn't exist.</returns>
-    Task<bool> RemoveSecretAsync(string key, CancellationToken cancellationToken = default);
+    Task<bool> RemoveSecretAsync(string key, CancellationToken cancellationToken);
 
     // ═══════════════════════════════════════════════════════════════
     // Key Generation Operations
@@ -76,14 +76,14 @@ public interface IDpapiSecretService
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The public key PEM for external use.</returns>
-    Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken = default);
+    Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// Generates a new 256-bit HMAC key and stores in secret configuration.
     /// WARNING: This invalidates all existing refresh tokens.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task GenerateHmacKeyAsync(CancellationToken cancellationToken = default);
+    Task GenerateHmacKeyAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// Generates a secure random gateway token and stores it.
@@ -91,7 +91,7 @@ public interface IDpapiSecretService
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The generated gateway token.</returns>
-    Task<string> GenerateGatewayTokenAsync(CancellationToken cancellationToken = default);
+    Task<string> GenerateGatewayTokenAsync(CancellationToken cancellationToken);
 
     /// <summary>
     /// Generates all missing cryptographic keys (RSA, HMAC, Gateway token).
@@ -99,7 +99,7 @@ public interface IDpapiSecretService
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Summary of keys generated and skipped.</returns>
-    Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken = default);
+    Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken);
 
     // ═══════════════════════════════════════════════════════════════
     // Status Operations
@@ -111,7 +111,7 @@ public interface IDpapiSecretService
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Status of each secret (configured/not configured).</returns>
-    Task<SecretStatusResult> GetStatusAsync(CancellationToken cancellationToken = default);
+    Task<SecretStatusResult> GetStatusAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>

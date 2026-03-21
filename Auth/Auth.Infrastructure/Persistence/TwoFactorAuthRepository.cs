@@ -17,7 +17,7 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
     }
 
     /// <inheritdoc />
-    public async Task<TwoFactorAuth?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<TwoFactorAuth?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -35,7 +35,7 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
     }
 
     /// <inheritdoc />
-    public async Task CreateAsync(TwoFactorAuth twoFactorAuth, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(TwoFactorAuth twoFactorAuth, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -68,7 +68,7 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(TwoFactorAuth twoFactorAuth, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(TwoFactorAuth twoFactorAuth, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -98,7 +98,7 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
     }
 
     /// <inheritdoc />
-    public async Task DeleteAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

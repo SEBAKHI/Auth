@@ -17,7 +17,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task<Role?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task<Role?> GetByIdAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -29,7 +29,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task<Role?> GetByCodeAsync(Guid applicationId, string code, CancellationToken cancellationToken = default)
+    public async Task<Role?> GetByCodeAsync(Guid applicationId, string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -42,7 +42,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task<Role?> GetByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken = default)
+    public async Task<Role?> GetByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -56,7 +56,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Role>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Role>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -70,7 +70,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Role>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<Role>> GetUserRolesAsync(Guid userId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -91,7 +91,7 @@ public class RoleRepository : IRoleRepository
     public async Task<IReadOnlyList<Role>> GetUserRolesForApplicationAsync(
         Guid userId,
         Guid applicationId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -110,7 +110,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> ExistsByCodeAsync(Guid applicationId, string code, CancellationToken cancellationToken = default)
+    public async Task<bool> ExistsByCodeAsync(Guid applicationId, string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -123,7 +123,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task<Role> CreateAsync(Role role, CancellationToken cancellationToken = default)
+    public async Task<Role> CreateAsync(Role role, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -156,7 +156,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(Role role, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(Role role, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -180,7 +180,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -190,7 +190,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task AssignToUserAsync(UserRole userRole, CancellationToken cancellationToken = default)
+    public async Task AssignToUserAsync(UserRole userRole, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -214,7 +214,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task RemoveFromUserAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default)
+    public async Task RemoveFromUserAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -225,7 +225,7 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> UserHasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken = default)
+    public async Task<bool> UserHasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

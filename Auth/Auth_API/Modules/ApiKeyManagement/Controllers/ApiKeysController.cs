@@ -37,10 +37,10 @@ public class ApiKeysController : ApiController
     [ProducesResponseType(typeof(IReadOnlyList<ApiKeyDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetApiKeys([FromQuery] Guid applicationId)
+    public async Task<IActionResult> GetApiKeys([FromQuery] Guid applicationId, CancellationToken cancellationToken)
     {
         var query = new GetApiKeysQuery(applicationId);
-        var result = await _sender.Send(query);
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             apiKeys => Ok(apiKeys),
@@ -56,7 +56,7 @@ public class ApiKeysController : ApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> CreateApiKey([FromBody] CreateApiKeyRequest request)
+    public async Task<IActionResult> CreateApiKey([FromBody] CreateApiKeyRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new CreateApiKeyCommand(
@@ -72,7 +72,7 @@ public class ApiKeysController : ApiController
             CreatedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             apiKey => CreatedAtAction(nameof(GetApiKeys), new { applicationId = request.ApplicationId }, apiKey),
@@ -89,7 +89,7 @@ public class ApiKeysController : ApiController
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RevokeApiKey(Guid id, [FromBody] RevokeApiKeyRequest? request = null)
+    public async Task<IActionResult> RevokeApiKey(Guid id, [FromBody] RevokeApiKeyRequest? request = null, CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
         var command = new RevokeApiKeyCommand(id, request?.Reason)
@@ -97,7 +97,7 @@ public class ApiKeysController : ApiController
             RevokedBy = userId
         };
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -114,7 +114,7 @@ public class ApiKeysController : ApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> RotateApiKey(Guid id, [FromBody] RotateApiKeyRequest? request = null)
+    public async Task<IActionResult> RotateApiKey(Guid id, [FromBody] RotateApiKeyRequest? request = null, CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
         var command = new RotateApiKeyCommand(
@@ -122,7 +122,7 @@ public class ApiKeysController : ApiController
             request?.GracePeriodMinutes ?? 60,
             userId);
 
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             response => Ok(response),

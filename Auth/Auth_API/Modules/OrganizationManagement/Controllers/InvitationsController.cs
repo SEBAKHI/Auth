@@ -34,11 +34,11 @@ public class InvitationsController : ApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<IActionResult> AcceptInvitation(string token)
+    public async Task<IActionResult> AcceptInvitation(string token, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new AcceptInvitationCommand(token) { AcceptedBy = userId };
-        var result = await _sender.Send(command);
+        var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
             acceptResult => Ok(acceptResult),

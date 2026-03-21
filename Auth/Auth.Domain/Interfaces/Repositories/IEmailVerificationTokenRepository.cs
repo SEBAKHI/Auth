@@ -13,35 +13,35 @@ public interface IEmailVerificationTokenRepository
     /// <param name="userId">The user ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The most recent valid token if found, null otherwise.</returns>
-    Task<EmailVerificationToken?> GetValidTokenForUserAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task<EmailVerificationToken?> GetValidTokenForUserAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new email verification token.
     /// </summary>
     /// <param name="token">The token to create.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task CreateAsync(EmailVerificationToken token, CancellationToken cancellationToken = default);
+    Task CreateAsync(EmailVerificationToken token, CancellationToken cancellationToken);
 
     /// <summary>
     /// Marks a token as used.
     /// </summary>
     /// <param name="tokenId">The token ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken = default);
+    Task MarkAsUsedAsync(Guid tokenId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Increments the attempt count for a token.
     /// </summary>
     /// <param name="tokenId">The token ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task IncrementAttemptCountAsync(Guid tokenId, CancellationToken cancellationToken = default);
+    Task IncrementAttemptCountAsync(Guid tokenId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Invalidates all unused tokens for a user.
     /// </summary>
     /// <param name="userId">The user ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken = default);
+    Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets the count of tokens created for an email in a time window (for rate limiting).
@@ -50,11 +50,11 @@ public interface IEmailVerificationTokenRepository
     /// <param name="window">The time window to check.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of tokens created in the window.</returns>
-    Task<int> GetRecentTokenCountAsync(string email, TimeSpan window, CancellationToken cancellationToken = default);
+    Task<int> GetRecentTokenCountAsync(string email, TimeSpan window, CancellationToken cancellationToken);
 
     /// <summary>
     /// Cleans up expired tokens older than 7 days.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task CleanupExpiredAsync(CancellationToken cancellationToken = default);
+    Task CleanupExpiredAsync(CancellationToken cancellationToken);
 }

@@ -20,7 +20,7 @@ public class UserExternalLoginRepository : IUserExternalLoginRepository
     public async Task<UserExternalLogin?> GetByProviderAsync(
         string provider,
         string providerUserId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -34,7 +34,7 @@ public class UserExternalLoginRepository : IUserExternalLoginRepository
     /// <inheritdoc />
     public async Task<IReadOnlyList<UserExternalLogin>> GetByUserIdAsync(
         Guid userId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -48,7 +48,7 @@ public class UserExternalLoginRepository : IUserExternalLoginRepository
     }
 
     /// <inheritdoc />
-    public async Task CreateAsync(UserExternalLogin login, CancellationToken cancellationToken = default)
+    public async Task CreateAsync(UserExternalLogin login, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -71,7 +71,7 @@ public class UserExternalLoginRepository : IUserExternalLoginRepository
     }
 
     /// <inheritdoc />
-    public async Task UpdateAsync(UserExternalLogin login, CancellationToken cancellationToken = default)
+    public async Task UpdateAsync(UserExternalLogin login, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

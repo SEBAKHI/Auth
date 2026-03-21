@@ -17,7 +17,7 @@ public class ExternalAuthProviderRepository : IExternalAuthProviderRepository
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ExternalAuthProvider>> GetAllEnabledAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<ExternalAuthProvider>> GetAllEnabledAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
@@ -31,7 +31,7 @@ public class ExternalAuthProviderRepository : IExternalAuthProviderRepository
     }
 
     /// <inheritdoc />
-    public async Task<ExternalAuthProvider?> GetByCodeAsync(string code, CancellationToken cancellationToken = default)
+    public async Task<ExternalAuthProvider?> GetByCodeAsync(string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 

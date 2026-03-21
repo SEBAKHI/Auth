@@ -33,7 +33,7 @@ public class GoogleAuthProvider : IExternalAuthProvider
     public async Task<ErrorOr<ExternalUserInfo>> ValidateTokenAsync(
         string idToken,
         string? nonce,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         var googleSettings = _settings.Google;
         if (googleSettings == null || !googleSettings.Enabled || string.IsNullOrEmpty(googleSettings.ClientId))

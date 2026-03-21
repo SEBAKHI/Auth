@@ -30,10 +30,10 @@ public class DiscoveryController : ApiController
     /// </summary>
     [HttpGet(".well-known/openid-configuration")]
     [ProducesResponseType(typeof(DiscoveryDocumentDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetOpenIdConfiguration()
+    public async Task<IActionResult> GetOpenIdConfiguration(CancellationToken cancellationToken)
     {
         var baseUrl = $"{Request.Scheme}://{Request.Host}";
-        var result = await _sender.Send(new GetDiscoveryDocumentQuery(baseUrl));
+        var result = await _sender.Send(new GetDiscoveryDocumentQuery(baseUrl), cancellationToken);
 
         return result.Match(
             document => Ok(document),
@@ -46,9 +46,9 @@ public class DiscoveryController : ApiController
     [HttpGet(".well-known/jwks.json")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces("application/json")]
-    public async Task<IActionResult> GetJwks()
+    public async Task<IActionResult> GetJwks(CancellationToken cancellationToken)
     {
-        var result = await _sender.Send(new GetJwksQuery());
+        var result = await _sender.Send(new GetJwksQuery(), cancellationToken);
 
         return result.Match(
             jwks => Content(jwks, "application/json"),
@@ -61,9 +61,9 @@ public class DiscoveryController : ApiController
     [HttpGet(".well-known/public-key.pem")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [Produces("text/plain")]
-    public async Task<IActionResult> GetPublicKey()
+    public async Task<IActionResult> GetPublicKey(CancellationToken cancellationToken)
     {
-        var result = await _sender.Send(new GetPublicKeyQuery());
+        var result = await _sender.Send(new GetPublicKeyQuery(), cancellationToken);
 
         return result.Match(
             pem => Content(pem, "text/plain"),

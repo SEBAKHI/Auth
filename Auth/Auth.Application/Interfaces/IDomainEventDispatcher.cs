@@ -10,5 +10,5 @@ public interface IDomainEventDispatcher
     /// <summary>
     /// Dispatches all pending domain events from the aggregate root, then clears them.
     /// </summary>
-    Task DispatchEventsAsync(AggregateRoot aggregateRoot, CancellationToken cancellationToken = default);
+    Task DispatchEventsAsync(AggregateRoot aggregateRoot, CancellationToken cancellationToken);
 }
