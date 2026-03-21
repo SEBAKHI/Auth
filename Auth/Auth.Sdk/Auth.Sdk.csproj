@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <!-- Package Identity -->
+    <PackageId>Astoom.Auth.Sdk</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>Astoom</Authors>
+    <Company>Astoom</Company>
+    <Description>SDK for integrating external .NET applications with the AuthSystem. Provides JWT, API Key, and Webhook Key authentication handlers with permission-based authorization.</Description>
+
+    <!-- Package Metadata -->
+    <PackageTags>authentication;authorization;jwt;apikey;webhook;sdk</PackageTags>
+    <PackageProjectUrl>https://github.com/astoom/auth-system</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/astoom/auth-system</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+
+    <!-- Build Settings -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.0" />
+  </ItemGroup>
+
+</Project>

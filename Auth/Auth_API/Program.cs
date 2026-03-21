@@ -153,6 +153,7 @@ builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationT
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IExternalAuthProviderRepository, ExternalAuthProviderRepository>();
 builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
+builder.Services.AddScoped<IWebhookKeyRepository, WebhookKeyRepository>();
 
 // Domain Event Dispatcher
 builder.Services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
@@ -180,6 +181,7 @@ builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
 
 builder.Services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
 builder.Services.AddSingleton<IRefreshTokenKeyService, RefreshTokenKeyService>();
+builder.Services.AddSingleton<IWebhookKeyHasher, WebhookKeyHasher>();
 builder.Services.AddSingleton<ITotpService>(sp => new TotpService(sp.GetRequiredService<IPasswordHasher>()));
 builder.Services.AddSingleton<IOtpGenerator, OtpGenerator>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();

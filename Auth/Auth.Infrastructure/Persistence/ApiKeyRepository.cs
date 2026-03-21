@@ -189,6 +189,23 @@ public class ApiKeyRepository : IApiKeyRepository
             new { Id = apiKeyId });
     }
 
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<ApiKey>> GetActiveByPrefixAsync(
+        string prefix,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<ApiKeyDto>(@"
+            SELECT * FROM [dbo].[ApiKeys]
+            WHERE [KeyPrefix] = @Prefix
+              AND [RevokedAt] IS NULL
+              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
+            new { Prefix = prefix });
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
     private record ApiKeyDto
     {
         public Guid Id { get; init; }

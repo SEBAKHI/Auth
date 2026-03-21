@@ -56,4 +56,9 @@ public interface IApiKeyRepository
     /// Records the last usage of an API key.
     /// </summary>
     Task RecordUsageAsync(Guid apiKeyId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets all active (not revoked, not expired) API keys matching the given prefix.
+    /// </summary>
+    Task<IReadOnlyList<ApiKey>> GetActiveByPrefixAsync(string prefix, CancellationToken cancellationToken);
 }

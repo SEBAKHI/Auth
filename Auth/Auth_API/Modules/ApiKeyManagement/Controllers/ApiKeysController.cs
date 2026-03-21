@@ -6,6 +6,7 @@ using Auth.Application.Features.ApiKeys.CreateApiKey;
 using Auth.Application.Features.ApiKeys.GetApiKeys;
 using Auth.Application.Features.ApiKeys.RevokeApiKey;
 using Auth.Application.Features.ApiKeys.RotateApiKey;
+using Auth.Application.Features.ApiKeys.ValidateApiKey;
 using Auth.Application.DTOs;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -101,6 +102,25 @@ public class ApiKeysController : ApiController
 
         return result.Match<IActionResult>(
             _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Validate an API key and return its metadata.
+    /// </summary>
+    [HttpPost("validate")]
+    [RequirePermission("apikeys:validate")]
+    [ProducesResponseType(typeof(ValidateApiKeyResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ValidateApiKey([FromBody] ValidateApiKeyRequest request, CancellationToken cancellationToken)
+    {
+        var query = new ValidateApiKeyQuery(request.ApiKey);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            response => Ok(response),
             errors => Problem(errors));
     }
 
