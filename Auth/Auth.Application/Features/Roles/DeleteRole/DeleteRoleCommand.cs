@@ -11,5 +11,5 @@ public record DeleteRoleCommand(Guid Id) : IRequest<ErrorOr<Success>>
     /// <summary>
     /// The ID of the user deleting this role (for audit).
     /// </summary>
-    public Guid DeletedBy { get; set; }
+    public Guid DeletedBy { get; init; }
 }

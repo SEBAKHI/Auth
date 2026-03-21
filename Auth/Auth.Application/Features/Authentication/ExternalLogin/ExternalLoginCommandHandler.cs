@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -139,7 +140,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         }
 
         // Check account status
-        var statusCheck = CheckAccountStatus(user);
+        var statusCheck = AuthenticationHelper.CheckAccountStatus(user);
         if (statusCheck.IsError)
             return statusCheck.Errors;
 
@@ -151,7 +152,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
 
         // Build device info and return login response
-        var deviceInfo = BuildDeviceInfo(request.UserAgent, request.DeviceId);
+        var deviceInfo = AuthenticationHelper.BuildDeviceInfo(request.UserAgent, request.DeviceId);
         var loginResponse = await _loginResponseBuilder.BuildAsync(user, request.IpAddress, deviceInfo, cancellationToken);
 
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
@@ -159,28 +160,4 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         return loginResponse;
     }
 
-    private static ErrorOr<Success> CheckAccountStatus(User user)
-    {
-        return user.Status switch
-        {
-            UserStatus.Inactive => UserErrors.AccountInactive,
-            UserStatus.Locked => UserErrors.AccountLocked,
-            UserStatus.Pending => UserErrors.AccountPending,
-            _ => Result.Success
-        };
-    }
-
-    private static string? BuildDeviceInfo(string? userAgent, string? deviceId)
-    {
-        if (string.IsNullOrEmpty(userAgent) && string.IsNullOrEmpty(deviceId))
-            return null;
-
-        if (string.IsNullOrEmpty(deviceId))
-            return userAgent;
-
-        if (string.IsNullOrEmpty(userAgent))
-            return $"DeviceId: {deviceId}";
-
-        return $"{userAgent} | DeviceId: {deviceId}";
-    }
 }

@@ -12,5 +12,5 @@ public record AcceptInvitationCommand(string Token) : IRequest<ErrorOr<Invitatio
     /// <summary>
     /// The ID of the user accepting the invitation.
     /// </summary>
-    public Guid AcceptedBy { get; set; }
+    public Guid AcceptedBy { get; init; }
 }

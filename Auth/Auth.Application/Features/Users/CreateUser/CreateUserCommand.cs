@@ -21,5 +21,5 @@ public record CreateUserCommand(
     /// <summary>
     /// The ID of the user creating this account (for audit).
     /// </summary>
-    public Guid CreatedBy { get; set; }
+    public Guid CreatedBy { get; init; }
 }

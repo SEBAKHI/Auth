@@ -17,5 +17,5 @@ public record CreateRoleCommand(
     /// <summary>
     /// The ID of the user creating this role (for audit).
     /// </summary>
-    public Guid CreatedBy { get; set; }
+    public Guid CreatedBy { get; init; }
 }

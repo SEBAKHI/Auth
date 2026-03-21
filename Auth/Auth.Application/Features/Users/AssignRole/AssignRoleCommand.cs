@@ -14,5 +14,5 @@ public record AssignRoleCommand(
     /// <summary>
     /// The ID of the user assigning the role (for audit).
     /// </summary>
-    public Guid AssignedBy { get; set; }
+    public Guid AssignedBy { get; init; }
 }

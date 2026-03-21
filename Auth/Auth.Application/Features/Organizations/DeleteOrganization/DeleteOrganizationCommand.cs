@@ -12,5 +12,5 @@ public record DeleteOrganizationCommand(Guid OrganizationId) : IRequest<ErrorOr<
     /// <summary>
     /// The ID of the user requesting the deletion.
     /// </summary>
-    public Guid RequestedBy { get; set; }
+    public Guid RequestedBy { get; init; }
 }

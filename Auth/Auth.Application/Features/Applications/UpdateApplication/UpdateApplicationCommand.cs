@@ -23,5 +23,5 @@ public record UpdateApplicationCommand(
     /// <summary>
     /// The ID of the user modifying this application (for audit).
     /// </summary>
-    public Guid ModifiedBy { get; set; }
+    public Guid ModifiedBy { get; init; }
 }

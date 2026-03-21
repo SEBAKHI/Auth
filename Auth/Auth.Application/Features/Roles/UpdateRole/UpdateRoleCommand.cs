@@ -15,5 +15,5 @@ public record UpdateRoleCommand(
     /// <summary>
     /// The ID of the user updating this role (for audit).
     /// </summary>
-    public Guid ModifiedBy { get; set; }
+    public Guid ModifiedBy { get; init; }
 }

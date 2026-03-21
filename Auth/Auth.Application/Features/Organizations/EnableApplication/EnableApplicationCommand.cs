@@ -16,5 +16,5 @@ public record EnableApplicationCommand(
     /// <summary>
     /// The ID of the user enabling the application.
     /// </summary>
-    public Guid EnabledBy { get; set; }
+    public Guid EnabledBy { get; init; }
 }

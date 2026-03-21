@@ -19,5 +19,5 @@ public record CreateOrganizationCommand(
     /// <summary>
     /// The ID of the user creating this organization (becomes owner).
     /// </summary>
-    public Guid CreatedBy { get; set; }
+    public Guid CreatedBy { get; init; }
 }

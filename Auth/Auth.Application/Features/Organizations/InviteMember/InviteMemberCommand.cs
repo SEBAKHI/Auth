@@ -15,5 +15,5 @@ public record InviteMemberCommand(
     /// <summary>
     /// The ID of the user sending the invitation.
     /// </summary>
-    public Guid InvitedBy { get; set; }
+    public Guid InvitedBy { get; init; }
 }

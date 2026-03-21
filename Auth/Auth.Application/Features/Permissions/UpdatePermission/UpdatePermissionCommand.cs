@@ -15,5 +15,5 @@ public record UpdatePermissionCommand(
     /// <summary>
     /// The ID of the user modifying this permission (for audit).
     /// </summary>
-    public Guid ModifiedBy { get; set; }
+    public Guid ModifiedBy { get; init; }
 }

@@ -13,5 +13,5 @@ public record AddPermissionImplicationCommand(
     /// <summary>
     /// The ID of the user creating this implication (for audit).
     /// </summary>
-    public Guid CreatedBy { get; set; }
+    public Guid CreatedBy { get; init; }
 }

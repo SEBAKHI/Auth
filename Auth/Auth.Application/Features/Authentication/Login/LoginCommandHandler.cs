@@ -1,5 +1,6 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -57,7 +58,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         }
 
         // Check account status
-        var statusCheck = CheckAccountStatus(user);
+        var statusCheck = AuthenticationHelper.CheckAccountStatus(user);
         if (statusCheck.IsError)
         {
             await RecordLoginAttemptAsync(user.Id, request.Email, false, statusCheck.FirstError.Description,
@@ -126,37 +127,12 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
 
         // Build device info and delegate token generation to shared builder
-        var deviceInfo = BuildDeviceInfo(request.UserAgent, request.DeviceId);
+        var deviceInfo = AuthenticationHelper.BuildDeviceInfo(request.UserAgent, request.DeviceId);
         var loginResponse = await _loginResponseBuilder.BuildAsync(user, request.IpAddress, deviceInfo, cancellationToken);
 
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         return loginResponse;
-    }
-
-    private static ErrorOr<Success> CheckAccountStatus(User user)
-    {
-        return user.Status switch
-        {
-            UserStatus.Inactive => UserErrors.AccountInactive,
-            UserStatus.Locked => UserErrors.AccountLocked,
-            UserStatus.Pending => UserErrors.AccountPending,
-            _ => Result.Success
-        };
-    }
-
-    private static string? BuildDeviceInfo(string? userAgent, string? deviceId)
-    {
-        if (string.IsNullOrEmpty(userAgent) && string.IsNullOrEmpty(deviceId))
-            return null;
-
-        if (string.IsNullOrEmpty(deviceId))
-            return userAgent;
-
-        if (string.IsNullOrEmpty(userAgent))
-            return $"DeviceId: {deviceId}";
-
-        return $"{userAgent} | DeviceId: {deviceId}";
     }
 
     private async Task RecordLoginAttemptAsync(

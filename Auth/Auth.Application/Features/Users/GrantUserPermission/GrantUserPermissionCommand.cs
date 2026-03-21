@@ -15,5 +15,5 @@ public record GrantUserPermissionCommand(
     /// <summary>
     /// The ID of the user granting this permission (for audit).
     /// </summary>
-    public Guid GrantedBy { get; set; }
+    public Guid GrantedBy { get; init; }
 }

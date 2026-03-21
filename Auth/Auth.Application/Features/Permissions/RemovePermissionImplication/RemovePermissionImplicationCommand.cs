@@ -13,5 +13,5 @@ public record RemovePermissionImplicationCommand(
     /// <summary>
     /// The ID of the user removing this implication (for audit).
     /// </summary>
-    public Guid RemovedBy { get; set; }
+    public Guid RemovedBy { get; init; }
 }

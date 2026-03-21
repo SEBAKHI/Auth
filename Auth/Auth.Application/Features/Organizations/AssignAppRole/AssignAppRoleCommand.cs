@@ -17,5 +17,5 @@ public record AssignAppRoleCommand(
     /// <summary>
     /// The ID of the user assigning the role.
     /// </summary>
-    public Guid AssignedBy { get; set; }
+    public Guid AssignedBy { get; init; }
 }

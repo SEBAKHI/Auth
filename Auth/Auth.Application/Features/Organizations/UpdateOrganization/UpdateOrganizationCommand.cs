@@ -19,5 +19,5 @@ public record UpdateOrganizationCommand(
     /// <summary>
     /// The ID of the user performing the update.
     /// </summary>
-    public Guid ModifiedBy { get; set; }
+    public Guid ModifiedBy { get; init; }
 }

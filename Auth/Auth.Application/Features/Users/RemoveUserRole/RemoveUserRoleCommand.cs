@@ -14,5 +14,5 @@ public record RemoveUserRoleCommand(
     /// <summary>
     /// The ID of the user removing this role (for audit).
     /// </summary>
-    public Guid RemovedBy { get; set; }
+    public Guid RemovedBy { get; init; }
 }

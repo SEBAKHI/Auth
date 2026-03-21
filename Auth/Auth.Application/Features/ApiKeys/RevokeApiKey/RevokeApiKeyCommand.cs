@@ -13,5 +13,5 @@ public record RevokeApiKeyCommand(
     /// <summary>
     /// The ID of the user revoking this API key (for audit).
     /// </summary>
-    public Guid RevokedBy { get; set; }
+    public Guid RevokedBy { get; init; }
 }

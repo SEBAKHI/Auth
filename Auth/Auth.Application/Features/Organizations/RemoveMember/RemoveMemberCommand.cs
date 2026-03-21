@@ -13,5 +13,5 @@ public record RemoveMemberCommand(
     /// <summary>
     /// The ID of the user performing the removal.
     /// </summary>
-    public Guid RemovedBy { get; set; }
+    public Guid RemovedBy { get; init; }
 }

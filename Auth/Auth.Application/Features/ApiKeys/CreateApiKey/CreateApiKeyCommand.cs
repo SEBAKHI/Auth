@@ -20,5 +20,5 @@ public record CreateApiKeyCommand(
     /// <summary>
     /// The ID of the user creating this API key (for audit).
     /// </summary>
-    public Guid CreatedBy { get; set; }
+    public Guid CreatedBy { get; init; }
 }

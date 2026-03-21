@@ -20,7 +20,7 @@ public record ExportAuditLogsCommand(
     /// <summary>
     /// The ID of the user requesting the export (for audit).
     /// </summary>
-    public Guid RequestedBy { get; set; }
+    public Guid RequestedBy { get; init; }
 }
 
 /// <summary>

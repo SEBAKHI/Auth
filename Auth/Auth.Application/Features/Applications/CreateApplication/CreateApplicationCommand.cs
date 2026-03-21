@@ -23,5 +23,5 @@ public record CreateApplicationCommand(
     /// <summary>
     /// The ID of the user creating this application (for audit).
     /// </summary>
-    public Guid CreatedBy { get; set; }
+    public Guid CreatedBy { get; init; }
 }

@@ -14,5 +14,5 @@ public record RevokeUserPermissionCommand(
     /// <summary>
     /// The ID of the user revoking this permission (for audit).
     /// </summary>
-    public Guid RevokedBy { get; set; }
+    public Guid RevokedBy { get; init; }
 }
