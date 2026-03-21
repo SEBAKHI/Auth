@@ -6,7 +6,7 @@ namespace Auth.Domain.Entities;
 /// Represents an application registered in the authentication system.
 /// Applications provide SSO support and scope isolation for roles/permissions.
 /// </summary>
-public class Application : AuditableEntityBase
+public class Application : AggregateRoot
 {
     /// <summary>
     /// Gets the unique application code (e.g., "AUTH", "CRM", "ERP").

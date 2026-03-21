@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common;
 using Auth.Application.Features.ApiKeys.CreateApiKey;
 using Auth.Application.Features.ApiKeys.GetApiKeys;
 using Auth.Application.Features.ApiKeys.RevokeApiKey;
@@ -18,13 +19,13 @@ namespace Auth_API.Modules.ApiKeyManagement.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Authorize]
-public class ApiKeysController : ControllerBase
+public class ApiKeysController : ApiController
 {
-    private readonly IMediator _mediator;
+    private readonly ISender _sender;
 
-    public ApiKeysController(IMediator mediator)
+    public ApiKeysController(ISender sender)
     {
-        _mediator = mediator;
+        _sender = sender;
     }
 
     /// <summary>
@@ -38,13 +39,11 @@ public class ApiKeysController : ControllerBase
     public async Task<IActionResult> GetApiKeys([FromQuery] Guid applicationId)
     {
         var query = new GetApiKeysQuery(applicationId);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             apiKeys => Ok(apiKeys),
-            errors => Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -72,11 +71,11 @@ public class ApiKeysController : ControllerBase
             CreatedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             apiKey => CreatedAtAction(nameof(GetApiKeys), new { applicationId = request.ApplicationId }, apiKey),
-            errors => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -97,16 +96,11 @@ public class ApiKeysController : ControllerBase
             RevokedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -127,16 +121,11 @@ public class ApiKeysController : ControllerBase
             request?.GracePeriodMinutes ?? 60,
             userId);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             response => Ok(response),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Validation => BadRequest(new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     private Guid GetCurrentUserId()

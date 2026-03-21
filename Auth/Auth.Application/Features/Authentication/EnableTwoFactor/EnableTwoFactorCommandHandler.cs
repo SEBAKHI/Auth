@@ -15,17 +15,20 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
     private readonly IUserRepository _userRepository;
     private readonly ITwoFactorAuthRepository _twoFactorRepository;
     private readonly ITotpService _totpService;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<EnableTwoFactorCommandHandler> _logger;
 
     public EnableTwoFactorCommandHandler(
         IUserRepository userRepository,
         ITwoFactorAuthRepository twoFactorRepository,
         ITotpService totpService,
+        IDomainEventDispatcher eventDispatcher,
         ILogger<EnableTwoFactorCommandHandler> logger)
     {
         _userRepository = userRepository;
         _twoFactorRepository = twoFactorRepository;
         _totpService = totpService;
+        _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
 
@@ -75,6 +78,11 @@ public class EnableTwoFactorCommandHandler : IRequestHandler<EnableTwoFactorComm
         _logger.LogInformation(
             "Two-factor authentication enabled for user {UserId}",
             request.UserId);
+
+        if (user != null)
+        {
+            await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
+        }
 
         return new EnableTwoFactorResponse(recoveryCodes);
     }

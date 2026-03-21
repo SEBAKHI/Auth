@@ -1,3 +1,4 @@
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -11,13 +12,16 @@ namespace Auth.Application.Features.Users.DeleteUser;
 public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IPublisher _publisher;
     private readonly ILogger<DeleteUserCommandHandler> _logger;
 
     public DeleteUserCommandHandler(
         IUserRepository userRepository,
+        IPublisher publisher,
         ILogger<DeleteUserCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -42,6 +46,10 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, Error
         _logger.LogInformation(
             "User deleted: {UserId} by {DeletedBy}",
             request.Id, request.DeletedBy);
+
+        await _publisher.Publish(
+            new UserDeletedEvent(request.Id, user.Email, request.DeletedBy),
+            cancellationToken);
 
         return Result.Success;
     }

@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Auth_API.Common;
 using Auth.Application.Features.Organizations.AcceptInvitation;
 using Auth.Application.DTOs;
 using MediatR;
@@ -13,13 +14,13 @@ namespace Auth_API.Modules.OrganizationManagement.Controllers;
 [ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
-public class InvitationsController : ControllerBase
+public class InvitationsController : ApiController
 {
-    private readonly IMediator _mediator;
+    private readonly ISender _sender;
 
-    public InvitationsController(IMediator mediator)
+    public InvitationsController(ISender sender)
     {
-        _mediator = mediator;
+        _sender = sender;
     }
 
     /// <summary>
@@ -37,17 +38,11 @@ public class InvitationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var command = new AcceptInvitationCommand(token) { AcceptedBy = userId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             acceptResult => Ok(acceptResult),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     private Guid GetCurrentUserId()

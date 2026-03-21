@@ -4,6 +4,7 @@ using Auth.Application.Features.Authentication.DisableTwoFactor;
 using Auth.Application.Features.Authentication.EnableTwoFactor;
 using Auth.Application.Features.Authentication.SetupTwoFactor;
 using Auth.Domain.Constants;
+using Auth_API.Common;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,14 +19,14 @@ namespace Auth_API.Modules.Authentication.Controllers;
 [Route("api/v{version:apiVersion}/auth/2fa")]
 [Produces("application/json")]
 [Authorize]
-public class TwoFactorController : ControllerBase
+public class TwoFactorController : ApiController
 {
-    private readonly IMediator _mediator;
+    private readonly ISender _sender;
     private readonly ILogger<TwoFactorController> _logger;
 
-    public TwoFactorController(IMediator mediator, ILogger<TwoFactorController> logger)
+    public TwoFactorController(ISender sender, ILogger<TwoFactorController> logger)
     {
-        _mediator = mediator;
+        _sender = sender;
         _logger = logger;
     }
 
@@ -47,7 +48,7 @@ public class TwoFactorController : ControllerBase
         }
 
         var command = new SetupTwoFactorCommand(userId.Value);
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -72,7 +73,7 @@ public class TwoFactorController : ControllerBase
         }
 
         var command = new EnableTwoFactorCommand(userId.Value, request.Code);
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -97,7 +98,7 @@ public class TwoFactorController : ControllerBase
         }
 
         var command = new DisableTwoFactorCommand(userId.Value, request.Code);
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -116,39 +117,6 @@ public class TwoFactorController : ControllerBase
         return null;
     }
 
-    private IActionResult Problem(IEnumerable<ErrorOr.Error> errors)
-    {
-        var firstError = errors.First();
-
-        var statusCode = firstError.Type switch
-        {
-            ErrorOr.ErrorType.Validation => StatusCodes.Status400BadRequest,
-            ErrorOr.ErrorType.NotFound => StatusCodes.Status404NotFound,
-            ErrorOr.ErrorType.Conflict => StatusCodes.Status409Conflict,
-            ErrorOr.ErrorType.Forbidden => StatusCodes.Status403Forbidden,
-            ErrorOr.ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
-            _ => StatusCodes.Status500InternalServerError
-        };
-
-        var problemDetails = new ProblemDetails
-        {
-            Status = statusCode,
-            Title = firstError.Code,
-            Detail = firstError.Description,
-            Instance = Request.Path
-        };
-
-        if (errors.Count() > 1)
-        {
-            problemDetails.Extensions["errors"] = errors.Select(e => new
-            {
-                code = e.Code,
-                description = e.Description
-            });
-        }
-
-        return StatusCode(statusCode, problemDetails);
-    }
 }
 
 /// <summary>

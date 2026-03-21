@@ -7,7 +7,7 @@ namespace Auth.Domain.Entities;
 /// Represents a permission in the hierarchical permission system.
 /// Supports wildcard patterns (e.g., "crm:*", "crm:leads:*", "crm:leads:read").
 /// </summary>
-public class Permission : AuditableEntityBase
+public class Permission : AggregateRoot
 {
     /// <summary>
     /// Gets the ID of the application this permission belongs to.

@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common;
 using Auth.Application.Features.Roles.CreateRole;
 using Auth.Application.Features.Roles.DeleteRole;
 using Auth.Application.Features.Roles.GetRoleById;
@@ -19,13 +20,13 @@ namespace Auth_API.Modules.RoleManagement.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Authorize]
-public class RolesController : ControllerBase
+public class RolesController : ApiController
 {
-    private readonly IMediator _mediator;
+    private readonly ISender _sender;
 
-    public RolesController(IMediator mediator)
+    public RolesController(ISender sender)
     {
-        _mediator = mediator;
+        _sender = sender;
     }
 
     /// <summary>
@@ -39,13 +40,11 @@ public class RolesController : ControllerBase
     public async Task<IActionResult> GetRoles([FromQuery] Guid? applicationId = null)
     {
         var query = new GetRolesQuery(applicationId);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             roles => Ok(roles),
-            errors => Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -60,13 +59,11 @@ public class RolesController : ControllerBase
     public async Task<IActionResult> GetRole(Guid id)
     {
         var query = new GetRoleByIdQuery(id);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             role => Ok(role),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -91,13 +88,11 @@ public class RolesController : ControllerBase
             CreatedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             role => CreatedAtAction(nameof(GetRole), new { id = role.Id }, role),
-            errors => errors.First().Type == ErrorOr.ErrorType.Conflict
-                ? Conflict(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -117,16 +112,11 @@ public class RolesController : ControllerBase
             ModifiedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             role => Ok(role),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -142,16 +132,11 @@ public class RolesController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var command = new DeleteRoleCommand(id) { DeletedBy = userId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     private Guid GetCurrentUserId()

@@ -1,3 +1,4 @@
+using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -12,15 +13,18 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
 {
     private readonly IUserRepository _userRepository;
     private readonly IUserSessionRepository _sessionRepository;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<LockAccountCommandHandler> _logger;
 
     public LockAccountCommandHandler(
         IUserRepository userRepository,
         IUserSessionRepository sessionRepository,
+        IDomainEventDispatcher eventDispatcher,
         ILogger<LockAccountCommandHandler> logger)
     {
         _userRepository = userRepository;
         _sessionRepository = sessionRepository;
+        _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
 
@@ -55,6 +59,8 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
             request.LockedBy,
             request.Reason,
             lockoutEnd?.ToString() ?? "Indefinite");
+
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         return Result.Success;
     }

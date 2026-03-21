@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common;
 using Auth.Application.Features.Users.ActivateAccount;
 using Auth.Application.Features.Users.AssignRole;
 using Auth.Application.Features.Users.CreateUser;
@@ -30,13 +31,13 @@ namespace Auth_API.Modules.UserManagement.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Authorize]
-public class UsersController : ControllerBase
+public class UsersController : ApiController
 {
-    private readonly IMediator _mediator;
+    private readonly ISender _sender;
 
-    public UsersController(IMediator mediator)
+    public UsersController(ISender sender)
     {
-        _mediator = mediator;
+        _sender = sender;
     }
 
     /// <summary>
@@ -53,13 +54,11 @@ public class UsersController : ControllerBase
         [FromQuery] string? searchTerm = null)
     {
         var query = new GetUsersQuery(pageNumber, pageSize, searchTerm);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             users => Ok(users),
-            errors => Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -74,13 +73,11 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetUser(Guid id)
     {
         var query = new GetUserByIdQuery(id);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             user => Ok(user),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -109,13 +106,11 @@ public class UsersController : ControllerBase
             CreatedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             user => CreatedAtAction(nameof(GetUser), new { id = user.Id }, user),
-            errors => errors.First().Type == ErrorOr.ErrorType.Conflict
-                ? Conflict(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -142,13 +137,11 @@ public class UsersController : ControllerBase
             ModifiedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             user => Ok(user),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -164,13 +157,11 @@ public class UsersController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var command = new DeleteUserCommand(id) { DeletedBy = userId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -191,16 +182,11 @@ public class UsersController : ControllerBase
             AssignedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -215,13 +201,11 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetUserRoles(Guid id)
     {
         var query = new GetUserRolesQuery(id);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             roles => Ok(roles),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -237,13 +221,11 @@ public class UsersController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var command = new RemoveUserRoleCommand(id, roleId) { RemovedBy = userId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -258,13 +240,11 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> GetUserPermissions(Guid id)
     {
         var query = new GetUserPermissionsQuery(id);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             permissions => Ok(permissions),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -285,16 +265,11 @@ public class UsersController : ControllerBase
             GrantedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -310,13 +285,11 @@ public class UsersController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var command = new RevokeUserPermissionCommand(id, permissionId) { RevokedBy = userId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -337,13 +310,11 @@ public class UsersController : ControllerBase
             request.LockDurationMinutes,
             userId);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -360,13 +331,11 @@ public class UsersController : ControllerBase
         var userId = GetCurrentUserId();
         var command = new UnlockAccountCommand(id, userId);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -383,13 +352,11 @@ public class UsersController : ControllerBase
         var userId = GetCurrentUserId();
         var command = new ActivateAccountCommand(id, userId);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -406,13 +373,11 @@ public class UsersController : ControllerBase
         var userId = GetCurrentUserId();
         var command = new DeactivateAccountCommand(id, userId);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -430,13 +395,11 @@ public class UsersController : ControllerBase
         }
 
         var query = new GetUserByIdQuery(userId);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             user => Ok(user),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -464,13 +427,11 @@ public class UsersController : ControllerBase
             request.PreferredLanguage,
             request.TimeZone);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             user => Ok(user),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     private Guid GetCurrentUserId()

@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common;
 using Auth.Application.Features.Organizations.AssignAppRole;
 using Auth.Application.Features.Organizations.CreateOrganization;
 using Auth.Application.Features.Organizations.DeleteOrganization;
@@ -30,13 +31,13 @@ namespace Auth_API.Modules.OrganizationManagement.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Authorize]
-public class OrganizationsController : ControllerBase
+public class OrganizationsController : ApiController
 {
-    private readonly IMediator _mediator;
+    private readonly ISender _sender;
 
-    public OrganizationsController(IMediator mediator)
+    public OrganizationsController(ISender sender)
     {
-        _mediator = mediator;
+        _sender = sender;
     }
 
     /// <summary>
@@ -49,13 +50,11 @@ public class OrganizationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var query = new GetUserOrganizationsQuery(userId);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             organizations => Ok(organizations),
-            errors => Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -70,16 +69,11 @@ public class OrganizationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var query = new GetOrganizationByIdQuery(id) { RequestedBy = userId };
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             organization => Ok(organization),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -104,13 +98,11 @@ public class OrganizationsController : ControllerBase
             CreatedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             organization => CreatedAtAction(nameof(GetOrganization), new { id = organization.Id }, organization),
-            errors => errors.First().Type == ErrorOr.ErrorType.Conflict
-                ? Conflict(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -137,16 +129,11 @@ public class OrganizationsController : ControllerBase
             ModifiedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             organization => Ok(organization),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -161,16 +148,11 @@ public class OrganizationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var command = new DeleteOrganizationCommand(id) { RequestedBy = userId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     #region Members
@@ -192,16 +174,11 @@ public class OrganizationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var query = new GetOrganizationMembersQuery(id, pageNumber, pageSize, search) { RequestedBy = userId };
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             members => Ok(members),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -220,16 +197,11 @@ public class OrganizationsController : ControllerBase
     {
         var currentUserId = GetCurrentUserId();
         var command = new UpdateMemberRoleCommand(orgId, userId, request.RoleId) { ModifiedBy = currentUserId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             member => Ok(member),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -245,16 +217,11 @@ public class OrganizationsController : ControllerBase
     {
         var currentUserId = GetCurrentUserId();
         var command = new RemoveMemberCommand(orgId, userId) { RemovedBy = currentUserId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     #endregion
@@ -274,16 +241,11 @@ public class OrganizationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var query = new GetPendingInvitationsQuery(id) { RequestedBy = userId };
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             invitations => Ok(invitations),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -300,17 +262,11 @@ public class OrganizationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var command = new InviteMemberCommand(id, request.Email, request.RoleId) { InvitedBy = userId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             invitation => CreatedAtAction(nameof(GetPendingInvitations), new { id }, invitation),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     #endregion
@@ -330,16 +286,11 @@ public class OrganizationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var query = new GetOrganizationApplicationsQuery(id) { RequestedBy = userId };
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             apps => Ok(apps),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -359,17 +310,11 @@ public class OrganizationsController : ControllerBase
         {
             EnabledBy = userId
         };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             app => CreatedAtAction(nameof(GetApplications), new { id }, app),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -388,16 +333,11 @@ public class OrganizationsController : ControllerBase
         {
             ModifiedBy = userId
         };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             app => Ok(app),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -413,16 +353,11 @@ public class OrganizationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var command = new DisableApplicationCommand(id, applicationId) { DisabledBy = userId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     #endregion
@@ -449,17 +384,11 @@ public class OrganizationsController : ControllerBase
         {
             AssignedBy = currentUserId
         };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             role => CreatedAtAction(nameof(GetMembers), new { id = orgId }, role),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     #endregion
@@ -486,17 +415,11 @@ public class OrganizationsController : ControllerBase
         {
             GrantedBy = currentUserId
         };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             permission => CreatedAtAction(nameof(GetMembers), new { id = orgId }, permission),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     #endregion

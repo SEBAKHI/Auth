@@ -1,4 +1,5 @@
 using Auth.Domain.Enums;
+using Auth.Domain.Events;
 using Auth.Domain.Primitives;
 using Auth.Domain.ValueObjects;
 
@@ -7,7 +8,7 @@ namespace Auth.Domain.Entities;
 /// <summary>
 /// Represents a user account in the authentication system.
 /// </summary>
-public class User : AuditableEntityBase
+public class User : AggregateRoot
 {
     /// <summary>
     /// Gets the user's email address (used for login).
@@ -207,6 +208,7 @@ public class User : AuditableEntityBase
             PasswordChangedAt = DateTime.UtcNow
         };
         user.SetCreated(createdBy);
+        user.RaiseDomainEvent(new UserCreatedEvent(user.Id, user.Email, user.FirstName, user.LastName, createdBy));
         return user;
     }
 
@@ -244,6 +246,7 @@ public class User : AuditableEntityBase
             IsSystemUser = false
         };
         user.SetCreated(createdBy);
+        user.RaiseDomainEvent(new UserCreatedEvent(user.Id, user.Email, user.FirstName, user.LastName, createdBy));
         return user;
     }
 
@@ -271,13 +274,15 @@ public class User : AuditableEntityBase
         PasswordChangedAt = DateTime.UtcNow;
         MustChangePassword = false;
         SetModified(modifiedBy);
+        RaiseDomainEvent(new PasswordChangedEvent(Id, modifiedBy));
     }
 
-    public void RecordSuccessfulLogin()
+    public void RecordSuccessfulLogin(string? ipAddress = null, string? userAgent = null)
     {
         LastLoginAt = DateTime.UtcNow;
         FailedLoginAttempts = 0;
         LockoutEnd = null;
+        RaiseDomainEvent(new UserLoggedInEvent(Id, Email, ipAddress, userAgent));
     }
 
     public void RecordFailedLogin(int maxAttempts, TimeSpan lockoutDuration)
@@ -296,6 +301,7 @@ public class User : AuditableEntityBase
         FailedLoginAttempts = 0;
         LockoutEnd = null;
         SetModified(modifiedBy);
+        RaiseDomainEvent(new UserUnlockedEvent(Id, modifiedBy));
     }
 
     public void Lock(DateTime? lockoutEnd, Guid modifiedBy)
@@ -303,6 +309,7 @@ public class User : AuditableEntityBase
         Status = UserStatus.Locked;
         LockoutEnd = lockoutEnd;
         SetModified(modifiedBy);
+        RaiseDomainEvent(new UserLockedEvent(Id, lockoutEnd, modifiedBy));
     }
 
     public void Activate(Guid modifiedBy)
@@ -334,6 +341,7 @@ public class User : AuditableEntityBase
         TwoFactorEnabled = true;
         TwoFactorSecret = secret;
         SetModified(modifiedBy);
+        RaiseDomainEvent(new TwoFactorEnabledEvent(Id, modifiedBy));
     }
 
     public void DisableTwoFactor(Guid modifiedBy)
@@ -341,6 +349,7 @@ public class User : AuditableEntityBase
         TwoFactorEnabled = false;
         TwoFactorSecret = null;
         SetModified(modifiedBy);
+        RaiseDomainEvent(new TwoFactorDisabledEvent(Id, modifiedBy));
     }
 
     public void RequirePasswordChange(Guid modifiedBy)

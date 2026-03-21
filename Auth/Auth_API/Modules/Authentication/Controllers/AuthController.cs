@@ -20,6 +20,7 @@ using Auth.Application.Features.Authentication.GetUserSessions;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
 using MediatR;
+using Auth_API.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -33,14 +34,14 @@ namespace Auth_API.Modules.Authentication.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Produces("application/json")]
-public class AuthController : ControllerBase
+public class AuthController : ApiController
 {
-    private readonly IMediator _mediator;
+    private readonly ISender _sender;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(IMediator mediator, ILogger<AuthController> logger)
+    public AuthController(ISender sender, ILogger<AuthController> logger)
     {
-        _mediator = mediator;
+        _sender = sender;
         _logger = logger;
     }
 
@@ -66,7 +67,7 @@ public class AuthController : ControllerBase
             GetUserAgent(),
             request.DeviceId);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -99,7 +100,7 @@ public class AuthController : ControllerBase
             request.TimeZone,
             request.CreateOrganization);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             response => StatusCode(StatusCodes.Status201Created, response),
@@ -116,7 +117,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> GetExternalProviders()
     {
         var query = new GetExternalProvidersQuery();
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match<IActionResult>(
             providers => Ok(providers),
@@ -147,7 +148,7 @@ public class AuthController : ControllerBase
             GetClientIpAddress(),
             GetUserAgent());
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -171,7 +172,7 @@ public class AuthController : ControllerBase
             GetClientIpAddress(),
             GetUserAgent());
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -202,7 +203,7 @@ public class AuthController : ControllerBase
             GetClientIpAddress(),
             request?.LogoutAllDevices ?? false);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -234,7 +235,7 @@ public class AuthController : ControllerBase
             request.TerminateSessions,
             GetCurrentSessionId());
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -255,7 +256,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
         var command = new ForgotPasswordCommand(request.Email);
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -279,7 +280,7 @@ public class AuthController : ControllerBase
             request.NewPassword,
             request.TerminateSessions);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -303,7 +304,7 @@ public class AuthController : ControllerBase
         }
 
         var query = new GetUserSessionsQuery(userId.Value, GetCurrentSessionId());
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match<IActionResult>(
             sessions => Ok(sessions),
@@ -329,7 +330,7 @@ public class AuthController : ControllerBase
         }
 
         var command = new TerminateSessionCommand(userId.Value, sessionId);
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -354,7 +355,7 @@ public class AuthController : ControllerBase
 
         // Exclude current session
         var command = new TerminateAllSessionsCommand(userId.Value, GetCurrentSessionId());
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             count => Ok(new { terminatedCount = count }),
@@ -447,7 +448,7 @@ public class AuthController : ControllerBase
             request.TokenTypeHint,
             userId);
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => Ok(),
@@ -469,7 +470,7 @@ public class AuthController : ControllerBase
             request.Token,
             request.TokenTypeHint);
 
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -496,7 +497,7 @@ public class AuthController : ControllerBase
         }
 
         var command = new SendEmailVerificationCommand(userId.Value);
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -517,7 +518,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
     {
         var command = new VerifyEmailCommand(request.UserId, request.Otp);
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
@@ -538,7 +539,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ResendVerificationEmail([FromBody] ResendEmailVerificationRequest request)
     {
         var command = new ResendEmailVerificationCommand(request.Email);
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             response => Ok(response),
@@ -554,39 +555,5 @@ public class AuthController : ControllerBase
         }
 
         return authHeader["Bearer ".Length..].Trim();
-    }
-
-    private IActionResult Problem(IEnumerable<ErrorOr.Error> errors)
-    {
-        var firstError = errors.First();
-
-        var statusCode = firstError.Type switch
-        {
-            ErrorOr.ErrorType.Validation => StatusCodes.Status400BadRequest,
-            ErrorOr.ErrorType.NotFound => StatusCodes.Status404NotFound,
-            ErrorOr.ErrorType.Conflict => StatusCodes.Status409Conflict,
-            ErrorOr.ErrorType.Forbidden => StatusCodes.Status403Forbidden,
-            ErrorOr.ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
-            _ => StatusCodes.Status500InternalServerError
-        };
-
-        var problemDetails = new ProblemDetails
-        {
-            Status = statusCode,
-            Title = firstError.Code,
-            Detail = firstError.Description,
-            Instance = Request.Path
-        };
-
-        if (errors.Count() > 1)
-        {
-            problemDetails.Extensions["errors"] = errors.Select(e => new
-            {
-                code = e.Code,
-                description = e.Description
-            });
-        }
-
-        return StatusCode(statusCode, problemDetails);
     }
 }

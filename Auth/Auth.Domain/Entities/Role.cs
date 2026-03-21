@@ -6,7 +6,7 @@ namespace Auth.Domain.Entities;
 /// Represents an authorization role that can be assigned to users.
 /// Roles are scoped to applications for SSO support.
 /// </summary>
-public class Role : AuditableEntityBase
+public class Role : AggregateRoot
 {
     /// <summary>
     /// Gets the ID of the application this role belongs to.

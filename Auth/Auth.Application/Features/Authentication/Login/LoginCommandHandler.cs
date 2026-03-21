@@ -20,7 +20,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
-    private readonly IPublisher _publisher;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly PasswordSettings _passwordSettings;
     private readonly ILogger<LoginCommandHandler> _logger;
 
@@ -29,7 +29,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         ILoginAttemptRepository loginAttemptRepository,
         IPasswordHasher passwordHasher,
         ILoginResponseBuilder loginResponseBuilder,
-        IPublisher publisher,
+        IDomainEventDispatcher eventDispatcher,
         IOptions<PasswordSettings> passwordSettings,
         ILogger<LoginCommandHandler> logger)
     {
@@ -37,7 +37,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         _loginAttemptRepository = loginAttemptRepository;
         _passwordHasher = passwordHasher;
         _loginResponseBuilder = loginResponseBuilder;
-        _publisher = publisher;
+        _eventDispatcher = eventDispatcher;
         _passwordSettings = passwordSettings.Value;
         _logger = logger;
     }
@@ -122,13 +122,14 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             _logger.LogInformation("Rehashed password for user {UserId} due to parameter changes", user.Id);
         }
 
+        // Record successful login on entity (raises UserLoggedInEvent)
+        user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
+
         // Build device info and delegate token generation to shared builder
         var deviceInfo = BuildDeviceInfo(request.UserAgent, request.DeviceId);
         var loginResponse = await _loginResponseBuilder.BuildAsync(user, request.IpAddress, deviceInfo, cancellationToken);
 
-        await _publisher.Publish(
-            new UserLoggedInEvent(user.Id, user.Email, request.IpAddress, request.UserAgent),
-            cancellationToken);
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         return loginResponse;
     }

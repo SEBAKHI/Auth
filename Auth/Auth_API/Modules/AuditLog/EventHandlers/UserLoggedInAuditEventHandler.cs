@@ -1,5 +1,5 @@
 using Auth.Domain.Interfaces.Repositories;
-using Auth.Application.Features.Authentication.Login;
+using Auth.Domain.Events;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;

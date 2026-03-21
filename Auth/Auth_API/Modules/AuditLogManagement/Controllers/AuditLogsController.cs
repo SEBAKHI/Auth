@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common;
 using Auth.Application.Features.AuditLogs.ExportAuditLogs;
 using Auth.Application.Features.AuditLogs.GetAuditLogById;
 using Auth.Application.Features.AuditLogs.GetAuditLogs;
@@ -19,13 +20,13 @@ namespace Auth_API.Modules.AuditLogManagement.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/audit-logs")]
 [Authorize]
-public class AuditLogsController : ControllerBase
+public class AuditLogsController : ApiController
 {
-    private readonly IMediator _mediator;
+    private readonly ISender _sender;
 
-    public AuditLogsController(IMediator mediator)
+    public AuditLogsController(ISender sender)
     {
-        _mediator = mediator;
+        _sender = sender;
     }
 
     /// <summary>
@@ -50,13 +51,11 @@ public class AuditLogsController : ControllerBase
         var query = new GetAuditLogsQuery(
             pageNumber, pageSize, userId, applicationId,
             actionType, action, fromDate, toDate, isSuccess);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             logs => Ok(logs),
-            errors => Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -71,13 +70,11 @@ public class AuditLogsController : ControllerBase
     public async Task<IActionResult> GetAuditLog(Guid id)
     {
         var query = new GetAuditLogByIdQuery(id);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             log => Ok(log),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -97,13 +94,11 @@ public class AuditLogsController : ControllerBase
         [FromQuery] DateTime? toDate = null)
     {
         var query = new GetAuditLogsByUserQuery(userId, pageNumber, pageSize, fromDate, toDate);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             logs => Ok(logs),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -117,13 +112,11 @@ public class AuditLogsController : ControllerBase
     public async Task<IActionResult> GetAuditLogsByEntity(string entityType, Guid entityId)
     {
         var query = new GetAuditLogsByEntityQuery(entityType, entityId);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             logs => Ok(logs),
-            errors => Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -152,13 +145,11 @@ public class AuditLogsController : ControllerBase
             RequestedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             export => File(export.Content, export.ContentType, export.FileName),
-            errors => Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     private Guid GetCurrentUserId()

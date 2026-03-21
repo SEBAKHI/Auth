@@ -14,17 +14,20 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
     private readonly IUserRepository _userRepository;
     private readonly ITwoFactorAuthRepository _twoFactorRepository;
     private readonly ITotpService _totpService;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<DisableTwoFactorCommandHandler> _logger;
 
     public DisableTwoFactorCommandHandler(
         IUserRepository userRepository,
         ITwoFactorAuthRepository twoFactorRepository,
         ITotpService totpService,
+        IDomainEventDispatcher eventDispatcher,
         ILogger<DisableTwoFactorCommandHandler> logger)
     {
         _userRepository = userRepository;
         _twoFactorRepository = twoFactorRepository;
         _totpService = totpService;
+        _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
 
@@ -73,6 +76,11 @@ public class DisableTwoFactorCommandHandler : IRequestHandler<DisableTwoFactorCo
         _logger.LogInformation(
             "Two-factor authentication disabled for user {UserId}",
             request.UserId);
+
+        if (user != null)
+        {
+            await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
+        }
 
         return Result.Success;
     }

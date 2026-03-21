@@ -20,7 +20,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
     private readonly IUserSessionRepository _userSessionRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
-    private readonly IPublisher _publisher;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
     private readonly ILogger<ChangePasswordCommandHandler> _logger;
@@ -31,7 +31,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         IUserSessionRepository userSessionRepository,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
-        IPublisher publisher,
+        IDomainEventDispatcher eventDispatcher,
         IOptions<PasswordSettings> passwordSettings,
         IOptions<SessionSettings> sessionSettings,
         ILogger<ChangePasswordCommandHandler> logger)
@@ -41,7 +41,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         _userSessionRepository = userSessionRepository;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
-        _publisher = publisher;
+        _eventDispatcher = eventDispatcher;
         _passwordSettings = passwordSettings.Value;
         _sessionSettings = sessionSettings.Value;
         _logger = logger;
@@ -110,7 +110,8 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
 
         await _passwordHistoryRepository.AddAsync(passwordHistory, cancellationToken);
 
-        // Update the password
+        // Update the password (entity raises PasswordChangedEvent)
+        user.ChangePassword(newPasswordHash, request.UserId);
         await _userRepository.UpdatePasswordAsync(
             request.UserId,
             newPasswordHash,
@@ -162,9 +163,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
                 request.UserId);
         }
 
-        await _publisher.Publish(
-            new PasswordChangedEvent(request.UserId, request.UserId),
-            cancellationToken);
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         return Result.Success;
     }

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
 using ErrorOr;
@@ -16,17 +17,20 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
     private readonly IApiKeyRepository _apiKeyRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IPublisher _publisher;
     private readonly ILogger<CreateApiKeyCommandHandler> _logger;
 
     public CreateApiKeyCommandHandler(
         IApiKeyRepository apiKeyRepository,
         IPermissionRepository permissionRepository,
         IPasswordHasher passwordHasher,
+        IPublisher publisher,
         ILogger<CreateApiKeyCommandHandler> logger)
     {
         _apiKeyRepository = apiKeyRepository;
         _permissionRepository = permissionRepository;
         _passwordHasher = passwordHasher;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -69,6 +73,10 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
         _logger.LogInformation(
             "API key created: {ApiKeyId} for application {ApplicationId} by {CreatedBy}",
             apiKey.Id, request.ApplicationId, request.CreatedBy);
+
+        await _publisher.Publish(
+            new ApiKeyCreatedEvent(apiKey.Id, request.ApplicationId, request.Name, request.CreatedBy),
+            cancellationToken);
 
         return new CreateApiKeyResponse
         {

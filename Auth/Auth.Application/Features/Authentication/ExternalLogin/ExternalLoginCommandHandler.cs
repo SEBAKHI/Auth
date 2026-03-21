@@ -22,6 +22,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly IUserRepository _userRepository;
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<ExternalLoginCommandHandler> _logger;
 
     public ExternalLoginCommandHandler(
@@ -30,6 +31,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         IUserRepository userRepository,
         IPersonalOrganizationCreator personalOrganizationCreator,
         ILoginResponseBuilder loginResponseBuilder,
+        IDomainEventDispatcher eventDispatcher,
         ILogger<ExternalLoginCommandHandler> logger)
     {
         _providerFactory = providerFactory;
@@ -37,6 +39,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         _userRepository = userRepository;
         _personalOrganizationCreator = personalOrganizationCreator;
         _loginResponseBuilder = loginResponseBuilder;
+        _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
 
@@ -144,9 +147,16 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         if (user.IsLockedOut())
             return UserErrors.AccountLockedUntil(user.LockoutEnd);
 
+        // Record successful login on entity (raises UserLoggedInEvent)
+        user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
+
         // Build device info and return login response
         var deviceInfo = BuildDeviceInfo(request.UserAgent, request.DeviceId);
-        return await _loginResponseBuilder.BuildAsync(user, request.IpAddress, deviceInfo, cancellationToken);
+        var loginResponse = await _loginResponseBuilder.BuildAsync(user, request.IpAddress, deviceInfo, cancellationToken);
+
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
+
+        return loginResponse;
     }
 
     private static ErrorOr<Success> CheckAccountStatus(User user)

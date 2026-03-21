@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common;
 using Auth.Application.Features.Permissions.AddPermissionImplication;
 using Auth.Application.Features.Permissions.CreatePermission;
 using Auth.Application.Features.Permissions.DeletePermission;
@@ -18,17 +19,16 @@ namespace Auth_API.Modules.PermissionManagement.Controllers;
 /// <summary>
 /// Controller for permission management operations.
 /// </summary>
-[ApiController]
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Authorize]
-public class PermissionsController : ControllerBase
+public class PermissionsController : ApiController
 {
-    private readonly IMediator _mediator;
+    private readonly ISender _sender;
 
-    public PermissionsController(IMediator mediator)
+    public PermissionsController(ISender sender)
     {
-        _mediator = mediator;
+        _sender = sender;
     }
 
     /// <summary>
@@ -42,13 +42,11 @@ public class PermissionsController : ControllerBase
     public async Task<IActionResult> GetPermissions([FromQuery] Guid? applicationId = null)
     {
         var query = new GetPermissionsQuery(applicationId);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             permissions => Ok(permissions),
-            errors => Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -63,13 +61,11 @@ public class PermissionsController : ControllerBase
     public async Task<IActionResult> GetPermission(Guid id)
     {
         var query = new GetPermissionByIdQuery(id);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             permission => Ok(permission),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -95,13 +91,11 @@ public class PermissionsController : ControllerBase
             CreatedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             permission => CreatedAtAction(nameof(GetPermission), new { id = permission.Id }, permission),
-            errors => errors.First().Type == ErrorOr.ErrorType.Conflict
-                ? Conflict(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -121,16 +115,11 @@ public class PermissionsController : ControllerBase
             ModifiedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             permission => Ok(permission),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -146,16 +135,11 @@ public class PermissionsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var command = new DeletePermissionCommand(id) { DeletedBy = userId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -170,13 +154,11 @@ public class PermissionsController : ControllerBase
     public async Task<IActionResult> GetPermissionImplications(Guid id)
     {
         var query = new GetPermissionImplicationsQuery(id);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             implications => Ok(implications),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -198,17 +180,11 @@ public class PermissionsController : ControllerBase
             CreatedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => StatusCode(StatusCodes.Status201Created),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Validation => BadRequest(new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -228,13 +204,11 @@ public class PermissionsController : ControllerBase
             RemovedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     private Guid GetCurrentUserId()

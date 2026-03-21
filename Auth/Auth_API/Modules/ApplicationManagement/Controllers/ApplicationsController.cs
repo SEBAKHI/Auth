@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common;
 using Auth.Application.Features.Applications.CreateApplication;
 using Auth.Application.Features.Applications.DeleteApplication;
 using Auth.Application.Features.Applications.GetApplicationById;
@@ -21,13 +22,13 @@ namespace Auth_API.Modules.ApplicationManagement.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Authorize]
-public class ApplicationsController : ControllerBase
+public class ApplicationsController : ApiController
 {
-    private readonly IMediator _mediator;
+    private readonly ISender _sender;
 
-    public ApplicationsController(IMediator mediator)
+    public ApplicationsController(ISender sender)
     {
-        _mediator = mediator;
+        _sender = sender;
     }
 
     /// <summary>
@@ -45,13 +46,11 @@ public class ApplicationsController : ControllerBase
         [FromQuery] bool? isActive = null)
     {
         var query = new GetApplicationsQuery(pageNumber, pageSize, search, isActive);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             applications => Ok(applications),
-            errors => Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -66,13 +65,11 @@ public class ApplicationsController : ControllerBase
     public async Task<IActionResult> GetApplication(Guid id)
     {
         var query = new GetApplicationByIdQuery(id);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             application => Ok(application),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -87,13 +84,11 @@ public class ApplicationsController : ControllerBase
     public async Task<IActionResult> GetApplicationRoles(Guid id)
     {
         var query = new GetApplicationRolesQuery(id);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             roles => Ok(roles),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -108,13 +103,11 @@ public class ApplicationsController : ControllerBase
     public async Task<IActionResult> GetApplicationPermissions(Guid id)
     {
         var query = new GetApplicationPermissionsQuery(id);
-        var result = await _mediator.Send(query);
+        var result = await _sender.Send(query);
 
         return result.Match(
             permissions => Ok(permissions),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -146,13 +139,11 @@ public class ApplicationsController : ControllerBase
             CreatedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             application => CreatedAtAction(nameof(GetApplication), new { id = application.Id }, application),
-            errors => errors.First().Type == ErrorOr.ErrorType.Conflict
-                ? Conflict(new { error = errors.First().Description })
-                : Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -183,16 +174,11 @@ public class ApplicationsController : ControllerBase
             ModifiedBy = userId
         };
 
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match(
             application => Ok(application),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -209,17 +195,11 @@ public class ApplicationsController : ControllerBase
     {
         var userId = GetCurrentUserId();
         var command = new DeleteApplicationCommand(id) { DeletedBy = userId };
-        var result = await _mediator.Send(command);
+        var result = await _sender.Send(command);
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type switch
-            {
-                ErrorOr.ErrorType.NotFound => NotFound(new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Forbidden => StatusCode(StatusCodes.Status403Forbidden, new { error = errors.First().Description }),
-                ErrorOr.ErrorType.Conflict => Conflict(new { error = errors.First().Description }),
-                _ => Problem(statusCode: StatusCodes.Status400BadRequest, title: errors.First().Description)
-            });
+            errors => Problem(errors));
     }
 
     private Guid GetCurrentUserId()

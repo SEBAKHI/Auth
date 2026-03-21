@@ -7,7 +7,7 @@ namespace Auth.Domain.Entities;
 /// Represents an organization (tenant) in the multi-tenant authentication system.
 /// Organizations can subscribe to applications and manage their members.
 /// </summary>
-public class Organization : AuditableEntityBase
+public class Organization : AggregateRoot
 {
     /// <summary>
     /// Gets the unique organization code (slug) used in URLs and references.

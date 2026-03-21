@@ -1,5 +1,6 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;

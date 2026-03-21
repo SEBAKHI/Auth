@@ -1,3 +1,4 @@
+using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -11,13 +12,16 @@ namespace Auth.Application.Features.Users.UnlockAccount;
 public class UnlockAccountCommandHandler : IRequestHandler<UnlockAccountCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<UnlockAccountCommandHandler> _logger;
 
     public UnlockAccountCommandHandler(
         IUserRepository userRepository,
+        IDomainEventDispatcher eventDispatcher,
         ILogger<UnlockAccountCommandHandler> logger)
     {
         _userRepository = userRepository;
+        _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
 
@@ -39,6 +43,8 @@ public class UnlockAccountCommandHandler : IRequestHandler<UnlockAccountCommand,
             "User {UserId} account unlocked by {UnlockedBy}",
             request.UserId,
             request.UnlockedBy);
+
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         return Result.Success;
     }

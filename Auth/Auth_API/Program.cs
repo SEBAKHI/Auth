@@ -9,6 +9,7 @@ using Auth_API.Tools;
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Infrastructure;
 using Auth.Infrastructure.Authentication;
 using Auth.Infrastructure.Authorization;
 using Auth.Infrastructure.Persistence;
@@ -152,6 +153,9 @@ builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationT
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IExternalAuthProviderRepository, ExternalAuthProviderRepository>();
 builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
+
+// Domain Event Dispatcher
+builder.Services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
 
 // Services
 // Create password hasher first (needed for JwtTokenService and TotpService)

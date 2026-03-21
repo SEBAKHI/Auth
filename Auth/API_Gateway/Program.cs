@@ -1,6 +1,6 @@
 using System.Threading.RateLimiting;
 using API_Gateway.Middleware;
-using Auth.Infrastructure.Configuration;
+using Auth.Shared.Configuration;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
 using Serilog;

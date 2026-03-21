@@ -19,7 +19,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
     private readonly IPermissionRepository _permissionRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
-    private readonly IPublisher _publisher;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<CreateUserCommandHandler> _logger;
 
     public CreateUserCommandHandler(
@@ -28,7 +28,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         IPermissionRepository permissionRepository,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
-        IPublisher publisher,
+        IDomainEventDispatcher eventDispatcher,
         ILogger<CreateUserCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -36,7 +36,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         _permissionRepository = permissionRepository;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
-        _publisher = publisher;
+        _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
 
@@ -92,9 +92,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
             "User created: {UserId} ({Email}) by {CreatedBy}",
             user.Id, user.Email, request.CreatedBy);
 
-        await _publisher.Publish(
-            new UserCreatedEvent(user.Id, user.Email, user.FirstName, user.LastName, request.CreatedBy),
-            cancellationToken);
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         // Get effective permissions for the user
         var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);

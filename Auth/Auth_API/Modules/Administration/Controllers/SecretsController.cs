@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common;
 using Auth_API.Modules.Administration.Contracts;
 using Auth_API.Modules.Administration.Filters;
 using Auth.Application.Interfaces;
@@ -27,7 +28,7 @@ namespace Auth_API.Modules.Administration.Controllers;
 [Produces("application/json")]
 [Authorize]
 [RequireAdminApiEnabled]
-public class SecretsController : ControllerBase
+public class SecretsController : ApiController
 {
     private readonly ISender _sender;
 
@@ -54,9 +55,7 @@ public class SecretsController : ControllerBase
 
         return result.Match(
             status => Ok(status),
-            errors => Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -84,9 +83,7 @@ public class SecretsController : ControllerBase
                 Message = "RSA key pair regenerated successfully. All existing access tokens are now invalid. Users must re-authenticate.",
                 PublicKeyPem = publicKeyPem
             }),
-            errors => Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -113,9 +110,7 @@ public class SecretsController : ControllerBase
                 Success = true,
                 Message = "HMAC key regenerated successfully. All existing refresh tokens are now invalid. Users must re-authenticate."
             }),
-            errors => Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -142,9 +137,7 @@ public class SecretsController : ControllerBase
                 Message = "Gateway token regenerated successfully. Update API Gateway configuration with the new token.",
                 Token = token
             }),
-            errors => Problem(
-                statusCode: StatusCodes.Status500InternalServerError,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -176,9 +169,7 @@ public class SecretsController : ControllerBase
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => Problem(
-                statusCode: StatusCodes.Status400BadRequest,
-                title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     /// <summary>
@@ -207,16 +198,7 @@ public class SecretsController : ControllerBase
 
         return result.Match<IActionResult>(
             _ => NoContent(),
-            errors => errors.First().Type == ErrorOr.ErrorType.NotFound
-                ? NotFound(new ProblemDetails
-                {
-                    Title = "Secret Not Found",
-                    Detail = errors.First().Description,
-                    Status = StatusCodes.Status404NotFound
-                })
-                : Problem(
-                    statusCode: StatusCodes.Status500InternalServerError,
-                    title: errors.First().Description));
+            errors => Problem(errors));
     }
 
     private Guid GetUserId()
