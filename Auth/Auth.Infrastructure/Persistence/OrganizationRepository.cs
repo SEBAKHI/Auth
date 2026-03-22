@@ -107,7 +107,7 @@ public class OrganizationRepository : IOrganizationRepository
                 organization.Description,
                 organization.LogoUrl,
                 organization.Website,
-                organization.ContactEmail,
+                ContactEmail = organization.ContactEmail.Value,
                 organization.OwnerId,
                 organization.IsActive,
                 organization.IsAutoCreated,
@@ -143,7 +143,7 @@ public class OrganizationRepository : IOrganizationRepository
                 organization.Description,
                 organization.LogoUrl,
                 organization.Website,
-                organization.ContactEmail,
+                ContactEmail = organization.ContactEmail.Value,
                 organization.IsActive,
                 organization.ModifiedAt,
                 organization.ModifiedBy

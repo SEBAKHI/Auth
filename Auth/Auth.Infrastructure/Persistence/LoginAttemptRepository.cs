@@ -33,7 +33,7 @@ public class LoginAttemptRepository : ILoginAttemptRepository
             {
                 attempt.Id,
                 attempt.UserId,
-                Username = attempt.Email, // Map Email property to Username column
+                Username = attempt.Email.Value, // Map Email property to Username column
                 IsSuccessful = attempt.IsSuccess,
                 attempt.FailureReason,
                 attempt.IpAddress,

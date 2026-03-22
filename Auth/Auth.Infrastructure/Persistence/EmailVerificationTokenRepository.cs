@@ -50,7 +50,7 @@ public class EmailVerificationTokenRepository : IEmailVerificationTokenRepositor
                 token.Id,
                 token.UserId,
                 token.OtpHash,
-                token.Email,
+                Email = token.Email.Value,
                 token.ExpiresAt,
                 token.UsedAt,
                 token.AttemptCount,
