@@ -76,6 +76,13 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return UserErrors.AccountLockedUntil(user.LockoutEnd);
         }
 
+        // Auto-unlock if lockout has expired
+        if (user.Status == UserStatus.Locked)
+        {
+            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
+            user = (await _userRepository.GetByEmailAsync(request.Email, cancellationToken))!;
+        }
+
         // Guard: external-only users (no password) cannot use password login
         if (user.PasswordHash is null)
         {

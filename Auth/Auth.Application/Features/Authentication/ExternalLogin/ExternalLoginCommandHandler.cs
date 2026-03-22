@@ -148,6 +148,13 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         if (user.IsLockedOut())
             return UserErrors.AccountLockedUntil(user.LockoutEnd);
 
+        // Auto-unlock if lockout has expired
+        if (user.Status == UserStatus.Locked)
+        {
+            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
+            user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
+        }
+
         // Record successful login on entity (raises UserLoggedInEvent)
         user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
 

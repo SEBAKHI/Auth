@@ -19,7 +19,6 @@ internal static class AuthenticationHelper
         return user.Status switch
         {
             UserStatus.Inactive => UserErrors.AccountInactive,
-            UserStatus.Locked => UserErrors.AccountLocked,
             UserStatus.Pending => UserErrors.AccountPending,
             _ => Result.Success
         };
