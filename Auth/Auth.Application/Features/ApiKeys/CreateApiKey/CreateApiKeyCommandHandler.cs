@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Events;
@@ -15,21 +14,24 @@ namespace Auth.Application.Features.ApiKeys.CreateApiKey;
 public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, ErrorOr<CreateApiKeyResponse>>
 {
     private readonly IApiKeyRepository _apiKeyRepository;
+    private readonly IApplicationRepository _applicationRepository;
     private readonly IPermissionRepository _permissionRepository;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IApiKeyGenerator _apiKeyGenerator;
     private readonly IPublisher _publisher;
     private readonly ILogger<CreateApiKeyCommandHandler> _logger;
 
     public CreateApiKeyCommandHandler(
         IApiKeyRepository apiKeyRepository,
+        IApplicationRepository applicationRepository,
         IPermissionRepository permissionRepository,
-        IPasswordHasher passwordHasher,
+        IApiKeyGenerator apiKeyGenerator,
         IPublisher publisher,
         ILogger<CreateApiKeyCommandHandler> logger)
     {
         _apiKeyRepository = apiKeyRepository;
+        _applicationRepository = applicationRepository;
         _permissionRepository = permissionRepository;
-        _passwordHasher = passwordHasher;
+        _apiKeyGenerator = apiKeyGenerator;
         _publisher = publisher;
         _logger = logger;
     }
@@ -38,8 +40,17 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
         CreateApiKeyCommand request,
         CancellationToken cancellationToken)
     {
+        // Validate application exists
+        var application = await _applicationRepository.GetByIdAsync(request.ApplicationId, cancellationToken);
+        if (application is null)
+        {
+            return Error.NotFound(
+                code: "Application.NotFound",
+                description: "The specified application was not found.");
+        }
+
         // Generate the API key using Argon2id
-        var (apiKeyValue, keyPrefix, keyHash) = GenerateApiKey(request.Environment, _passwordHasher);
+        var (apiKeyValue, keyPrefix, keyHash) = _apiKeyGenerator.Generate(request.Environment);
 
         // Create the API key entity
         var apiKey = ApiKey.Create(
@@ -86,31 +97,5 @@ public class CreateApiKeyCommandHandler : IRequestHandler<CreateApiKeyCommand, E
             CreatedAt = apiKey.CreatedAt,
             ExpiresAt = apiKey.ExpiresAt
         };
-    }
-
-    private static (string ApiKey, string Prefix, string Hash) GenerateApiKey(string environment, IPasswordHasher passwordHasher)
-    {
-        // Generate 32 random bytes
-        var randomBytes = RandomNumberGenerator.GetBytes(32);
-        var randomPart = Convert.ToBase64String(randomBytes)
-            .Replace("+", "")
-            .Replace("/", "")
-            .Replace("=", "")[..32];
-
-        // Create prefix based on environment
-        var prefix = environment switch
-        {
-            "production" => "ak_prod_",
-            "staging" => "ak_stag_",
-            "development" => "ak_dev_",
-            _ => "ak_"
-        };
-
-        var apiKey = $"{prefix}{randomPart}";
-
-        // Hash the API key using Argon2id
-        var hash = passwordHasher.HashPassword(apiKey);
-
-        return (apiKey, prefix, hash);
     }
 }

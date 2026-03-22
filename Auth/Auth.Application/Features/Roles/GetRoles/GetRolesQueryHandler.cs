@@ -32,9 +32,7 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
         }
         else
         {
-            // For now, return empty list if no application is specified
-            // In a real implementation, you might want to get all roles across applications
-            roles = [];
+            roles = await _roleRepository.GetAllAsync(cancellationToken);
         }
 
         var roleDtos = new List<RoleDto>();

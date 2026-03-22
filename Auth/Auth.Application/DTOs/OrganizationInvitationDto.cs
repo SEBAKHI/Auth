@@ -6,6 +6,7 @@ namespace Auth.Application.DTOs;
 public class OrganizationInvitationDto
 {
     public Guid Id { get; set; }
+    public string? Token { get; set; }
     public Guid OrganizationId { get; set; }
     public string OrganizationName { get; set; } = string.Empty;
     public string? OrganizationLogoUrl { get; set; }

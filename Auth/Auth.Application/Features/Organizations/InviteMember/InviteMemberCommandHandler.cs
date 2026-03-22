@@ -1,10 +1,10 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
-using System.Security.Cryptography;
 
 namespace Auth.Application.Features.Organizations.InviteMember;
 
@@ -18,17 +18,20 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly ISecureTokenGenerator _tokenGenerator;
     private readonly ILogger<InviteMemberCommandHandler> _logger;
 
     public InviteMemberCommandHandler(
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        ISecureTokenGenerator tokenGenerator,
         ILogger<InviteMemberCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _tokenGenerator = tokenGenerator;
         _logger = logger;
     }
 
@@ -92,7 +95,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         }
 
         // Generate secure token
-        var token = GenerateSecureToken();
+        var token = _tokenGenerator.Generate();
 
         // Create invitation
         var invitation = OrganizationInvitation.Create(
@@ -114,6 +117,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         return new OrganizationInvitationDto
         {
             Id = invitation.Id,
+            Token = token,
             OrganizationId = invitation.OrganizationId,
             OrganizationName = organization.Name,
             OrganizationLogoUrl = organization.LogoUrl,
@@ -133,14 +137,4 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         };
     }
 
-    private static string GenerateSecureToken()
-    {
-        var bytes = new byte[32];
-        using var rng = RandomNumberGenerator.Create();
-        rng.GetBytes(bytes);
-        return Convert.ToBase64String(bytes)
-            .Replace("+", "-")
-            .Replace("/", "_")
-            .TrimEnd('=');
-    }
 }

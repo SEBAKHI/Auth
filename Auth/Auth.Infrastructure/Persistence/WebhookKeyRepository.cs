@@ -97,6 +97,7 @@ public class WebhookKeyRepository : IWebhookKeyRepository
 
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[WebhookKeys] SET
+                [ExpiresAt] = @ExpiresAt,
                 [LastUsedAt] = @LastUsedAt,
                 [RevokedAt] = @RevokedAt,
                 [RevokedBy] = @RevokedBy,
@@ -105,6 +106,7 @@ public class WebhookKeyRepository : IWebhookKeyRepository
             new
             {
                 webhookKey.Id,
+                webhookKey.ExpiresAt,
                 webhookKey.LastUsedAt,
                 webhookKey.RevokedAt,
                 webhookKey.RevokedBy,

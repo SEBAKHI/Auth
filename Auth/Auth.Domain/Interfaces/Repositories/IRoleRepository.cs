@@ -24,6 +24,11 @@ public interface IRoleRepository
     Task<Role?> GetByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets all active roles.
+    /// </summary>
+    Task<IReadOnlyList<Role>> GetAllAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets all roles for an application.
     /// </summary>
     Task<IReadOnlyList<Role>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken);

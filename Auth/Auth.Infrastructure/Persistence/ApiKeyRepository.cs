@@ -100,6 +100,7 @@ public class ApiKeyRepository : IApiKeyRepository
 
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[ApiKeys] SET
+                [ExpiresAt] = @ExpiresAt,
                 [LastUsedAt] = @LastUsedAt,
                 [RevokedAt] = @RevokedAt,
                 [RevokedBy] = @RevokedBy,
@@ -108,6 +109,7 @@ public class ApiKeyRepository : IApiKeyRepository
             new
             {
                 apiKey.Id,
+                apiKey.ExpiresAt,
                 apiKey.LastUsedAt,
                 apiKey.RevokedAt,
                 apiKey.RevokedBy,

@@ -1,5 +1,6 @@
 using Auth.Sdk.Authorization;
 using Auth.Sdk.Handlers;
+using Auth.Sdk.TokenManagement;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -38,6 +39,10 @@ public static class ServiceCollectionExtensions
         // Register memory cache for validation result caching
         services.AddMemoryCache();
 
+        // Register token management (auto-refresh interceptor)
+        services.AddSingleton<ITokenStore, InMemoryTokenStore>();
+        services.AddTransient<TokenRefreshHandler>();
+
         // Register named HTTP client for AuthSystem API calls
         services.AddHttpClient(AuthSystemConstants.HttpClientName, client =>
         {
@@ -45,7 +50,8 @@ public static class ServiceCollectionExtensions
             client.DefaultRequestHeaders.Add(
                 AuthSystemConstants.GatewayTokenHeaderName,
                 options.GatewayToken);
-        });
+        })
+        .AddHttpMessageHandler<TokenRefreshHandler>();
 
         // Configure authentication with three schemes
         var authBuilder = services.AddAuthentication(authOptions =>

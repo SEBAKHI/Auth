@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
@@ -15,16 +14,16 @@ namespace Auth.Application.Features.WebhookKeys.RotateWebhookKey;
 public class RotateWebhookKeyCommandHandler : IRequestHandler<RotateWebhookKeyCommand, ErrorOr<RotateWebhookKeyResponse>>
 {
     private readonly IWebhookKeyRepository _webhookKeyRepository;
-    private readonly IWebhookKeyHasher _webhookKeyHasher;
+    private readonly IWebhookKeyGenerator _webhookKeyGenerator;
     private readonly ILogger<RotateWebhookKeyCommandHandler> _logger;
 
     public RotateWebhookKeyCommandHandler(
         IWebhookKeyRepository webhookKeyRepository,
-        IWebhookKeyHasher webhookKeyHasher,
+        IWebhookKeyGenerator webhookKeyGenerator,
         ILogger<RotateWebhookKeyCommandHandler> logger)
     {
         _webhookKeyRepository = webhookKeyRepository;
-        _webhookKeyHasher = webhookKeyHasher;
+        _webhookKeyGenerator = webhookKeyGenerator;
         _logger = logger;
     }
 
@@ -43,34 +42,28 @@ public class RotateWebhookKeyCommandHandler : IRequestHandler<RotateWebhookKeyCo
             return WebhookKeyErrors.Revoked;
         }
 
-        // Generate new webhook key
-        var randomBytes = RandomNumberGenerator.GetBytes(32);
-        var randomPart = Convert.ToBase64String(randomBytes)
-            .Replace("+", "")
-            .Replace("/", "")
-            .Replace("=", "")[..32];
-
-        var newKeyValue = $"{existingKey.KeyPrefix}{randomPart}";
-        var newKeyHash = _webhookKeyHasher.ComputeHash(newKeyValue);
+        // Generate new webhook key using shared generator
+        var (newKeyValue, newKeyPrefix, newKeyHash) = _webhookKeyGenerator.Generate(existingKey.Environment);
 
         var newWebhookKey = WebhookKey.Create(
             applicationId: existingKey.ApplicationId,
             name: $"{existingKey.Name} (rotated)",
-            keyPrefix: existingKey.KeyPrefix,
+            keyPrefix: newKeyPrefix,
             keyHash: newKeyHash,
             targetUrl: existingKey.TargetUrl,
             createdBy: request.RotatedBy,
             description: $"Rotated from webhook key {existingKey.Id}",
-            environment: existingKey.Environment,
-            expiresAt: existingKey.ExpiresAt);
+            environment: existingKey.Environment);
 
         await _webhookKeyRepository.CreateAsync(newWebhookKey, cancellationToken);
 
-        // Calculate grace period expiration for old key
+        // Schedule expiration on the old key so it becomes invalid after the grace period
         DateTime? oldKeyExpiresAt = null;
         if (request.GracePeriodMinutes > 0)
         {
             oldKeyExpiresAt = DateTime.UtcNow.AddMinutes(request.GracePeriodMinutes);
+            existingKey.ScheduleExpiration(oldKeyExpiresAt.Value);
+            await _webhookKeyRepository.UpdateAsync(existingKey, cancellationToken);
         }
 
         _logger.LogInformation(
@@ -81,7 +74,7 @@ public class RotateWebhookKeyCommandHandler : IRequestHandler<RotateWebhookKeyCo
         {
             NewWebhookKey = newKeyValue,
             NewWebhookKeyId = newWebhookKey.Id,
-            NewKeyPrefix = existingKey.KeyPrefix,
+            NewKeyPrefix = newKeyPrefix,
             OldKeyExpiresAt = oldKeyExpiresAt,
             OldWebhookKeyId = existingKey.Id,
             Message = request.GracePeriodMinutes > 0

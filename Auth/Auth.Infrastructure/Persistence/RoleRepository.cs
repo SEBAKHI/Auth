@@ -56,6 +56,19 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Role>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<RoleDto>(@"
+            SELECT * FROM [dbo].[Roles]
+            WHERE [IsActive] = 1
+            ORDER BY [Name]");
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Role>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

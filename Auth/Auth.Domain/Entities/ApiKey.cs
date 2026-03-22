@@ -189,6 +189,18 @@ public class ApiKey : EntityBase
         RevokeReason = reason;
     }
 
+    /// <summary>
+    /// Schedules the API key to expire at the specified time.
+    /// Used during key rotation to keep the old key valid during the grace period.
+    /// </summary>
+    public void ScheduleExpiration(DateTime expiresAt)
+    {
+        if (IsRevoked)
+            throw new InvalidOperationException("Cannot schedule expiration for a revoked API key.");
+
+        ExpiresAt = expiresAt;
+    }
+
     public void RecordUsage()
     {
         LastUsedAt = DateTime.UtcNow;

@@ -10,7 +10,7 @@ public class CreatePermissionCommandValidator : AbstractValidator<CreatePermissi
 {
     public CreatePermissionCommandValidator()
     {
-        RuleFor(x => x.Code).IsValidCode();
+        RuleFor(x => x.Code).IsValidPermissionCode();
         RuleFor(x => x.Name).IsValidName();
         RuleFor(x => x.Description).IsValidDescription().When(x => x.Description is not null);
     }

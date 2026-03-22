@@ -31,8 +31,7 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
         }
         else
         {
-            // Return empty list if no application specified
-            permissions = [];
+            permissions = await _permissionRepository.GetAllAsync(cancellationToken);
         }
 
         var permissionDtos = permissions.Select(p => new PermissionDto

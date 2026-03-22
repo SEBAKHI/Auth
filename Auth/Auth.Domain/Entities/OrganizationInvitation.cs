@@ -206,6 +206,24 @@ public class OrganizationInvitation : EntityBase
     }
 
     /// <summary>
+    /// Regenerates the invitation token and resets the expiration.
+    /// Used when the invited user has lost their original invitation.
+    /// </summary>
+    public ErrorOr<Success> RegenerateToken(string newToken, int expiresInDays = 7)
+    {
+        if (Status != InvitationStatus.Pending)
+        {
+            return Error.Validation(
+                code: "Organization.InvitationNotPending",
+                description: "Only pending invitations can be resent.");
+        }
+
+        Token = newToken;
+        ExpiresAt = DateTime.UtcNow.AddDays(expiresInDays);
+        return Result.Success;
+    }
+
+    /// <summary>
     /// Marks the invitation as expired.
     /// </summary>
     public void MarkExpired()

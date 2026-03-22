@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
 using Auth.Sdk.Models;
+using Auth.Sdk.TokenManagement;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -10,23 +11,27 @@ namespace Auth.Sdk;
 
 /// <summary>
 /// HTTP client for communicating with the AuthSystem API.
-/// Includes response caching to minimize remote validation calls.
+/// Includes response caching to minimize remote validation calls
+/// and transparent token lifecycle management.
 /// </summary>
 public class AuthSystemClient
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IMemoryCache _cache;
+    private readonly ITokenStore _tokenStore;
     private readonly AuthSystemOptions _options;
     private readonly ILogger<AuthSystemClient> _logger;
 
     public AuthSystemClient(
         IHttpClientFactory httpClientFactory,
         IMemoryCache cache,
+        ITokenStore tokenStore,
         IOptions<AuthSystemOptions> options,
         ILogger<AuthSystemClient> logger)
     {
         _httpClientFactory = httpClientFactory;
         _cache = cache;
+        _tokenStore = tokenStore;
         _options = options.Value;
         _logger = logger;
     }
@@ -143,6 +148,70 @@ public class AuthSystemClient
             _logger.LogError(ex, "Failed to introspect token against AuthSystem");
             return null;
         }
+    }
+
+    /// <summary>
+    /// Authenticates with the AuthSystem and stores tokens for auto-refresh.
+    /// Subsequent HTTP requests via the SDK will automatically include and refresh the token.
+    /// </summary>
+    /// <param name="email">User email address.</param>
+    /// <param name="password">User password.</param>
+    /// <param name="applicationId">Target application ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if login succeeded, false otherwise.</returns>
+    public async Task<bool> LoginAsync(string email, string password, string applicationId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var client = CreateClient();
+            var response = await client.PostAsJsonAsync(
+                "/api/v1/auth/login",
+                new { email, password, applicationId },
+                cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("SDK login failed with status {StatusCode}", response.StatusCode);
+                return false;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<LoginResult>(cancellationToken);
+            if (result?.Token is null)
+            {
+                return false;
+            }
+
+            await _tokenStore.SetAsync(
+                result.Token.AccessToken,
+                result.Token.RefreshToken,
+                result.Token.ExpiresIn,
+                cancellationToken);
+
+            _logger.LogDebug("SDK login successful — tokens stored for auto-refresh");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "SDK login failed");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Stores externally obtained tokens for the SDK's auto-refresh mechanism.
+    /// Use this when tokens are obtained outside the SDK (e.g., from a frontend login flow).
+    /// </summary>
+    public async Task SetTokensAsync(string accessToken, string refreshToken, int expiresInSeconds, CancellationToken cancellationToken = default)
+    {
+        await _tokenStore.SetAsync(accessToken, refreshToken, expiresInSeconds, cancellationToken);
+    }
+
+    /// <summary>
+    /// Clears stored tokens, effectively logging out the SDK client.
+    /// </summary>
+    public async Task LogoutAsync(CancellationToken cancellationToken = default)
+    {
+        await _tokenStore.ClearAsync(cancellationToken);
     }
 
     private HttpClient CreateClient()

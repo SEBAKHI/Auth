@@ -1060,7 +1060,7 @@ public class OrganizationRepository : IOrganizationRepository
             {
                 invitation.Id,
                 invitation.OrganizationId,
-                invitation.Email,
+                Email = invitation.Email.Value,
                 invitation.RoleId,
                 invitation.Token,
                 Status = invitation.Status.ToString(),
@@ -1083,14 +1083,18 @@ public class OrganizationRepository : IOrganizationRepository
 
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[OrganizationInvitations] SET
+                [Token] = @Token,
                 [Status] = @Status,
+                [ExpiresAt] = @ExpiresAt,
                 [AcceptedAt] = @AcceptedAt,
                 [AcceptedByUserId] = @AcceptedByUserId
             WHERE [Id] = @Id",
             new
             {
                 invitation.Id,
+                invitation.Token,
                 Status = invitation.Status.ToString(),
+                invitation.ExpiresAt,
                 invitation.AcceptedAt,
                 invitation.AcceptedByUserId
             });

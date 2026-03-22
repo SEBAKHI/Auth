@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
@@ -15,18 +14,21 @@ namespace Auth.Application.Features.WebhookKeys.CreateWebhookKey;
 public class CreateWebhookKeyCommandHandler : IRequestHandler<CreateWebhookKeyCommand, ErrorOr<CreateWebhookKeyResponse>>
 {
     private readonly IWebhookKeyRepository _webhookKeyRepository;
-    private readonly IWebhookKeyHasher _webhookKeyHasher;
+    private readonly IApplicationRepository _applicationRepository;
+    private readonly IWebhookKeyGenerator _webhookKeyGenerator;
     private readonly IPublisher _publisher;
     private readonly ILogger<CreateWebhookKeyCommandHandler> _logger;
 
     public CreateWebhookKeyCommandHandler(
         IWebhookKeyRepository webhookKeyRepository,
-        IWebhookKeyHasher webhookKeyHasher,
+        IApplicationRepository applicationRepository,
+        IWebhookKeyGenerator webhookKeyGenerator,
         IPublisher publisher,
         ILogger<CreateWebhookKeyCommandHandler> logger)
     {
         _webhookKeyRepository = webhookKeyRepository;
-        _webhookKeyHasher = webhookKeyHasher;
+        _applicationRepository = applicationRepository;
+        _webhookKeyGenerator = webhookKeyGenerator;
         _publisher = publisher;
         _logger = logger;
     }
@@ -35,7 +37,16 @@ public class CreateWebhookKeyCommandHandler : IRequestHandler<CreateWebhookKeyCo
         CreateWebhookKeyCommand request,
         CancellationToken cancellationToken)
     {
-        var (webhookKeyValue, keyPrefix, keyHash) = GenerateWebhookKey(request.Environment, _webhookKeyHasher);
+        // Validate application exists
+        var application = await _applicationRepository.GetByIdAsync(request.ApplicationId, cancellationToken);
+        if (application is null)
+        {
+            return Error.NotFound(
+                code: "Application.NotFound",
+                description: "The specified application was not found.");
+        }
+
+        var (webhookKeyValue, keyPrefix, keyHash) = _webhookKeyGenerator.Generate(request.Environment);
 
         var webhookKey = WebhookKey.Create(
             applicationId: request.ApplicationId,
@@ -66,29 +77,5 @@ public class CreateWebhookKeyCommandHandler : IRequestHandler<CreateWebhookKeyCo
             CreatedAt = webhookKey.CreatedAt,
             ExpiresAt = webhookKey.ExpiresAt
         };
-    }
-
-    private static (string WebhookKey, string Prefix, string Hash) GenerateWebhookKey(
-        string environment,
-        IWebhookKeyHasher hasher)
-    {
-        var randomBytes = RandomNumberGenerator.GetBytes(32);
-        var randomPart = Convert.ToBase64String(randomBytes)
-            .Replace("+", "")
-            .Replace("/", "")
-            .Replace("=", "")[..32];
-
-        var prefix = environment switch
-        {
-            "production" => "wk_prod_",
-            "staging" => "wk_stag_",
-            "development" => "wk_dev_",
-            _ => "wk_"
-        };
-
-        var webhookKey = $"{prefix}{randomPart}";
-        var hash = hasher.ComputeHash(webhookKey);
-
-        return (webhookKey, prefix, hash);
     }
 }

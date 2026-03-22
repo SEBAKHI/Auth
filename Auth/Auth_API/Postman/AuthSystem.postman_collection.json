@@ -127,6 +127,115 @@
 			}
 		]
 	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"exec": [
+					"// Auto-refresh access token before it expires (sliding expiration)",
+					"(function() {",
+					"    const token = pm.collectionVariables.get('accessToken');",
+					"    const refreshToken = pm.collectionVariables.get('refreshToken');",
+					"    if (!token || !refreshToken) return;",
+					"",
+					"    // Skip for auth endpoints (login, register, refresh) to avoid loops",
+					"    const url = pm.request.url.toString();",
+					"    if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh') || url.includes('/auth/external-login')) return;",
+					"",
+					"    try {",
+					"        // Decode JWT payload (base64url)",
+					"        const parts = token.split('.');",
+					"        if (parts.length !== 3) return;",
+					"        const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));",
+					"        const exp = payload.exp;",
+					"        if (!exp) return;",
+					"",
+					"        // Check if token expires within 2 minutes",
+					"        const now = Math.floor(Date.now() / 1000);",
+					"        const remainingSeconds = exp - now;",
+					"        if (remainingSeconds > 120) return;",
+					"",
+					"        console.log('Access token expires in ' + remainingSeconds + 's — auto-refreshing...');",
+					"",
+					"        const baseUrl = pm.collectionVariables.get('baseUrl');",
+					"        pm.sendRequest({",
+					"            url: baseUrl + '/api/v1/auth/refresh',",
+					"            method: 'POST',",
+					"            header: { 'Content-Type': 'application/json' },",
+					"            body: { mode: 'raw', raw: JSON.stringify({ refreshToken: refreshToken }) }",
+					"        }, function(err, res) {",
+					"            if (!err && res.code === 200) {",
+					"                const json = res.json();",
+					"                pm.collectionVariables.set('accessToken', json.accessToken || '');",
+					"                pm.collectionVariables.set('refreshToken', json.refreshToken || '');",
+					"                console.log('Token auto-refreshed successfully.');",
+					"            } else {",
+					"                console.log('Token auto-refresh failed: ' + (err || res.status));",
+					"            }",
+					"        });",
+					"    } catch(e) {",
+					"        // Silently ignore decode errors",
+					"    }",
+					"})();"
+				],
+				"type": "text/javascript"
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"exec": [
+					"// Fallback: if 401 received, try to refresh so the next request works",
+					"(function() {",
+					"    if (pm.response.code !== 401) return;",
+					"",
+					"    const refreshToken = pm.collectionVariables.get('refreshToken');",
+					"    if (!refreshToken) return;",
+					"",
+					"    // Skip for auth endpoints to avoid loops",
+					"    const url = pm.request.url.toString();",
+					"    if (url.includes('/auth/login') || url.includes('/auth/refresh')) return;",
+					"",
+					"    console.log('Received 401 — attempting token refresh...');",
+					"",
+					"    const baseUrl = pm.collectionVariables.get('baseUrl');",
+					"    pm.sendRequest({",
+					"        url: baseUrl + '/api/v1/auth/refresh',",
+					"        method: 'POST',",
+					"        header: { 'Content-Type': 'application/json' },",
+					"        body: { mode: 'raw', raw: JSON.stringify({ refreshToken: refreshToken }) }",
+					"    }, function(err, res) {",
+					"        if (!err && res.code === 200) {",
+					"            const json = res.json();",
+					"            pm.collectionVariables.set('accessToken', json.accessToken || '');",
+					"            pm.collectionVariables.set('refreshToken', json.refreshToken || '');",
+					"            console.log('Token refreshed — re-send the request.');",
+					"        } else {",
+					"            console.log('Refresh failed — please login again.');",
+					"            pm.collectionVariables.set('accessToken', '');",
+					"            pm.collectionVariables.set('refreshToken', '');",
+					"        }",
+					"    });",
+					"})();"
+				],
+				"type": "text/javascript"
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"exec": [
+					"// Auto-capture X-New-Access-Token header (for future server-side sliding expiration)",
+					"const newToken = pm.response.headers.get('X-New-Access-Token');",
+					"if (newToken) {",
+					"    pm.collectionVariables.set('accessToken', newToken);",
+					"    console.log('Access token updated from X-New-Access-Token header.');",
+					"}"
+				],
+				"type": "text/javascript"
+			}
+		}
+	],
 	"item": [
 		{
 			"name": "Discovery",
@@ -184,9 +293,9 @@
 								"exec": [
 									"if (pm.response.code === 200) {",
 									"    const json = pm.response.json();",
-									"    pm.collectionVariables.set('accessToken', json.accessToken || '');",
-									"    pm.collectionVariables.set('refreshToken', json.refreshToken || '');",
-									"    pm.collectionVariables.set('userId', json.userId || '');",
+									"    pm.collectionVariables.set('accessToken', json.token.accessToken || '');",
+									"    pm.collectionVariables.set('refreshToken', json.token.refreshToken || '');",
+									"    pm.collectionVariables.set('userId', json.user.id || '');",
 									"}"
 								],
 								"type": "text/javascript"
@@ -270,8 +379,8 @@
 								"exec": [
 									"if (pm.response.code === 200) {",
 									"    const json = pm.response.json();",
-									"    pm.collectionVariables.set('accessToken', json.tokens.accessToken || '');",
-									"    pm.collectionVariables.set('refreshToken', json.tokens.refreshToken || '');",
+									"    pm.collectionVariables.set('accessToken', json.token.accessToken || '');",
+									"    pm.collectionVariables.set('refreshToken', json.token.refreshToken || '');",
 									"    pm.collectionVariables.set('userId', json.user.id || '');",
 									"}"
 								],
@@ -813,18 +922,6 @@
 							"path": ["api", "v1", "users", "{{testUserId}}", "permissions"]
 						},
 						"description": "Returns all effective permissions for the specified user."
-					}
-				},
-				{
-					"name": "Check User Permission",
-					"request": {
-						"method": "GET",
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/users/{{testUserId}}/permissions/users:read",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "users", "{{testUserId}}", "permissions", "users:read"]
-						},
-						"description": "Checks if the user has a specific permission code."
 					}
 				}
 			]
@@ -1633,11 +1730,23 @@
 							"raw": "{\n    \"email\": \"newmember@example.com\",\n    \"roleId\": \"{{testRoleId}}\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/invite",
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/invitations",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "invite"]
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "invitations"]
 						},
 						"description": "Sends an invitation email to a new member."
+					}
+				},
+				{
+					"name": "Resend Invitation",
+					"request": {
+						"method": "POST",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/invitations/{{invitationId}}/resend",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "invitations", "{{invitationId}}", "resend"]
+						},
+						"description": "Resends an organization invitation with a new token and reset expiration."
 					}
 				},
 				{
@@ -1694,46 +1803,22 @@
 					}
 				},
 				{
-					"name": "Get Member Application Roles",
-					"request": {
-						"method": "GET",
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/applications/{{applicationId}}/roles",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "applications", "{{applicationId}}", "roles"]
-						},
-						"description": "Returns roles assigned to a member within a specific application context."
-					}
-				},
-				{
 					"name": "Assign Member Application Role",
 					"request": {
 						"method": "POST",
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"roleId\": \"{{testRoleId}}\"\n}"
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"roleId\": \"{{testRoleId}}\"\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/applications/{{applicationId}}/roles",
+							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/roles",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "applications", "{{applicationId}}", "roles"]
+							"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "roles"]
 						},
 						"description": "Assigns a role to a member within a specific application context."
 					}
 				},
-				{
-					"name": "Get Member Application Permissions",
-					"request": {
-						"method": "GET",
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/organizations/{{organizationId}}/members/{{testMemberUserId}}/applications/{{applicationId}}/permissions",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "organizations", "{{organizationId}}", "members", "{{testMemberUserId}}", "applications", "{{applicationId}}", "permissions"]
-						},
-						"description": "Returns effective permissions for a member within a specific application context."
-					}
-				}
 			]
 		},
 		{
@@ -1742,7 +1827,6 @@
 				{
 					"name": "Accept Invitation",
 					"request": {
-						"auth": { "type": "noauth" },
 						"method": "POST",
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/invitations/{{invitationToken}}/accept",

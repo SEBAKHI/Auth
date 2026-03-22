@@ -34,4 +34,16 @@ public class AuthSystemOptions
     /// How long to cache validated webhook key results. Default: 5 minutes.
     /// </summary>
     public TimeSpan WebhookKeyCacheDuration { get; set; } = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Enable automatic token refresh when access tokens are near expiry.
+    /// Default: true. Follows the MSAL/Auth0 SDK pattern.
+    /// </summary>
+    public bool EnableAutoRefresh { get; set; } = true;
+
+    /// <summary>
+    /// Seconds before token expiry to trigger a proactive refresh.
+    /// Default: 120 (2 minutes). Set to 0 to only refresh on 401 responses.
+    /// </summary>
+    public int RefreshBufferSeconds { get; set; } = 120;
 }

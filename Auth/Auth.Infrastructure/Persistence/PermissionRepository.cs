@@ -42,6 +42,19 @@ public class PermissionRepository : IPermissionRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Permission>> GetAllAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dtos = await connection.QueryAsync<PermissionDto>(@"
+            SELECT * FROM [dbo].[Permissions]
+            WHERE [IsActive] = 1
+            ORDER BY [Level], [Name]");
+
+        return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<Permission>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -209,7 +222,7 @@ public class PermissionRepository : IPermissionRepository
             {
                 permission.Id,
                 permission.ApplicationId,
-                permission.Code,
+                Code = permission.Code.Value,
                 permission.Name,
                 permission.Description,
                 permission.ParentId,

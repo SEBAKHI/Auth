@@ -55,6 +55,14 @@ public static class SharedValidationRules
             .Matches("^[a-zA-Z0-9._-]+$").WithMessage("Code must contain only alphanumeric characters, dots, hyphens, and underscores.");
     }
 
+    public static IRuleBuilderOptions<T, string> IsValidPermissionCode<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .NotEmpty().WithMessage("Code is required.")
+            .MaximumLength(200).WithMessage("Code must not exceed 200 characters.")
+            .Matches(@"^[a-z0-9:*_\-]+$").WithMessage("Permission code must contain only lowercase letters, digits, colons, hyphens, underscores, and asterisks.");
+    }
+
     public static IRuleBuilderOptions<T, string> IsValidName<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder

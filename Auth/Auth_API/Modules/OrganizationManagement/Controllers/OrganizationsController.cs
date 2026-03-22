@@ -14,6 +14,7 @@ using Auth.Application.Features.Organizations.GetPendingInvitations;
 using Auth.Application.Features.Organizations.GetUserOrganizations;
 using Auth.Application.Features.Organizations.GrantPermission;
 using Auth.Application.Features.Organizations.InviteMember;
+using Auth.Application.Features.Organizations.ResendInvitation;
 using Auth.Application.Features.Organizations.RemoveMember;
 using Auth.Application.Features.Organizations.UpdateMemberRole;
 using Auth.Application.Features.Organizations.UpdateOrganization;
@@ -269,6 +270,27 @@ public class OrganizationsController : ApiController
 
         return result.Match(
             invitation => CreatedAtAction(nameof(GetPendingInvitations), new { id }, invitation),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Resend an organization invitation with a new token.
+    /// </summary>
+    [HttpPost("{orgId:guid}/invitations/{invitationId:guid}/resend")]
+    [RequirePermission("org:members:invite")]
+    [ProducesResponseType(typeof(OrganizationInvitationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ResendInvitation(Guid orgId, Guid invitationId, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        var command = new ResendInvitationCommand(orgId, invitationId) { ResentBy = userId };
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match(
+            invitation => Ok(invitation),
             errors => Problem(errors));
     }
 

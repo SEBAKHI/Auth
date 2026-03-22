@@ -163,6 +163,18 @@ public class WebhookKey : EntityBase
         RevokeReason = reason;
     }
 
+    /// <summary>
+    /// Schedules the webhook key to expire at the specified time.
+    /// Used during key rotation to keep the old key valid during the grace period.
+    /// </summary>
+    public void ScheduleExpiration(DateTime expiresAt)
+    {
+        if (IsRevoked)
+            throw new InvalidOperationException("Cannot schedule expiration for a revoked webhook key.");
+
+        ExpiresAt = expiresAt;
+    }
+
     public void RecordUsage()
     {
         LastUsedAt = DateTime.UtcNow;

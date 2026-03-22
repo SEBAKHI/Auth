@@ -3,7 +3,6 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
-using System.Security.Cryptography;
 
 namespace Auth.Application.Features.ApiKeys.RotateApiKey;
 
@@ -13,16 +12,16 @@ namespace Auth.Application.Features.ApiKeys.RotateApiKey;
 public class RotateApiKeyCommandHandler : IRequestHandler<RotateApiKeyCommand, ErrorOr<RotateApiKeyResponse>>
 {
     private readonly IApiKeyRepository _apiKeyRepository;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IApiKeyGenerator _apiKeyGenerator;
     private readonly ILogger<RotateApiKeyCommandHandler> _logger;
 
     public RotateApiKeyCommandHandler(
         IApiKeyRepository apiKeyRepository,
-        IPasswordHasher passwordHasher,
+        IApiKeyGenerator apiKeyGenerator,
         ILogger<RotateApiKeyCommandHandler> logger)
     {
         _apiKeyRepository = apiKeyRepository;
-        _passwordHasher = passwordHasher;
+        _apiKeyGenerator = apiKeyGenerator;
         _logger = logger;
     }
 
@@ -47,8 +46,8 @@ public class RotateApiKeyCommandHandler : IRequestHandler<RotateApiKeyCommand, E
                 description: "Cannot rotate a revoked API key.");
         }
 
-        // Generate new API key using Argon2id
-        var (newPlainKey, newKeyHash, newKeyPrefix) = GenerateApiKey(existingKey.Environment, _passwordHasher);
+        // Generate new API key
+        var (newPlainKey, newKeyPrefix, newKeyHash) = _apiKeyGenerator.Generate(existingKey.Environment);
 
         // Create the new API key with the same settings
         var newApiKey = ApiKey.Create(
@@ -65,11 +64,10 @@ public class RotateApiKeyCommandHandler : IRequestHandler<RotateApiKeyCommand, E
 
         await _apiKeyRepository.CreateAsync(newApiKey, cancellationToken);
 
-        // Schedule the old key for expiration
+        // Schedule the old key to expire after the grace period
         var gracePeriodEnd = DateTime.UtcNow.AddMinutes(request.GracePeriodMinutes);
-
-        // Update old key description to mark it as rotating
-        // Note: The old key should be revoked after grace period by a background job or scheduled task
+        existingKey.ScheduleExpiration(gracePeriodEnd);
+        await _apiKeyRepository.UpdateAsync(existingKey, cancellationToken);
 
         _logger.LogInformation(
             "Rotated API key {OldKeyId} to {NewKeyId}. Old key valid until {GraceEnd}",
@@ -87,35 +85,5 @@ public class RotateApiKeyCommandHandler : IRequestHandler<RotateApiKeyCommand, E
             Message = $"New API key generated successfully. Old key will remain valid until {gracePeriodEnd:yyyy-MM-dd HH:mm:ss} UTC. " +
                       "Please update your applications to use the new key before the grace period ends."
         };
-    }
-
-    private static (string plainKey, string keyHash, string keyPrefix) GenerateApiKey(string environment, IPasswordHasher passwordHasher)
-    {
-        // Generate 32 random bytes for the key
-        var keyBytes = new byte[32];
-        RandomNumberGenerator.Fill(keyBytes);
-
-        // Create prefix based on environment
-        var envPrefix = environment.ToLowerInvariant() switch
-        {
-            "production" => "ak_prod_",
-            "staging" => "ak_stg_",
-            "development" => "ak_dev_",
-            _ => "ak_"
-        };
-
-        // Convert to Base64 URL-safe string
-        var keyBase64 = Convert.ToBase64String(keyBytes)
-            .Replace("+", "-")
-            .Replace("/", "_")
-            .TrimEnd('=');
-
-        var plainKey = envPrefix + keyBase64;
-        var keyPrefix = envPrefix + keyBase64[..8];
-
-        // Hash the full key with Argon2id for storage
-        var keyHash = passwordHasher.HashPassword(plainKey);
-
-        return (plainKey, keyHash, keyPrefix);
     }
 }

@@ -18,6 +18,11 @@ public interface IPermissionRepository
     Task<Permission?> GetByCodeAsync(string code, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets all active permissions.
+    /// </summary>
+    Task<IReadOnlyList<Permission>> GetAllAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets all permissions for an application.
     /// </summary>
     Task<IReadOnlyList<Permission>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken);
