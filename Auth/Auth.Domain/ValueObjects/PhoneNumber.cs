@@ -50,7 +50,7 @@ public sealed partial class PhoneNumber : IEquatable<PhoneNumber>
     /// </summary>
     public static PhoneNumber? FromNullable(string? value) => value is not null ? new PhoneNumber(value) : null;
 
-    public static implicit operator string(PhoneNumber phone) => phone.Value;
+    public static implicit operator string?(PhoneNumber? phone) => phone?.Value;
 
     public bool Equals(PhoneNumber? other) => other is not null && string.Equals(Value, other.Value, StringComparison.Ordinal);
     public override bool Equals(object? obj) => obj is PhoneNumber other && Equals(other);

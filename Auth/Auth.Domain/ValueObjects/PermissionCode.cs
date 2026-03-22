@@ -102,7 +102,7 @@ public sealed partial class PermissionCode : IEquatable<PermissionCode>
         return (byte)(code.Count(c => c == ':') + 1);
     }
 
-    public static implicit operator string(PermissionCode code) => code.Value;
+    public static implicit operator string?(PermissionCode? code) => code?.Value;
 
     public bool Equals(PermissionCode? other) => other is not null && string.Equals(Value, other.Value, StringComparison.Ordinal);
     public override bool Equals(object? obj) => obj is PermissionCode other && Equals(other);

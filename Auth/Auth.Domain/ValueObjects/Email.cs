@@ -51,7 +51,7 @@ public sealed partial class Email : IEquatable<Email>
     /// </summary>
     public string ToNormalized() => Value.ToUpperInvariant();
 
-    public static implicit operator string(Email email) => email.Value;
+    public static implicit operator string?(Email? email) => email?.Value;
 
     public bool Equals(Email? other) => other is not null && string.Equals(Value, other.Value, StringComparison.Ordinal);
     public override bool Equals(object? obj) => obj is Email other && Equals(other);
