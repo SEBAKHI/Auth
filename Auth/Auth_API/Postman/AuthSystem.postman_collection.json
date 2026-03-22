@@ -100,6 +100,21 @@
 			"key": "registeredUserId",
 			"value": "",
 			"type": "string"
+		},
+		{
+			"key": "testWebhookKeyId",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "apiKeyValue",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "webhookKeyValue",
+			"value": "",
+			"type": "string"
 		}
 	],
 	"auth": {
@@ -1285,26 +1300,14 @@
 					"request": {
 						"method": "GET",
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/api-keys?applicationId={{applicationId}}",
+							"raw": "{{baseUrl}}/api/v1/apikeys?applicationId={{applicationId}}",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "api-keys"],
+							"path": ["api", "v1", "apikeys"],
 							"query": [
-								{ "key": "applicationId", "value": "{{applicationId}}", "disabled": true }
+								{ "key": "applicationId", "value": "{{applicationId}}" }
 							]
 						},
-						"description": "Returns all API keys, optionally filtered by application."
-					}
-				},
-				{
-					"name": "Get API Key by ID",
-					"request": {
-						"method": "GET",
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/api-keys/{{testApiKeyId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "api-keys", "{{testApiKeyId}}"]
-						},
-						"description": "Returns a specific API key by ID."
+						"description": "Returns all API keys for an application. Requires `apikeys:read` permission."
 					}
 				},
 				{
@@ -1316,7 +1319,8 @@
 								"exec": [
 									"if (pm.response.code === 201) {",
 									"    const json = pm.response.json();",
-									"    pm.collectionVariables.set('testApiKeyId', json.id || '');",
+									"    pm.collectionVariables.set('testApiKeyId', json.apiKeyId || json.id || '');",
+									"    pm.collectionVariables.set('apiKeyValue', json.key || json.apiKey || '');",
 									"}"
 								],
 								"type": "text/javascript"
@@ -1331,23 +1335,165 @@
 							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"name\": \"My API Key\",\n    \"description\": \"API key for testing\",\n    \"environment\": \"Development\",\n    \"rateLimitPerMinute\": 60,\n    \"rateLimitPerDay\": 10000,\n    \"expiresAt\": null,\n    \"permissionIds\": []\n}"
 						},
 						"url": {
-							"raw": "{{baseUrl}}/api/v1/api-keys",
+							"raw": "{{baseUrl}}/api/v1/apikeys",
 							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "api-keys"]
+							"path": ["api", "v1", "apikeys"]
 						},
-						"description": "Creates a new API key. The raw key value is only returned once at creation."
+						"description": "Creates a new API key. The raw key value is only returned once at creation. Requires `apikeys:create` permission."
+					}
+				},
+				{
+					"name": "Validate API Key",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"apiKey\": \"{{apiKeyValue}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/apikeys/validate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "apikeys", "validate"]
+						},
+						"description": "Validates an API key and returns its metadata (active status, application, scopes, rate limits). Requires `apikeys:validate` permission."
 					}
 				},
 				{
 					"name": "Revoke API Key",
 					"request": {
-						"method": "DELETE",
-						"url": {
-							"raw": "{{baseUrl}}/api/v1/api-keys/{{testApiKeyId}}",
-							"host": ["{{baseUrl}}"],
-							"path": ["api", "v1", "api-keys", "{{testApiKeyId}}"]
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reason\": \"No longer needed\"\n}"
 						},
-						"description": "Revokes and deletes the specified API key."
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/apikeys/{{testApiKeyId}}/revoke",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "apikeys", "{{testApiKeyId}}", "revoke"]
+						},
+						"description": "Revokes the specified API key. Optionally provide a reason. Requires `apikeys:revoke` permission."
+					}
+				},
+				{
+					"name": "Rotate API Key",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"gracePeriodMinutes\": 60\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/apikeys/{{testApiKeyId}}/rotate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "apikeys", "{{testApiKeyId}}", "rotate"]
+						},
+						"description": "Rotates an API key, generating a new key while optionally keeping the old key valid for a grace period. Requires `apikeys:rotate` permission."
+					}
+				}
+			]
+		},
+		{
+			"name": "Webhook Keys",
+			"item": [
+				{
+					"name": "Get All Webhook Keys",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhookkeys?applicationId={{applicationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhookkeys"],
+							"query": [
+								{ "key": "applicationId", "value": "{{applicationId}}" }
+							]
+						},
+						"description": "Returns all webhook keys for an application. Requires `webhookkeys:read` permission."
+					}
+				},
+				{
+					"name": "Create Webhook Key",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('testWebhookKeyId', json.webhookKeyId || json.id || '');",
+									"    pm.collectionVariables.set('webhookKeyValue', json.key || json.webhookKey || '');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"applicationId\": \"{{applicationId}}\",\n    \"name\": \"My Webhook Key\",\n    \"targetUrl\": \"https://example.com/webhook\",\n    \"description\": \"Webhook key for testing\",\n    \"environment\": \"Development\",\n    \"expiresAt\": null\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhookkeys",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhookkeys"]
+						},
+						"description": "Creates a new webhook key. The raw key value is only returned once at creation. Requires `webhookkeys:create` permission."
+					}
+				},
+				{
+					"name": "Validate Webhook Key",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"webhookKey\": \"{{webhookKeyValue}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhookkeys/validate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhookkeys", "validate"]
+						},
+						"description": "Validates a webhook key and returns its metadata (active status, application, target URL, environment). Requires `webhookkeys:validate` permission."
+					}
+				},
+				{
+					"name": "Revoke Webhook Key",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"reason\": \"No longer needed\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhookkeys/{{testWebhookKeyId}}/revoke",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhookkeys", "{{testWebhookKeyId}}", "revoke"]
+						},
+						"description": "Revokes the specified webhook key. Optionally provide a reason. Requires `webhookkeys:revoke` permission."
+					}
+				},
+				{
+					"name": "Rotate Webhook Key",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"gracePeriodMinutes\": 60\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/webhookkeys/{{testWebhookKeyId}}/rotate",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "webhookkeys", "{{testWebhookKeyId}}", "rotate"]
+						},
+						"description": "Rotates a webhook key, generating a new key while optionally keeping the old key valid for a grace period. Requires `webhookkeys:rotate` permission."
 					}
 				}
 			]
