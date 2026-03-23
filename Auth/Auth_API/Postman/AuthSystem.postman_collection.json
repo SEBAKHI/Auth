@@ -1818,7 +1818,7 @@
 						},
 						"description": "Assigns a role to a member within a specific application context."
 					}
-				},
+				}
 			]
 		},
 		{
