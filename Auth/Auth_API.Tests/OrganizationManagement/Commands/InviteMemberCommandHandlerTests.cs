@@ -1,4 +1,5 @@
 using Auth.Application.Features.Organizations.InviteMember;
+using Auth.Application.Interfaces;
 using Auth_API.Tests.Helpers;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -16,6 +17,7 @@ public class InviteMemberCommandHandlerTests
     private readonly Mock<IOrganizationRepository> _organizationRepositoryMock;
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
+    private readonly Mock<ISecureTokenGenerator> _tokenGeneratorMock;
     private readonly Mock<ILogger<InviteMemberCommandHandler>> _loggerMock;
     private readonly InviteMemberCommandHandler _handler;
 
@@ -24,12 +26,18 @@ public class InviteMemberCommandHandlerTests
         _organizationRepositoryMock = new Mock<IOrganizationRepository>();
         _userRepositoryMock = new Mock<IUserRepository>();
         _roleRepositoryMock = new Mock<IRoleRepository>();
+        _tokenGeneratorMock = new Mock<ISecureTokenGenerator>();
         _loggerMock = new Mock<ILogger<InviteMemberCommandHandler>>();
+
+        _tokenGeneratorMock
+            .Setup(g => g.Generate())
+            .Returns("dGVzdC10b2tlbi1mb3ItaW52aXRhdGlvbi10aGF0LWlzLWxvbmctZW5vdWdo");
 
         _handler = new InviteMemberCommandHandler(
             _organizationRepositoryMock.Object,
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
+            _tokenGeneratorMock.Object,
             _loggerMock.Object);
     }
 
@@ -423,6 +431,6 @@ public class InviteMemberCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
         result.Value.Email.Should().Be("test@example.com");
-        capturedInvitation!.Email.Should().Be("test@example.com");
+        capturedInvitation!.Email.Value.Should().Be("test@example.com");
     }
 }

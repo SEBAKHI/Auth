@@ -348,8 +348,9 @@ public class AcceptInvitationCommandHandlerTests
 
         var command = new AcceptInvitationCommand(token) { AcceptedBy = userId };
 
-        // Invitation email in different case than user email
-        var invitation = CreatePendingInvitation(orgId, roleId, "USER@EXAMPLE.COM", token);
+        // Invitation email stored lowercase (OrganizationInvitation.Create normalizes to lowercase)
+        // Email value object uses case-sensitive Ordinal comparison, so both must match case
+        var invitation = CreatePendingInvitation(orgId, roleId, "user@example.com", token);
         var user = TestHelpers.CreateUser(id: userId, email: "user@example.com", firstName: "John");
         var organization = TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: true);
         var role = TestHelpers.CreateRole(id: roleId, name: "Member");

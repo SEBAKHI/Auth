@@ -1,5 +1,7 @@
+using Auth.Application.Configuration;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
+using Microsoft.Extensions.Options;
 
 namespace Auth_API.Tests.Helpers;
 
@@ -280,5 +282,522 @@ public static class TestHelpers
             createdBy: createdBy ?? SystemUserId,
             modifiedAt: null,
             modifiedBy: null);
+    }
+
+    /// <summary>
+    /// Creates a test RefreshToken entity.
+    /// </summary>
+    public static RefreshToken CreateRefreshToken(
+        Guid? id = null,
+        Guid? userId = null,
+        string? tokenHash = null,
+        string? jwtId = null,
+        Guid? applicationId = null,
+        string? deviceInfo = null,
+        string? ipAddress = null,
+        DateTime? createdAt = null,
+        DateTime? expiresAt = null,
+        DateTime? revokedAt = null,
+        Guid? revokedBy = null,
+        string? replacedByTokenHash = null,
+        string? reasonRevoked = null)
+    {
+        return new RefreshToken(
+            id: id ?? Guid.NewGuid(),
+            userId: userId ?? Guid.NewGuid(),
+            tokenHash: tokenHash ?? Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+            jwtId: jwtId ?? Guid.NewGuid().ToString(),
+            applicationId: applicationId,
+            deviceInfo: deviceInfo,
+            ipAddress: ipAddress ?? "127.0.0.1",
+            createdAt: createdAt ?? DateTime.UtcNow,
+            expiresAt: expiresAt ?? DateTime.UtcNow.AddDays(7),
+            revokedAt: revokedAt,
+            revokedBy: revokedBy,
+            replacedByTokenHash: replacedByTokenHash,
+            reasonRevoked: reasonRevoked);
+    }
+
+    /// <summary>
+    /// Creates a test UserSession entity.
+    /// </summary>
+    public static UserSession CreateUserSession(
+        Guid? id = null,
+        Guid? userId = null,
+        Guid? applicationId = null,
+        Guid? refreshTokenId = null,
+        string? sessionTokenHash = null,
+        string? ipAddress = null,
+        string? userAgent = null,
+        string? deviceId = null,
+        string? deviceName = null,
+        string? location = null,
+        DateTime? createdAt = null,
+        DateTime? expiresAt = null,
+        DateTime? lastActivityAt = null,
+        bool isActive = true,
+        DateTime? terminatedAt = null,
+        string? terminationReason = null)
+    {
+        var now = DateTime.UtcNow;
+        return new UserSession(
+            id: id ?? Guid.NewGuid(),
+            userId: userId ?? Guid.NewGuid(),
+            applicationId: applicationId ?? Guid.NewGuid(),
+            refreshTokenId: refreshTokenId,
+            sessionTokenHash: sessionTokenHash ?? Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+            ipAddress: ipAddress ?? "127.0.0.1",
+            userAgent: userAgent ?? "TestAgent/1.0",
+            deviceId: deviceId,
+            deviceName: deviceName,
+            location: location,
+            createdAt: createdAt ?? now,
+            expiresAt: expiresAt ?? now.AddHours(24),
+            lastActivityAt: lastActivityAt ?? now,
+            isActive: isActive,
+            terminatedAt: terminatedAt,
+            terminationReason: terminationReason);
+    }
+
+    /// <summary>
+    /// Creates a test LoginAttempt entity.
+    /// </summary>
+    public static LoginAttempt CreateLoginAttempt(
+        Guid? id = null,
+        Guid? userId = null,
+        string? email = null,
+        bool isSuccess = true,
+        string? failureReason = null,
+        string? ipAddress = null,
+        string? userAgent = null,
+        string? location = null,
+        DateTime? attemptedAt = null,
+        Guid? applicationId = null)
+    {
+        return new LoginAttempt(
+            id: id ?? Guid.NewGuid(),
+            userId: userId,
+            email: email ?? "test@example.com",
+            isSuccess: isSuccess,
+            failureReason: failureReason,
+            ipAddress: ipAddress ?? "127.0.0.1",
+            userAgent: userAgent ?? "TestAgent/1.0",
+            location: location,
+            attemptedAt: attemptedAt ?? DateTime.UtcNow,
+            applicationId: applicationId);
+    }
+
+    /// <summary>
+    /// Creates a test PasswordHistory entity.
+    /// </summary>
+    public static PasswordHistory CreatePasswordHistory(
+        Guid? id = null,
+        Guid? userId = null,
+        string? passwordHash = null,
+        DateTime? createdAt = null)
+    {
+        return new PasswordHistory(
+            id: id ?? Guid.NewGuid(),
+            userId: userId ?? Guid.NewGuid(),
+            passwordHash: passwordHash ?? $"OldHash_{Guid.NewGuid():N}",
+            createdAt: createdAt ?? DateTime.UtcNow);
+    }
+
+    /// <summary>
+    /// Creates a test PasswordResetToken entity.
+    /// </summary>
+    public static PasswordResetToken CreatePasswordResetToken(
+        Guid? id = null,
+        Guid? userId = null,
+        string? tokenHash = null,
+        DateTime? expiresAt = null,
+        DateTime? usedAt = null,
+        DateTime? createdAt = null)
+    {
+        return new PasswordResetToken(
+            id: id ?? Guid.NewGuid(),
+            userId: userId ?? Guid.NewGuid(),
+            tokenHash: tokenHash ?? Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+            expiresAt: expiresAt ?? DateTime.UtcNow.AddHours(1),
+            usedAt: usedAt,
+            createdAt: createdAt ?? DateTime.UtcNow);
+    }
+
+    /// <summary>
+    /// Creates a test EmailVerificationToken entity.
+    /// </summary>
+    public static EmailVerificationToken CreateEmailVerificationToken(
+        Guid? id = null,
+        Guid? userId = null,
+        string? otpHash = null,
+        string? email = null,
+        DateTime? expiresAt = null,
+        DateTime? usedAt = null,
+        int attemptCount = 0,
+        DateTime? createdAt = null)
+    {
+        return new EmailVerificationToken(
+            id: id ?? Guid.NewGuid(),
+            userId: userId ?? Guid.NewGuid(),
+            otpHash: otpHash ?? Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+            email: email ?? "test@example.com",
+            expiresAt: expiresAt ?? DateTime.UtcNow.AddMinutes(15),
+            usedAt: usedAt,
+            attemptCount: attemptCount,
+            createdAt: createdAt ?? DateTime.UtcNow);
+    }
+
+    /// <summary>
+    /// Creates a test TwoFactorAuth entity.
+    /// </summary>
+    public static TwoFactorAuth CreateTwoFactorAuth(
+        Guid? id = null,
+        Guid? userId = null,
+        string? secretKey = null,
+        string? recoveryCodes = null,
+        bool isEnabled = false,
+        DateTime? enabledAt = null,
+        DateTime? lastUsedAt = null,
+        int failedAttempts = 0,
+        DateTime? lockedUntil = null,
+        DateTime? createdAt = null,
+        DateTime? modifiedAt = null)
+    {
+        return new TwoFactorAuth(
+            id: id ?? Guid.NewGuid(),
+            userId: userId ?? Guid.NewGuid(),
+            secretKey: secretKey ?? "TESTBASE32SECRET",
+            recoveryCodes: recoveryCodes,
+            isEnabled: isEnabled,
+            enabledAt: enabledAt,
+            lastUsedAt: lastUsedAt,
+            failedAttempts: failedAttempts,
+            lockedUntil: lockedUntil,
+            createdAt: createdAt ?? DateTime.UtcNow,
+            modifiedAt: modifiedAt);
+    }
+
+    /// <summary>
+    /// Creates a test ApiKey entity.
+    /// </summary>
+    public static ApiKey CreateApiKey(
+        Guid? id = null,
+        Guid? applicationId = null,
+        string? name = null,
+        string? description = null,
+        string? keyPrefix = null,
+        string? keyHash = null,
+        string environment = "production",
+        int rateLimitPerMinute = 60,
+        int rateLimitPerDay = 10000,
+        string? allowedIps = null,
+        string? allowedOrigins = null,
+        DateTime? createdAt = null,
+        Guid? createdBy = null,
+        DateTime? expiresAt = null,
+        DateTime? lastUsedAt = null,
+        DateTime? revokedAt = null,
+        Guid? revokedBy = null,
+        string? revokeReason = null)
+    {
+        return new ApiKey(
+            id: id ?? Guid.NewGuid(),
+            applicationId: applicationId ?? Guid.NewGuid(),
+            name: name ?? "Test API Key",
+            description: description,
+            keyPrefix: keyPrefix ?? "ak_test_",
+            keyHash: keyHash ?? Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+            environment: environment,
+            rateLimitPerMinute: rateLimitPerMinute,
+            rateLimitPerDay: rateLimitPerDay,
+            allowedIps: allowedIps,
+            allowedOrigins: allowedOrigins,
+            createdAt: createdAt ?? DateTime.UtcNow,
+            createdBy: createdBy ?? SystemUserId,
+            expiresAt: expiresAt,
+            lastUsedAt: lastUsedAt,
+            revokedAt: revokedAt,
+            revokedBy: revokedBy,
+            revokeReason: revokeReason);
+    }
+
+    /// <summary>
+    /// Creates a test ApiKeyScope entity.
+    /// </summary>
+    public static ApiKeyScope CreateApiKeyScope(
+        Guid? id = null,
+        Guid? apiKeyId = null,
+        Guid? permissionId = null,
+        DateTime? grantedAt = null,
+        Guid? grantedBy = null)
+    {
+        return new ApiKeyScope(
+            id: id ?? Guid.NewGuid(),
+            apiKeyId: apiKeyId ?? Guid.NewGuid(),
+            permissionId: permissionId ?? Guid.NewGuid(),
+            grantedAt: grantedAt ?? DateTime.UtcNow,
+            grantedBy: grantedBy ?? SystemUserId);
+    }
+
+    /// <summary>
+    /// Creates a test WebhookKey entity.
+    /// </summary>
+    public static WebhookKey CreateWebhookKey(
+        Guid? id = null,
+        Guid? applicationId = null,
+        string? name = null,
+        string? description = null,
+        string? keyPrefix = null,
+        string? keyHash = null,
+        string? targetUrl = null,
+        string environment = "production",
+        DateTime? createdAt = null,
+        Guid? createdBy = null,
+        DateTime? expiresAt = null,
+        DateTime? lastUsedAt = null,
+        DateTime? revokedAt = null,
+        Guid? revokedBy = null,
+        string? revokeReason = null)
+    {
+        return new WebhookKey(
+            id: id ?? Guid.NewGuid(),
+            applicationId: applicationId ?? Guid.NewGuid(),
+            name: name ?? "Test Webhook Key",
+            description: description,
+            keyPrefix: keyPrefix ?? "wk_test_",
+            keyHash: keyHash ?? Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+            targetUrl: targetUrl ?? "https://webhook.test.com/callback",
+            environment: environment,
+            createdAt: createdAt ?? DateTime.UtcNow,
+            createdBy: createdBy ?? SystemUserId,
+            expiresAt: expiresAt,
+            lastUsedAt: lastUsedAt,
+            revokedAt: revokedAt,
+            revokedBy: revokedBy,
+            revokeReason: revokeReason);
+    }
+
+    /// <summary>
+    /// Creates a test AuditLog entity.
+    /// </summary>
+    public static AuditLog CreateAuditLog(
+        Guid? id = null,
+        Guid? userId = null,
+        Guid? applicationId = null,
+        string? actionType = null,
+        string? action = null,
+        string? entityType = null,
+        Guid? entityId = null,
+        string? oldValues = null,
+        string? newValues = null,
+        string? ipAddress = null,
+        string? userAgent = null,
+        string? additionalData = null,
+        bool isSuccess = true,
+        string? errorMessage = null,
+        DateTime? timestamp = null,
+        string? correlationId = null)
+    {
+        return new AuditLog(
+            id: id ?? Guid.NewGuid(),
+            userId: userId,
+            applicationId: applicationId,
+            actionType: actionType ?? "TestAction",
+            action: action ?? "test.action",
+            entityType: entityType,
+            entityId: entityId,
+            oldValues: oldValues,
+            newValues: newValues,
+            ipAddress: ipAddress ?? "127.0.0.1",
+            userAgent: userAgent,
+            additionalData: additionalData,
+            isSuccess: isSuccess,
+            errorMessage: errorMessage,
+            timestamp: timestamp ?? DateTime.UtcNow,
+            correlationId: correlationId);
+    }
+
+    /// <summary>
+    /// Creates a test UserRole entity.
+    /// </summary>
+    public static UserRole CreateUserRole(
+        Guid? id = null,
+        Guid? userId = null,
+        Guid? roleId = null,
+        Guid? applicationId = null,
+        DateTime? assignedAt = null,
+        Guid? assignedBy = null,
+        DateTime? expiresAt = null,
+        bool isActive = true)
+    {
+        return new UserRole(
+            id: id ?? Guid.NewGuid(),
+            userId: userId ?? Guid.NewGuid(),
+            roleId: roleId ?? Guid.NewGuid(),
+            applicationId: applicationId,
+            assignedAt: assignedAt ?? DateTime.UtcNow,
+            assignedBy: assignedBy ?? SystemUserId,
+            expiresAt: expiresAt,
+            isActive: isActive);
+    }
+
+    /// <summary>
+    /// Creates a test UserPermission entity.
+    /// </summary>
+    public static UserPermission CreateUserPermission(
+        Guid? id = null,
+        Guid? userId = null,
+        Guid? permissionId = null,
+        Guid? applicationId = null,
+        DateTime? grantedAt = null,
+        Guid? grantedBy = null,
+        DateTime? expiresAt = null,
+        bool isActive = true)
+    {
+        return new UserPermission(
+            id: id ?? Guid.NewGuid(),
+            userId: userId ?? Guid.NewGuid(),
+            permissionId: permissionId ?? Guid.NewGuid(),
+            applicationId: applicationId,
+            grantedAt: grantedAt ?? DateTime.UtcNow,
+            grantedBy: grantedBy ?? SystemUserId,
+            expiresAt: expiresAt,
+            isActive: isActive);
+    }
+
+    /// <summary>
+    /// Creates a test PermissionImplication entity.
+    /// </summary>
+    public static PermissionImplication CreatePermissionImplication(
+        Guid? id = null,
+        Guid? permissionId = null,
+        Guid? impliedPermissionId = null,
+        DateTime? createdAt = null,
+        Guid? createdBy = null)
+    {
+        return new PermissionImplication(
+            id: id ?? Guid.NewGuid(),
+            permissionId: permissionId ?? Guid.NewGuid(),
+            impliedPermissionId: impliedPermissionId ?? Guid.NewGuid(),
+            createdAt: createdAt ?? DateTime.UtcNow,
+            createdBy: createdBy ?? SystemUserId);
+    }
+
+    /// <summary>
+    /// Creates a test UserExternalLogin entity.
+    /// </summary>
+    public static UserExternalLogin CreateUserExternalLogin(
+        Guid? id = null,
+        Guid? userId = null,
+        string? provider = null,
+        string? providerUserId = null,
+        string? email = null,
+        string? name = null,
+        string? pictureUrl = null,
+        DateTime? createdAt = null,
+        DateTime? modifiedAt = null)
+    {
+        return new UserExternalLogin(
+            id: id ?? Guid.NewGuid(),
+            userId: userId ?? Guid.NewGuid(),
+            provider: provider ?? "google",
+            providerUserId: providerUserId ?? Guid.NewGuid().ToString(),
+            email: email ?? "external@test.com",
+            name: name ?? "External User",
+            pictureUrl: pictureUrl,
+            createdAt: createdAt ?? DateTime.UtcNow,
+            modifiedAt: modifiedAt);
+    }
+
+    /// <summary>
+    /// Creates a test ExternalAuthProvider entity.
+    /// </summary>
+    public static ExternalAuthProvider CreateExternalAuthProvider(
+        Guid? id = null,
+        string? code = null,
+        string? name = null,
+        string? iconUrl = null,
+        bool isEnabled = true,
+        int displayOrder = 1,
+        DateTime? createdAt = null,
+        DateTime? modifiedAt = null)
+    {
+        return new ExternalAuthProvider(
+            id: id ?? Guid.NewGuid(),
+            code: code ?? "google",
+            name: name ?? "Google",
+            iconUrl: iconUrl,
+            isEnabled: isEnabled,
+            displayOrder: displayOrder,
+            createdAt: createdAt ?? DateTime.UtcNow,
+            modifiedAt: modifiedAt);
+    }
+
+    /// <summary>
+    /// Creates IOptions wrapper for any settings type.
+    /// </summary>
+    public static IOptions<T> CreateOptions<T>(T value) where T : class
+        => Options.Create(value);
+
+    /// <summary>
+    /// Creates test PasswordSettings with sensible defaults.
+    /// </summary>
+    public static PasswordSettings CreatePasswordSettings(
+        int minimumLength = 8,
+        bool requireUppercase = true,
+        bool requireLowercase = true,
+        bool requireDigit = true,
+        bool requireSpecialCharacter = true,
+        int historyCount = 5,
+        int maxFailedAttempts = 5,
+        int lockoutDurationMinutes = 15)
+    {
+        return new PasswordSettings
+        {
+            MinimumLength = minimumLength,
+            RequireUppercase = requireUppercase,
+            RequireLowercase = requireLowercase,
+            RequireDigit = requireDigit,
+            RequireSpecialCharacter = requireSpecialCharacter,
+            HistoryCount = historyCount,
+            MaxFailedAttempts = maxFailedAttempts,
+            LockoutDurationMinutes = lockoutDurationMinutes
+        };
+    }
+
+    /// <summary>
+    /// Creates test SessionSettings with sensible defaults.
+    /// </summary>
+    public static SessionSettings CreateSessionSettings(
+        int lifetimeHours = 24,
+        int maxConcurrentSessions = 5,
+        bool terminateSessionsOnPasswordChange = true,
+        bool terminateSessionsOnPasswordReset = true)
+    {
+        return new SessionSettings
+        {
+            LifetimeHours = lifetimeHours,
+            MaxConcurrentSessions = maxConcurrentSessions,
+            TerminateSessionsOnPasswordChange = terminateSessionsOnPasswordChange,
+            TerminateSessionsOnPasswordReset = terminateSessionsOnPasswordReset
+        };
+    }
+
+    /// <summary>
+    /// Creates test GatewaySettings with sensible defaults.
+    /// </summary>
+    public static GatewaySettings CreateGatewaySettings(
+        bool validationEnabled = true,
+        string expectedToken = "test-gateway-token",
+        string tokenHeaderName = "X-Gateway-Token",
+        string[]? exemptPaths = null)
+    {
+        return new GatewaySettings
+        {
+            ValidationEnabled = validationEnabled,
+            ExpectedToken = expectedToken,
+            TokenHeaderName = tokenHeaderName,
+            ExemptPaths = exemptPaths ?? new[] { "/.well-known/", "/health" }
+        };
     }
 }
