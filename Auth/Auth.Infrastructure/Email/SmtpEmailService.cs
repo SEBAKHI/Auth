@@ -1,26 +1,34 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Mail;
+using Auth_Localization.Resources.Email;
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace Auth.Infrastructure.Email;
 
 /// <summary>
-/// SMTP implementation of the email service.
+/// SMTP implementation of the email service with localized templates.
 /// </summary>
 public class SmtpEmailService : IEmailService
 {
     private readonly EmailSettings _settings;
     private readonly ILogger<SmtpEmailService> _logger;
+    private readonly IStringLocalizer<EmailTemplates> _localizer;
+
+    private static readonly string[] RtlCultures = ["ar", "fa", "ur", "he"];
 
     public SmtpEmailService(
         IOptions<EmailSettings> settings,
-        ILogger<SmtpEmailService> logger)
+        ILogger<SmtpEmailService> logger,
+        IStringLocalizer<EmailTemplates> localizer)
     {
         _settings = settings.Value;
         _logger = logger;
+        _localizer = localizer;
     }
 
     /// <inheritdoc />
@@ -31,22 +39,36 @@ public class SmtpEmailService : IEmailService
         int expirationMinutes,
         CancellationToken cancellationToken)
     {
-        var subject = "Verify Your Email Address";
+        var subject = Localize("Email.Verification.Subject", "Verify Your Email Address");
+        var heading = Localize("Email.Verification.Heading", "Email Verification");
+        var greeting = LocalizeFormat("Email.Verification.Greeting", "Hello {0},", recipientName);
+        var instruction = Localize("Email.Verification.Instruction",
+            "Please use the following verification code to confirm your email address:");
+        var expiration = LocalizeFormat("Email.Verification.Expiration",
+            "This code will expire in {0} minutes.", expirationMinutes);
+        var securityNotice = Localize("Email.Verification.SecurityNotice",
+            "Security Notice: If you did not request this verification code, please ignore this email. Do not share this code with anyone.");
+        var footer = LocalizeFormat("Email.Verification.Footer",
+            "This is an automated message from {0}. Please do not reply to this email.", _settings.SenderName);
+
+        var isRtl = IsRtlCulture();
+        var dir = isRtl ? "rtl" : "ltr";
+        var textAlign = isRtl ? "right" : "left";
 
         var htmlBody = $@"
 <!DOCTYPE html>
-<html>
+<html dir=""{dir}"" lang=""{CultureInfo.CurrentUICulture.TwoLetterISOLanguageName}"">
 <head>
     <meta charset=""UTF-8"">
     <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
     <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5; }}
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5; direction: {dir}; text-align: {textAlign}; }}
         .container {{ max-width: 600px; margin: 0 auto; padding: 40px 20px; }}
         .card {{ background: #ffffff; border-radius: 8px; padding: 40px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
         .header {{ text-align: center; margin-bottom: 30px; }}
         .header h1 {{ color: #1a1a1a; font-size: 24px; margin: 0; }}
         .otp-container {{ text-align: center; margin: 30px 0; }}
-        .otp-code {{ display: inline-block; font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #2563eb; padding: 20px 30px; background: #f3f4f6; border-radius: 8px; font-family: 'Courier New', monospace; }}
+        .otp-code {{ display: inline-block; font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #2563eb; padding: 20px 30px; background: #f3f4f6; border-radius: 8px; font-family: 'Courier New', monospace; direction: ltr; }}
         .message {{ color: #4b5563; font-size: 16px; line-height: 1.6; }}
         .warning {{ color: #dc2626; font-size: 14px; margin-top: 30px; padding: 15px; background: #fef2f2; border-radius: 6px; }}
         .footer {{ text-align: center; margin-top: 30px; color: #9ca3af; font-size: 14px; }}
@@ -56,42 +78,40 @@ public class SmtpEmailService : IEmailService
     <div class=""container"">
         <div class=""card"">
             <div class=""header"">
-                <h1>Email Verification</h1>
+                <h1>{WebUtility.HtmlEncode(heading)}</h1>
             </div>
-            <p class=""message"">Hello {WebUtility.HtmlEncode(recipientName)},</p>
-            <p class=""message"">Please use the following verification code to confirm your email address:</p>
+            <p class=""message"">{WebUtility.HtmlEncode(greeting)}</p>
+            <p class=""message"">{WebUtility.HtmlEncode(instruction)}</p>
             <div class=""otp-container"">
                 <div class=""otp-code"">{otp}</div>
             </div>
-            <p class=""message"">This code will expire in <strong>{expirationMinutes} minutes</strong>.</p>
+            <p class=""message"">{WebUtility.HtmlEncode(expiration)}</p>
             <div class=""warning"">
-                <strong>Security Notice:</strong> If you did not request this verification code, please ignore this email. Do not share this code with anyone.
+                {WebUtility.HtmlEncode(securityNotice)}
             </div>
         </div>
         <div class=""footer"">
-            <p>This is an automated message from {WebUtility.HtmlEncode(_settings.SenderName)}.</p>
-            <p>Please do not reply to this email.</p>
+            <p>{WebUtility.HtmlEncode(footer)}</p>
         </div>
     </div>
 </body>
 </html>";
 
         var textBody = $@"
-Email Verification
+{heading}
 
-Hello {recipientName},
+{greeting}
 
-Please use the following verification code to confirm your email address:
+{instruction}
 
 {otp}
 
-This code will expire in {expirationMinutes} minutes.
+{expiration}
 
-Security Notice: If you did not request this verification code, please ignore this email. Do not share this code with anyone.
+{securityNotice}
 
 ---
-This is an automated message from {_settings.SenderName}.
-Please do not reply to this email.";
+{footer}";
 
         return await SendAsync(toEmail, subject, htmlBody, textBody, cancellationToken);
     }
@@ -152,5 +172,24 @@ Please do not reply to this email.";
             _logger.LogError(ex, "Failed to send email to {Email}: {Subject}", toEmail, subject);
             return false;
         }
+    }
+
+    private string Localize(string key, string fallback)
+    {
+        var localized = _localizer[key];
+        return localized.ResourceNotFound ? fallback : localized.Value;
+    }
+
+    private string LocalizeFormat(string key, string fallback, params object[] args)
+    {
+        var localized = _localizer[key];
+        var template = localized.ResourceNotFound ? fallback : localized.Value;
+        return string.Format(template, args);
+    }
+
+    private static bool IsRtlCulture()
+    {
+        var culture = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        return RtlCultures.Contains(culture);
     }
 }

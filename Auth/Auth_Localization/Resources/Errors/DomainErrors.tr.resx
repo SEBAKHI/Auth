@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Auth Errors ==================== -->
+  <data name="Auth.InvalidToken" xml:space="preserve">
+    <value>Sağlanan belirteç geçersiz.</value>
+  </data>
+  <data name="Auth.TokenExpired" xml:space="preserve">
+    <value>Sağlanan belirtecin süresi dolmuş.</value>
+  </data>
+  <data name="Auth.TokenRevoked" xml:space="preserve">
+    <value>Sağlanan belirteç iptal edilmiş.</value>
+  </data>
+  <data name="Auth.RefreshTokenNotFound" xml:space="preserve">
+    <value>Yenileme belirteci bulunamadı.</value>
+  </data>
+  <data name="Auth.RefreshTokenExpired" xml:space="preserve">
+    <value>Yenileme belirtecinin süresi dolmuş. Lütfen tekrar giriş yapın.</value>
+  </data>
+  <data name="Auth.RefreshTokenRevoked" xml:space="preserve">
+    <value>Yenileme belirteci iptal edilmiş.</value>
+  </data>
+  <data name="Auth.SessionNotFound" xml:space="preserve">
+    <value>Oturum bulunamadı.</value>
+  </data>
+  <data name="Auth.SessionExpired" xml:space="preserve">
+    <value>Oturumunuzun süresi dolmuş. Lütfen tekrar giriş yapın.</value>
+  </data>
+  <data name="Auth.SessionTerminated" xml:space="preserve">
+    <value>Oturumunuz sonlandırılmış.</value>
+  </data>
+  <data name="Auth.InvalidGatewayToken" xml:space="preserve">
+    <value>Geçersiz veya eksik ağ geçidi belirteci. Doğrudan API erişimine izin verilmiyor.</value>
+  </data>
+  <data name="Auth.Unauthorized" xml:space="preserve">
+    <value>Bu işlemi gerçekleştirme yetkiniz yok.</value>
+  </data>
+  <data name="Auth.PermissionDenied" xml:space="preserve">
+    <value>Gerekli izne sahip değilsiniz: '{0}'.</value>
+  </data>
+  <data name="Auth.ApplicationNotFound" xml:space="preserve">
+    <value>'{0}' kimlikli uygulama bulunamadı.</value>
+  </data>
+  <data name="Auth.ApplicationInactive" xml:space="preserve">
+    <value>Bu uygulama şu anda etkin değil.</value>
+  </data>
+  <data name="Auth.InvalidSigningKey" xml:space="preserve">
+    <value>JWT imzalama anahtarı geçersiz veya yapılandırılmamış.</value>
+  </data>
+  <data name="Auth.KeyGenerationFailed" xml:space="preserve">
+    <value>Kriptografik anahtarlar oluşturulamadı.</value>
+  </data>
+  <data name="Auth.TokenGenerationFailed" xml:space="preserve">
+    <value>Kimlik doğrulama belirteci oluşturulamadı.</value>
+  </data>
+  <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
+    <value>Başka bir cihazdan yeni bir giriş tespit edildi. Bu oturum sonlandırıldı.</value>
+  </data>
+
+  <!-- ==================== User Errors ==================== -->
+  <data name="User.NotFound" xml:space="preserve">
+    <value>'{0}' kimlikli kullanıcı bulunamadı.</value>
+  </data>
+  <data name="User.NotFoundByEmail" xml:space="preserve">
+    <value>'{0}' e-posta adresine sahip kullanıcı bulunamadı.</value>
+  </data>
+  <data name="User.DuplicateEmail" xml:space="preserve">
+    <value>'{0}' e-posta adresine sahip bir kullanıcı zaten mevcut.</value>
+  </data>
+  <data name="User.InvalidCredentials" xml:space="preserve">
+    <value>Sağlanan kimlik bilgileri geçersiz.</value>
+  </data>
+  <data name="User.AccountLocked" xml:space="preserve">
+    <value>Birden fazla başarısız giriş denemesi nedeniyle bu hesap kilitlenmiştir.</value>
+  </data>
+  <data name="User.AccountLockedUntil" xml:space="preserve">
+    <value>Bu hesap {0} tarihine kadar kilitli.</value>
+  </data>
+  <data name="User.AccountInactive" xml:space="preserve">
+    <value>Bu hesap şu anda etkin değil.</value>
+  </data>
+  <data name="User.AccountPending" xml:space="preserve">
+    <value>Bu hesap etkinleştirme bekliyor.</value>
+  </data>
+  <data name="User.EmailNotConfirmed" xml:space="preserve">
+    <value>Giriş yapmadan önce lütfen e-posta adresinizi doğrulayın.</value>
+  </data>
+  <data name="User.PasswordExpired" xml:space="preserve">
+    <value>Parolanızın süresi dolmuş. Lütfen parolanızı değiştirin.</value>
+  </data>
+  <data name="User.MustChangePassword" xml:space="preserve">
+    <value>Devam etmeden önce parolanızı değiştirmelisiniz.</value>
+  </data>
+  <data name="User.InvalidCurrentPassword" xml:space="preserve">
+    <value>Mevcut parola yanlış.</value>
+  </data>
+  <data name="User.PasswordRecentlyUsed" xml:space="preserve">
+    <value>Bu parola yakın zamanda kullanılmış. Lütfen farklı bir parola seçin.</value>
+  </data>
+  <data name="User.PasswordTooWeak" xml:space="preserve">
+    <value>Parola karmaşıklık gereksinimlerini karşılamıyor.</value>
+  </data>
+  <data name="User.CannotDeleteSystemUser" xml:space="preserve">
+    <value>Sistem kullanıcıları silinemez.</value>
+  </data>
+  <data name="User.CannotModifySystemUser" xml:space="preserve">
+    <value>Sistem kullanıcıları değiştirilemez.</value>
+  </data>
+  <data name="User.TwoFactorRequired" xml:space="preserve">
+    <value>Bu hesap için iki faktörlü kimlik doğrulama gereklidir.</value>
+  </data>
+  <data name="User.InvalidTwoFactorCode" xml:space="preserve">
+    <value>İki faktörlü kimlik doğrulama kodu geçersiz.</value>
+  </data>
+  <data name="User.TwoFactorAlreadyEnabled" xml:space="preserve">
+    <value>Bu hesap için iki faktörlü kimlik doğrulama zaten etkin.</value>
+  </data>
+  <data name="User.TwoFactorNotEnabled" xml:space="preserve">
+    <value>Bu hesap için iki faktörlü kimlik doğrulama etkin değil.</value>
+  </data>
+
+  <!-- ==================== Organization Errors ==================== -->
+  <data name="Organization.NotFound" xml:space="preserve">
+    <value>'{0}' kimlikli kuruluş bulunamadı.</value>
+  </data>
+  <data name="Organization.NotFoundByCode" xml:space="preserve">
+    <value>'{0}' kodlu kuruluş bulunamadı.</value>
+  </data>
+  <data name="Organization.DuplicateCode" xml:space="preserve">
+    <value>'{0}' kodlu bir kuruluş zaten mevcut.</value>
+  </data>
+  <data name="Organization.Inactive" xml:space="preserve">
+    <value>Bu kuruluş şu anda etkin değil.</value>
+  </data>
+  <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
+    <value>Hâlâ üyeleri olan bir kuruluş silinemez. Önce tüm üyeleri kaldırın.</value>
+  </data>
+  <data name="Organization.NotOwner" xml:space="preserve">
+    <value>Bu işlemi yalnızca kuruluş sahibi gerçekleştirebilir.</value>
+  </data>
+  <data name="Organization.CannotTransferOwnership" xml:space="preserve">
+    <value>Sahiplik, kuruluş üyesi olmayan birine devredilemez.</value>
+  </data>
+  <data name="Organization.AlreadyMember" xml:space="preserve">
+    <value>Kullanıcı zaten bu kuruluşun üyesi.</value>
+  </data>
+  <data name="Organization.NotMember" xml:space="preserve">
+    <value>Kullanıcı bu kuruluşun üyesi değil.</value>
+  </data>
+  <data name="Organization.NotAMember" xml:space="preserve">
+    <value>Bu kuruluşun üyesi değilsiniz.</value>
+  </data>
+  <data name="Organization.CannotRemoveOwner" xml:space="preserve">
+    <value>Kuruluş sahibi kaldırılamaz. Önce sahipliği devredin.</value>
+  </data>
+  <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
+    <value>Kendi kuruluş rolünüzü değiştiremezsiniz.</value>
+  </data>
+  <data name="Organization.MembershipExpired" xml:space="preserve">
+    <value>Bu kuruluştaki üyeliğinizin süresi dolmuş.</value>
+  </data>
+  <data name="Organization.InsufficientPermissions" xml:space="preserve">
+    <value>Bu işlemi gerçekleştirmek için yeterli izniniz yok.</value>
+  </data>
+  <data name="Organization.ApplicationNotFound" xml:space="preserve">
+    <value>'{0}' kimlikli uygulama bulunamadı.</value>
+  </data>
+  <data name="Organization.ApplicationAlreadyEnabled" xml:space="preserve">
+    <value>Bu uygulama kuruluş için zaten etkinleştirilmiş.</value>
+  </data>
+  <data name="Organization.ApplicationNotEnabled" xml:space="preserve">
+    <value>Bu uygulama kuruluş için etkinleştirilmemiş.</value>
+  </data>
+  <data name="Organization.SubscriptionExpired" xml:space="preserve">
+    <value>Bu uygulamanın abonelik süresi dolmuş.</value>
+  </data>
+  <data name="Organization.AppRoleAlreadyAssigned" xml:space="preserve">
+    <value>Bu rol, bu uygulama için kullanıcıya zaten atanmış.</value>
+  </data>
+  <data name="Organization.AppRoleNotAssigned" xml:space="preserve">
+    <value>Bu rol, bu uygulama için kullanıcıya atanmamış.</value>
+  </data>
+  <data name="Organization.RoleNotFound" xml:space="preserve">
+    <value>'{0}' kimlikli rol bulunamadı.</value>
+  </data>
+  <data name="Organization.RoleNotForApplication" xml:space="preserve">
+    <value>Belirtilen rol, belirtilen uygulamaya ait değil.</value>
+  </data>
+  <data name="Organization.PermissionAlreadyGranted" xml:space="preserve">
+    <value>Bu izin, bu uygulama için kullanıcıya zaten verilmiş.</value>
+  </data>
+  <data name="Organization.PermissionNotGranted" xml:space="preserve">
+    <value>Bu izin, bu uygulama için kullanıcıya verilmemiş.</value>
+  </data>
+  <data name="Organization.PermissionNotFound" xml:space="preserve">
+    <value>'{0}' kimlikli izin bulunamadı.</value>
+  </data>
+  <data name="Organization.PermissionNotForApplication" xml:space="preserve">
+    <value>Belirtilen izin, belirtilen uygulamaya ait değil.</value>
+  </data>
+  <data name="Organization.InvitationNotFound" xml:space="preserve">
+    <value>'{0}' kimlikli davet bulunamadı.</value>
+  </data>
+  <data name="Organization.InvitationNotFoundByToken" xml:space="preserve">
+    <value>Geçersiz veya süresi dolmuş davet belirteci.</value>
+  </data>
+  <data name="Organization.InvitationExpired" xml:space="preserve">
+    <value>Bu davetin süresi dolmuş.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyAccepted" xml:space="preserve">
+    <value>Bu davet zaten kabul edilmiş.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyDeclined" xml:space="preserve">
+    <value>Bu davet zaten reddedilmiş.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyCancelled" xml:space="preserve">
+    <value>Bu davet iptal edilmiş.</value>
+  </data>
+  <data name="Organization.PendingInvitationExists" xml:space="preserve">
+    <value>'{0}' için bekleyen bir davet zaten mevcut.</value>
+  </data>
+  <data name="Organization.CannotInviteSelf" xml:space="preserve">
+    <value>Kendinizi bir kuruluşa davet edemezsiniz.</value>
+  </data>
+  <data name="Organization.InvitationEmailMismatch" xml:space="preserve">
+    <value>Bu davet farklı bir e-posta adresine gönderilmiş.</value>
+  </data>
+
+  <!-- ==================== Application Errors ==================== -->
+  <data name="Application.NotFound" xml:space="preserve">
+    <value>'{0}' kimlikli uygulama bulunamadı.</value>
+  </data>
+  <data name="Application.NotFoundByCode" xml:space="preserve">
+    <value>'{0}' kodlu uygulama bulunamadı.</value>
+  </data>
+  <data name="Application.DuplicateCode" xml:space="preserve">
+    <value>'{0}' kodlu bir uygulama zaten mevcut.</value>
+  </data>
+  <data name="Application.CannotDeleteSystem" xml:space="preserve">
+    <value>Sistem uygulamaları silinemez.</value>
+  </data>
+  <data name="Application.CannotModifySystem" xml:space="preserve">
+    <value>Sistem uygulamaları değiştirilemez.</value>
+  </data>
+  <data name="Application.HasActiveApiKeys" xml:space="preserve">
+    <value>Etkin API anahtarlarına sahip uygulama silinemez. Önce tüm API anahtarlarını iptal edin.</value>
+  </data>
+  <data name="Application.HasActiveUsers" xml:space="preserve">
+    <value>Etkin kullanıcı atamaları olan uygulama silinemez.</value>
+  </data>
+  <data name="Application.HasActiveOrganizations" xml:space="preserve">
+    <value>Kuruluşlar için etkinleştirilmiş uygulama silinemez.</value>
+  </data>
+  <data name="Application.Inactive" xml:space="preserve">
+    <value>Bu uygulama şu anda etkin değil.</value>
+  </data>
+  <data name="Application.InvalidCode" xml:space="preserve">
+    <value>Uygulama kodu '{0}' geçersiz. Yalnızca büyük harf alfanümerik karakterler ve alt çizgiler kullanın.</value>
+  </data>
+  <data name="Application.CodeTooShort" xml:space="preserve">
+    <value>Uygulama kodu en az 2 karakter uzunluğunda olmalıdır.</value>
+  </data>
+  <data name="Application.CodeTooLong" xml:space="preserve">
+    <value>Uygulama kodu 50 karakteri aşamaz.</value>
+  </data>
+  <data name="Application.InvalidSessionTimeout" xml:space="preserve">
+    <value>Oturum zaman aşımı 1 ile 1440 dakika (24 saat) arasında olmalıdır.</value>
+  </data>
+  <data name="Application.InvalidMaxConcurrentSessions" xml:space="preserve">
+    <value>Maksimum eş zamanlı oturum sayısı 1 ile 100 arasında olmalıdır.</value>
+  </data>
+  <data name="Application.NotEnabledForOrganization" xml:space="preserve">
+    <value>Bu uygulama bu kuruluş için etkinleştirilmemiş.</value>
+  </data>
+  <data name="Application.AlreadyEnabledForOrganization" xml:space="preserve">
+    <value>Bu uygulama bu kuruluş için zaten etkinleştirilmiş.</value>
+  </data>
+
+  <!-- ==================== Role Errors ==================== -->
+  <data name="Role.NotFound" xml:space="preserve">
+    <value>'{0}' kimlikli rol bulunamadı.</value>
+  </data>
+  <data name="Role.NotFoundByCode" xml:space="preserve">
+    <value>'{0}' kodlu rol bulunamadı.</value>
+  </data>
+  <data name="Role.DuplicateCode" xml:space="preserve">
+    <value>Bu uygulamada '{0}' kodlu bir rol zaten mevcut.</value>
+  </data>
+  <data name="Role.CannotDeleteSystemRole" xml:space="preserve">
+    <value>Sistem rolleri silinemez.</value>
+  </data>
+  <data name="Role.CannotModifySystemRole" xml:space="preserve">
+    <value>Sistem rolleri değiştirilemez.</value>
+  </data>
+  <data name="Role.Inactive" xml:space="preserve">
+    <value>Bu rol şu anda etkin değil.</value>
+  </data>
+  <data name="Role.AlreadyAssigned" xml:space="preserve">
+    <value>Bu rol kullanıcıya zaten atanmış.</value>
+  </data>
+  <data name="Role.NotAssigned" xml:space="preserve">
+    <value>Bu rol kullanıcıya atanmamış.</value>
+  </data>
+  <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
+    <value>Son yönetici rolü kaldırılamaz. En az bir yönetici kalmalıdır.</value>
+  </data>
+
+  <!-- ==================== Permission Errors ==================== -->
+  <data name="Permission.NotFound" xml:space="preserve">
+    <value>'{0}' kimlikli izin bulunamadı.</value>
+  </data>
+  <data name="Permission.NotFoundByCode" xml:space="preserve">
+    <value>'{0}' kodlu izin bulunamadı.</value>
+  </data>
+  <data name="Permission.DuplicateCode" xml:space="preserve">
+    <value>Bu uygulamada '{0}' kodlu bir izin zaten mevcut.</value>
+  </data>
+  <data name="Permission.InvalidCode" xml:space="preserve">
+    <value>İzin kodu '{0}' geçersiz. İki nokta üst üste ile ayrılmış hiyerarşi kullanın (ör. 'modül:kaynak:eylem').</value>
+  </data>
+  <data name="Permission.CannotDeleteSystemPermission" xml:space="preserve">
+    <value>Sistem izinleri silinemez.</value>
+  </data>
+  <data name="Permission.CannotModifySystemPermission" xml:space="preserve">
+    <value>Sistem izinleri değiştirilemez.</value>
+  </data>
+  <data name="Permission.Inactive" xml:space="preserve">
+    <value>Bu izin şu anda etkin değil.</value>
+  </data>
+  <data name="Permission.AlreadyGranted" xml:space="preserve">
+    <value>Bu izin zaten verilmiş.</value>
+  </data>
+  <data name="Permission.NotGranted" xml:space="preserve">
+    <value>Bu izin verilmemiş.</value>
+  </data>
+  <data name="Permission.CircularImplication" xml:space="preserve">
+    <value>Bu, döngüsel bir izin çıkarımı oluşturur.</value>
+  </data>
+  <data name="Permission.CannotGrantHigher" xml:space="preserve">
+    <value>Sahip olmadığınız izinleri veremezsiniz.</value>
+  </data>
+
+  <!-- ==================== ApiKey Errors ==================== -->
+  <data name="ApiKey.NotFound" xml:space="preserve">
+    <value>API anahtarı bulunamadı.</value>
+  </data>
+  <data name="ApiKey.Invalid" xml:space="preserve">
+    <value>Sağlanan API anahtarı geçersiz.</value>
+  </data>
+  <data name="ApiKey.Revoked" xml:space="preserve">
+    <value>API anahtarı iptal edilmiş.</value>
+  </data>
+  <data name="ApiKey.Expired" xml:space="preserve">
+    <value>API anahtarının süresi dolmuş.</value>
+  </data>
+  <data name="ApiKey.AlreadyRevoked" xml:space="preserve">
+    <value>API anahtarı zaten iptal edilmiş.</value>
+  </data>
+
+  <!-- ==================== WebhookKey Errors ==================== -->
+  <data name="WebhookKey.NotFound" xml:space="preserve">
+    <value>Webhook anahtarı bulunamadı.</value>
+  </data>
+  <data name="WebhookKey.Invalid" xml:space="preserve">
+    <value>Sağlanan webhook anahtarı geçersiz.</value>
+  </data>
+  <data name="WebhookKey.Revoked" xml:space="preserve">
+    <value>Webhook anahtarı iptal edilmiş.</value>
+  </data>
+  <data name="WebhookKey.Expired" xml:space="preserve">
+    <value>Webhook anahtarının süresi dolmuş.</value>
+  </data>
+  <data name="WebhookKey.AlreadyRevoked" xml:space="preserve">
+    <value>Webhook anahtarı zaten iptal edilmiş.</value>
+  </data>
+
+  <!-- ==================== Session Errors ==================== -->
+  <data name="Session.NotFound" xml:space="preserve">
+    <value>Oturum bulunamadı.</value>
+  </data>
+  <data name="Session.Expired" xml:space="preserve">
+    <value>Oturumun süresi dolmuş.</value>
+  </data>
+  <data name="Session.AlreadyTerminated" xml:space="preserve">
+    <value>Oturum zaten sonlandırılmış.</value>
+  </data>
+  <data name="Session.MaxSessionsReached" xml:space="preserve">
+    <value>Maksimum eş zamanlı oturum sayısına ulaşıldı.</value>
+  </data>
+
+  <!-- ==================== AuditLog Errors ==================== -->
+  <data name="AuditLog.NotFound" xml:space="preserve">
+    <value>'{0}' kimlikli denetim günlüğü bulunamadı.</value>
+  </data>
+  <data name="AuditLog.InvalidDateRange" xml:space="preserve">
+    <value>Başlangıç tarihi bitiş tarihinden önce olmalıdır.</value>
+  </data>
+  <data name="AuditLog.DateRangeTooLarge" xml:space="preserve">
+    <value>Tarih aralığı tek bir sorgu için 90 günü aşamaz.</value>
+  </data>
+  <data name="AuditLog.ExportFailed" xml:space="preserve">
+    <value>Denetim günlükleri dışa aktarılamadı: {0}</value>
+  </data>
+  <data name="AuditLog.ExportTooLarge" xml:space="preserve">
+    <value>Dışa aktarma isteği izin verilen maksimum kayıt sayısını (100.000) aşıyor. Lütfen arama kriterlerinizi daraltın.</value>
+  </data>
+  <data name="AuditLog.InvalidExportFormat" xml:space="preserve">
+    <value>Geçersiz dışa aktarma biçimi '{0}'. Desteklenen biçimler: csv, json.</value>
+  </data>
+  <data name="AuditLog.NoLogsFound" xml:space="preserve">
+    <value>Belirtilen kriterlere uyan denetim günlüğü bulunamadı.</value>
+  </data>
+
+  <!-- ==================== EmailVerification Errors ==================== -->
+  <data name="EmailVerification.InvalidOrExpiredOtp" xml:space="preserve">
+    <value>Doğrulama kodu geçersiz veya süresi dolmuş.</value>
+  </data>
+  <data name="EmailVerification.OtpAlreadyUsed" xml:space="preserve">
+    <value>Bu doğrulama kodu zaten kullanılmış.</value>
+  </data>
+  <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
+    <value>Çok fazla doğrulama denemesi. Lütfen yeni bir kod talep edin.</value>
+  </data>
+  <data name="EmailVerification.TooManyRequests" xml:space="preserve">
+    <value>Çok fazla doğrulama kodu talebi. Lütfen daha sonra tekrar deneyin.</value>
+  </data>
+  <data name="EmailVerification.EmailAlreadyVerified" xml:space="preserve">
+    <value>Bu e-posta adresi zaten doğrulanmış.</value>
+  </data>
+  <data name="EmailVerification.NoActiveToken" xml:space="preserve">
+    <value>Etkin doğrulama kodu bulunamadı. Lütfen yeni bir kod talep edin.</value>
+  </data>
+  <data name="EmailVerification.EmailSendFailed" xml:space="preserve">
+    <value>Doğrulama e-postası gönderilemedi. Lütfen daha sonra tekrar deneyin.</value>
+  </data>
+  <data name="EmailVerification.UserNotFound" xml:space="preserve">
+    <value>Kullanıcı bulunamadı.</value>
+  </data>
+  <data name="EmailVerification.InvalidOtpFormat" xml:space="preserve">
+    <value>Doğrulama kodu tam olarak 6 haneli olmalıdır.</value>
+  </data>
+
+  <!-- ==================== ExternalAuth Errors ==================== -->
+  <data name="ExternalAuth.ProviderNotSupported" xml:space="preserve">
+    <value>'{0}' harici kimlik doğrulama sağlayıcısı desteklenmiyor.</value>
+  </data>
+  <data name="ExternalAuth.TokenVerificationFailed" xml:space="preserve">
+    <value>Harici kimlik doğrulama belirteci doğrulanamadı.</value>
+  </data>
+  <data name="ExternalAuth.ProviderNotConfigured" xml:space="preserve">
+    <value>'{0}' harici kimlik doğrulama sağlayıcısı yapılandırılmamış.</value>
+  </data>
+  <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
+    <value>E-posta adresi harici sağlayıcı tarafından doğrulanmamış.</value>
+  </data>
+  <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
+    <value>Bu {0} hesabı zaten başka bir kullanıcıya bağlı.</value>
+  </data>
+
+  <!-- ==================== PasswordReset Errors ==================== -->
+  <data name="PasswordReset.InvalidOrExpiredToken" xml:space="preserve">
+    <value>Parola sıfırlama belirteci geçersiz veya süresi dolmuş.</value>
+  </data>
+  <data name="PasswordReset.TokenAlreadyUsed" xml:space="preserve">
+    <value>Bu parola sıfırlama belirteci zaten kullanılmış.</value>
+  </data>
+  <data name="PasswordReset.TooManyRequests" xml:space="preserve">
+    <value>Çok fazla parola sıfırlama talebi. Lütfen daha sonra tekrar deneyin.</value>
+  </data>
+
+  <!-- ==================== TwoFactor Errors ==================== -->
+  <data name="TwoFactor.SetupRequired" xml:space="preserve">
+    <value>Etkinleştirmeden önce iki faktörlü kimlik doğrulama kurulumu gereklidir.</value>
+  </data>
+  <data name="TwoFactor.VerificationRequired" xml:space="preserve">
+    <value>İki faktörlü kimlik doğrulama doğrulaması gereklidir.</value>
+  </data>
+  <data name="TwoFactor.LockedOut" xml:space="preserve">
+    <value>Çok fazla başarısız deneme nedeniyle iki faktörlü kimlik doğrulama geçici olarak kilitlenmiştir.</value>
+  </data>
+  <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
+    <value>Kurtarma kodu geçersiz.</value>
+  </data>
+  <data name="TwoFactor.NoRecoveryCodesAvailable" xml:space="preserve">
+    <value>Kullanılabilir kurtarma kodu yok. Lütfen destek ile iletişime geçin.</value>
+  </data>
+
+  <!-- ==================== Secret Errors ==================== -->
+  <data name="Secret.DecryptionFailed" xml:space="preserve">
+    <value>Gizli dosya çözülemedi. Farklı bir makinede şifrelenmiş olabilir veya DPAPI anahtarları değişmiş olabilir.</value>
+  </data>
+  <data name="Secret.FileAccessFailed" xml:space="preserve">
+    <value>Gizli dosyaya erişilemedi. Dosya izinlerini ve yol yapılandırmasını kontrol edin.</value>
+  </data>
+  <data name="Secret.KeyGenerationFailed" xml:space="preserve">
+    <value>Kriptografik anahtar oluşturulamadı.</value>
+  </data>
+  <data name="Secret.InvalidKey" xml:space="preserve">
+    <value>Gizli anahtar yalnızca alfanümerik karakterler, alt çizgiler veya noktalar içermeli ve 100 karakterden kısa olmalıdır.</value>
+  </data>
+  <data name="Secret.UnknownKey" xml:space="preserve">
+    <value>Bilinmeyen gizli anahtar: {0}.</value>
+  </data>
+  <data name="Secret.NotFound" xml:space="preserve">
+    <value>Özel gizli anahtar '{0}' bulunamadı.</value>
+  </data>
+</root>

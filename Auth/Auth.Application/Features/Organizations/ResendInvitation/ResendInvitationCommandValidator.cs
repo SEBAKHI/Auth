@@ -10,9 +10,9 @@ public class ResendInvitationCommandValidator : AbstractValidator<ResendInvitati
     public ResendInvitationCommandValidator()
     {
         RuleFor(x => x.OrganizationId)
-            .NotEmpty().WithMessage("Organization ID is required.");
+            .NotEmpty().WithMessage("Validation.OrganizationId.Required");
 
         RuleFor(x => x.InvitationId)
-            .NotEmpty().WithMessage("Invitation ID is required.");
+            .NotEmpty().WithMessage("Validation.InvitationId.Required");
     }
 }

@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Auth Errors ==================== -->
+  <data name="Auth.InvalidToken" xml:space="preserve">
+    <value>الرمز المُقدَّم غير صالح.</value>
+  </data>
+  <data name="Auth.TokenExpired" xml:space="preserve">
+    <value>انتهت صلاحية الرمز المُقدَّم.</value>
+  </data>
+  <data name="Auth.TokenRevoked" xml:space="preserve">
+    <value>تم إبطال الرمز المُقدَّم.</value>
+  </data>
+  <data name="Auth.RefreshTokenNotFound" xml:space="preserve">
+    <value>لم يتم العثور على رمز التحديث.</value>
+  </data>
+  <data name="Auth.RefreshTokenExpired" xml:space="preserve">
+    <value>انتهت صلاحية رمز التحديث. يرجى تسجيل الدخول مجددًا.</value>
+  </data>
+  <data name="Auth.RefreshTokenRevoked" xml:space="preserve">
+    <value>تم إبطال رمز التحديث.</value>
+  </data>
+  <data name="Auth.SessionNotFound" xml:space="preserve">
+    <value>لم يتم العثور على الجلسة.</value>
+  </data>
+  <data name="Auth.SessionExpired" xml:space="preserve">
+    <value>انتهت صلاحية جلستك. يرجى تسجيل الدخول مجددًا.</value>
+  </data>
+  <data name="Auth.SessionTerminated" xml:space="preserve">
+    <value>تم إنهاء جلستك.</value>
+  </data>
+  <data name="Auth.InvalidGatewayToken" xml:space="preserve">
+    <value>رمز البوابة غير صالح أو مفقود. لا يُسمح بالوصول المباشر إلى الواجهة البرمجية.</value>
+  </data>
+  <data name="Auth.Unauthorized" xml:space="preserve">
+    <value>غير مصرّح لك بتنفيذ هذا الإجراء.</value>
+  </data>
+  <data name="Auth.PermissionDenied" xml:space="preserve">
+    <value>لا تملك الصلاحية المطلوبة: '{0}'.</value>
+  </data>
+  <data name="Auth.ApplicationNotFound" xml:space="preserve">
+    <value>لم يتم العثور على التطبيق ذي المعرّف '{0}'.</value>
+  </data>
+  <data name="Auth.ApplicationInactive" xml:space="preserve">
+    <value>هذا التطبيق غير نشط حاليًا.</value>
+  </data>
+  <data name="Auth.InvalidSigningKey" xml:space="preserve">
+    <value>مفتاح توقيع JWT غير صالح أو غير مُهيَّأ.</value>
+  </data>
+  <data name="Auth.KeyGenerationFailed" xml:space="preserve">
+    <value>فشل في توليد المفاتيح التشفيرية.</value>
+  </data>
+  <data name="Auth.TokenGenerationFailed" xml:space="preserve">
+    <value>فشل في توليد رمز المصادقة.</value>
+  </data>
+  <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
+    <value>تم اكتشاف تسجيل دخول جديد من جهاز آخر. تم إنهاء هذه الجلسة.</value>
+  </data>
+
+  <!-- ==================== User Errors ==================== -->
+  <data name="User.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على المستخدم ذي المعرّف '{0}'.</value>
+  </data>
+  <data name="User.NotFoundByEmail" xml:space="preserve">
+    <value>لم يتم العثور على المستخدم ذي البريد الإلكتروني '{0}'.</value>
+  </data>
+  <data name="User.DuplicateEmail" xml:space="preserve">
+    <value>يوجد مستخدم بالفعل بالبريد الإلكتروني '{0}'.</value>
+  </data>
+  <data name="User.InvalidCredentials" xml:space="preserve">
+    <value>بيانات الاعتماد المُقدَّمة غير صالحة.</value>
+  </data>
+  <data name="User.AccountLocked" xml:space="preserve">
+    <value>تم قفل هذا الحساب بسبب محاولات تسجيل دخول فاشلة متعددة.</value>
+  </data>
+  <data name="User.AccountLockedUntil" xml:space="preserve">
+    <value>هذا الحساب مقفل حتى {0}.</value>
+  </data>
+  <data name="User.AccountInactive" xml:space="preserve">
+    <value>هذا الحساب غير نشط حاليًا.</value>
+  </data>
+  <data name="User.AccountPending" xml:space="preserve">
+    <value>هذا الحساب بانتظار التفعيل.</value>
+  </data>
+  <data name="User.EmailNotConfirmed" xml:space="preserve">
+    <value>يرجى تأكيد بريدك الإلكتروني قبل تسجيل الدخول.</value>
+  </data>
+  <data name="User.PasswordExpired" xml:space="preserve">
+    <value>انتهت صلاحية كلمة المرور. يرجى تغيير كلمة المرور.</value>
+  </data>
+  <data name="User.MustChangePassword" xml:space="preserve">
+    <value>يجب عليك تغيير كلمة المرور قبل المتابعة.</value>
+  </data>
+  <data name="User.InvalidCurrentPassword" xml:space="preserve">
+    <value>كلمة المرور الحالية غير صحيحة.</value>
+  </data>
+  <data name="User.PasswordRecentlyUsed" xml:space="preserve">
+    <value>تم استخدام كلمة المرور هذه مؤخرًا. يرجى اختيار كلمة مرور مختلفة.</value>
+  </data>
+  <data name="User.PasswordTooWeak" xml:space="preserve">
+    <value>كلمة المرور لا تستوفي متطلبات التعقيد.</value>
+  </data>
+  <data name="User.CannotDeleteSystemUser" xml:space="preserve">
+    <value>لا يمكن حذف مستخدمي النظام.</value>
+  </data>
+  <data name="User.CannotModifySystemUser" xml:space="preserve">
+    <value>لا يمكن تعديل مستخدمي النظام.</value>
+  </data>
+  <data name="User.TwoFactorRequired" xml:space="preserve">
+    <value>المصادقة الثنائية مطلوبة لهذا الحساب.</value>
+  </data>
+  <data name="User.InvalidTwoFactorCode" xml:space="preserve">
+    <value>رمز المصادقة الثنائية غير صالح.</value>
+  </data>
+  <data name="User.TwoFactorAlreadyEnabled" xml:space="preserve">
+    <value>المصادقة الثنائية مفعّلة بالفعل لهذا الحساب.</value>
+  </data>
+  <data name="User.TwoFactorNotEnabled" xml:space="preserve">
+    <value>المصادقة الثنائية غير مفعّلة لهذا الحساب.</value>
+  </data>
+
+  <!-- ==================== Organization Errors ==================== -->
+  <data name="Organization.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على المنظمة ذات المعرّف '{0}'.</value>
+  </data>
+  <data name="Organization.NotFoundByCode" xml:space="preserve">
+    <value>لم يتم العثور على المنظمة ذات الرمز '{0}'.</value>
+  </data>
+  <data name="Organization.DuplicateCode" xml:space="preserve">
+    <value>توجد منظمة بالفعل بالرمز '{0}'.</value>
+  </data>
+  <data name="Organization.Inactive" xml:space="preserve">
+    <value>هذه المنظمة غير نشطة حاليًا.</value>
+  </data>
+  <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
+    <value>لا يمكن حذف منظمة لا تزال تحتوي على أعضاء. قم بإزالة جميع الأعضاء أولًا.</value>
+  </data>
+  <data name="Organization.NotOwner" xml:space="preserve">
+    <value>فقط مالك المنظمة يمكنه تنفيذ هذا الإجراء.</value>
+  </data>
+  <data name="Organization.CannotTransferOwnership" xml:space="preserve">
+    <value>لا يمكن نقل الملكية إلى شخص ليس عضوًا في المنظمة.</value>
+  </data>
+  <data name="Organization.AlreadyMember" xml:space="preserve">
+    <value>المستخدم عضو بالفعل في هذه المنظمة.</value>
+  </data>
+  <data name="Organization.NotMember" xml:space="preserve">
+    <value>المستخدم ليس عضوًا في هذه المنظمة.</value>
+  </data>
+  <data name="Organization.NotAMember" xml:space="preserve">
+    <value>أنت لست عضوًا في هذه المنظمة.</value>
+  </data>
+  <data name="Organization.CannotRemoveOwner" xml:space="preserve">
+    <value>لا يمكن إزالة مالك المنظمة. قم بنقل الملكية أولًا.</value>
+  </data>
+  <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
+    <value>لا يمكنك تغيير دورك في المنظمة بنفسك.</value>
+  </data>
+  <data name="Organization.MembershipExpired" xml:space="preserve">
+    <value>انتهت صلاحية عضويتك في هذه المنظمة.</value>
+  </data>
+  <data name="Organization.InsufficientPermissions" xml:space="preserve">
+    <value>لا تملك صلاحيات كافية لتنفيذ هذا الإجراء.</value>
+  </data>
+  <data name="Organization.ApplicationNotFound" xml:space="preserve">
+    <value>لم يتم العثور على التطبيق ذي المعرّف '{0}'.</value>
+  </data>
+  <data name="Organization.ApplicationAlreadyEnabled" xml:space="preserve">
+    <value>هذا التطبيق مفعّل بالفعل للمنظمة.</value>
+  </data>
+  <data name="Organization.ApplicationNotEnabled" xml:space="preserve">
+    <value>هذا التطبيق غير مفعّل للمنظمة.</value>
+  </data>
+  <data name="Organization.SubscriptionExpired" xml:space="preserve">
+    <value>انتهت صلاحية الاشتراك لهذا التطبيق.</value>
+  </data>
+  <data name="Organization.AppRoleAlreadyAssigned" xml:space="preserve">
+    <value>هذا الدور مُعيَّن بالفعل للمستخدم لهذا التطبيق.</value>
+  </data>
+  <data name="Organization.AppRoleNotAssigned" xml:space="preserve">
+    <value>هذا الدور غير مُعيَّن للمستخدم لهذا التطبيق.</value>
+  </data>
+  <data name="Organization.RoleNotFound" xml:space="preserve">
+    <value>لم يتم العثور على الدور ذي المعرّف '{0}'.</value>
+  </data>
+  <data name="Organization.RoleNotForApplication" xml:space="preserve">
+    <value>الدور المحدد لا ينتمي إلى التطبيق المحدد.</value>
+  </data>
+  <data name="Organization.PermissionAlreadyGranted" xml:space="preserve">
+    <value>هذه الصلاحية ممنوحة بالفعل للمستخدم لهذا التطبيق.</value>
+  </data>
+  <data name="Organization.PermissionNotGranted" xml:space="preserve">
+    <value>هذه الصلاحية غير ممنوحة للمستخدم لهذا التطبيق.</value>
+  </data>
+  <data name="Organization.PermissionNotFound" xml:space="preserve">
+    <value>لم يتم العثور على الصلاحية ذات المعرّف '{0}'.</value>
+  </data>
+  <data name="Organization.PermissionNotForApplication" xml:space="preserve">
+    <value>الصلاحية المحددة لا تنتمي إلى التطبيق المحدد.</value>
+  </data>
+  <data name="Organization.InvitationNotFound" xml:space="preserve">
+    <value>لم يتم العثور على الدعوة ذات المعرّف '{0}'.</value>
+  </data>
+  <data name="Organization.InvitationNotFoundByToken" xml:space="preserve">
+    <value>رمز الدعوة غير صالح أو منتهي الصلاحية.</value>
+  </data>
+  <data name="Organization.InvitationExpired" xml:space="preserve">
+    <value>انتهت صلاحية هذه الدعوة.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyAccepted" xml:space="preserve">
+    <value>تم قبول هذه الدعوة بالفعل.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyDeclined" xml:space="preserve">
+    <value>تم رفض هذه الدعوة بالفعل.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyCancelled" xml:space="preserve">
+    <value>تم إلغاء هذه الدعوة.</value>
+  </data>
+  <data name="Organization.PendingInvitationExists" xml:space="preserve">
+    <value>توجد دعوة معلّقة بالفعل لـ '{0}'.</value>
+  </data>
+  <data name="Organization.CannotInviteSelf" xml:space="preserve">
+    <value>لا يمكنك دعوة نفسك إلى منظمة.</value>
+  </data>
+  <data name="Organization.InvitationEmailMismatch" xml:space="preserve">
+    <value>تم إرسال هذه الدعوة إلى عنوان بريد إلكتروني مختلف.</value>
+  </data>
+
+  <!-- ==================== Application Errors ==================== -->
+  <data name="Application.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على التطبيق ذي المعرّف '{0}'.</value>
+  </data>
+  <data name="Application.NotFoundByCode" xml:space="preserve">
+    <value>لم يتم العثور على التطبيق ذي الرمز '{0}'.</value>
+  </data>
+  <data name="Application.DuplicateCode" xml:space="preserve">
+    <value>يوجد تطبيق بالفعل بالرمز '{0}'.</value>
+  </data>
+  <data name="Application.CannotDeleteSystem" xml:space="preserve">
+    <value>لا يمكن حذف تطبيقات النظام.</value>
+  </data>
+  <data name="Application.CannotModifySystem" xml:space="preserve">
+    <value>لا يمكن تعديل تطبيقات النظام.</value>
+  </data>
+  <data name="Application.HasActiveApiKeys" xml:space="preserve">
+    <value>لا يمكن حذف التطبيق مع وجود مفاتيح API نشطة. قم بإبطال جميع مفاتيح API أولًا.</value>
+  </data>
+  <data name="Application.HasActiveUsers" xml:space="preserve">
+    <value>لا يمكن حذف التطبيق مع وجود تعيينات مستخدمين نشطة.</value>
+  </data>
+  <data name="Application.HasActiveOrganizations" xml:space="preserve">
+    <value>لا يمكن حذف تطبيق مفعّل لمنظمات.</value>
+  </data>
+  <data name="Application.Inactive" xml:space="preserve">
+    <value>هذا التطبيق غير نشط حاليًا.</value>
+  </data>
+  <data name="Application.InvalidCode" xml:space="preserve">
+    <value>رمز التطبيق '{0}' غير صالح. استخدم أحرفًا أبجدية رقمية كبيرة وشرطات سفلية فقط.</value>
+  </data>
+  <data name="Application.CodeTooShort" xml:space="preserve">
+    <value>يجب أن يتكون رمز التطبيق من حرفين على الأقل.</value>
+  </data>
+  <data name="Application.CodeTooLong" xml:space="preserve">
+    <value>لا يمكن أن يتجاوز رمز التطبيق 50 حرفًا.</value>
+  </data>
+  <data name="Application.InvalidSessionTimeout" xml:space="preserve">
+    <value>يجب أن تكون مهلة الجلسة بين 1 و1440 دقيقة (24 ساعة).</value>
+  </data>
+  <data name="Application.InvalidMaxConcurrentSessions" xml:space="preserve">
+    <value>يجب أن يكون الحد الأقصى للجلسات المتزامنة بين 1 و100.</value>
+  </data>
+  <data name="Application.NotEnabledForOrganization" xml:space="preserve">
+    <value>هذا التطبيق غير مفعّل لهذه المنظمة.</value>
+  </data>
+  <data name="Application.AlreadyEnabledForOrganization" xml:space="preserve">
+    <value>هذا التطبيق مفعّل بالفعل لهذه المنظمة.</value>
+  </data>
+
+  <!-- ==================== Role Errors ==================== -->
+  <data name="Role.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على الدور ذي المعرّف '{0}'.</value>
+  </data>
+  <data name="Role.NotFoundByCode" xml:space="preserve">
+    <value>لم يتم العثور على الدور ذي الرمز '{0}'.</value>
+  </data>
+  <data name="Role.DuplicateCode" xml:space="preserve">
+    <value>يوجد دور بالفعل بالرمز '{0}' في هذا التطبيق.</value>
+  </data>
+  <data name="Role.CannotDeleteSystemRole" xml:space="preserve">
+    <value>لا يمكن حذف أدوار النظام.</value>
+  </data>
+  <data name="Role.CannotModifySystemRole" xml:space="preserve">
+    <value>لا يمكن تعديل أدوار النظام.</value>
+  </data>
+  <data name="Role.Inactive" xml:space="preserve">
+    <value>هذا الدور غير نشط حاليًا.</value>
+  </data>
+  <data name="Role.AlreadyAssigned" xml:space="preserve">
+    <value>هذا الدور مُعيَّن بالفعل للمستخدم.</value>
+  </data>
+  <data name="Role.NotAssigned" xml:space="preserve">
+    <value>هذا الدور غير مُعيَّن للمستخدم.</value>
+  </data>
+  <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
+    <value>لا يمكن إزالة آخر دور مسؤول. يجب أن يبقى مسؤول واحد على الأقل.</value>
+  </data>
+
+  <!-- ==================== Permission Errors ==================== -->
+  <data name="Permission.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على الصلاحية ذات المعرّف '{0}'.</value>
+  </data>
+  <data name="Permission.NotFoundByCode" xml:space="preserve">
+    <value>لم يتم العثور على الصلاحية ذات الرمز '{0}'.</value>
+  </data>
+  <data name="Permission.DuplicateCode" xml:space="preserve">
+    <value>توجد صلاحية بالفعل بالرمز '{0}' في هذا التطبيق.</value>
+  </data>
+  <data name="Permission.InvalidCode" xml:space="preserve">
+    <value>رمز الصلاحية '{0}' غير صالح. استخدم تسلسلًا هرميًا مفصولًا بنقطتين (مثال: 'module:resource:action').</value>
+  </data>
+  <data name="Permission.CannotDeleteSystemPermission" xml:space="preserve">
+    <value>لا يمكن حذف صلاحيات النظام.</value>
+  </data>
+  <data name="Permission.CannotModifySystemPermission" xml:space="preserve">
+    <value>لا يمكن تعديل صلاحيات النظام.</value>
+  </data>
+  <data name="Permission.Inactive" xml:space="preserve">
+    <value>هذه الصلاحية غير نشطة حاليًا.</value>
+  </data>
+  <data name="Permission.AlreadyGranted" xml:space="preserve">
+    <value>هذه الصلاحية ممنوحة بالفعل.</value>
+  </data>
+  <data name="Permission.NotGranted" xml:space="preserve">
+    <value>هذه الصلاحية غير ممنوحة.</value>
+  </data>
+  <data name="Permission.CircularImplication" xml:space="preserve">
+    <value>سيؤدي هذا إلى إنشاء تضمين دائري للصلاحيات.</value>
+  </data>
+  <data name="Permission.CannotGrantHigher" xml:space="preserve">
+    <value>لا يمكنك منح صلاحيات لا تملكها.</value>
+  </data>
+
+  <!-- ==================== ApiKey Errors ==================== -->
+  <data name="ApiKey.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على مفتاح API.</value>
+  </data>
+  <data name="ApiKey.Invalid" xml:space="preserve">
+    <value>مفتاح API المُقدَّم غير صالح.</value>
+  </data>
+  <data name="ApiKey.Revoked" xml:space="preserve">
+    <value>تم إبطال مفتاح API.</value>
+  </data>
+  <data name="ApiKey.Expired" xml:space="preserve">
+    <value>انتهت صلاحية مفتاح API.</value>
+  </data>
+  <data name="ApiKey.AlreadyRevoked" xml:space="preserve">
+    <value>تم إبطال مفتاح API بالفعل.</value>
+  </data>
+
+  <!-- ==================== WebhookKey Errors ==================== -->
+  <data name="WebhookKey.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على مفتاح Webhook.</value>
+  </data>
+  <data name="WebhookKey.Invalid" xml:space="preserve">
+    <value>مفتاح Webhook المُقدَّم غير صالح.</value>
+  </data>
+  <data name="WebhookKey.Revoked" xml:space="preserve">
+    <value>تم إبطال مفتاح Webhook.</value>
+  </data>
+  <data name="WebhookKey.Expired" xml:space="preserve">
+    <value>انتهت صلاحية مفتاح Webhook.</value>
+  </data>
+  <data name="WebhookKey.AlreadyRevoked" xml:space="preserve">
+    <value>تم إبطال مفتاح Webhook بالفعل.</value>
+  </data>
+
+  <!-- ==================== Session Errors ==================== -->
+  <data name="Session.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على الجلسة.</value>
+  </data>
+  <data name="Session.Expired" xml:space="preserve">
+    <value>انتهت صلاحية الجلسة.</value>
+  </data>
+  <data name="Session.AlreadyTerminated" xml:space="preserve">
+    <value>تم إنهاء الجلسة بالفعل.</value>
+  </data>
+  <data name="Session.MaxSessionsReached" xml:space="preserve">
+    <value>تم الوصول إلى الحد الأقصى لعدد الجلسات المتزامنة.</value>
+  </data>
+
+  <!-- ==================== AuditLog Errors ==================== -->
+  <data name="AuditLog.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على سجل التدقيق ذي المعرّف '{0}'.</value>
+  </data>
+  <data name="AuditLog.InvalidDateRange" xml:space="preserve">
+    <value>يجب أن يكون تاريخ البداية قبل تاريخ النهاية.</value>
+  </data>
+  <data name="AuditLog.DateRangeTooLarge" xml:space="preserve">
+    <value>لا يمكن أن يتجاوز نطاق التاريخ 90 يومًا لاستعلام واحد.</value>
+  </data>
+  <data name="AuditLog.ExportFailed" xml:space="preserve">
+    <value>فشل في تصدير سجلات التدقيق: {0}</value>
+  </data>
+  <data name="AuditLog.ExportTooLarge" xml:space="preserve">
+    <value>يتجاوز طلب التصدير الحد الأقصى المسموح به من السجلات (100,000). يرجى تضييق معايير البحث.</value>
+  </data>
+  <data name="AuditLog.InvalidExportFormat" xml:space="preserve">
+    <value>صيغة التصدير '{0}' غير صالحة. الصيغ المدعومة: csv، json.</value>
+  </data>
+  <data name="AuditLog.NoLogsFound" xml:space="preserve">
+    <value>لم يتم العثور على سجلات تدقيق تطابق المعايير المحددة.</value>
+  </data>
+
+  <!-- ==================== EmailVerification Errors ==================== -->
+  <data name="EmailVerification.InvalidOrExpiredOtp" xml:space="preserve">
+    <value>رمز التحقق غير صالح أو منتهي الصلاحية.</value>
+  </data>
+  <data name="EmailVerification.OtpAlreadyUsed" xml:space="preserve">
+    <value>تم استخدام رمز التحقق هذا بالفعل.</value>
+  </data>
+  <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
+    <value>محاولات تحقق كثيرة جدًا. يرجى طلب رمز جديد.</value>
+  </data>
+  <data name="EmailVerification.TooManyRequests" xml:space="preserve">
+    <value>طلبات رمز تحقق كثيرة جدًا. يرجى المحاولة لاحقًا.</value>
+  </data>
+  <data name="EmailVerification.EmailAlreadyVerified" xml:space="preserve">
+    <value>تم التحقق من عنوان البريد الإلكتروني هذا بالفعل.</value>
+  </data>
+  <data name="EmailVerification.NoActiveToken" xml:space="preserve">
+    <value>لم يتم العثور على رمز تحقق نشط. يرجى طلب رمز جديد.</value>
+  </data>
+  <data name="EmailVerification.EmailSendFailed" xml:space="preserve">
+    <value>فشل في إرسال بريد التحقق الإلكتروني. يرجى المحاولة لاحقًا.</value>
+  </data>
+  <data name="EmailVerification.UserNotFound" xml:space="preserve">
+    <value>لم يتم العثور على المستخدم.</value>
+  </data>
+  <data name="EmailVerification.InvalidOtpFormat" xml:space="preserve">
+    <value>يجب أن يتكون رمز التحقق من 6 أرقام بالضبط.</value>
+  </data>
+
+  <!-- ==================== ExternalAuth Errors ==================== -->
+  <data name="ExternalAuth.ProviderNotSupported" xml:space="preserve">
+    <value>مزود المصادقة الخارجي '{0}' غير مدعوم.</value>
+  </data>
+  <data name="ExternalAuth.TokenVerificationFailed" xml:space="preserve">
+    <value>تعذّر التحقق من رمز المصادقة الخارجي.</value>
+  </data>
+  <data name="ExternalAuth.ProviderNotConfigured" xml:space="preserve">
+    <value>مزود المصادقة الخارجي '{0}' غير مُهيَّأ.</value>
+  </data>
+  <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
+    <value>لم يتم التحقق من عنوان البريد الإلكتروني بواسطة المزود الخارجي.</value>
+  </data>
+  <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
+    <value>حساب {0} هذا مرتبط بالفعل بمستخدم آخر.</value>
+  </data>
+
+  <!-- ==================== PasswordReset Errors ==================== -->
+  <data name="PasswordReset.InvalidOrExpiredToken" xml:space="preserve">
+    <value>رمز إعادة تعيين كلمة المرور غير صالح أو منتهي الصلاحية.</value>
+  </data>
+  <data name="PasswordReset.TokenAlreadyUsed" xml:space="preserve">
+    <value>تم استخدام رمز إعادة تعيين كلمة المرور هذا بالفعل.</value>
+  </data>
+  <data name="PasswordReset.TooManyRequests" xml:space="preserve">
+    <value>طلبات إعادة تعيين كلمة المرور كثيرة جدًا. يرجى المحاولة لاحقًا.</value>
+  </data>
+
+  <!-- ==================== TwoFactor Errors ==================== -->
+  <data name="TwoFactor.SetupRequired" xml:space="preserve">
+    <value>يجب إعداد المصادقة الثنائية قبل تفعيلها.</value>
+  </data>
+  <data name="TwoFactor.VerificationRequired" xml:space="preserve">
+    <value>التحقق من المصادقة الثنائية مطلوب.</value>
+  </data>
+  <data name="TwoFactor.LockedOut" xml:space="preserve">
+    <value>تم قفل المصادقة الثنائية مؤقتًا بسبب محاولات فاشلة كثيرة.</value>
+  </data>
+  <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
+    <value>رمز الاسترداد غير صالح.</value>
+  </data>
+  <data name="TwoFactor.NoRecoveryCodesAvailable" xml:space="preserve">
+    <value>لا تتوفر رموز استرداد. يرجى التواصل مع الدعم.</value>
+  </data>
+
+  <!-- ==================== Secret Errors ==================== -->
+  <data name="Secret.DecryptionFailed" xml:space="preserve">
+    <value>فشل في فك تشفير ملف السر. قد يكون تم تشفيره على جهاز مختلف أو أن مفاتيح DPAPI قد تغيّرت.</value>
+  </data>
+  <data name="Secret.FileAccessFailed" xml:space="preserve">
+    <value>فشل في الوصول إلى ملف السر. تحقق من أذونات الملف وإعدادات المسار.</value>
+  </data>
+  <data name="Secret.KeyGenerationFailed" xml:space="preserve">
+    <value>فشل في توليد المفتاح التشفيري.</value>
+  </data>
+  <data name="Secret.InvalidKey" xml:space="preserve">
+    <value>يجب أن يحتوي مفتاح السر على أحرف أبجدية رقمية وشرطات سفلية ونقاط فقط، وأن يكون أقل من 100 حرف.</value>
+  </data>
+  <data name="Secret.UnknownKey" xml:space="preserve">
+    <value>مفتاح سر غير معروف: {0}.</value>
+  </data>
+  <data name="Secret.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على السر المخصص '{0}'.</value>
+  </data>
+</root>

@@ -25,9 +25,11 @@ public static class SecretErrors
 
     public static Error UnknownSecretKey(string key) => Error.Validation(
         code: "Secret.UnknownKey",
-        description: $"Unknown secret key: {key}.");
+        description: $"Unknown secret key: {key}.",
+        metadata: new() { ["args"] = new object[] { key } });
 
     public static Error SecretNotFound(string key) => Error.NotFound(
         code: "Secret.NotFound",
-        description: $"Custom secret '{key}' was not found.");
+        description: $"Custom secret '{key}' was not found.",
+        metadata: new() { ["args"] = new object[] { key } });
 }

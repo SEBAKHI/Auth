@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Email Verification ==================== -->
+  <data name="Email.Verification.Subject" xml:space="preserve">
+    <value>تأكيد عنوان بريدك الإلكتروني</value>
+  </data>
+  <data name="Email.Verification.Heading" xml:space="preserve">
+    <value>التحقق من البريد الإلكتروني</value>
+  </data>
+  <data name="Email.Verification.Greeting" xml:space="preserve">
+    <value>مرحبًا {0}،</value>
+  </data>
+  <data name="Email.Verification.Instruction" xml:space="preserve">
+    <value>يرجى استخدام رمز التحقق التالي لتأكيد عنوان بريدك الإلكتروني:</value>
+  </data>
+  <data name="Email.Verification.Expiration" xml:space="preserve">
+    <value>ستنتهي صلاحية هذا الرمز خلال {0} دقائق.</value>
+  </data>
+  <data name="Email.Verification.SecurityNotice" xml:space="preserve">
+    <value>تنبيه أمني: إذا لم تطلب رمز التحقق هذا، يرجى تجاهل هذا البريد الإلكتروني. لا تشارك هذا الرمز مع أي شخص.</value>
+  </data>
+  <data name="Email.Verification.Footer" xml:space="preserve">
+    <value>هذه رسالة تلقائية من {0}. يرجى عدم الرد على هذا البريد الإلكتروني.</value>
+  </data>
+</root>

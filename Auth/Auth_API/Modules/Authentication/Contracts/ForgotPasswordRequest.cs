@@ -10,7 +10,7 @@ public record ForgotPasswordRequest
     /// <summary>
     /// Gets the email address of the account to reset.
     /// </summary>
-    [Required(ErrorMessage = "Email address is required.")]
-    [EmailAddress(ErrorMessage = "Invalid email address format.")]
+    [Required]
+    [EmailAddress]
     public required string Email { get; init; }
 }

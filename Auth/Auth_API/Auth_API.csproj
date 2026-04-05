@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Auth.Infrastructure\Auth.Infrastructure.csproj" />
+    <ProjectReference Include="..\Auth_Localization\Auth_Localization.csproj" />
   </ItemGroup>
 
   <ItemGroup>

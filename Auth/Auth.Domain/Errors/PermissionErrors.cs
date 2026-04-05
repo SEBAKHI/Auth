@@ -9,19 +9,23 @@ public static class PermissionErrors
 {
     public static Error NotFound(Guid permissionId) => Error.NotFound(
         code: "Permission.NotFound",
-        description: $"Permission with ID '{permissionId}' was not found.");
+        description: $"Permission with ID '{permissionId}' was not found.",
+        metadata: new() { ["args"] = new object[] { permissionId } });
 
     public static Error NotFoundByCode(string code) => Error.NotFound(
         code: "Permission.NotFoundByCode",
-        description: $"Permission with code '{code}' was not found.");
+        description: $"Permission with code '{code}' was not found.",
+        metadata: new() { ["args"] = new object[] { code } });
 
     public static Error DuplicateCode(string code, Guid applicationId) => Error.Conflict(
         code: "Permission.DuplicateCode",
-        description: $"A permission with code '{code}' already exists in this application.");
+        description: $"A permission with code '{code}' already exists in this application.",
+        metadata: new() { ["args"] = new object[] { code } });
 
     public static Error InvalidCode(string code) => Error.Validation(
         code: "Permission.InvalidCode",
-        description: $"Permission code '{code}' is invalid. Use colon-separated hierarchy (e.g., 'module:resource:action').");
+        description: $"Permission code '{code}' is invalid. Use colon-separated hierarchy (e.g., 'module:resource:action').",
+        metadata: new() { ["args"] = new object[] { code } });
 
     public static Error CannotDeleteSystemPermission => Error.Forbidden(
         code: "Permission.CannotDeleteSystemPermission",

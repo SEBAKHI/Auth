@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Email Verification ==================== -->
+  <data name="Email.Verification.Subject" xml:space="preserve">
+    <value>验证您的邮箱地址</value>
+  </data>
+  <data name="Email.Verification.Heading" xml:space="preserve">
+    <value>邮箱验证</value>
+  </data>
+  <data name="Email.Verification.Greeting" xml:space="preserve">
+    <value>您好 {0}，</value>
+  </data>
+  <data name="Email.Verification.Instruction" xml:space="preserve">
+    <value>请使用以下验证码确认您的邮箱地址：</value>
+  </data>
+  <data name="Email.Verification.Expiration" xml:space="preserve">
+    <value>此验证码将在{0}分钟后过期。</value>
+  </data>
+  <data name="Email.Verification.SecurityNotice" xml:space="preserve">
+    <value>安全提示：如果您未请求此验证码，请忽略此邮件。请勿与任何人分享此验证码。</value>
+  </data>
+  <data name="Email.Verification.Footer" xml:space="preserve">
+    <value>这是来自{0}的自动消息，请勿回复此邮件。</value>
+  </data>
+</root>

@@ -10,9 +10,9 @@ public class ExternalLoginCommandValidator : AbstractValidator<ExternalLoginComm
     public ExternalLoginCommandValidator()
     {
         RuleFor(x => x.Provider)
-            .NotEmpty().WithMessage("Provider is required.");
+            .NotEmpty().WithMessage("Validation.Provider.Required");
 
         RuleFor(x => x.IdToken)
-            .NotEmpty().WithMessage("ID token is required.");
+            .NotEmpty().WithMessage("Validation.IdToken.Required");
     }
 }

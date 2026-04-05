@@ -10,21 +10,21 @@ public record ChangePasswordRequest
     /// <summary>
     /// Gets the user's current password for verification.
     /// </summary>
-    [Required(ErrorMessage = "Current password is required.")]
+    [Required]
     public required string CurrentPassword { get; init; }
 
     /// <summary>
     /// Gets the new password to set.
     /// </summary>
-    [Required(ErrorMessage = "New password is required.")]
-    [MinLength(8, ErrorMessage = "Password must be at least 8 characters long.")]
+    [Required]
+    [MinLength(8)]
     public required string NewPassword { get; init; }
 
     /// <summary>
     /// Gets the new password confirmation (must match NewPassword).
     /// </summary>
-    [Required(ErrorMessage = "Password confirmation is required.")]
-    [Compare(nameof(NewPassword), ErrorMessage = "New password and confirmation do not match.")]
+    [Required]
+    [Compare(nameof(NewPassword))]
     public required string ConfirmNewPassword { get; init; }
 
     /// <summary>

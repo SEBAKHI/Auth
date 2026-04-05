@@ -28,6 +28,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using Auth_Localization.Extensions;
 using Serilog;
 
 // Prevent JWT claim type mapping (e.g., "sub" -> ClaimTypes.NameIdentifier)
@@ -221,6 +222,9 @@ builder.Services.AddMediatR(cfg =>
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddValidatorsFromAssemblyContaining<PasswordValidator>();
 
+// Localization
+builder.Services.AddAuthLocalization();
+
 // Controllers with JSON options
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
@@ -322,10 +326,16 @@ builder.Services.AddRateLimiter(options =>
 
     options.OnRejected = async (context, token) =>
     {
+        var localizer = context.HttpContext.RequestServices
+            .GetService<Microsoft.Extensions.Localization.IStringLocalizer<Auth_Localization.Resources.Middleware.MiddlewareMessages>>();
+        var message = localizer is not null && !localizer["Middleware.TooManyRequests"].ResourceNotFound
+            ? localizer["Middleware.TooManyRequests"].Value
+            : "Too many requests. Please try again later.";
+
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
-            error = "Too many requests. Please try again later.",
+            error = message,
             retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
                 ? retryAfter.TotalSeconds
                 : 60
@@ -414,6 +424,9 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseSerilogRequestLogging();
+
+// Localization middleware (must be before exception handling to set culture)
+app.UseAuthLocalization();
 
 // Exception handling middleware
 app.UseMiddleware<ExceptionHandlingMiddleware>();

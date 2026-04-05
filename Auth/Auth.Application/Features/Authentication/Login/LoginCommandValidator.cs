@@ -10,10 +10,10 @@ public class LoginCommandValidator : AbstractValidator<LoginCommand>
     public LoginCommandValidator()
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Email is required.")
-            .EmailAddress().WithMessage("A valid email address is required.");
+            .NotEmpty().WithMessage("Validation.Email.Required")
+            .EmailAddress().WithMessage("Validation.Email.InvalidFormat");
 
         RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("Password is required.");
+            .NotEmpty().WithMessage("Validation.Password.Required");
     }
 }

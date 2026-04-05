@@ -10,13 +10,13 @@ public class ResetPasswordCommandValidator : AbstractValidator<ResetPasswordComm
     public ResetPasswordCommandValidator()
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Email is required.")
-            .EmailAddress().WithMessage("A valid email address is required.");
+            .NotEmpty().WithMessage("Validation.Email.Required")
+            .EmailAddress().WithMessage("Validation.Email.InvalidFormat");
 
         RuleFor(x => x.Token)
-            .NotEmpty().WithMessage("Reset token is required.");
+            .NotEmpty().WithMessage("Validation.ResetToken.Required");
 
         RuleFor(x => x.NewPassword)
-            .NotEmpty().WithMessage("New password is required.");
+            .NotEmpty().WithMessage("Validation.NewPassword.Required");
     }
 }

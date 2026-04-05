@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Shared Validation Rules ==================== -->
+  <data name="Validation.Email.Required" xml:space="preserve">
+    <value>E-posta gereklidir.</value>
+  </data>
+  <data name="Validation.Email.InvalidFormat" xml:space="preserve">
+    <value>Geçerli bir e-posta adresi gereklidir.</value>
+  </data>
+  <data name="Validation.Email.MaxLength" xml:space="preserve">
+    <value>E-posta 256 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.FirstName.Required" xml:space="preserve">
+    <value>Ad gereklidir.</value>
+  </data>
+  <data name="Validation.FirstName.MaxLength" xml:space="preserve">
+    <value>Ad 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.LastName.Required" xml:space="preserve">
+    <value>Soyad gereklidir.</value>
+  </data>
+  <data name="Validation.LastName.MaxLength" xml:space="preserve">
+    <value>Soyad 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.DisplayName.MaxLength" xml:space="preserve">
+    <value>Görünen ad 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
+    <value>Telefon numarası 20 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.Password.Required" xml:space="preserve">
+    <value>Parola gereklidir.</value>
+  </data>
+  <data name="Validation.Code.Required" xml:space="preserve">
+    <value>Kod gereklidir.</value>
+  </data>
+  <data name="Validation.Code.MaxLength100" xml:space="preserve">
+    <value>Kod 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.Code.InvalidFormat" xml:space="preserve">
+    <value>Kod yalnızca alfanümerik karakterler, noktalar, tireler ve alt çizgiler içermelidir.</value>
+  </data>
+  <data name="Validation.PermissionCode.MaxLength" xml:space="preserve">
+    <value>Kod 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.PermissionCode.InvalidFormat" xml:space="preserve">
+    <value>İzin kodu yalnızca küçük harfler, rakamlar, iki nokta üst üste, tireler, alt çizgiler ve yıldız işaretleri içermelidir.</value>
+  </data>
+  <data name="Validation.Name.Required" xml:space="preserve">
+    <value>Ad gereklidir.</value>
+  </data>
+  <data name="Validation.Name.MaxLength" xml:space="preserve">
+    <value>Ad 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.Description.MaxLength" xml:space="preserve">
+    <value>Açıklama 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve">
+    <value>Sayfa numarası en az 1 olmalıdır.</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>Sayfa boyutu 1 ile 100 arasında olmalıdır.</value>
+  </data>
+  <data name="Validation.Url.MaxLength" xml:space="preserve">
+    <value>URL 2048 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.Token.Required" xml:space="preserve">
+    <value>Belirteç gereklidir.</value>
+  </data>
+  <data name="Validation.TotpCode.Required" xml:space="preserve">
+    <value>Doğrulama kodu gereklidir.</value>
+  </data>
+  <data name="Validation.TotpCode.InvalidFormat" xml:space="preserve">
+    <value>Doğrulama kodu 6 haneli bir sayı olmalıdır.</value>
+  </data>
+
+  <!-- ==================== Password Validation ==================== -->
+  <data name="Validation.Password.TooShort" xml:space="preserve">
+    <value>Parola en az {0} karakter uzunluğunda olmalıdır.</value>
+  </data>
+  <data name="Validation.Password.RequiresUppercase" xml:space="preserve">
+    <value>Parola en az bir büyük harf içermelidir.</value>
+  </data>
+  <data name="Validation.Password.RequiresLowercase" xml:space="preserve">
+    <value>Parola en az bir küçük harf içermelidir.</value>
+  </data>
+  <data name="Validation.Password.RequiresDigit" xml:space="preserve">
+    <value>Parola en az bir rakam içermelidir.</value>
+  </data>
+  <data name="Validation.Password.RequiresSpecialCharacter" xml:space="preserve">
+    <value>Parola en az bir özel karakter içermelidir (!@#$%^&amp;*()-_=+[]{}|;:'",. &lt;&gt;?/).</value>
+  </data>
+  <data name="Validation.Password.CommonPattern" xml:space="preserve">
+    <value>Parola, tahmin edilmesi kolay yaygın bir desen içeriyor.</value>
+  </data>
+
+  <!-- ==================== Secret Validation ==================== -->
+  <data name="Validation.SecretKey.Required" xml:space="preserve">
+    <value>Gizli anahtar gereklidir.</value>
+  </data>
+  <data name="Validation.SecretKey.MaxLength" xml:space="preserve">
+    <value>Gizli anahtar 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.SecretKey.InvalidFormat" xml:space="preserve">
+    <value>Gizli anahtar yalnızca alfanümerik karakterler, alt çizgiler veya noktalar içermelidir.</value>
+  </data>
+  <data name="Validation.SecretValue.Required" xml:space="preserve">
+    <value>Gizli değer gereklidir.</value>
+  </data>
+
+  <!-- ==================== AuditLog Validation ==================== -->
+  <data name="Validation.DateRange.Invalid" xml:space="preserve">
+    <value>Bitiş tarihi başlangıç tarihinden sonra olmalıdır.</value>
+  </data>
+  <data name="Validation.EntityType.Required" xml:space="preserve">
+    <value>Varlık türü gereklidir.</value>
+  </data>
+  <data name="Validation.EntityType.MaxLength" xml:space="preserve">
+    <value>Varlık türü 100 karakteri aşmamalıdır.</value>
+  </data>
+
+  <!-- ==================== WebhookKey Validation ==================== -->
+  <data name="Validation.WebhookKey.Required" xml:space="preserve">
+    <value>Webhook anahtarı gereklidir.</value>
+  </data>
+  <data name="Validation.WebhookKey.InvalidPrefix" xml:space="preserve">
+    <value>Webhook anahtarı geçerli bir ön ek ile başlamalıdır (wk_).</value>
+  </data>
+  <data name="Validation.WebhookKeyId.Required" xml:space="preserve">
+    <value>Webhook anahtarı kimliği gereklidir.</value>
+  </data>
+
+  <!-- ==================== ApiKey Validation ==================== -->
+  <data name="Validation.ApiKey.Required" xml:space="preserve">
+    <value>API anahtarı gereklidir.</value>
+  </data>
+  <data name="Validation.ApiKey.InvalidPrefix" xml:space="preserve">
+    <value>API anahtarı geçerli bir ön ek ile başlamalıdır (ak_).</value>
+  </data>
+  <data name="Validation.ApplicationId.Required" xml:space="preserve">
+    <value>Uygulama kimliği gereklidir.</value>
+  </data>
+
+  <!-- ==================== Search / Paging ==================== -->
+  <data name="Validation.SearchTerm.MaxLength" xml:space="preserve">
+    <value>Arama terimi 200 karakteri aşmamalıdır.</value>
+  </data>
+
+  <!-- ==================== Key Rotation ==================== -->
+  <data name="Validation.GracePeriod.NonNegative" xml:space="preserve">
+    <value>Ek süre 0 veya daha büyük olmalıdır.</value>
+  </data>
+
+  <!-- ==================== CreateApiKey / CreateWebhookKey ==================== -->
+  <data name="Validation.Environment.Required" xml:space="preserve">
+    <value>Ortam gereklidir.</value>
+  </data>
+  <data name="Validation.RateLimitPerMinute.GreaterThanZero" xml:space="preserve">
+    <value>Dakika başına istek limiti 0'dan büyük olmalıdır.</value>
+  </data>
+  <data name="Validation.RateLimitPerDay.GreaterThanZero" xml:space="preserve">
+    <value>Gün başına istek limiti 0'dan büyük olmalıdır.</value>
+  </data>
+  <data name="Validation.ExpirationDate.Future" xml:space="preserve">
+    <value>Son kullanma tarihi gelecekte olmalıdır.</value>
+  </data>
+
+  <!-- ==================== ExportAuditLogs ==================== -->
+  <data name="Validation.ExportFormat.Required" xml:space="preserve">
+    <value>Dışa aktarma biçimi gereklidir.</value>
+  </data>
+  <data name="Validation.ExportFormat.Invalid" xml:space="preserve">
+    <value>Biçim 'csv', 'json' veya 'excel' olmalıdır.</value>
+  </data>
+  <data name="Validation.MaxRecords.Range" xml:space="preserve">
+    <value>Maksimum kayıt sayısı 1 ile 10.000 arasında olmalıdır.</value>
+  </data>
+
+  <!-- ==================== Authentication ==================== -->
+  <data name="Validation.RefreshToken.Required" xml:space="preserve">
+    <value>Yenileme belirteci gereklidir.</value>
+  </data>
+  <data name="Validation.ResetToken.Required" xml:space="preserve">
+    <value>Sıfırlama belirteci gereklidir.</value>
+  </data>
+  <data name="Validation.NewPassword.Required" xml:space="preserve">
+    <value>Yeni parola gereklidir.</value>
+  </data>
+  <data name="Validation.Provider.Required" xml:space="preserve">
+    <value>Sağlayıcı gereklidir.</value>
+  </data>
+  <data name="Validation.IdToken.Required" xml:space="preserve">
+    <value>Kimlik belirteci gereklidir.</value>
+  </data>
+
+  <!-- ==================== Organization ==================== -->
+  <data name="Validation.OrganizationCode.Required" xml:space="preserve">
+    <value>Kuruluş kodu gereklidir.</value>
+  </data>
+  <data name="Validation.OrganizationCode.MaxLength" xml:space="preserve">
+    <value>Kuruluş kodu 50 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.OrganizationCode.InvalidFormat" xml:space="preserve">
+    <value>Kuruluş kodu yalnızca harfler, rakamlar, tireler ve alt çizgiler içermelidir.</value>
+  </data>
+  <data name="Validation.OrganizationName.Required" xml:space="preserve">
+    <value>Kuruluş adı gereklidir.</value>
+  </data>
+  <data name="Validation.OrganizationName.MaxLength" xml:space="preserve">
+    <value>Kuruluş adı 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.ContactEmail.Required" xml:space="preserve">
+    <value>İletişim e-postası gereklidir.</value>
+  </data>
+  <data name="Validation.ContactEmail.InvalidFormat" xml:space="preserve">
+    <value>Geçerli bir iletişim e-posta adresi gereklidir.</value>
+  </data>
+  <data name="Validation.ContactEmail.MaxLength" xml:space="preserve">
+    <value>İletişim e-postası 256 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.Description.MaxLength1000" xml:space="preserve">
+    <value>Açıklama 1000 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.WebsiteUrl.MaxLength" xml:space="preserve">
+    <value>Web sitesi URL'si 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.OrganizationId.Required" xml:space="preserve">
+    <value>Kuruluş kimliği gereklidir.</value>
+  </data>
+  <data name="Validation.InvitationId.Required" xml:space="preserve">
+    <value>Davet kimliği gereklidir.</value>
+  </data>
+
+  <!-- ==================== User Management ==================== -->
+  <data name="Validation.UserId.Required" xml:space="preserve">
+    <value>Kullanıcı kimliği gereklidir.</value>
+  </data>
+  <data name="Validation.CurrentPassword.Required" xml:space="preserve">
+    <value>Mevcut parola gereklidir.</value>
+  </data>
+  <data name="Validation.NewPassword.MustDiffer" xml:space="preserve">
+    <value>Yeni parola mevcut paroladan farklı olmalıdır.</value>
+  </data>
+  <data name="Validation.Reason.Required" xml:space="preserve">
+    <value>Sebep gereklidir.</value>
+  </data>
+  <data name="Validation.Reason.MaxLength" xml:space="preserve">
+    <value>Sebep 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.LockDuration.GreaterThanZero" xml:space="preserve">
+    <value>Kilitleme süresi 0'dan büyük olmalıdır.</value>
+  </data>
+</root>

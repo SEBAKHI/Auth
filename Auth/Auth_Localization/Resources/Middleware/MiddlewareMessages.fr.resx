@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== ExceptionHandlingMiddleware ==================== -->
+  <data name="Middleware.ValidationError.Title" xml:space="preserve">
+    <value>Erreur de validation</value>
+  </data>
+  <data name="Middleware.ValidationError.Detail" xml:space="preserve">
+    <value>Une ou plusieurs erreurs de validation se sont produites.</value>
+  </data>
+  <data name="Middleware.Unauthorized.Title" xml:space="preserve">
+    <value>Non autorisé</value>
+  </data>
+  <data name="Middleware.Unauthorized.Detail" xml:space="preserve">
+    <value>Vous n'êtes pas autorisé à accéder à cette ressource.</value>
+  </data>
+  <data name="Middleware.NotFound.Title" xml:space="preserve">
+    <value>Introuvable</value>
+  </data>
+  <data name="Middleware.NotFound.Detail" xml:space="preserve">
+    <value>La ressource demandée est introuvable.</value>
+  </data>
+  <data name="Middleware.InvalidOperation.Title" xml:space="preserve">
+    <value>Opération invalide</value>
+  </data>
+  <data name="Middleware.InvalidArgument.Title" xml:space="preserve">
+    <value>Argument invalide</value>
+  </data>
+  <data name="Middleware.InternalError.Title" xml:space="preserve">
+    <value>Erreur interne du serveur</value>
+  </data>
+  <data name="Middleware.InternalError.Detail" xml:space="preserve">
+    <value>Une erreur inattendue s'est produite.</value>
+  </data>
+
+  <!-- ==================== GatewayTokenValidationMiddleware ==================== -->
+  <data name="Middleware.Gateway.Forbidden.Title" xml:space="preserve">
+    <value>Interdit</value>
+  </data>
+  <data name="Middleware.Gateway.MissingToken" xml:space="preserve">
+    <value>L'accès direct à l'API n'est pas autorisé. Veuillez utiliser la passerelle API.</value>
+  </data>
+  <data name="Middleware.Gateway.InvalidToken" xml:space="preserve">
+    <value>Jeton de passerelle invalide.</value>
+  </data>
+
+  <!-- ==================== GatewayExceptionMiddleware (API_Gateway) ==================== -->
+  <data name="Middleware.BadGateway.Title" xml:space="preserve">
+    <value>Passerelle incorrecte</value>
+  </data>
+  <data name="Middleware.BadGateway.Detail" xml:space="preserve">
+    <value>Le service en amont est indisponible ou a renvoyé une erreur.</value>
+  </data>
+  <data name="Middleware.GatewayTimeout.Title" xml:space="preserve">
+    <value>Délai d'attente de la passerelle</value>
+  </data>
+  <data name="Middleware.GatewayTimeout.Detail" xml:space="preserve">
+    <value>Le service en amont n'a pas répondu dans les délais.</value>
+  </data>
+
+  <!-- ==================== Rate Limiting ==================== -->
+  <data name="Middleware.TooManyRequests" xml:space="preserve">
+    <value>Trop de requêtes. Veuillez réessayer plus tard.</value>
+  </data>
+</root>

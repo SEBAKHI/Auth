@@ -9,7 +9,8 @@ public static class ExternalAuthErrors
 {
     public static Error ProviderNotSupported(string provider) => Error.Validation(
         code: "ExternalAuth.ProviderNotSupported",
-        description: $"The external authentication provider '{provider}' is not supported.");
+        description: $"The external authentication provider '{provider}' is not supported.",
+        metadata: new() { ["args"] = new object[] { provider } });
 
     public static Error TokenVerificationFailed => Error.Validation(
         code: "ExternalAuth.TokenVerificationFailed",
@@ -17,7 +18,8 @@ public static class ExternalAuthErrors
 
     public static Error ProviderNotConfigured(string provider) => Error.Validation(
         code: "ExternalAuth.ProviderNotConfigured",
-        description: $"The external authentication provider '{provider}' is not configured.");
+        description: $"The external authentication provider '{provider}' is not configured.",
+        metadata: new() { ["args"] = new object[] { provider } });
 
     public static Error EmailNotVerifiedByProvider => Error.Forbidden(
         code: "ExternalAuth.EmailNotVerified",
@@ -25,5 +27,6 @@ public static class ExternalAuthErrors
 
     public static Error AccountLinkConflict(string provider) => Error.Conflict(
         code: "ExternalAuth.AccountLinkConflict",
-        description: $"This {provider} account is already linked to another user.");
+        description: $"This {provider} account is already linked to another user.",
+        metadata: new() { ["args"] = new object[] { provider } });
 }

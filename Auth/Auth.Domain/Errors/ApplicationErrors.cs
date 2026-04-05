@@ -9,15 +9,18 @@ public static class ApplicationErrors
 {
     public static Error NotFound(Guid applicationId) => Error.NotFound(
         code: "Application.NotFound",
-        description: $"Application with ID '{applicationId}' was not found.");
+        description: $"Application with ID '{applicationId}' was not found.",
+        metadata: new() { ["args"] = new object[] { applicationId } });
 
     public static Error NotFoundByCode(string code) => Error.NotFound(
         code: "Application.NotFoundByCode",
-        description: $"Application with code '{code}' was not found.");
+        description: $"Application with code '{code}' was not found.",
+        metadata: new() { ["args"] = new object[] { code } });
 
     public static Error DuplicateCode(string code) => Error.Conflict(
         code: "Application.DuplicateCode",
-        description: $"An application with code '{code}' already exists.");
+        description: $"An application with code '{code}' already exists.",
+        metadata: new() { ["args"] = new object[] { code } });
 
     public static Error CannotDeleteSystemApplication => Error.Forbidden(
         code: "Application.CannotDeleteSystem",
@@ -45,7 +48,8 @@ public static class ApplicationErrors
 
     public static Error InvalidCode(string code) => Error.Validation(
         code: "Application.InvalidCode",
-        description: $"Application code '{code}' is invalid. Use uppercase alphanumeric characters and underscores only.");
+        description: $"Application code '{code}' is invalid. Use uppercase alphanumeric characters and underscores only.",
+        metadata: new() { ["args"] = new object[] { code } });
 
     public static Error CodeTooShort => Error.Validation(
         code: "Application.CodeTooShort",

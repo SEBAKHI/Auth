@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Auth Errors ==================== -->
+  <data name="Auth.InvalidToken" xml:space="preserve">
+    <value>提供的令牌无效。</value>
+  </data>
+  <data name="Auth.TokenExpired" xml:space="preserve">
+    <value>提供的令牌已过期。</value>
+  </data>
+  <data name="Auth.TokenRevoked" xml:space="preserve">
+    <value>提供的令牌已被撤销。</value>
+  </data>
+  <data name="Auth.RefreshTokenNotFound" xml:space="preserve">
+    <value>未找到刷新令牌。</value>
+  </data>
+  <data name="Auth.RefreshTokenExpired" xml:space="preserve">
+    <value>刷新令牌已过期，请重新登录。</value>
+  </data>
+  <data name="Auth.RefreshTokenRevoked" xml:space="preserve">
+    <value>刷新令牌已被撤销。</value>
+  </data>
+  <data name="Auth.SessionNotFound" xml:space="preserve">
+    <value>未找到会话。</value>
+  </data>
+  <data name="Auth.SessionExpired" xml:space="preserve">
+    <value>您的会话已过期，请重新登录。</value>
+  </data>
+  <data name="Auth.SessionTerminated" xml:space="preserve">
+    <value>您的会话已被终止。</value>
+  </data>
+  <data name="Auth.InvalidGatewayToken" xml:space="preserve">
+    <value>网关令牌无效或缺失，不允许直接访问API。</value>
+  </data>
+  <data name="Auth.Unauthorized" xml:space="preserve">
+    <value>您无权执行此操作。</value>
+  </data>
+  <data name="Auth.PermissionDenied" xml:space="preserve">
+    <value>您没有所需的权限：'{0}'。</value>
+  </data>
+  <data name="Auth.ApplicationNotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的应用程序。</value>
+  </data>
+  <data name="Auth.ApplicationInactive" xml:space="preserve">
+    <value>此应用程序当前处于未激活状态。</value>
+  </data>
+  <data name="Auth.InvalidSigningKey" xml:space="preserve">
+    <value>JWT签名密钥无效或未配置。</value>
+  </data>
+  <data name="Auth.KeyGenerationFailed" xml:space="preserve">
+    <value>生成加密密钥失败。</value>
+  </data>
+  <data name="Auth.TokenGenerationFailed" xml:space="preserve">
+    <value>生成身份验证令牌失败。</value>
+  </data>
+  <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
+    <value>检测到来自其他设备的新登录，此会话已被终止。</value>
+  </data>
+
+  <!-- ==================== User Errors ==================== -->
+  <data name="User.NotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的用户。</value>
+  </data>
+  <data name="User.NotFoundByEmail" xml:space="preserve">
+    <value>未找到邮箱为'{0}'的用户。</value>
+  </data>
+  <data name="User.DuplicateEmail" xml:space="preserve">
+    <value>邮箱'{0}'的用户已存在。</value>
+  </data>
+  <data name="User.InvalidCredentials" xml:space="preserve">
+    <value>提供的凭据无效。</value>
+  </data>
+  <data name="User.AccountLocked" xml:space="preserve">
+    <value>由于多次登录失败，此账户已被锁定。</value>
+  </data>
+  <data name="User.AccountLockedUntil" xml:space="preserve">
+    <value>此账户已被锁定至{0}。</value>
+  </data>
+  <data name="User.AccountInactive" xml:space="preserve">
+    <value>此账户当前处于未激活状态。</value>
+  </data>
+  <data name="User.AccountPending" xml:space="preserve">
+    <value>此账户正在等待激活。</value>
+  </data>
+  <data name="User.EmailNotConfirmed" xml:space="preserve">
+    <value>请在登录前确认您的邮箱地址。</value>
+  </data>
+  <data name="User.PasswordExpired" xml:space="preserve">
+    <value>您的密码已过期，请更改密码。</value>
+  </data>
+  <data name="User.MustChangePassword" xml:space="preserve">
+    <value>您必须更改密码后才能继续。</value>
+  </data>
+  <data name="User.InvalidCurrentPassword" xml:space="preserve">
+    <value>当前密码不正确。</value>
+  </data>
+  <data name="User.PasswordRecentlyUsed" xml:space="preserve">
+    <value>此密码最近已使用过，请选择其他密码。</value>
+  </data>
+  <data name="User.PasswordTooWeak" xml:space="preserve">
+    <value>密码不符合复杂性要求。</value>
+  </data>
+  <data name="User.CannotDeleteSystemUser" xml:space="preserve">
+    <value>系统用户不能被删除。</value>
+  </data>
+  <data name="User.CannotModifySystemUser" xml:space="preserve">
+    <value>系统用户不能被修改。</value>
+  </data>
+  <data name="User.TwoFactorRequired" xml:space="preserve">
+    <value>此账户需要双因素身份验证。</value>
+  </data>
+  <data name="User.InvalidTwoFactorCode" xml:space="preserve">
+    <value>双因素身份验证码无效。</value>
+  </data>
+  <data name="User.TwoFactorAlreadyEnabled" xml:space="preserve">
+    <value>此账户已启用双因素身份验证。</value>
+  </data>
+  <data name="User.TwoFactorNotEnabled" xml:space="preserve">
+    <value>此账户未启用双因素身份验证。</value>
+  </data>
+
+  <!-- ==================== Organization Errors ==================== -->
+  <data name="Organization.NotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的组织。</value>
+  </data>
+  <data name="Organization.NotFoundByCode" xml:space="preserve">
+    <value>未找到代码为'{0}'的组织。</value>
+  </data>
+  <data name="Organization.DuplicateCode" xml:space="preserve">
+    <value>代码为'{0}'的组织已存在。</value>
+  </data>
+  <data name="Organization.Inactive" xml:space="preserve">
+    <value>此组织当前处于未激活状态。</value>
+  </data>
+  <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
+    <value>无法删除仍有成员的组织，请先移除所有成员。</value>
+  </data>
+  <data name="Organization.NotOwner" xml:space="preserve">
+    <value>只有组织所有者才能执行此操作。</value>
+  </data>
+  <data name="Organization.CannotTransferOwnership" xml:space="preserve">
+    <value>无法将所有权转让给非组织成员。</value>
+  </data>
+  <data name="Organization.AlreadyMember" xml:space="preserve">
+    <value>用户已是此组织的成员。</value>
+  </data>
+  <data name="Organization.NotMember" xml:space="preserve">
+    <value>用户不是此组织的成员。</value>
+  </data>
+  <data name="Organization.NotAMember" xml:space="preserve">
+    <value>您不是此组织的成员。</value>
+  </data>
+  <data name="Organization.CannotRemoveOwner" xml:space="preserve">
+    <value>无法移除组织所有者，请先转让所有权。</value>
+  </data>
+  <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
+    <value>您不能更改自己的组织角色。</value>
+  </data>
+  <data name="Organization.MembershipExpired" xml:space="preserve">
+    <value>您在此组织的成员资格已过期。</value>
+  </data>
+  <data name="Organization.InsufficientPermissions" xml:space="preserve">
+    <value>您没有足够的权限执行此操作。</value>
+  </data>
+  <data name="Organization.ApplicationNotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的应用程序。</value>
+  </data>
+  <data name="Organization.ApplicationAlreadyEnabled" xml:space="preserve">
+    <value>此应用程序已为该组织启用。</value>
+  </data>
+  <data name="Organization.ApplicationNotEnabled" xml:space="preserve">
+    <value>此应用程序未为该组织启用。</value>
+  </data>
+  <data name="Organization.SubscriptionExpired" xml:space="preserve">
+    <value>此应用程序的订阅已过期。</value>
+  </data>
+  <data name="Organization.AppRoleAlreadyAssigned" xml:space="preserve">
+    <value>此角色已分配给该用户的此应用程序。</value>
+  </data>
+  <data name="Organization.AppRoleNotAssigned" xml:space="preserve">
+    <value>此角色未分配给该用户的此应用程序。</value>
+  </data>
+  <data name="Organization.RoleNotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的角色。</value>
+  </data>
+  <data name="Organization.RoleNotForApplication" xml:space="preserve">
+    <value>指定的角色不属于指定的应用程序。</value>
+  </data>
+  <data name="Organization.PermissionAlreadyGranted" xml:space="preserve">
+    <value>此权限已授予该用户的此应用程序。</value>
+  </data>
+  <data name="Organization.PermissionNotGranted" xml:space="preserve">
+    <value>此权限未授予该用户的此应用程序。</value>
+  </data>
+  <data name="Organization.PermissionNotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的权限。</value>
+  </data>
+  <data name="Organization.PermissionNotForApplication" xml:space="preserve">
+    <value>指定的权限不属于指定的应用程序。</value>
+  </data>
+  <data name="Organization.InvitationNotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的邀请。</value>
+  </data>
+  <data name="Organization.InvitationNotFoundByToken" xml:space="preserve">
+    <value>邀请令牌无效或已过期。</value>
+  </data>
+  <data name="Organization.InvitationExpired" xml:space="preserve">
+    <value>此邀请已过期。</value>
+  </data>
+  <data name="Organization.InvitationAlreadyAccepted" xml:space="preserve">
+    <value>此邀请已被接受。</value>
+  </data>
+  <data name="Organization.InvitationAlreadyDeclined" xml:space="preserve">
+    <value>此邀请已被拒绝。</value>
+  </data>
+  <data name="Organization.InvitationAlreadyCancelled" xml:space="preserve">
+    <value>此邀请已被取消。</value>
+  </data>
+  <data name="Organization.PendingInvitationExists" xml:space="preserve">
+    <value>'{0}'已存在待处理的邀请。</value>
+  </data>
+  <data name="Organization.CannotInviteSelf" xml:space="preserve">
+    <value>您不能邀请自己加入组织。</value>
+  </data>
+  <data name="Organization.InvitationEmailMismatch" xml:space="preserve">
+    <value>此邀请发送到了其他邮箱地址。</value>
+  </data>
+
+  <!-- ==================== Application Errors ==================== -->
+  <data name="Application.NotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的应用程序。</value>
+  </data>
+  <data name="Application.NotFoundByCode" xml:space="preserve">
+    <value>未找到代码为'{0}'的应用程序。</value>
+  </data>
+  <data name="Application.DuplicateCode" xml:space="preserve">
+    <value>代码为'{0}'的应用程序已存在。</value>
+  </data>
+  <data name="Application.CannotDeleteSystem" xml:space="preserve">
+    <value>系统应用程序不能被删除。</value>
+  </data>
+  <data name="Application.CannotModifySystem" xml:space="preserve">
+    <value>系统应用程序不能被修改。</value>
+  </data>
+  <data name="Application.HasActiveApiKeys" xml:space="preserve">
+    <value>无法删除具有活跃API密钥的应用程序，请先撤销所有API密钥。</value>
+  </data>
+  <data name="Application.HasActiveUsers" xml:space="preserve">
+    <value>无法删除具有活跃用户分配的应用程序。</value>
+  </data>
+  <data name="Application.HasActiveOrganizations" xml:space="preserve">
+    <value>无法删除已被组织启用的应用程序。</value>
+  </data>
+  <data name="Application.Inactive" xml:space="preserve">
+    <value>此应用程序当前处于未激活状态。</value>
+  </data>
+  <data name="Application.InvalidCode" xml:space="preserve">
+    <value>应用程序代码'{0}'无效，仅允许使用大写字母、数字和下划线。</value>
+  </data>
+  <data name="Application.CodeTooShort" xml:space="preserve">
+    <value>应用程序代码长度不能少于2个字符。</value>
+  </data>
+  <data name="Application.CodeTooLong" xml:space="preserve">
+    <value>应用程序代码长度不能超过50个字符。</value>
+  </data>
+  <data name="Application.InvalidSessionTimeout" xml:space="preserve">
+    <value>会话超时时间必须在1到1440分钟（24小时）之间。</value>
+  </data>
+  <data name="Application.InvalidMaxConcurrentSessions" xml:space="preserve">
+    <value>最大并发会话数必须在1到100之间。</value>
+  </data>
+  <data name="Application.NotEnabledForOrganization" xml:space="preserve">
+    <value>此应用程序未为此组织启用。</value>
+  </data>
+  <data name="Application.AlreadyEnabledForOrganization" xml:space="preserve">
+    <value>此应用程序已为此组织启用。</value>
+  </data>
+
+  <!-- ==================== Role Errors ==================== -->
+  <data name="Role.NotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的角色。</value>
+  </data>
+  <data name="Role.NotFoundByCode" xml:space="preserve">
+    <value>未找到代码为'{0}'的角色。</value>
+  </data>
+  <data name="Role.DuplicateCode" xml:space="preserve">
+    <value>此应用程序中已存在代码为'{0}'的角色。</value>
+  </data>
+  <data name="Role.CannotDeleteSystemRole" xml:space="preserve">
+    <value>系统角色不能被删除。</value>
+  </data>
+  <data name="Role.CannotModifySystemRole" xml:space="preserve">
+    <value>系统角色不能被修改。</value>
+  </data>
+  <data name="Role.Inactive" xml:space="preserve">
+    <value>此角色当前处于未激活状态。</value>
+  </data>
+  <data name="Role.AlreadyAssigned" xml:space="preserve">
+    <value>此角色已分配给该用户。</value>
+  </data>
+  <data name="Role.NotAssigned" xml:space="preserve">
+    <value>此角色未分配给该用户。</value>
+  </data>
+  <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
+    <value>无法移除最后一个管理员角色，必须保留至少一个管理员。</value>
+  </data>
+
+  <!-- ==================== Permission Errors ==================== -->
+  <data name="Permission.NotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的权限。</value>
+  </data>
+  <data name="Permission.NotFoundByCode" xml:space="preserve">
+    <value>未找到代码为'{0}'的权限。</value>
+  </data>
+  <data name="Permission.DuplicateCode" xml:space="preserve">
+    <value>此应用程序中已存在代码为'{0}'的权限。</value>
+  </data>
+  <data name="Permission.InvalidCode" xml:space="preserve">
+    <value>权限代码'{0}'无效，请使用冒号分隔的层级格式（例如：'module:resource:action'）。</value>
+  </data>
+  <data name="Permission.CannotDeleteSystemPermission" xml:space="preserve">
+    <value>系统权限不能被删除。</value>
+  </data>
+  <data name="Permission.CannotModifySystemPermission" xml:space="preserve">
+    <value>系统权限不能被修改。</value>
+  </data>
+  <data name="Permission.Inactive" xml:space="preserve">
+    <value>此权限当前处于未激活状态。</value>
+  </data>
+  <data name="Permission.AlreadyGranted" xml:space="preserve">
+    <value>此权限已被授予。</value>
+  </data>
+  <data name="Permission.NotGranted" xml:space="preserve">
+    <value>此权限未被授予。</value>
+  </data>
+  <data name="Permission.CircularImplication" xml:space="preserve">
+    <value>此操作将创建循环权限蕴含关系。</value>
+  </data>
+  <data name="Permission.CannotGrantHigher" xml:space="preserve">
+    <value>您不能授予您自己没有的权限。</value>
+  </data>
+
+  <!-- ==================== ApiKey Errors ==================== -->
+  <data name="ApiKey.NotFound" xml:space="preserve">
+    <value>未找到API密钥。</value>
+  </data>
+  <data name="ApiKey.Invalid" xml:space="preserve">
+    <value>提供的API密钥无效。</value>
+  </data>
+  <data name="ApiKey.Revoked" xml:space="preserve">
+    <value>API密钥已被撤销。</value>
+  </data>
+  <data name="ApiKey.Expired" xml:space="preserve">
+    <value>API密钥已过期。</value>
+  </data>
+  <data name="ApiKey.AlreadyRevoked" xml:space="preserve">
+    <value>API密钥已被撤销。</value>
+  </data>
+
+  <!-- ==================== WebhookKey Errors ==================== -->
+  <data name="WebhookKey.NotFound" xml:space="preserve">
+    <value>未找到Webhook密钥。</value>
+  </data>
+  <data name="WebhookKey.Invalid" xml:space="preserve">
+    <value>提供的Webhook密钥无效。</value>
+  </data>
+  <data name="WebhookKey.Revoked" xml:space="preserve">
+    <value>Webhook密钥已被撤销。</value>
+  </data>
+  <data name="WebhookKey.Expired" xml:space="preserve">
+    <value>Webhook密钥已过期。</value>
+  </data>
+  <data name="WebhookKey.AlreadyRevoked" xml:space="preserve">
+    <value>Webhook密钥已被撤销。</value>
+  </data>
+
+  <!-- ==================== Session Errors ==================== -->
+  <data name="Session.NotFound" xml:space="preserve">
+    <value>未找到会话。</value>
+  </data>
+  <data name="Session.Expired" xml:space="preserve">
+    <value>会话已过期。</value>
+  </data>
+  <data name="Session.AlreadyTerminated" xml:space="preserve">
+    <value>会话已被终止。</value>
+  </data>
+  <data name="Session.MaxSessionsReached" xml:space="preserve">
+    <value>已达到最大并发会话数。</value>
+  </data>
+
+  <!-- ==================== AuditLog Errors ==================== -->
+  <data name="AuditLog.NotFound" xml:space="preserve">
+    <value>未找到ID为'{0}'的审计日志。</value>
+  </data>
+  <data name="AuditLog.InvalidDateRange" xml:space="preserve">
+    <value>起始日期必须早于结束日期。</value>
+  </data>
+  <data name="AuditLog.DateRangeTooLarge" xml:space="preserve">
+    <value>单次查询的日期范围不能超过90天。</value>
+  </data>
+  <data name="AuditLog.ExportFailed" xml:space="preserve">
+    <value>导出审计日志失败：{0}</value>
+  </data>
+  <data name="AuditLog.ExportTooLarge" xml:space="preserve">
+    <value>导出请求超过最大允许记录数（100,000），请缩小搜索条件。</value>
+  </data>
+  <data name="AuditLog.InvalidExportFormat" xml:space="preserve">
+    <value>导出格式'{0}'无效，支持的格式：csv、json。</value>
+  </data>
+  <data name="AuditLog.NoLogsFound" xml:space="preserve">
+    <value>未找到符合指定条件的审计日志。</value>
+  </data>
+
+  <!-- ==================== EmailVerification Errors ==================== -->
+  <data name="EmailVerification.InvalidOrExpiredOtp" xml:space="preserve">
+    <value>验证码无效或已过期。</value>
+  </data>
+  <data name="EmailVerification.OtpAlreadyUsed" xml:space="preserve">
+    <value>此验证码已被使用。</value>
+  </data>
+  <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
+    <value>验证尝试次数过多，请申请新的验证码。</value>
+  </data>
+  <data name="EmailVerification.TooManyRequests" xml:space="preserve">
+    <value>验证码请求次数过多，请稍后再试。</value>
+  </data>
+  <data name="EmailVerification.EmailAlreadyVerified" xml:space="preserve">
+    <value>此邮箱地址已通过验证。</value>
+  </data>
+  <data name="EmailVerification.NoActiveToken" xml:space="preserve">
+    <value>未找到有效的验证码，请申请新的验证码。</value>
+  </data>
+  <data name="EmailVerification.EmailSendFailed" xml:space="preserve">
+    <value>发送验证邮件失败，请稍后再试。</value>
+  </data>
+  <data name="EmailVerification.UserNotFound" xml:space="preserve">
+    <value>未找到用户。</value>
+  </data>
+  <data name="EmailVerification.InvalidOtpFormat" xml:space="preserve">
+    <value>验证码必须恰好为6位数字。</value>
+  </data>
+
+  <!-- ==================== ExternalAuth Errors ==================== -->
+  <data name="ExternalAuth.ProviderNotSupported" xml:space="preserve">
+    <value>不支持外部身份验证提供商'{0}'。</value>
+  </data>
+  <data name="ExternalAuth.TokenVerificationFailed" xml:space="preserve">
+    <value>无法验证外部身份验证令牌。</value>
+  </data>
+  <data name="ExternalAuth.ProviderNotConfigured" xml:space="preserve">
+    <value>外部身份验证提供商'{0}'未配置。</value>
+  </data>
+  <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
+    <value>邮箱地址尚未被外部提供商验证。</value>
+  </data>
+  <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
+    <value>此{0}账户已关联到其他用户。</value>
+  </data>
+
+  <!-- ==================== PasswordReset Errors ==================== -->
+  <data name="PasswordReset.InvalidOrExpiredToken" xml:space="preserve">
+    <value>密码重置令牌无效或已过期。</value>
+  </data>
+  <data name="PasswordReset.TokenAlreadyUsed" xml:space="preserve">
+    <value>此密码重置令牌已被使用。</value>
+  </data>
+  <data name="PasswordReset.TooManyRequests" xml:space="preserve">
+    <value>密码重置请求次数过多，请稍后再试。</value>
+  </data>
+
+  <!-- ==================== TwoFactor Errors ==================== -->
+  <data name="TwoFactor.SetupRequired" xml:space="preserve">
+    <value>启用前需要先设置双因素身份验证。</value>
+  </data>
+  <data name="TwoFactor.VerificationRequired" xml:space="preserve">
+    <value>需要双因素身份验证。</value>
+  </data>
+  <data name="TwoFactor.LockedOut" xml:space="preserve">
+    <value>由于失败尝试次数过多，双因素身份验证已被临时锁定。</value>
+  </data>
+  <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
+    <value>恢复代码无效。</value>
+  </data>
+  <data name="TwoFactor.NoRecoveryCodesAvailable" xml:space="preserve">
+    <value>没有可用的恢复代码，请联系客服。</value>
+  </data>
+
+  <!-- ==================== Secret Errors ==================== -->
+  <data name="Secret.DecryptionFailed" xml:space="preserve">
+    <value>解密密钥文件失败，该文件可能在其他计算机上加密，或DPAPI密钥已更改。</value>
+  </data>
+  <data name="Secret.FileAccessFailed" xml:space="preserve">
+    <value>访问密钥文件失败，请检查文件权限和路径配置。</value>
+  </data>
+  <data name="Secret.KeyGenerationFailed" xml:space="preserve">
+    <value>生成加密密钥失败。</value>
+  </data>
+  <data name="Secret.InvalidKey" xml:space="preserve">
+    <value>密钥名称只能包含字母、数字、下划线或点，且长度不超过100个字符。</value>
+  </data>
+  <data name="Secret.UnknownKey" xml:space="preserve">
+    <value>未知的密钥名称：{0}。</value>
+  </data>
+  <data name="Secret.NotFound" xml:space="preserve">
+    <value>未找到自定义密钥'{0}'。</value>
+  </data>
+</root>

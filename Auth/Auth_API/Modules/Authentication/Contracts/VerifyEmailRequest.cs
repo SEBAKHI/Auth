@@ -17,7 +17,7 @@ public record VerifyEmailRequest
     /// Gets the 6-digit OTP code sent to the user's email.
     /// </summary>
     [Required]
-    [StringLength(6, MinimumLength = 6, ErrorMessage = "OTP must be exactly 6 digits")]
-    [RegularExpression(@"^\d{6}$", ErrorMessage = "OTP must be 6 digits")]
+    [StringLength(6, MinimumLength = 6)]
+    [RegularExpression(@"^\d{6}$")]
     public required string Otp { get; init; }
 }

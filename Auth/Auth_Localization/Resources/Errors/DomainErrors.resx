@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Auth Errors ==================== -->
+  <data name="Auth.InvalidToken" xml:space="preserve">
+    <value>The provided token is invalid.</value>
+  </data>
+  <data name="Auth.TokenExpired" xml:space="preserve">
+    <value>The provided token has expired.</value>
+  </data>
+  <data name="Auth.TokenRevoked" xml:space="preserve">
+    <value>The provided token has been revoked.</value>
+  </data>
+  <data name="Auth.RefreshTokenNotFound" xml:space="preserve">
+    <value>The refresh token was not found.</value>
+  </data>
+  <data name="Auth.RefreshTokenExpired" xml:space="preserve">
+    <value>The refresh token has expired. Please log in again.</value>
+  </data>
+  <data name="Auth.RefreshTokenRevoked" xml:space="preserve">
+    <value>The refresh token has been revoked.</value>
+  </data>
+  <data name="Auth.SessionNotFound" xml:space="preserve">
+    <value>The session was not found.</value>
+  </data>
+  <data name="Auth.SessionExpired" xml:space="preserve">
+    <value>Your session has expired. Please log in again.</value>
+  </data>
+  <data name="Auth.SessionTerminated" xml:space="preserve">
+    <value>Your session has been terminated.</value>
+  </data>
+  <data name="Auth.InvalidGatewayToken" xml:space="preserve">
+    <value>Invalid or missing gateway token. Direct API access is not allowed.</value>
+  </data>
+  <data name="Auth.Unauthorized" xml:space="preserve">
+    <value>You are not authorized to perform this action.</value>
+  </data>
+  <data name="Auth.PermissionDenied" xml:space="preserve">
+    <value>You do not have the required permission: '{0}'.</value>
+  </data>
+  <data name="Auth.ApplicationNotFound" xml:space="preserve">
+    <value>Application with ID '{0}' was not found.</value>
+  </data>
+  <data name="Auth.ApplicationInactive" xml:space="preserve">
+    <value>This application is currently inactive.</value>
+  </data>
+  <data name="Auth.InvalidSigningKey" xml:space="preserve">
+    <value>The JWT signing key is invalid or not configured.</value>
+  </data>
+  <data name="Auth.KeyGenerationFailed" xml:space="preserve">
+    <value>Failed to generate cryptographic keys.</value>
+  </data>
+  <data name="Auth.TokenGenerationFailed" xml:space="preserve">
+    <value>Failed to generate authentication token.</value>
+  </data>
+  <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
+    <value>A new login was detected from another device. This session has been terminated.</value>
+  </data>
+
+  <!-- ==================== User Errors ==================== -->
+  <data name="User.NotFound" xml:space="preserve">
+    <value>User with ID '{0}' was not found.</value>
+  </data>
+  <data name="User.NotFoundByEmail" xml:space="preserve">
+    <value>User with email '{0}' was not found.</value>
+  </data>
+  <data name="User.DuplicateEmail" xml:space="preserve">
+    <value>A user with email '{0}' already exists.</value>
+  </data>
+  <data name="User.InvalidCredentials" xml:space="preserve">
+    <value>The provided credentials are invalid.</value>
+  </data>
+  <data name="User.AccountLocked" xml:space="preserve">
+    <value>This account has been locked due to multiple failed login attempts.</value>
+  </data>
+  <data name="User.AccountLockedUntil" xml:space="preserve">
+    <value>This account is locked until {0}.</value>
+  </data>
+  <data name="User.AccountInactive" xml:space="preserve">
+    <value>This account is currently inactive.</value>
+  </data>
+  <data name="User.AccountPending" xml:space="preserve">
+    <value>This account is pending activation.</value>
+  </data>
+  <data name="User.EmailNotConfirmed" xml:space="preserve">
+    <value>Please confirm your email address before logging in.</value>
+  </data>
+  <data name="User.PasswordExpired" xml:space="preserve">
+    <value>Your password has expired. Please change your password.</value>
+  </data>
+  <data name="User.MustChangePassword" xml:space="preserve">
+    <value>You must change your password before continuing.</value>
+  </data>
+  <data name="User.InvalidCurrentPassword" xml:space="preserve">
+    <value>The current password is incorrect.</value>
+  </data>
+  <data name="User.PasswordRecentlyUsed" xml:space="preserve">
+    <value>This password has been used recently. Please choose a different password.</value>
+  </data>
+  <data name="User.PasswordTooWeak" xml:space="preserve">
+    <value>The password does not meet the complexity requirements.</value>
+  </data>
+  <data name="User.CannotDeleteSystemUser" xml:space="preserve">
+    <value>System users cannot be deleted.</value>
+  </data>
+  <data name="User.CannotModifySystemUser" xml:space="preserve">
+    <value>System users cannot be modified.</value>
+  </data>
+  <data name="User.TwoFactorRequired" xml:space="preserve">
+    <value>Two-factor authentication is required for this account.</value>
+  </data>
+  <data name="User.InvalidTwoFactorCode" xml:space="preserve">
+    <value>The two-factor authentication code is invalid.</value>
+  </data>
+  <data name="User.TwoFactorAlreadyEnabled" xml:space="preserve">
+    <value>Two-factor authentication is already enabled for this account.</value>
+  </data>
+  <data name="User.TwoFactorNotEnabled" xml:space="preserve">
+    <value>Two-factor authentication is not enabled for this account.</value>
+  </data>
+
+  <!-- ==================== Organization Errors ==================== -->
+  <data name="Organization.NotFound" xml:space="preserve">
+    <value>Organization with ID '{0}' was not found.</value>
+  </data>
+  <data name="Organization.NotFoundByCode" xml:space="preserve">
+    <value>Organization with code '{0}' was not found.</value>
+  </data>
+  <data name="Organization.DuplicateCode" xml:space="preserve">
+    <value>An organization with code '{0}' already exists.</value>
+  </data>
+  <data name="Organization.Inactive" xml:space="preserve">
+    <value>This organization is currently inactive.</value>
+  </data>
+  <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
+    <value>Cannot delete an organization that still has members. Remove all members first.</value>
+  </data>
+  <data name="Organization.NotOwner" xml:space="preserve">
+    <value>Only the organization owner can perform this action.</value>
+  </data>
+  <data name="Organization.CannotTransferOwnership" xml:space="preserve">
+    <value>Cannot transfer ownership to a non-member of the organization.</value>
+  </data>
+  <data name="Organization.AlreadyMember" xml:space="preserve">
+    <value>User is already a member of this organization.</value>
+  </data>
+  <data name="Organization.NotMember" xml:space="preserve">
+    <value>User is not a member of this organization.</value>
+  </data>
+  <data name="Organization.NotAMember" xml:space="preserve">
+    <value>You are not a member of this organization.</value>
+  </data>
+  <data name="Organization.CannotRemoveOwner" xml:space="preserve">
+    <value>The organization owner cannot be removed. Transfer ownership first.</value>
+  </data>
+  <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
+    <value>You cannot change your own organization role.</value>
+  </data>
+  <data name="Organization.MembershipExpired" xml:space="preserve">
+    <value>Your membership in this organization has expired.</value>
+  </data>
+  <data name="Organization.InsufficientPermissions" xml:space="preserve">
+    <value>You do not have sufficient permissions to perform this action.</value>
+  </data>
+  <data name="Organization.ApplicationNotFound" xml:space="preserve">
+    <value>Application with ID '{0}' was not found.</value>
+  </data>
+  <data name="Organization.ApplicationAlreadyEnabled" xml:space="preserve">
+    <value>This application is already enabled for the organization.</value>
+  </data>
+  <data name="Organization.ApplicationNotEnabled" xml:space="preserve">
+    <value>This application is not enabled for the organization.</value>
+  </data>
+  <data name="Organization.SubscriptionExpired" xml:space="preserve">
+    <value>The subscription for this application has expired.</value>
+  </data>
+  <data name="Organization.AppRoleAlreadyAssigned" xml:space="preserve">
+    <value>This role is already assigned to the user for this application.</value>
+  </data>
+  <data name="Organization.AppRoleNotAssigned" xml:space="preserve">
+    <value>This role is not assigned to the user for this application.</value>
+  </data>
+  <data name="Organization.RoleNotFound" xml:space="preserve">
+    <value>Role with ID '{0}' was not found.</value>
+  </data>
+  <data name="Organization.RoleNotForApplication" xml:space="preserve">
+    <value>The specified role does not belong to the specified application.</value>
+  </data>
+  <data name="Organization.PermissionAlreadyGranted" xml:space="preserve">
+    <value>This permission is already granted to the user for this application.</value>
+  </data>
+  <data name="Organization.PermissionNotGranted" xml:space="preserve">
+    <value>This permission is not granted to the user for this application.</value>
+  </data>
+  <data name="Organization.PermissionNotFound" xml:space="preserve">
+    <value>Permission with ID '{0}' was not found.</value>
+  </data>
+  <data name="Organization.PermissionNotForApplication" xml:space="preserve">
+    <value>The specified permission does not belong to the specified application.</value>
+  </data>
+  <data name="Organization.InvitationNotFound" xml:space="preserve">
+    <value>Invitation with ID '{0}' was not found.</value>
+  </data>
+  <data name="Organization.InvitationNotFoundByToken" xml:space="preserve">
+    <value>Invalid or expired invitation token.</value>
+  </data>
+  <data name="Organization.InvitationExpired" xml:space="preserve">
+    <value>This invitation has expired.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyAccepted" xml:space="preserve">
+    <value>This invitation has already been accepted.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyDeclined" xml:space="preserve">
+    <value>This invitation has already been declined.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyCancelled" xml:space="preserve">
+    <value>This invitation has been cancelled.</value>
+  </data>
+  <data name="Organization.PendingInvitationExists" xml:space="preserve">
+    <value>A pending invitation already exists for '{0}'.</value>
+  </data>
+  <data name="Organization.CannotInviteSelf" xml:space="preserve">
+    <value>You cannot invite yourself to an organization.</value>
+  </data>
+  <data name="Organization.InvitationEmailMismatch" xml:space="preserve">
+    <value>This invitation was sent to a different email address.</value>
+  </data>
+
+  <!-- ==================== Application Errors ==================== -->
+  <data name="Application.NotFound" xml:space="preserve">
+    <value>Application with ID '{0}' was not found.</value>
+  </data>
+  <data name="Application.NotFoundByCode" xml:space="preserve">
+    <value>Application with code '{0}' was not found.</value>
+  </data>
+  <data name="Application.DuplicateCode" xml:space="preserve">
+    <value>An application with code '{0}' already exists.</value>
+  </data>
+  <data name="Application.CannotDeleteSystem" xml:space="preserve">
+    <value>System applications cannot be deleted.</value>
+  </data>
+  <data name="Application.CannotModifySystem" xml:space="preserve">
+    <value>System applications cannot be modified.</value>
+  </data>
+  <data name="Application.HasActiveApiKeys" xml:space="preserve">
+    <value>Cannot delete application with active API keys. Revoke all API keys first.</value>
+  </data>
+  <data name="Application.HasActiveUsers" xml:space="preserve">
+    <value>Cannot delete application with active user assignments.</value>
+  </data>
+  <data name="Application.HasActiveOrganizations" xml:space="preserve">
+    <value>Cannot delete application that is enabled for organizations.</value>
+  </data>
+  <data name="Application.Inactive" xml:space="preserve">
+    <value>This application is currently inactive.</value>
+  </data>
+  <data name="Application.InvalidCode" xml:space="preserve">
+    <value>Application code '{0}' is invalid. Use uppercase alphanumeric characters and underscores only.</value>
+  </data>
+  <data name="Application.CodeTooShort" xml:space="preserve">
+    <value>Application code must be at least 2 characters long.</value>
+  </data>
+  <data name="Application.CodeTooLong" xml:space="preserve">
+    <value>Application code cannot exceed 50 characters.</value>
+  </data>
+  <data name="Application.InvalidSessionTimeout" xml:space="preserve">
+    <value>Session timeout must be between 1 and 1440 minutes (24 hours).</value>
+  </data>
+  <data name="Application.InvalidMaxConcurrentSessions" xml:space="preserve">
+    <value>Maximum concurrent sessions must be between 1 and 100.</value>
+  </data>
+  <data name="Application.NotEnabledForOrganization" xml:space="preserve">
+    <value>This application is not enabled for this organization.</value>
+  </data>
+  <data name="Application.AlreadyEnabledForOrganization" xml:space="preserve">
+    <value>This application is already enabled for this organization.</value>
+  </data>
+
+  <!-- ==================== Role Errors ==================== -->
+  <data name="Role.NotFound" xml:space="preserve">
+    <value>Role with ID '{0}' was not found.</value>
+  </data>
+  <data name="Role.NotFoundByCode" xml:space="preserve">
+    <value>Role with code '{0}' was not found.</value>
+  </data>
+  <data name="Role.DuplicateCode" xml:space="preserve">
+    <value>A role with code '{0}' already exists in this application.</value>
+  </data>
+  <data name="Role.CannotDeleteSystemRole" xml:space="preserve">
+    <value>System roles cannot be deleted.</value>
+  </data>
+  <data name="Role.CannotModifySystemRole" xml:space="preserve">
+    <value>System roles cannot be modified.</value>
+  </data>
+  <data name="Role.Inactive" xml:space="preserve">
+    <value>This role is currently inactive.</value>
+  </data>
+  <data name="Role.AlreadyAssigned" xml:space="preserve">
+    <value>This role is already assigned to the user.</value>
+  </data>
+  <data name="Role.NotAssigned" xml:space="preserve">
+    <value>This role is not assigned to the user.</value>
+  </data>
+  <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
+    <value>Cannot remove the last admin role. At least one admin must remain.</value>
+  </data>
+
+  <!-- ==================== Permission Errors ==================== -->
+  <data name="Permission.NotFound" xml:space="preserve">
+    <value>Permission with ID '{0}' was not found.</value>
+  </data>
+  <data name="Permission.NotFoundByCode" xml:space="preserve">
+    <value>Permission with code '{0}' was not found.</value>
+  </data>
+  <data name="Permission.DuplicateCode" xml:space="preserve">
+    <value>A permission with code '{0}' already exists in this application.</value>
+  </data>
+  <data name="Permission.InvalidCode" xml:space="preserve">
+    <value>Permission code '{0}' is invalid. Use colon-separated hierarchy (e.g., 'module:resource:action').</value>
+  </data>
+  <data name="Permission.CannotDeleteSystemPermission" xml:space="preserve">
+    <value>System permissions cannot be deleted.</value>
+  </data>
+  <data name="Permission.CannotModifySystemPermission" xml:space="preserve">
+    <value>System permissions cannot be modified.</value>
+  </data>
+  <data name="Permission.Inactive" xml:space="preserve">
+    <value>This permission is currently inactive.</value>
+  </data>
+  <data name="Permission.AlreadyGranted" xml:space="preserve">
+    <value>This permission is already granted.</value>
+  </data>
+  <data name="Permission.NotGranted" xml:space="preserve">
+    <value>This permission is not granted.</value>
+  </data>
+  <data name="Permission.CircularImplication" xml:space="preserve">
+    <value>This would create a circular permission implication.</value>
+  </data>
+  <data name="Permission.CannotGrantHigher" xml:space="preserve">
+    <value>You cannot grant permissions that you do not have.</value>
+  </data>
+
+  <!-- ==================== ApiKey Errors ==================== -->
+  <data name="ApiKey.NotFound" xml:space="preserve">
+    <value>The API key was not found.</value>
+  </data>
+  <data name="ApiKey.Invalid" xml:space="preserve">
+    <value>The provided API key is invalid.</value>
+  </data>
+  <data name="ApiKey.Revoked" xml:space="preserve">
+    <value>The API key has been revoked.</value>
+  </data>
+  <data name="ApiKey.Expired" xml:space="preserve">
+    <value>The API key has expired.</value>
+  </data>
+  <data name="ApiKey.AlreadyRevoked" xml:space="preserve">
+    <value>The API key has already been revoked.</value>
+  </data>
+
+  <!-- ==================== WebhookKey Errors ==================== -->
+  <data name="WebhookKey.NotFound" xml:space="preserve">
+    <value>The webhook key was not found.</value>
+  </data>
+  <data name="WebhookKey.Invalid" xml:space="preserve">
+    <value>The provided webhook key is invalid.</value>
+  </data>
+  <data name="WebhookKey.Revoked" xml:space="preserve">
+    <value>The webhook key has been revoked.</value>
+  </data>
+  <data name="WebhookKey.Expired" xml:space="preserve">
+    <value>The webhook key has expired.</value>
+  </data>
+  <data name="WebhookKey.AlreadyRevoked" xml:space="preserve">
+    <value>The webhook key has already been revoked.</value>
+  </data>
+
+  <!-- ==================== Session Errors ==================== -->
+  <data name="Session.NotFound" xml:space="preserve">
+    <value>The session was not found.</value>
+  </data>
+  <data name="Session.Expired" xml:space="preserve">
+    <value>The session has expired.</value>
+  </data>
+  <data name="Session.AlreadyTerminated" xml:space="preserve">
+    <value>The session has already been terminated.</value>
+  </data>
+  <data name="Session.MaxSessionsReached" xml:space="preserve">
+    <value>Maximum number of concurrent sessions has been reached.</value>
+  </data>
+
+  <!-- ==================== AuditLog Errors ==================== -->
+  <data name="AuditLog.NotFound" xml:space="preserve">
+    <value>Audit log with ID '{0}' was not found.</value>
+  </data>
+  <data name="AuditLog.InvalidDateRange" xml:space="preserve">
+    <value>From date must be before To date.</value>
+  </data>
+  <data name="AuditLog.DateRangeTooLarge" xml:space="preserve">
+    <value>Date range cannot exceed 90 days for a single query.</value>
+  </data>
+  <data name="AuditLog.ExportFailed" xml:space="preserve">
+    <value>Failed to export audit logs: {0}</value>
+  </data>
+  <data name="AuditLog.ExportTooLarge" xml:space="preserve">
+    <value>Export request exceeds maximum allowed records (100,000). Please narrow your search criteria.</value>
+  </data>
+  <data name="AuditLog.InvalidExportFormat" xml:space="preserve">
+    <value>Invalid export format '{0}'. Supported formats: csv, json.</value>
+  </data>
+  <data name="AuditLog.NoLogsFound" xml:space="preserve">
+    <value>No audit logs found matching the specified criteria.</value>
+  </data>
+
+  <!-- ==================== EmailVerification Errors ==================== -->
+  <data name="EmailVerification.InvalidOrExpiredOtp" xml:space="preserve">
+    <value>The verification code is invalid or has expired.</value>
+  </data>
+  <data name="EmailVerification.OtpAlreadyUsed" xml:space="preserve">
+    <value>This verification code has already been used.</value>
+  </data>
+  <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
+    <value>Too many verification attempts. Please request a new code.</value>
+  </data>
+  <data name="EmailVerification.TooManyRequests" xml:space="preserve">
+    <value>Too many verification code requests. Please try again later.</value>
+  </data>
+  <data name="EmailVerification.EmailAlreadyVerified" xml:space="preserve">
+    <value>This email address has already been verified.</value>
+  </data>
+  <data name="EmailVerification.NoActiveToken" xml:space="preserve">
+    <value>No active verification code found. Please request a new code.</value>
+  </data>
+  <data name="EmailVerification.EmailSendFailed" xml:space="preserve">
+    <value>Failed to send verification email. Please try again later.</value>
+  </data>
+  <data name="EmailVerification.UserNotFound" xml:space="preserve">
+    <value>User not found.</value>
+  </data>
+  <data name="EmailVerification.InvalidOtpFormat" xml:space="preserve">
+    <value>The verification code must be exactly 6 digits.</value>
+  </data>
+
+  <!-- ==================== ExternalAuth Errors ==================== -->
+  <data name="ExternalAuth.ProviderNotSupported" xml:space="preserve">
+    <value>The external authentication provider '{0}' is not supported.</value>
+  </data>
+  <data name="ExternalAuth.TokenVerificationFailed" xml:space="preserve">
+    <value>The external authentication token could not be verified.</value>
+  </data>
+  <data name="ExternalAuth.ProviderNotConfigured" xml:space="preserve">
+    <value>The external authentication provider '{0}' is not configured.</value>
+  </data>
+  <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
+    <value>The email address has not been verified by the external provider.</value>
+  </data>
+  <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
+    <value>This {0} account is already linked to another user.</value>
+  </data>
+
+  <!-- ==================== PasswordReset Errors ==================== -->
+  <data name="PasswordReset.InvalidOrExpiredToken" xml:space="preserve">
+    <value>The password reset token is invalid or has expired.</value>
+  </data>
+  <data name="PasswordReset.TokenAlreadyUsed" xml:space="preserve">
+    <value>This password reset token has already been used.</value>
+  </data>
+  <data name="PasswordReset.TooManyRequests" xml:space="preserve">
+    <value>Too many password reset requests. Please try again later.</value>
+  </data>
+
+  <!-- ==================== TwoFactor Errors ==================== -->
+  <data name="TwoFactor.SetupRequired" xml:space="preserve">
+    <value>Two-factor authentication setup is required before enabling.</value>
+  </data>
+  <data name="TwoFactor.VerificationRequired" xml:space="preserve">
+    <value>Two-factor authentication verification is required.</value>
+  </data>
+  <data name="TwoFactor.LockedOut" xml:space="preserve">
+    <value>Two-factor authentication has been temporarily locked due to too many failed attempts.</value>
+  </data>
+  <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
+    <value>The recovery code is invalid.</value>
+  </data>
+  <data name="TwoFactor.NoRecoveryCodesAvailable" xml:space="preserve">
+    <value>No recovery codes are available. Please contact support.</value>
+  </data>
+
+  <!-- ==================== Secret Errors ==================== -->
+  <data name="Secret.DecryptionFailed" xml:space="preserve">
+    <value>Failed to decrypt the secret file. It may have been encrypted on a different machine or the DPAPI keys may have changed.</value>
+  </data>
+  <data name="Secret.FileAccessFailed" xml:space="preserve">
+    <value>Failed to access the secret file. Check file permissions and path configuration.</value>
+  </data>
+  <data name="Secret.KeyGenerationFailed" xml:space="preserve">
+    <value>Failed to generate cryptographic key.</value>
+  </data>
+  <data name="Secret.InvalidKey" xml:space="preserve">
+    <value>Secret key must be alphanumeric with underscores or dots only, and less than 100 characters.</value>
+  </data>
+  <data name="Secret.UnknownKey" xml:space="preserve">
+    <value>Unknown secret key: {0}.</value>
+  </data>
+  <data name="Secret.NotFound" xml:space="preserve">
+    <value>Custom secret '{0}' was not found.</value>
+  </data>
+</root>

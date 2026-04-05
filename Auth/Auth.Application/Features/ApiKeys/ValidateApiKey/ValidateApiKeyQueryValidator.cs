@@ -10,8 +10,8 @@ public class ValidateApiKeyQueryValidator : AbstractValidator<ValidateApiKeyQuer
     public ValidateApiKeyQueryValidator()
     {
         RuleFor(x => x.RawApiKey)
-            .NotEmpty().WithMessage("API key is required.")
+            .NotEmpty().WithMessage("Validation.ApiKey.Required")
             .Must(key => key.StartsWith("ak_"))
-            .WithMessage("API key must start with a valid prefix (ak_).");
+            .WithMessage("Validation.ApiKey.InvalidPrefix");
     }
 }

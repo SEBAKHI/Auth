@@ -53,11 +53,13 @@ public static class AuthErrors
 
     public static Error PermissionDenied(string permission) => Error.Forbidden(
         code: "Auth.PermissionDenied",
-        description: $"You do not have the required permission: '{permission}'.");
+        description: $"You do not have the required permission: '{permission}'.",
+        metadata: new() { ["args"] = new object[] { permission } });
 
     public static Error ApplicationNotFound(Guid applicationId) => Error.NotFound(
         code: "Auth.ApplicationNotFound",
-        description: $"Application with ID '{applicationId}' was not found.");
+        description: $"Application with ID '{applicationId}' was not found.",
+        metadata: new() { ["args"] = new object[] { applicationId } });
 
     public static Error ApplicationInactive => Error.Forbidden(
         code: "Auth.ApplicationInactive",

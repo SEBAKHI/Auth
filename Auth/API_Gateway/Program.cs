@@ -1,5 +1,6 @@
 using System.Threading.RateLimiting;
 using API_Gateway.Middleware;
+using Auth_Localization.Extensions;
 using Auth.Shared.Configuration;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.RateLimiting;
@@ -165,6 +166,9 @@ builder.Services.AddRateLimiter(options =>
     };
 });
 
+// Localization
+builder.Services.AddAuthLocalization();
+
 // Health Checks
 var authApiUrl = builder.Configuration["Services:AuthApi:HealthUrl"] ?? "http://localhost:5100/health";
 builder.Services.AddHealthChecks()
@@ -209,6 +213,9 @@ app.UseSerilogRequestLogging(options =>
         }
     };
 });
+
+// Localization middleware
+app.UseAuthLocalization();
 
 // Exception handling
 app.UseMiddleware<GatewayExceptionMiddleware>();

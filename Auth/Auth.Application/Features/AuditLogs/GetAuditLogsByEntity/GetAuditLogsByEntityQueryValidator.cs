@@ -10,7 +10,7 @@ public class GetAuditLogsByEntityQueryValidator : AbstractValidator<GetAuditLogs
     public GetAuditLogsByEntityQueryValidator()
     {
         RuleFor(x => x.EntityType)
-            .NotEmpty().WithMessage("Entity type is required.")
-            .MaximumLength(100).WithMessage("Entity type must not exceed 100 characters.");
+            .NotEmpty().WithMessage("Validation.EntityType.Required")
+            .MaximumLength(100).WithMessage("Validation.EntityType.MaxLength");
     }
 }

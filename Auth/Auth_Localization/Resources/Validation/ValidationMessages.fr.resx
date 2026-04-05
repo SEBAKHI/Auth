@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Shared Validation Rules ==================== -->
+  <data name="Validation.Email.Required" xml:space="preserve">
+    <value>L'adresse e-mail est requise.</value>
+  </data>
+  <data name="Validation.Email.InvalidFormat" xml:space="preserve">
+    <value>Une adresse e-mail valide est requise.</value>
+  </data>
+  <data name="Validation.Email.MaxLength" xml:space="preserve">
+    <value>L'adresse e-mail ne doit pas dépasser 256 caractères.</value>
+  </data>
+  <data name="Validation.FirstName.Required" xml:space="preserve">
+    <value>Le prénom est requis.</value>
+  </data>
+  <data name="Validation.FirstName.MaxLength" xml:space="preserve">
+    <value>Le prénom ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="Validation.LastName.Required" xml:space="preserve">
+    <value>Le nom de famille est requis.</value>
+  </data>
+  <data name="Validation.LastName.MaxLength" xml:space="preserve">
+    <value>Le nom de famille ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="Validation.DisplayName.MaxLength" xml:space="preserve">
+    <value>Le nom d'affichage ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
+    <value>Le numéro de téléphone ne doit pas dépasser 20 caractères.</value>
+  </data>
+  <data name="Validation.Password.Required" xml:space="preserve">
+    <value>Le mot de passe est requis.</value>
+  </data>
+  <data name="Validation.Code.Required" xml:space="preserve">
+    <value>Le code est requis.</value>
+  </data>
+  <data name="Validation.Code.MaxLength100" xml:space="preserve">
+    <value>Le code ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="Validation.Code.InvalidFormat" xml:space="preserve">
+    <value>Le code doit contenir uniquement des caractères alphanumériques, des points, des tirets et des tirets bas.</value>
+  </data>
+  <data name="Validation.PermissionCode.MaxLength" xml:space="preserve">
+    <value>Le code ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="Validation.PermissionCode.InvalidFormat" xml:space="preserve">
+    <value>Le code de permission doit contenir uniquement des lettres minuscules, des chiffres, des deux-points, des tirets, des tirets bas et des astérisques.</value>
+  </data>
+  <data name="Validation.Name.Required" xml:space="preserve">
+    <value>Le nom est requis.</value>
+  </data>
+  <data name="Validation.Name.MaxLength" xml:space="preserve">
+    <value>Le nom ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="Validation.Description.MaxLength" xml:space="preserve">
+    <value>La description ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve">
+    <value>Le numéro de page doit être au moins 1.</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>La taille de page doit être comprise entre 1 et 100.</value>
+  </data>
+  <data name="Validation.Url.MaxLength" xml:space="preserve">
+    <value>L'URL ne doit pas dépasser 2048 caractères.</value>
+  </data>
+  <data name="Validation.Token.Required" xml:space="preserve">
+    <value>Le jeton est requis.</value>
+  </data>
+  <data name="Validation.TotpCode.Required" xml:space="preserve">
+    <value>Le code de vérification est requis.</value>
+  </data>
+  <data name="Validation.TotpCode.InvalidFormat" xml:space="preserve">
+    <value>Le code de vérification doit être un nombre à 6 chiffres.</value>
+  </data>
+
+  <!-- ==================== Password Validation ==================== -->
+  <data name="Validation.Password.TooShort" xml:space="preserve">
+    <value>Le mot de passe doit comporter au moins {0} caractères.</value>
+  </data>
+  <data name="Validation.Password.RequiresUppercase" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins une lettre majuscule.</value>
+  </data>
+  <data name="Validation.Password.RequiresLowercase" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins une lettre minuscule.</value>
+  </data>
+  <data name="Validation.Password.RequiresDigit" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins un chiffre.</value>
+  </data>
+  <data name="Validation.Password.RequiresSpecialCharacter" xml:space="preserve">
+    <value>Le mot de passe doit contenir au moins un caractère spécial (!@#$%^&amp;*()-_=+[]{}|;:'",. &lt;&gt;?/).</value>
+  </data>
+  <data name="Validation.Password.CommonPattern" xml:space="preserve">
+    <value>Le mot de passe contient un schéma courant facile à deviner.</value>
+  </data>
+
+  <!-- ==================== Secret Validation ==================== -->
+  <data name="Validation.SecretKey.Required" xml:space="preserve">
+    <value>La clé secrète est requise.</value>
+  </data>
+  <data name="Validation.SecretKey.MaxLength" xml:space="preserve">
+    <value>La clé secrète ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="Validation.SecretKey.InvalidFormat" xml:space="preserve">
+    <value>La clé secrète doit être alphanumérique avec uniquement des tirets bas ou des points.</value>
+  </data>
+  <data name="Validation.SecretValue.Required" xml:space="preserve">
+    <value>La valeur secrète est requise.</value>
+  </data>
+
+  <!-- ==================== AuditLog Validation ==================== -->
+  <data name="Validation.DateRange.Invalid" xml:space="preserve">
+    <value>La date de fin doit être postérieure à la date de début.</value>
+  </data>
+  <data name="Validation.EntityType.Required" xml:space="preserve">
+    <value>Le type d'entité est requis.</value>
+  </data>
+  <data name="Validation.EntityType.MaxLength" xml:space="preserve">
+    <value>Le type d'entité ne doit pas dépasser 100 caractères.</value>
+  </data>
+
+  <!-- ==================== WebhookKey Validation ==================== -->
+  <data name="Validation.WebhookKey.Required" xml:space="preserve">
+    <value>La clé webhook est requise.</value>
+  </data>
+  <data name="Validation.WebhookKey.InvalidPrefix" xml:space="preserve">
+    <value>La clé webhook doit commencer par un préfixe valide (wk_).</value>
+  </data>
+  <data name="Validation.WebhookKeyId.Required" xml:space="preserve">
+    <value>L'ID de la clé webhook est requis.</value>
+  </data>
+
+  <!-- ==================== ApiKey Validation ==================== -->
+  <data name="Validation.ApiKey.Required" xml:space="preserve">
+    <value>La clé API est requise.</value>
+  </data>
+  <data name="Validation.ApiKey.InvalidPrefix" xml:space="preserve">
+    <value>La clé API doit commencer par un préfixe valide (ak_).</value>
+  </data>
+  <data name="Validation.ApplicationId.Required" xml:space="preserve">
+    <value>L'ID de l'application est requis.</value>
+  </data>
+
+  <!-- ==================== Search / Paging ==================== -->
+  <data name="Validation.SearchTerm.MaxLength" xml:space="preserve">
+    <value>Le terme de recherche ne doit pas dépasser 200 caractères.</value>
+  </data>
+
+  <!-- ==================== Key Rotation ==================== -->
+  <data name="Validation.GracePeriod.NonNegative" xml:space="preserve">
+    <value>La période de grâce doit être égale ou supérieure à 0.</value>
+  </data>
+
+  <!-- ==================== CreateApiKey / CreateWebhookKey ==================== -->
+  <data name="Validation.Environment.Required" xml:space="preserve">
+    <value>L'environnement est requis.</value>
+  </data>
+  <data name="Validation.RateLimitPerMinute.GreaterThanZero" xml:space="preserve">
+    <value>La limite de requêtes par minute doit être supérieure à 0.</value>
+  </data>
+  <data name="Validation.RateLimitPerDay.GreaterThanZero" xml:space="preserve">
+    <value>La limite de requêtes par jour doit être supérieure à 0.</value>
+  </data>
+  <data name="Validation.ExpirationDate.Future" xml:space="preserve">
+    <value>La date d'expiration doit être dans le futur.</value>
+  </data>
+
+  <!-- ==================== ExportAuditLogs ==================== -->
+  <data name="Validation.ExportFormat.Required" xml:space="preserve">
+    <value>Le format d'exportation est requis.</value>
+  </data>
+  <data name="Validation.ExportFormat.Invalid" xml:space="preserve">
+    <value>Le format doit être 'csv', 'json' ou 'excel'.</value>
+  </data>
+  <data name="Validation.MaxRecords.Range" xml:space="preserve">
+    <value>Le nombre maximum d'enregistrements doit être compris entre 1 et 10 000.</value>
+  </data>
+
+  <!-- ==================== Authentication ==================== -->
+  <data name="Validation.RefreshToken.Required" xml:space="preserve">
+    <value>Le jeton de rafraîchissement est requis.</value>
+  </data>
+  <data name="Validation.ResetToken.Required" xml:space="preserve">
+    <value>Le jeton de réinitialisation est requis.</value>
+  </data>
+  <data name="Validation.NewPassword.Required" xml:space="preserve">
+    <value>Le nouveau mot de passe est requis.</value>
+  </data>
+  <data name="Validation.Provider.Required" xml:space="preserve">
+    <value>Le fournisseur est requis.</value>
+  </data>
+  <data name="Validation.IdToken.Required" xml:space="preserve">
+    <value>Le jeton d'identification est requis.</value>
+  </data>
+
+  <!-- ==================== Organization ==================== -->
+  <data name="Validation.OrganizationCode.Required" xml:space="preserve">
+    <value>Le code de l'organisation est requis.</value>
+  </data>
+  <data name="Validation.OrganizationCode.MaxLength" xml:space="preserve">
+    <value>Le code de l'organisation ne doit pas dépasser 50 caractères.</value>
+  </data>
+  <data name="Validation.OrganizationCode.InvalidFormat" xml:space="preserve">
+    <value>Le code de l'organisation doit contenir uniquement des lettres, des chiffres, des tirets et des tirets bas.</value>
+  </data>
+  <data name="Validation.OrganizationName.Required" xml:space="preserve">
+    <value>Le nom de l'organisation est requis.</value>
+  </data>
+  <data name="Validation.OrganizationName.MaxLength" xml:space="preserve">
+    <value>Le nom de l'organisation ne doit pas dépasser 200 caractères.</value>
+  </data>
+  <data name="Validation.ContactEmail.Required" xml:space="preserve">
+    <value>L'adresse e-mail de contact est requise.</value>
+  </data>
+  <data name="Validation.ContactEmail.InvalidFormat" xml:space="preserve">
+    <value>Une adresse e-mail de contact valide est requise.</value>
+  </data>
+  <data name="Validation.ContactEmail.MaxLength" xml:space="preserve">
+    <value>L'adresse e-mail de contact ne doit pas dépasser 256 caractères.</value>
+  </data>
+  <data name="Validation.Description.MaxLength1000" xml:space="preserve">
+    <value>La description ne doit pas dépasser 1000 caractères.</value>
+  </data>
+  <data name="Validation.WebsiteUrl.MaxLength" xml:space="preserve">
+    <value>L'URL du site web ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Validation.OrganizationId.Required" xml:space="preserve">
+    <value>L'ID de l'organisation est requis.</value>
+  </data>
+  <data name="Validation.InvitationId.Required" xml:space="preserve">
+    <value>L'ID de l'invitation est requis.</value>
+  </data>
+
+  <!-- ==================== User Management ==================== -->
+  <data name="Validation.UserId.Required" xml:space="preserve">
+    <value>L'ID de l'utilisateur est requis.</value>
+  </data>
+  <data name="Validation.CurrentPassword.Required" xml:space="preserve">
+    <value>Le mot de passe actuel est requis.</value>
+  </data>
+  <data name="Validation.NewPassword.MustDiffer" xml:space="preserve">
+    <value>Le nouveau mot de passe doit être différent du mot de passe actuel.</value>
+  </data>
+  <data name="Validation.Reason.Required" xml:space="preserve">
+    <value>La raison est requise.</value>
+  </data>
+  <data name="Validation.Reason.MaxLength" xml:space="preserve">
+    <value>La raison ne doit pas dépasser 500 caractères.</value>
+  </data>
+  <data name="Validation.LockDuration.GreaterThanZero" xml:space="preserve">
+    <value>La durée de verrouillage doit être supérieure à 0.</value>
+  </data>
+</root>

@@ -10,11 +10,11 @@ public class SetCustomSecretCommandValidator : AbstractValidator<SetCustomSecret
     public SetCustomSecretCommandValidator()
     {
         RuleFor(x => x.Key)
-            .NotEmpty().WithMessage("Secret key is required.")
-            .MaximumLength(100).WithMessage("Secret key must not exceed 100 characters.")
-            .Matches("^[a-zA-Z0-9_.]+$").WithMessage("Secret key must be alphanumeric with underscores or dots only.");
+            .NotEmpty().WithMessage("Validation.SecretKey.Required")
+            .MaximumLength(100).WithMessage("Validation.SecretKey.MaxLength")
+            .Matches("^[a-zA-Z0-9_.]+$").WithMessage("Validation.SecretKey.InvalidFormat");
 
         RuleFor(x => x.Value)
-            .NotEmpty().WithMessage("Secret value is required.");
+            .NotEmpty().WithMessage("Validation.SecretValue.Required");
     }
 }

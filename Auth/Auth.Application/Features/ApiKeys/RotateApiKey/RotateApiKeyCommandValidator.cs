@@ -10,6 +10,6 @@ public class RotateApiKeyCommandValidator : AbstractValidator<RotateApiKeyComman
     public RotateApiKeyCommandValidator()
     {
         RuleFor(x => x.GracePeriodMinutes)
-            .GreaterThanOrEqualTo(0).WithMessage("Grace period must be non-negative.");
+            .GreaterThanOrEqualTo(0).WithMessage("Validation.GracePeriod.NonNegative");
     }
 }

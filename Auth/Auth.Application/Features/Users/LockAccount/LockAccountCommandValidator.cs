@@ -10,10 +10,10 @@ public class LockAccountCommandValidator : AbstractValidator<LockAccountCommand>
     public LockAccountCommandValidator()
     {
         RuleFor(x => x.Reason)
-            .NotEmpty().WithMessage("Reason is required.")
-            .MaximumLength(500).WithMessage("Reason must not exceed 500 characters.");
+            .NotEmpty().WithMessage("Validation.Reason.Required")
+            .MaximumLength(500).WithMessage("Validation.Reason.MaxLength");
         RuleFor(x => x.LockDurationMinutes)
-            .GreaterThan(0).WithMessage("Lock duration must be greater than 0.")
+            .GreaterThan(0).WithMessage("Validation.LockDuration.GreaterThanZero")
             .When(x => x.LockDurationMinutes.HasValue);
     }
 }

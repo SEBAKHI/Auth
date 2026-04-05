@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Auth.Shared\Auth.Shared.csproj" />
+    <ProjectReference Include="..\Auth_Localization\Auth_Localization.csproj" />
   </ItemGroup>
 
   <ItemGroup>

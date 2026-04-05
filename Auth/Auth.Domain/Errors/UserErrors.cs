@@ -9,15 +9,18 @@ public static class UserErrors
 {
     public static Error NotFound(Guid userId) => Error.NotFound(
         code: "User.NotFound",
-        description: $"User with ID '{userId}' was not found.");
+        description: $"User with ID '{userId}' was not found.",
+        metadata: new() { ["args"] = new object[] { userId } });
 
     public static Error NotFoundByEmail(string email) => Error.NotFound(
         code: "User.NotFoundByEmail",
-        description: $"User with email '{email}' was not found.");
+        description: $"User with email '{email}' was not found.",
+        metadata: new() { ["args"] = new object[] { email } });
 
     public static Error DuplicateEmail(string email) => Error.Conflict(
         code: "User.DuplicateEmail",
-        description: $"A user with email '{email}' already exists.");
+        description: $"A user with email '{email}' already exists.",
+        metadata: new() { ["args"] = new object[] { email } });
 
     public static Error InvalidCredentials => Error.Validation(
         code: "User.InvalidCredentials",
@@ -28,10 +31,13 @@ public static class UserErrors
         description: "This account has been locked due to multiple failed login attempts.");
 
     public static Error AccountLockedUntil(DateTime? lockoutEnd) => Error.Forbidden(
-        code: "User.AccountLocked",
+        code: lockoutEnd.HasValue ? "User.AccountLockedUntil" : "User.AccountLocked",
         description: lockoutEnd.HasValue
             ? $"This account is locked until {lockoutEnd.Value:u}."
-            : "This account has been locked.");
+            : "This account has been locked.",
+        metadata: lockoutEnd.HasValue
+            ? new() { ["args"] = new object[] { lockoutEnd.Value.ToString("u") } }
+            : null);
 
     public static Error AccountInactive => Error.Forbidden(
         code: "User.AccountInactive",

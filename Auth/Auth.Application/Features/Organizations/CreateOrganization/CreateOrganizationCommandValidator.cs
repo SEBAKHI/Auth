@@ -10,25 +10,25 @@ public class CreateOrganizationCommandValidator : AbstractValidator<CreateOrgani
     public CreateOrganizationCommandValidator()
     {
         RuleFor(x => x.Code)
-            .NotEmpty().WithMessage("Organization code is required.")
-            .MaximumLength(50).WithMessage("Organization code must not exceed 50 characters.")
-            .Matches("^[a-zA-Z0-9_-]+$").WithMessage("Organization code must contain only letters, numbers, hyphens, and underscores.");
+            .NotEmpty().WithMessage("Validation.OrganizationCode.Required")
+            .MaximumLength(50).WithMessage("Validation.OrganizationCode.MaxLength")
+            .Matches("^[a-zA-Z0-9_-]+$").WithMessage("Validation.OrganizationCode.InvalidFormat");
 
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Organization name is required.")
-            .MaximumLength(200).WithMessage("Organization name must not exceed 200 characters.");
+            .NotEmpty().WithMessage("Validation.OrganizationName.Required")
+            .MaximumLength(200).WithMessage("Validation.OrganizationName.MaxLength");
 
         RuleFor(x => x.ContactEmail)
-            .NotEmpty().WithMessage("Contact email is required.")
-            .EmailAddress().WithMessage("A valid contact email address is required.")
-            .MaximumLength(256).WithMessage("Contact email must not exceed 256 characters.");
+            .NotEmpty().WithMessage("Validation.ContactEmail.Required")
+            .EmailAddress().WithMessage("Validation.ContactEmail.InvalidFormat")
+            .MaximumLength(256).WithMessage("Validation.ContactEmail.MaxLength");
 
         RuleFor(x => x.Description)
-            .MaximumLength(1000).WithMessage("Description must not exceed 1000 characters.")
+            .MaximumLength(1000).WithMessage("Validation.Description.MaxLength1000")
             .When(x => x.Description is not null);
 
         RuleFor(x => x.Website)
-            .MaximumLength(500).WithMessage("Website URL must not exceed 500 characters.")
+            .MaximumLength(500).WithMessage("Validation.WebsiteUrl.MaxLength")
             .When(x => x.Website is not null);
     }
 }

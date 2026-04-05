@@ -1,5 +1,7 @@
 using System.Net;
 using System.Text.Json;
+using Auth_Localization.Resources.Middleware;
+using Microsoft.Extensions.Localization;
 
 namespace API_Gateway.Middleware;
 
@@ -31,22 +33,36 @@ public class GatewayExceptionMiddleware
         catch (HttpRequestException ex)
         {
             _logger.LogError(ex, "Upstream service error: {Message}", ex.Message);
+            var localizer = context.RequestServices.GetService<IStringLocalizer<MiddlewareMessages>>();
             await WriteErrorResponse(context, HttpStatusCode.BadGateway,
-                "Bad Gateway", "The upstream service is unavailable or returned an error.");
+                Localize(localizer, "Middleware.BadGateway.Title", "Bad Gateway"),
+                Localize(localizer, "Middleware.BadGateway.Detail", "The upstream service is unavailable or returned an error."));
         }
         catch (TaskCanceledException ex) when (ex.InnerException is TimeoutException)
         {
             _logger.LogError(ex, "Upstream service timeout");
+            var localizer = context.RequestServices.GetService<IStringLocalizer<MiddlewareMessages>>();
             await WriteErrorResponse(context, HttpStatusCode.GatewayTimeout,
-                "Gateway Timeout", "The upstream service did not respond in time.");
+                Localize(localizer, "Middleware.GatewayTimeout.Title", "Gateway Timeout"),
+                Localize(localizer, "Middleware.GatewayTimeout.Detail", "The upstream service did not respond in time."));
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unhandled exception in gateway: {Message}", ex.Message);
+            var localizer = context.RequestServices.GetService<IStringLocalizer<MiddlewareMessages>>();
             await WriteErrorResponse(context, HttpStatusCode.InternalServerError,
-                "Internal Server Error",
-                _environment.IsDevelopment() ? ex.Message : "An unexpected error occurred.");
+                Localize(localizer, "Middleware.InternalError.Title", "Internal Server Error"),
+                _environment.IsDevelopment()
+                    ? ex.Message
+                    : Localize(localizer, "Middleware.InternalError.Detail", "An unexpected error occurred."));
         }
+    }
+
+    private static string Localize(IStringLocalizer<MiddlewareMessages>? localizer, string key, string fallback)
+    {
+        if (localizer is null) return fallback;
+        var localized = localizer[key];
+        return localized.ResourceNotFound ? fallback : localized.Value;
     }
 
     private static async Task WriteErrorResponse(

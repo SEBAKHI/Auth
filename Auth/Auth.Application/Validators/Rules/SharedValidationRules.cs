@@ -4,106 +4,107 @@ namespace Auth.Application.Validators.Rules;
 
 /// <summary>
 /// Reusable FluentValidation rule extensions for common field types.
+/// Message values are resource keys resolved by the localization layer at the API edge.
 /// </summary>
 public static class SharedValidationRules
 {
     public static IRuleBuilderOptions<T, string> IsValidEmail<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Email is required.")
-            .EmailAddress().WithMessage("A valid email address is required.")
-            .MaximumLength(256).WithMessage("Email must not exceed 256 characters.");
+            .NotEmpty().WithMessage("Validation.Email.Required")
+            .EmailAddress().WithMessage("Validation.Email.InvalidFormat")
+            .MaximumLength(256).WithMessage("Validation.Email.MaxLength");
     }
 
     public static IRuleBuilderOptions<T, string> IsValidFirstName<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("First name is required.")
-            .MaximumLength(100).WithMessage("First name must not exceed 100 characters.");
+            .NotEmpty().WithMessage("Validation.FirstName.Required")
+            .MaximumLength(100).WithMessage("Validation.FirstName.MaxLength");
     }
 
     public static IRuleBuilderOptions<T, string> IsValidLastName<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Last name is required.")
-            .MaximumLength(100).WithMessage("Last name must not exceed 100 characters.");
+            .NotEmpty().WithMessage("Validation.LastName.Required")
+            .MaximumLength(100).WithMessage("Validation.LastName.MaxLength");
     }
 
     public static IRuleBuilderOptions<T, string?> IsValidDisplayName<T>(this IRuleBuilder<T, string?> ruleBuilder)
     {
         return ruleBuilder
-            .MaximumLength(200).WithMessage("Display name must not exceed 200 characters.");
+            .MaximumLength(200).WithMessage("Validation.DisplayName.MaxLength");
     }
 
     public static IRuleBuilderOptions<T, string?> IsValidPhoneNumber<T>(this IRuleBuilder<T, string?> ruleBuilder)
     {
         return ruleBuilder
-            .MaximumLength(20).WithMessage("Phone number must not exceed 20 characters.");
+            .MaximumLength(20).WithMessage("Validation.PhoneNumber.MaxLength");
     }
 
     public static IRuleBuilderOptions<T, string> IsRequiredPassword<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Password is required.");
+            .NotEmpty().WithMessage("Validation.Password.Required");
     }
 
     public static IRuleBuilderOptions<T, string> IsValidCode<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Code is required.")
-            .MaximumLength(100).WithMessage("Code must not exceed 100 characters.")
-            .Matches("^[a-zA-Z0-9._-]+$").WithMessage("Code must contain only alphanumeric characters, dots, hyphens, and underscores.");
+            .NotEmpty().WithMessage("Validation.Code.Required")
+            .MaximumLength(100).WithMessage("Validation.Code.MaxLength100")
+            .Matches("^[a-zA-Z0-9._-]+$").WithMessage("Validation.Code.InvalidFormat");
     }
 
     public static IRuleBuilderOptions<T, string> IsValidPermissionCode<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Code is required.")
-            .MaximumLength(200).WithMessage("Code must not exceed 200 characters.")
-            .Matches(@"^[a-z0-9:*_\-]+$").WithMessage("Permission code must contain only lowercase letters, digits, colons, hyphens, underscores, and asterisks.");
+            .NotEmpty().WithMessage("Validation.Code.Required")
+            .MaximumLength(200).WithMessage("Validation.PermissionCode.MaxLength")
+            .Matches(@"^[a-z0-9:*_\-]+$").WithMessage("Validation.PermissionCode.InvalidFormat");
     }
 
     public static IRuleBuilderOptions<T, string> IsValidName<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Name is required.")
-            .MaximumLength(200).WithMessage("Name must not exceed 200 characters.");
+            .NotEmpty().WithMessage("Validation.Name.Required")
+            .MaximumLength(200).WithMessage("Validation.Name.MaxLength");
     }
 
     public static IRuleBuilderOptions<T, string?> IsValidDescription<T>(this IRuleBuilder<T, string?> ruleBuilder)
     {
         return ruleBuilder
-            .MaximumLength(500).WithMessage("Description must not exceed 500 characters.");
+            .MaximumLength(500).WithMessage("Validation.Description.MaxLength");
     }
 
     public static IRuleBuilderOptions<T, int> IsValidPageNumber<T>(this IRuleBuilder<T, int> ruleBuilder)
     {
         return ruleBuilder
-            .GreaterThanOrEqualTo(1).WithMessage("Page number must be at least 1.");
+            .GreaterThanOrEqualTo(1).WithMessage("Validation.PageNumber.Min");
     }
 
     public static IRuleBuilderOptions<T, int> IsValidPageSize<T>(this IRuleBuilder<T, int> ruleBuilder)
     {
         return ruleBuilder
-            .InclusiveBetween(1, 100).WithMessage("Page size must be between 1 and 100.");
+            .InclusiveBetween(1, 100).WithMessage("Validation.PageSize.Range");
     }
 
     public static IRuleBuilderOptions<T, string?> IsValidUrl<T>(this IRuleBuilder<T, string?> ruleBuilder)
     {
         return ruleBuilder
-            .MaximumLength(2048).WithMessage("URL must not exceed 2048 characters.");
+            .MaximumLength(2048).WithMessage("Validation.Url.MaxLength");
     }
 
     public static IRuleBuilderOptions<T, string> IsRequiredToken<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Token is required.");
+            .NotEmpty().WithMessage("Validation.Token.Required");
     }
 
     public static IRuleBuilderOptions<T, string> IsValidTotpCode<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Verification code is required.")
-            .Matches("^[0-9]{6}$").WithMessage("Verification code must be a 6-digit number.");
+            .NotEmpty().WithMessage("Validation.TotpCode.Required")
+            .Matches("^[0-9]{6}$").WithMessage("Validation.TotpCode.InvalidFormat");
     }
 }

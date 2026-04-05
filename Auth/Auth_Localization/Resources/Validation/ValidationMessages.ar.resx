@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Shared Validation Rules ==================== -->
+  <data name="Validation.Email.Required" xml:space="preserve">
+    <value>البريد الإلكتروني مطلوب.</value>
+  </data>
+  <data name="Validation.Email.InvalidFormat" xml:space="preserve">
+    <value>يجب إدخال عنوان بريد إلكتروني صالح.</value>
+  </data>
+  <data name="Validation.Email.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز البريد الإلكتروني 256 حرفًا.</value>
+  </data>
+  <data name="Validation.FirstName.Required" xml:space="preserve">
+    <value>الاسم الأول مطلوب.</value>
+  </data>
+  <data name="Validation.FirstName.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز الاسم الأول 100 حرف.</value>
+  </data>
+  <data name="Validation.LastName.Required" xml:space="preserve">
+    <value>اسم العائلة مطلوب.</value>
+  </data>
+  <data name="Validation.LastName.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز اسم العائلة 100 حرف.</value>
+  </data>
+  <data name="Validation.DisplayName.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز الاسم المعروض 200 حرف.</value>
+  </data>
+  <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز رقم الهاتف 20 حرفًا.</value>
+  </data>
+  <data name="Validation.Password.Required" xml:space="preserve">
+    <value>كلمة المرور مطلوبة.</value>
+  </data>
+  <data name="Validation.Code.Required" xml:space="preserve">
+    <value>الرمز مطلوب.</value>
+  </data>
+  <data name="Validation.Code.MaxLength100" xml:space="preserve">
+    <value>يجب ألا يتجاوز الرمز 100 حرف.</value>
+  </data>
+  <data name="Validation.Code.InvalidFormat" xml:space="preserve">
+    <value>يجب أن يحتوي الرمز على أحرف أبجدية رقمية ونقاط وشرطات وشرطات سفلية فقط.</value>
+  </data>
+  <data name="Validation.PermissionCode.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز الرمز 200 حرف.</value>
+  </data>
+  <data name="Validation.PermissionCode.InvalidFormat" xml:space="preserve">
+    <value>يجب أن يحتوي رمز الصلاحية على أحرف صغيرة وأرقام ونقطتين وشرطات وشرطات سفلية ونجوم فقط.</value>
+  </data>
+  <data name="Validation.Name.Required" xml:space="preserve">
+    <value>الاسم مطلوب.</value>
+  </data>
+  <data name="Validation.Name.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز الاسم 200 حرف.</value>
+  </data>
+  <data name="Validation.Description.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز الوصف 500 حرف.</value>
+  </data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve">
+    <value>يجب أن يكون رقم الصفحة 1 على الأقل.</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>يجب أن يكون حجم الصفحة بين 1 و100.</value>
+  </data>
+  <data name="Validation.Url.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز الرابط 2048 حرفًا.</value>
+  </data>
+  <data name="Validation.Token.Required" xml:space="preserve">
+    <value>الرمز مطلوب.</value>
+  </data>
+  <data name="Validation.TotpCode.Required" xml:space="preserve">
+    <value>رمز التحقق مطلوب.</value>
+  </data>
+  <data name="Validation.TotpCode.InvalidFormat" xml:space="preserve">
+    <value>يجب أن يكون رمز التحقق رقمًا مكونًا من 6 أرقام.</value>
+  </data>
+
+  <!-- ==================== Password Validation ==================== -->
+  <data name="Validation.Password.TooShort" xml:space="preserve">
+    <value>يجب أن تتكون كلمة المرور من {0} أحرف على الأقل.</value>
+  </data>
+  <data name="Validation.Password.RequiresUppercase" xml:space="preserve">
+    <value>يجب أن تحتوي كلمة المرور على حرف كبير واحد على الأقل.</value>
+  </data>
+  <data name="Validation.Password.RequiresLowercase" xml:space="preserve">
+    <value>يجب أن تحتوي كلمة المرور على حرف صغير واحد على الأقل.</value>
+  </data>
+  <data name="Validation.Password.RequiresDigit" xml:space="preserve">
+    <value>يجب أن تحتوي كلمة المرور على رقم واحد على الأقل.</value>
+  </data>
+  <data name="Validation.Password.RequiresSpecialCharacter" xml:space="preserve">
+    <value>يجب أن تحتوي كلمة المرور على رمز خاص واحد على الأقل (!@#$%^&amp;*()-_=+[]{}|;:'",. &lt;&gt;?/).</value>
+  </data>
+  <data name="Validation.Password.CommonPattern" xml:space="preserve">
+    <value>تحتوي كلمة المرور على نمط شائع يسهل تخمينه.</value>
+  </data>
+
+  <!-- ==================== Secret Validation ==================== -->
+  <data name="Validation.SecretKey.Required" xml:space="preserve">
+    <value>مفتاح السر مطلوب.</value>
+  </data>
+  <data name="Validation.SecretKey.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز مفتاح السر 100 حرف.</value>
+  </data>
+  <data name="Validation.SecretKey.InvalidFormat" xml:space="preserve">
+    <value>يجب أن يحتوي مفتاح السر على أحرف أبجدية رقمية وشرطات سفلية ونقاط فقط.</value>
+  </data>
+  <data name="Validation.SecretValue.Required" xml:space="preserve">
+    <value>قيمة السر مطلوبة.</value>
+  </data>
+
+  <!-- ==================== AuditLog Validation ==================== -->
+  <data name="Validation.DateRange.Invalid" xml:space="preserve">
+    <value>يجب أن يكون تاريخ النهاية بعد تاريخ البداية.</value>
+  </data>
+  <data name="Validation.EntityType.Required" xml:space="preserve">
+    <value>نوع الكيان مطلوب.</value>
+  </data>
+  <data name="Validation.EntityType.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز نوع الكيان 100 حرف.</value>
+  </data>
+
+  <!-- ==================== WebhookKey Validation ==================== -->
+  <data name="Validation.WebhookKey.Required" xml:space="preserve">
+    <value>مفتاح Webhook مطلوب.</value>
+  </data>
+  <data name="Validation.WebhookKey.InvalidPrefix" xml:space="preserve">
+    <value>يجب أن يبدأ مفتاح Webhook ببادئة صالحة (wk_).</value>
+  </data>
+  <data name="Validation.WebhookKeyId.Required" xml:space="preserve">
+    <value>معرّف مفتاح Webhook مطلوب.</value>
+  </data>
+
+  <!-- ==================== ApiKey Validation ==================== -->
+  <data name="Validation.ApiKey.Required" xml:space="preserve">
+    <value>مفتاح API مطلوب.</value>
+  </data>
+  <data name="Validation.ApiKey.InvalidPrefix" xml:space="preserve">
+    <value>يجب أن يبدأ مفتاح API ببادئة صالحة (ak_).</value>
+  </data>
+  <data name="Validation.ApplicationId.Required" xml:space="preserve">
+    <value>معرّف التطبيق مطلوب.</value>
+  </data>
+
+  <!-- ==================== Search / Paging ==================== -->
+  <data name="Validation.SearchTerm.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز مصطلح البحث 200 حرف.</value>
+  </data>
+
+  <!-- ==================== Key Rotation ==================== -->
+  <data name="Validation.GracePeriod.NonNegative" xml:space="preserve">
+    <value>يجب أن تكون فترة السماح 0 أو أكثر.</value>
+  </data>
+
+  <!-- ==================== CreateApiKey / CreateWebhookKey ==================== -->
+  <data name="Validation.Environment.Required" xml:space="preserve">
+    <value>البيئة مطلوبة.</value>
+  </data>
+  <data name="Validation.RateLimitPerMinute.GreaterThanZero" xml:space="preserve">
+    <value>يجب أن يكون حد الطلبات في الدقيقة أكبر من 0.</value>
+  </data>
+  <data name="Validation.RateLimitPerDay.GreaterThanZero" xml:space="preserve">
+    <value>يجب أن يكون حد الطلبات في اليوم أكبر من 0.</value>
+  </data>
+  <data name="Validation.ExpirationDate.Future" xml:space="preserve">
+    <value>يجب أن يكون تاريخ انتهاء الصلاحية في المستقبل.</value>
+  </data>
+
+  <!-- ==================== ExportAuditLogs ==================== -->
+  <data name="Validation.ExportFormat.Required" xml:space="preserve">
+    <value>صيغة التصدير مطلوبة.</value>
+  </data>
+  <data name="Validation.ExportFormat.Invalid" xml:space="preserve">
+    <value>يجب أن تكون الصيغة 'csv' أو 'json' أو 'excel'.</value>
+  </data>
+  <data name="Validation.MaxRecords.Range" xml:space="preserve">
+    <value>يجب أن يكون الحد الأقصى للسجلات بين 1 و10,000.</value>
+  </data>
+
+  <!-- ==================== Authentication ==================== -->
+  <data name="Validation.RefreshToken.Required" xml:space="preserve">
+    <value>رمز التحديث مطلوب.</value>
+  </data>
+  <data name="Validation.ResetToken.Required" xml:space="preserve">
+    <value>رمز إعادة التعيين مطلوب.</value>
+  </data>
+  <data name="Validation.NewPassword.Required" xml:space="preserve">
+    <value>كلمة المرور الجديدة مطلوبة.</value>
+  </data>
+  <data name="Validation.Provider.Required" xml:space="preserve">
+    <value>المزود مطلوب.</value>
+  </data>
+  <data name="Validation.IdToken.Required" xml:space="preserve">
+    <value>رمز الهوية مطلوب.</value>
+  </data>
+
+  <!-- ==================== Organization ==================== -->
+  <data name="Validation.OrganizationCode.Required" xml:space="preserve">
+    <value>رمز المنظمة مطلوب.</value>
+  </data>
+  <data name="Validation.OrganizationCode.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز رمز المنظمة 50 حرفًا.</value>
+  </data>
+  <data name="Validation.OrganizationCode.InvalidFormat" xml:space="preserve">
+    <value>يجب أن يحتوي رمز المنظمة على أحرف وأرقام وشرطات وشرطات سفلية فقط.</value>
+  </data>
+  <data name="Validation.OrganizationName.Required" xml:space="preserve">
+    <value>اسم المنظمة مطلوب.</value>
+  </data>
+  <data name="Validation.OrganizationName.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز اسم المنظمة 200 حرف.</value>
+  </data>
+  <data name="Validation.ContactEmail.Required" xml:space="preserve">
+    <value>البريد الإلكتروني للتواصل مطلوب.</value>
+  </data>
+  <data name="Validation.ContactEmail.InvalidFormat" xml:space="preserve">
+    <value>يجب إدخال عنوان بريد إلكتروني صالح للتواصل.</value>
+  </data>
+  <data name="Validation.ContactEmail.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز البريد الإلكتروني للتواصل 256 حرفًا.</value>
+  </data>
+  <data name="Validation.Description.MaxLength1000" xml:space="preserve">
+    <value>يجب ألا يتجاوز الوصف 1000 حرف.</value>
+  </data>
+  <data name="Validation.WebsiteUrl.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز رابط الموقع الإلكتروني 500 حرف.</value>
+  </data>
+  <data name="Validation.OrganizationId.Required" xml:space="preserve">
+    <value>معرّف المنظمة مطلوب.</value>
+  </data>
+  <data name="Validation.InvitationId.Required" xml:space="preserve">
+    <value>معرّف الدعوة مطلوب.</value>
+  </data>
+
+  <!-- ==================== User Management ==================== -->
+  <data name="Validation.UserId.Required" xml:space="preserve">
+    <value>معرّف المستخدم مطلوب.</value>
+  </data>
+  <data name="Validation.CurrentPassword.Required" xml:space="preserve">
+    <value>كلمة المرور الحالية مطلوبة.</value>
+  </data>
+  <data name="Validation.NewPassword.MustDiffer" xml:space="preserve">
+    <value>يجب أن تختلف كلمة المرور الجديدة عن كلمة المرور الحالية.</value>
+  </data>
+  <data name="Validation.Reason.Required" xml:space="preserve">
+    <value>السبب مطلوب.</value>
+  </data>
+  <data name="Validation.Reason.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز السبب 500 حرف.</value>
+  </data>
+  <data name="Validation.LockDuration.GreaterThanZero" xml:space="preserve">
+    <value>يجب أن تكون مدة القفل أكبر من 0.</value>
+  </data>
+</root>

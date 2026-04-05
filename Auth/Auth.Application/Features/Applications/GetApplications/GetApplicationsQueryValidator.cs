@@ -13,7 +13,7 @@ public class GetApplicationsQueryValidator : AbstractValidator<GetApplicationsQu
         RuleFor(x => x.PageNumber).IsValidPageNumber();
         RuleFor(x => x.PageSize).IsValidPageSize();
         RuleFor(x => x.Search)
-            .MaximumLength(200).WithMessage("Search term must not exceed 200 characters.")
+            .MaximumLength(200).WithMessage("Validation.SearchTerm.MaxLength")
             .When(x => x.Search is not null);
     }
 }

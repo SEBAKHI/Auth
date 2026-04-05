@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Shared Validation Rules ==================== -->
+  <data name="Validation.Email.Required" xml:space="preserve">
+    <value>ایمیل الزامی است.</value>
+  </data>
+  <data name="Validation.Email.InvalidFormat" xml:space="preserve">
+    <value>یک آدرس ایمیل معتبر الزامی است.</value>
+  </data>
+  <data name="Validation.Email.MaxLength" xml:space="preserve">
+    <value>ایمیل نباید بیش از ۲۵۶ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.FirstName.Required" xml:space="preserve">
+    <value>نام الزامی است.</value>
+  </data>
+  <data name="Validation.FirstName.MaxLength" xml:space="preserve">
+    <value>نام نباید بیش از ۱۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.LastName.Required" xml:space="preserve">
+    <value>نام خانوادگی الزامی است.</value>
+  </data>
+  <data name="Validation.LastName.MaxLength" xml:space="preserve">
+    <value>نام خانوادگی نباید بیش از ۱۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.DisplayName.MaxLength" xml:space="preserve">
+    <value>نام نمایشی نباید بیش از ۲۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
+    <value>شماره تلفن نباید بیش از ۲۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.Password.Required" xml:space="preserve">
+    <value>رمز عبور الزامی است.</value>
+  </data>
+  <data name="Validation.Code.Required" xml:space="preserve">
+    <value>کد الزامی است.</value>
+  </data>
+  <data name="Validation.Code.MaxLength100" xml:space="preserve">
+    <value>کد نباید بیش از ۱۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.Code.InvalidFormat" xml:space="preserve">
+    <value>کد باید فقط شامل حروف و اعداد، نقطه، خط تیره و زیرخط باشد.</value>
+  </data>
+  <data name="Validation.PermissionCode.MaxLength" xml:space="preserve">
+    <value>کد نباید بیش از ۲۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.PermissionCode.InvalidFormat" xml:space="preserve">
+    <value>کد دسترسی باید فقط شامل حروف کوچک انگلیسی، اعداد، دو نقطه، خط تیره، زیرخط و ستاره باشد.</value>
+  </data>
+  <data name="Validation.Name.Required" xml:space="preserve">
+    <value>نام الزامی است.</value>
+  </data>
+  <data name="Validation.Name.MaxLength" xml:space="preserve">
+    <value>نام نباید بیش از ۲۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.Description.MaxLength" xml:space="preserve">
+    <value>توضیحات نباید بیش از ۵۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve">
+    <value>شماره صفحه باید حداقل ۱ باشد.</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>اندازه صفحه باید بین ۱ تا ۱۰۰ باشد.</value>
+  </data>
+  <data name="Validation.Url.MaxLength" xml:space="preserve">
+    <value>آدرس URL نباید بیش از ۲۰۴۸ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.Token.Required" xml:space="preserve">
+    <value>توکن الزامی است.</value>
+  </data>
+  <data name="Validation.TotpCode.Required" xml:space="preserve">
+    <value>کد تأیید الزامی است.</value>
+  </data>
+  <data name="Validation.TotpCode.InvalidFormat" xml:space="preserve">
+    <value>کد تأیید باید یک عدد ۶ رقمی باشد.</value>
+  </data>
+
+  <!-- ==================== Password Validation ==================== -->
+  <data name="Validation.Password.TooShort" xml:space="preserve">
+    <value>رمز عبور باید حداقل {0} کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.Password.RequiresUppercase" xml:space="preserve">
+    <value>رمز عبور باید حداقل شامل یک حرف بزرگ انگلیسی باشد.</value>
+  </data>
+  <data name="Validation.Password.RequiresLowercase" xml:space="preserve">
+    <value>رمز عبور باید حداقل شامل یک حرف کوچک انگلیسی باشد.</value>
+  </data>
+  <data name="Validation.Password.RequiresDigit" xml:space="preserve">
+    <value>رمز عبور باید حداقل شامل یک رقم باشد.</value>
+  </data>
+  <data name="Validation.Password.RequiresSpecialCharacter" xml:space="preserve">
+    <value>رمز عبور باید حداقل شامل یک کاراکتر ویژه باشد (!@#$%^&amp;*()-_=+[]{}|;:'",. &lt;&gt;?/).</value>
+  </data>
+  <data name="Validation.Password.CommonPattern" xml:space="preserve">
+    <value>رمز عبور شامل الگوی رایجی است که به راحتی قابل حدس زدن است.</value>
+  </data>
+
+  <!-- ==================== Secret Validation ==================== -->
+  <data name="Validation.SecretKey.Required" xml:space="preserve">
+    <value>کلید محرمانه الزامی است.</value>
+  </data>
+  <data name="Validation.SecretKey.MaxLength" xml:space="preserve">
+    <value>کلید محرمانه نباید بیش از ۱۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.SecretKey.InvalidFormat" xml:space="preserve">
+    <value>کلید محرمانه باید فقط شامل حروف و اعداد انگلیسی، زیرخط یا نقطه باشد.</value>
+  </data>
+  <data name="Validation.SecretValue.Required" xml:space="preserve">
+    <value>مقدار محرمانه الزامی است.</value>
+  </data>
+
+  <!-- ==================== AuditLog Validation ==================== -->
+  <data name="Validation.DateRange.Invalid" xml:space="preserve">
+    <value>تاریخ پایان باید بعد از تاریخ شروع باشد.</value>
+  </data>
+  <data name="Validation.EntityType.Required" xml:space="preserve">
+    <value>نوع موجودیت الزامی است.</value>
+  </data>
+  <data name="Validation.EntityType.MaxLength" xml:space="preserve">
+    <value>نوع موجودیت نباید بیش از ۱۰۰ کاراکتر باشد.</value>
+  </data>
+
+  <!-- ==================== WebhookKey Validation ==================== -->
+  <data name="Validation.WebhookKey.Required" xml:space="preserve">
+    <value>کلید وب‌هوک الزامی است.</value>
+  </data>
+  <data name="Validation.WebhookKey.InvalidPrefix" xml:space="preserve">
+    <value>کلید وب‌هوک باید با پیشوند معتبر (wk_) شروع شود.</value>
+  </data>
+  <data name="Validation.WebhookKeyId.Required" xml:space="preserve">
+    <value>شناسه کلید وب‌هوک الزامی است.</value>
+  </data>
+
+  <!-- ==================== ApiKey Validation ==================== -->
+  <data name="Validation.ApiKey.Required" xml:space="preserve">
+    <value>کلید API الزامی است.</value>
+  </data>
+  <data name="Validation.ApiKey.InvalidPrefix" xml:space="preserve">
+    <value>کلید API باید با پیشوند معتبر (ak_) شروع شود.</value>
+  </data>
+  <data name="Validation.ApplicationId.Required" xml:space="preserve">
+    <value>شناسه برنامه الزامی است.</value>
+  </data>
+
+  <!-- ==================== Search / Paging ==================== -->
+  <data name="Validation.SearchTerm.MaxLength" xml:space="preserve">
+    <value>عبارت جستجو نباید بیش از ۲۰۰ کاراکتر باشد.</value>
+  </data>
+
+  <!-- ==================== Key Rotation ==================== -->
+  <data name="Validation.GracePeriod.NonNegative" xml:space="preserve">
+    <value>دوره مهلت باید ۰ یا بیشتر باشد.</value>
+  </data>
+
+  <!-- ==================== CreateApiKey / CreateWebhookKey ==================== -->
+  <data name="Validation.Environment.Required" xml:space="preserve">
+    <value>محیط الزامی است.</value>
+  </data>
+  <data name="Validation.RateLimitPerMinute.GreaterThanZero" xml:space="preserve">
+    <value>محدودیت نرخ در دقیقه باید بیشتر از ۰ باشد.</value>
+  </data>
+  <data name="Validation.RateLimitPerDay.GreaterThanZero" xml:space="preserve">
+    <value>محدودیت نرخ در روز باید بیشتر از ۰ باشد.</value>
+  </data>
+  <data name="Validation.ExpirationDate.Future" xml:space="preserve">
+    <value>تاریخ انقضا باید در آینده باشد.</value>
+  </data>
+
+  <!-- ==================== ExportAuditLogs ==================== -->
+  <data name="Validation.ExportFormat.Required" xml:space="preserve">
+    <value>فرمت خروجی الزامی است.</value>
+  </data>
+  <data name="Validation.ExportFormat.Invalid" xml:space="preserve">
+    <value>فرمت باید 'csv'، 'json' یا 'excel' باشد.</value>
+  </data>
+  <data name="Validation.MaxRecords.Range" xml:space="preserve">
+    <value>حداکثر رکوردها باید بین ۱ تا ۱۰٬۰۰۰ باشد.</value>
+  </data>
+
+  <!-- ==================== Authentication ==================== -->
+  <data name="Validation.RefreshToken.Required" xml:space="preserve">
+    <value>توکن بازآوری الزامی است.</value>
+  </data>
+  <data name="Validation.ResetToken.Required" xml:space="preserve">
+    <value>توکن بازنشانی الزامی است.</value>
+  </data>
+  <data name="Validation.NewPassword.Required" xml:space="preserve">
+    <value>رمز عبور جدید الزامی است.</value>
+  </data>
+  <data name="Validation.Provider.Required" xml:space="preserve">
+    <value>ارائه‌دهنده الزامی است.</value>
+  </data>
+  <data name="Validation.IdToken.Required" xml:space="preserve">
+    <value>توکن شناسایی الزامی است.</value>
+  </data>
+
+  <!-- ==================== Organization ==================== -->
+  <data name="Validation.OrganizationCode.Required" xml:space="preserve">
+    <value>کد سازمان الزامی است.</value>
+  </data>
+  <data name="Validation.OrganizationCode.MaxLength" xml:space="preserve">
+    <value>کد سازمان نباید بیش از ۵۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.OrganizationCode.InvalidFormat" xml:space="preserve">
+    <value>کد سازمان باید فقط شامل حروف، اعداد، خط تیره و زیرخط باشد.</value>
+  </data>
+  <data name="Validation.OrganizationName.Required" xml:space="preserve">
+    <value>نام سازمان الزامی است.</value>
+  </data>
+  <data name="Validation.OrganizationName.MaxLength" xml:space="preserve">
+    <value>نام سازمان نباید بیش از ۲۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.ContactEmail.Required" xml:space="preserve">
+    <value>ایمیل تماس الزامی است.</value>
+  </data>
+  <data name="Validation.ContactEmail.InvalidFormat" xml:space="preserve">
+    <value>یک آدرس ایمیل تماس معتبر الزامی است.</value>
+  </data>
+  <data name="Validation.ContactEmail.MaxLength" xml:space="preserve">
+    <value>ایمیل تماس نباید بیش از ۲۵۶ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.Description.MaxLength1000" xml:space="preserve">
+    <value>توضیحات نباید بیش از ۱۰۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.WebsiteUrl.MaxLength" xml:space="preserve">
+    <value>آدرس وب‌سایت نباید بیش از ۵۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.OrganizationId.Required" xml:space="preserve">
+    <value>شناسه سازمان الزامی است.</value>
+  </data>
+  <data name="Validation.InvitationId.Required" xml:space="preserve">
+    <value>شناسه دعوت‌نامه الزامی است.</value>
+  </data>
+
+  <!-- ==================== User Management ==================== -->
+  <data name="Validation.UserId.Required" xml:space="preserve">
+    <value>شناسه کاربر الزامی است.</value>
+  </data>
+  <data name="Validation.CurrentPassword.Required" xml:space="preserve">
+    <value>رمز عبور فعلی الزامی است.</value>
+  </data>
+  <data name="Validation.NewPassword.MustDiffer" xml:space="preserve">
+    <value>رمز عبور جدید باید با رمز عبور فعلی متفاوت باشد.</value>
+  </data>
+  <data name="Validation.Reason.Required" xml:space="preserve">
+    <value>دلیل الزامی است.</value>
+  </data>
+  <data name="Validation.Reason.MaxLength" xml:space="preserve">
+    <value>دلیل نباید بیش از ۵۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.LockDuration.GreaterThanZero" xml:space="preserve">
+    <value>مدت زمان قفل باید بیشتر از ۰ باشد.</value>
+  </data>
+</root>

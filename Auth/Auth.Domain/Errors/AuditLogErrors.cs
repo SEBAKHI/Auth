@@ -9,7 +9,8 @@ public static class AuditLogErrors
 {
     public static Error NotFound(Guid auditLogId) => Error.NotFound(
         code: "AuditLog.NotFound",
-        description: $"Audit log with ID '{auditLogId}' was not found.");
+        description: $"Audit log with ID '{auditLogId}' was not found.",
+        metadata: new() { ["args"] = new object[] { auditLogId } });
 
     public static Error InvalidDateRange => Error.Validation(
         code: "AuditLog.InvalidDateRange",
@@ -21,7 +22,8 @@ public static class AuditLogErrors
 
     public static Error ExportFailed(string reason) => Error.Failure(
         code: "AuditLog.ExportFailed",
-        description: $"Failed to export audit logs: {reason}");
+        description: $"Failed to export audit logs: {reason}",
+        metadata: new() { ["args"] = new object[] { reason } });
 
     public static Error ExportTooLarge => Error.Validation(
         code: "AuditLog.ExportTooLarge",
@@ -29,7 +31,8 @@ public static class AuditLogErrors
 
     public static Error InvalidExportFormat(string format) => Error.Validation(
         code: "AuditLog.InvalidExportFormat",
-        description: $"Invalid export format '{format}'. Supported formats: csv, json.");
+        description: $"Invalid export format '{format}'. Supported formats: csv, json.",
+        metadata: new() { ["args"] = new object[] { format } });
 
     public static Error NoLogsFound => Error.NotFound(
         code: "AuditLog.NoLogsFound",

@@ -11,15 +11,18 @@ public static class OrganizationErrors
 
     public static Error NotFound(Guid organizationId) => Error.NotFound(
         code: "Organization.NotFound",
-        description: $"Organization with ID '{organizationId}' was not found.");
+        description: $"Organization with ID '{organizationId}' was not found.",
+        metadata: new() { ["args"] = new object[] { organizationId } });
 
     public static Error NotFoundByCode(string code) => Error.NotFound(
         code: "Organization.NotFoundByCode",
-        description: $"Organization with code '{code}' was not found.");
+        description: $"Organization with code '{code}' was not found.",
+        metadata: new() { ["args"] = new object[] { code } });
 
     public static Error DuplicateCode(string code) => Error.Conflict(
         code: "Organization.DuplicateCode",
-        description: $"An organization with code '{code}' already exists.");
+        description: $"An organization with code '{code}' already exists.",
+        metadata: new() { ["args"] = new object[] { code } });
 
     public static Error Inactive(Guid organizationId) => Error.Forbidden(
         code: "Organization.Inactive",
@@ -75,7 +78,8 @@ public static class OrganizationErrors
 
     public static Error ApplicationNotFound(Guid applicationId) => Error.NotFound(
         code: "Organization.ApplicationNotFound",
-        description: $"Application with ID '{applicationId}' was not found.");
+        description: $"Application with ID '{applicationId}' was not found.",
+        metadata: new() { ["args"] = new object[] { applicationId } });
 
     public static Error ApplicationAlreadyEnabled(Guid applicationId) => Error.Conflict(
         code: "Organization.ApplicationAlreadyEnabled",
@@ -103,7 +107,8 @@ public static class OrganizationErrors
 
     public static Error RoleNotFound(Guid roleId) => Error.NotFound(
         code: "Organization.RoleNotFound",
-        description: $"Role with ID '{roleId}' was not found.");
+        description: $"Role with ID '{roleId}' was not found.",
+        metadata: new() { ["args"] = new object[] { roleId } });
 
     public static Error RoleNotForApplication(Guid roleId, Guid applicationId) => Error.Validation(
         code: "Organization.RoleNotForApplication",
@@ -123,7 +128,8 @@ public static class OrganizationErrors
 
     public static Error PermissionNotFound(Guid permissionId) => Error.NotFound(
         code: "Organization.PermissionNotFound",
-        description: $"Permission with ID '{permissionId}' was not found.");
+        description: $"Permission with ID '{permissionId}' was not found.",
+        metadata: new() { ["args"] = new object[] { permissionId } });
 
     public static Error PermissionNotForApplication(Guid permissionId, Guid applicationId) => Error.Validation(
         code: "Organization.PermissionNotForApplication",
@@ -135,7 +141,8 @@ public static class OrganizationErrors
 
     public static Error InvitationNotFound(Guid invitationId) => Error.NotFound(
         code: "Organization.InvitationNotFound",
-        description: $"Invitation with ID '{invitationId}' was not found.");
+        description: $"Invitation with ID '{invitationId}' was not found.",
+        metadata: new() { ["args"] = new object[] { invitationId } });
 
     public static Error InvitationNotFoundByToken => Error.NotFound(
         code: "Organization.InvitationNotFoundByToken",
@@ -159,7 +166,8 @@ public static class OrganizationErrors
 
     public static Error PendingInvitationExists(string email) => Error.Conflict(
         code: "Organization.PendingInvitationExists",
-        description: $"A pending invitation already exists for '{email}'.");
+        description: $"A pending invitation already exists for '{email}'.",
+        metadata: new() { ["args"] = new object[] { email } });
 
     public static Error CannotInviteSelf => Error.Validation(
         code: "Organization.CannotInviteSelf",

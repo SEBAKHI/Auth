@@ -10,8 +10,8 @@ public class ValidateWebhookKeyQueryValidator : AbstractValidator<ValidateWebhoo
     public ValidateWebhookKeyQueryValidator()
     {
         RuleFor(x => x.RawWebhookKey)
-            .NotEmpty().WithMessage("Webhook key is required.")
+            .NotEmpty().WithMessage("Validation.WebhookKey.Required")
             .Must(key => key.StartsWith("wk_"))
-            .WithMessage("Webhook key must start with a valid prefix (wk_).");
+            .WithMessage("Validation.WebhookKey.InvalidPrefix");
     }
 }

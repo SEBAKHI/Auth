@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Email Verification ==================== -->
+  <data name="Email.Verification.Subject" xml:space="preserve">
+    <value>تأیید آدرس ایمیل شما</value>
+  </data>
+  <data name="Email.Verification.Heading" xml:space="preserve">
+    <value>تأیید ایمیل</value>
+  </data>
+  <data name="Email.Verification.Greeting" xml:space="preserve">
+    <value>سلام {0}،</value>
+  </data>
+  <data name="Email.Verification.Instruction" xml:space="preserve">
+    <value>لطفاً از کد تأیید زیر برای تأیید آدرس ایمیل خود استفاده کنید:</value>
+  </data>
+  <data name="Email.Verification.Expiration" xml:space="preserve">
+    <value>این کد تا {0} دقیقه دیگر منقضی خواهد شد.</value>
+  </data>
+  <data name="Email.Verification.SecurityNotice" xml:space="preserve">
+    <value>هشدار امنیتی: اگر شما این کد تأیید را درخواست نکرده‌اید، لطفاً این ایمیل را نادیده بگیرید. این کد را با هیچ‌کس به اشتراک نگذارید.</value>
+  </data>
+  <data name="Email.Verification.Footer" xml:space="preserve">
+    <value>این یک پیام خودکار از {0} است. لطفاً به این ایمیل پاسخ ندهید.</value>
+  </data>
+</root>

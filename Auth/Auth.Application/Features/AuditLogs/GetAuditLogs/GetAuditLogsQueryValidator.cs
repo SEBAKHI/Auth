@@ -13,7 +13,7 @@ public class GetAuditLogsQueryValidator : AbstractValidator<GetAuditLogsQuery>
         RuleFor(x => x.PageNumber).IsValidPageNumber();
         RuleFor(x => x.PageSize).IsValidPageSize();
         RuleFor(x => x.ToDate)
-            .GreaterThan(x => x.FromDate).WithMessage("To date must be after from date.")
+            .GreaterThan(x => x.FromDate).WithMessage("Validation.DateRange.Invalid")
             .When(x => x.FromDate.HasValue && x.ToDate.HasValue);
     }
 }

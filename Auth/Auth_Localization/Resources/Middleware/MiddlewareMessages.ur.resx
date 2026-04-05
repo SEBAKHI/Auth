@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== ExceptionHandlingMiddleware ==================== -->
+  <data name="Middleware.ValidationError.Title" xml:space="preserve">
+    <value>توثیق کی خرابی</value>
+  </data>
+  <data name="Middleware.ValidationError.Detail" xml:space="preserve">
+    <value>ایک یا زیادہ توثیق کی خرابیاں پیش آئیں۔</value>
+  </data>
+  <data name="Middleware.Unauthorized.Title" xml:space="preserve">
+    <value>غیر مجاز</value>
+  </data>
+  <data name="Middleware.Unauthorized.Detail" xml:space="preserve">
+    <value>آپ کو اس وسیلے تک رسائی کی اجازت نہیں ہے۔</value>
+  </data>
+  <data name="Middleware.NotFound.Title" xml:space="preserve">
+    <value>نہیں ملا</value>
+  </data>
+  <data name="Middleware.NotFound.Detail" xml:space="preserve">
+    <value>مطلوبہ وسیلہ نہیں ملا۔</value>
+  </data>
+  <data name="Middleware.InvalidOperation.Title" xml:space="preserve">
+    <value>غلط عمل</value>
+  </data>
+  <data name="Middleware.InvalidArgument.Title" xml:space="preserve">
+    <value>غلط دلیل</value>
+  </data>
+  <data name="Middleware.InternalError.Title" xml:space="preserve">
+    <value>اندرونی سرور خرابی</value>
+  </data>
+  <data name="Middleware.InternalError.Detail" xml:space="preserve">
+    <value>ایک غیر متوقع خرابی پیش آئی۔</value>
+  </data>
+
+  <!-- ==================== GatewayTokenValidationMiddleware ==================== -->
+  <data name="Middleware.Gateway.Forbidden.Title" xml:space="preserve">
+    <value>ممنوع</value>
+  </data>
+  <data name="Middleware.Gateway.MissingToken" xml:space="preserve">
+    <value>براہ راست API تک رسائی کی اجازت نہیں ہے۔ براہ کرم API گیٹ وے استعمال کریں۔</value>
+  </data>
+  <data name="Middleware.Gateway.InvalidToken" xml:space="preserve">
+    <value>گیٹ وے ٹوکن غلط ہے۔</value>
+  </data>
+
+  <!-- ==================== GatewayExceptionMiddleware (API_Gateway) ==================== -->
+  <data name="Middleware.BadGateway.Title" xml:space="preserve">
+    <value>خراب گیٹ وے</value>
+  </data>
+  <data name="Middleware.BadGateway.Detail" xml:space="preserve">
+    <value>اوپری سروس دستیاب نہیں ہے یا اس نے خرابی واپس کی ہے۔</value>
+  </data>
+  <data name="Middleware.GatewayTimeout.Title" xml:space="preserve">
+    <value>گیٹ وے ٹائم آؤٹ</value>
+  </data>
+  <data name="Middleware.GatewayTimeout.Detail" xml:space="preserve">
+    <value>اوپری سروس نے وقت پر جواب نہیں دیا۔</value>
+  </data>
+
+  <!-- ==================== Rate Limiting ==================== -->
+  <data name="Middleware.TooManyRequests" xml:space="preserve">
+    <value>بہت زیادہ درخواستیں۔ براہ کرم بعد میں دوبارہ کوشش کریں۔</value>
+  </data>
+</root>

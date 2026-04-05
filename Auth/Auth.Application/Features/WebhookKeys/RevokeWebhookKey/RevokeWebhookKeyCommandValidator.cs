@@ -10,6 +10,6 @@ public class RevokeWebhookKeyCommandValidator : AbstractValidator<RevokeWebhookK
     public RevokeWebhookKeyCommandValidator()
     {
         RuleFor(x => x.Id)
-            .NotEmpty().WithMessage("Webhook key ID is required.");
+            .NotEmpty().WithMessage("Validation.WebhookKeyId.Required");
     }
 }

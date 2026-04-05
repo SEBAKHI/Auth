@@ -28,7 +28,7 @@ public partial class PasswordValidator
 
         if (string.IsNullOrEmpty(password))
         {
-            errors.Add(Error.Validation("Password.Required", "Password is required."));
+            errors.Add(Error.Validation("Password.Required", "Validation.Password.Required"));
             return errors;
         }
 
@@ -36,35 +36,36 @@ public partial class PasswordValidator
         {
             errors.Add(Error.Validation(
                 "Password.TooShort",
-                $"Password must be at least {_settings.MinimumLength} characters long."));
+                "Validation.Password.TooShort",
+                metadata: new() { ["args"] = new object[] { _settings.MinimumLength } }));
         }
 
         if (_settings.RequireUppercase && !UppercaseRegex().IsMatch(password))
         {
             errors.Add(Error.Validation(
                 "Password.RequiresUppercase",
-                "Password must contain at least one uppercase letter."));
+                "Validation.Password.RequiresUppercase"));
         }
 
         if (_settings.RequireLowercase && !LowercaseRegex().IsMatch(password))
         {
             errors.Add(Error.Validation(
                 "Password.RequiresLowercase",
-                "Password must contain at least one lowercase letter."));
+                "Validation.Password.RequiresLowercase"));
         }
 
         if (_settings.RequireDigit && !DigitRegex().IsMatch(password))
         {
             errors.Add(Error.Validation(
                 "Password.RequiresDigit",
-                "Password must contain at least one digit."));
+                "Validation.Password.RequiresDigit"));
         }
 
         if (_settings.RequireSpecialCharacter && !SpecialCharRegex().IsMatch(password))
         {
             errors.Add(Error.Validation(
                 "Password.RequiresSpecialCharacter",
-                "Password must contain at least one special character (!@#$%^&*()-_=+[]{}|;:'\",.<>?/)."));
+                "Validation.Password.RequiresSpecialCharacter"));
         }
 
         // Check for common weak patterns
@@ -72,7 +73,7 @@ public partial class PasswordValidator
         {
             errors.Add(Error.Validation(
                 "Password.CommonPattern",
-                "Password contains a common pattern that is easy to guess."));
+                "Validation.Password.CommonPattern"));
         }
 
         return errors.Count > 0 ? errors : Result.Success;

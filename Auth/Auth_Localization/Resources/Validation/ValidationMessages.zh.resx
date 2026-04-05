@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Shared Validation Rules ==================== -->
+  <data name="Validation.Email.Required" xml:space="preserve">
+    <value>邮箱为必填项。</value>
+  </data>
+  <data name="Validation.Email.InvalidFormat" xml:space="preserve">
+    <value>需要有效的邮箱地址。</value>
+  </data>
+  <data name="Validation.Email.MaxLength" xml:space="preserve">
+    <value>邮箱长度不能超过256个字符。</value>
+  </data>
+  <data name="Validation.FirstName.Required" xml:space="preserve">
+    <value>名字为必填项。</value>
+  </data>
+  <data name="Validation.FirstName.MaxLength" xml:space="preserve">
+    <value>名字长度不能超过100个字符。</value>
+  </data>
+  <data name="Validation.LastName.Required" xml:space="preserve">
+    <value>姓氏为必填项。</value>
+  </data>
+  <data name="Validation.LastName.MaxLength" xml:space="preserve">
+    <value>姓氏长度不能超过100个字符。</value>
+  </data>
+  <data name="Validation.DisplayName.MaxLength" xml:space="preserve">
+    <value>显示名称长度不能超过200个字符。</value>
+  </data>
+  <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
+    <value>电话号码长度不能超过20个字符。</value>
+  </data>
+  <data name="Validation.Password.Required" xml:space="preserve">
+    <value>密码为必填项。</value>
+  </data>
+  <data name="Validation.Code.Required" xml:space="preserve">
+    <value>代码为必填项。</value>
+  </data>
+  <data name="Validation.Code.MaxLength100" xml:space="preserve">
+    <value>代码长度不能超过100个字符。</value>
+  </data>
+  <data name="Validation.Code.InvalidFormat" xml:space="preserve">
+    <value>代码只能包含字母、数字、点、连字符和下划线。</value>
+  </data>
+  <data name="Validation.PermissionCode.MaxLength" xml:space="preserve">
+    <value>代码长度不能超过200个字符。</value>
+  </data>
+  <data name="Validation.PermissionCode.InvalidFormat" xml:space="preserve">
+    <value>权限代码只能包含小写字母、数字、冒号、连字符、下划线和星号。</value>
+  </data>
+  <data name="Validation.Name.Required" xml:space="preserve">
+    <value>名称为必填项。</value>
+  </data>
+  <data name="Validation.Name.MaxLength" xml:space="preserve">
+    <value>名称长度不能超过200个字符。</value>
+  </data>
+  <data name="Validation.Description.MaxLength" xml:space="preserve">
+    <value>描述长度不能超过500个字符。</value>
+  </data>
+  <data name="Validation.PageNumber.Min" xml:space="preserve">
+    <value>页码最小值为1。</value>
+  </data>
+  <data name="Validation.PageSize.Range" xml:space="preserve">
+    <value>每页条数必须在1到100之间。</value>
+  </data>
+  <data name="Validation.Url.MaxLength" xml:space="preserve">
+    <value>URL长度不能超过2048个字符。</value>
+  </data>
+  <data name="Validation.Token.Required" xml:space="preserve">
+    <value>令牌为必填项。</value>
+  </data>
+  <data name="Validation.TotpCode.Required" xml:space="preserve">
+    <value>验证码为必填项。</value>
+  </data>
+  <data name="Validation.TotpCode.InvalidFormat" xml:space="preserve">
+    <value>验证码必须为6位数字。</value>
+  </data>
+
+  <!-- ==================== Password Validation ==================== -->
+  <data name="Validation.Password.TooShort" xml:space="preserve">
+    <value>密码长度不能少于{0}个字符。</value>
+  </data>
+  <data name="Validation.Password.RequiresUppercase" xml:space="preserve">
+    <value>密码必须包含至少一个大写字母。</value>
+  </data>
+  <data name="Validation.Password.RequiresLowercase" xml:space="preserve">
+    <value>密码必须包含至少一个小写字母。</value>
+  </data>
+  <data name="Validation.Password.RequiresDigit" xml:space="preserve">
+    <value>密码必须包含至少一个数字。</value>
+  </data>
+  <data name="Validation.Password.RequiresSpecialCharacter" xml:space="preserve">
+    <value>密码必须包含至少一个特殊字符（!@#$%^&amp;*()-_=+[]{}|;:'",. &lt;&gt;?/）。</value>
+  </data>
+  <data name="Validation.Password.CommonPattern" xml:space="preserve">
+    <value>密码包含容易被猜到的常见模式。</value>
+  </data>
+
+  <!-- ==================== Secret Validation ==================== -->
+  <data name="Validation.SecretKey.Required" xml:space="preserve">
+    <value>密钥名称为必填项。</value>
+  </data>
+  <data name="Validation.SecretKey.MaxLength" xml:space="preserve">
+    <value>密钥名称长度不能超过100个字符。</value>
+  </data>
+  <data name="Validation.SecretKey.InvalidFormat" xml:space="preserve">
+    <value>密钥名称只能包含字母、数字、下划线或点。</value>
+  </data>
+  <data name="Validation.SecretValue.Required" xml:space="preserve">
+    <value>密钥值为必填项。</value>
+  </data>
+
+  <!-- ==================== AuditLog Validation ==================== -->
+  <data name="Validation.DateRange.Invalid" xml:space="preserve">
+    <value>结束日期必须晚于起始日期。</value>
+  </data>
+  <data name="Validation.EntityType.Required" xml:space="preserve">
+    <value>实体类型为必填项。</value>
+  </data>
+  <data name="Validation.EntityType.MaxLength" xml:space="preserve">
+    <value>实体类型长度不能超过100个字符。</value>
+  </data>
+
+  <!-- ==================== WebhookKey Validation ==================== -->
+  <data name="Validation.WebhookKey.Required" xml:space="preserve">
+    <value>Webhook密钥为必填项。</value>
+  </data>
+  <data name="Validation.WebhookKey.InvalidPrefix" xml:space="preserve">
+    <value>Webhook密钥必须以有效前缀（wk_）开头。</value>
+  </data>
+  <data name="Validation.WebhookKeyId.Required" xml:space="preserve">
+    <value>Webhook密钥ID为必填项。</value>
+  </data>
+
+  <!-- ==================== ApiKey Validation ==================== -->
+  <data name="Validation.ApiKey.Required" xml:space="preserve">
+    <value>API密钥为必填项。</value>
+  </data>
+  <data name="Validation.ApiKey.InvalidPrefix" xml:space="preserve">
+    <value>API密钥必须以有效前缀（ak_）开头。</value>
+  </data>
+  <data name="Validation.ApplicationId.Required" xml:space="preserve">
+    <value>应用程序ID为必填项。</value>
+  </data>
+
+  <!-- ==================== Search / Paging ==================== -->
+  <data name="Validation.SearchTerm.MaxLength" xml:space="preserve">
+    <value>搜索词长度不能超过200个字符。</value>
+  </data>
+
+  <!-- ==================== Key Rotation ==================== -->
+  <data name="Validation.GracePeriod.NonNegative" xml:space="preserve">
+    <value>宽限期必须为0或更大。</value>
+  </data>
+
+  <!-- ==================== CreateApiKey / CreateWebhookKey ==================== -->
+  <data name="Validation.Environment.Required" xml:space="preserve">
+    <value>环境为必填项。</value>
+  </data>
+  <data name="Validation.RateLimitPerMinute.GreaterThanZero" xml:space="preserve">
+    <value>每分钟速率限制必须大于0。</value>
+  </data>
+  <data name="Validation.RateLimitPerDay.GreaterThanZero" xml:space="preserve">
+    <value>每日速率限制必须大于0。</value>
+  </data>
+  <data name="Validation.ExpirationDate.Future" xml:space="preserve">
+    <value>过期日期必须在未来。</value>
+  </data>
+
+  <!-- ==================== ExportAuditLogs ==================== -->
+  <data name="Validation.ExportFormat.Required" xml:space="preserve">
+    <value>导出格式为必填项。</value>
+  </data>
+  <data name="Validation.ExportFormat.Invalid" xml:space="preserve">
+    <value>格式必须为'csv'、'json'或'excel'。</value>
+  </data>
+  <data name="Validation.MaxRecords.Range" xml:space="preserve">
+    <value>最大记录数必须在1到10,000之间。</value>
+  </data>
+
+  <!-- ==================== Authentication ==================== -->
+  <data name="Validation.RefreshToken.Required" xml:space="preserve">
+    <value>刷新令牌为必填项。</value>
+  </data>
+  <data name="Validation.ResetToken.Required" xml:space="preserve">
+    <value>重置令牌为必填项。</value>
+  </data>
+  <data name="Validation.NewPassword.Required" xml:space="preserve">
+    <value>新密码为必填项。</value>
+  </data>
+  <data name="Validation.Provider.Required" xml:space="preserve">
+    <value>提供商为必填项。</value>
+  </data>
+  <data name="Validation.IdToken.Required" xml:space="preserve">
+    <value>ID令牌为必填项。</value>
+  </data>
+
+  <!-- ==================== Organization ==================== -->
+  <data name="Validation.OrganizationCode.Required" xml:space="preserve">
+    <value>组织代码为必填项。</value>
+  </data>
+  <data name="Validation.OrganizationCode.MaxLength" xml:space="preserve">
+    <value>组织代码长度不能超过50个字符。</value>
+  </data>
+  <data name="Validation.OrganizationCode.InvalidFormat" xml:space="preserve">
+    <value>组织代码只能包含字母、数字、连字符和下划线。</value>
+  </data>
+  <data name="Validation.OrganizationName.Required" xml:space="preserve">
+    <value>组织名称为必填项。</value>
+  </data>
+  <data name="Validation.OrganizationName.MaxLength" xml:space="preserve">
+    <value>组织名称长度不能超过200个字符。</value>
+  </data>
+  <data name="Validation.ContactEmail.Required" xml:space="preserve">
+    <value>联系邮箱为必填项。</value>
+  </data>
+  <data name="Validation.ContactEmail.InvalidFormat" xml:space="preserve">
+    <value>需要有效的联系邮箱地址。</value>
+  </data>
+  <data name="Validation.ContactEmail.MaxLength" xml:space="preserve">
+    <value>联系邮箱长度不能超过256个字符。</value>
+  </data>
+  <data name="Validation.Description.MaxLength1000" xml:space="preserve">
+    <value>描述长度不能超过1000个字符。</value>
+  </data>
+  <data name="Validation.WebsiteUrl.MaxLength" xml:space="preserve">
+    <value>网站URL长度不能超过500个字符。</value>
+  </data>
+  <data name="Validation.OrganizationId.Required" xml:space="preserve">
+    <value>组织ID为必填项。</value>
+  </data>
+  <data name="Validation.InvitationId.Required" xml:space="preserve">
+    <value>邀请ID为必填项。</value>
+  </data>
+
+  <!-- ==================== User Management ==================== -->
+  <data name="Validation.UserId.Required" xml:space="preserve">
+    <value>用户ID为必填项。</value>
+  </data>
+  <data name="Validation.CurrentPassword.Required" xml:space="preserve">
+    <value>当前密码为必填项。</value>
+  </data>
+  <data name="Validation.NewPassword.MustDiffer" xml:space="preserve">
+    <value>新密码必须与当前密码不同。</value>
+  </data>
+  <data name="Validation.Reason.Required" xml:space="preserve">
+    <value>原因为必填项。</value>
+  </data>
+  <data name="Validation.Reason.MaxLength" xml:space="preserve">
+    <value>原因长度不能超过500个字符。</value>
+  </data>
+  <data name="Validation.LockDuration.GreaterThanZero" xml:space="preserve">
+    <value>锁定时长必须大于0。</value>
+  </data>
+</root>

@@ -23,6 +23,7 @@
     <ProjectReference Include="..\Auth.Domain\Auth.Domain.csproj" />
     <ProjectReference Include="..\Auth.Application\Auth.Application.csproj" />
     <ProjectReference Include="..\Auth.Shared\Auth.Shared.csproj" />
+    <ProjectReference Include="..\Auth_Localization\Auth_Localization.csproj" />
   </ItemGroup>
 
 </Project>

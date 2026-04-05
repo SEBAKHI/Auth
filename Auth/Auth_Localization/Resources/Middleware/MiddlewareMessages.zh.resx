@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== ExceptionHandlingMiddleware ==================== -->
+  <data name="Middleware.ValidationError.Title" xml:space="preserve">
+    <value>验证错误</value>
+  </data>
+  <data name="Middleware.ValidationError.Detail" xml:space="preserve">
+    <value>发生一个或多个验证错误。</value>
+  </data>
+  <data name="Middleware.Unauthorized.Title" xml:space="preserve">
+    <value>未授权</value>
+  </data>
+  <data name="Middleware.Unauthorized.Detail" xml:space="preserve">
+    <value>您无权访问此资源。</value>
+  </data>
+  <data name="Middleware.NotFound.Title" xml:space="preserve">
+    <value>未找到</value>
+  </data>
+  <data name="Middleware.NotFound.Detail" xml:space="preserve">
+    <value>未找到请求的资源。</value>
+  </data>
+  <data name="Middleware.InvalidOperation.Title" xml:space="preserve">
+    <value>无效操作</value>
+  </data>
+  <data name="Middleware.InvalidArgument.Title" xml:space="preserve">
+    <value>无效参数</value>
+  </data>
+  <data name="Middleware.InternalError.Title" xml:space="preserve">
+    <value>内部服务器错误</value>
+  </data>
+  <data name="Middleware.InternalError.Detail" xml:space="preserve">
+    <value>发生意外错误。</value>
+  </data>
+
+  <!-- ==================== GatewayTokenValidationMiddleware ==================== -->
+  <data name="Middleware.Gateway.Forbidden.Title" xml:space="preserve">
+    <value>禁止访问</value>
+  </data>
+  <data name="Middleware.Gateway.MissingToken" xml:space="preserve">
+    <value>不允许直接访问API，请使用API网关。</value>
+  </data>
+  <data name="Middleware.Gateway.InvalidToken" xml:space="preserve">
+    <value>网关令牌无效。</value>
+  </data>
+
+  <!-- ==================== GatewayExceptionMiddleware (API_Gateway) ==================== -->
+  <data name="Middleware.BadGateway.Title" xml:space="preserve">
+    <value>错误网关</value>
+  </data>
+  <data name="Middleware.BadGateway.Detail" xml:space="preserve">
+    <value>上游服务不可用或返回了错误。</value>
+  </data>
+  <data name="Middleware.GatewayTimeout.Title" xml:space="preserve">
+    <value>网关超时</value>
+  </data>
+  <data name="Middleware.GatewayTimeout.Detail" xml:space="preserve">
+    <value>上游服务未在规定时间内响应。</value>
+  </data>
+
+  <!-- ==================== Rate Limiting ==================== -->
+  <data name="Middleware.TooManyRequests" xml:space="preserve">
+    <value>请求过多，请稍后再试。</value>
+  </data>
+</root>

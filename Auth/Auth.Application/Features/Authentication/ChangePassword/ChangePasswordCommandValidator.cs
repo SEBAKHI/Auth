@@ -10,17 +10,17 @@ public class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCo
     public ChangePasswordCommandValidator()
     {
         RuleFor(x => x.UserId)
-            .NotEmpty().WithMessage("User ID is required.");
+            .NotEmpty().WithMessage("Validation.UserId.Required");
 
         RuleFor(x => x.CurrentPassword)
-            .NotEmpty().WithMessage("Current password is required.");
+            .NotEmpty().WithMessage("Validation.CurrentPassword.Required");
 
         RuleFor(x => x.NewPassword)
-            .NotEmpty().WithMessage("New password is required.");
+            .NotEmpty().WithMessage("Validation.NewPassword.Required");
 
         RuleFor(x => x.NewPassword)
             .NotEqual(x => x.CurrentPassword)
-            .WithMessage("New password must be different from the current password.")
+            .WithMessage("Validation.NewPassword.MustDiffer")
             .When(x => !string.IsNullOrEmpty(x.CurrentPassword) && !string.IsNullOrEmpty(x.NewPassword));
     }
 }

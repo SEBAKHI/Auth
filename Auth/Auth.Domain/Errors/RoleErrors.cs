@@ -9,15 +9,18 @@ public static class RoleErrors
 {
     public static Error NotFound(Guid roleId) => Error.NotFound(
         code: "Role.NotFound",
-        description: $"Role with ID '{roleId}' was not found.");
+        description: $"Role with ID '{roleId}' was not found.",
+        metadata: new() { ["args"] = new object[] { roleId } });
 
     public static Error NotFoundByCode(string code) => Error.NotFound(
         code: "Role.NotFoundByCode",
-        description: $"Role with code '{code}' was not found.");
+        description: $"Role with code '{code}' was not found.",
+        metadata: new() { ["args"] = new object[] { code } });
 
     public static Error DuplicateCode(string code, Guid applicationId) => Error.Conflict(
         code: "Role.DuplicateCode",
-        description: $"A role with code '{code}' already exists in this application.");
+        description: $"A role with code '{code}' already exists in this application.",
+        metadata: new() { ["args"] = new object[] { code } });
 
     public static Error CannotDeleteSystemRole => Error.Forbidden(
         code: "Role.CannotDeleteSystemRole",

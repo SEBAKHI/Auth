@@ -10,6 +10,6 @@ public class GetWebhookKeysQueryValidator : AbstractValidator<GetWebhookKeysQuer
     public GetWebhookKeysQueryValidator()
     {
         RuleFor(x => x.ApplicationId)
-            .NotEmpty().WithMessage("Application ID is required.");
+            .NotEmpty().WithMessage("Validation.ApplicationId.Required");
     }
 }

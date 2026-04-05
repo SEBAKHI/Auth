@@ -10,6 +10,6 @@ public class RotateWebhookKeyCommandValidator : AbstractValidator<RotateWebhookK
     public RotateWebhookKeyCommandValidator()
     {
         RuleFor(x => x.GracePeriodMinutes)
-            .GreaterThanOrEqualTo(0).WithMessage("Grace period must be 0 or greater.");
+            .GreaterThanOrEqualTo(0).WithMessage("Validation.GracePeriod.NonNegative");
     }
 }

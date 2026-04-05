@@ -14,10 +14,10 @@ public class CreateWebhookKeyCommandValidator : AbstractValidator<CreateWebhookK
         RuleFor(x => x.Description).IsValidDescription().When(x => x.Description is not null);
         RuleFor(x => x.TargetUrl).IsValidUrl();
         RuleFor(x => x.Environment)
-            .NotEmpty().WithMessage("Environment is required.")
+            .NotEmpty().WithMessage("Validation.Environment.Required")
             .MaximumLength(50);
         RuleFor(x => x.ExpiresAt)
-            .GreaterThan(DateTime.UtcNow).WithMessage("Expiration date must be in the future.")
+            .GreaterThan(DateTime.UtcNow).WithMessage("Validation.ExpirationDate.Future")
             .When(x => x.ExpiresAt.HasValue);
     }
 }

@@ -15,7 +15,7 @@ public class UpdateOrganizationApplicationCommandValidator : AbstractValidator<U
 
         RuleFor(x => x.ExpiresAt)
             .GreaterThan(DateTime.UtcNow)
-            .WithMessage("Expiration date must be in the future.")
+            .WithMessage("Validation.ExpirationDate.Future")
             .When(x => x.ExpiresAt is not null);
     }
 }

@@ -1,0 +1,523 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:element name="root" msdata:IsDataSet="true">
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0</value>
+  </resheader>
+
+  <!-- ==================== Auth Errors ==================== -->
+  <data name="Auth.InvalidToken" xml:space="preserve">
+    <value>توکن ارائه شده نامعتبر است.</value>
+  </data>
+  <data name="Auth.TokenExpired" xml:space="preserve">
+    <value>توکن ارائه شده منقضی شده است.</value>
+  </data>
+  <data name="Auth.TokenRevoked" xml:space="preserve">
+    <value>توکن ارائه شده باطل شده است.</value>
+  </data>
+  <data name="Auth.RefreshTokenNotFound" xml:space="preserve">
+    <value>توکن بازآوری یافت نشد.</value>
+  </data>
+  <data name="Auth.RefreshTokenExpired" xml:space="preserve">
+    <value>توکن بازآوری منقضی شده است. لطفاً دوباره وارد شوید.</value>
+  </data>
+  <data name="Auth.RefreshTokenRevoked" xml:space="preserve">
+    <value>توکن بازآوری باطل شده است.</value>
+  </data>
+  <data name="Auth.SessionNotFound" xml:space="preserve">
+    <value>نشست یافت نشد.</value>
+  </data>
+  <data name="Auth.SessionExpired" xml:space="preserve">
+    <value>نشست شما منقضی شده است. لطفاً دوباره وارد شوید.</value>
+  </data>
+  <data name="Auth.SessionTerminated" xml:space="preserve">
+    <value>نشست شما پایان یافته است.</value>
+  </data>
+  <data name="Auth.InvalidGatewayToken" xml:space="preserve">
+    <value>توکن دروازه نامعتبر یا موجود نیست. دسترسی مستقیم به API مجاز نیست.</value>
+  </data>
+  <data name="Auth.Unauthorized" xml:space="preserve">
+    <value>شما مجاز به انجام این عملیات نیستید.</value>
+  </data>
+  <data name="Auth.PermissionDenied" xml:space="preserve">
+    <value>شما دسترسی لازم را ندارید: '{0}'.</value>
+  </data>
+  <data name="Auth.ApplicationNotFound" xml:space="preserve">
+    <value>برنامه با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Auth.ApplicationInactive" xml:space="preserve">
+    <value>این برنامه در حال حاضر غیرفعال است.</value>
+  </data>
+  <data name="Auth.InvalidSigningKey" xml:space="preserve">
+    <value>کلید امضای JWT نامعتبر است یا پیکربندی نشده است.</value>
+  </data>
+  <data name="Auth.KeyGenerationFailed" xml:space="preserve">
+    <value>تولید کلیدهای رمزنگاری با شکست مواجه شد.</value>
+  </data>
+  <data name="Auth.TokenGenerationFailed" xml:space="preserve">
+    <value>تولید توکن احراز هویت با شکست مواجه شد.</value>
+  </data>
+  <data name="Auth.ConcurrentLoginDetected" xml:space="preserve">
+    <value>ورود جدیدی از دستگاه دیگری شناسایی شد. این نشست پایان یافته است.</value>
+  </data>
+
+  <!-- ==================== User Errors ==================== -->
+  <data name="User.NotFound" xml:space="preserve">
+    <value>کاربر با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="User.NotFoundByEmail" xml:space="preserve">
+    <value>کاربر با ایمیل '{0}' یافت نشد.</value>
+  </data>
+  <data name="User.DuplicateEmail" xml:space="preserve">
+    <value>کاربری با ایمیل '{0}' قبلاً وجود دارد.</value>
+  </data>
+  <data name="User.InvalidCredentials" xml:space="preserve">
+    <value>اطلاعات ورود ارائه شده نامعتبر است.</value>
+  </data>
+  <data name="User.AccountLocked" xml:space="preserve">
+    <value>این حساب به دلیل تلاش‌های ناموفق متعدد برای ورود قفل شده است.</value>
+  </data>
+  <data name="User.AccountLockedUntil" xml:space="preserve">
+    <value>این حساب تا {0} قفل شده است.</value>
+  </data>
+  <data name="User.AccountInactive" xml:space="preserve">
+    <value>این حساب در حال حاضر غیرفعال است.</value>
+  </data>
+  <data name="User.AccountPending" xml:space="preserve">
+    <value>این حساب در انتظار فعال‌سازی است.</value>
+  </data>
+  <data name="User.EmailNotConfirmed" xml:space="preserve">
+    <value>لطفاً قبل از ورود، آدرس ایمیل خود را تأیید کنید.</value>
+  </data>
+  <data name="User.PasswordExpired" xml:space="preserve">
+    <value>رمز عبور شما منقضی شده است. لطفاً رمز عبور خود را تغییر دهید.</value>
+  </data>
+  <data name="User.MustChangePassword" xml:space="preserve">
+    <value>قبل از ادامه باید رمز عبور خود را تغییر دهید.</value>
+  </data>
+  <data name="User.InvalidCurrentPassword" xml:space="preserve">
+    <value>رمز عبور فعلی نادرست است.</value>
+  </data>
+  <data name="User.PasswordRecentlyUsed" xml:space="preserve">
+    <value>این رمز عبور اخیراً استفاده شده است. لطفاً رمز عبور دیگری انتخاب کنید.</value>
+  </data>
+  <data name="User.PasswordTooWeak" xml:space="preserve">
+    <value>رمز عبور الزامات پیچیدگی را برآورده نمی‌کند.</value>
+  </data>
+  <data name="User.CannotDeleteSystemUser" xml:space="preserve">
+    <value>کاربران سیستمی قابل حذف نیستند.</value>
+  </data>
+  <data name="User.CannotModifySystemUser" xml:space="preserve">
+    <value>کاربران سیستمی قابل ویرایش نیستند.</value>
+  </data>
+  <data name="User.TwoFactorRequired" xml:space="preserve">
+    <value>احراز هویت دو مرحله‌ای برای این حساب الزامی است.</value>
+  </data>
+  <data name="User.InvalidTwoFactorCode" xml:space="preserve">
+    <value>کد احراز هویت دو مرحله‌ای نامعتبر است.</value>
+  </data>
+  <data name="User.TwoFactorAlreadyEnabled" xml:space="preserve">
+    <value>احراز هویت دو مرحله‌ای قبلاً برای این حساب فعال شده است.</value>
+  </data>
+  <data name="User.TwoFactorNotEnabled" xml:space="preserve">
+    <value>احراز هویت دو مرحله‌ای برای این حساب فعال نیست.</value>
+  </data>
+
+  <!-- ==================== Organization Errors ==================== -->
+  <data name="Organization.NotFound" xml:space="preserve">
+    <value>سازمان با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Organization.NotFoundByCode" xml:space="preserve">
+    <value>سازمان با کد '{0}' یافت نشد.</value>
+  </data>
+  <data name="Organization.DuplicateCode" xml:space="preserve">
+    <value>سازمانی با کد '{0}' قبلاً وجود دارد.</value>
+  </data>
+  <data name="Organization.Inactive" xml:space="preserve">
+    <value>این سازمان در حال حاضر غیرفعال است.</value>
+  </data>
+  <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
+    <value>امکان حذف سازمانی که هنوز اعضا دارد وجود ندارد. ابتدا تمام اعضا را حذف کنید.</value>
+  </data>
+  <data name="Organization.NotOwner" xml:space="preserve">
+    <value>فقط مالک سازمان می‌تواند این عملیات را انجام دهد.</value>
+  </data>
+  <data name="Organization.CannotTransferOwnership" xml:space="preserve">
+    <value>امکان انتقال مالکیت به فردی که عضو سازمان نیست وجود ندارد.</value>
+  </data>
+  <data name="Organization.AlreadyMember" xml:space="preserve">
+    <value>کاربر قبلاً عضو این سازمان است.</value>
+  </data>
+  <data name="Organization.NotMember" xml:space="preserve">
+    <value>کاربر عضو این سازمان نیست.</value>
+  </data>
+  <data name="Organization.NotAMember" xml:space="preserve">
+    <value>شما عضو این سازمان نیستید.</value>
+  </data>
+  <data name="Organization.CannotRemoveOwner" xml:space="preserve">
+    <value>مالک سازمان قابل حذف نیست. ابتدا مالکیت را انتقال دهید.</value>
+  </data>
+  <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
+    <value>شما نمی‌توانید نقش خود را در سازمان تغییر دهید.</value>
+  </data>
+  <data name="Organization.MembershipExpired" xml:space="preserve">
+    <value>عضویت شما در این سازمان منقضی شده است.</value>
+  </data>
+  <data name="Organization.InsufficientPermissions" xml:space="preserve">
+    <value>شما دسترسی کافی برای انجام این عملیات را ندارید.</value>
+  </data>
+  <data name="Organization.ApplicationNotFound" xml:space="preserve">
+    <value>برنامه با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Organization.ApplicationAlreadyEnabled" xml:space="preserve">
+    <value>این برنامه قبلاً برای سازمان فعال شده است.</value>
+  </data>
+  <data name="Organization.ApplicationNotEnabled" xml:space="preserve">
+    <value>این برنامه برای سازمان فعال نیست.</value>
+  </data>
+  <data name="Organization.SubscriptionExpired" xml:space="preserve">
+    <value>اشتراک این برنامه منقضی شده است.</value>
+  </data>
+  <data name="Organization.AppRoleAlreadyAssigned" xml:space="preserve">
+    <value>این نقش قبلاً برای این برنامه به کاربر اختصاص داده شده است.</value>
+  </data>
+  <data name="Organization.AppRoleNotAssigned" xml:space="preserve">
+    <value>این نقش برای این برنامه به کاربر اختصاص داده نشده است.</value>
+  </data>
+  <data name="Organization.RoleNotFound" xml:space="preserve">
+    <value>نقش با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Organization.RoleNotForApplication" xml:space="preserve">
+    <value>نقش مشخص شده متعلق به برنامه مشخص شده نیست.</value>
+  </data>
+  <data name="Organization.PermissionAlreadyGranted" xml:space="preserve">
+    <value>این دسترسی قبلاً برای این برنامه به کاربر اعطا شده است.</value>
+  </data>
+  <data name="Organization.PermissionNotGranted" xml:space="preserve">
+    <value>این دسترسی برای این برنامه به کاربر اعطا نشده است.</value>
+  </data>
+  <data name="Organization.PermissionNotFound" xml:space="preserve">
+    <value>دسترسی با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Organization.PermissionNotForApplication" xml:space="preserve">
+    <value>دسترسی مشخص شده متعلق به برنامه مشخص شده نیست.</value>
+  </data>
+  <data name="Organization.InvitationNotFound" xml:space="preserve">
+    <value>دعوت‌نامه با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Organization.InvitationNotFoundByToken" xml:space="preserve">
+    <value>توکن دعوت‌نامه نامعتبر یا منقضی شده است.</value>
+  </data>
+  <data name="Organization.InvitationExpired" xml:space="preserve">
+    <value>این دعوت‌نامه منقضی شده است.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyAccepted" xml:space="preserve">
+    <value>این دعوت‌نامه قبلاً پذیرفته شده است.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyDeclined" xml:space="preserve">
+    <value>این دعوت‌نامه قبلاً رد شده است.</value>
+  </data>
+  <data name="Organization.InvitationAlreadyCancelled" xml:space="preserve">
+    <value>این دعوت‌نامه لغو شده است.</value>
+  </data>
+  <data name="Organization.PendingInvitationExists" xml:space="preserve">
+    <value>یک دعوت‌نامه در انتظار برای '{0}' قبلاً وجود دارد.</value>
+  </data>
+  <data name="Organization.CannotInviteSelf" xml:space="preserve">
+    <value>شما نمی‌توانید خودتان را به سازمان دعوت کنید.</value>
+  </data>
+  <data name="Organization.InvitationEmailMismatch" xml:space="preserve">
+    <value>این دعوت‌نامه به آدرس ایمیل دیگری ارسال شده است.</value>
+  </data>
+
+  <!-- ==================== Application Errors ==================== -->
+  <data name="Application.NotFound" xml:space="preserve">
+    <value>برنامه با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Application.NotFoundByCode" xml:space="preserve">
+    <value>برنامه با کد '{0}' یافت نشد.</value>
+  </data>
+  <data name="Application.DuplicateCode" xml:space="preserve">
+    <value>برنامه‌ای با کد '{0}' قبلاً وجود دارد.</value>
+  </data>
+  <data name="Application.CannotDeleteSystem" xml:space="preserve">
+    <value>برنامه‌های سیستمی قابل حذف نیستند.</value>
+  </data>
+  <data name="Application.CannotModifySystem" xml:space="preserve">
+    <value>برنامه‌های سیستمی قابل ویرایش نیستند.</value>
+  </data>
+  <data name="Application.HasActiveApiKeys" xml:space="preserve">
+    <value>امکان حذف برنامه با کلیدهای API فعال وجود ندارد. ابتدا تمام کلیدهای API را باطل کنید.</value>
+  </data>
+  <data name="Application.HasActiveUsers" xml:space="preserve">
+    <value>امکان حذف برنامه با اختصاص‌های کاربری فعال وجود ندارد.</value>
+  </data>
+  <data name="Application.HasActiveOrganizations" xml:space="preserve">
+    <value>امکان حذف برنامه‌ای که برای سازمان‌ها فعال است وجود ندارد.</value>
+  </data>
+  <data name="Application.Inactive" xml:space="preserve">
+    <value>این برنامه در حال حاضر غیرفعال است.</value>
+  </data>
+  <data name="Application.InvalidCode" xml:space="preserve">
+    <value>کد برنامه '{0}' نامعتبر است. فقط از حروف بزرگ انگلیسی، اعداد و زیرخط استفاده کنید.</value>
+  </data>
+  <data name="Application.CodeTooShort" xml:space="preserve">
+    <value>کد برنامه باید حداقل ۲ کاراکتر باشد.</value>
+  </data>
+  <data name="Application.CodeTooLong" xml:space="preserve">
+    <value>کد برنامه نمی‌تواند بیش از ۵۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Application.InvalidSessionTimeout" xml:space="preserve">
+    <value>مهلت نشست باید بین ۱ تا ۱۴۴۰ دقیقه (۲۴ ساعت) باشد.</value>
+  </data>
+  <data name="Application.InvalidMaxConcurrentSessions" xml:space="preserve">
+    <value>حداکثر نشست‌های همزمان باید بین ۱ تا ۱۰۰ باشد.</value>
+  </data>
+  <data name="Application.NotEnabledForOrganization" xml:space="preserve">
+    <value>این برنامه برای این سازمان فعال نیست.</value>
+  </data>
+  <data name="Application.AlreadyEnabledForOrganization" xml:space="preserve">
+    <value>این برنامه قبلاً برای این سازمان فعال شده است.</value>
+  </data>
+
+  <!-- ==================== Role Errors ==================== -->
+  <data name="Role.NotFound" xml:space="preserve">
+    <value>نقش با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Role.NotFoundByCode" xml:space="preserve">
+    <value>نقش با کد '{0}' یافت نشد.</value>
+  </data>
+  <data name="Role.DuplicateCode" xml:space="preserve">
+    <value>نقشی با کد '{0}' قبلاً در این برنامه وجود دارد.</value>
+  </data>
+  <data name="Role.CannotDeleteSystemRole" xml:space="preserve">
+    <value>نقش‌های سیستمی قابل حذف نیستند.</value>
+  </data>
+  <data name="Role.CannotModifySystemRole" xml:space="preserve">
+    <value>نقش‌های سیستمی قابل ویرایش نیستند.</value>
+  </data>
+  <data name="Role.Inactive" xml:space="preserve">
+    <value>این نقش در حال حاضر غیرفعال است.</value>
+  </data>
+  <data name="Role.AlreadyAssigned" xml:space="preserve">
+    <value>این نقش قبلاً به کاربر اختصاص داده شده است.</value>
+  </data>
+  <data name="Role.NotAssigned" xml:space="preserve">
+    <value>این نقش به کاربر اختصاص داده نشده است.</value>
+  </data>
+  <data name="Role.CannotRemoveLastAdmin" xml:space="preserve">
+    <value>امکان حذف آخرین نقش مدیر وجود ندارد. حداقل یک مدیر باید باقی بماند.</value>
+  </data>
+
+  <!-- ==================== Permission Errors ==================== -->
+  <data name="Permission.NotFound" xml:space="preserve">
+    <value>دسترسی با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Permission.NotFoundByCode" xml:space="preserve">
+    <value>دسترسی با کد '{0}' یافت نشد.</value>
+  </data>
+  <data name="Permission.DuplicateCode" xml:space="preserve">
+    <value>دسترسی با کد '{0}' قبلاً در این برنامه وجود دارد.</value>
+  </data>
+  <data name="Permission.InvalidCode" xml:space="preserve">
+    <value>کد دسترسی '{0}' نامعتبر است. از سلسله‌مراتب جدا شده با دو نقطه استفاده کنید (مثلاً 'module:resource:action').</value>
+  </data>
+  <data name="Permission.CannotDeleteSystemPermission" xml:space="preserve">
+    <value>دسترسی‌های سیستمی قابل حذف نیستند.</value>
+  </data>
+  <data name="Permission.CannotModifySystemPermission" xml:space="preserve">
+    <value>دسترسی‌های سیستمی قابل ویرایش نیستند.</value>
+  </data>
+  <data name="Permission.Inactive" xml:space="preserve">
+    <value>این دسترسی در حال حاضر غیرفعال است.</value>
+  </data>
+  <data name="Permission.AlreadyGranted" xml:space="preserve">
+    <value>این دسترسی قبلاً اعطا شده است.</value>
+  </data>
+  <data name="Permission.NotGranted" xml:space="preserve">
+    <value>این دسترسی اعطا نشده است.</value>
+  </data>
+  <data name="Permission.CircularImplication" xml:space="preserve">
+    <value>این عملیات باعث ایجاد وابستگی دسترسی حلقوی می‌شود.</value>
+  </data>
+  <data name="Permission.CannotGrantHigher" xml:space="preserve">
+    <value>شما نمی‌توانید دسترسی‌هایی را که خودتان ندارید اعطا کنید.</value>
+  </data>
+
+  <!-- ==================== ApiKey Errors ==================== -->
+  <data name="ApiKey.NotFound" xml:space="preserve">
+    <value>کلید API یافت نشد.</value>
+  </data>
+  <data name="ApiKey.Invalid" xml:space="preserve">
+    <value>کلید API ارائه شده نامعتبر است.</value>
+  </data>
+  <data name="ApiKey.Revoked" xml:space="preserve">
+    <value>کلید API باطل شده است.</value>
+  </data>
+  <data name="ApiKey.Expired" xml:space="preserve">
+    <value>کلید API منقضی شده است.</value>
+  </data>
+  <data name="ApiKey.AlreadyRevoked" xml:space="preserve">
+    <value>کلید API قبلاً باطل شده است.</value>
+  </data>
+
+  <!-- ==================== WebhookKey Errors ==================== -->
+  <data name="WebhookKey.NotFound" xml:space="preserve">
+    <value>کلید وب‌هوک یافت نشد.</value>
+  </data>
+  <data name="WebhookKey.Invalid" xml:space="preserve">
+    <value>کلید وب‌هوک ارائه شده نامعتبر است.</value>
+  </data>
+  <data name="WebhookKey.Revoked" xml:space="preserve">
+    <value>کلید وب‌هوک باطل شده است.</value>
+  </data>
+  <data name="WebhookKey.Expired" xml:space="preserve">
+    <value>کلید وب‌هوک منقضی شده است.</value>
+  </data>
+  <data name="WebhookKey.AlreadyRevoked" xml:space="preserve">
+    <value>کلید وب‌هوک قبلاً باطل شده است.</value>
+  </data>
+
+  <!-- ==================== Session Errors ==================== -->
+  <data name="Session.NotFound" xml:space="preserve">
+    <value>نشست یافت نشد.</value>
+  </data>
+  <data name="Session.Expired" xml:space="preserve">
+    <value>نشست منقضی شده است.</value>
+  </data>
+  <data name="Session.AlreadyTerminated" xml:space="preserve">
+    <value>نشست قبلاً پایان یافته است.</value>
+  </data>
+  <data name="Session.MaxSessionsReached" xml:space="preserve">
+    <value>به حداکثر تعداد نشست‌های همزمان رسیده‌اید.</value>
+  </data>
+
+  <!-- ==================== AuditLog Errors ==================== -->
+  <data name="AuditLog.NotFound" xml:space="preserve">
+    <value>گزارش ممیزی با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="AuditLog.InvalidDateRange" xml:space="preserve">
+    <value>تاریخ شروع باید قبل از تاریخ پایان باشد.</value>
+  </data>
+  <data name="AuditLog.DateRangeTooLarge" xml:space="preserve">
+    <value>بازه تاریخی نمی‌تواند بیش از ۹۰ روز برای یک پرس‌وجو باشد.</value>
+  </data>
+  <data name="AuditLog.ExportFailed" xml:space="preserve">
+    <value>خروجی‌گیری از گزارش‌های ممیزی با شکست مواجه شد: {0}</value>
+  </data>
+  <data name="AuditLog.ExportTooLarge" xml:space="preserve">
+    <value>درخواست خروجی‌گیری از حداکثر رکوردهای مجاز (۱۰۰٬۰۰۰) فراتر رفته است. لطفاً معیارهای جستجو را محدودتر کنید.</value>
+  </data>
+  <data name="AuditLog.InvalidExportFormat" xml:space="preserve">
+    <value>فرمت خروجی '{0}' نامعتبر است. فرمت‌های پشتیبانی شده: csv، json.</value>
+  </data>
+  <data name="AuditLog.NoLogsFound" xml:space="preserve">
+    <value>هیچ گزارش ممیزی مطابق با معیارهای مشخص شده یافت نشد.</value>
+  </data>
+
+  <!-- ==================== EmailVerification Errors ==================== -->
+  <data name="EmailVerification.InvalidOrExpiredOtp" xml:space="preserve">
+    <value>کد تأیید نامعتبر است یا منقضی شده است.</value>
+  </data>
+  <data name="EmailVerification.OtpAlreadyUsed" xml:space="preserve">
+    <value>این کد تأیید قبلاً استفاده شده است.</value>
+  </data>
+  <data name="EmailVerification.TooManyAttempts" xml:space="preserve">
+    <value>تلاش‌های بیش از حد مجاز برای تأیید. لطفاً کد جدیدی درخواست کنید.</value>
+  </data>
+  <data name="EmailVerification.TooManyRequests" xml:space="preserve">
+    <value>درخواست‌های بیش از حد مجاز برای کد تأیید. لطفاً بعداً دوباره تلاش کنید.</value>
+  </data>
+  <data name="EmailVerification.EmailAlreadyVerified" xml:space="preserve">
+    <value>این آدرس ایمیل قبلاً تأیید شده است.</value>
+  </data>
+  <data name="EmailVerification.NoActiveToken" xml:space="preserve">
+    <value>کد تأیید فعالی یافت نشد. لطفاً کد جدیدی درخواست کنید.</value>
+  </data>
+  <data name="EmailVerification.EmailSendFailed" xml:space="preserve">
+    <value>ارسال ایمیل تأیید با شکست مواجه شد. لطفاً بعداً دوباره تلاش کنید.</value>
+  </data>
+  <data name="EmailVerification.UserNotFound" xml:space="preserve">
+    <value>کاربر یافت نشد.</value>
+  </data>
+  <data name="EmailVerification.InvalidOtpFormat" xml:space="preserve">
+    <value>کد تأیید باید دقیقاً ۶ رقم باشد.</value>
+  </data>
+
+  <!-- ==================== ExternalAuth Errors ==================== -->
+  <data name="ExternalAuth.ProviderNotSupported" xml:space="preserve">
+    <value>ارائه‌دهنده احراز هویت خارجی '{0}' پشتیبانی نمی‌شود.</value>
+  </data>
+  <data name="ExternalAuth.TokenVerificationFailed" xml:space="preserve">
+    <value>توکن احراز هویت خارجی قابل تأیید نبود.</value>
+  </data>
+  <data name="ExternalAuth.ProviderNotConfigured" xml:space="preserve">
+    <value>ارائه‌دهنده احراز هویت خارجی '{0}' پیکربندی نشده است.</value>
+  </data>
+  <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
+    <value>آدرس ایمیل توسط ارائه‌دهنده خارجی تأیید نشده است.</value>
+  </data>
+  <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
+    <value>این حساب {0} قبلاً به کاربر دیگری متصل شده است.</value>
+  </data>
+
+  <!-- ==================== PasswordReset Errors ==================== -->
+  <data name="PasswordReset.InvalidOrExpiredToken" xml:space="preserve">
+    <value>توکن بازنشانی رمز عبور نامعتبر است یا منقضی شده است.</value>
+  </data>
+  <data name="PasswordReset.TokenAlreadyUsed" xml:space="preserve">
+    <value>این توکن بازنشانی رمز عبور قبلاً استفاده شده است.</value>
+  </data>
+  <data name="PasswordReset.TooManyRequests" xml:space="preserve">
+    <value>درخواست‌های بیش از حد مجاز برای بازنشانی رمز عبور. لطفاً بعداً دوباره تلاش کنید.</value>
+  </data>
+
+  <!-- ==================== TwoFactor Errors ==================== -->
+  <data name="TwoFactor.SetupRequired" xml:space="preserve">
+    <value>راه‌اندازی احراز هویت دو مرحله‌ای قبل از فعال‌سازی الزامی است.</value>
+  </data>
+  <data name="TwoFactor.VerificationRequired" xml:space="preserve">
+    <value>تأیید احراز هویت دو مرحله‌ای الزامی است.</value>
+  </data>
+  <data name="TwoFactor.LockedOut" xml:space="preserve">
+    <value>احراز هویت دو مرحله‌ای به دلیل تلاش‌های ناموفق متعدد موقتاً قفل شده است.</value>
+  </data>
+  <data name="TwoFactor.InvalidRecoveryCode" xml:space="preserve">
+    <value>کد بازیابی نامعتبر است.</value>
+  </data>
+  <data name="TwoFactor.NoRecoveryCodesAvailable" xml:space="preserve">
+    <value>کد بازیابی موجود نیست. لطفاً با پشتیبانی تماس بگیرید.</value>
+  </data>
+
+  <!-- ==================== Secret Errors ==================== -->
+  <data name="Secret.DecryptionFailed" xml:space="preserve">
+    <value>رمزگشایی فایل محرمانه با شکست مواجه شد. ممکن است روی دستگاه دیگری رمزگذاری شده باشد یا کلیدهای DPAPI تغییر کرده باشند.</value>
+  </data>
+  <data name="Secret.FileAccessFailed" xml:space="preserve">
+    <value>دسترسی به فایل محرمانه با شکست مواجه شد. مجوزهای فایل و پیکربندی مسیر را بررسی کنید.</value>
+  </data>
+  <data name="Secret.KeyGenerationFailed" xml:space="preserve">
+    <value>تولید کلید رمزنگاری با شکست مواجه شد.</value>
+  </data>
+  <data name="Secret.InvalidKey" xml:space="preserve">
+    <value>کلید محرمانه باید فقط شامل حروف و اعداد انگلیسی، زیرخط یا نقطه باشد و کمتر از ۱۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Secret.UnknownKey" xml:space="preserve">
+    <value>کلید محرمانه ناشناخته: {0}.</value>
+  </data>
+  <data name="Secret.NotFound" xml:space="preserve">
+    <value>کلید محرمانه سفارشی '{0}' یافت نشد.</value>
+  </data>
+</root>

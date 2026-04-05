@@ -1,25 +1,35 @@
+using Auth_Localization.Resources.Errors;
+using Auth_Localization.Resources.Validation;
+using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 
 namespace Auth_API.Common;
 
 /// <summary>
-/// Base controller that provides unified ErrorOr-to-HTTP response mapping.
+/// Base controller that provides unified ErrorOr-to-HTTP response mapping
+/// with localized error descriptions.
 /// All API controllers should inherit from this instead of ControllerBase.
 /// </summary>
 [ApiController]
 public abstract class ApiController : ControllerBase
 {
-    protected IActionResult Problem(IEnumerable<ErrorOr.Error> errors)
+    protected IActionResult Problem(IEnumerable<Error> errors)
     {
+        var domainLocalizer = HttpContext.RequestServices
+            .GetService<IStringLocalizer<DomainErrors>>();
+        var validationLocalizer = HttpContext.RequestServices
+            .GetService<IStringLocalizer<ValidationMessages>>();
+
         var firstError = errors.First();
 
         var statusCode = firstError.Type switch
         {
-            ErrorOr.ErrorType.Validation => StatusCodes.Status400BadRequest,
-            ErrorOr.ErrorType.NotFound => StatusCodes.Status404NotFound,
-            ErrorOr.ErrorType.Conflict => StatusCodes.Status409Conflict,
-            ErrorOr.ErrorType.Forbidden => StatusCodes.Status403Forbidden,
-            ErrorOr.ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
+            ErrorType.Validation => StatusCodes.Status400BadRequest,
+            ErrorType.NotFound => StatusCodes.Status404NotFound,
+            ErrorType.Conflict => StatusCodes.Status409Conflict,
+            ErrorType.Forbidden => StatusCodes.Status403Forbidden,
+            ErrorType.Unauthorized => StatusCodes.Status401Unauthorized,
             _ => StatusCodes.Status500InternalServerError
         };
 
@@ -27,7 +37,7 @@ public abstract class ApiController : ControllerBase
         {
             Status = statusCode,
             Title = firstError.Code,
-            Detail = firstError.Description,
+            Detail = LocalizeError(firstError, domainLocalizer, validationLocalizer),
             Instance = Request.Path
         };
 
@@ -36,7 +46,7 @@ public abstract class ApiController : ControllerBase
             problemDetails.Extensions["errors"] = errors.Select(e => new
             {
                 code = e.Code,
-                description = e.Description
+                description = LocalizeError(e, domainLocalizer, validationLocalizer)
             });
         }
 
@@ -47,5 +57,40 @@ public abstract class ApiController : ControllerBase
     {
         var userIdClaim = User.FindFirst("sub")?.Value;
         return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
+    }
+
+    private static string LocalizeError(
+        Error error,
+        IStringLocalizer<DomainErrors>? domainLocalizer,
+        IStringLocalizer<ValidationMessages>? validationLocalizer)
+    {
+        // 1. Try domain errors (keyed by error code, e.g., "User.InvalidCredentials")
+        if (domainLocalizer is not null)
+        {
+            var localized = domainLocalizer[error.Code];
+            if (!localized.ResourceNotFound)
+            {
+                if (error.Metadata?.TryGetValue("args", out var argsObj) == true
+                    && argsObj is object[] args)
+                {
+                    return string.Format(localized.Value, args);
+                }
+
+                return localized.Value;
+            }
+        }
+
+        // 2. Try validation messages (keyed by error description as resource key)
+        if (validationLocalizer is not null)
+        {
+            var localized = validationLocalizer[error.Description];
+            if (!localized.ResourceNotFound)
+            {
+                return localized.Value;
+            }
+        }
+
+        // 3. Fallback to original English description
+        return error.Description;
     }
 }
