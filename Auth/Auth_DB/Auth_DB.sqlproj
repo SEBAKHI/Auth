@@ -134,6 +134,7 @@
     <None Include="dbo\Scripts\SeedData\09_ExternalAuthProviders.sql" />
     <None Include="dbo\Scripts\ALTER_Users_PasswordHash_Nullable.sql" />
     <None Include="PublishLocations\Astoom_Auth.publish.xml" />
+    <None Include="PublishLocations\astoom_identity_prod.publish.xml" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="dbo\PostDeployment\Script.PostDeployment.sql" />
