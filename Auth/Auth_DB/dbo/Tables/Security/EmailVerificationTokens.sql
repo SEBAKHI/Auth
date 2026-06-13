@@ -1,13 +1,13 @@
 CREATE TABLE [dbo].[EmailVerificationTokens]
 (
-    [Id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_EmailVerificationTokens_Id] DEFAULT NEWID(),
     [UserId] UNIQUEIDENTIFIER NOT NULL,
     [OtpHash] NVARCHAR(500) NOT NULL,          -- Argon2id hash of 6-digit OTP
     [Email] NVARCHAR(255) NOT NULL,            -- Email the OTP was sent to
     [ExpiresAt] DATETIME2 NOT NULL,
     [UsedAt] DATETIME2 NULL,
-    [AttemptCount] INT NOT NULL DEFAULT 0,      -- Track verification attempts
-    [CreatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    [AttemptCount] INT NOT NULL CONSTRAINT [DF_EmailVerificationTokens_AttemptCount] DEFAULT 0,      -- Track verification attempts
+    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_EmailVerificationTokens_CreatedAt] DEFAULT GETUTCDATE(),
 
     CONSTRAINT [PK_EmailVerificationTokens] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_EmailVerificationTokens_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id])

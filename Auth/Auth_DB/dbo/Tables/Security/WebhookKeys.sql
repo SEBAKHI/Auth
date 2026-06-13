@@ -1,14 +1,14 @@
 CREATE TABLE [dbo].[WebhookKeys]
 (
-    [Id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_WebhookKeys_Id] DEFAULT NEWID(),
     [ApplicationId] UNIQUEIDENTIFIER NOT NULL,
     [Name] NVARCHAR(200) NOT NULL,
     [Description] NVARCHAR(500) NULL,
     [KeyPrefix] NVARCHAR(10) NOT NULL,      -- First chars for identification (e.g., 'wk_prod_')
     [KeyHash] NVARCHAR(500) NOT NULL,       -- HMAC-SHA256 hash of the full key (deterministic)
     [TargetUrl] NVARCHAR(2000) NOT NULL,    -- The webhook endpoint URL this key authenticates for
-    [Environment] NVARCHAR(20) NOT NULL DEFAULT 'production',  -- 'production', 'staging', 'development'
-    [CreatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    [Environment] NVARCHAR(20) NOT NULL CONSTRAINT [DF_WebhookKeys_Environment] DEFAULT 'production',  -- 'production', 'staging', 'development'
+    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_WebhookKeys_CreatedAt] DEFAULT GETUTCDATE(),
     [CreatedBy] UNIQUEIDENTIFIER NOT NULL,
     [ExpiresAt] DATETIME2 NULL,
     [LastUsedAt] DATETIME2 NULL,

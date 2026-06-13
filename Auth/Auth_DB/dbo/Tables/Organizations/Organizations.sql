@@ -1,6 +1,6 @@
 CREATE TABLE [dbo].[Organizations]
 (
-    [Id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_Organizations_Id] DEFAULT NEWID(),
     [Code] NVARCHAR(100) NOT NULL,
     [Name] NVARCHAR(255) NOT NULL,
     [Description] NVARCHAR(1000) NULL,
@@ -8,9 +8,9 @@ CREATE TABLE [dbo].[Organizations]
     [Website] NVARCHAR(500) NULL,
     [ContactEmail] NVARCHAR(255) NOT NULL,
     [OwnerId] UNIQUEIDENTIFIER NOT NULL,
-    [IsActive] BIT NOT NULL DEFAULT 1,
-    [IsAutoCreated] BIT NOT NULL DEFAULT 0,
-    [CreatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    [IsActive] BIT NOT NULL CONSTRAINT [DF_Organizations_IsActive] DEFAULT 1,
+    [IsAutoCreated] BIT NOT NULL CONSTRAINT [DF_Organizations_IsAutoCreated] DEFAULT 0,
+    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_Organizations_CreatedAt] DEFAULT GETUTCDATE(),
     [CreatedBy] UNIQUEIDENTIFIER NOT NULL,
     [ModifiedAt] DATETIME2 NULL,
     [ModifiedBy] UNIQUEIDENTIFIER NULL,

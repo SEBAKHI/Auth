@@ -1,11 +1,11 @@
 CREATE TABLE [dbo].[PasswordResetTokens]
 (
-    [Id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_PasswordResetTokens_Id] DEFAULT NEWID(),
     [UserId] UNIQUEIDENTIFIER NOT NULL,
     [TokenHash] NVARCHAR(500) NOT NULL,   -- Argon2id hash
     [ExpiresAt] DATETIME2 NOT NULL,
     [UsedAt] DATETIME2 NULL,
-    [CreatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_PasswordResetTokens_CreatedAt] DEFAULT GETUTCDATE(),
 
     CONSTRAINT [PK_PasswordResetTokens] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_PasswordResetTokens_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id])

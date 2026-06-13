@@ -1,16 +1,16 @@
 CREATE TABLE [dbo].[OrganizationInvitations]
 (
-    [Id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_OrganizationInvitations_Id] DEFAULT NEWID(),
     [OrganizationId] UNIQUEIDENTIFIER NOT NULL,
     [Email] NVARCHAR(255) NOT NULL,
     [RoleId] UNIQUEIDENTIFIER NOT NULL,
     [Token] NVARCHAR(500) NOT NULL,
-    [Status] NVARCHAR(20) NOT NULL DEFAULT 'Pending',
+    [Status] NVARCHAR(20) NOT NULL CONSTRAINT [DF_OrganizationInvitations_Status] DEFAULT 'Pending',
     [ExpiresAt] DATETIME2 NOT NULL,
     [InvitedBy] UNIQUEIDENTIFIER NOT NULL,
     [AcceptedAt] DATETIME2 NULL,
     [AcceptedByUserId] UNIQUEIDENTIFIER NULL,
-    [CreatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_OrganizationInvitations_CreatedAt] DEFAULT GETUTCDATE(),
 
     CONSTRAINT [PK_OrganizationInvitations] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_OrganizationInvitations_Organizations] FOREIGN KEY ([OrganizationId])

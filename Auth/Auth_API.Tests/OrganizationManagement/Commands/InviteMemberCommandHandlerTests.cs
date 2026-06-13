@@ -378,7 +378,7 @@ public class InviteMemberCommandHandlerTests
         capturedInvitation.Token.Should().NotContain("+"); // URL-safe
         capturedInvitation.Token.Should().NotContain("/"); // URL-safe
         capturedInvitation.Token.Should().NotEndWith("="); // No padding
-        capturedInvitation.Token.Length.Should().BeGreaterOrEqualTo(40); // Reasonable length for 32 bytes
+        capturedInvitation.Token.Length.Should().BeGreaterThanOrEqualTo(40); // Reasonable length for 32 bytes
     }
 
     [Fact]

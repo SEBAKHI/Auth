@@ -1,14 +1,14 @@
 CREATE TABLE [dbo].[OrganizationApplications]
 (
-    [Id] UNIQUEIDENTIFIER NOT NULL DEFAULT NEWID(),
+    [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_OrganizationApplications_Id] DEFAULT NEWID(),
     [OrganizationId] UNIQUEIDENTIFIER NOT NULL,
     [ApplicationId] UNIQUEIDENTIFIER NOT NULL,
-    [IsActive] BIT NOT NULL DEFAULT 1,
-    [EnabledAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    [IsActive] BIT NOT NULL CONSTRAINT [DF_OrganizationApplications_IsActive] DEFAULT 1,
+    [EnabledAt] DATETIME2 NOT NULL CONSTRAINT [DF_OrganizationApplications_EnabledAt] DEFAULT GETUTCDATE(),
     [EnabledBy] UNIQUEIDENTIFIER NOT NULL,
     [ExpiresAt] DATETIME2 NULL,
     [SubscriptionTier] NVARCHAR(50) NULL,
-    [CreatedAt] DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_OrganizationApplications_CreatedAt] DEFAULT GETUTCDATE(),
     [CreatedBy] UNIQUEIDENTIFIER NOT NULL,
     [ModifiedAt] DATETIME2 NULL,
     [ModifiedBy] UNIQUEIDENTIFIER NULL,
