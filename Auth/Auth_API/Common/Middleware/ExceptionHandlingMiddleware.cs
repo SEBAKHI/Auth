@@ -42,7 +42,7 @@ public class ExceptionHandlingMiddleware
 
     private async Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        var localizer = context.RequestServices.GetService<IStringLocalizer<MiddlewareMessages>>();
+        var localizer = context.RequestServices?.GetService<IStringLocalizer<MiddlewareMessages>>();
 
         var (statusCode, title, detail, errors) = exception switch
         {

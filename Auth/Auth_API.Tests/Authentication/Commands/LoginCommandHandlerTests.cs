@@ -208,7 +208,8 @@ public class LoginCommandHandlerTests
 
         // Assert
         result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("User.AccountLocked");
+        // User has a lockoutEnd timestamp, so the time-bounded error code is expected.
+        result.FirstError.Code.Should().Be("User.AccountLockedUntil");
     }
 
     [Fact]

@@ -44,7 +44,7 @@ public class GatewayTokenValidationMiddleware
             return;
         }
 
-        var localizer = context.RequestServices.GetService<IStringLocalizer<MiddlewareMessages>>();
+        var localizer = context.RequestServices?.GetService<IStringLocalizer<MiddlewareMessages>>();
 
         // Validate gateway token
         if (!context.Request.Headers.TryGetValue(gatewaySettings.TokenHeaderName, out var tokenHeader))
