@@ -17,7 +17,22 @@ public class SecretManagementSettings
     private string _secretFilePath = DefaultSecretFilePath;
 
     /// <summary>
-    /// Path to the DPAPI-encrypted secrets file.
+    /// Where the cryptographic secrets are stored and how they are protected at rest.
+    /// Allowed values (case-insensitive): <c>PlainText</c>, <c>Certificate</c>, <c>Dpapi</c>.
+    /// Defaults to <c>PlainText</c> (keys stored as plain text in the appsettings target file).
+    /// Parsed via <c>AuthDataProtectionExtensions.ParseStorageMode</c>.
+    /// </summary>
+    public string StorageMode { get; set; } = "PlainText";
+
+    /// <summary>
+    /// Appsettings file that generated secrets are written to when <see cref="StorageMode"/> is
+    /// <c>PlainText</c>. May be absolute or relative to the application content root.
+    /// Default: <c>appsettings.Production.json</c>.
+    /// </summary>
+    public string PlainTextTargetFile { get; set; } = "appsettings.Production.json";
+
+    /// <summary>
+    /// Path to the encrypted secrets file (used by the <c>Certificate</c> and <c>Dpapi</c> modes).
     /// Default: %LOCALAPPDATA%\AuthSystem\Secrets\secrets.dpapi
     /// </summary>
     public string SecretFilePath

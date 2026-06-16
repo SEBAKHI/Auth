@@ -1,8 +1,8 @@
 {
 	"info": {
-		"_postman_id": "auth-system-v1",
-		"name": "Auth System API v1",
-		"description": "Complete Postman collection for testing all Auth System API endpoints.\n\n## Authentication\nMost endpoints require JWT Bearer authentication. Use the Login endpoint first to obtain tokens.\n\n## Variables\n- `baseUrl`: API base URL (default: http://localhost:5000)\n- `accessToken`: JWT access token (auto-set after login)\n- `refreshToken`: Refresh token (auto-set after login)\n- `userId`: Current user ID (auto-set after login)\n\n## Argon2id Hashing\nAll secrets, tokens, and API keys are hashed using Argon2id algorithm.",
+		"_postman_id": "Identity-system-v1",
+		"name": "Identity System API v1",
+		"description": "Complete Postman collection for testing all Identity System API endpoints.\n\n## Authentication\nMost endpoints require JWT Bearer authentication. Use the Login endpoint first to obtain tokens.\n\n## Variables\n- `baseUrl`: API base URL (default: http://localhost:5000)\n- `accessToken`: JWT access token (auto-set after login)\n- `refreshToken`: Refresh token (auto-set after login)\n- `userId`: Current user ID (auto-set after login)\n\n## Argon2id Hashing\nAll secrets, tokens, and API keys are hashed using Argon2id algorithm.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"variable": [

@@ -18,7 +18,8 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// Configure Data Protection (required for DPAPI secrets)
+// Configure Data Protection (used to decrypt the shared secrets file in Certificate/Dpapi modes).
+// The storage mode must match the Auth API so both apps read the same gateway token.
 var dataProtectionPath = builder.Configuration["DataProtection:KeyPath"];
 if (string.IsNullOrEmpty(dataProtectionPath))
 {
@@ -28,21 +29,36 @@ if (string.IsNullOrEmpty(dataProtectionPath))
         "Keys");
 }
 
+var storageMode = AuthDataProtectionExtensions.ParseStorageMode(
+    builder.Configuration["SecretManagement:StorageMode"]);
+var dpCertificateSettings = builder.Configuration
+    .GetSection(DataProtectionCertificateSettings.SectionName)
+    .Get<DataProtectionCertificateSettings>() ?? new DataProtectionCertificateSettings();
+
 builder.Services.AddDataProtection()
     .SetApplicationName("AuthSystem")
-    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath));
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+    .ConfigureKeyProtection(storageMode, dpCertificateSettings);
 
-// Build a temporary DataProtectionProvider to load DPAPI secrets into configuration
-var tempServices = new ServiceCollection();
-tempServices.AddDataProtection()
-    .SetApplicationName("AuthSystem")
-    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath));
+// In PlainText mode the gateway token comes from this app's own appsettings (Gateway:Token).
+// In Certificate/Dpapi mode it is read from the shared encrypted secrets file.
+if (storageMode != SecretStorageMode.PlainText)
+{
+    var tempServices = new ServiceCollection();
+    tempServices.AddDataProtection()
+        .SetApplicationName("AuthSystem")
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+        .ConfigureKeyProtection(storageMode, dpCertificateSettings);
 
-using var tempProvider = tempServices.BuildServiceProvider();
-var dataProtectionProvider = tempProvider.GetRequiredService<IDataProtectionProvider>();
+    using var tempProvider = tempServices.BuildServiceProvider();
+    var dataProtectionProvider = tempProvider.GetRequiredService<IDataProtectionProvider>();
 
-// Add DPAPI secrets to configuration (overrides appsettings.json values)
-builder.Configuration.AddDpapiSecrets(dataProtectionProvider);
+    // Add encrypted secrets to configuration (overrides appsettings.json values).
+    // Use the same secrets-file path the Auth API uses (empty = default location).
+    builder.Configuration.AddDpapiSecrets(
+        dataProtectionProvider,
+        builder.Configuration["SecretManagement:SecretFilePath"]);
+}
 
 // Gateway Configuration
 var gatewayToken = builder.Configuration["Gateway:Token"];

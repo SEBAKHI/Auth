@@ -10,7 +10,7 @@ public class PasswordSettings
     /// <summary>
     /// Gets or sets the minimum password length.
     /// </summary>
-    public int MinimumLength { get; set; } = 12;
+    public int MinimumLength { get; set; } = 6;
 
     /// <summary>
     /// Gets or sets whether uppercase letters are required.
@@ -35,12 +35,12 @@ public class PasswordSettings
     /// <summary>
     /// Gets or sets the number of previous passwords to check for reuse.
     /// </summary>
-    public int HistoryCount { get; set; } = 5;
+    public int HistoryCount { get; set; } = 3;
 
     /// <summary>
     /// Gets or sets the password expiration in days (0 = no expiration).
     /// </summary>
-    public int ExpirationDays { get; set; } = 90;
+    public int ExpirationDays { get; set; } = 0;
 
     /// <summary>
     /// Gets or sets the maximum failed login attempts before lockout.

@@ -23,7 +23,6 @@ public class DpapiSecretService : IDpapiSecretService
     private const string ProtectorPurpose = "AuthSystem.SecretManagement.v1";
     private const int RsaKeySizeBits = 2048;
     private const int HmacKeySizeBytes = 32;
-    private const int GatewayTokenSizeBytes = 32;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -173,10 +172,7 @@ public class DpapiSecretService : IDpapiSecretService
 
     public async Task<string> GenerateRsaKeyPairAsync(CancellationToken cancellationToken)
     {
-        using var rsa = RSA.Create(RsaKeySizeBits);
-
-        var privateKeyPem = ExportPrivateKeyPem(rsa);
-        var publicKeyPem = ExportPublicKeyPem(rsa);
+        var (privateKeyPem, publicKeyPem) = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateRsaKeyPair();
 
         var secrets = await LoadSecretsAsync(cancellationToken);
         secrets.JwtPrivateKeyPem = privateKeyPem;
@@ -195,8 +191,7 @@ public class DpapiSecretService : IDpapiSecretService
 
     public async Task GenerateHmacKeyAsync(CancellationToken cancellationToken)
     {
-        var keyBytes = RandomNumberGenerator.GetBytes(HmacKeySizeBytes);
-        var keyBase64 = Convert.ToBase64String(keyBytes);
+        var keyBase64 = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
 
         var secrets = await LoadSecretsAsync(cancellationToken);
         secrets.RefreshTokenHmacKey = keyBase64;
@@ -213,8 +208,7 @@ public class DpapiSecretService : IDpapiSecretService
 
     public async Task<string> GenerateGatewayTokenAsync(CancellationToken cancellationToken)
     {
-        var tokenBytes = RandomNumberGenerator.GetBytes(GatewayTokenSizeBytes);
-        var token = Convert.ToBase64String(tokenBytes);
+        var token = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateGatewayToken();
 
         var secrets = await LoadSecretsAsync(cancellationToken);
         secrets.GatewayToken = token;
@@ -240,9 +234,9 @@ public class DpapiSecretService : IDpapiSecretService
         // Generate RSA key pair if missing
         if (string.IsNullOrEmpty(secrets.JwtPrivateKeyPem))
         {
-            using var rsa = RSA.Create(RsaKeySizeBits);
-            secrets.JwtPrivateKeyPem = ExportPrivateKeyPem(rsa);
-            secrets.JwtPublicKeyPem = ExportPublicKeyPem(rsa);
+            var (privateKeyPem, publicKeyPem) = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateRsaKeyPair();
+            secrets.JwtPrivateKeyPem = privateKeyPem;
+            secrets.JwtPublicKeyPem = publicKeyPem;
             result.RsaKeyGenerated = true;
             result.PublicKeyPem = secrets.JwtPublicKeyPem;
             result.GeneratedKeys.Add("JwtPrivateKeyPem");
@@ -258,8 +252,7 @@ public class DpapiSecretService : IDpapiSecretService
         // Generate HMAC key if missing
         if (string.IsNullOrEmpty(secrets.RefreshTokenHmacKey))
         {
-            var keyBytes = RandomNumberGenerator.GetBytes(HmacKeySizeBytes);
-            secrets.RefreshTokenHmacKey = Convert.ToBase64String(keyBytes);
+            secrets.RefreshTokenHmacKey = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
             result.HmacKeyGenerated = true;
             result.GeneratedKeys.Add("RefreshTokenHmacKey");
             modified = true;
@@ -273,8 +266,7 @@ public class DpapiSecretService : IDpapiSecretService
         // Generate gateway token if missing
         if (string.IsNullOrEmpty(secrets.GatewayToken))
         {
-            var tokenBytes = RandomNumberGenerator.GetBytes(GatewayTokenSizeBytes);
-            secrets.GatewayToken = Convert.ToBase64String(tokenBytes);
+            secrets.GatewayToken = Auth.Shared.Configuration.KeyMaterialGenerator.GenerateGatewayToken();
             result.GatewayTokenGenerated = true;
             result.GeneratedKeys.Add("GatewayToken");
             modified = true;
@@ -404,31 +396,4 @@ public class DpapiSecretService : IDpapiSecretService
         }
     }
 
-    private static string ExportPrivateKeyPem(RSA rsa)
-    {
-        var privateKey = rsa.ExportPkcs8PrivateKey();
-        var base64 = Convert.ToBase64String(privateKey);
-        var pem = new StringBuilder();
-        pem.AppendLine("-----BEGIN PRIVATE KEY-----");
-        for (var i = 0; i < base64.Length; i += 64)
-        {
-            pem.AppendLine(base64.Substring(i, Math.Min(64, base64.Length - i)));
-        }
-        pem.AppendLine("-----END PRIVATE KEY-----");
-        return pem.ToString();
-    }
-
-    private static string ExportPublicKeyPem(RSA rsa)
-    {
-        var publicKey = rsa.ExportSubjectPublicKeyInfo();
-        var base64 = Convert.ToBase64String(publicKey);
-        var pem = new StringBuilder();
-        pem.AppendLine("-----BEGIN PUBLIC KEY-----");
-        for (var i = 0; i < base64.Length; i += 64)
-        {
-            pem.AppendLine(base64.Substring(i, Math.Min(64, base64.Length - i)));
-        }
-        pem.AppendLine("-----END PUBLIC KEY-----");
-        return pem.ToString();
-    }
 }

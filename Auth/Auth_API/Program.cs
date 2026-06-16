@@ -16,6 +16,7 @@ using Auth.Infrastructure.Persistence;
 using Auth.Infrastructure.Email;
 using Auth.Infrastructure.Configuration;
 using Auth.Infrastructure.Security;
+using Auth.Shared.Configuration;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Validators;
 using FluentValidation;
@@ -53,7 +54,26 @@ builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(Ses
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(EmailSettings.SectionName));
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
 
-// Data Protection (DPAPI) for encrypting HMAC keys at rest
+// ════════════════════════════════════════════════════════════════════════════
+// Secret Management - choose how the RSA signing key, HMAC key, and gateway token
+// are stored and protected at rest (SecretManagement:StorageMode):
+//   PlainText   -> stored directly in appsettings.Production.json (no encryption)
+//   Certificate -> stored in an encrypted file; key ring protected by an X.509 certificate
+//   Dpapi       -> stored in an encrypted file; key ring protected by Windows DPAPI (default)
+// ════════════════════════════════════════════════════════════════════════════
+
+// Load secret management settings from appsettings
+var secretManagementSettings = builder.Configuration
+    .GetSection(SecretManagementSettings.SectionName)
+    .Get<SecretManagementSettings>() ?? new SecretManagementSettings();
+
+var storageMode = AuthDataProtectionExtensions.ParseStorageMode(secretManagementSettings.StorageMode);
+
+var dpCertificateSettings = builder.Configuration
+    .GetSection(DataProtectionCertificateSettings.SectionName)
+    .Get<DataProtectionCertificateSettings>() ?? new DataProtectionCertificateSettings();
+
+// Data Protection key-ring location (encrypts the secrets file in Certificate/Dpapi modes)
 var dataProtectionKeyPath = builder.Configuration.GetValue<string>("DataProtection:KeyPath");
 if (string.IsNullOrEmpty(dataProtectionKeyPath))
 {
@@ -65,57 +85,84 @@ if (string.IsNullOrEmpty(dataProtectionKeyPath))
 
 builder.Services.AddDataProtection()
     .SetApplicationName("AuthSystem")
-    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
+    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath))
+    .ConfigureKeyProtection(storageMode, dpCertificateSettings);
 
-// ════════════════════════════════════════════════════════════════════════════
-// DPAPI Secret Management - Load centralized secrets and override appsettings
-// ════════════════════════════════════════════════════════════════════════════
+Log.Information("Secret storage mode: {Mode}", storageMode);
 
-// Build temporary service provider to get IDataProtectionProvider
-var tempDpapiServices = new ServiceCollection();
-tempDpapiServices.AddDataProtection()
-    .SetApplicationName("AuthSystem")
-    .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
-var tempDpapiProvider = tempDpapiServices.BuildServiceProvider();
-var dpapiProvider = tempDpapiProvider.GetRequiredService<IDataProtectionProvider>();
-
-// Load secret management settings from appsettings.json
-var secretManagementSettings = builder.Configuration
-    .GetSection(SecretManagementSettings.SectionName)
-    .Get<SecretManagementSettings>() ?? new SecretManagementSettings();
-
-// Add DPAPI secrets to configuration (overrides appsettings.json values)
-builder.Configuration.AddDpapiSecrets(dpapiProvider, secretManagementSettings.SecretFilePath);
-
-// Auto-generate keys on FIRST startup ONLY
-// Keys are generated ONLY if:
-//   1. AutoGenerateKeys is true (default)
-//   2. secrets.dpapi file does NOT exist yet
-// After first startup, the file exists, so keys are loaded (never regenerated)
-if (secretManagementSettings.AutoGenerateKeys && !File.Exists(secretManagementSettings.SecretFilePath))
+if (storageMode == SecretStorageMode.PlainText)
 {
-    Log.Information("First startup detected - auto-generating cryptographic keys...");
+    // Secrets live as plain text in an appsettings file. Generate any missing values on first run.
+    var plainTextResult = PlainTextSecretInitializer.EnsureSecrets(
+        builder.Configuration,
+        builder.Environment.ContentRootPath,
+        secretManagementSettings.AutoGenerateKeys,
+        secretManagementSettings.PlainTextTargetFile);
 
-    var secretService = new DpapiSecretService(
-        dpapiProvider,
-        Options.Create(secretManagementSettings),
-        new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>());
-
-    var keyGenResult = secretService.GenerateMissingKeysAsync(CancellationToken.None).GetAwaiter().GetResult();
-
-    Log.Information("Generated keys: {Keys}", string.Join(", ", keyGenResult.GeneratedKeys));
-
-    if (keyGenResult.PublicKeyPem != null)
+    if (plainTextResult.Generated)
     {
-        Log.Information("JWT Public Key (for external validation):\n{PublicKey}", keyGenResult.PublicKeyPem);
-    }
+        // Inject into the running configuration so this process uses the new values immediately.
+        builder.Configuration.AddInMemoryCollection(plainTextResult.ConfigValues);
 
-    // Rebuild configuration to pick up newly generated secrets
-    builder.Configuration.AddDpapiSecrets(dpapiProvider, secretManagementSettings.SecretFilePath);
+        Log.Information("Generated plain-text secrets: {Keys}", string.Join(", ", plainTextResult.GeneratedKeys));
+
+        if (plainTextResult.PublicKeyPem != null)
+        {
+            Log.Information("JWT Public Key (for external validation):\n{PublicKey}", plainTextResult.PublicKeyPem);
+        }
+
+        if (plainTextResult.PersistError != null)
+        {
+            Log.Warning(
+                "Generated secrets are active for this run but were NOT saved to disk. They will be " +
+                "regenerated on restart (invalidating existing tokens) until this is fixed. {Error}",
+                plainTextResult.PersistError);
+        }
+    }
 }
-else if (File.Exists(secretManagementSettings.SecretFilePath))
+else
 {
-    Log.Debug("Loading existing secrets from {Path}", secretManagementSettings.SecretFilePath);
+    // Certificate / Dpapi: secrets are stored in an encrypted file, decrypted via the key ring.
+    var tempDpapiServices = new ServiceCollection();
+    tempDpapiServices.AddDataProtection()
+        .SetApplicationName("AuthSystem")
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath))
+        .ConfigureKeyProtection(storageMode, dpCertificateSettings);
+    var tempDpapiProvider = tempDpapiServices.BuildServiceProvider();
+    var dpapiProvider = tempDpapiProvider.GetRequiredService<IDataProtectionProvider>();
+
+    // Add encrypted secrets to configuration (overrides appsettings.json values)
+    Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
+        builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath);
+
+    // Auto-generate keys on FIRST startup ONLY (when the secrets file does not yet exist).
+    // After first startup the file exists, so keys are loaded and never regenerated.
+    if (secretManagementSettings.AutoGenerateKeys && !File.Exists(secretManagementSettings.SecretFilePath))
+    {
+        Log.Information("First startup detected - auto-generating cryptographic keys...");
+
+        var secretService = new DpapiSecretService(
+            dpapiProvider,
+            Options.Create(secretManagementSettings),
+            new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>());
+
+        var keyGenResult = secretService.GenerateMissingKeysAsync(CancellationToken.None).GetAwaiter().GetResult();
+
+        Log.Information("Generated keys: {Keys}", string.Join(", ", keyGenResult.GeneratedKeys));
+
+        if (keyGenResult.PublicKeyPem != null)
+        {
+            Log.Information("JWT Public Key (for external validation):\n{PublicKey}", keyGenResult.PublicKeyPem);
+        }
+
+        // Rebuild configuration to pick up newly generated secrets
+        Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
+            builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath);
+    }
+    else if (File.Exists(secretManagementSettings.SecretFilePath))
+    {
+        Log.Debug("Loading existing secrets from {Path}", secretManagementSettings.SecretFilePath);
+    }
 }
 
 // Register SecretManagementSettings
