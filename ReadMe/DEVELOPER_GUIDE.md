@@ -232,13 +232,13 @@ All configuration is in `Auth/Auth_API/appsettings.json`. Below is every section
 ```json
 {
   "Password": {
-    "MinimumLength": 12,
+    "MinimumLength": 6,
     "RequireUppercase": true,
     "RequireLowercase": true,
     "RequireDigit": true,
     "RequireSpecialCharacter": true,
-    "PasswordHistoryCount": 5,
-    "PasswordExpirationDays": 90,
+    "PasswordHistoryCount": 3,
+    "PasswordExpirationDays": 0,
     "MaxFailedAttempts": 5,
     "LockoutDurationMinutes": 15,
     "Argon2": {

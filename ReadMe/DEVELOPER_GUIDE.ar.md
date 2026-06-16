@@ -234,13 +234,13 @@ dotnet run --project Auth/Auth_API -- --generate-rsa-key
 ```json
 {
   "Password": {
-    "MinimumLength": 12,
+    "MinimumLength": 6,
     "RequireUppercase": true,
     "RequireLowercase": true,
     "RequireDigit": true,
     "RequireSpecialCharacter": true,
-    "PasswordHistoryCount": 5,
-    "PasswordExpirationDays": 90,
+    "PasswordHistoryCount": 3,
+    "PasswordExpirationDays": 0,
     "MaxFailedAttempts": 5,
     "LockoutDurationMinutes": 15,
     "Argon2": {
