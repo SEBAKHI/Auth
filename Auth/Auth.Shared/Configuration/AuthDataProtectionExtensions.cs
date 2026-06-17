@@ -22,6 +22,42 @@ public static class AuthDataProtectionExtensions
     }
 
     /// <summary>
+    /// Resolves the directory that holds the ASP.NET Core Data Protection key ring, shared by the
+    /// Auth API and the API Gateway so both apps read and write the SAME ring.
+    /// </summary>
+    /// <param name="configuredPath">
+    /// The configured <c>DataProtection:KeyPath</c> value. When non-empty it is used verbatim.
+    /// </param>
+    /// <returns>The configured path, or a safe machine-wide default when none is configured.</returns>
+    /// <remarks>
+    /// When no path is configured the default is <c>%ProgramData%\AuthSystem\Keys</c>
+    /// (<see cref="Environment.SpecialFolder.CommonApplicationData"/>). This is deliberately NOT
+    /// <see cref="Environment.SpecialFolder.LocalApplicationData"/>: under a Windows Service
+    /// (<c>LocalSystem</c>) or an IIS application pool with no loaded user profile,
+    /// <c>%LOCALAPPDATA%</c> resolves to <c>C:\Windows\System32\config\systemprofile\AppData\Local</c>,
+    /// a directory the process cannot create — producing
+    /// "An error occurred while reading the key ring / Access to the path ... is denied."
+    /// <para>
+    /// The default is also machine-wide rather than per-user, so the two apps share one ring even when
+    /// they run under different identities. On locked-down shared hosting (e.g. IIS/Plesk) the app pool
+    /// may lack write access to <c>%ProgramData%</c>; set <c>DataProtection:KeyPath</c> explicitly to a
+    /// writable folder OUTSIDE the public web root in that case.
+    /// </para>
+    /// </remarks>
+    public static string ResolveKeyRingPath(string? configuredPath)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredPath))
+        {
+            return configuredPath;
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "AuthSystem",
+            "Keys");
+    }
+
+    /// <summary>
     /// Applies key-ring protection to the Data Protection builder according to the storage mode.
     /// <list type="bullet">
     /// <item><see cref="SecretStorageMode.Certificate"/> encrypts the key ring with an X.509 certificate.</item>

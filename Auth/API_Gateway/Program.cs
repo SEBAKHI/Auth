@@ -2,8 +2,11 @@ using System.Threading.RateLimiting;
 using API_Gateway.Middleware;
 using Auth_Localization.Extensions;
 using Auth.Shared.Configuration;
+using Auth.Shared.Diagnostics;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
 using Yarp.ReverseProxy.Transforms;
 
@@ -20,14 +23,11 @@ builder.Host.UseSerilog();
 
 // Configure Data Protection (used to decrypt the shared secrets file in Certificate/Dpapi modes).
 // The storage mode must match the Auth API so both apps read the same gateway token.
-var dataProtectionPath = builder.Configuration["DataProtection:KeyPath"];
-if (string.IsNullOrEmpty(dataProtectionPath))
-{
-    dataProtectionPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AuthSystem",
-        "Keys");
-}
+// Defaults to %ProgramData%\AuthSystem\Keys (machine-wide so it matches the Auth API's ring);
+// see AuthDataProtectionExtensions.ResolveKeyRingPath for why %LOCALAPPDATA% is unsafe under a
+// service / IIS app-pool identity.
+var dataProtectionPath = AuthDataProtectionExtensions.ResolveKeyRingPath(
+    builder.Configuration["DataProtection:KeyPath"]);
 
 var storageMode = AuthDataProtectionExtensions.ParseStorageMode(
     builder.Configuration["SecretManagement:StorageMode"]);
@@ -186,9 +186,43 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddAuthLocalization();
 
 // Health Checks
-var authApiUrl = builder.Configuration["Services:AuthApi:HealthUrl"] ?? "http://localhost:5100/health";
+//   /health -> liveness  (tag "live") : is the gateway process up? No upstream call.
+//   /ready  -> readiness (tag "ready"): can the gateway reach a READY Auth API (DB + signing key)?
+// The readiness probe targets the Auth API's /ready endpoint. Resolve it DEFENSIVELY so a missing or
+// invalid value (e.g. an unreplaced "{{AUTH_API_INTERNAL_URL}}" placeholder) can never crash startup
+// with a UriFormatException (which surfaces as an opaque IIS HTTP 500.30):
+//   1) an explicit, well-formed Services:AuthApi:ReadyUrl, else
+//   2) derive it from a well-formed Services:AuthApi:BaseUrl, else
+//   3) fall back to localhost (the readiness check then fails at runtime instead of stopping the app).
+static bool TryAbsoluteHttpUri(string? value) =>
+    Uri.TryCreate(value, UriKind.Absolute, out var uri)
+    && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+
+var configuredReadyUrl = builder.Configuration["Services:AuthApi:ReadyUrl"];
+var configuredBaseUrl = builder.Configuration["Services:AuthApi:BaseUrl"];
+
+string authApiReadyUrl;
+if (TryAbsoluteHttpUri(configuredReadyUrl))
+{
+    authApiReadyUrl = configuredReadyUrl!;
+}
+else if (TryAbsoluteHttpUri(configuredBaseUrl))
+{
+    authApiReadyUrl = configuredBaseUrl!.TrimEnd('/') + "/ready";
+}
+else
+{
+    authApiReadyUrl = "http://localhost:5100/ready";
+    Log.Warning(
+        "Services:AuthApi:ReadyUrl/BaseUrl are missing or not valid absolute http(s) URLs " +
+        "(ReadyUrl='{ReadyUrl}', BaseUrl='{BaseUrl}'). Using {Fallback} for the readiness probe; " +
+        "set Services:AuthApi:BaseUrl in appsettings.Production.json.",
+        configuredReadyUrl, configuredBaseUrl, authApiReadyUrl);
+}
+
 builder.Services.AddHealthChecks()
-    .AddUrlGroup(new Uri(authApiUrl), name: "auth-api", tags: ["ready"]);
+    .AddCheck("self", () => HealthCheckResult.Healthy("API Gateway process is running."), tags: ["live"])
+    .AddUrlGroup(new Uri(authApiReadyUrl), name: "auth-api", tags: ["ready"]);
 
 // CORS
 builder.Services.AddCors(options =>
@@ -243,11 +277,27 @@ app.UseHttpsRedirection();
 app.UseCors();
 app.UseRateLimiter();
 
-// Health endpoints
-app.MapHealthChecks("/health");
-app.MapHealthChecks("/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+// Health endpoints (detailed JSON breakdown per check).
+// Exception messages are included only in Development, or when HealthChecks:ExposeErrorDetails is
+// explicitly enabled, because these endpoints are publicly reachable and could leak internal info.
+var exposeHealthErrors = app.Environment.IsDevelopment()
+    || app.Configuration.GetValue("HealthChecks:ExposeErrorDetails", false);
+
+Task WriteHealthResponse(HttpContext httpContext, HealthReport report)
 {
-    Predicate = check => check.Tags.Contains("ready")
+    httpContext.Response.ContentType = "application/json; charset=utf-8";
+    return httpContext.Response.WriteAsync(HealthCheckJsonFormatter.Serialize(report, exposeHealthErrors));
+}
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = WriteHealthResponse
+});
+app.MapHealthChecks("/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse
 });
 
 // Gateway info endpoint

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common.HealthChecks;
 using Auth_API.Common.Middleware;
 using Auth_API.Tools;
 using Auth.Application.Interfaces;
@@ -17,6 +18,7 @@ using Auth.Infrastructure.Email;
 using Auth.Infrastructure.Configuration;
 using Auth.Infrastructure.Security;
 using Auth.Shared.Configuration;
+using Auth.Shared.Diagnostics;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Validators;
 using FluentValidation;
@@ -24,8 +26,10 @@ using MediatR;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
@@ -73,15 +77,11 @@ var dpCertificateSettings = builder.Configuration
     .GetSection(DataProtectionCertificateSettings.SectionName)
     .Get<DataProtectionCertificateSettings>() ?? new DataProtectionCertificateSettings();
 
-// Data Protection key-ring location (encrypts the secrets file in Certificate/Dpapi modes)
-var dataProtectionKeyPath = builder.Configuration.GetValue<string>("DataProtection:KeyPath");
-if (string.IsNullOrEmpty(dataProtectionKeyPath))
-{
-    dataProtectionKeyPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "AuthSystem",
-        "Keys");
-}
+// Data Protection key-ring location (encrypts the secrets file in Certificate/Dpapi modes).
+// Defaults to %ProgramData%\AuthSystem\Keys; see AuthDataProtectionExtensions.ResolveKeyRingPath
+// for why %LOCALAPPDATA% is unsafe under a service / IIS app-pool identity.
+var dataProtectionKeyPath = AuthDataProtectionExtensions.ResolveKeyRingPath(
+    builder.Configuration.GetValue<string>("DataProtection:KeyPath"));
 
 builder.Services.AddDataProtection()
     .SetApplicationName("AuthSystem")
@@ -403,8 +403,17 @@ builder.Services.AddOpenApi("v1", options =>
 });
 
 // Health Checks
+//   /health -> liveness  (tag "live") : is the process up? No external dependencies, so a
+//                                       transient DB/secret outage never triggers a restart.
+//   /ready  -> readiness (tag "ready"): can we actually serve auth requests? Database reachable
+//                                       AND the JWT signing key is loaded.
 builder.Services.AddHealthChecks()
-    .AddSqlServer(connectionString, name: "database", tags: ["ready"]);
+    .AddCheck("self", () => HealthCheckResult.Healthy("Auth API process is running."), tags: ["live"])
+    .AddSqlServer(connectionString, name: "database", tags: ["ready"])
+    .AddTypeActivatedCheck<SigningKeyHealthCheck>(
+        "signing-key",
+        failureStatus: HealthStatus.Unhealthy,
+        tags: ["ready"]);
 
 // CORS - configured per environment (OWASP A02: Security Misconfiguration)
 var corsSettings = builder.Configuration.GetSection("Cors");
@@ -493,11 +502,27 @@ app.UseAuthentication();
 app.UseMiddleware<JwtBlacklistValidationMiddleware>();
 app.UseAuthorization();
 
-// Health check endpoints
-app.MapHealthChecks("/health");
-app.MapHealthChecks("/ready", new Microsoft.AspNetCore.Diagnostics.HealthChecks.HealthCheckOptions
+// Health check endpoints (detailed JSON breakdown per check).
+// Exception messages are included only in Development, or when HealthChecks:ExposeErrorDetails is
+// explicitly enabled, because these endpoints are publicly reachable and could leak internal info.
+var exposeHealthErrors = app.Environment.IsDevelopment()
+    || app.Configuration.GetValue("HealthChecks:ExposeErrorDetails", false);
+
+Task WriteHealthResponse(HttpContext httpContext, HealthReport report)
 {
-    Predicate = check => check.Tags.Contains("ready")
+    httpContext.Response.ContentType = "application/json; charset=utf-8";
+    return httpContext.Response.WriteAsync(HealthCheckJsonFormatter.Serialize(report, exposeHealthErrors));
+}
+
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = WriteHealthResponse
+});
+app.MapHealthChecks("/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = WriteHealthResponse
 });
 
 app.MapControllers();
