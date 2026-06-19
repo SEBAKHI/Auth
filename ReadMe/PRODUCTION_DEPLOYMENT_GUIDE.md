@@ -64,15 +64,15 @@ and a **gateway token**. One setting decides how they're protected at rest:
 
 | Mode | Where keys live | Protected by | Portable to another server? | Best for |
 |---|---|---|---|---|
-| **`PlainText`** *(default)* | `appsettings.Production.json` (readable) | File permissions only | ✅ Copy the file | Quick start; you trust the file system |
+| **`PlainText`** | `appsettings.Production.json` (readable) | File permissions only | ✅ Copy the file | Quick start; you trust the file system |
 | **`Certificate`** | Encrypted `secrets.dpapi` | An X.509 cert **you own** | ✅ Carry `.pfx` + key ring + file | **Shared hosting**; servers that may move |
 | **`Dpapi`** | Encrypted `secrets.dpapi` | Windows DPAPI (this machine) | ❌ Breaks if the host moves you | A Windows box you fully control |
 
 Setup steps for each mode are in [Reference §A](#a-storage-mode-setup). Pick one now; you can't switch
 painlessly later (switching regenerates keys and logs everyone out).
 
-> **First startup auto-generates the keys** for *all three* modes (when `AutoGenerateKeys: true`,
-> the default). You never run a key-gen command. PlainText writes them into
+> **First startup auto-generates the keys** for *all three* modes (when `AutoGenerateKeys: true`)
+>You never run a key-gen command. PlainText writes them into
 > `appsettings.Production.json`; Certificate/Dpapi write the encrypted `secrets.dpapi`.
 
 ## 3. How config and secrets are read
@@ -194,7 +194,7 @@ dotnet publish Auth/Auth_API/Auth_API.csproj -c Release -o ./publish/auth-api
 
 This produces the DLLs, the `appsettings*.json` files, the translations, and a **`web.config`**.
 
-**Set the environment to Production** in the published `web.config`:
+**Set the environment to Production** in `web.config`:
 
 ```xml
 <aspNetCore processPath="dotnet" arguments=".\Auth_API.dll" hostingModel="inprocess">
@@ -204,6 +204,16 @@ This produces the DLLs, the `appsettings*.json` files, the translations, and a *
   </environmentVariables>
 </aspNetCore>
 ```
+
+> **Make sure** `web.config` is a **source file in the project** (kept out of source control — it
+> holds secrets) rather than something you hand-edit on the server after every deploy. The publish
+> keeps your `<environmentVariables>` and only rewrites `processPath`/`arguments`. If you edit only
+> the *deployed* copy, the next publish overwrites it and the app loses its env vars.
+>
+> **Attention (Certificate/Dpapi mode):** **each** app needs `AUTH_DP_CERT_PASSWORD` in **its own**
+> `web.config` — the Gateway loads the same `.pfx` as the API. A missing variable on the Gateway side
+> is the classic cause of a Gateway-only `HTTP 500.30` while the API runs fine.
+
 
 **Deploy:**
 * **Shared hosting (Plesk/IIS):** create the site/subdomain, upload everything from
@@ -216,6 +226,17 @@ This produces the DLLs, the `appsettings*.json` files, the translations, and a *
 secrets"* (PlainText) or *"auto-generating cryptographic keys"* (Certificate/Dpapi), plus the
 public key (safe to share). A permission/path error means the write target isn't writable — fix it
 and restart ([Reference §A](#a-storage-mode-setup)).
+
+> ### ⚠️ CAUTION — don't let the second publish wipe your keys
+> The keys are generated **on the server on first run** and (Certificate/Dpapi) live in the
+> `secrets` folder, not in your repo. A careless **re-publish** can destroy them — invalidating every
+> token, logging out all users, and desyncing the gateway token. The durable fix is architectural,
+> not a checkbox you must remember: **keep the `secrets` folder OUTSIDE the publish destination**
+> (a sibling of the site root, not under it). Then Visual Studio's *"Remove extra files in
+> destination"* can stay **on** safely, and `secrets.dpapi` / the key ring are never in the wipe path.
+> Set `AutoGenerateKeys` back to **`false`** after the first run so that, if secrets ever *do* go
+> missing, the app **fails loudly instead of silently minting new keys**. Full procedure and the
+> fallback for when `secrets` must live inside the deploy folder: [Reference §E](#e-first-publish-vs-every-publish-after-dont-wipe-your-keys).
 
 ## Phase 5 — (Optional) API Gateway
 
@@ -240,7 +261,20 @@ The Gateway must send the same `X-Gateway-Token` the API expects, and use the **
   `DataProtection:KeyPath`, `SecretManagement:SecretFilePath` (and certificate settings) at the
   **same** locations the API uses — both then read the token automatically.
 
-Publish and deploy as its own subdomain (`auth.<yourdomain>.com`), same as the API:
+> **Make sure (Certificate/Dpapi):** the Gateway needs its **own** `web.config` carrying
+> `AUTH_DP_CERT_PASSWORD` (same value as the API's) — without it the Gateway can't open the `.pfx`
+> and dies with `HTTP 500.30` even though the API is healthy. The API and Gateway can share **one**
+> secrets folder: on IIS/Plesk the app-pool identity can read across sibling subdomain folders, so
+> point both at a single folder (the API's) instead of keeping two copies — one source of truth, and
+> it survives key-ring rotation. Grant the API **Modify** and the Gateway **Read** on that folder.
+
+> **Note:** the Gateway's readiness probe derives from `Services:AuthApi:BaseUrl` (it appends
+> `/ready`). Set `BaseUrl` to the API's real URL; leave `Services:AuthApi:ReadyUrl` empty unless
+> `/ready` lives on a different host. A leftover `{{…}}` placeholder there is ignored (it used to
+> crash startup with a `UriFormatException` → 500.30).
+
+Publish and deploy as its own subdomain (`auth.<yourdomain>.com`), same as the API. **The same
+first-publish vs. every-publish-after rules apply** ([Reference §E](#e-first-publish-vs-every-publish-after-dont-wipe-your-keys)):
 
 ```bash
 dotnet publish Auth/API_Gateway/API_Gateway.csproj -c Release -o ./publish/gateway
@@ -293,7 +327,7 @@ tokens/API-keys without sharing any private key. Quickest: reference the project
 All modes auto-generate the keys on first start. They differ only in *where* keys live and *how*
 they're protected. **The Gateway must use the same mode as the API.**
 
-### PlainText (default)
+### PlainText
 
 Keys are written into `appsettings.Production.json` on first start. No certificate, no extra files.
 
@@ -356,6 +390,13 @@ To rotate the cert, set the new one as `PfxPath` and list the old under
 > **not** fall back to the `Password` field. A missing/misspelled variable makes the password
 > resolve to `null`, and startup fails with *"Failed to load the Data Protection certificate … the
 > password is correct."* Fix the variable, or clear `PasswordEnvironmentVariable` to use `Password`.
+
+> **Note — one shared folder, not two copies.** The API and Gateway must use the **same** cert, key
+> ring, and `secrets.dpapi`. On IIS/Plesk the app-pool identity can read across sibling subdomain
+> folders, so point **both** apps' `KeyPath` + `SecretFilePath` at a **single** folder (the API's) —
+> don't copy the folder into each subdomain. One source of truth means key-ring rotation never
+> desyncs them. The API needs **Modify** on that folder (it writes/rotates keys); the Gateway needs
+> only **Read**. **Each app still needs `AUTH_DP_CERT_PASSWORD` in its own `web.config`.**
 
 ### Dpapi (Windows-only, zero setup)
 
@@ -455,9 +496,61 @@ The app reads env vars two ways: generic settings use `__` (`ConnectionStrings__
 | Startup error about CORS | `Cors:AllowedOrigins` empty or `*` in production | List explicit `https://…` origins |
 | "Failed to decrypt … different machine" | DPAPI file/keys from another machine | Keep API+Gateway on one machine, or delete the secret files to regenerate (logs everyone out) |
 | "Failed to load the Data Protection certificate" | Wrong/missing `AUTH_DP_CERT_PASSWORD` or `.pfx` | Set the env var correctly; verify the `.pfx` path/password |
+| Gateway 500.30 while the API is healthy (Certificate/Dpapi) | The **Gateway's own** `web.config` is missing `AUTH_DP_CERT_PASSWORD`, so it can't open the `.pfx` | Add the same `AUTH_DP_CERT_PASSWORD` to the Gateway's `web.config` (it's a separate file from the API's) |
+| Tokens suddenly invalid / everyone logged out after a deploy | A re-publish wiped/overwrote `secrets.dpapi` (or the PlainText keys) and they regenerated | Don't wipe the `secrets` folder on republish; keep it outside the deploy target and `AutoGenerateKeys=false` ([§E](#e-first-publish-vs-every-publish-after-dont-wipe-your-keys)) |
 | Login `User.InvalidCredentials` for admin | Admin hash still the placeholder | Redo Phase 2 step 3 |
 | Generated keys not saved (PlainText/Cert) | Write target not writable | Fix write permission on the appsettings file / secrets folder, restart |
 | Production using dev settings | `ASPNETCORE_ENVIRONMENT` not `Production` | Set it in `web.config` / host settings |
+
+## E. First publish vs. every publish after (don't wipe your keys)
+
+Two publish settings are **safe on the first deploy and dangerous on every one after**, because the
+keys are generated **on the server**, not in your repo:
+
+| Setting | Where | First (clean) publish | Every publish after |
+|---|---|---|---|
+| **Remove extra files in destination** (`<DeleteExistingFiles>` in the `.pubxml`) | VS publish profile | On — start from a clean folder | **Off** *(or keep on — see below)* |
+| **`AutoGenerateKeys`** | `appsettings.Production.json` | `true` — mint the keys | **`false`** — never regenerate |
+
+**Why it bites:** "Remove extra files" deletes anything in the destination not in the publish output.
+If your `secrets` folder (key ring + `secrets.dpapi`) sits **inside** that destination it gets
+deleted, and with `AutoGenerateKeys=true` the app then **silently mints new keys** on next start —
+every existing token dies and the gateway token desyncs. In PlainText the same happens *without* the
+wipe, because `appsettings.Production.json` is itself part of the publish and overwrites the server's
+key-populated copy.
+
+### The robust layout (recommended) — remove the foot-gun instead of documenting it
+
+Put the `secrets` folder **OUTSIDE the publish destination** (a sibling of the site root, not under
+it). Then:
+
+* **Remove extra files can stay ON** every publish — it can't reach `secrets`, and you still get
+  clean deploys (no orphaned DLLs).
+* Set **`AutoGenerateKeys=false`** after the first run, permanently. It then acts as a **fail-loud
+  fuse**: if secrets ever go missing the app refuses to start instead of quietly rotating keys.
+* Nothing depends on a human remembering a checkbox months later.
+
+### First clean publish — ordered, no skipping
+
+1. **(Certificate mode only)** Create `dp-cert.pfx`, place it in the `secrets` folder, and set
+   `AUTH_DP_CERT_PASSWORD` (§A) — the app **won't start** without it.
+2. In `appsettings.Production.json`, set the secrets/key-ring paths (`SecretFilePath`,
+   `DataProtection:KeyPath`) and `AutoGenerateKeys: true`.
+3. Ensure `web.config` is a **source** file (gitignored) carrying the env vars — `ASPNETCORE_ENVIRONMENT`,
+   `AUTH_DP_CERT_PASSWORD`, any `__` overrides — so publishing preserves them.
+4. **Auth API:** enable *Remove extra files in destination*, publish.
+5. Hit the API once; confirm the log shows keys generated, grab the public key, and **back up all
+   three**: `.pfx`, key ring, `secrets.dpapi` (losing the `.pfx` is unrecoverable).
+6. **PlainText only:** copy the API's generated `Gateway:ExpectedToken` into the Gateway's
+   `Gateway:Token`. (Certificate/Dpapi: skip — the Gateway reads it from the shared `secrets.dpapi`.)
+7. **Gateway:** point its paths at the **same** `secrets` folder, put `AUTH_DP_CERT_PASSWORD` in
+   **its own** `web.config`, enable *Remove extra files*, publish.
+8. Verify `/ready` on both, then do one real login through the Gateway.
+
+**Then immediately:** set `AutoGenerateKeys` back to **`false`** (re-publish that one file). If you
+could **not** move `secrets` outside the deploy target, also turn **off** *Remove extra files in
+destination* in both publish profiles — that checkbox is then the only thing between a routine deploy
+and a full key wipe.
 
 ---
 
