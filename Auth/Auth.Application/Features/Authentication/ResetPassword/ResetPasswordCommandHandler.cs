@@ -21,6 +21,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IUserSessionRepository _userSessionRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
+    private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
@@ -32,6 +33,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IUserSessionRepository userSessionRepository,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
+        IPasswordBreachEvaluator breachEvaluator,
         IOptions<PasswordSettings> passwordSettings,
         IOptions<SessionSettings> sessionSettings,
         ILogger<ResetPasswordCommandHandler> logger)
@@ -42,6 +44,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _userSessionRepository = userSessionRepository;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
+        _breachEvaluator = breachEvaluator;
         _passwordSettings = passwordSettings.Value;
         _sessionSettings = sessionSettings.Value;
         _logger = logger;
@@ -92,6 +95,13 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         if (passwordValidation.IsError)
         {
             return passwordValidation.Errors;
+        }
+
+        // Breached-password policy (no-op when disabled; may warn-and-allow or reject)
+        var breachResult = await _breachEvaluator.EvaluateAsync(request.NewPassword, cancellationToken);
+        if (breachResult.IsError)
+        {
+            return breachResult.Errors;
         }
 
         // Check password history to prevent reuse

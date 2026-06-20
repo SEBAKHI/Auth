@@ -54,6 +54,19 @@ public class SecretConfiguration
     public string? GatewayToken { get; set; }
 
     /// <summary>
+    /// Argon2id password pepper(s) (base64), keyed by key id. Mirrors the model in
+    /// Auth.Application; both deserialize the same secret file. Mapped to configuration as
+    /// <c>Password:Pepper:Keys:{id}</c>.
+    /// </summary>
+    public Dictionary<int, string> PasswordPeppers { get; set; } = new();
+
+    /// <summary>
+    /// The id of the pepper used to hash NEW passwords. 0 means none. Mapped to configuration as
+    /// <c>Password:Pepper:CurrentKeyId</c>.
+    /// </summary>
+    public int PasswordPepperCurrentKeyId { get; set; }
+
+    /// <summary>
     /// Connection strings that contain sensitive credentials.
     /// </summary>
     public SecretConnectionStrings ConnectionStrings { get; set; } = new();

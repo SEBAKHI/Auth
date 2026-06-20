@@ -50,6 +50,7 @@ public class ResetPasswordCommandHandlerTests
             _userSessionRepositoryMock.Object,
             _passwordHasherMock.Object,
             _passwordValidator,
+            TestHelpers.CreatePassingBreachEvaluator(),
             TestHelpers.CreateOptions(_passwordSettings),
             TestHelpers.CreateOptions(_sessionSettings),
             _loggerMock.Object);

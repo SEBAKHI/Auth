@@ -123,6 +123,24 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
             Data["ConnectionStrings:AuthDb"] = secrets.ConnectionStrings.AuthDb;
         }
 
+        // Argon2id password pepper(s) -> Password:Pepper:Keys:{id} (+ current key id).
+        // The Password:Pepper:Enabled toggle stays in appsettings; only the key material is secret-managed.
+        if (secrets.PasswordPeppers is { Count: > 0 })
+        {
+            foreach (var (id, value) in secrets.PasswordPeppers)
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    Data[$"Password:Pepper:Keys:{id}"] = value;
+                }
+            }
+
+            if (secrets.PasswordPepperCurrentKeyId > 0)
+            {
+                Data["Password:Pepper:CurrentKeyId"] = secrets.PasswordPepperCurrentKeyId.ToString();
+            }
+        }
+
         // Custom secrets under Secrets:Custom:* namespace
         foreach (var (key, value) in secrets.Custom)
         {

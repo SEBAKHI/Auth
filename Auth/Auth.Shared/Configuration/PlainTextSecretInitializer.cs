@@ -105,6 +105,17 @@ public static class PlainTextSecretInitializer
     }
 
     /// <summary>
+    /// Persists the given flattened configuration values into the target appsettings file,
+    /// preserving existing content. Returns an error message on failure, or <c>null</c> on success.
+    /// Used to provision an individual secret (e.g. the password pepper) on demand.
+    /// </summary>
+    public static string? Persist(
+        string contentRootPath,
+        string targetFile,
+        Dictionary<string, string?> values)
+        => PersistToFile(contentRootPath, targetFile, values);
+
+    /// <summary>
     /// Writes the generated values into the target appsettings file, preserving existing content.
     /// Returns an error message on failure, or <c>null</c> on success.
     /// </summary>

@@ -71,6 +71,14 @@ public static class UserErrors
         code: "User.PasswordTooWeak",
         description: "The password does not meet the complexity requirements.");
 
+    public static Error PasswordBreached => Error.Validation(
+        code: "User.PasswordBreached",
+        description: "This password has appeared in a known data breach. Please choose a different password.");
+
+    public static Error PasswordBreachCheckUnavailable => Error.Failure(
+        code: "User.PasswordBreachCheckUnavailable",
+        description: "The password security check is temporarily unavailable. Please try again later.");
+
     public static Error CannotDeleteSystemUser => Error.Forbidden(
         code: "User.CannotDeleteSystemUser",
         description: "System users cannot be deleted.");

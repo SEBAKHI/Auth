@@ -4,11 +4,13 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common.Filters;
 using Auth_API.Common.HealthChecks;
 using Auth_API.Common.Middleware;
 using Auth_API.Tools;
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Application.Security;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Infrastructure;
 using Auth.Infrastructure.Authentication;
@@ -206,6 +208,63 @@ builder.Services.AddScoped<IWebhookKeyRepository, WebhookKeyRepository>();
 // Domain Event Dispatcher
 builder.Services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
 
+// ════════════════════════════════════════════════════════════════════════════
+// Password pepper (Argon2id KnownSecret): ensure material exists when peppering is enabled.
+// The pepper is required-when-enabled and safe to create on demand (it never invalidates tokens),
+// so it is provisioned here independently of AutoGenerateKeys, covering fresh AND existing
+// deployments. Running with an ephemeral pepper would lock out users on restart, so persistence
+// failure is fatal.
+// ════════════════════════════════════════════════════════════════════════════
+if (builder.Configuration.GetValue<bool>("Password:Pepper:Enabled")
+    && string.IsNullOrEmpty(builder.Configuration["Password:Pepper:CurrentKeyId"]))
+{
+    var pepperValue = Auth.Shared.Configuration.KeyMaterialGenerator.GeneratePepperBase64();
+    var pepperConfig = new Dictionary<string, string?>
+    {
+        ["Password:Pepper:Keys:1"] = pepperValue,
+        ["Password:Pepper:CurrentKeyId"] = "1"
+    };
+
+    if (storageMode == SecretStorageMode.PlainText)
+    {
+        var pepperPersistError = Auth.Shared.Configuration.PlainTextSecretInitializer.Persist(
+            builder.Environment.ContentRootPath,
+            secretManagementSettings.PlainTextTargetFile,
+            pepperConfig);
+
+        if (pepperPersistError != null)
+        {
+            throw new InvalidOperationException(
+                $"Password peppering is enabled but the generated pepper could not be persisted: {pepperPersistError}. " +
+                "Refusing to start with an ephemeral pepper (it would lock out all users on restart).");
+        }
+    }
+    else
+    {
+        // Certificate / Dpapi: persist into the encrypted secret file using the same key ring.
+        var tempPepperServices = new ServiceCollection();
+        tempPepperServices.AddDataProtection()
+            .SetApplicationName("AuthSystem")
+            .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath))
+            .ConfigureKeyProtection(storageMode, dpCertificateSettings);
+        var pepperDpProvider = tempPepperServices.BuildServiceProvider()
+            .GetRequiredService<IDataProtectionProvider>();
+
+        var pepperSecretService = new DpapiSecretService(
+            pepperDpProvider,
+            Options.Create(secretManagementSettings),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>.Instance);
+
+        var pepperSecrets = pepperSecretService.LoadSecretsAsync(CancellationToken.None).GetAwaiter().GetResult();
+        pepperSecrets.PasswordPeppers[1] = pepperValue;
+        pepperSecrets.PasswordPepperCurrentKeyId = 1;
+        pepperSecretService.SaveSecretsAsync(pepperSecrets, CancellationToken.None).GetAwaiter().GetResult();
+    }
+
+    builder.Configuration.AddInMemoryCollection(pepperConfig);
+    Log.Information("Generated and persisted Argon2id password pepper (peppering enabled).");
+}
+
 // Services
 // Create password hasher first (needed for JwtTokenService and TotpService)
 var passwordSettings = builder.Configuration.GetSection(PasswordSettings.SectionName).Get<PasswordSettings>()
@@ -238,6 +297,29 @@ builder.Services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
+
+// Breached-password policy. Request-scoped warning sink + evaluator are always registered (cheap);
+// the actual checker is HIBP only when enabled, otherwise a no-op with NO HttpClient registered.
+builder.Services.AddScoped<IPasswordWarningContext, PasswordWarningContext>();
+builder.Services.AddScoped<IPasswordBreachEvaluator, PasswordBreachEvaluator>();
+
+var breachSettings = builder.Configuration
+    .GetSection(BreachedPasswordCheckSettings.SectionName)
+    .Get<BreachedPasswordCheckSettings>() ?? new BreachedPasswordCheckSettings();
+
+if (breachSettings.Enabled)
+{
+    builder.Services.AddHttpClient<IBreachedPasswordChecker, HibpBreachedPasswordChecker>(client =>
+    {
+        client.BaseAddress = new Uri("https://api.pwnedpasswords.com/");
+        client.Timeout = TimeSpan.FromMilliseconds(breachSettings.TimeoutMs);
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("AuthSystem-PwnedPasswords/1.0");
+    });
+}
+else
+{
+    builder.Services.AddSingleton<IBreachedPasswordChecker, NullBreachedPasswordChecker>();
+}
 
 // External Authentication
 builder.Services.AddSingleton<IExternalAuthProvider, GoogleAuthProvider>();
@@ -273,7 +355,11 @@ builder.Services.AddValidatorsFromAssemblyContaining<PasswordValidator>();
 builder.Services.AddAuthLocalization();
 
 // Controllers with JSON options
-builder.Services.AddControllers()
+builder.Services.AddControllers(options =>
+    {
+        // Surfaces non-blocking password warnings (Warn mode) as an X-Password-Warning response header.
+        options.Filters.Add<PasswordWarningResultFilter>();
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;

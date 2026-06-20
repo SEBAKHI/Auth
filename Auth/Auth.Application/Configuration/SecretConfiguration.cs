@@ -54,6 +54,20 @@ public class SecretConfiguration
     public string? GatewayToken { get; set; }
 
     /// <summary>
+    /// Argon2id password pepper(s) (base64), keyed by key id. The pepper is a server-side secret
+    /// mixed into every password hash via <c>Argon2id.KnownSecret</c>. Multiple ids are retained so
+    /// that hashes produced with an older pepper still verify until they are transparently rehashed
+    /// on next login (rotation). Mapped to configuration as <c>Password:Pepper:Keys:{id}</c>.
+    /// </summary>
+    public Dictionary<int, string> PasswordPeppers { get; set; } = new();
+
+    /// <summary>
+    /// The id of the pepper used to hash NEW passwords. 0 means none. Mapped to configuration as
+    /// <c>Password:Pepper:CurrentKeyId</c>.
+    /// </summary>
+    public int PasswordPepperCurrentKeyId { get; set; }
+
+    /// <summary>
     /// Connection strings that contain sensitive credentials.
     /// </summary>
     public SecretConnectionStrings ConnectionStrings { get; set; } = new();

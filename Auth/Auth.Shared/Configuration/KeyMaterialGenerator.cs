@@ -14,6 +14,7 @@ public static class KeyMaterialGenerator
     private const int RsaKeySizeBits = 2048;
     private const int HmacKeySizeBytes = 32;     // 256-bit HMAC-SHA256 key
     private const int GatewayTokenSizeBytes = 32; // 256-bit gateway token
+    private const int PepperSizeBytes = 32;       // 256-bit Argon2id pepper (KnownSecret)
 
     /// <summary>
     /// Generates a new RSA-2048 key pair and returns both keys in PEM format.
@@ -39,6 +40,14 @@ public static class KeyMaterialGenerator
     public static string GenerateGatewayToken()
     {
         return Convert.ToBase64String(RandomNumberGenerator.GetBytes(GatewayTokenSizeBytes));
+    }
+
+    /// <summary>
+    /// Generates a new 256-bit Argon2id pepper (KnownSecret) encoded as base64.
+    /// </summary>
+    public static string GeneratePepperBase64()
+    {
+        return Convert.ToBase64String(RandomNumberGenerator.GetBytes(PepperSizeBytes));
     }
 
     /// <summary>

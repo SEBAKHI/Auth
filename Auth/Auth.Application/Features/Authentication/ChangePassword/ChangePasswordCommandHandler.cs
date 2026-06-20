@@ -20,6 +20,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
     private readonly IUserSessionRepository _userSessionRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
+    private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
@@ -31,6 +32,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         IUserSessionRepository userSessionRepository,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
+        IPasswordBreachEvaluator breachEvaluator,
         IDomainEventDispatcher eventDispatcher,
         IOptions<PasswordSettings> passwordSettings,
         IOptions<SessionSettings> sessionSettings,
@@ -41,6 +43,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         _userSessionRepository = userSessionRepository;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
+        _breachEvaluator = breachEvaluator;
         _eventDispatcher = eventDispatcher;
         _passwordSettings = passwordSettings.Value;
         _sessionSettings = sessionSettings.Value;
@@ -72,6 +75,13 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         if (passwordValidation.IsError)
         {
             return passwordValidation.Errors;
+        }
+
+        // Breached-password policy (no-op when disabled; may warn-and-allow or reject)
+        var breachResult = await _breachEvaluator.EvaluateAsync(request.NewPassword, cancellationToken);
+        if (breachResult.IsError)
+        {
+            return breachResult.Errors;
         }
 
         // Check password history to prevent reuse

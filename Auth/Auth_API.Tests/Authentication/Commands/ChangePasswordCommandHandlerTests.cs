@@ -49,6 +49,7 @@ public class ChangePasswordCommandHandlerTests
             _userSessionRepositoryMock.Object,
             _passwordHasherMock.Object,
             _passwordValidator,
+            TestHelpers.CreatePassingBreachEvaluator(),
             _eventDispatcherMock.Object,
             TestHelpers.CreateOptions(_passwordSettings),
             TestHelpers.CreateOptions(_sessionSettings),

@@ -1,7 +1,10 @@
 using Auth.Application.Configuration;
+using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
+using ErrorOr;
 using Microsoft.Extensions.Options;
+using Moq;
 
 namespace Auth_API.Tests.Helpers;
 
@@ -738,6 +741,18 @@ public static class TestHelpers
     /// </summary>
     public static IOptions<T> CreateOptions<T>(T value) where T : class
         => Options.Create(value);
+
+    /// <summary>
+    /// Creates an <see cref="IPasswordBreachEvaluator"/> that always allows the password
+    /// (the breached-password check disabled / no-op), for handler tests not exercising that policy.
+    /// </summary>
+    public static IPasswordBreachEvaluator CreatePassingBreachEvaluator()
+    {
+        var mock = new Mock<IPasswordBreachEvaluator>();
+        mock.Setup(x => x.EvaluateAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
+        return mock.Object;
+    }
 
     /// <summary>
     /// Creates test PasswordSettings with sensible defaults.

@@ -40,6 +40,7 @@ public class CreateUserCommandHandlerTests
             _permissionRepositoryMock.Object,
             _passwordHasherMock.Object,
             _passwordValidator,
+            TestHelpers.CreatePassingBreachEvaluator(),
             _eventDispatcherMock.Object,
             _loggerMock.Object);
     }

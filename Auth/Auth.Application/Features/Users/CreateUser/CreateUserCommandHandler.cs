@@ -19,6 +19,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
     private readonly IPermissionRepository _permissionRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
+    private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<CreateUserCommandHandler> _logger;
 
@@ -28,6 +29,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         IPermissionRepository permissionRepository,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
+        IPasswordBreachEvaluator breachEvaluator,
         IDomainEventDispatcher eventDispatcher,
         ILogger<CreateUserCommandHandler> logger)
     {
@@ -36,6 +38,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         _permissionRepository = permissionRepository;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
+        _breachEvaluator = breachEvaluator;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -53,6 +56,13 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         if (passwordValidation.IsError)
         {
             return passwordValidation.Errors;
+        }
+
+        // Breached-password policy (no-op when disabled; may warn-and-allow or reject)
+        var breachResult = await _breachEvaluator.EvaluateAsync(request.Password, cancellationToken);
+        if (breachResult.IsError)
+        {
+            return breachResult.Errors;
         }
 
         // Hash password

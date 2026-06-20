@@ -19,6 +19,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
+    private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
     private readonly IMediator _mediator;
     private readonly ILogger<RegisterCommandHandler> _logger;
@@ -27,6 +28,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         IUserRepository userRepository,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
+        IPasswordBreachEvaluator breachEvaluator,
         IPersonalOrganizationCreator personalOrganizationCreator,
         IMediator mediator,
         ILogger<RegisterCommandHandler> logger)
@@ -34,6 +36,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         _userRepository = userRepository;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
+        _breachEvaluator = breachEvaluator;
         _personalOrganizationCreator = personalOrganizationCreator;
         _mediator = mediator;
         _logger = logger;
@@ -54,6 +57,13 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         if (passwordValidation.IsError)
         {
             return passwordValidation.Errors;
+        }
+
+        // Breached-password policy (no-op when disabled; may warn-and-allow or reject)
+        var breachResult = await _breachEvaluator.EvaluateAsync(request.Password, cancellationToken);
+        if (breachResult.IsError)
+        {
+            return breachResult.Errors;
         }
 
         // Hash password
