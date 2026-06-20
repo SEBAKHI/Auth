@@ -1675,8 +1675,10 @@ BEGIN
     INSERT INTO [dbo].[Users]
     ([Id], [Username], [Email], [NormalizedEmail], [PasswordHash], [FirstName], [LastName], [PreferredLanguage], [TimeZone], [IsEmailConfirmed], [Status], [MustChangePassword], [CreatedAt], [CreatedBy])
     VALUES
-    (@AdminUserId, N'admin', N'admin@company.com', N'ADMIN@COMPANY.COM', N'$argon2id$v=19$m=65536,t=3,p=4$c2FsdHNhbHRzYWx0c2FsdA$PLACEHOLDER_HASH_UPDATE_ON_FIRST_RUN', N'System', N'Administrator', N'en', N'UTC', 1, 1, 1, GETUTCDATE(), @SystemUserId);
-    PRINT 'Created admin user (password must be set via application)';
+    -- Working Argon2id hash for the default password 'Admin@123!' (current OWASP params m=19456,t=2,p=1).
+    -- MustChangePassword = 1 forces a change on first login. Unpeppered: upgraded automatically if peppering is enabled.
+    (@AdminUserId, N'admin', N'admin@company.com', N'ADMIN@COMPANY.COM', N'$argon2id$v=19$m=19456,t=2,p=1$NoKP1nsfZyPf3Hp_V4IHww$_zyvdZiGmyfs87h7_q2f3A.VzxgOfnKVmL5doZ3Kz5Y', N'System', N'Administrator', N'en', N'UTC', 1, 1, 1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created admin user (default password Admin@123! - must be changed on first login)';
 END
 
 IF NOT EXISTS (SELECT 1 FROM [dbo].[UserRoles] WHERE [UserId] = @AdminUserId AND [RoleId] = @SuperAdminRoleId)
