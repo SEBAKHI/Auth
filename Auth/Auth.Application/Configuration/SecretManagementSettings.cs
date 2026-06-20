@@ -60,4 +60,13 @@ public class SecretManagementSettings
     /// Default: "secrets.manage"
     /// </summary>
     public string RequiredPermission { get; set; } = "secrets.manage";
+
+    /// <summary>
+    /// True when <see cref="StorageMode"/> selects PlainText storage (the default), where secrets
+    /// live in the appsettings target file rather than the encrypted secrets file. Importing key
+    /// material via the admin API is not applicable in this mode (edit appsettings directly instead).
+    /// </summary>
+    public bool IsPlainTextMode =>
+        string.IsNullOrWhiteSpace(StorageMode)
+        || StorageMode.Equals("PlainText", StringComparison.OrdinalIgnoreCase);
 }

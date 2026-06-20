@@ -290,6 +290,56 @@ public class DpapiSecretService : IDpapiSecretService
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // Key Import Operations (bring-your-own-keys)
+    // ═══════════════════════════════════════════════════════════════
+
+    public async Task ImportRsaKeyPairAsync(string privateKeyPem, string publicKeyPem, CancellationToken cancellationToken)
+    {
+        var secrets = await LoadSecretsAsync(cancellationToken);
+        secrets.JwtPrivateKeyPem = privateKeyPem;
+        secrets.JwtPublicKeyPem = publicKeyPem;
+
+        if (!SecretFileExists())
+        {
+            secrets.CreatedAt = DateTime.UtcNow;
+        }
+
+        await SaveSecretsAsync(secrets, cancellationToken);
+
+        _logger.LogWarning("Imported caller-supplied RSA signing key - all existing access tokens are now invalid");
+    }
+
+    public async Task ImportHmacKeyAsync(string hmacKeyBase64, CancellationToken cancellationToken)
+    {
+        var secrets = await LoadSecretsAsync(cancellationToken);
+        secrets.RefreshTokenHmacKey = hmacKeyBase64;
+
+        if (!SecretFileExists())
+        {
+            secrets.CreatedAt = DateTime.UtcNow;
+        }
+
+        await SaveSecretsAsync(secrets, cancellationToken);
+
+        _logger.LogWarning("Imported caller-supplied HMAC key - all existing refresh tokens are now invalid");
+    }
+
+    public async Task ImportGatewayTokenAsync(string token, CancellationToken cancellationToken)
+    {
+        var secrets = await LoadSecretsAsync(cancellationToken);
+        secrets.GatewayToken = token;
+
+        if (!SecretFileExists())
+        {
+            secrets.CreatedAt = DateTime.UtcNow;
+        }
+
+        await SaveSecretsAsync(secrets, cancellationToken);
+
+        _logger.LogWarning("Imported caller-supplied gateway token - API Gateway configuration must be updated to match");
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     // Status Operations
     // ═══════════════════════════════════════════════════════════════
 
@@ -327,6 +377,7 @@ public class DpapiSecretService : IDpapiSecretService
             ["RefreshTokenHmacKey"] = GetStatus(secrets.RefreshTokenHmacKey),
             ["SmtpPassword"] = GetStatus(secrets.SmtpPassword),
             ["GatewayToken"] = GetStatus(secrets.GatewayToken),
+            ["PasswordPepper"] = secrets.PasswordPeppers.Count > 0 ? SecretStatus.Configured : SecretStatus.NotConfigured,
             ["ConnectionStrings.AuthDb"] = GetStatus(secrets.ConnectionStrings?.AuthDb)
         };
 

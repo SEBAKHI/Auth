@@ -32,4 +32,14 @@ public static class SecretErrors
         code: "Secret.NotFound",
         description: $"Custom secret '{key}' was not found.",
         metadata: new() { ["args"] = new object[] { key } });
+
+    public static Error InvalidKeyMaterial(string detail) => Error.Validation(
+        code: "Secret.InvalidKeyMaterial",
+        description: $"The supplied key material is invalid: {detail}",
+        metadata: new() { ["args"] = new object[] { detail } });
+
+    public static Error ImportNotSupportedInPlainText => Error.Conflict(
+        code: "Secret.ImportNotSupportedInPlainText",
+        description: "Importing keys via the admin API is only supported in Certificate or Dpapi storage mode. " +
+                     "In PlainText mode, set the keys directly in appsettings.Production.json.");
 }

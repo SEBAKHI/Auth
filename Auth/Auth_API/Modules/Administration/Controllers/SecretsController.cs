@@ -10,6 +10,9 @@ using Auth.Application.Features.Secrets.GenerateGatewayToken;
 using Auth.Application.Features.Secrets.GenerateHmacKey;
 using Auth.Application.Features.Secrets.GenerateRsaKey;
 using Auth.Application.Features.Secrets.GetSecretStatus;
+using Auth.Application.Features.Secrets.ImportGatewayToken;
+using Auth.Application.Features.Secrets.ImportHmacKey;
+using Auth.Application.Features.Secrets.ImportRsaKey;
 using Auth.Application.Features.Secrets.SetCustomSecret;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -136,6 +139,113 @@ public class SecretsController : ApiController
                 Success = true,
                 Message = "Gateway token regenerated successfully. Update API Gateway configuration with the new token.",
                 Token = token
+            }),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Imports a caller-supplied RSA private key for JWT signing (bring-your-own-keys).
+    /// The matching public key is derived and stored automatically. Only applicable in
+    /// Certificate/Dpapi storage mode (in PlainText mode, edit appsettings.Production.json).
+    /// WARNING: This replaces the current signing key and invalidates ALL existing access tokens.
+    /// </summary>
+    /// <param name="request">The RSA private key in PEM format (PKCS#8 or PKCS#1) in the value field.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">Returns the derived public key</response>
+    /// <response code="400">Invalid key material</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="409">Storage mode is PlainText - import not supported</response>
+    [HttpPost("import/rsa")]
+    [RequirePermission("secrets.manage")]
+    [ProducesResponseType(typeof(KeyImportResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ImportRsaKey(
+        [FromBody] SetSecretRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var result = await _sender.Send(new ImportRsaKeyCommand(request.Value, userId), cancellationToken);
+
+        return result.Match(
+            publicKeyPem => Ok(new KeyImportResponse
+            {
+                Success = true,
+                Message = "RSA signing key imported successfully. All existing access tokens are now invalid. Users must re-authenticate.",
+                PublicKeyPem = publicKeyPem
+            }),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Imports a caller-supplied HMAC key for refresh token hashing (bring-your-own-keys).
+    /// Only applicable in Certificate/Dpapi storage mode.
+    /// WARNING: This replaces the current key and invalidates ALL existing refresh tokens.
+    /// </summary>
+    /// <param name="request">The base64-encoded HMAC key (>= 32 bytes) in the value field.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">Success message</response>
+    /// <response code="400">Invalid key material</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="409">Storage mode is PlainText - import not supported</response>
+    [HttpPost("import/hmac")]
+    [RequirePermission("secrets.manage")]
+    [ProducesResponseType(typeof(KeyImportResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ImportHmacKey(
+        [FromBody] SetSecretRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var result = await _sender.Send(new ImportHmacKeyCommand(request.Value, userId), cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => Ok(new KeyImportResponse
+            {
+                Success = true,
+                Message = "HMAC key imported successfully. All existing refresh tokens are now invalid. Users must re-authenticate."
+            }),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Imports a caller-supplied gateway token for inter-service authentication (bring-your-own-keys).
+    /// Only applicable in Certificate/Dpapi storage mode.
+    /// WARNING: The API Gateway must be reconfigured with the same token.
+    /// </summary>
+    /// <param name="request">The gateway token in the value field.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">Success message</response>
+    /// <response code="400">Invalid token</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="409">Storage mode is PlainText - import not supported</response>
+    [HttpPost("import/gateway-token")]
+    [RequirePermission("secrets.manage")]
+    [ProducesResponseType(typeof(KeyImportResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ImportGatewayToken(
+        [FromBody] SetSecretRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var result = await _sender.Send(new ImportGatewayTokenCommand(request.Value, userId), cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => Ok(new KeyImportResponse
+            {
+                Success = true,
+                Message = "Gateway token imported successfully. Update the API Gateway configuration with the same token."
             }),
             errors => Problem(errors));
     }

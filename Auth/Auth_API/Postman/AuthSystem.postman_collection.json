@@ -97,6 +97,21 @@
 			"type": "string"
 		},
 		{
+			"key": "importRsaPrivateKeyPem",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "importHmacKey",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "importGatewayToken",
+			"value": "",
+			"type": "string"
+		},
+		{
 			"key": "registeredUserId",
 			"value": "",
 			"type": "string"
@@ -1890,6 +1905,57 @@
 									"path": ["api", "v1", "admin", "secrets", "generate", "gateway-token"]
 								},
 								"description": "Generates a new gateway authentication token and stores it securely."
+							}
+						},
+						{
+							"name": "Import RSA Key (BYOK)",
+							"request": {
+								"method": "POST",
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"value\": \"{{importRsaPrivateKeyPem}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/import/rsa",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "admin", "secrets", "import", "rsa"]
+								},
+								"description": "Imports a caller-supplied RSA private key (PKCS#8 or PKCS#1 PEM, at least 2048-bit). Certificate or Dpapi mode only (returns 409 in PlainText). Replaces the JWT signing key and invalidates existing access tokens. Set importRsaPrivateKeyPem to the PEM with line breaks escaped."
+							}
+						},
+						{
+							"name": "Import HMAC Key (BYOK)",
+							"request": {
+								"method": "POST",
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"value\": \"{{importHmacKey}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/import/hmac",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "admin", "secrets", "import", "hmac"]
+								},
+								"description": "Imports a caller-supplied HMAC key (Base64, at least 32 bytes). Certificate or Dpapi mode only (returns 409 in PlainText). Replaces the refresh-token HMAC key and invalidates existing refresh tokens."
+							}
+						},
+						{
+							"name": "Import Gateway Token (BYOK)",
+							"request": {
+								"method": "POST",
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"value\": \"{{importGatewayToken}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/import/gateway-token",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "admin", "secrets", "import", "gateway-token"]
+								},
+								"description": "Imports a caller-supplied gateway token (at least 16 characters). Certificate or Dpapi mode only (returns 409 in PlainText). The API Gateway must be reconfigured with the same token."
 							}
 						},
 						{

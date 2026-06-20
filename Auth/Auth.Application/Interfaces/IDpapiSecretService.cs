@@ -102,6 +102,39 @@ public interface IDpapiSecretService
     Task<KeyGenerationResult> GenerateMissingKeysAsync(CancellationToken cancellationToken);
 
     // ═══════════════════════════════════════════════════════════════
+    // Key Import Operations (bring-your-own-keys)
+    // ═══════════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Stores a caller-supplied RSA private key (and its derived public key) for JWT signing,
+    /// encrypting them into the secrets file. Use when migrating a server: re-import the same key
+    /// material you hold to reproduce identical, still-valid tokens on a new machine.
+    /// WARNING: replaces the current signing key - all existing access tokens become invalid.
+    /// </summary>
+    /// <param name="privateKeyPem">The RSA private key in PEM format (PKCS#8 or PKCS#1).</param>
+    /// <param name="publicKeyPem">The matching public key in SubjectPublicKeyInfo PEM format.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ImportRsaKeyPairAsync(string privateKeyPem, string publicKeyPem, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Stores a caller-supplied HMAC key (base64) for refresh token hashing, encrypting it into
+    /// the secrets file.
+    /// WARNING: replaces the current key - all existing refresh tokens become invalid.
+    /// </summary>
+    /// <param name="hmacKeyBase64">The HMAC key, base64-encoded (at least 32 bytes / 256 bits).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ImportHmacKeyAsync(string hmacKeyBase64, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Stores a caller-supplied gateway token for inter-service authentication, encrypting it into
+    /// the secrets file.
+    /// WARNING: the API Gateway must be reconfigured with the same token.
+    /// </summary>
+    /// <param name="token">The gateway token to store.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ImportGatewayTokenAsync(string token, CancellationToken cancellationToken);
+
+    // ═══════════════════════════════════════════════════════════════
     // Status Operations
     // ═══════════════════════════════════════════════════════════════
 
