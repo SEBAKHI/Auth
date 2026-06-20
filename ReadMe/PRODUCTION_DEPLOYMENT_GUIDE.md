@@ -74,6 +74,8 @@ painlessly later (switching regenerates keys and logs everyone out).
 > **First startup auto-generates the keys** for *all three* modes (when `AutoGenerateKeys: true`)
 >You never run a key-gen command. PlainText writes them into
 > `appsettings.Production.json`; Certificate/Dpapi write the encrypted `secrets.dpapi`.
+> Prefer to control the key material yourself (e.g. for painless server migration)? You can generate
+> or import your own keys instead — see [Reference §G](#g-provision-your-own-keys-byok--painless-migration).
 
 ## 3. How config and secrets are read
 
@@ -402,7 +404,9 @@ To rotate the cert, set the new one as `PfxPath` and list the old under
 
 Just leave `"StorageMode": "Dpapi"`. Secrets are encrypted with Windows DPAPI, bound to **this
 machine + account**. If the host moves your site to another physical server, the file can't be
-decrypted and keys regenerate (logging everyone out). Fine for a box you fully control.
+decrypted and keys regenerate (logging everyone out) — **unless you hold the key material yourself
+and re-import it on the new machine** ([§G](#g-provision-your-own-keys-byok--painless-migration)).
+Fine for a box you fully control.
 
 ## B. (Advanced) Encrypt the connection string & SMTP password
 
@@ -551,6 +555,178 @@ it). Then:
 could **not** move `secrets` outside the deploy target, also turn **off** *Remove extra files in
 destination* in both publish profiles — that checkbox is then the only thing between a routine deploy
 and a full key wipe.
+
+---
+
+## F. Password protection — pepper & breached-password check
+
+Both features are **opt-in** (default `false`) and toggled per environment under `Password` in
+`appsettings`. The Argon2id hashing itself (per-password salt, constant-time compare, rehash-on-login)
+is always on and needs no configuration.
+
+### F.1 Pepper (server-side secret key)
+
+A pepper is a secret mixed into **every** password hash (Argon2id `KnownSecret`), stored in the
+**secret store** (never in the database). It defends a **database-only breach** (SQL injection,
+stolen backup, rogue DBA): without the pepper, the stolen hashes can't be brute-forced. On a fully
+compromised host (DB + secret store both taken) it adds nothing — its value is the *separation*
+between the DB and the secret store.
+
+**Enable:**
+```jsonc
+"Password": { "Pepper": { "Enabled": true } }
+```
+On startup the app provisions a pepper if none exists and stores it in the active secret store
+(PlainText → `appsettings.Production.json`; Certificate/Dpapi → `secrets.dpapi`) under
+`Password:Pepper:Keys:{id}` + `Password:Pepper:CurrentKeyId`. Only `Enabled` belongs in appsettings;
+the key material is secret-managed. The app **refuses to start** if peppering is enabled but the
+pepper can't be persisted (an ephemeral pepper would lock everyone out on restart).
+
+**Migration is automatic & safe.** Existing (unpeppered) hashes keep verifying and are transparently
+upgraded to peppered ones (`keyid` added) on each user's next successful login — no mass reset, no
+downtime. The seeded `admin` hash works the same way.
+
+> [!CAUTION]
+> **Losing the pepper locks out every peppered user — permanently and unrecoverably.** Back it up
+> with exactly the same rigor as the JWT/HMAC keys: it lives in the same secret store, so the Phase 7
+> "secrets backed up" item already covers it **as long as that store is truly backed up**. Treat
+> enabling the pepper as a one-way decision unless you keep the key material.
+
+**Rotation (advanced):** add a new pepper id, keep the previous id(s) in the store (so old hashes
+still verify), and point `Password:Pepper:CurrentKeyId` at the new id. New and next-login hashes use
+the new pepper; old ones migrate on login. Remove a retired id only once you're certain no hash still
+uses it.
+
+### F.2 Breached / weak password block (HIBP Pwned Passwords)
+
+Rejects or warns on passwords found in known breaches, using the **free, keyless, unthrottled** HIBP
+Pwned Passwords *range* API with k-anonymity (only the first 5 chars of the SHA-1 hash leave the
+server; the plaintext never does). Checked on register / change / reset / admin-create.
+
+```jsonc
+"Password": {
+  "BreachedPasswordCheck": {
+    "Enabled": true,            // false = fully inert: no HttpClient, no external call
+    "Mode": "Enforce",          // Enforce = reject; Warn = allow but flag
+    "FailOpen": true,           // allow if HIBP is unreachable (logged); false = reject on outage
+    "RejectThreshold": 1,       // min breach occurrences to treat as breached
+    "TimeoutMs": 2000
+  }
+}
+```
+
+- **Enforce** → a breached password is rejected (`User.PasswordBreached`, HTTP 400).
+- **Warn** → the operation succeeds but the response carries an **`X-Password-Warning`** header
+  (and `X-Password-Warning-Code: User.PasswordBreached`) so the client can nudge the user. Works on
+  204 No Content responses too.
+- **FailOpen=true** (default) means an HIBP outage never blocks password changes — the event is
+  logged. Set `false` only if you'd rather hard-fail than risk admitting an unchecked password.
+- To remove the external dependency entirely, you can later host the HIBP dataset locally behind the
+  same `IBreachedPasswordChecker` interface — no caller changes.
+
+`Password:MinimumLength` is independent policy (currently 8); raising it to 12 is recommended for
+passphrase-friendly strength and only affects new/changed passwords.
+
+---
+
+## G. Provision your own keys (BYOK) & painless migration
+
+By default the app **mints the keys for you** on first start ([Part 1 §2](#decision-b--how-secrets-are-stored-secretmanagementstoragemode)). You don't have to.
+Two alternatives let you control the key material — useful when you must move servers without
+logging everyone out, or you simply don't want the app to decide your keys:
+
+| You want… | Use | Third-party tool? | Portable across servers? |
+|---|---|---|---|
+| Strong keys, but generated by **this system on demand** (not on first-run) | Admin **`generate/*`** endpoints | No | Only via **Certificate** mode — the minted private values can't be read back |
+| Keys **you generate and hold** yourself, encrypted into this system | Admin **`import/*`** endpoints (Certificate/Dpapi) **or** hand-edit appsettings (PlainText) | Your choice | ✅ Yes — re-import the same material on any server, even in **Dpapi** mode |
+
+**The migration win:** if *you* hold the plaintext key material (in a vault/password manager), you
+re-encrypt it on each server. The new machine produces **identical, still-valid tokens** — no mass
+logout — and you never carry the machine-bound `secrets.dpapi` or the key ring. This is the only way
+to make **Dpapi** mode portable (otherwise it "breaks if the host moves you", [§A](#dpapi-windows-only-zero-setup)).
+
+### The admin secrets API
+
+All key operations live under `…/api/v1/admin/secrets/` and are gated three ways:
+
+* `SecretManagement:EnableAdminApi: true` — **off by default**; turn it on only while provisioning,
+  then back off (Phase 7 checklist).
+* A bearer token from a user with the **`secrets.manage`** permission (log in as admin first).
+* HTTPS — these requests carry private keys; never send them over plain HTTP.
+
+| Endpoint | Does | Returns |
+|---|---|---|
+| `GET  secrets/status` | Lists which secrets are set (never the values) | status only |
+| `POST secrets/generate/rsa` \| `/hmac` \| `/gateway-token` | **System** mints a fresh random key | public key / token / message |
+| `POST secrets/import/rsa` \| `/hmac` \| `/gateway-token` | Stores a **value you supply**, encrypted | derived public key / message |
+
+> **`import/*` requires Certificate or Dpapi mode.** In PlainText mode it returns
+> `409 Secret.ImportNotSupportedInPlainText` — there the keys live in `appsettings.Production.json`,
+> so just paste them in (see *PlainText BYOK* below). Importing **replaces** the current key, so if
+> the value differs from what's stored, existing tokens are invalidated — re-importing the *same*
+> value is a safe no-op for live tokens.
+
+### Generate the material yourself (formats the system expects)
+
+| Secret | Format | Generate it |
+|---|---|---|
+| RSA private key | PKCS#8 (or PKCS#1) PEM, **≥ 2048-bit** | `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt-private.pem` |
+| HMAC key | Base64 of **≥ 32 bytes** (256-bit) | `openssl rand -base64 32` |
+| Gateway token | Any string, **≥ 16 chars** (Base64 of 32 bytes recommended) | `openssl rand -base64 32` |
+
+You supply only the **private** RSA key — the server derives and stores the matching public key and
+returns it (use it for JWKS/SDK consumers). PowerShell equivalents:
+`[Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(32))`.
+
+### Import over HTTP (shared hosting — no console access needed)
+
+Each request body is `{ "value": "<the key>" }`. For the RSA PEM, JSON-escape the newlines as `\n`.
+
+```bash
+# 1) Log in as an admin who has the secrets.manage permission, capture the access token.
+TOKEN=$(curl -s -X POST https://auth.<yourdomain>.com/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{ "email": "admin@company.com", "password": "<admin-password>" }' | jq -r .accessToken)
+
+# 2) Import each key (Certificate/Dpapi mode, EnableAdminApi=true).
+curl -X POST https://auth.<yourdomain>.com/api/v1/admin/secrets/import/rsa \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{ \"value\": \"$(awk '{printf "%s\\n", $0}' jwt-private.pem)\" }"
+
+curl -X POST https://auth.<yourdomain>.com/api/v1/admin/secrets/import/hmac \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{ "value": "<your-base64-hmac-key>" }'
+
+curl -X POST https://auth.<yourdomain>.com/api/v1/admin/secrets/import/gateway-token \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{ "value": "<your-gateway-token>" }'
+```
+
+The connection string and SMTP password have **no** HTTP import — keep them as `__` env vars, or use
+the console app in [§B](#b-advanced-encrypt-the-connection-string--smtp-password) on a machine you control.
+
+### PlainText BYOK (no API needed)
+
+In PlainText mode you "import" by editing the file: put your values under `Jwt:PrivateKeyPem`,
+`Jwt:RefreshTokenHmacKeyPlain`, and `Gateway:ExpectedToken` in `appsettings.Production.json`. The app
+only generates secrets that are **missing**, so pre-filled values are used verbatim and never
+overwritten. Set `AutoGenerateKeys: false` as well.
+
+### Migration procedure (move to a new server, keep everyone logged in)
+
+1. **Once, on the old server (or offline):** capture the plaintext key material into your vault —
+   either values you generated, or read them from the source (PlainText: from `appsettings`;
+   Certificate/Dpapi: there's no read-back, so this only works if you imported/own them).
+2. **On the new server:** set the same `StorageMode`, `AutoGenerateKeys: false`,
+   `EnableAdminApi: true` (Certificate: also place the `.pfx` and set `AUTH_DP_CERT_PASSWORD`), deploy,
+   and start. With `AutoGenerateKeys=false` and an empty store the app **fails loud** instead of
+   minting new keys — that's expected until you import.
+3. **Import** the three keys via the API above (or paste into appsettings for PlainText).
+4. **Verify** `/.well-known/jwks.json` shows your public key and a pre-existing token still validates,
+   then set `EnableAdminApi: false` again.
+
+Tokens issued by the old server keep working because the signing/HMAC material is byte-for-byte the
+same. The gateway token must match on both API and Gateway, exactly as in [Phase 5](#phase-5--optional-api-gateway).
 
 ---
 
