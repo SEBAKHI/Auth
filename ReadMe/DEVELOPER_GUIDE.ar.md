@@ -30,7 +30,7 @@ AuthSystem هو منصة مصادقة وتفويض جاهزة للإنتاج م�
 
 ### 1.2 قدرات API في لمحة سريعة
 
-يوفر النظام **أكثر من 84 نقطة نهاية REST API** عبر **12 Controller**، منظمة في المجالات الوظيفية التالية:
+يوفر النظام **أكثر من 87 نقطة نهاية REST API** عبر **12 Controller**، منظمة في المجالات الوظيفية التالية:
 
 | الوصف | عدد النقاط | الميزة |
 |---|---|---|
@@ -45,7 +45,7 @@ AuthSystem هو منصة مصادقة وتفويض جاهزة للإنتاج م�
 | <div dir="rtl">قبول دعوة المؤسسة</div> | 1 | **Invitations** |
 | <div dir="rtl">إنشاء، عرض، إبطال، تدوير مع فترة سماح</div> | 4 | **API Keys** |
 | <div dir="rtl">استعلام، تصفية، حسب المستخدم/الكيان، تصدير (CSV/JSON)</div> | 5 | **Audit Logs** |
-| <div dir="rtl">حالة أسرار DPAPI، توليد المفاتيح، إدارة الأسرار المخصصة</div> | 6 | **Secrets (Admin)** |
+| <div dir="rtl">حالة الأسرار، توليد واستيراد المفاتيح (BYOK)، إدارة الأسرار المخصصة</div> | 9 | **Secrets (Admin)** |
 
 > راجع [القسم 5 — مرجع API](#5-مرجع-api) للتفاصيل الكاملة لنقاط النهاية مع أمثلة الطلبات والاستجابات.
 
@@ -59,7 +59,7 @@ AuthSystem هو منصة مصادقة وتفويض جاهزة للإنتاج م�
 └──────────┘       └─────────────────────┘       └──────────────────┘       └────────────┘
                    │ + X-Gateway-Token    │       │ + مصادقة JWT      │
                    │ + X-Forwarded-For    │       │ + تفويض الصلاحيات │
-                   │ + X-Correlation-ID   │       │ + أسرار DPAPI     │
+                   │ + X-Correlation-ID   │       │ + تخزين الأسرار   │
                    │ + تحديد المعدل       │       │ + سجل التدقيق     │
                    └─────────────────────┘       └──────────────────┘
 ```
@@ -72,14 +72,17 @@ Auth/
 │   ├── Services/
 │   │   ├── Auth.Domain          — الكيانات، الواجهات، التعدادات، تعريفات الأخطاء
 │   │   ├── Auth.Application     — أوامر/استعلامات CQRS، كائنات نقل البيانات، المدققات، الإعدادات
-│   │   ├── Auth.Infrastructure  — مستودعات Dapper، JWT، Argon2id، DPAPI، مصادقة Google، TOTP، SMTP
-│   │   └── Auth_API             — واجهة REST API على ASP.NET Core 10 (12 متحكم، 84+ نقطة نهاية)
+│   │   ├── Auth.Infrastructure  — مستودعات Dapper، JWT، Argon2id، تخزين الأسرار، مصادقة Google، TOTP، SMTP
+│   │   └── Auth_API             — واجهة REST API على ASP.NET Core 10 (12 متحكم، 87+ نقطة نهاية)
 │   ├── Shared/
+│   │   ├── Auth.Shared          — عقود الإعدادات المشتركة وأساسيات تخزين الأسرار
 │   │   └── Auth_Localization    — ملفات الموارد لـ 7 لغات (en، ar، tr، fr، zh، ur، fa)
 │   ├── Gateway/
 │   │   └── API_Gateway          — بروكسي عكسي YARP مع تحديد المعدل ورؤوس الأمان
+│   ├── Sdk/
+│   │   └── Auth.Sdk             — حزمة SDK تثبّتها تطبيقات .NET الأخرى للتحقق من الرموز/مفاتيح API
 │   ├── Setup/
-│   │   └── Auth_Setup           — أداة وحدة تحكم لتجزئة كلمات المرور
+│   │   └── Auth_Setup           — أداة سطر أوامر تُشغَّل مرة واحدة لتوليد تجزئة كلمة مرور المسؤول
 │   └── Database/
 │       └── Auth_DB              — مشروع قاعدة بيانات SQL Server (26 جدول، إجراءات مخزنة)
 ├── Tests/
@@ -98,7 +101,7 @@ Auth/
 | **FluentValidation** | التحقق من المدخلات | قواعد تحقق تصريحية منفصلة عن منطق المجال |
 | **RS256 JWT** | توقيع الرموز | المفاتيح غير المتماثلة تسمح للخدمات الخارجية بالتحقق من الرموز باستخدام المفتاح العام دون مشاركة المفتاح الخاص (على عكس HS256) |
 | **Argon2id** | تجزئة كلمات المرور | موصى بها من OWASP 2024؛ خوارزمية كثيفة الذاكرة مقاومة لهجمات GPU/ASIC (أفضل من bcrypt/PBKDF2) |
-| **DPAPI** | تشفير الأسرار عند الراحة | تشفير أصلي لنظام Windows مرتبط بالجهاز؛ لا يعتمد على خزنة مفاتيح خارجية |
+| **تخزين الأسرار (PlainText / Certificate / DPAPI)** | تشفير الأسرار عند الراحة | وضع `StorageMode` قابل للتبديل: PlainText لبداية سريعة عبر المنصات، Certificate لتشفير محمول يصمد عند نقل الخادم (موصى به للاستضافة المشتركة)، DPAPI لتشفير Windows المرتبط بالجهاز — دون الحاجة لخزنة مفاتيح خارجية |
 | **YARP** | بوابة API | بروكسي عكسي أصلي لـ .NET؛ يُكوَّن في appsettings.json؛ تكامل .NET متفوق مقارنة بـ NGINX/Ocelot |
 | **Serilog** | تسجيل منظم | أحواض متعددة (وحدة تحكم، ملف)، مُثريات، إخراج JSON منظم |
 | **SQL Server + SSDT** | قاعدة البيانات | نظام RDBMS على مستوى المؤسسات؛ SSDT يوفر مخطط محكوم بالإصدارات مع إجراءات مخزنة |
@@ -115,7 +118,7 @@ Auth/
 |---|---|
 | **.NET 10 SDK** | [تحميل](https://dotnet.microsoft.com/download/dotnet/10.0) |
 | **SQL Server** | إصدار Express أو Developer (LocalDB يعمل أيضاً للتطوير) |
-| **نظام Windows** | مطلوب لتشفير DPAPI |
+| **نظام Windows** | مطلوب فقط لوضعَي تخزين الأسرار `Dpapi` و`Certificate`؛ الوضع الافتراضي `PlainText` يعمل عبر المنصات (Linux/cPanel) |
 | **Postman** (اختياري) | المجموعة متاحة في `Auth_API/Postman/AuthSystem.postman_collection.json` |
 | **Visual Studio 2022+** (اختياري) | لنشر مشروع قاعدة البيانات SSDT |
 
@@ -163,9 +166,9 @@ dotnet build Auth/Auth.sln
 
 ثم نفذ جميع الإجراءات المخزنة من `Auth/Auth_DB/dbo/StoredProcedures/`.
 
-### 3.3 التشغيل الأول وأسرار DPAPI
+### 3.3 التشغيل الأول وتوليد الأسرار
 
-عند التشغيل الأول، إذا لم يكن ملف الأسرار موجوداً و`AutoGenerateKeys` مضبوط على `true`، يقوم النظام تلقائياً بتوليد:
+يحتاج النظام إلى ثلاثة أسرار: **زوج مفاتيح RSA** (توقيع JWT)، و**مفتاح HMAC** (تجزئة رموز التحديث)، و**رمز البوابة** (المصادقة بين الخدمات). عند التشغيل الأول، وعندما يكون `AutoGenerateKeys` مضبوطاً على `true`، تُولَّد الثلاثة تلقائياً — لا تشغّل أي أمر لتوليد المفاتيح.
 
 | السر | الغرض |
 |---|---|
@@ -173,21 +176,21 @@ dotnet build Auth/Auth.sln
 | **مفتاح HMAC** (32 بايت) | تجزئة رموز التحديث (HMAC-SHA256) |
 | **رمز البوابة** (32 بايت) | المصادقة بين الخدمات (بين API Gateway وAuth_API) |
 
-**مواقع التخزين:**
-- ملف الأسرار: `%LOCALAPPDATA%/AuthSystem/Secrets/secrets.dpapi`
-- مفاتيح حماية البيانات: `%LOCALAPPDATA%/AuthSystem/Keys`
+**مكان كتابة الأسرار يعتمد على `SecretManagement:StorageMode`:**
 
-**هام:** بمجرد التوليد، لا يتم إعادة توليد المفاتيح تلقائياً. لإعادة التوليد، استخدم واجهة إدارة الأسرار أو أدوات سطر الأوامر.
+| الوضع | مكان المفاتيح | محمي بواسطة | يُستخدم عندما |
+|---|---|---|---|
+| **`PlainText`** (افتراضي) | `appsettings.Production.json` (قابل للقراءة) | صلاحيات الملف فقط | بداية سريعة؛ عبر المنصات (Linux/cPanel) |
+| **`Certificate`** | `secrets.dpapi` مشفّر | شهادة X.509 تملكها (محمولة بين الخوادم) | الاستضافة المشتركة؛ خوادم قد تُنقل |
+| **`Dpapi`** | `secrets.dpapi` مشفّر | Windows DPAPI، مرتبط بهذا الجهاز + الحساب | جهاز Windows تتحكم به بالكامل |
 
-**توليد المفاتيح عبر سطر الأوامر:**
+**مواقع التخزين (وضعا Certificate/Dpapi):**
+- ملف الأسرار: `SecretManagement:SecretFilePath` (مثل `%LOCALAPPDATA%/AuthSystem/Secrets/secrets.dpapi`)
+- حلقة مفاتيح حماية البيانات: `DataProtection:KeyPath`
 
-```bash
-# توليد مفتاح HMAC مشفر بـ DPAPI
-dotnet run --project Auth/Auth_API -- --generate-hmac-key
+**هام:** بمجرد التوليد، لا تُعاد توليد المفاتيح تلقائياً. اضبط `AutoGenerateKeys: false` بعد التشغيل الأول كي يفشل التطبيق بصوت عالٍ إذا فُقد سر، بدلاً من توليد مفاتيح جديدة بصمت (ما يُبطل كل رمز صادر ويُسجّل خروج الجميع). لتدوير المفاتيح أو توفير مفاتيحك الخاصة (BYOK)، استخدم واجهة إدارة الأسرار (القسم 5.12).
 
-# توليد زوج مفاتيح RSA مشفر بـ DPAPI
-dotnet run --project Auth/Auth_API -- --generate-rsa-key
-```
+> **هل تنشر إلى الإنتاج؟** إعداد أوضاع التخزين، وبوابة API، وBYOK / ترحيل الخادم، وفلفل كلمة المرور (Pepper) وفحص كلمات المرور المخترقة — كلها موثّقة بالكامل في **[PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md)**.
 
 ### 3.4 مرجع الإعدادات
 
@@ -234,19 +237,27 @@ dotnet run --project Auth/Auth_API -- --generate-rsa-key
 ```json
 {
   "Password": {
-    "MinimumLength": 6,
+    "MinimumLength": 8,
     "RequireUppercase": true,
     "RequireLowercase": true,
     "RequireDigit": true,
     "RequireSpecialCharacter": true,
-    "PasswordHistoryCount": 3,
-    "PasswordExpirationDays": 0,
+    "HistoryCount": 3,
+    "ExpirationDays": 0,
     "MaxFailedAttempts": 5,
     "LockoutDurationMinutes": 15,
-    "Argon2": {
-      "MemorySize": 19456,
-      "Iterations": 2,
-      "DegreeOfParallelism": 1
+    "Argon2MemorySize": 19456,
+    "Argon2Iterations": 2,
+    "Argon2Parallelism": 1,
+    "SaltSize": 16,
+    "HashSize": 32,
+    "Pepper": { "Enabled": false },
+    "BreachedPasswordCheck": {
+      "Enabled": false,
+      "Mode": "Enforce",
+      "FailOpen": true,
+      "RejectThreshold": 1,
+      "TimeoutMs": 2000
     }
   }
 }
@@ -254,14 +265,18 @@ dotnet run --project Auth/Auth_API -- --generate-rsa-key
 
 | الحقل | الوصف |
 |---|---|
-| `MinimumLength` | الحد الأدنى لطول كلمة المرور (OWASP توصي بـ 12+) |
-| `PasswordHistoryCount` | عدد كلمات المرور السابقة لمنع إعادة الاستخدام |
-| `PasswordExpirationDays` | أيام حتى انتهاء صلاحية كلمة المرور (0 = لا تنتهي) |
+| `MinimumLength` | الحد الأدنى لطول كلمة المرور (افتراضي 8؛ OWASP توصي بـ 12+) |
+| `HistoryCount` | عدد كلمات المرور السابقة لمنع إعادة الاستخدام |
+| `ExpirationDays` | أيام حتى انتهاء صلاحية كلمة المرور (0 = لا تنتهي) |
 | `MaxFailedAttempts` | محاولات تسجيل الدخول الفاشلة قبل القفل |
 | `LockoutDurationMinutes` | مدة قفل الحساب بعد أقصى عدد من المحاولات الفاشلة |
-| `Argon2.MemorySize` | تكلفة الذاكرة بالكيلوبايت (19456 = ~19 ميجابايت، موصى بها من OWASP 2024) |
-| `Argon2.Iterations` | تكلفة الوقت (عدد التكرارات) |
-| `Argon2.DegreeOfParallelism` | عدد الخيوط للتجزئة |
+| `Argon2MemorySize` | تكلفة الذاكرة بالكيلوبايت (19456 = ~19 ميجابايت، موصى بها من OWASP 2024) |
+| `Argon2Iterations` | تكلفة الوقت (عدد التكرارات) |
+| `Argon2Parallelism` | عدد الخيوط للتجزئة |
+| `Pepper.Enabled` | مزج سر من جانب الخادم في كل تجزئة Argon2id (دفاع متعمّق ضد اختراق قاعدة البيانات وحدها). تُوفَّر مادة المفتاح تلقائياً في مخزن الأسرار النشط؛ **انسخها احتياطياً مثل مفاتيح JWT — فقدانها يقفل جميع المستخدمين المُفلفَلين نهائياً.** |
+| `BreachedPasswordCheck` | رفض أو تحذير من كلمات المرور المخترقة المعروفة عبر واجهة HIBP Pwned Passwords (نطاق، k-anonymity، بلا مفتاح). `Mode`: `Enforce` يرفض، `Warn` يسمح لكن يعيد ترويسة `X-Password-Warning`. `FailOpen` يسمح بالتغيير إذا تعذّر الوصول إلى HIBP. |
+
+> كلٌّ من `Pepper` و`BreachedPasswordCheck` **اختياري** (افتراضياً `false`)؛ وتجزئة Argon2id نفسها مفعّلة دائماً. راجع [PRODUCTION_DEPLOYMENT_GUIDE.md §F](PRODUCTION_DEPLOYMENT_GUIDE.md) لتفاصيل الترحيل والتدوير.
 
 #### إعدادات البوابة
 
@@ -319,7 +334,7 @@ dotnet run --project Auth/Auth_API -- --generate-rsa-key
 }
 ```
 
-> **ملاحظة:** كلمة مرور SMTP تُخزن في أسرار DPAPI، وليس في appsettings.json.
+> **ملاحظة:** أبقِ كلمة مرور SMTP خارج `appsettings.json` — عيّنها عبر متغير البيئة `Email__Password`، أو خزّنها في مخزن الأسرار المشفّر (وضعا Certificate/Dpapi).
 
 #### المصادقة الخارجية
 
@@ -372,28 +387,44 @@ dotnet run --project Auth/Auth_API -- --generate-rsa-key
 ```json
 {
   "SecretManagement": {
-    "SecretsFilePath": "%LOCALAPPDATA%/AuthSystem/Secrets/secrets.dpapi",
-    "AutoGenerateKeys": true,
-    "EnableAdminApi": false
+    "StorageMode": "PlainText",
+    "SecretFilePath": "",
+    "PlainTextTargetFile": "appsettings.Production.json",
+    "AutoGenerateKeys": false,
+    "EnableAdminApi": false,
+    "RequiredPermission": "secrets.manage"
   }
 }
 ```
 
 | الحقل | الوصف |
 |---|---|
-| `SecretsFilePath` | موقع ملف الأسرار المشفر بـ DPAPI |
-| `AutoGenerateKeys` | توليد تلقائي لـ RSA وHMAC ورمز البوابة عند التشغيل الأول |
+| `StorageMode` | `PlainText` (افتراضي) أو `Certificate` أو `Dpapi` — راجع القسم 3.3 |
+| `SecretFilePath` | موقع ملف `secrets.dpapi` المشفّر (وضعا Certificate/Dpapi؛ فارغ = الافتراضي `%LOCALAPPDATA%/AuthSystem/Secrets/secrets.dpapi`) |
+| `PlainTextTargetFile` | الملف الذي تُكتب فيه المفاتيح المولّدة في وضع PlainText |
+| `AutoGenerateKeys` | توليد تلقائي لـ RSA وHMAC ورمز البوابة عند التشغيل الأول. اضبطه على `false` بعد الإعداد الأولي. |
 | `EnableAdminApi` | تفعيل نقاط نهاية `/api/v1/admin/secrets` (افتراضي: false) |
+| `RequiredPermission` | الصلاحية المطلوبة لاستدعاء واجهة إدارة الأسرار |
 
 #### حماية البيانات
 
 ```json
 {
   "DataProtection": {
-    "KeyPath": "%LOCALAPPDATA%/AuthSystem/Keys"
+    "KeyPath": "",
+    "Certificate": {
+      "PfxPath": "",
+      "PasswordEnvironmentVariable": "AUTH_DP_CERT_PASSWORD",
+      "AdditionalPfxPaths": []
+    }
   }
 }
 ```
+
+| الحقل | الوصف |
+|---|---|
+| `KeyPath` | مكان تخزين حلقة مفاتيح حماية البيانات. فارغ يعني الافتراضي `%ProgramData%/AuthSystem/Keys`؛ على IIS / الاستضافة المشتركة اضبطه على مجلد قابل للكتابة **خارج جذر الويب العام** ووجّه Auth API وAPI Gateway إلى **نفس** المجلد ليتشاركا حلقة واحدة |
+| `Certificate` | يُستخدم فقط في وضع التخزين `Certificate`. فضّل `PasswordEnvironmentVariable` (`AUTH_DP_CERT_PASSWORD`) على تخزين كلمة مرور `.pfx` في الملف |
 
 #### Serilog
 
@@ -601,25 +632,35 @@ Authorization                    — التحكم بالوصول المبني ع
 إجراء المتحكم
 ```
 
-### 4.6 إدارة أسرار DPAPI
+### 4.6 إدارة الأسرار
 
-Windows DPAPI يشفر الإعدادات الحساسة عند الراحة:
+تُحمَّل الأسرار عند بدء التشغيل وتُحقن في `IConfiguration`، فيقرأها بقية التطبيق كأي إعداد آخر. يحدد `SecretManagement:StorageMode` كيفية حمايتها عند الراحة:
+
+| الوضع | التخزين | محمي بواسطة | محمول |
+|---|---|---|---|
+| **PlainText** (افتراضي) | `appsettings.Production.json` | صلاحيات الملف | ✅ انسخ الملف؛ عبر المنصات |
+| **Certificate** | `secrets.dpapi` مشفّر | شهادة X.509 تملكها | ✅ احمل `.pfx` + حلقة المفاتيح + الملف |
+| **Dpapi** | `secrets.dpapi` مشفّر | Windows DPAPI (هذا الجهاز) | ❌ مرتبط بالجهاز |
 
 ```
-تدفق التشغيل:
-1. DataProtectionProvider يُهيأ مع حلقة المفاتيح في %LOCALAPPDATA%/AuthSystem/Keys
-2. DpapiSecretService يحمل ملف secrets.dpapi
-3. إذا كان الملف مفقوداً AND AutoGenerateKeys=true → يولد RSA، HMAC، رمز البوابة
-4. الأسرار تُفك تشفيرها وتُحقن في IConfiguration عبر AddDpapiSecrets()
+تدفق التشغيل (Certificate / Dpapi):
+1. تُهيأ حلقة مفاتيح حماية البيانات في DataProtection:KeyPath
+2. يحمّل مصدر الأسرار ملف secrets.dpapi (AddDpapiSecrets)
+3. إذا كان مفتاح مفقوداً AND AutoGenerateKeys=true → يولّد RSA، HMAC، رمز البوابة
+4. تُفك الأسرار وتُحقن في IConfiguration
 5. JwtTokenService، RefreshTokenKeyService، GatewayMiddleware تقرأ من IConfiguration
 ```
 
-**الأسرار المخزنة:**
-- `Jwt:PrivateKeyEncrypted` — مفتاح RSA الخاص (PEM، مشفر بـ DPAPI)
+> في وضع PlainText تُولَّد المفاتيح نفسها، لكنها تُكتب في `appsettings.Production.json` بدلاً من الملف المشفّر.
+
+**ربط السر بمفتاح الإعداد (نفسه في كل الأوضاع):**
+- `Jwt:PrivateKeyPem` — مفتاح RSA الخاص (PEM)
 - `Jwt:PublicKeyPem` — مفتاح RSA العام (PEM، نص عادي لـ JWKS)
-- `Jwt:RefreshTokenHmacKey` — مفتاح HMAC-SHA256 لتجزئة رموز التحديث
-- `Gateway:Token` — سر مشترك بين البوابة والـ API
-- `Email:SmtpPassword` — كلمة مرور مصادقة SMTP
+- `Jwt:RefreshTokenHmacKeyPlain` — مفتاح HMAC-SHA256 لتجزئة رموز التحديث
+- `Gateway:ExpectedToken` (Auth API) / `Gateway:Token` (API Gateway) — سر البوابة المشترك
+- `Email:Password` — كلمة مرور مصادقة SMTP
+- `ConnectionStrings:AuthDb` — سلسلة اتصال قاعدة البيانات (اختياري؛ يمكن تشفيرها)
+- `Password:Pepper:*` — مادة مفتاح الفلفل (عند تفعيل الفلفلة)
 - `Custom:*` — أسرار مخصصة يحددها المستخدم
 
 ### 4.7 دورة حياة رمز JWT
@@ -847,7 +888,7 @@ Windows DPAPI يشفر الإعدادات الحساسة عند الراحة:
 | `auditlogs:read` | `/api/v1/audit-logs/entities/{entityType}/{entityId}` | GET |
 | `auditlogs:export` | `/api/v1/audit-logs/export` | POST |
 
-#### Secrets (Admin) — 6 نقاط نهاية
+#### Secrets (Admin) — 9 نقاط نهاية
 
 | الصلاحية | Endpoint | Method |
 |---|---|---|
@@ -855,6 +896,9 @@ Windows DPAPI يشفر الإعدادات الحساسة عند الراحة:
 | `secrets.manage` | `/api/v1/admin/secrets/generate/rsa` | POST |
 | `secrets.manage` | `/api/v1/admin/secrets/generate/hmac` | POST |
 | `secrets.manage` | `/api/v1/admin/secrets/generate/gateway-token` | POST |
+| `secrets.manage` | `/api/v1/admin/secrets/import/rsa` | POST |
+| `secrets.manage` | `/api/v1/admin/secrets/import/hmac` | POST |
+| `secrets.manage` | `/api/v1/admin/secrets/import/gateway-token` | POST |
 | `secrets.manage` | `/api/v1/admin/secrets/custom/{key}` | PUT |
 | `secrets.manage` | `/api/v1/admin/secrets/custom/{key}` | DELETE |
 
@@ -1129,7 +1173,7 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
 
 **الاستجابة:** 204 بلا محتوى
 
-**التحققات:** فرض سياسة كلمة المرور، فحص سجل كلمات المرور (آخر 5 كلمات مرور).
+**التحققات:** فرض سياسة كلمة المرور، فحص سجل كلمات المرور (آخر 3 كلمات مرور).
 
 #### POST `/api/v1/auth/forgot-password`
 
@@ -2635,9 +2679,9 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
 
 **المسار الأساسي:** `/api/v1/admin/secrets`
 
-**المتطلبات:** `SecretManagement:EnableAdminApi` يجب أن يكون `true` في الإعدادات.
+**المتطلبات:** `SecretManagement:EnableAdminApi` يجب أن يكون `true` في الإعدادات (أبقِه معطلاً إلا أثناء التزويد)، ويجب أن تُرسَل الطلبات عبر HTTPS — لأن `generate/*` و`import/*` تحمل مادة مفاتيح خاصة.
 
-جميع نقاط النهاية تتطلب صلاحية `secrets.manage`.
+جميع نقاط النهاية تتطلب صلاحية `secrets.manage`. تجعل `generate/*` **النظام** يولّد مفتاحاً جديداً؛ بينما `import/*` تخزّن قيمة **تورّدها أنت** (BYOK) وتعمل فقط في وضعَي Certificate/Dpapi.
 
 #### GET `/api/v1/admin/secrets/status`
 
@@ -2707,6 +2751,84 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
 ```
 
 > **هام:** بعد إعادة التوليد، يجب إعادة تشغيل بوابة API لالتقاط الرمز الجديد.
+
+#### POST `/api/v1/admin/secrets/import/rsa`
+
+استيراد مفتاح RSA **خاص** تورّده أنت لتوقيع JWT (مفاتيحك الخاصة — BYOK). يُشتق المفتاح العام المطابق ويُخزَّن تلقائياً.
+
+**الصلاحية:** `secrets.manage`
+
+**الطلب:**
+
+```json
+{
+  "value": "-----BEGIN PRIVATE KEY-----\nMIIEvg...\n-----END PRIVATE KEY-----"
+}
+```
+
+> ورّد المفتاح بصيغة PEM (PKCS#8 أو PKCS#1، ≥ 2048 بت) مع تهريب أسطر الجديدة كـ `\n` في JSON.
+
+**الاستجابة (200):**
+
+```json
+{
+  "success": true,
+  "message": "RSA signing key imported successfully. All existing access tokens are now invalid. Users must re-authenticate.",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\n..."
+}
+```
+
+> **متطلب وضع التخزين:** `import/*` يعمل فقط في وضع **Certificate** أو **Dpapi**. في وضع **PlainText** يعيد `409 Secret.ImportNotSupportedInPlainText` — حرّر المفاتيح مباشرة في `appsettings.Production.json` بدلاً من ذلك. الاستيراد **يستبدل** المفتاح الحالي؛ وإعادة استيراد **نفس** القيمة عملية آمنة لا تؤثر على الرموز الحية.
+
+#### POST `/api/v1/admin/secrets/import/hmac`
+
+استيراد مفتاح HMAC تورّده أنت لتجزئة رموز التحديث (BYOK).
+
+**الصلاحية:** `secrets.manage`
+
+**الطلب:**
+
+```json
+{
+  "value": "<مفتاح بترميز base64، >= 32 بايت>"
+}
+```
+
+**الاستجابة (200):**
+
+```json
+{
+  "success": true,
+  "message": "HMAC key imported successfully. All existing refresh tokens are now invalid. Users must re-authenticate."
+}
+```
+
+> وضعا Certificate/Dpapi فقط (`409` في PlainText). يستبدل المفتاح الحالي.
+
+#### POST `/api/v1/admin/secrets/import/gateway-token`
+
+استيراد رمز بوابة تورّده أنت للمصادقة بين الخدمات (BYOK).
+
+**الصلاحية:** `secrets.manage`
+
+**الطلب:**
+
+```json
+{
+  "value": "<رمز البوابة، >= 16 حرفاً>"
+}
+```
+
+**الاستجابة (200):**
+
+```json
+{
+  "success": true,
+  "message": "Gateway token imported successfully. Update the API Gateway configuration with the same token."
+}
+```
+
+> وضعا Certificate/Dpapi فقط (`409` في PlainText). يجب تكوين بوابة API بنفس الرمز.
 
 #### PUT `/api/v1/admin/secrets/custom/{key}`
 
@@ -2923,11 +3045,13 @@ Body: { gracePeriodMinutes: 120 }
 التدابير الأمنية التالية مطبقة في جميع أنحاء النظام:
 
 ### أمان كلمات المرور
-- تجزئة **Argon2id** مع معاملات OWASP 2024 الموصى بها (19 ميجابايت ذاكرة، 2 تكرار، 1 خيط)
-- كلمات مرور بحد أدنى 12 حرفاً مع متطلبات التعقيد (أحرف كبيرة، صغيرة، رقم، حرف خاص)
-- تتبع سجل كلمات المرور (يمنع إعادة استخدام آخر 5 كلمات مرور)
-- انتهاء صلاحية كلمة المرور (قابل للتكوين، افتراضي 90 يوماً)
+- تجزئة **Argon2id** مع معاملات OWASP 2024 الموصى بها (19 ميجابايت ذاكرة، 2 تكرار، 1 خيط)، مع ملح فريد لكل كلمة مرور، ومقارنة ثابتة الوقت، وإعادة تجزئة عند تسجيل الدخول
+- كلمات مرور بحد أدنى 8 أحرف (قابل للتكوين؛ OWASP توصي بـ 12+) مع متطلبات التعقيد (أحرف كبيرة، صغيرة، رقم، حرف خاص)
+- تتبع سجل كلمات المرور (يمنع إعادة استخدام كلمات المرور الأخيرة)
+- انتهاء صلاحية كلمة المرور (قابل للتكوين، معطّل افتراضياً)
 - قفل الحساب بعد 5 محاولات فاشلة (قفل 15 دقيقة)
+- **فلفل اختياري (Pepper)** — سر من جانب الخادم يُمزج في كل تجزئة ويُخزَّن في مخزن الأسرار (وليس قاعدة البيانات) للدفاع ضد اختراق قاعدة البيانات وحدها
+- **فحص اختياري لكلمات المرور المخترقة** — يرفض أو يحذّر من كلمات المرور الموجودة في HIBP Pwned Passwords عبر واجهة النطاق بلا مفتاح وبخاصية k-anonymity
 
 ### أمان الرموز
 - **توقيع JWT غير متماثل RS256** — الخدمات الخارجية تتحقق من الرموز دون معرفة المفتاح الخاص
@@ -2938,9 +3062,12 @@ Body: { gracePeriodMinutes: 120 }
 - مفاتيح API تُخزن كتجزئات Argon2id (ليس بالنص العادي أبداً)
 
 ### التشفير عند الراحة
-- **Windows DPAPI** يشفر جميع الأسرار (مفتاح RSA الخاص، مفتاح HMAC، رمز البوابة، كلمة مرور SMTP)
-- تشفير مرتبط بالجهاز — الأسرار لا يمكن فك تشفيرها إلا على نفس الجهاز
-- ملف الأسرار مخزن خارج دليل التطبيق
+- **تخزين أسرار قابل للتبديل** (`SecretManagement:StorageMode`): `PlainText` أو `Certificate` أو `Dpapi`
+  - **Certificate** — الأسرار مشفّرة في `secrets.dpapi`، محمية بشهادة X.509 تملكها؛ محمولة بين الخوادم (موصى بها للاستضافة المشتركة)
+  - **Dpapi** — تشفير Windows مرتبط بالجهاز؛ الأسرار لا تُفك إلا على نفس الجهاز + الحساب
+  - **PlainText** — المفاتيح في `appsettings.Production.json`، محمية بصلاحيات الملف فقط (أحكِم قفل الملف)
+- ملف الأسرار وحلقة مفاتيح حماية البيانات مخزّنان خارج جذر الويب العام
+- انسخ مخزن الأسرار احتياطياً (وملف `.pfx` في وضع Certificate) — فقدانه يُبطل كل الرموز، والفلفل الاختياري إن فُعِّل يقفل المستخدمين المُفلفَلين نهائياً
 
 ### أمان النقل
 - HTTPS مفروض في الإنتاج عبر HSTS (365 يوماً، includeSubDomains، preload)
@@ -3019,25 +3146,29 @@ Auth/Auth_API/Postman/AuthSystem.postman_collection.json
 "Server=.\\SQLEXPRESS;Database=AuthDB;Trusted_Connection=True;TrustServerCertificate=True"
 ```
 
-### أخطاء DPAPI
+### أخطاء الأسرار / حلقة المفاتيح
 
-**العَرَض:** `CryptographicException: The data protection operation was unsuccessful`
+**العَرَض:** `An error occurred while reading the key ring` / `Access to the path ... is denied`
 
-**الأسباب:**
-- التشغيل على نظام غير Windows (DPAPI خاص بـ Windows فقط)
-- ملف الأسرار أُنشئ بحساب مستخدم Windows مختلف
-- دليل حلقة مفاتيح حماية البيانات مفقود أو غير قابل للوصول
+**السبب:** `DataProtection:KeyPath` فارغ، فتعود حلقة المفاتيح إلى مجلد لا تستطيع هوية تجمّع التطبيقات (app-pool) الكتابة إليه (على IIS / الاستضافة المشتركة تعود إلى مسار تحت `systemprofile`).
 
-**الحل:** تأكد أن `%LOCALAPPDATA%/AuthSystem/Keys` موجود وقابل للكتابة. إذا كنت تنتقل بين الأجهزة، أعد توليد الأسرار.
+**الحل:** اضبط `KeyPath` على مجلد قابل للكتابة خارج جذر الويب العام — **نفس** المجلد لـ Auth API وAPI Gateway — وامنح هوية تجمّع التطبيقات صلاحية *Modify* عليه.
+
+**العَرَض (وضع Dpapi):** `CryptographicException` / "Failed to decrypt … different machine"
+
+**الأسباب:** التشغيل على نظام غير Windows (`Dpapi`/`Certificate` لـ Windows فقط)، أو أن ملف الأسرار أُنشئ على جهاز مختلف أو بحساب مختلف، أو حلقة المفاتيح مفقودة.
+
+**الحل:** أبقِ Auth API والبوابة على جهاز واحد يتشاركان حلقة مفاتيح واحدة، أو استخدم وضع **Certificate** للقابلية للنقل. إذا اضطررت للنقل، ورّد مفاتيحك الخاصة (BYOK) وأعد استيرادها على الخادم الجديد.
 
 ### عدم تطابق رمز البوابة
 
 **العَرَض:** `403 Forbidden` على جميع الطلبات عبر البوابة
 
-**الحل:** يجب أن يتشاركا Auth_API وAPI_Gateway نفس ملف أسرار DPAPI. تأكد أن:
-1. كلا الخدمتين مكوّنتان لاستخدام نفس `SecretsFilePath`
-2. كلا الخدمتين تعملان تحت نفس حساب مستخدم Windows
-3. أعد تشغيل كلا الخدمتين بعد إعادة توليد الأسرار
+**الحل:** يجب أن يتفق Auth API وAPI Gateway على رمز البوابة وأن يستخدما **نفس** `StorageMode`:
+1. **PlainText** — انسخ `Gateway:ExpectedToken` المولّد في الـ API إلى `Gateway:Token` في البوابة.
+2. **Certificate/Dpapi** — شغّل كليهما على نفس الجهاز ووجّههما إلى **نفس** حلقة المفاتيح وملف `secrets.dpapi`؛ عندها يقرأ كلاهما الرمز تلقائياً. أعد تشغيل كليهما بعد أي إعادة توليد للأسرار.
+
+> للاطلاع على مصفوفة استكشاف أخطاء الإنتاج الكاملة (أخطاء بدء التشغيل 500.30، ومشاكل كلمة مرور الشهادة، ومسح المفاتيح عند إعادة النشر)، راجع [PRODUCTION_DEPLOYMENT_GUIDE.md §D](PRODUCTION_DEPLOYMENT_GUIDE.md).
 
 ### أخطاء CORS
 
@@ -3061,7 +3192,7 @@ Auth/Auth_API/Postman/AuthSystem.postman_collection.json
 
 ### خدمة البريد لا ترسل
 
-تأكد أن `Email:Enabled` مضبوط على `true` وبيانات اعتماد SMTP مكوّنة. كلمة مرور SMTP يجب تعيينها عبر أسرار DPAPI (وليس في appsettings.json).
+تأكد أن `Email:Enabled` مضبوط على `true` وبيانات اعتماد SMTP مكوّنة. أبقِ كلمة مرور SMTP خارج `appsettings.json` — عيّنها عبر متغير البيئة `Email__Password`، أو خزّنها في مخزن الأسرار المشفّر (وضعا Certificate/Dpapi).
 
 ---
 
@@ -3104,7 +3235,7 @@ Auth/Auth_API/Postman/AuthSystem.postman_collection.json
 | `org:apps:read` | OrganizationsController | عرض تطبيقات المؤسسة |
 | `org:apps:manage` | OrganizationsController | تفعيل، تحديث، تعطيل تطبيقات المؤسسة |
 | `org:permissions:manage` | OrganizationsController | تعيين أدوار التطبيق ومنح الصلاحيات للأعضاء |
-| `secrets.manage` | SecretsController | عرض الحالة، توليد المفاتيح، إدارة الأسرار المخصصة |
+| `secrets.manage` | SecretsController | عرض الحالة، توليد واستيراد المفاتيح (BYOK)، إدارة الأسرار المخصصة |
 
 ---
 

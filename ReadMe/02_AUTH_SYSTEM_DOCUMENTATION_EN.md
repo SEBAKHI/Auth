@@ -146,6 +146,15 @@ Stored Hash: $argon2id$v=19$m=19456,t=2,p=1$[salt]$[hash]
 
 **Why does memory matter?** Unlike simple algorithms that can run millions of times per second on GPUs, Argon2id requires 19 MiB of memory per attempt. An attacker trying to crack millions of passwords in parallel would need terabytes of RAM, making the attack economically impractical.
 
+### Defense-in-Depth: Pepper & Breached-Password Screening
+
+Beyond Argon2id, two optional layers can be enabled per environment:
+
+- **Pepper** — a server-side secret mixed into *every* password hash and stored separately from the database (in the secret store, never in SQL). If the database alone is ever breached, the stolen hashes cannot be brute-forced without the pepper. Existing hashes are upgraded transparently on each user's next login.
+- **Breached-Password Screening** — passwords are checked against the *Have I Been Pwned* Pwned Passwords dataset using k-anonymity (only the first 5 characters of the SHA-1 hash ever leave the server; the password never does). Breached passwords can be rejected (`Enforce`) or flagged with a warning (`Warn`).
+
+Both are disabled by default and add no external dependency until enabled.
+
 ### Token-Based Authentication
 
 Instead of checking credentials with every request (like showing ID at every door), we use **tokens** — like a concert wristband that proves you paid at the entrance.
@@ -221,8 +230,8 @@ Every response from AuthSystem includes protective headers:
 |------------|---------------|
 | Failed login attempts before lockout | **5 attempts** |
 | Lockout duration | **15 minutes** |
-| Password history (no reuse) | **Last 5 passwords** |
-| Minimum password length | **12 characters** |
+| Password history (no reuse) | **Last 3 passwords** |
+| Minimum password length | **8 characters** (12+ recommended) |
 | Session idle timeout | **30 minutes** |
 | Max concurrent sessions | **5 per user** |
 | Two-Factor Authentication | **TOTP with backup codes** |
@@ -734,4 +743,4 @@ Every day that an organization operates with a fragmented or outdated identity s
 ---
 
 *Document Version: 2.0*
-*Last Updated: February 2026*
+*Last Updated: June 2026*

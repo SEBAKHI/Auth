@@ -152,7 +152,14 @@ AuthSystem uses **Argon2id exclusively** — the algorithm recommended by OWASP 
 
 - **Library:** Konscious.Security.Cryptography.Argon2 v1.3.1
 - **Timing-safe comparison:** Uses fixed-time comparison to prevent timing attacks
-- **Password history:** Last 5 passwords stored (hashed) to prevent reuse
+- **Password history:** Last 3 passwords stored (hashed) to prevent reuse
+
+#### Optional Hardening: Pepper & Breached-Password Screening
+
+Two opt-in layers complement Argon2id (both default off, configured under `Password`):
+
+- **Pepper** (`Password:Pepper`) — a server-side secret (Argon2id `KnownSecret`) mixed into every hash and held in the secret store, never the database. It defends a database-only breach: without the pepper, stolen hashes resist brute force. Unpeppered hashes upgrade transparently on next login; the key material is backed up like the JWT/HMAC keys.
+- **Breached-password screening** (`Password:BreachedPasswordCheck`) — checks new passwords against the HIBP Pwned Passwords range API with k-anonymity (only a SHA-1 prefix leaves the server). `Enforce` rejects breached passwords; `Warn` allows them but returns an `X-Password-Warning` header. `FailOpen` controls behaviour when HIBP is unreachable.
 
 ### Token Authentication: JWT RS256
 
@@ -184,10 +191,11 @@ Asymmetric (RS256):
 
 ### Key Management
 
-- **Storage:** RSA keys encrypted using Windows DPAPI
-- **Location:** `%LOCALAPPDATA%/AuthSystem/Keys`
-- **Auto-generation:** Keys auto-generate on first startup, then loaded from encrypted storage
-- **Rotation:** Key rotation supported without invalidating existing tokens (multiple active keys)
+- **Storage modes** (`SecretManagement:StorageMode`): **PlainText** (keys in `appsettings.Production.json`, cross-platform), **Certificate** (keys encrypted in `secrets.dpapi`, protected by an X.509 cert you own — portable across servers), or **Dpapi** (Windows machine-bound encryption). Certificate is recommended for shared hosting; PlainText is the default and the only cross-platform option (Linux/cPanel).
+- **Key ring location:** `DataProtection:KeyPath` (defaults to `%ProgramData%/AuthSystem/Keys`; point the Auth API and Gateway at the same folder so they share one ring)
+- **Auto-generation:** RSA, HMAC, and gateway token auto-generate on first startup; set `AutoGenerateKeys: false` afterwards so missing secrets fail loudly instead of silently regenerating
+- **Bring-your-own-keys (BYOK):** import your own RSA/HMAC/gateway material via the admin secrets API (Certificate/Dpapi) or `appsettings.Production.json` (PlainText) — enables zero-logout server migration
+- **Rotation:** key rotation supported without invalidating existing tokens (multiple active keys)
 
 ### Rate Limiting
 
@@ -218,8 +226,8 @@ Every response includes protective headers:
 |------------|-------|
 | Failed login attempts before lockout | 5 attempts |
 | Lockout duration | 15 minutes |
-| Password history (no reuse) | Last 5 passwords |
-| Minimum password length | 12 characters |
+| Password history (no reuse) | Last 3 passwords |
+| Minimum password length | 8 characters (12+ recommended) |
 | Session idle timeout | 30 minutes |
 | Max concurrent sessions | 5 per user |
 | Two-Factor Authentication | TOTP with backup codes |
@@ -331,6 +339,8 @@ Shared logic is centralized in reusable services. Example: password hashing logi
 
 ## 6. Deployment & Operations
 
+> For step-by-step production deployment (storage modes, IIS / shared hosting, the API Gateway, and BYOK migration), see **PRODUCTION_DEPLOYMENT_GUIDE.md**.
+
 ### Technology Requirements
 
 | Component | Minimum | Recommended |
@@ -431,7 +441,7 @@ Every request is tagged with a correlation ID (`X-Correlation-Id` header) that f
 |-----------|--------------|-----------|-----------|
 | **Database** | SQL Server full + differential backup | Full: daily; Differential: every 6 hours | 30 days |
 | **Configuration** | Source control (appsettings, migrations) | On every change | Indefinite |
-| **RSA Keys** | Encrypted backup (DPAPI) | On rotation | Until all tokens signed with old key expire |
+| **Secret store** (RSA/HMAC/gateway token, pepper) | `secrets.dpapi` + key ring (+ the `.pfx` in Certificate mode); or `appsettings.Production.json` in PlainText | On rotation | Until all tokens signed with the old key expire |
 | **Audit Logs** | Database backup + optional CSV export | Daily | Per compliance requirement (typically 1-7 years) |
 
 ### Recovery Objectives (Recommended Targets)
@@ -488,10 +498,12 @@ For service-to-service communication, AuthSystem supports API Keys:
 
 | Secret | Protection Method |
 |--------|------------------|
-| RSA signing keys | Encrypted with Windows DPAPI |
-| Database connection strings | Environment variables / User Secrets (development) |
+| RSA signing keys, HMAC key, gateway token | `StorageMode`: PlainText (`appsettings.Production.json`), Certificate (`secrets.dpapi` + X.509 cert), or Dpapi (Windows machine-bound) |
+| Database connection string | `ConnectionStrings__AuthDb` env var, or encrypted in `secrets.dpapi` (Certificate/Dpapi) |
+| SMTP password | `Email__Password` env var, or encrypted in `secrets.dpapi` |
+| Password pepper | Stored in the active secret store (when enabled) |
 | API Keys (stored) | Hashed with Argon2id |
-| Gateway token | Injected via `X-Gateway-Token` header |
+| Gateway token (in transit) | Sent via the `X-Gateway-Token` header |
 
 ### Key Rotation Process
 
@@ -499,6 +511,8 @@ For service-to-service communication, AuthSystem supports API Keys:
 2. **Dual-key period** — both old and new keys active for token verification
 3. **Transition** — new tokens signed with new key; old tokens still verifiable
 4. **Retirement** — old key removed after all tokens signed with it have expired (max: refresh token lifetime = 7 days)
+
+> **Provisioning:** secrets auto-generate on first startup (`AutoGenerateKeys: true`); set it to `false` afterwards. To control the key material yourself, use the admin `import/*` endpoints (Certificate/Dpapi) or edit `appsettings.Production.json` (PlainText) — see PRODUCTION_DEPLOYMENT_GUIDE.md §G.
 
 ### Recommended: External Secret Management
 
@@ -543,8 +557,8 @@ For production deployments, integrate with:
 | Refresh Token Lifetime | 7 days | Yes (appsettings.json) |
 | Failed Logins Before Lockout | 5 attempts | Yes |
 | Lockout Duration | 15 minutes | Yes |
-| Password Minimum Length | 12 characters | Yes |
-| Password History | 5 passwords | Yes |
+| Password Minimum Length | 8 characters (12+ recommended) | Yes |
+| Password History | 3 passwords | Yes |
 | Rate Limit (Global) | 100 req/60s | Yes |
 | Rate Limit (Login) | 5 req/60s | Yes |
 | Rate Limit (Gateway) | 1,000 req/60s | Yes |
@@ -553,6 +567,9 @@ For production deployments, integrate with:
 | Argon2id Memory | 19,456 KB | Yes |
 | Argon2id Iterations | 2 | Yes |
 | Argon2id Parallelism | 1 | Yes |
+| Password Pepper | Disabled (opt-in) | Yes |
+| Breached-Password Check | Disabled (opt-in) | Yes |
+| Secret Storage Mode | PlainText | Yes |
 
 All values are configurable through `appsettings.json` without code changes.
 
@@ -574,4 +591,4 @@ All values are configurable through `appsettings.json` without code changes.
 ---
 
 *Document Version: 1.0*
-*Last Updated: February 2026*
+*Last Updated: June 2026*
