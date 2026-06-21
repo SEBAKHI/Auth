@@ -1,6 +1,6 @@
-# CMS Integration Guide with AuthSystem
+# Application Integration Guide with AuthSystem
 
-This guide explains how an external .NET CMS (or any .NET application) can authenticate and authorize requests from three sources using the AuthSystem SDK.
+This guide explains how an external .NET application can authenticate and authorize requests from three sources using the AuthSystem SDK.
 
 | Auth Method | Scheme Name | Source | Use Case |
 |-------------|-------------|--------|----------|
@@ -15,7 +15,7 @@ This guide explains how an external .NET CMS (or any .NET application) can authe
 Add a reference to the `Auth.Sdk` project or NuGet package:
 
 ```xml
-<!-- CMS.csproj -->
+<!-- YourApp.csproj -->
 <ItemGroup>
   <ProjectReference Include="..\Auth.Sdk\Auth.Sdk.csproj" />
   <!-- OR once published as NuGet: -->
@@ -89,11 +89,11 @@ app.Run();
 
 ---
 
-## Step 4: Protect CMS Controllers
+## Step 4: Protect Your Controllers
 
 ### 4A. User Authentication (JWT Bearer)
 
-For endpoints where **users** (authenticated via AuthSystem) interact with the CMS.
+For endpoints where **users** (authenticated via AuthSystem) interact with your application.
 
 The SDK maps JWT custom claims so that ASP.NET Core role-based authorization works out of the box:
 - `"roles"` claim -> `[Authorize(Roles = "...")]`
@@ -101,7 +101,7 @@ The SDK maps JWT custom claims so that ASP.NET Core role-based authorization wor
 
 ```csharp
 [ApiController]
-[Route("api/cms/articles")]
+[Route("api/articles")]
 [Authorize]  // Uses Bearer scheme by default
 public class ArticlesController : ControllerBase
 {
@@ -122,7 +122,7 @@ public class ArticlesController : ControllerBase
 **Flow:**
 
 1. User logs in via AuthSystem (`POST /api/v1/auth/login`) and receives a JWT access token
-2. User sends requests to CMS with `Authorization: Bearer <jwt-token>` header
+2. User sends requests to your application with `Authorization: Bearer <jwt-token>` header
 3. The SDK validates the JWT locally using AuthSystem's public keys (JWKS) -- no HTTP call needed
 4. Claims (`sub`, `email`, `roles`, `permissions`) are available via `User.Claims`
 
@@ -168,7 +168,7 @@ For fine-grained control, use `[RequirePermission("...")]` from the SDK. This wo
 using Auth.Sdk.Authorization;
 
 [ApiController]
-[Route("api/cms/articles")]
+[Route("api/articles")]
 [Authorize]
 public class ArticlesController : ControllerBase
 {
@@ -198,7 +198,7 @@ public class ArticlesController : ControllerBase
 | `content:*` | `content:read` | Granted |
 | `content:*` | `content:publish` | Granted |
 | `content:read` | `content:publish` | Denied |
-| `cms:content:*` | `cms:content:read` | Granted |
+| `app:content:*` | `app:content:read` | Granted |
 
 **Cross-scheme compatibility:** The handler checks `permissions` (JWT), `permission` (ApiKey), and `scope` (ApiKey) claims, so `[RequirePermission]` works regardless of which authentication scheme was used.
 
@@ -206,11 +206,11 @@ public class ArticlesController : ControllerBase
 
 ### 4B. API Key Authentication (System-to-System)
 
-For endpoints where **other systems** interact with the CMS using API keys.
+For endpoints where **other systems** interact with your application using API keys.
 
 ```csharp
 [ApiController]
-[Route("api/cms/content")]
+[Route("api/content")]
 [Authorize(AuthenticationSchemes = "ApiKey")]
 public class ContentApiController : ControllerBase
 {
@@ -244,7 +244,7 @@ public class ContentApiController : ControllerBase
 
 1. Admin creates an API key in AuthSystem (`POST /api/v1/apikeys`) with specific permission scopes
 2. The consuming system stores the API key (shown only once at creation)
-3. The system sends requests to CMS with `X-Api-Key: ak_prod_abc123...` header
+3. The system sends requests to your application with `X-Api-Key: ak_prod_abc123...` header
 4. The SDK calls AuthSystem to validate the key and caches the result for 60 seconds
 5. Scopes/permissions from the API key are available as claims
 
@@ -256,11 +256,11 @@ For endpoints that **receive webhook calls** from other systems with a key in th
 
 ```csharp
 [ApiController]
-[Route("api/cms/webhooks")]
+[Route("api/webhooks")]
 [Authorize(AuthenticationSchemes = "WebhookKey")]
 public class WebhooksController : ControllerBase
 {
-    // Called as: POST /api/cms/webhooks/content-updated?whk=wk_prod_xyz789...
+    // Called as: POST /api/webhooks/content-updated?whk=wk_prod_xyz789...
     [HttpPost("content-updated")]
     public IActionResult OnContentUpdated([FromBody] WebhookPayload payload)
     {
@@ -279,7 +279,7 @@ public class WebhooksController : ControllerBase
 
 1. Admin creates a webhook key in AuthSystem (`POST /api/v1/webhookkeys`) with a target URL
 2. The calling system stores the webhook key (shown only once at creation)
-3. The system calls the CMS webhook URL with `?whk=wk_prod_xyz789...` in the query string
+3. The system calls your application's webhook URL with `?whk=wk_prod_xyz789...` in the query string
 4. The SDK calls AuthSystem to validate the key and caches the result for 5 minutes
 5. Webhook key metadata is available as claims
 
@@ -291,7 +291,7 @@ For endpoints that accept **multiple** auth methods:
 
 ```csharp
 [ApiController]
-[Route("api/cms/data")]
+[Route("api/data")]
 [Authorize(AuthenticationSchemes = "Bearer,ApiKey")]  // accepts either JWT or API key
 public class DataController : ControllerBase
 {
@@ -324,8 +324,8 @@ Content-Type: application/json
 
 {
   "applicationId": "your-app-guid",
-  "name": "CMS Content Sync",
-  "description": "Key for syncing content to CMS",
+  "name": "Content Sync",
+  "description": "Key for syncing content to your application",
   "environment": "production",
   "rateLimitPerMinute": 100,
   "rateLimitPerDay": 50000,
@@ -355,7 +355,7 @@ Content-Type: application/json
 {
   "applicationId": "your-app-guid",
   "name": "Content Update Webhook",
-  "targetUrl": "https://cms.example.com/api/cms/webhooks/content-updated",
+  "targetUrl": "https://app.example.com/api/webhooks/content-updated",
   "environment": "production"
 }
 ```
@@ -379,21 +379,21 @@ Content-Type: application/json
 ### User Request (JWT)
 
 ```http
-GET /api/cms/articles
+GET /api/articles
 Authorization: Bearer eyJhbGciOiJSUzI1NiIs...
 ```
 
 ### System Request (API Key)
 
 ```http
-GET /api/cms/content/pages
+GET /api/content/pages
 X-Api-Key: ak_prod_aBcDeFgHiJkLmNoPqRsTuVwXyZ012345
 ```
 
 ### Webhook Request (Webhook Key)
 
 ```http
-POST /api/cms/webhooks/content-updated?whk=wk_prod_aBcDeFgHiJkLmNoPqRsTuVwXyZ012345
+POST /api/webhooks/content-updated?whk=wk_prod_aBcDeFgHiJkLmNoPqRsTuVwXyZ012345
 Content-Type: application/json
 
 { "event": "content.updated", "data": { ... } }

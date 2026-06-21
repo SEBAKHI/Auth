@@ -374,7 +374,7 @@ dotnet nuget push bin/Release/Astoom.Auth.Sdk.1.0.0.nupkg \
 ### Consumer Usage
 
 ```xml
-<!-- CMS.csproj -->
+<!-- YourApp.csproj -->
 <ItemGroup>
   <PackageReference Include="Astoom.Auth.Sdk" Version="1.0.0" />
 </ItemGroup>

@@ -318,7 +318,7 @@ curl -X POST https://auth.<yourdomain>.com/api/v1/auth/login \
 Only if you have *other* .NET apps that must trust this system. **Auth.Sdk** lets them validate
 tokens/API-keys without sharing any private key. Quickest: reference the project
 (`<ProjectReference Include="..\Auth.Sdk\Auth.Sdk.csproj" />`). Proper: publish to a NuGet feed
-(see `SDK_PUBLISHING_GUIDE.md`). Consumer setup and full walkthrough are in `CMS_INTEGRATION_GUIDE.md`.
+(see `SDK_PUBLISHING_GUIDE.md`). Consumer setup and full walkthrough are in `APPLICATION_INTEGRATION_GUIDE.md`.
 
 ---
 
