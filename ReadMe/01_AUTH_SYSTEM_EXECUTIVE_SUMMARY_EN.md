@@ -30,7 +30,7 @@ Built on .NET 10.0 with industry-leading security standards, AuthSystem replaces
 
 | Capability | Business Value |
 |-----------|---------------|
-| **Industry-Leading Password Security** (Argon2id — OWASP recommended) | Protects against modern GPU-based attacks; the strongest available algorithm |
+| **Industry-Leading Password Security** (Argon2id — OWASP recommended) | Protects against modern GPU-based attacks with the strongest available algorithm; optional server-side pepper and breached-password screening add defense-in-depth |
 | **Single Sign-On Across Applications** | One login for all company apps — reduces friction and support costs |
 | **Multi-Tenant Organization Support** | Manage multiple companies/departments from one platform |
 | **Comprehensive Audit Logging** | Know who did what, when — compliance-ready for GDPR, SOC 2, HIPAA, PCI-DSS |
@@ -110,4 +110,4 @@ Rate your current identity system. Each "No" represents a potential risk:
 ---
 
 *Document Version: 1.0*
-*Last Updated: February 2026*
+*Last Updated: June 2026*

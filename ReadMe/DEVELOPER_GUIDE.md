@@ -28,7 +28,7 @@ AuthSystem is a production-grade authentication and authorization platform built
 
 ### 1.2 API Capabilities at a Glance
 
-The system exposes **84+ REST API endpoints** across **12 controllers**, organized into the following feature areas:
+The system exposes **87+ REST API endpoints** across **12 controllers**, organized into the following feature areas:
 
 | Feature | Endpoints | Description |
 |---|---|---|
@@ -43,7 +43,7 @@ The system exposes **84+ REST API endpoints** across **12 controllers**, organiz
 | **Invitations** | 1 | Accept organization invitation |
 | **API Keys** | 4 | Create, list, revoke, rotate with grace period |
 | **Audit Logs** | 5 | Query, filter, user/entity scoped, export (CSV/JSON) |
-| **Secrets (Admin)** | 6 | DPAPI secret status, key generation, custom secret management |
+| **Secrets (Admin)** | 9 | Secret status, key generation and import (BYOK), custom secret management |
 
 > See [Section 5 — API Reference](#5-api-reference) for full endpoint details with request/response examples.
 
@@ -57,7 +57,7 @@ The system exposes **84+ REST API endpoints** across **12 controllers**, organiz
 └──────────┘       └─────────────────────┘       └──────────────────┘       └────────────┘
                    │ + X-Gateway-Token    │       │ + JWT Auth        │
                    │ + X-Forwarded-For    │       │ + Permission Auth │
-                   │ + X-Correlation-ID   │       │ + DPAPI Secrets   │
+                   │ + X-Correlation-ID   │       │ + Secret Storage  │
                    │ + Rate Limiting      │       │ + Audit Logging   │
                    └─────────────────────┘       └──────────────────┘
 ```
@@ -70,14 +70,17 @@ Auth/
 │   ├── Services/
 │   │   ├── Auth.Domain          — Entities, interfaces, enums, error definitions
 │   │   ├── Auth.Application     — CQRS commands/queries, DTOs, validators, configuration
-│   │   ├── Auth.Infrastructure  — Dapper repos, JWT, Argon2id, DPAPI, Google auth, TOTP, SMTP
-│   │   └── Auth_API             — ASP.NET Core 10 REST API (12 controllers, 84+ endpoints)
+│   │   ├── Auth.Infrastructure  — Dapper repos, JWT, Argon2id, secret storage, Google auth, TOTP, SMTP
+│   │   └── Auth_API             — ASP.NET Core 10 REST API (12 controllers, 87+ endpoints)
 │   ├── Shared/
+│   │   ├── Auth.Shared          — Shared configuration contracts and secret-storage primitives
 │   │   └── Auth_Localization    — Resource files for 7 languages (en, ar, tr, fr, zh, ur, fa)
 │   ├── Gateway/
 │   │   └── API_Gateway          — YARP reverse proxy with rate limiting and security headers
+│   ├── Sdk/
+│   │   └── Auth.Sdk             — Client SDK other .NET apps install to validate tokens/API keys
 │   ├── Setup/
-│   │   └── Auth_Setup           — Console utility for password hashing
+│   │   └── Auth_Setup           — One-time console CLI that generates the admin password hash
 │   └── Database/
 │       └── Auth_DB              — SQL Server Database Project (26 tables, stored procedures)
 ├── Tests/
@@ -96,7 +99,7 @@ Auth/
 | **FluentValidation** | Input validation | Declarative validation rules separated from domain logic; richer than Data Annotations |
 | **RS256 JWT** | Token signing | Asymmetric keys allow external services to validate tokens using the public key without sharing the private key (unlike HS256) |
 | **Argon2id** | Password hashing | OWASP 2024 recommended; memory-hard algorithm resistant to GPU/ASIC attacks (superior to bcrypt/PBKDF2) |
-| **DPAPI** | Secret encryption at rest | Windows-native, machine-bound encryption; no external key vault dependency for single-server deployments |
+| **Secret storage (PlainText / Certificate / DPAPI)** | Secret encryption at rest | Pluggable `StorageMode`: PlainText for a quick cross-platform start, Certificate for portable encryption that survives server moves (recommended for shared hosting), DPAPI for Windows machine-bound encryption — no external key vault required |
 | **YARP** | API Gateway | .NET-native reverse proxy; configured in appsettings.json; superior .NET integration vs NGINX/Ocelot |
 | **Serilog** | Structured logging | Multiple sinks (console, file), enrichers, structured JSON output; industry standard for .NET |
 | **SQL Server + SSDT** | Database | Enterprise-grade RDBMS; SSDT provides version-controlled schema with stored procedures for critical paths |
@@ -113,7 +116,7 @@ Auth/
 |---|---|
 | **.NET 10 SDK** | [Download](https://dotnet.microsoft.com/download/dotnet/10.0) |
 | **SQL Server** | Express or Developer edition (LocalDB also works for development) |
-| **Windows OS** | Required for DPAPI secret encryption |
+| **Windows OS** | Required only for the `Dpapi` and `Certificate` secret storage modes; the default `PlainText` mode runs cross-platform (Linux/cPanel) |
 | **Postman** (optional) | Collection included at `Auth_API/Postman/AuthSystem.postman_collection.json` |
 | **Visual Studio 2022+** (optional) | For SSDT database project publishing |
 
@@ -161,9 +164,9 @@ Execute the SQL scripts from `Auth/Auth_DB/dbo/Tables/` in this order:
 
 Then execute all stored procedures from `Auth/Auth_DB/dbo/StoredProcedures/`.
 
-### 3.3 First Startup and DPAPI Secrets
+### 3.3 First Startup and Secret Generation
 
-On first startup, if the secrets file does not exist and `AutoGenerateKeys` is `true`, the system automatically generates:
+The system needs three secrets: an **RSA key pair** (JWT signing), an **HMAC key** (refresh-token hashing), and a **gateway token** (inter-service auth). On first startup, when `AutoGenerateKeys` is `true`, all three are generated automatically — you never run a key-generation command.
 
 | Secret | Purpose |
 |---|---|
@@ -171,21 +174,21 @@ On first startup, if the secrets file does not exist and `AutoGenerateKeys` is `
 | **HMAC Key** (32 bytes) | Refresh token hashing (HMAC-SHA256) |
 | **Gateway Token** (32 bytes) | Inter-service authentication between API Gateway and Auth_API |
 
-**Storage locations:**
-- Secrets file: `%LOCALAPPDATA%/AuthSystem/Secrets/secrets.dpapi`
-- Data Protection keys: `%LOCALAPPDATA%/AuthSystem/Keys`
+**Where the secrets are written depends on `SecretManagement:StorageMode`:**
 
-**Important:** Once generated, keys are never automatically regenerated. To regenerate, use the Secrets Admin API or CLI tools.
+| Mode | Where keys live | Protected by | Use when |
+|---|---|---|---|
+| **`PlainText`** (default) | `appsettings.Production.json` (readable) | File permissions only | Quick start; cross-platform (Linux/cPanel) |
+| **`Certificate`** | Encrypted `secrets.dpapi` | An X.509 certificate you own (portable across servers) | Shared hosting; servers that may move |
+| **`Dpapi`** | Encrypted `secrets.dpapi` | Windows DPAPI, bound to this machine + account | A Windows box you fully control |
 
-**CLI Key Generation:**
+**Storage locations (Certificate/Dpapi modes):**
+- Secrets file: `SecretManagement:SecretFilePath` (e.g. `%LOCALAPPDATA%/AuthSystem/Secrets/secrets.dpapi`)
+- Data Protection key ring: `DataProtection:KeyPath`
 
-```bash
-# Generate DPAPI-encrypted HMAC key
-dotnet run --project Auth/Auth_API -- --generate-hmac-key
+**Important:** Once generated, keys are never automatically regenerated. Set `AutoGenerateKeys: false` after the first run so the app fails loudly if a secret ever goes missing instead of silently minting new keys (which would invalidate every issued token and log everyone out). To rotate keys or supply your own (bring-your-own-keys), use the [Secrets Admin API](#512-secrets-admin).
 
-# Generate DPAPI-encrypted RSA key pair
-dotnet run --project Auth/Auth_API -- --generate-rsa-key
-```
+> **Deploying to production?** Storage-mode setup, the API Gateway, BYOK / server migration, and the password pepper & breached-password check are covered end-to-end in **[PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md)**.
 
 ### 3.4 Configuration Reference
 
@@ -232,19 +235,27 @@ All configuration is in `Auth/Auth_API/appsettings.json`. Below is every section
 ```json
 {
   "Password": {
-    "MinimumLength": 6,
+    "MinimumLength": 8,
     "RequireUppercase": true,
     "RequireLowercase": true,
     "RequireDigit": true,
     "RequireSpecialCharacter": true,
-    "PasswordHistoryCount": 3,
-    "PasswordExpirationDays": 0,
+    "HistoryCount": 3,
+    "ExpirationDays": 0,
     "MaxFailedAttempts": 5,
     "LockoutDurationMinutes": 15,
-    "Argon2": {
-      "MemorySize": 19456,
-      "Iterations": 2,
-      "DegreeOfParallelism": 1
+    "Argon2MemorySize": 19456,
+    "Argon2Iterations": 2,
+    "Argon2Parallelism": 1,
+    "SaltSize": 16,
+    "HashSize": 32,
+    "Pepper": { "Enabled": false },
+    "BreachedPasswordCheck": {
+      "Enabled": false,
+      "Mode": "Enforce",
+      "FailOpen": true,
+      "RejectThreshold": 1,
+      "TimeoutMs": 2000
     }
   }
 }
@@ -252,14 +263,18 @@ All configuration is in `Auth/Auth_API/appsettings.json`. Below is every section
 
 | Field | Description |
 |---|---|
-| `MinimumLength` | Minimum password length (OWASP recommends 12+) |
-| `PasswordHistoryCount` | Number of previous passwords to prevent reuse |
-| `PasswordExpirationDays` | Days until password expires (0 = never) |
+| `MinimumLength` | Minimum password length (default 8; OWASP recommends 12+) |
+| `HistoryCount` | Number of previous passwords to prevent reuse |
+| `ExpirationDays` | Days until password expires (0 = never) |
 | `MaxFailedAttempts` | Failed login attempts before lockout |
 | `LockoutDurationMinutes` | Account lockout duration after max failed attempts |
-| `Argon2.MemorySize` | Memory cost in KB (19456 = ~19 MB, OWASP 2024 recommended) |
-| `Argon2.Iterations` | Time cost (number of iterations) |
-| `Argon2.DegreeOfParallelism` | Thread count for hashing |
+| `Argon2MemorySize` | Memory cost in KB (19456 = ~19 MB, OWASP 2024 recommended) |
+| `Argon2Iterations` | Time cost (number of iterations) |
+| `Argon2Parallelism` | Thread count for hashing |
+| `Pepper.Enabled` | Mix a server-side secret into every Argon2id hash (defense-in-depth against a DB-only breach). Key material is auto-provisioned into the active secret store; **back it up like the JWT keys — losing it permanently locks out all peppered users.** |
+| `BreachedPasswordCheck` | Reject or warn on known-breached passwords via the keyless HIBP Pwned Passwords range API (k-anonymity). `Mode`: `Enforce` rejects, `Warn` allows but returns an `X-Password-Warning` header. `FailOpen` allows the change if HIBP is unreachable. |
+
+> Both `Pepper` and `BreachedPasswordCheck` are **opt-in** (default `false`); Argon2id hashing itself is always on. See [PRODUCTION_DEPLOYMENT_GUIDE.md §F](PRODUCTION_DEPLOYMENT_GUIDE.md) for migration and rotation details.
 
 #### Gateway Settings
 
@@ -317,7 +332,7 @@ All configuration is in `Auth/Auth_API/appsettings.json`. Below is every section
 }
 ```
 
-> **Note:** SMTP password is stored in DPAPI secrets, not in appsettings.json.
+> **Note:** Keep the SMTP password out of `appsettings.json` — set it via the `Email__Password` environment variable, or store it in the encrypted secret store (Certificate/Dpapi modes).
 
 #### External Authentication
 
@@ -370,28 +385,44 @@ All configuration is in `Auth/Auth_API/appsettings.json`. Below is every section
 ```json
 {
   "SecretManagement": {
-    "SecretsFilePath": "%LOCALAPPDATA%/AuthSystem/Secrets/secrets.dpapi",
-    "AutoGenerateKeys": true,
-    "EnableAdminApi": false
+    "StorageMode": "PlainText",
+    "SecretFilePath": "",
+    "PlainTextTargetFile": "appsettings.Production.json",
+    "AutoGenerateKeys": false,
+    "EnableAdminApi": false,
+    "RequiredPermission": "secrets.manage"
   }
 }
 ```
 
 | Field | Description |
 |---|---|
-| `SecretsFilePath` | Location of the DPAPI-encrypted secrets file |
-| `AutoGenerateKeys` | Auto-generate RSA, HMAC, and gateway token on first startup |
+| `StorageMode` | `PlainText` (default), `Certificate`, or `Dpapi` — see [§3.3](#33-first-startup-and-secret-generation) |
+| `SecretFilePath` | Location of the encrypted `secrets.dpapi` (Certificate/Dpapi modes; empty = default `%LOCALAPPDATA%/AuthSystem/Secrets/secrets.dpapi`) |
+| `PlainTextTargetFile` | File the generated keys are written into in PlainText mode |
+| `AutoGenerateKeys` | Auto-generate RSA, HMAC, and gateway token on first startup. Set `false` after initial setup. |
 | `EnableAdminApi` | Enable the `/api/v1/admin/secrets` endpoints (default: false) |
+| `RequiredPermission` | Permission required to call the Secrets Admin API |
 
 #### Data Protection
 
 ```json
 {
   "DataProtection": {
-    "KeyPath": "%LOCALAPPDATA%/AuthSystem/Keys"
+    "KeyPath": "",
+    "Certificate": {
+      "PfxPath": "",
+      "PasswordEnvironmentVariable": "AUTH_DP_CERT_PASSWORD",
+      "AdditionalPfxPaths": []
+    }
   }
 }
 ```
+
+| Field | Description |
+|---|---|
+| `KeyPath` | Where the Data Protection key ring is stored. Empty defaults to `%ProgramData%/AuthSystem/Keys`; on IIS / shared hosting set it to a writable folder **outside the public web root** and point the Auth API and API Gateway at the **same** folder so they share one ring |
+| `Certificate` | Used only in `Certificate` storage mode. Prefer `PasswordEnvironmentVariable` (`AUTH_DP_CERT_PASSWORD`) over storing the `.pfx` password in the file |
 
 #### Serilog
 
@@ -599,26 +630,36 @@ Authorization                    — Permission-based access control
 Controller Action
 ```
 
-### 4.6 DPAPI Secret Management
+### 4.6 Secret Management
 
-Windows DPAPI encrypts sensitive configuration at rest:
+Secrets are loaded at startup and injected into `IConfiguration`, so the rest of the app reads them like any other setting. `SecretManagement:StorageMode` decides how they are protected at rest:
+
+| Mode | Storage | Protected by | Portable |
+|---|---|---|---|
+| **PlainText** (default) | `appsettings.Production.json` | File permissions | ✅ Copy the file; cross-platform |
+| **Certificate** | Encrypted `secrets.dpapi` | An X.509 cert you own | ✅ Carry `.pfx` + key ring + file |
+| **Dpapi** | Encrypted `secrets.dpapi` | Windows DPAPI (this machine) | ❌ Machine-bound |
 
 ```
-Startup Flow:
-1. DataProtectionProvider initialized with key ring at %LOCALAPPDATA%/AuthSystem/Keys
-2. DpapiSecretService loads secrets.dpapi file
-3. If file missing AND AutoGenerateKeys=true → generate RSA, HMAC, Gateway token
-4. Secrets decrypted and injected into IConfiguration via AddDpapiSecrets()
+Startup Flow (Certificate / Dpapi):
+1. Data Protection key ring initialized at DataProtection:KeyPath
+2. The secret source loads secrets.dpapi (AddDpapiSecrets)
+3. If a key is missing AND AutoGenerateKeys=true → generate RSA, HMAC, Gateway token
+4. Secrets decrypted and injected into IConfiguration
 5. JwtTokenService, RefreshTokenKeyService, GatewayMiddleware read from IConfiguration
 ```
 
-**Stored secrets:**
-- `Jwt:PrivateKeyEncrypted` — RSA private key (PEM, DPAPI-encrypted)
+> In PlainText mode the same keys are generated, but written into `appsettings.Production.json` rather than the encrypted file.
+
+**Secret → configuration-key mapping (same in all modes):**
+- `Jwt:PrivateKeyPem` — RSA private key (PEM)
 - `Jwt:PublicKeyPem` — RSA public key (PEM, plaintext for JWKS)
-- `Jwt:RefreshTokenHmacKey` — HMAC-SHA256 key for refresh token hashing
-- `Gateway:Token` — Shared secret between Gateway and API
-- `Email:SmtpPassword` — SMTP authentication password
-- `Custom:*` — User-defined custom secrets
+- `Jwt:RefreshTokenHmacKeyPlain` — HMAC-SHA256 key for refresh token hashing
+- `Gateway:ExpectedToken` (Auth API) / `Gateway:Token` (API Gateway) — shared gateway secret
+- `Email:Password` — SMTP authentication password
+- `ConnectionStrings:AuthDb` — database connection string (optional; can be encrypted)
+- `Password:Pepper:*` — pepper key material (when peppering is enabled)
+- `Custom:*` — user-defined custom secrets
 
 ### 4.7 JWT Token Lifecycle
 
@@ -845,7 +886,7 @@ Users set their preferred language via `preferredLanguage` field. Error messages
 | GET | `/api/v1/audit-logs/entities/{entityType}/{entityId}` | `auditlogs:read` |
 | POST | `/api/v1/audit-logs/export` | `auditlogs:export` |
 
-#### Secrets (Admin) — 6 endpoints
+#### Secrets (Admin) — 9 endpoints
 
 | Method | Endpoint | Permission |
 |---|---|---|
@@ -853,6 +894,9 @@ Users set their preferred language via `preferredLanguage` field. Error messages
 | POST | `/api/v1/admin/secrets/generate/rsa` | `secrets.manage` |
 | POST | `/api/v1/admin/secrets/generate/hmac` | `secrets.manage` |
 | POST | `/api/v1/admin/secrets/generate/gateway-token` | `secrets.manage` |
+| POST | `/api/v1/admin/secrets/import/rsa` | `secrets.manage` |
+| POST | `/api/v1/admin/secrets/import/hmac` | `secrets.manage` |
+| POST | `/api/v1/admin/secrets/import/gateway-token` | `secrets.manage` |
 | PUT | `/api/v1/admin/secrets/custom/{key}` | `secrets.manage` |
 | DELETE | `/api/v1/admin/secrets/custom/{key}` | `secrets.manage` |
 
@@ -1127,7 +1171,7 @@ Change the authenticated user's password.
 
 **Response:** 204 No Content
 
-**Validations:** Password policy enforcement, password history check (last 5 passwords).
+**Validations:** Password policy enforcement, password history check (last 3 passwords).
 
 #### POST `/api/v1/auth/forgot-password`
 
@@ -2633,9 +2677,9 @@ Export audit logs to a file.
 
 **Base route:** `/api/v1/admin/secrets`
 
-**Prerequisites:** `SecretManagement:EnableAdminApi` must be `true` in configuration.
+**Prerequisites:** `SecretManagement:EnableAdminApi` must be `true` in configuration (keep it off except while provisioning), and requests must be made over HTTPS — `generate/*` and `import/*` carry private key material.
 
-All endpoints require `secrets.manage` permission.
+All endpoints require the `secrets.manage` permission. `generate/*` has the **system** mint a fresh key; `import/*` stores a value **you supply** (BYOK) and works only in Certificate/Dpapi mode.
 
 #### GET `/api/v1/admin/secrets/status`
 
@@ -2705,6 +2749,84 @@ Generate a new gateway token.
 ```
 
 > **Important:** After regeneration, the API Gateway must be restarted to pick up the new token.
+
+#### POST `/api/v1/admin/secrets/import/rsa`
+
+Import a caller-supplied RSA **private** key for JWT signing (bring-your-own-keys). The matching public key is derived and stored automatically.
+
+**Permission:** `secrets.manage`
+
+**Request:**
+
+```json
+{
+  "value": "-----BEGIN PRIVATE KEY-----\nMIIEvg...\n-----END PRIVATE KEY-----"
+}
+```
+
+> Supply the PEM (PKCS#8 or PKCS#1, ≥ 2048-bit) with newlines JSON-escaped as `\n`.
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "RSA signing key imported successfully. All existing access tokens are now invalid. Users must re-authenticate.",
+  "publicKeyPem": "-----BEGIN PUBLIC KEY-----\n..."
+}
+```
+
+> **Storage-mode requirement:** `import/*` works only in **Certificate** or **Dpapi** mode. In **PlainText** mode it returns `409 Secret.ImportNotSupportedInPlainText` — edit the keys directly in `appsettings.Production.json` instead. Importing **replaces** the current key; re-importing the *same* value is a safe no-op for live tokens.
+
+#### POST `/api/v1/admin/secrets/import/hmac`
+
+Import a caller-supplied HMAC key for refresh-token hashing (BYOK).
+
+**Permission:** `secrets.manage`
+
+**Request:**
+
+```json
+{
+  "value": "<base64-encoded key, >= 32 bytes>"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "HMAC key imported successfully. All existing refresh tokens are now invalid. Users must re-authenticate."
+}
+```
+
+> Certificate/Dpapi mode only (`409` in PlainText). Replaces the current key.
+
+#### POST `/api/v1/admin/secrets/import/gateway-token`
+
+Import a caller-supplied gateway token for inter-service authentication (BYOK).
+
+**Permission:** `secrets.manage`
+
+**Request:**
+
+```json
+{
+  "value": "<gateway token, >= 16 chars>"
+}
+```
+
+**Response (200):**
+
+```json
+{
+  "success": true,
+  "message": "Gateway token imported successfully. Update the API Gateway configuration with the same token."
+}
+```
+
+> Certificate/Dpapi mode only (`409` in PlainText). The API Gateway must be configured with the same token.
 
 #### PUT `/api/v1/admin/secrets/custom/{key}`
 
@@ -2921,11 +3043,13 @@ Organized by domain:
 The following security measures are implemented throughout the system:
 
 ### Password Security
-- **Argon2id** hashing with OWASP 2024 recommended parameters (19 MB memory, 2 iterations, 1 thread)
-- Minimum 12-character passwords with complexity requirements (uppercase, lowercase, digit, special character)
-- Password history tracking (prevents reuse of last 5 passwords)
-- Password expiration (configurable, default 90 days)
+- **Argon2id** hashing with OWASP 2024 recommended parameters (19 MB memory, 2 iterations, 1 thread), per-password salt, constant-time compare, and rehash-on-login
+- Minimum 8-character passwords (configurable; OWASP recommends 12+) with complexity requirements (uppercase, lowercase, digit, special character)
+- Password history tracking (prevents reuse of recent passwords)
+- Password expiration (configurable, disabled by default)
 - Account lockout after 5 failed attempts (15-minute lockout)
+- **Optional pepper** — a server-side secret mixed into every hash, stored in the secret store (not the database) to defend against a DB-only breach
+- **Optional breached-password check** — rejects or warns on passwords found in HIBP Pwned Passwords via the keyless, k-anonymous range API
 
 ### Token Security
 - **RS256 asymmetric JWT signing** — external services validate tokens without knowing the private key
@@ -2936,9 +3060,12 @@ The following security measures are implemented throughout the system:
 - API keys stored as Argon2id hashes (never in plaintext)
 
 ### Encryption at Rest
-- **Windows DPAPI** encrypts all secrets (RSA private key, HMAC key, gateway token, SMTP password)
-- Machine-bound encryption — secrets can only be decrypted on the same machine
-- Secrets file stored outside the application directory
+- **Pluggable secret storage** (`SecretManagement:StorageMode`): `PlainText`, `Certificate`, or `Dpapi`
+  - **Certificate** — secrets encrypted in `secrets.dpapi`, protected by an X.509 cert you own; portable across servers (recommended for shared hosting)
+  - **Dpapi** — Windows machine-bound encryption; secrets decrypt only on the same machine + account
+  - **PlainText** — keys live in `appsettings.Production.json`, protected by file permissions only (lock the file down)
+- Secrets file and Data Protection key ring stored outside the public web root
+- Back up the secret store (and the `.pfx` in Certificate mode) — losing it invalidates all tokens, and the optional pepper, if enabled, locks out peppered users permanently
 
 ### Transport Security
 - HTTPS enforced in production via HSTS (365 days, includeSubDomains, preload)
@@ -3017,25 +3144,29 @@ To use: Import the collection into Postman and update the `baseUrl` variable if 
 "Server=.\\SQLEXPRESS;Database=AuthDB;Trusted_Connection=True;TrustServerCertificate=True"
 ```
 
-### DPAPI Errors
+### Secret / Key Ring Errors
 
-**Symptom:** `CryptographicException: The data protection operation was unsuccessful`
+**Symptom:** `An error occurred while reading the key ring` / `Access to the path ... is denied`
 
-**Causes:**
-- Running on a non-Windows OS (DPAPI is Windows-only)
-- The secrets file was created by a different Windows user account
-- The Data Protection key ring directory is missing or inaccessible
+**Cause:** `DataProtection:KeyPath` is empty, so the key ring defaults to a folder the app-pool identity cannot write (on IIS / shared hosting it falls back under `systemprofile`).
 
-**Fix:** Ensure `%LOCALAPPDATA%/AuthSystem/Keys` exists and is writable. If migrating between machines, regenerate secrets.
+**Fix:** Set `KeyPath` to a writable folder outside the public web root — the **same** folder for the Auth API and the API Gateway — and grant the app-pool identity *Modify* on it.
+
+**Symptom (Dpapi mode):** `CryptographicException` / "Failed to decrypt … different machine"
+
+**Causes:** running on a non-Windows OS (`Dpapi`/`Certificate` are Windows-only), the secrets file was created on a different machine or by a different account, or the key ring is missing.
+
+**Fix:** Keep the Auth API and Gateway on one machine sharing one key ring, or use **Certificate** mode for portability. If you must move, supply your own keys (BYOK) and re-import them on the new server.
 
 ### Gateway Token Mismatch
 
 **Symptom:** `403 Forbidden` on all requests through the gateway
 
-**Fix:** Both Auth_API and API_Gateway must share the same DPAPI secrets file. Ensure:
-1. Both services are configured to use the same `SecretsFilePath`
-2. Both services are running under the same Windows user account
-3. Restart both services after secret regeneration
+**Fix:** The Auth API and API Gateway must agree on the gateway token and use the **same** `StorageMode`:
+1. **PlainText** — copy the API's generated `Gateway:ExpectedToken` into the Gateway's `Gateway:Token`.
+2. **Certificate/Dpapi** — run both on the same machine and point them at the **same** key ring and `secrets.dpapi`; both then read the token automatically. Restart both after any secret regeneration.
+
+> For the full production troubleshooting matrix (500.30 startup errors, certificate password issues, key-wipe-on-republish), see [PRODUCTION_DEPLOYMENT_GUIDE.md §D](PRODUCTION_DEPLOYMENT_GUIDE.md).
 
 ### CORS Errors
 
@@ -3059,7 +3190,7 @@ When a JWT token expires, the API returns a `Token-Expired: true` header alongsi
 
 ### Email Service Not Sending
 
-Ensure `Email:Enabled` is `true` and SMTP credentials are configured. The SMTP password should be set via DPAPI secrets (not in appsettings.json).
+Ensure `Email:Enabled` is `true` and SMTP credentials are configured. Keep the SMTP password out of `appsettings.json` — set it via the `Email__Password` environment variable, or store it in the encrypted secret store (Certificate/Dpapi modes).
 
 ---
 
@@ -3102,7 +3233,7 @@ Complete list of all permissions used across the system:
 | `org:apps:read` | OrganizationsController | List organization applications |
 | `org:apps:manage` | OrganizationsController | Enable, update, disable organization applications |
 | `org:permissions:manage` | OrganizationsController | Assign app roles and grant permissions to members |
-| `secrets.manage` | SecretsController | View status, generate keys, manage custom secrets |
+| `secrets.manage` | SecretsController | View status, generate and import keys (BYOK), manage custom secrets |
 
 ---
 
