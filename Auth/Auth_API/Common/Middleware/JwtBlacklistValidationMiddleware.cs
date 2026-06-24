@@ -50,6 +50,7 @@ public class JwtBlacklistValidationMiddleware
 
             var jwtToken = handler.ReadJwtToken(token);
             var jti = jwtToken.Id;
+            var sid = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtClaimNames.Sid)?.Value;
             var subClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtClaimNames.Subject)?.Value;
             var iatClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == JwtClaimNames.IssuedAt)?.Value;
 
@@ -58,6 +59,14 @@ public class JwtBlacklistValidationMiddleware
             {
                 _logger.LogWarning("Rejected blacklisted token with JTI: {Jti}", jti);
                 await WriteUnauthorizedResponse(context, "Token has been revoked.");
+                return;
+            }
+
+            // Check if the whole login session has been revoked (terminated session)
+            if (!string.IsNullOrEmpty(sid) && blacklistService.IsSessionBlacklisted(sid))
+            {
+                _logger.LogWarning("Rejected token for revoked session: {SessionId}", sid);
+                await WriteUnauthorizedResponse(context, "Session has been revoked. Please log in again.");
                 return;
             }
 

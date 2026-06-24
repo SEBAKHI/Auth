@@ -48,6 +48,7 @@ public class RefreshTokenCommandHandlerTests
             _permissionRepositoryMock.Object,
             _jwtTokenServiceMock.Object,
             _refreshTokenKeyServiceMock.Object,
+            new Mock<IUserSessionRepository>().Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _loggerMock.Object);
     }

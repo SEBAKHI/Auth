@@ -23,6 +23,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IUserRepository _userRepository;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
+    private readonly IUserSessionRepository _sessionRepository;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<LoginResponseBuilder> _logger;
 
@@ -34,6 +35,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         IRefreshTokenRepository refreshTokenRepository,
         IUserRepository userRepository,
         ILoginAttemptRepository loginAttemptRepository,
+        IUserSessionRepository sessionRepository,
         IOptions<JwtSettings> jwtSettings,
         ILogger<LoginResponseBuilder> logger)
     {
@@ -44,6 +46,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _refreshTokenRepository = refreshTokenRepository;
         _userRepository = userRepository;
         _loginAttemptRepository = loginAttemptRepository;
+        _sessionRepository = sessionRepository;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
@@ -60,8 +63,12 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         var roleNames = roles.Select(r => r.Code).ToList();
         var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
 
+        // A stable session id, constant across access-token refreshes, ties the
+        // session row and all of its refresh tokens together (carried as "sid").
+        var sessionId = Guid.NewGuid();
+
         // Generate tokens
-        var accessToken = _jwtTokenService.GenerateAccessToken(user, permissions, roleNames);
+        var accessToken = _jwtTokenService.GenerateAccessToken(user, permissions, roleNames, sessionId);
         var jwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);
@@ -74,9 +81,42 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             null,
             _jwtSettings.RefreshTokenLifetime,
             ipAddress,
-            deviceInfo);
+            deviceInfo,
+            sessionId);
 
         await _refreshTokenRepository.CreateAsync(refreshTokenEntity, cancellationToken);
+
+        // Persist a session row so the login appears under the user's active
+        // sessions. Its Id equals the access token's "sid" claim so it stays the
+        // current session across refreshes. Session tracking must never break the
+        // login flow, so failures are logged and swallowed.
+        try
+        {
+            var now = DateTime.UtcNow;
+            var session = new UserSession(
+                sessionId,
+                user.Id,
+                null,                                        // applicationId — not app-scoped
+                refreshTokenEntity.Id,                       // refreshTokenId
+                refreshTokenHash,                            // sessionTokenHash
+                ipAddress ?? "unknown",                      // IpAddress is NOT NULL
+                deviceInfo,                                  // userAgent
+                null,                                        // deviceId
+                null,                                        // deviceName
+                null,                                        // location
+                now,                                         // createdAt
+                now.Add(_jwtSettings.RefreshTokenLifetime),  // expiresAt
+                now,                                         // lastActivityAt
+                true,                                        // isActive
+                null,                                        // terminatedAt
+                null);                                       // terminationReason
+            await _sessionRepository.CreateAsync(session, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to create session record for user {UserId}", user.Id);
+        }
 
         // Record successful login
         await _userRepository.RecordSuccessfulLoginAsync(user.Id, cancellationToken);

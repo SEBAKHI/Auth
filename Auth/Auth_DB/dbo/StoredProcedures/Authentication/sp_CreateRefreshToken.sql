@@ -5,7 +5,8 @@ CREATE PROCEDURE [dbo].[sp_CreateRefreshToken]
     @ApplicationId UNIQUEIDENTIFIER = NULL,
     @DeviceInfo NVARCHAR(500) = NULL,
     @IpAddress NVARCHAR(45) = NULL,
-    @ExpiresAt DATETIME2
+    @ExpiresAt DATETIME2,
+    @SessionId UNIQUEIDENTIFIER = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -18,6 +19,7 @@ BEGIN
         [UserId],
         [TokenHash],
         [JwtId],
+        [SessionId],
         [ApplicationId],
         [DeviceInfo],
         [IpAddress],
@@ -30,6 +32,7 @@ BEGIN
         @UserId,
         @TokenHash,
         @JwtId,
+        @SessionId,
         @ApplicationId,
         @DeviceInfo,
         @IpAddress,

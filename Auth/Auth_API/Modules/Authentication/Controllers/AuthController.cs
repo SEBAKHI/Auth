@@ -201,7 +201,8 @@ public class AuthController : ApiController
             request?.RefreshToken,
             GetAccessToken(),
             GetClientIpAddress(),
-            request?.LogoutAllDevices ?? false);
+            request?.LogoutAllDevices ?? false,
+            GetCurrentSessionId());
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -391,8 +392,10 @@ public class AuthController : ApiController
 
     private Guid? GetCurrentSessionId()
     {
-        // Session ID is stored in the JWT token ID (jti) claim
-        var sessionIdClaim = User.FindFirstValue(JwtClaimNames.JwtId);
+        // The stable session id lives in the "sid" claim (constant across token
+        // refreshes); fall back to the legacy "jti" for tokens issued before sid.
+        var sessionIdClaim = User.FindFirstValue(JwtClaimNames.Sid)
+                             ?? User.FindFirstValue(JwtClaimNames.JwtId);
 
         if (Guid.TryParse(sessionIdClaim, out var sessionId))
         {

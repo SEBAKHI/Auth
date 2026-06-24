@@ -1,4 +1,5 @@
 using Auth.Application.Features.Authentication.TerminateSession;
+using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,8 @@ public class TerminateSessionCommandHandlerTests
 
         _handler = new TerminateSessionCommandHandler(
             _sessionRepositoryMock.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            new Mock<ITokenBlacklistService>().Object,
             _loggerMock.Object);
     }
 

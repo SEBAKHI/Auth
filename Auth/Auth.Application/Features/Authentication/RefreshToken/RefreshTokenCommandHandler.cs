@@ -22,6 +22,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IPermissionRepository _permissionRepository;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly IUserSessionRepository _sessionRepository;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
 
@@ -32,6 +33,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IPermissionRepository permissionRepository,
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
+        IUserSessionRepository sessionRepository,
         IOptions<JwtSettings> jwtSettings,
         ILogger<RefreshTokenCommandHandler> logger)
     {
@@ -41,6 +43,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _permissionRepository = permissionRepository;
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
+        _sessionRepository = sessionRepository;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
@@ -107,8 +110,28 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         var roleNames = roles.Select(r => r.Code).ToList();
         var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
 
-        // Generate new access token
-        var accessToken = _jwtTokenService.GenerateAccessToken(user, permissions, roleNames);
+        // Generate new access token, carrying the stable session id forward so
+        // the access token's "sid" stays constant across refreshes.
+        var accessToken = _jwtTokenService.GenerateAccessToken(user, permissions, roleNames, storedToken.SessionId);
+
+        // Keep the session's last-activity timestamp fresh (best-effort).
+        if (storedToken.SessionId.HasValue)
+        {
+            try
+            {
+                var session = await _sessionRepository.GetByIdAsync(storedToken.SessionId.Value, cancellationToken);
+                if (session is { IsActive: true })
+                {
+                    session.RecordActivity();
+                    await _sessionRepository.UpdateAsync(session, cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to update session activity for session {SessionId}", storedToken.SessionId);
+            }
+        }
 
         string newRefreshToken;
         int refreshExpiresIn;
@@ -129,7 +152,8 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 storedToken.ApplicationId,
                 _jwtSettings.RefreshTokenLifetime,
                 request.IpAddress,
-                storedToken.DeviceInfo);
+                storedToken.DeviceInfo,
+                storedToken.SessionId);
 
             await _refreshTokenRepository.CreateAsync(newRefreshTokenEntity, cancellationToken);
 

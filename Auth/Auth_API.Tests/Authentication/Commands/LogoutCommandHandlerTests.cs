@@ -41,6 +41,7 @@ public class LogoutCommandHandlerTests
             _tokenBlacklistServiceMock.Object,
             _refreshTokenKeyServiceMock.Object,
             _jwtTokenServiceMock.Object,
+            new Mock<IUserSessionRepository>().Object,
             _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _loggerMock.Object);

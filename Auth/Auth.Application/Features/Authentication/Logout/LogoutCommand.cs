@@ -11,4 +11,5 @@ public record LogoutCommand(
     string? RefreshToken,
     string? AccessToken,
     string? IpAddress,
-    bool LogoutAllDevices = false) : IRequest<ErrorOr<Success>>;
+    bool LogoutAllDevices = false,
+    Guid? SessionId = null) : IRequest<ErrorOr<Success>>;

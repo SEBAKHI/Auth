@@ -12,6 +12,7 @@ namespace Auth.Infrastructure.Authentication;
 public class TokenBlacklistService : ITokenBlacklistService, IDisposable
 {
     private readonly ConcurrentDictionary<string, DateTime> _blacklistedTokens = new();
+    private readonly ConcurrentDictionary<string, DateTime> _blacklistedSessions = new();
     private readonly ConcurrentDictionary<Guid, DateTime> _userRevocationTimes = new();
     private readonly ILogger<TokenBlacklistService> _logger;
     private readonly Timer _cleanupTimer;
@@ -46,6 +47,18 @@ public class TokenBlacklistService : ITokenBlacklistService, IDisposable
     }
 
     /// <inheritdoc />
+    public void BlacklistSession(string sessionId, DateTime expiresAt)
+    {
+        if (string.IsNullOrEmpty(sessionId))
+        {
+            return;
+        }
+
+        _blacklistedSessions.TryAdd(sessionId, expiresAt);
+        _logger.LogDebug("Blacklisted session {SessionId}, expires at: {ExpiresAt}", sessionId, expiresAt);
+    }
+
+    /// <inheritdoc />
     public bool IsTokenBlacklisted(string jti)
     {
         if (string.IsNullOrEmpty(jti))
@@ -54,6 +67,17 @@ public class TokenBlacklistService : ITokenBlacklistService, IDisposable
         }
 
         return _blacklistedTokens.ContainsKey(jti);
+    }
+
+    /// <inheritdoc />
+    public bool IsSessionBlacklisted(string sessionId)
+    {
+        if (string.IsNullOrEmpty(sessionId))
+        {
+            return false;
+        }
+
+        return _blacklistedSessions.ContainsKey(sessionId);
     }
 
     /// <inheritdoc />
@@ -79,6 +103,16 @@ public class TokenBlacklistService : ITokenBlacklistService, IDisposable
             if (kvp.Value < now)
             {
                 _blacklistedTokens.TryRemove(kvp.Key, out _);
+                expiredCount++;
+            }
+        }
+
+        // Remove expired session blacklist entries
+        foreach (var kvp in _blacklistedSessions)
+        {
+            if (kvp.Value < now)
+            {
+                _blacklistedSessions.TryRemove(kvp.Key, out _);
                 expiredCount++;
             }
         }

@@ -15,8 +15,9 @@ public interface IJwtTokenService
     /// <param name="user">The user to generate a token for.</param>
     /// <param name="permissions">The user's effective permissions.</param>
     /// <param name="roles">The user's roles.</param>
+    /// <param name="sessionId">Optional stable login-session id, emitted as the "sid" claim.</param>
     /// <returns>The JWT access token.</returns>
-    string GenerateAccessToken(User user, IEnumerable<string> permissions, IEnumerable<string> roles);
+    string GenerateAccessToken(User user, IEnumerable<string> permissions, IEnumerable<string> roles, Guid? sessionId = null);
 
     /// <summary>
     /// Generates a cryptographically secure random refresh token.

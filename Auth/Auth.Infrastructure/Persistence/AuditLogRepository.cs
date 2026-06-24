@@ -95,8 +95,8 @@ public class AuditLogRepository : IAuditLogRepository
 
         if (!string.IsNullOrEmpty(action))
         {
-            whereClause.Append(" AND [Action] = @Action");
-            parameters.Add("Action", action);
+            whereClause.Append(" AND [Action] LIKE @Action");
+            parameters.Add("Action", $"%{action}%");
         }
 
         if (fromDate.HasValue)

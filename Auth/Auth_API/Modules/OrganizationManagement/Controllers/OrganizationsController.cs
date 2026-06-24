@@ -351,7 +351,7 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> UpdateApplication(Guid id, Guid applicationId, [FromBody] UpdateApplicationRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> UpdateApplication(Guid id, Guid applicationId, [FromBody] UpdateOrganizationApplicationRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
         var command = new UpdateOrganizationApplicationCommand(id, applicationId, request.SubscriptionTier, request.ExpiresAt, request.IsActive)

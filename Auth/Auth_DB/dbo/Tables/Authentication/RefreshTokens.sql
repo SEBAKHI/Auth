@@ -4,6 +4,7 @@ CREATE TABLE [dbo].[RefreshTokens]
     [UserId] UNIQUEIDENTIFIER NOT NULL,
     [TokenHash] NVARCHAR(100) NOT NULL,   -- HMAC-SHA256 hash (base64 encoded, ~44 chars)
     [JwtId] NVARCHAR(100) NOT NULL,
+    [SessionId] UNIQUEIDENTIFIER NULL,
     [ApplicationId] UNIQUEIDENTIFIER NULL,
     [DeviceInfo] NVARCHAR(500) NULL,
     [IpAddress] NVARCHAR(45) NULL,
@@ -23,6 +24,7 @@ GO
 -- TokenHash is HMAC-SHA256 hash of the plain refresh token
 -- The plain token is NEVER stored in the database for security
 -- JwtId links to the 'jti' claim in the access token
+-- SessionId links the refresh-token chain to its UserSession (stable across rotation)
 -- ReplacedByTokenHash tracks the hash of the replacement token for rotation chain tracking
 
 -- Indexes
@@ -42,6 +44,11 @@ GO
 
 CREATE NONCLUSTERED INDEX [IX_RefreshTokens_JwtId]
 ON [dbo].[RefreshTokens] ([JwtId]);
+GO
+
+CREATE NONCLUSTERED INDEX [IX_RefreshTokens_SessionId]
+ON [dbo].[RefreshTokens] ([SessionId])
+WHERE [RevokedAt] IS NULL;
 GO
 
 CREATE NONCLUSTERED INDEX [IX_RefreshTokens_ApplicationId]

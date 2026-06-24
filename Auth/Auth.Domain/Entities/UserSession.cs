@@ -13,9 +13,10 @@ public class UserSession : EntityBase
     public Guid UserId { get; private set; }
 
     /// <summary>
-    /// Gets the ID of the application this session is for.
+    /// Gets the ID of the application this session is for (null for sessions
+    /// not scoped to a specific application, e.g. the admin console).
     /// </summary>
-    public Guid ApplicationId { get; private set; }
+    public Guid? ApplicationId { get; private set; }
 
     /// <summary>
     /// Gets the ID of the associated refresh token.
@@ -89,7 +90,7 @@ public class UserSession : EntityBase
     public UserSession(
         Guid id,
         Guid userId,
-        Guid applicationId,
+        Guid? applicationId,
         Guid? refreshTokenId,
         string sessionTokenHash,
         string? ipAddress,
@@ -123,7 +124,7 @@ public class UserSession : EntityBase
 
     public static UserSession Create(
         Guid userId,
-        Guid applicationId,
+        Guid? applicationId,
         Guid? refreshTokenId,
         string sessionTokenHash,
         TimeSpan lifetime,

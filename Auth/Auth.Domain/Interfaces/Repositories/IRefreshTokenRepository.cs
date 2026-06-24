@@ -38,6 +38,11 @@ public interface IRefreshTokenRepository
     Task RevokeByDeviceAsync(Guid userId, string deviceInfo, Guid? revokedBy, string reason, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Revokes all active tokens belonging to a login session.
+    /// </summary>
+    Task RevokeBySessionIdAsync(Guid sessionId, Guid? revokedBy, string reason, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets all active tokens for a user.
     /// </summary>
     Task<IReadOnlyList<RefreshToken>> GetActiveTokensForUserAsync(Guid userId, CancellationToken cancellationToken);
