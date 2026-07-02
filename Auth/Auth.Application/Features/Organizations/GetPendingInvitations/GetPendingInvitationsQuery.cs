@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using ErrorOr;
 using MediatR;
 
@@ -7,7 +8,10 @@ namespace Auth.Application.Features.Organizations.GetPendingInvitations;
 /// <summary>
 /// Query to get pending invitations for an organization.
 /// </summary>
-public record GetPendingInvitationsQuery(Guid OrganizationId) : IRequest<ErrorOr<IReadOnlyList<OrganizationInvitationDto>>>
+public record GetPendingInvitationsQuery(
+    Guid OrganizationId,
+    string? SortBy = null,
+    SortDirection SortDirection = SortDirection.Asc) : IRequest<ErrorOr<IReadOnlyList<OrganizationInvitationDto>>>
 {
     /// <summary>
     /// The ID of the user making the request.

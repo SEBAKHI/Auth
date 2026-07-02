@@ -8,6 +8,7 @@ using Auth.Application.Features.AuditLogs.GetAuditLogs;
 using Auth.Application.Features.AuditLogs.GetAuditLogsByEntity;
 using Auth.Application.Features.AuditLogs.GetAuditLogsByUser;
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -48,11 +49,13 @@ public class AuditLogsController : ApiController
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
         [FromQuery] bool? isSuccess = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
         var query = new GetAuditLogsQuery(
             pageNumber, pageSize, userId, applicationId,
-            actionType, action, fromDate, toDate, isSuccess);
+            actionType, action, fromDate, toDate, isSuccess, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -94,9 +97,12 @@ public class AuditLogsController : ApiController
         [FromQuery] int pageSize = 50,
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetAuditLogsByUserQuery(userId, pageNumber, pageSize, fromDate, toDate);
+        var query = new GetAuditLogsByUserQuery(
+            userId, pageNumber, pageSize, fromDate, toDate, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -112,9 +118,14 @@ public class AuditLogsController : ApiController
     [ProducesResponseType(typeof(IReadOnlyList<AuditLogDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetAuditLogsByEntity(string entityType, Guid entityId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAuditLogsByEntity(
+        string entityType,
+        Guid entityId,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
-        var query = new GetAuditLogsByEntityQuery(entityType, entityId);
+        var query = new GetAuditLogsByEntityQuery(entityType, entityId, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -143,7 +154,9 @@ public class AuditLogsController : ApiController
             request.FromDate,
             request.ToDate,
             request.IsSuccess,
-            request.MaxRecords)
+            request.MaxRecords,
+            request.SortBy,
+            request.SortDirection)
         {
             RequestedBy = userId
         };

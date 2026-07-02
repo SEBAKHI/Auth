@@ -78,6 +78,9 @@
   <data name="Validation.PageSize.Range" xml:space="preserve">
     <value>اندازه صفحه باید بین ۱ تا ۱۰۰ باشد.</value>
   </data>
+  <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
+    <value>فیلد مرتب‌سازی برای این فهرست مجاز نیست.</value>
+  </data>
   <data name="Validation.Url.MaxLength" xml:space="preserve">
     <value>آدرس URL نباید بیش از ۲۰۴۸ کاراکتر باشد.</value>
   </data>

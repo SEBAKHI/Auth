@@ -8,6 +8,7 @@ using Auth.Application.Features.ApiKeys.RevokeApiKey;
 using Auth.Application.Features.ApiKeys.RotateApiKey;
 using Auth.Application.Features.ApiKeys.ValidateApiKey;
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -38,9 +39,13 @@ public class ApiKeysController : ApiController
     [ProducesResponseType(typeof(IReadOnlyList<ApiKeyDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetApiKeys([FromQuery] Guid applicationId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetApiKeys(
+        [FromQuery] Guid applicationId,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
-        var query = new GetApiKeysQuery(applicationId);
+        var query = new GetApiKeysQuery(applicationId, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

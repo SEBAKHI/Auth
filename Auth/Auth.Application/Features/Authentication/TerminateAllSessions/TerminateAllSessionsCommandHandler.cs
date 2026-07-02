@@ -34,6 +34,8 @@ public class TerminateAllSessionsCommandHandler : IRequestHandler<TerminateAllSe
         // Get count of active sessions before termination for logging
         var activeSessions = await _sessionRepository.GetActiveSessionsForUserAsync(
             request.UserId,
+            sortBy: null,
+            Auth.Domain.Enums.SortDirection.Asc,
             cancellationToken);
 
         var sessionsToKill = (request.ExceptSessionId.HasValue

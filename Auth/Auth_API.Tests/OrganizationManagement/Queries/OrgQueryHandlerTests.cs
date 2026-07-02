@@ -1,9 +1,10 @@
-using Auth.Application.Features.Organizations.GetUserOrganizations;
+﻿using Auth.Application.Features.Organizations.GetUserOrganizations;
 using Auth.Application.Features.Organizations.GetOrganizationMembers;
 using Auth.Application.Features.Organizations.GetPendingInvitations;
 using Auth.Application.Features.Organizations.GetOrganizationApplications;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -76,7 +77,7 @@ public class GetOrganizationMembersQueryHandlerTests
 
         _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
         _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, requestedBy, It.IsAny<CancellationToken>())).ReturnsAsync(requesterMembership);
-        _orgRepoMock.Setup(r => r.GetMembersPagedAsync(orgId, 1, 20, null, It.IsAny<CancellationToken>()))
+        _orgRepoMock.Setup(r => r.GetMembersPagedAsync(orgId, 1, 20, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((members as IReadOnlyList<OrganizationUser>, 1));
         _userRepoMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: userId));
         _userRepoMock.Setup(r => r.GetByIdAsync(members[0].InvitedBy, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: members[0].InvitedBy));

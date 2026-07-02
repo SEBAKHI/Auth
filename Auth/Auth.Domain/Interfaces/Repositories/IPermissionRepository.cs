@@ -18,14 +18,24 @@ public interface IPermissionRepository
     Task<Permission?> GetByCodeAsync(string code, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets all active permissions.
+    /// Gets all active permissions. <paramref name="sortBy"/> accepts the
+    /// allow-listed field names in <see cref="Constants.SortFields.Permissions"/>;
+    /// null keeps the default order.
     /// </summary>
-    Task<IReadOnlyList<Permission>> GetAllAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<Permission>> GetAllAsync(
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets all permissions for an application.
+    /// Gets all permissions for an application. <paramref name="sortBy"/> accepts
+    /// the allow-listed field names in <see cref="Constants.SortFields.Permissions"/>.
     /// </summary>
-    Task<IReadOnlyList<Permission>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Permission>> GetByApplicationAsync(
+        Guid applicationId,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets permissions by hierarchy level.

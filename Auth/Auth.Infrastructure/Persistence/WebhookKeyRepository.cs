@@ -1,4 +1,6 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 
@@ -43,17 +45,26 @@ public class WebhookKeyRepository : IWebhookKeyRepository
         return dto?.ToEntity();
     }
 
+    private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
+        (SortFields.WebhookKeys.Name, ["[Name]"]),
+        (SortFields.WebhookKeys.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.WebhookKeys.ExpiresAt, ["[ExpiresAt]"]),
+        (SortFields.WebhookKeys.RevokedAt, ["[RevokedAt]"]));
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<WebhookKey>> GetByApplicationAsync(
         Guid applicationId,
+        string? sortBy,
+        SortDirection sortDirection,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var dtos = await connection.QueryAsync<WebhookKeyDto>(@"
+        var orderBy = SortSql.OrderBy(SortColumns, sortBy, sortDirection, "[CreatedAt] DESC", "[Id]");
+        var dtos = await connection.QueryAsync<WebhookKeyDto>($@"
             SELECT * FROM [dbo].[WebhookKeys]
             WHERE [ApplicationId] = @ApplicationId
-            ORDER BY [CreatedAt] DESC",
+            ORDER BY {orderBy}",
             new { ApplicationId = applicationId });
 
         return dtos.Select(dto => dto.ToEntity()).ToList();

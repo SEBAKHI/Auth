@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { MoreHorizontal, Plus, Search } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api/client"
-import { collectAllPages, unwrap, toNumber } from "@/lib/api/helpers"
+import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
@@ -42,6 +42,11 @@ export function UsersPage() {
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
   const [searchInput, setSearchInput] = React.useState("")
   const search = useDebouncedValue(searchInput)
+  // Server-side sort over the whole dataset; initial value mirrors the API default.
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "createdAt", desc: true },
+  ])
+  const { sortBy, sortDirection } = toSortParams(sorting)
 
   const [formOpen, setFormOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<UserDto | undefined>()
@@ -59,7 +64,7 @@ export function UsersPage() {
   const canManage = hasPermission(PERMISSIONS.users.manage)
 
   const query = useQuery({
-    queryKey: ["users", { page, pageSize, search }],
+    queryKey: ["users", { page, pageSize, search, sortBy, sortDirection }],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/Users", {
@@ -68,6 +73,8 @@ export function UsersPage() {
               pageNumber: page + 1,
               pageSize,
               searchTerm: search || undefined,
+              sortBy,
+              sortDirection,
             },
           },
         })
@@ -87,6 +94,8 @@ export function UsersPage() {
                 pageNumber,
                 pageSize: size,
                 searchTerm: search || undefined,
+                sortBy,
+                sortDirection,
               },
             },
           })
@@ -96,7 +105,7 @@ export function UsersPage() {
           totalCount: toNumber(result.totalCount),
         }
       }),
-    [search]
+    [search, sortBy, sortDirection]
   )
 
   const statusAction = useMutation({
@@ -396,6 +405,11 @@ export function UsersPage() {
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
         onExportAll={exportAll}
+        sorting={sorting}
+        onSortingChange={(next) => {
+          setSorting(next)
+          setPage(0)
+        }}
         onEditRow={
           canUpdate
             ? (user) => {

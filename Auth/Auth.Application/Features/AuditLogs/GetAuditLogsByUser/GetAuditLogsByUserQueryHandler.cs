@@ -47,6 +47,8 @@ public class GetAuditLogsByUserQueryHandler : IRequestHandler<GetAuditLogsByUser
             request.FromDate,
             request.ToDate,
             null, // isSuccess
+            request.SortBy,
+            request.SortDirection,
             cancellationToken);
 
         var dtos = new List<AuditLogDto>();

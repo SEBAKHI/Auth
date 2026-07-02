@@ -31,7 +31,8 @@ public class GetApplicationPermissionsQueryHandler : IRequestHandler<GetApplicat
             return ApplicationErrors.NotFound(request.ApplicationId);
         }
 
-        var permissions = await _applicationRepository.GetPermissionsAsync(request.ApplicationId, cancellationToken);
+        var permissions = await _applicationRepository.GetPermissionsAsync(
+            request.ApplicationId, request.SortBy, request.SortDirection, cancellationToken);
 
         var dtos = permissions.Select(permission => new PermissionDto
         {

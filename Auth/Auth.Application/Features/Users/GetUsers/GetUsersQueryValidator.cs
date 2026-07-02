@@ -1,4 +1,5 @@
 using Auth.Application.Validators.Rules;
+using Auth.Domain.Constants;
 using FluentValidation;
 
 namespace Auth.Application.Features.Users.GetUsers;
@@ -15,5 +16,6 @@ public class GetUsersQueryValidator : AbstractValidator<GetUsersQuery>
         RuleFor(x => x.SearchTerm)
             .MaximumLength(200).WithMessage("Validation.SearchTerm.MaxLength")
             .When(x => x.SearchTerm is not null);
+        RuleFor(x => x.SortBy).IsValidSortField(SortFields.Users.Allowed);
     }
 }

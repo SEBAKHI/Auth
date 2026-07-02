@@ -1,4 +1,6 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 
@@ -55,28 +57,43 @@ public class RoleRepository : IRoleRepository
         return dto?.ToEntity();
     }
 
+    private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
+        (SortFields.Roles.Name, ["[Name]"]),
+        (SortFields.Roles.Code, ["[Code]"]),
+        (SortFields.Roles.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.Roles.ModifiedAt, ["[ModifiedAt]"]));
+
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Role>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Role>> GetAllAsync(
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var dtos = await connection.QueryAsync<RoleDto>(@"
+        var orderBy = SortSql.OrderBy(SortColumns, sortBy, sortDirection, "[Name]", "[Id]");
+        var dtos = await connection.QueryAsync<RoleDto>($@"
             SELECT * FROM [dbo].[Roles]
             WHERE [IsActive] = 1
-            ORDER BY [Name]");
+            ORDER BY {orderBy}");
 
         return dtos.Select(dto => dto.ToEntity()).ToList();
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Role>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Role>> GetByApplicationAsync(
+        Guid applicationId,
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var dtos = await connection.QueryAsync<RoleDto>(@"
+        var orderBy = SortSql.OrderBy(SortColumns, sortBy, sortDirection, "[Name]", "[Id]");
+        var dtos = await connection.QueryAsync<RoleDto>($@"
             SELECT * FROM [dbo].[Roles]
             WHERE [ApplicationId] = @ApplicationId AND [IsActive] = 1
-            ORDER BY [Name]",
+            ORDER BY {orderBy}",
             new { ApplicationId = applicationId });
 
         return dtos.Select(dto => dto.ToEntity()).ToList();

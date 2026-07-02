@@ -1,8 +1,9 @@
-using Auth.Application.Features.Roles.GetRoleById;
+﻿using Auth.Application.Features.Roles.GetRoleById;
 using Auth.Application.Features.Roles.GetRoles;
 using Auth.Application.DTOs;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -132,7 +133,7 @@ public class GetRolesQueryHandlerTests
         var query = new GetRolesQuery(ApplicationId: applicationId);
 
         _roleRepositoryMock
-            .Setup(r => r.GetByApplicationAsync(applicationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByApplicationAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(roles);
 
         _permissionRepositoryMock
@@ -149,11 +150,11 @@ public class GetRolesQueryHandlerTests
         result.Value[1].Code.Should().Be("VIEWER");
 
         _roleRepositoryMock.Verify(
-            r => r.GetByApplicationAsync(applicationId, It.IsAny<CancellationToken>()),
+            r => r.GetByApplicationAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Once);
 
         _roleRepositoryMock.Verify(
-            r => r.GetAllAsync(It.IsAny<CancellationToken>()),
+            r => r.GetAllAsync(It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -170,7 +171,7 @@ public class GetRolesQueryHandlerTests
         var query = new GetRolesQuery();
 
         _roleRepositoryMock
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetAllAsync(It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(roles);
 
         _permissionRepositoryMock
@@ -185,11 +186,11 @@ public class GetRolesQueryHandlerTests
         result.Value.Should().HaveCount(3);
 
         _roleRepositoryMock.Verify(
-            r => r.GetAllAsync(It.IsAny<CancellationToken>()),
+            r => r.GetAllAsync(It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Once);
 
         _roleRepositoryMock.Verify(
-            r => r.GetByApplicationAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            r => r.GetByApplicationAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 }

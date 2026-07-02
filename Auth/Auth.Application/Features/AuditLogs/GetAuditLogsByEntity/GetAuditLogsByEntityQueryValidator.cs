@@ -1,3 +1,5 @@
+using Auth.Application.Validators.Rules;
+using Auth.Domain.Constants;
 using FluentValidation;
 
 namespace Auth.Application.Features.AuditLogs.GetAuditLogsByEntity;
@@ -12,5 +14,6 @@ public class GetAuditLogsByEntityQueryValidator : AbstractValidator<GetAuditLogs
         RuleFor(x => x.EntityType)
             .NotEmpty().WithMessage("Validation.EntityType.Required")
             .MaximumLength(100).WithMessage("Validation.EntityType.MaxLength");
+        RuleFor(x => x.SortBy).IsValidSortField(SortFields.AuditLogs.Allowed);
     }
 }

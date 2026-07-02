@@ -28,6 +28,8 @@ public class GetApplicationsQueryHandler : IRequestHandler<GetApplicationsQuery,
             request.PageSize,
             request.Search,
             request.IsActive,
+            request.SortBy,
+            request.SortDirection,
             cancellationToken);
 
         var dtos = applications.Select(app => new ApplicationDto

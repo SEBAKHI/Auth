@@ -48,6 +48,8 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
             request.FromDate,
             request.ToDate,
             request.IsSuccess,
+            request.SortBy,
+            request.SortDirection,
             cancellationToken);
 
         if (totalCount > request.MaxRecords)

@@ -21,7 +21,8 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
         GetApiKeysQuery request,
         CancellationToken cancellationToken)
     {
-        var apiKeys = await _apiKeyRepository.GetByApplicationAsync(request.ApplicationId, cancellationToken);
+        var apiKeys = await _apiKeyRepository.GetByApplicationAsync(
+            request.ApplicationId, request.SortBy, request.SortDirection, cancellationToken);
 
         var apiKeyDtos = new List<ApiKeyDto>();
         foreach (var apiKey in apiKeys)

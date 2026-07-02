@@ -8,6 +8,7 @@ using Auth.Application.Features.Roles.GetRoleById;
 using Auth.Application.Features.Roles.GetRoles;
 using Auth.Application.Features.Roles.UpdateRole;
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -38,9 +39,13 @@ public class RolesController : ApiController
     [ProducesResponseType(typeof(IReadOnlyList<RoleDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetRoles([FromQuery] Guid? applicationId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetRoles(
+        [FromQuery] Guid? applicationId = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
-        var query = new GetRolesQuery(applicationId);
+        var query = new GetRolesQuery(applicationId, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

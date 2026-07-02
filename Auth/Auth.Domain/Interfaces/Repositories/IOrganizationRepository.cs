@@ -79,13 +79,17 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets members of an organization with pagination.
+    /// Gets members of an organization with pagination. <paramref name="sortBy"/>
+    /// accepts the allow-listed field names in
+    /// <see cref="Constants.SortFields.OrganizationMembers"/>; null keeps the default order.
     /// </summary>
     Task<(IReadOnlyList<OrganizationUser> Members, int TotalCount)> GetMembersPagedAsync(
         Guid organizationId,
         int pageNumber,
         int pageSize,
         string? searchTerm,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
         CancellationToken cancellationToken);
 
     /// <summary>

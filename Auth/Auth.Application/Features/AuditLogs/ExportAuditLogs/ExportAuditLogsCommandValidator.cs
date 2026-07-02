@@ -1,3 +1,5 @@
+using Auth.Application.Validators.Rules;
+using Auth.Domain.Constants;
 using FluentValidation;
 
 namespace Auth.Application.Features.AuditLogs.ExportAuditLogs;
@@ -17,5 +19,6 @@ public class ExportAuditLogsCommandValidator : AbstractValidator<ExportAuditLogs
         RuleFor(x => x.ToDate)
             .GreaterThan(x => x.FromDate).WithMessage("Validation.DateRange.Invalid")
             .When(x => x.FromDate.HasValue && x.ToDate.HasValue);
+        RuleFor(x => x.SortBy).IsValidSortField(SortFields.AuditLogs.Allowed);
     }
 }

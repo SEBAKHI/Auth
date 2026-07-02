@@ -27,11 +27,12 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
         if (request.ApplicationId.HasValue)
         {
             permissions = await _permissionRepository.GetByApplicationAsync(
-                request.ApplicationId.Value, cancellationToken);
+                request.ApplicationId.Value, request.SortBy, request.SortDirection, cancellationToken);
         }
         else
         {
-            permissions = await _permissionRepository.GetAllAsync(cancellationToken);
+            permissions = await _permissionRepository.GetAllAsync(
+                request.SortBy, request.SortDirection, cancellationToken);
         }
 
         var permissionDtos = permissions.Select(p => new PermissionDto

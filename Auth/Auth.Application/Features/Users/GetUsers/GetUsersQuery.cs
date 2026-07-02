@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using ErrorOr;
 using MediatR;
 
@@ -10,4 +11,6 @@ namespace Auth.Application.Features.Users.GetUsers;
 public record GetUsersQuery(
     int PageNumber = 1,
     int PageSize = 20,
-    string? SearchTerm = null) : IRequest<ErrorOr<PagedUsersDto>>;
+    string? SearchTerm = null,
+    string? SortBy = null,
+    SortDirection SortDirection = SortDirection.Asc) : IRequest<ErrorOr<PagedUsersDto>>;

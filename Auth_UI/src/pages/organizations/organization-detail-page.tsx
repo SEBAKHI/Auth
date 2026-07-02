@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { ArrowLeft, Loader2, MoreHorizontal, Plus, Send } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
@@ -38,7 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useDirtyClose } from "@/hooks/use-dirty-close"
 import { api } from "@/lib/api/client"
-import { collectAllPages, unwrap, toNumber } from "@/lib/api/helpers"
+import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
 import { formatDate, fullName } from "@/lib/format"
@@ -54,15 +54,20 @@ function MembersTab({ orgId }: { orgId: string }) {
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
   const [removing, setRemoving] =
     React.useState<Schemas["OrganizationMemberDto"]>()
+  // Server-side sort over the whole dataset; initial value mirrors the API default.
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "joinedAt", desc: false },
+  ])
+  const { sortBy, sortDirection } = toSortParams(sorting)
 
   const query = useQuery({
-    queryKey: ["org-members", orgId, { page, pageSize }],
+    queryKey: ["org-members", orgId, { page, pageSize, sortBy, sortDirection }],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/Organizations/{id}/members", {
           params: {
             path: { id: orgId },
-            query: { pageNumber: page + 1, pageSize },
+            query: { pageNumber: page + 1, pageSize, sortBy, sortDirection },
           },
         })
       ),
@@ -76,7 +81,7 @@ function MembersTab({ orgId }: { orgId: string }) {
             api.GET("/api/v1/Organizations/{id}/members", {
               params: {
                 path: { id: orgId },
-                query: { pageNumber, pageSize: size },
+                query: { pageNumber, pageSize: size, sortBy, sortDirection },
               },
             })
           )
@@ -86,7 +91,7 @@ function MembersTab({ orgId }: { orgId: string }) {
           }
         }
       ),
-    [orgId]
+    [orgId, sortBy, sortDirection]
   )
 
   const removeMutation = useMutation({
@@ -174,6 +179,11 @@ function MembersTab({ orgId }: { orgId: string }) {
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
         onExportAll={exportAll}
+        sorting={sorting}
+        onSortingChange={(next) => {
+          setSorting(next)
+          setPage(0)
+        }}
         pagination={{
           pageIndex: page,
           pageSize,

@@ -20,6 +20,7 @@ using Auth.Application.Features.Organizations.UpdateMemberRole;
 using Auth.Application.Features.Organizations.UpdateOrganization;
 using Auth.Application.Features.Organizations.UpdateOrganizationApplication;
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -48,10 +49,13 @@ public class OrganizationsController : ApiController
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<OrganizationSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetMyOrganizations(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetMyOrganizations(
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
-        var query = new GetUserOrganizationsQuery(userId);
+        var query = new GetUserOrganizationsQuery(userId, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -173,10 +177,15 @@ public class OrganizationsController : ApiController
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? search = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
-        var query = new GetOrganizationMembersQuery(id, pageNumber, pageSize, search) { RequestedBy = userId };
+        var query = new GetOrganizationMembersQuery(id, pageNumber, pageSize, search, sortBy, sortDirection)
+        {
+            RequestedBy = userId
+        };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -241,10 +250,14 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetPendingInvitations(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPendingInvitations(
+        Guid id,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
-        var query = new GetPendingInvitationsQuery(id) { RequestedBy = userId };
+        var query = new GetPendingInvitationsQuery(id, sortBy, sortDirection) { RequestedBy = userId };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -307,10 +320,14 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetApplications(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetApplications(
+        Guid id,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
-        var query = new GetOrganizationApplicationsQuery(id) { RequestedBy = userId };
+        var query = new GetOrganizationApplicationsQuery(id, sortBy, sortDirection) { RequestedBy = userId };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

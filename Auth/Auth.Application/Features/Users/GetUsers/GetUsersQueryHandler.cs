@@ -30,6 +30,8 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
             request.PageNumber,
             request.PageSize,
             request.SearchTerm,
+            request.SortBy,
+            request.SortDirection,
             cancellationToken);
 
         var userDtos = new List<UserDto>();

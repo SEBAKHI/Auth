@@ -1,5 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -81,6 +83,18 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
             });
         }
 
-        return invitationDtos;
+        // Sort in memory: role name and inviter are enrichment values resolved
+        // per-row above. Null keeps the repository's CreatedAt DESC order.
+        return SortHelper
+            .Apply(invitationDtos, request.SortBy, request.SortDirection, SortSelectors)
+            .ToList();
     }
+
+    private static readonly IReadOnlyDictionary<string, Func<OrganizationInvitationDto, object?>> SortSelectors =
+        SortHelper.Selectors<OrganizationInvitationDto>(
+            (SortFields.OrganizationInvitations.Email, dto => dto.Email),
+            (SortFields.OrganizationInvitations.RoleName, dto => dto.RoleName),
+            (SortFields.OrganizationInvitations.Status, dto => dto.Status),
+            (SortFields.OrganizationInvitations.CreatedAt, dto => dto.CreatedAt),
+            (SortFields.OrganizationInvitations.ExpiresAt, dto => dto.ExpiresAt));
 }

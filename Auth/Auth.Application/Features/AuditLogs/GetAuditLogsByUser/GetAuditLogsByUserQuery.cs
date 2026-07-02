@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using ErrorOr;
 using MediatR;
 
@@ -12,4 +13,6 @@ public record GetAuditLogsByUserQuery(
     int PageNumber = 1,
     int PageSize = 50,
     DateTime? FromDate = null,
-    DateTime? ToDate = null) : IRequest<ErrorOr<PagedAuditLogsDto>>;
+    DateTime? ToDate = null,
+    string? SortBy = null,
+    SortDirection SortDirection = SortDirection.Asc) : IRequest<ErrorOr<PagedAuditLogsDto>>;

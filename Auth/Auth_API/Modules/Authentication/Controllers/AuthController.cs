@@ -19,6 +19,7 @@ using Auth_API.Modules.Authentication.Contracts;
 using Auth.Application.Features.Authentication.GetUserSessions;
 using Auth.Application.DTOs;
 using Auth.Domain.Constants;
+using Auth.Domain.Enums;
 using MediatR;
 using Auth_API.Common;
 using Microsoft.AspNetCore.Authorization;
@@ -114,9 +115,12 @@ public class AuthController : ApiController
     [HttpGet("external-providers")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(IReadOnlyList<ExternalAuthProviderResponse>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetExternalProviders(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetExternalProviders(
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
-        var query = new GetExternalProvidersQuery();
+        var query = new GetExternalProvidersQuery(sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -296,7 +300,10 @@ public class AuthController : ApiController
     [Authorize]
     [ProducesResponseType(typeof(IReadOnlyList<SessionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> GetSessions(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetSessions(
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
         if (userId == Guid.Empty)
@@ -304,7 +311,7 @@ public class AuthController : ApiController
             return Unauthorized();
         }
 
-        var query = new GetUserSessionsQuery(userId, GetCurrentSessionId());
+        var query = new GetUserSessionsQuery(userId, GetCurrentSessionId(), sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match<IActionResult>(

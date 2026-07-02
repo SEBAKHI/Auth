@@ -11,6 +11,7 @@ using Auth.Application.Features.Permissions.GetPermissions;
 using Auth.Application.Features.Permissions.RemovePermissionImplication;
 using Auth.Application.Features.Permissions.UpdatePermission;
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -40,9 +41,13 @@ public class PermissionsController : ApiController
     [ProducesResponseType(typeof(IReadOnlyList<PermissionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetPermissions([FromQuery] Guid? applicationId = null, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetPermissions(
+        [FromQuery] Guid? applicationId = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
-        var query = new GetPermissionsQuery(applicationId);
+        var query = new GetPermissionsQuery(applicationId, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -152,9 +157,13 @@ public class PermissionsController : ApiController
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetPermissionImplications(Guid id, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetPermissionImplications(
+        Guid id,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
-        var query = new GetPermissionImplicationsQuery(id);
+        var query = new GetPermissionImplicationsQuery(id, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

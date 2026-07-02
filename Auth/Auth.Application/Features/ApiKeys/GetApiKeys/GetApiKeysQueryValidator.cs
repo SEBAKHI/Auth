@@ -1,3 +1,5 @@
+using Auth.Application.Validators.Rules;
+using Auth.Domain.Constants;
 using FluentValidation;
 
 namespace Auth.Application.Features.ApiKeys.GetApiKeys;
@@ -11,5 +13,6 @@ public class GetApiKeysQueryValidator : AbstractValidator<GetApiKeysQuery>
     {
         RuleFor(x => x.ApplicationId)
             .NotEmpty().WithMessage("Validation.ApplicationId.Required");
+        RuleFor(x => x.SortBy).IsValidSortField(SortFields.ApiKeys.Allowed);
     }
 }

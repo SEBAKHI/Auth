@@ -8,6 +8,7 @@ using Auth.Application.Features.WebhookKeys.GetWebhookKeys;
 using Auth.Application.Features.WebhookKeys.RevokeWebhookKey;
 using Auth.Application.Features.WebhookKeys.RotateWebhookKey;
 using Auth.Application.Features.WebhookKeys.ValidateWebhookKey;
+using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -38,9 +39,13 @@ public class WebhookKeysController : ApiController
     [ProducesResponseType(typeof(IReadOnlyList<WebhookKeyDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetWebhookKeys([FromQuery] Guid applicationId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetWebhookKeys(
+        [FromQuery] Guid applicationId,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
     {
-        var query = new GetWebhookKeysQuery(applicationId);
+        var query = new GetWebhookKeysQuery(applicationId, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(

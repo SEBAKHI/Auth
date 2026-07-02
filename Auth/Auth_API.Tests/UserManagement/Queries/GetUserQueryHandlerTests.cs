@@ -1,4 +1,4 @@
-using Auth.Application.Features.Users.GetUserById;
+﻿using Auth.Application.Features.Users.GetUserById;
 using Auth.Application.Features.Users.GetUsers;
 using Auth.Application.Features.Users.GetUserRoles;
 using Auth.Application.Features.Users.GetUserPermissions;
@@ -6,6 +6,7 @@ using Auth.Application.DTOs;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -70,7 +71,7 @@ public class GetUsersQueryHandlerTests
     {
         var user = TestHelpers.CreateUser();
         _userRepositoryMock
-            .Setup(r => r.GetPagedAsync(1, 20, null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(1, 20, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<User> { user } as IReadOnlyList<User>, 1));
         _roleRepositoryMock
             .Setup(r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))

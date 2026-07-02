@@ -1,4 +1,6 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 
@@ -119,20 +121,29 @@ public class UserSessionRepository : IUserSessionRepository
             });
     }
 
+    private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
+        (SortFields.Sessions.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.Sessions.LastActivityAt, ["[LastActivityAt]"]),
+        (SortFields.Sessions.IpAddress, ["[IpAddress]"]));
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<UserSession>> GetActiveSessionsForUserAsync(
         Guid userId,
+        string? sortBy,
+        SortDirection sortDirection,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        var orderBy = SortSql.OrderBy(
+            SortColumns, sortBy, sortDirection, "[LastActivityAt] DESC", "[Id]");
         var sessions = await connection.QueryAsync<UserSession>($@"
             SELECT {SelectColumns}
             FROM [dbo].[UserSessions]
             WHERE [UserId] = @UserId
               AND [EndedAt] IS NULL
               AND [ExpiresAt] > GETUTCDATE()
-            ORDER BY [LastActivityAt] DESC",
+            ORDER BY {orderBy}",
             new { UserId = userId });
 
         return sessions.ToList().AsReadOnly();

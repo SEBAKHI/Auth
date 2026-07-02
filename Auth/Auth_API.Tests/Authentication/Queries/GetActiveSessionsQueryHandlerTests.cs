@@ -1,5 +1,6 @@
-using Auth.Application.Features.Authentication.GetUserSessions;
+﻿using Auth.Application.Features.Authentication.GetUserSessions;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 
@@ -33,7 +34,7 @@ public class GetActiveSessionsQueryHandlerTests
         var sessions = new List<Auth.Domain.Entities.UserSession>();
 
         _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(sessions);
 
         // Act
@@ -71,7 +72,7 @@ public class GetActiveSessionsQueryHandlerTests
         var sessions = new List<Auth.Domain.Entities.UserSession> { session1, session2 };
 
         _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(sessions);
 
         // Act
@@ -114,7 +115,7 @@ public class GetActiveSessionsQueryHandlerTests
         var sessions = new List<Auth.Domain.Entities.UserSession> { currentSession, otherSession };
 
         _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(sessions);
 
         // Act
@@ -142,7 +143,7 @@ public class GetActiveSessionsQueryHandlerTests
         var sessions = new List<Auth.Domain.Entities.UserSession> { session };
 
         _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(sessions);
 
         // Act

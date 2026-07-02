@@ -91,6 +91,26 @@ describe("DataTable", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
   })
 
+  it("lifts sorting to the page without reordering rows when server sorting is on", async () => {
+    const user = userEvent.setup()
+    const onSortingChange = vi.fn()
+
+    render(
+      <DataTable
+        columns={columns}
+        data={data}
+        sorting={[]}
+        onSortingChange={onSortingChange}
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: "Name" }))
+
+    // The page owns the state: callback fired, local order untouched.
+    expect(onSortingChange).toHaveBeenCalledWith([{ id: "name", desc: false }])
+    expect(nameColumnOrder()).toEqual(["Charlie", "Alice", "Bob"])
+  })
+
   it("renders an export button that downloads the in-memory rows", async () => {
     const user = userEvent.setup()
     const createObjectURL = vi.fn(() => "blob:mock")

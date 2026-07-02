@@ -28,11 +28,13 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
 
         if (request.ApplicationId.HasValue)
         {
-            roles = await _roleRepository.GetByApplicationAsync(request.ApplicationId.Value, cancellationToken);
+            roles = await _roleRepository.GetByApplicationAsync(
+                request.ApplicationId.Value, request.SortBy, request.SortDirection, cancellationToken);
         }
         else
         {
-            roles = await _roleRepository.GetAllAsync(cancellationToken);
+            roles = await _roleRepository.GetAllAsync(
+                request.SortBy, request.SortDirection, cancellationToken);
         }
 
         var roleDtos = new List<RoleDto>();

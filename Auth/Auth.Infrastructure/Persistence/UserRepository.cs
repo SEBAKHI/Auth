@@ -1,5 +1,6 @@
 using System.Data;
 using Auth.Application.Configuration;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -178,19 +179,31 @@ public class UserRepository : IUserRepository
             new { Id = id });
     }
 
+    private static readonly IReadOnlyDictionary<string, string[]> PagedSortColumns = SortSql.Map(
+        (SortFields.Users.Name, ["[FullName]"]),
+        (SortFields.Users.Email, ["[Email]"]),
+        (SortFields.Users.Status, ["[Status]"]),
+        (SortFields.Users.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.Users.ModifiedAt, ["[ModifiedAt]"]),
+        (SortFields.Users.LastLoginAt, ["[LastLoginUtc]"]));
+
     /// <inheritdoc />
     public async Task<(IReadOnlyList<User> Users, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
         string? searchTerm,
+        string? sortBy,
+        SortDirection sortDirection,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var offset = (pageNumber - 1) * pageSize;
         var searchPattern = string.IsNullOrEmpty(searchTerm) ? null : $"%{searchTerm}%";
+        var orderBy = SortSql.OrderBy(
+            PagedSortColumns, sortBy, sortDirection, "[CreatedAt] DESC", "[Id]");
 
-        var sql = @"
+        var sql = $@"
             SELECT COUNT(1) FROM [dbo].[Users]
             WHERE [IsDeleted] = 0
               AND (@SearchPattern IS NULL OR
@@ -217,7 +230,7 @@ public class UserRepository : IUserRepository
                    [Email] LIKE @SearchPattern OR
                    [FirstName] LIKE @SearchPattern OR
                    [LastName] LIKE @SearchPattern)
-            ORDER BY [CreatedAt] DESC
+            ORDER BY {orderBy}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
 
         using var multi = await connection.QueryMultipleAsync(sql, new

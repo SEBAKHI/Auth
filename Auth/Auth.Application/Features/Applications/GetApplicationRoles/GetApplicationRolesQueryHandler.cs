@@ -31,7 +31,8 @@ public class GetApplicationRolesQueryHandler : IRequestHandler<GetApplicationRol
             return ApplicationErrors.NotFound(request.ApplicationId);
         }
 
-        var roles = await _applicationRepository.GetRolesAsync(request.ApplicationId, cancellationToken);
+        var roles = await _applicationRepository.GetRolesAsync(
+            request.ApplicationId, request.SortBy, request.SortDirection, cancellationToken);
 
         var dtos = roles.Select(role => new RoleDto
         {

@@ -1,4 +1,4 @@
-using Auth.Application.Features.AuditLogs.GetAuditLogs;
+﻿using Auth.Application.Features.AuditLogs.GetAuditLogs;
 using Auth.Application.Features.AuditLogs.GetAuditLogById;
 using Auth.Application.Features.AuditLogs.GetAuditLogsByUser;
 using Auth.Application.Features.AuditLogs.GetAuditLogsByEntity;
@@ -6,6 +6,7 @@ using Auth.Application.Features.AuditLogs.ExportAuditLogs;
 using Auth.Application.DTOs;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -38,7 +39,7 @@ public class GetAuditLogsQueryHandlerTests
         };
 
         _auditLogRepoMock
-            .Setup(r => r.GetPagedAsync(1, 50, null, null, null, null, null, null, null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(1, 50, null, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((logs as IReadOnlyList<AuditLog>, 2));
 
         var result = await _handler.Handle(new GetAuditLogsQuery(), CancellationToken.None);
@@ -56,14 +57,14 @@ public class GetAuditLogsQueryHandlerTests
         var query = new GetAuditLogsQuery(PageNumber: 2, PageSize: 10, UserId: userId, ActionType: "Security");
 
         _auditLogRepoMock
-            .Setup(r => r.GetPagedAsync(2, 10, userId, null, "Security", null, null, null, null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(2, 10, userId, null, "Security", null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<AuditLog>() as IReadOnlyList<AuditLog>, 0));
 
         var result = await _handler.Handle(query, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         _auditLogRepoMock.Verify(
-            r => r.GetPagedAsync(2, 10, userId, null, "Security", null, null, null, null, It.IsAny<CancellationToken>()),
+            r => r.GetPagedAsync(2, 10, userId, null, "Security", null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Once());
     }
 }
@@ -139,7 +140,7 @@ public class GetAuditLogsByUserQueryHandlerTests
 
         _userRepoMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
         _auditLogRepoMock
-            .Setup(r => r.GetPagedAsync(1, 50, userId, null, null, null, null, null, null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(1, 50, userId, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((logs as IReadOnlyList<AuditLog>, 1));
 
         var result = await _handler.Handle(new GetAuditLogsByUserQuery(userId), CancellationToken.None);
@@ -177,7 +178,7 @@ public class GetAuditLogsByEntityQueryHandlerTests
         };
 
         _auditLogRepoMock
-            .Setup(r => r.GetByEntityAsync("User", entityId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByEntityAsync("User", entityId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(logs);
 
         var result = await _handler.Handle(
@@ -215,7 +216,7 @@ public class ExportAuditLogsCommandHandlerTests
         };
 
         _auditLogRepoMock
-            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, null, null, null, null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((logs as IReadOnlyList<AuditLog>, 2));
 
         var result = await _handler.Handle(
@@ -232,7 +233,7 @@ public class ExportAuditLogsCommandHandlerTests
     public async Task Handle_NoRecords_ReturnsEmptyExport()
     {
         _auditLogRepoMock
-            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, null, null, null, null, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<AuditLog>() as IReadOnlyList<AuditLog>, 0));
 
         var result = await _handler.Handle(

@@ -78,6 +78,9 @@
   <data name="Validation.PageSize.Range" xml:space="preserve">
     <value>Page size must be between 1 and 100.</value>
   </data>
+  <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
+    <value>The sort field is not allowed for this list.</value>
+  </data>
   <data name="Validation.Url.MaxLength" xml:space="preserve">
     <value>URL must not exceed 2048 characters.</value>
   </data>

@@ -1,4 +1,4 @@
-using Auth.Application.Features.WebhookKeys.CreateWebhookKey;
+﻿using Auth.Application.Features.WebhookKeys.CreateWebhookKey;
 using Auth.Application.Features.WebhookKeys.RevokeWebhookKey;
 using Auth.Application.Features.WebhookKeys.RotateWebhookKey;
 using Auth.Application.Features.WebhookKeys.ValidateWebhookKey;
@@ -7,6 +7,7 @@ using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using MediatR;
@@ -247,7 +248,7 @@ public class GetWebhookKeysQueryHandlerTests
             TestHelpers.CreateWebhookKey(applicationId: appId, name: "Key2")
         };
 
-        _repoMock.Setup(r => r.GetByApplicationAsync(appId, It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.GetByApplicationAsync(appId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(keys);
 
         var result = await _handler.Handle(new GetWebhookKeysQuery(appId), CancellationToken.None);

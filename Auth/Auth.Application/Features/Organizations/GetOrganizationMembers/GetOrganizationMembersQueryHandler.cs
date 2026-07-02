@@ -53,6 +53,8 @@ public class GetOrganizationMembersQueryHandler : IRequestHandler<GetOrganizatio
             request.PageNumber,
             request.PageSize,
             request.SearchTerm,
+            request.SortBy,
+            request.SortDirection,
             cancellationToken);
 
         var memberDtos = new List<OrganizationMemberDto>();

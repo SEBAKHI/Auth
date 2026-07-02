@@ -10,6 +10,7 @@ import {
   type ColumnDef,
   type ColumnFiltersState,
   type Header,
+  type OnChangeFn,
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table"
@@ -93,6 +94,15 @@ interface DataTableProps<TData> {
   auditFieldKeys?: readonly string[]
   /** Build the detail panel title from the open row. */
   getDetailTitle?: (row: TData) => string
+  /**
+   * Server-side sorting: pass both `sorting` and `onSortingChange` to lift the
+   * sort state to the page (which forwards it as `sortBy`/`sortDirection` API
+   * params). The table then stops sorting the loaded page locally, so the
+   * clicked header orders the entire dataset, not just the visible rows.
+   * Omit both on fully-loaded tables — local sorting already covers all rows.
+   */
+  sorting?: SortingState
+  onSortingChange?: (sorting: SortingState) => void
 }
 
 function readPersistedVisibility(tableId?: string): VisibilityState {
@@ -158,10 +168,12 @@ export function DataTable<TData>({
   onEditRow,
   auditFieldKeys,
   getDetailTitle,
+  sorting: controlledSorting,
+  onSortingChange: onControlledSortingChange,
 }: DataTableProps<TData>) {
   const { t } = useTranslation()
 
-  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
@@ -179,12 +191,33 @@ export function DataTable<TData>({
     }
   }, [tableId, columnVisibility])
 
+  // Server-controlled sorting is active when the page lifts the sort state.
+  const isManualSorting =
+    controlledSorting !== undefined && Boolean(onControlledSortingChange)
+  const sorting = isManualSorting ? (controlledSorting as SortingState) : internalSorting
+  const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
+    const next = typeof updater === "function" ? updater(sorting) : updater
+    if (isManualSorting) onControlledSortingChange?.(next)
+    else setInternalSorting(next)
+  }
+
   // Augment the page's curated columns with one hidden column per remaining
   // field on the data rows, so the visibility menu lists the full record.
   const built = React.useMemo(
     () => buildDisplayColumns(columns, data, t),
     [columns, data, t]
   )
+  // Under server sorting, auto-discovered columns must not offer sorting — their
+  // field names are not in the endpoint's sortBy allow-list (the API would 400).
+  const effectiveColumns = React.useMemo(() => {
+    if (!isManualSorting || built.autoColumnIds.length === 0) return built.columns
+    const autoIds = new Set<string>(built.autoColumnIds)
+    return built.columns.map((column) =>
+      column.id && autoIds.has(column.id)
+        ? { ...column, enableSorting: false }
+        : column
+    )
+  }, [built, isManualSorting])
   const autoHiddenDefaults = React.useMemo(() => {
     const defaults: VisibilityState = {}
     for (const id of built.autoColumnIds) defaults[id] = false
@@ -200,14 +233,15 @@ export function DataTable<TData>({
 
   const table = useReactTable({
     data,
-    columns: built.columns,
+    columns: effectiveColumns,
     filterFns: { faceted: facetedFilterFn },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
-    onSortingChange: setSorting,
+    manualSorting: isManualSorting,
+    onSortingChange: handleSortingChange,
     onColumnFiltersChange: setColumnFilters,
     onColumnVisibilityChange: (updater) =>
       setColumnVisibility((prev) => {

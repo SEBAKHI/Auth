@@ -1,3 +1,5 @@
+using Auth.Application.Validators.Rules;
+using Auth.Domain.Constants;
 using FluentValidation;
 
 namespace Auth.Application.Features.WebhookKeys.GetWebhookKeys;
@@ -11,5 +13,6 @@ public class GetWebhookKeysQueryValidator : AbstractValidator<GetWebhookKeysQuer
     {
         RuleFor(x => x.ApplicationId)
             .NotEmpty().WithMessage("Validation.ApplicationId.Required");
+        RuleFor(x => x.SortBy).IsValidSortField(SortFields.WebhookKeys.Allowed);
     }
 }

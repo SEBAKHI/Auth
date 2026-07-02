@@ -89,6 +89,21 @@ public static class SharedValidationRules
             .InclusiveBetween(1, 100).WithMessage("Validation.PageSize.Range");
     }
 
+    /// <summary>
+    /// The sort field must be null (server default order) or one of the
+    /// endpoint's allow-listed field names (case-insensitive). The allow-list is
+    /// what keeps client input away from SQL ORDER BY clauses.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string?> IsValidSortField<T>(
+        this IRuleBuilder<T, string?> ruleBuilder,
+        IReadOnlyCollection<string> allowedFields)
+    {
+        return ruleBuilder
+            .Must(field => field is null ||
+                allowedFields.Contains(field, StringComparer.OrdinalIgnoreCase))
+            .WithMessage("Validation.SortBy.NotAllowed");
+    }
+
     public static IRuleBuilderOptions<T, string?> IsValidUrl<T>(this IRuleBuilder<T, string?> ruleBuilder)
     {
         return ruleBuilder

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { MoreHorizontal, Plus, Search } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { api } from "@/lib/api/client"
-import { collectAllPages, unwrap, toNumber } from "@/lib/api/helpers"
+import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
@@ -42,6 +42,9 @@ export function ApplicationsPage() {
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
   const [searchInput, setSearchInput] = React.useState("")
   const search = useDebouncedValue(searchInput)
+  // Server-side sort over the whole dataset (API default order is by code).
+  const [sorting, setSorting] = React.useState<SortingState>([])
+  const { sortBy, sortDirection } = toSortParams(sorting)
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<ApplicationDto | undefined>()
@@ -53,7 +56,7 @@ export function ApplicationsPage() {
   const hasRowActions = canUpdate || canDelete
 
   const query = useQuery({
-    queryKey: ["applications", { page, pageSize, search }],
+    queryKey: ["applications", { page, pageSize, search, sortBy, sortDirection }],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/Applications", {
@@ -62,6 +65,8 @@ export function ApplicationsPage() {
               pageNumber: page + 1,
               pageSize,
               search: search || undefined,
+              sortBy,
+              sortDirection,
             },
           },
         })
@@ -78,6 +83,8 @@ export function ApplicationsPage() {
                 pageNumber,
                 pageSize: size,
                 search: search || undefined,
+                sortBy,
+                sortDirection,
               },
             },
           })
@@ -87,7 +94,7 @@ export function ApplicationsPage() {
           totalCount: toNumber(result.totalCount),
         }
       }),
-    [search]
+    [search, sortBy, sortDirection]
   )
 
   const deleteMutation = useMutation({
@@ -247,6 +254,11 @@ export function ApplicationsPage() {
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
         onExportAll={exportAll}
+        sorting={sorting}
+        onSortingChange={(next) => {
+          setSorting(next)
+          setPage(0)
+        }}
         onEditRow={canUpdate ? (app) => setEditing(app) : undefined}
         pagination={{
           pageIndex: page,

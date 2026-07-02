@@ -16,6 +16,22 @@ export function toNumber(value: number | string | null | undefined): number {
   return typeof value === "string" ? Number(value) : value
 }
 
+/**
+ * Mirrors the API's `SortDirection` enum, which the OpenAPI schema types as a
+ * bare number (Asc = 0, Desc = 1) even though the binder also accepts names.
+ */
+export const SORT_ASC = 0
+export const SORT_DESC = 1
+
+/** Map a TanStack sorting entry to the API's sortBy/sortDirection params. */
+export function toSortParams(
+  sorting: ReadonlyArray<{ id: string; desc: boolean }>
+): { sortBy?: string; sortDirection?: number } {
+  const first = sorting[0]
+  if (!first) return {}
+  return { sortBy: first.id, sortDirection: first.desc ? SORT_DESC : SORT_ASC }
+}
+
 /** Page size used when walking every page for a full-dataset CSV export. */
 export const EXPORT_PAGE_SIZE = 100
 /** Safety ceiling so a runaway export can never lock the browser. */

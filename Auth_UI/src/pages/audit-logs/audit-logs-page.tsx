@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { Download, Eye } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { api } from "@/lib/api/client"
-import { unwrap, toNumber } from "@/lib/api/helpers"
+import { toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
@@ -48,6 +48,11 @@ export function AuditLogsPage() {
   const [fromDate, setFromDate] = React.useState("")
   const [toDate, setToDate] = React.useState("")
   const [detail, setDetail] = React.useState<AuditLogDto | undefined>()
+  // Server-side sort over the whole dataset; initial value mirrors the API default.
+  const [sorting, setSorting] = React.useState<SortingState>([
+    { id: "timestamp", desc: true },
+  ])
+  const { sortBy, sortDirection } = toSortParams(sorting)
 
   const canExport = hasPermission(PERMISSIONS.auditLogs.export)
 
@@ -62,12 +67,18 @@ export function AuditLogsPage() {
   )
 
   const query = useQuery({
-    queryKey: ["audit-logs", { page, pageSize, filters }],
+    queryKey: ["audit-logs", { page, pageSize, filters, sortBy, sortDirection }],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/audit-logs", {
           params: {
-            query: { pageNumber: page + 1, pageSize, ...filters },
+            query: {
+              pageNumber: page + 1,
+              pageSize,
+              ...filters,
+              sortBy,
+              sortDirection,
+            },
           },
         })
       ),
@@ -76,7 +87,8 @@ export function AuditLogsPage() {
   const exportMutation = useMutation({
     mutationFn: async (format: "csv" | "json") => {
       const { data, error } = await api.POST("/api/v1/audit-logs/export", {
-        body: { format, ...filters, maxRecords: 10000 },
+        // Export in the same order the table currently shows.
+        body: { format, ...filters, maxRecords: 10000, sortBy, sortDirection },
         parseAs: "blob",
       })
       if (error) throw error
@@ -232,6 +244,11 @@ export function AuditLogsPage() {
         // page header) and the JSON-diff detail dialog (Eye action).
         enableExport={false}
         enableRowDetail={false}
+        sorting={sorting}
+        onSortingChange={(next) => {
+          setSorting(next)
+          setPage(0)
+        }}
         pagination={{
           pageIndex: page,
           pageSize,
