@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using ErrorOr;
 using MediatR;
 
@@ -11,7 +12,9 @@ public record GetOrganizationMembersQuery(
     Guid OrganizationId,
     int PageNumber = 1,
     int PageSize = 20,
-    string? SearchTerm = null) : IRequest<ErrorOr<PagedOrganizationMembersDto>>
+    string? SearchTerm = null,
+    string? SortBy = null,
+    SortDirection SortDirection = SortDirection.Asc) : IRequest<ErrorOr<PagedOrganizationMembersDto>>
 {
     /// <summary>
     /// The ID of the user making the request.

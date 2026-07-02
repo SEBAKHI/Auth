@@ -1,5 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -78,6 +80,17 @@ public class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPermissions
 
         _logger.LogDebug("Retrieved {Count} direct permissions for user {UserId}", dtos.Count, request.UserId);
 
-        return dtos;
+        // Sort in memory: the sortable fields (permission/application name) are
+        // enrichment values that don't exist as columns on [UserPermissions]. The
+        // SQL has no ORDER BY, so default to grant date for a deterministic order.
+        return SortHelper
+            .Apply(dtos, request.SortBy ?? SortFields.UserPermissions.CreatedAt, request.SortDirection, SortSelectors)
+            .ToList();
     }
+
+    private static readonly IReadOnlyDictionary<string, Func<UserPermissionDto, object?>> SortSelectors =
+        SortHelper.Selectors<UserPermissionDto>(
+            (SortFields.UserPermissions.PermissionName, dto => dto.PermissionName),
+            (SortFields.UserPermissions.ApplicationName, dto => dto.ApplicationName),
+            (SortFields.UserPermissions.CreatedAt, dto => dto.CreatedAt));
 }

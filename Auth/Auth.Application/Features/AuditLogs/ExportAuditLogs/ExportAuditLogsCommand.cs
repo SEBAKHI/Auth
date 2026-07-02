@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using ErrorOr;
 using MediatR;
 
@@ -15,7 +16,9 @@ public record ExportAuditLogsCommand(
     DateTime? FromDate = null,
     DateTime? ToDate = null,
     bool? IsSuccess = null,
-    int MaxRecords = 10000) : IRequest<ErrorOr<ExportAuditLogsResult>>
+    int MaxRecords = 10000,
+    string? SortBy = null,
+    SortDirection SortDirection = SortDirection.Asc) : IRequest<ErrorOr<ExportAuditLogsResult>>
 {
     /// <summary>
     /// The ID of the user requesting the export (for audit).

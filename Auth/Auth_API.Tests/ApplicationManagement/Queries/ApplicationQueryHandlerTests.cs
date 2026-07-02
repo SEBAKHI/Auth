@@ -1,10 +1,11 @@
-using Auth.Application.Features.Applications.GetApplicationById;
+﻿using Auth.Application.Features.Applications.GetApplicationById;
 using Auth.Application.Features.Applications.GetApplications;
 using Auth.Application.Features.Applications.GetApplicationRoles;
 using Auth.Application.Features.Applications.GetApplicationPermissions;
 using Auth.Application.DTOs;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -123,6 +124,8 @@ public class GetApplicationsQueryHandlerTests
                 query.PageSize,
                 query.Search,
                 query.IsActive,
+                It.IsAny<string?>(),
+                It.IsAny<SortDirection>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((applications as IReadOnlyList<ApplicationEntity>, 2));
 
@@ -178,7 +181,7 @@ public class GetApplicationRolesQueryHandlerTests
             .ReturnsAsync(application);
 
         _applicationRepositoryMock
-            .Setup(r => r.GetRolesAsync(appId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetRolesAsync(appId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(roles as IReadOnlyList<Role>);
 
         // Act
@@ -215,7 +218,7 @@ public class GetApplicationRolesQueryHandlerTests
         result.FirstError.Code.Should().Be("Application.NotFound");
 
         _applicationRepositoryMock.Verify(
-            r => r.GetRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            r => r.GetRolesAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 }
@@ -257,7 +260,7 @@ public class GetApplicationPermissionsQueryHandlerTests
             .ReturnsAsync(application);
 
         _applicationRepositoryMock
-            .Setup(r => r.GetPermissionsAsync(appId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPermissionsAsync(appId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(permissions as IReadOnlyList<Permission>);
 
         // Act
@@ -294,7 +297,7 @@ public class GetApplicationPermissionsQueryHandlerTests
         result.FirstError.Code.Should().Be("Application.NotFound");
 
         _applicationRepositoryMock.Verify(
-            r => r.GetPermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            r => r.GetPermissionsAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 }

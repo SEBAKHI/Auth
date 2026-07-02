@@ -58,12 +58,16 @@ public interface IUserRepository
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets users with pagination.
+    /// Gets users with pagination. <paramref name="sortBy"/> accepts the
+    /// allow-listed field names in <see cref="Constants.SortFields.Users"/>;
+    /// null keeps the default order.
     /// </summary>
     Task<(IReadOnlyList<User> Users, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
         string? searchTerm,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
         CancellationToken cancellationToken);
 
     /// <summary>

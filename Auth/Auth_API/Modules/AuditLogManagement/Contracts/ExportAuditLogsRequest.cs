@@ -1,3 +1,5 @@
+using Auth.Domain.Enums;
+
 namespace Auth_API.Modules.AuditLogManagement.Contracts;
 
 public record ExportAuditLogsRequest(
@@ -9,4 +11,6 @@ public record ExportAuditLogsRequest(
     DateTime? FromDate = null,
     DateTime? ToDate = null,
     bool? IsSuccess = null,
-    int MaxRecords = 10000);
+    int MaxRecords = 10000,
+    string? SortBy = null,
+    SortDirection SortDirection = SortDirection.Asc);

@@ -303,13 +303,15 @@ public static class TestHelpers
         DateTime? revokedAt = null,
         Guid? revokedBy = null,
         string? replacedByTokenHash = null,
-        string? reasonRevoked = null)
+        string? reasonRevoked = null,
+        Guid? sessionId = null)
     {
         return new RefreshToken(
             id: id ?? Guid.NewGuid(),
             userId: userId ?? Guid.NewGuid(),
             tokenHash: tokenHash ?? Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
             jwtId: jwtId ?? Guid.NewGuid().ToString(),
+            sessionId: sessionId,
             applicationId: applicationId,
             deviceInfo: deviceInfo,
             ipAddress: ipAddress ?? "127.0.0.1",

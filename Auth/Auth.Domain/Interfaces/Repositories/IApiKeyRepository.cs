@@ -18,9 +18,15 @@ public interface IApiKeyRepository
     Task<ApiKey?> GetByHashAsync(string keyHash, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets all API keys for an application.
+    /// Gets all API keys for an application. <paramref name="sortBy"/> accepts the
+    /// allow-listed field names in <see cref="Constants.SortFields.ApiKeys"/>;
+    /// null keeps the default order.
     /// </summary>
-    Task<IReadOnlyList<ApiKey>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<ApiKey>> GetByApplicationAsync(
+        Guid applicationId,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new API key.

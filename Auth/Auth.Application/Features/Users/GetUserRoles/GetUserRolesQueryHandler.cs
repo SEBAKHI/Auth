@@ -1,5 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -78,6 +80,17 @@ public class GetUserRolesQueryHandler : IRequestHandler<GetUserRolesQuery, Error
 
         _logger.LogDebug("Retrieved {Count} roles for user {UserId}", dtos.Count, request.UserId);
 
-        return dtos;
+        // Sort in memory: the sortable fields (role/application name) are
+        // enrichment values that don't exist as columns on [UserRoles]. The SQL
+        // has no ORDER BY, so default to assignment date for a deterministic order.
+        return SortHelper
+            .Apply(dtos, request.SortBy ?? SortFields.UserRoles.CreatedAt, request.SortDirection, SortSelectors)
+            .ToList();
     }
+
+    private static readonly IReadOnlyDictionary<string, Func<UserRoleDto, object?>> SortSelectors =
+        SortHelper.Selectors<UserRoleDto>(
+            (SortFields.UserRoles.RoleName, dto => dto.RoleName),
+            (SortFields.UserRoles.ApplicationName, dto => dto.ApplicationName),
+            (SortFields.UserRoles.CreatedAt, dto => dto.CreatedAt));
 }

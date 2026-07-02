@@ -32,6 +32,8 @@ public class GetAuditLogsByEntityQueryHandler : IRequestHandler<GetAuditLogsByEn
         var logs = await _auditLogRepository.GetByEntityAsync(
             request.EntityType,
             request.EntityId,
+            request.SortBy,
+            request.SortDirection,
             cancellationToken);
 
         var dtos = new List<AuditLogDto>();

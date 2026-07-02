@@ -39,6 +39,8 @@ public class GetAuditLogsQueryHandler : IRequestHandler<GetAuditLogsQuery, Error
             request.FromDate,
             request.ToDate,
             request.IsSuccess,
+            request.SortBy,
+            request.SortDirection,
             cancellationToken);
 
         // Enrich logs with user and application names

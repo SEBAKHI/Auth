@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using ErrorOr;
 using MediatR;
 
@@ -11,4 +12,6 @@ public record GetApplicationsQuery(
     int PageNumber = 1,
     int PageSize = 20,
     string? Search = null,
-    bool? IsActive = null) : IRequest<ErrorOr<PagedApplicationsDto>>;
+    bool? IsActive = null,
+    string? SortBy = null,
+    SortDirection SortDirection = SortDirection.Asc) : IRequest<ErrorOr<PagedApplicationsDto>>;

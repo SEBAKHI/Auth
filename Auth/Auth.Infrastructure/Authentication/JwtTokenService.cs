@@ -46,7 +46,7 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     }
 
     /// <inheritdoc />
-    public string GenerateAccessToken(User user, IEnumerable<string> permissions, IEnumerable<string> roles)
+    public string GenerateAccessToken(User user, IEnumerable<string> permissions, IEnumerable<string> roles, Guid? sessionId = null)
     {
         var claims = new List<Claim>
         {
@@ -58,6 +58,12 @@ public class JwtTokenService : IJwtTokenService, IDisposable
             new(JwtClaimNames.GivenName, user.FirstName),
             new(JwtClaimNames.FamilyName, user.LastName),
         };
+
+        // Stable session identifier, constant across access-token refreshes.
+        if (sessionId.HasValue)
+        {
+            claims.Add(new Claim(JwtClaimNames.Sid, sessionId.Value.ToString()));
+        }
 
         // Add preferred language if set
         if (!string.IsNullOrEmpty(user.PreferredLanguage))

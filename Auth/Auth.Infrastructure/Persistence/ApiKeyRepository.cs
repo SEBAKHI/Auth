@@ -1,4 +1,6 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 
@@ -41,17 +43,26 @@ public class ApiKeyRepository : IApiKeyRepository
         return dto?.ToEntity();
     }
 
+    private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
+        (SortFields.ApiKeys.Name, ["[Name]"]),
+        (SortFields.ApiKeys.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.ApiKeys.ExpiresAt, ["[ExpiresAt]"]),
+        (SortFields.ApiKeys.RevokedAt, ["[RevokedAt]"]));
+
     /// <inheritdoc />
     public async Task<IReadOnlyList<ApiKey>> GetByApplicationAsync(
         Guid applicationId,
+        string? sortBy,
+        SortDirection sortDirection,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var dtos = await connection.QueryAsync<ApiKeyDto>(@"
+        var orderBy = SortSql.OrderBy(SortColumns, sortBy, sortDirection, "[CreatedAt] DESC", "[Id]");
+        var dtos = await connection.QueryAsync<ApiKeyDto>($@"
             SELECT * FROM [dbo].[ApiKeys]
             WHERE [ApplicationId] = @ApplicationId
-            ORDER BY [CreatedAt] DESC",
+            ORDER BY {orderBy}",
             new { ApplicationId = applicationId });
 
         return dtos.Select(dto => dto.ToEntity()).ToList();

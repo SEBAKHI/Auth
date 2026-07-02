@@ -1,5 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -61,6 +63,16 @@ public class GetPermissionImplicationsQueryHandler : IRequestHandler<GetPermissi
             "Retrieved {Count} implications for permission {PermissionId}",
             dtos.Count, request.PermissionId);
 
-        return dtos;
+        // Sort in memory: the list is assembled per-row above. The SQL has no
+        // ORDER BY, so default to code for a deterministic order.
+        return SortHelper
+            .Apply(dtos, request.SortBy ?? SortFields.PermissionImplications.Code, request.SortDirection, SortSelectors)
+            .ToList();
     }
+
+    private static readonly IReadOnlyDictionary<string, Func<PermissionDto, object?>> SortSelectors =
+        SortHelper.Selectors<PermissionDto>(
+            (SortFields.PermissionImplications.Name, dto => dto.Name),
+            (SortFields.PermissionImplications.Code, dto => dto.Code),
+            (SortFields.PermissionImplications.Level, dto => dto.Level));
 }

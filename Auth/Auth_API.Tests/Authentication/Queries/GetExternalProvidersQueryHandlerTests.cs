@@ -1,5 +1,6 @@
-using Auth.Application.Features.Authentication.ExternalLogin;
+﻿using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 
 namespace Auth_API.Tests.Authentication.Queries;
@@ -28,7 +29,7 @@ public class GetExternalProvidersQueryHandlerTests
         var providers = new List<Auth.Domain.Entities.ExternalAuthProvider>();
 
         _providerRepositoryMock
-            .Setup(r => r.GetAllEnabledAsync(It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetAllEnabledAsync(It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(providers);
 
         // Act
@@ -61,7 +62,7 @@ public class GetExternalProvidersQueryHandlerTests
         };
 
         _providerRepositoryMock
-            .Setup(r => r.GetAllEnabledAsync(It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetAllEnabledAsync(It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(providers);
 
         // Act

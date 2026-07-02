@@ -78,6 +78,9 @@
   <data name="Validation.PageSize.Range" xml:space="preserve">
     <value>صفحے کا سائز ۱ سے ۱۰۰ کے درمیان ہونا چاہیے۔</value>
   </data>
+  <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
+    <value>اس فہرست کے لیے ترتیب دینے کی فیلڈ کی اجازت نہیں ہے۔</value>
+  </data>
   <data name="Validation.Url.MaxLength" xml:space="preserve">
     <value>URL ۲۰۴۸ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
   </data>

@@ -1,4 +1,6 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 
@@ -41,28 +43,44 @@ public class PermissionRepository : IPermissionRepository
         return dto?.ToEntity();
     }
 
+    private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
+        (SortFields.Permissions.Name, ["[Name]"]),
+        (SortFields.Permissions.Code, ["[Code]"]),
+        (SortFields.Permissions.Level, ["[Level]"]),
+        (SortFields.Permissions.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.Permissions.ModifiedAt, ["[ModifiedAt]"]));
+
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Permission>> GetAllAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Permission>> GetAllAsync(
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var dtos = await connection.QueryAsync<PermissionDto>(@"
+        var orderBy = SortSql.OrderBy(SortColumns, sortBy, sortDirection, "[Level], [Name]", "[Id]");
+        var dtos = await connection.QueryAsync<PermissionDto>($@"
             SELECT * FROM [dbo].[Permissions]
             WHERE [IsActive] = 1
-            ORDER BY [Level], [Name]");
+            ORDER BY {orderBy}");
 
         return dtos.Select(dto => dto.ToEntity()).ToList();
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Permission>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Permission>> GetByApplicationAsync(
+        Guid applicationId,
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var dtos = await connection.QueryAsync<PermissionDto>(@"
+        var orderBy = SortSql.OrderBy(SortColumns, sortBy, sortDirection, "[Level], [Name]", "[Id]");
+        var dtos = await connection.QueryAsync<PermissionDto>($@"
             SELECT * FROM [dbo].[Permissions]
             WHERE [ApplicationId] = @ApplicationId AND [IsActive] = 1
-            ORDER BY [Level], [Name]",
+            ORDER BY {orderBy}",
             new { ApplicationId = applicationId });
 
         return dtos.Select(dto => dto.ToEntity()).ToList();

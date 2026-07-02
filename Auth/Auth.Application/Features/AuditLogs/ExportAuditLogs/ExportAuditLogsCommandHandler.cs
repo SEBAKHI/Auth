@@ -48,6 +48,8 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
             request.FromDate,
             request.ToDate,
             request.IsSuccess,
+            request.SortBy,
+            request.SortDirection,
             cancellationToken);
 
         if (totalCount > request.MaxRecords)
@@ -67,17 +69,13 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
                 Timestamp = log.Timestamp,
                 UserId = log.UserId,
                 ApplicationId = log.ApplicationId,
-                ActionType = log.ActionType,
                 Action = log.Action,
                 EntityType = log.EntityType,
                 EntityId = log.EntityId,
                 OldValues = log.OldValues,
                 NewValues = log.NewValues,
                 IpAddress = log.IpAddress,
-                UserAgent = log.UserAgent,
-                IsSuccess = log.IsSuccess,
-                ErrorMessage = log.ErrorMessage,
-                CorrelationId = log.CorrelationId
+                UserAgent = log.UserAgent
             };
 
             // Get user email if available
@@ -115,7 +113,7 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
         else
         {
             var csv = new StringBuilder();
-            csv.AppendLine("Id,Timestamp,UserId,UserEmail,ApplicationId,ApplicationName,ActionType,Action,EntityType,EntityId,IsSuccess,ErrorMessage,IpAddress,CorrelationId");
+            csv.AppendLine("Id,Timestamp,UserId,UserEmail,ApplicationId,ApplicationName,Action,EntityType,EntityId,IpAddress");
 
             foreach (var row in exportData)
             {
@@ -126,14 +124,10 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
                     $"\"{EscapeCsv(row.UserEmail)}\"," +
                     $"\"{row.ApplicationId}\"," +
                     $"\"{EscapeCsv(row.ApplicationName)}\"," +
-                    $"\"{EscapeCsv(row.ActionType)}\"," +
                     $"\"{EscapeCsv(row.Action)}\"," +
                     $"\"{EscapeCsv(row.EntityType)}\"," +
                     $"\"{row.EntityId}\"," +
-                    $"\"{row.IsSuccess}\"," +
-                    $"\"{EscapeCsv(row.ErrorMessage)}\"," +
-                    $"\"{EscapeCsv(row.IpAddress)}\"," +
-                    $"\"{EscapeCsv(row.CorrelationId)}\"");
+                    $"\"{EscapeCsv(row.IpAddress)}\"");
             }
 
             content = Encoding.UTF8.GetBytes(csv.ToString());
@@ -162,7 +156,6 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
         public string? UserEmail { get; set; }
         public Guid? ApplicationId { get; set; }
         public string? ApplicationName { get; set; }
-        public string ActionType { get; set; } = string.Empty;
         public string Action { get; set; } = string.Empty;
         public string? EntityType { get; set; }
         public Guid? EntityId { get; set; }
@@ -170,8 +163,5 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
         public string? NewValues { get; set; }
         public string? IpAddress { get; set; }
         public string? UserAgent { get; set; }
-        public bool IsSuccess { get; set; }
-        public string? ErrorMessage { get; set; }
-        public string? CorrelationId { get; set; }
     }
 }

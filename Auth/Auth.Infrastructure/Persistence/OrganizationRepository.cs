@@ -1,4 +1,6 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 
@@ -247,12 +249,22 @@ public class OrganizationRepository : IOrganizationRepository
         return dtos.Select(dto => dto.ToEntity()).ToList().AsReadOnly();
     }
 
+    // Name/email sort on the joined Users row; role sort on the joined Roles row
+    // (LEFT — membership may carry no role). Both joins are 1:1 by primary key.
+    private static readonly IReadOnlyDictionary<string, string[]> MemberSortColumns = SortSql.Map(
+        (SortFields.OrganizationMembers.Name, ["u.[FirstName]", "u.[LastName]"]),
+        (SortFields.OrganizationMembers.Email, ["u.[Email]"]),
+        (SortFields.OrganizationMembers.RoleName, ["r.[Name]"]),
+        (SortFields.OrganizationMembers.JoinedAt, ["ou.[JoinedAt]"]));
+
     /// <inheritdoc />
     public async Task<(IReadOnlyList<OrganizationUser> Members, int TotalCount)> GetMembersPagedAsync(
         Guid organizationId,
         int pageNumber,
         int pageSize,
         string? searchTerm,
+        string? sortBy,
+        SortDirection sortDirection,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -275,16 +287,19 @@ public class OrganizationRepository : IOrganizationRepository
         });
 
         // Get paged results
-        var sql = @"
+        var orderBy = SortSql.OrderBy(
+            MemberSortColumns, sortBy, sortDirection, "ou.[JoinedAt]", "ou.[Id]");
+        var sql = $@"
             SELECT
                 ou.[Id], ou.[OrganizationId], ou.[UserId], ou.[RoleId], ou.[IsActive],
                 ou.[JoinedAt], ou.[InvitedBy], ou.[ExpiresAt],
                 ou.[CreatedAt], ou.[CreatedBy], ou.[ModifiedAt], ou.[ModifiedBy]
             FROM [dbo].[OrganizationUsers] ou
             INNER JOIN [dbo].[Users] u ON ou.[UserId] = u.[Id]
+            LEFT JOIN [dbo].[Roles] r ON ou.[RoleId] = r.[Id]
             WHERE ou.[OrganizationId] = @OrganizationId AND ou.[IsActive] = 1
             AND (@SearchPattern IS NULL OR u.[Email] LIKE @SearchPattern OR u.[FirstName] LIKE @SearchPattern OR u.[LastName] LIKE @SearchPattern)
-            ORDER BY ou.[JoinedAt]
+            ORDER BY {orderBy}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
 
         var dtos = await connection.QueryAsync<OrganizationUserDto>(sql, new

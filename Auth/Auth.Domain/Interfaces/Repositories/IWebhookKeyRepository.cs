@@ -18,9 +18,15 @@ public interface IWebhookKeyRepository
     Task<WebhookKey?> GetByHashAsync(string keyHash, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets all webhook keys for an application.
+    /// Gets all webhook keys for an application. <paramref name="sortBy"/> accepts
+    /// the allow-listed field names in <see cref="Constants.SortFields.WebhookKeys"/>;
+    /// null keeps the default order.
     /// </summary>
-    Task<IReadOnlyList<WebhookKey>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<WebhookKey>> GetByApplicationAsync(
+        Guid applicationId,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new webhook key.

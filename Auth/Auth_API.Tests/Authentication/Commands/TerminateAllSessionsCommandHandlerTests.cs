@@ -1,5 +1,7 @@
-using Auth.Application.Features.Authentication.TerminateAllSessions;
+﻿using Auth.Application.Features.Authentication.TerminateAllSessions;
+using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
 
@@ -21,6 +23,8 @@ public class TerminateAllSessionsCommandHandlerTests
 
         _handler = new TerminateAllSessionsCommandHandler(
             _sessionRepositoryMock.Object,
+            new Mock<IRefreshTokenRepository>().Object,
+            new Mock<ITokenBlacklistService>().Object,
             _loggerMock.Object);
     }
 
@@ -38,7 +42,7 @@ public class TerminateAllSessionsCommandHandlerTests
         };
 
         _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(sessions);
 
         // Act
@@ -71,7 +75,7 @@ public class TerminateAllSessionsCommandHandlerTests
         };
 
         _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(sessions);
 
         // Act
@@ -102,7 +106,7 @@ public class TerminateAllSessionsCommandHandlerTests
         var sessions = new List<Auth.Domain.Entities.UserSession>();
 
         _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(sessions);
 
         // Act
@@ -126,7 +130,7 @@ public class TerminateAllSessionsCommandHandlerTests
         };
 
         _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(sessions);
 
         // Act

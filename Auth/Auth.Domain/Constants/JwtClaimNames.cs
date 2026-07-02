@@ -68,6 +68,12 @@ public static class JwtClaimNames
     public const string JwtId = "jti";
 
     /// <summary>
+    /// Session ID - Stable identifier of the login session, constant across
+    /// access-token refreshes. Custom claim: "sid"
+    /// </summary>
+    public const string Sid = "sid";
+
+    /// <summary>
     /// Issued At - Timestamp when the token was issued.
     /// Standard JWT claim: "iat"
     /// </summary>

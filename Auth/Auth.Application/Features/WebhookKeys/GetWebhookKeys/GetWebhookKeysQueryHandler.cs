@@ -21,7 +21,8 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
         GetWebhookKeysQuery request,
         CancellationToken cancellationToken)
     {
-        var webhookKeys = await _webhookKeyRepository.GetByApplicationAsync(request.ApplicationId, cancellationToken);
+        var webhookKeys = await _webhookKeyRepository.GetByApplicationAsync(
+            request.ApplicationId, request.SortBy, request.SortDirection, cancellationToken);
 
         var dtos = webhookKeys.Select(wk => new WebhookKeyDto
         {

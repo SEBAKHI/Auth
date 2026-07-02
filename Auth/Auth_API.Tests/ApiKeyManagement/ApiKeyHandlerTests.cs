@@ -1,4 +1,4 @@
-using Auth.Application.Features.ApiKeys.CreateApiKey;
+﻿using Auth.Application.Features.ApiKeys.CreateApiKey;
 using Auth.Application.Features.ApiKeys.RevokeApiKey;
 using Auth.Application.Features.ApiKeys.RotateApiKey;
 using Auth.Application.Features.ApiKeys.ValidateApiKey;
@@ -8,6 +8,7 @@ using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using MediatR;
@@ -487,7 +488,7 @@ public class GetApiKeysQueryHandlerTests
         var query = new GetApiKeysQuery(applicationId);
 
         _apiKeyRepositoryMock
-            .Setup(r => r.GetByApplicationAsync(applicationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByApplicationAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ApiKey> { apiKey1, apiKey2 });
 
         _apiKeyRepositoryMock

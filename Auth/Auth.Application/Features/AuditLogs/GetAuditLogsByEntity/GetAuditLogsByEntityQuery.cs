@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using ErrorOr;
 using MediatR;
 
@@ -9,4 +10,6 @@ namespace Auth.Application.Features.AuditLogs.GetAuditLogsByEntity;
 /// </summary>
 public record GetAuditLogsByEntityQuery(
     string EntityType,
-    Guid EntityId) : IRequest<ErrorOr<IReadOnlyList<AuditLogDto>>>;
+    Guid EntityId,
+    string? SortBy = null,
+    SortDirection SortDirection = SortDirection.Asc) : IRequest<ErrorOr<IReadOnlyList<AuditLogDto>>>;

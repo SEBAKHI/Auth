@@ -1,9 +1,10 @@
-using Auth.Application.Features.Permissions.GetPermissionById;
+﻿using Auth.Application.Features.Permissions.GetPermissionById;
 using Auth.Application.Features.Permissions.GetPermissions;
 using Auth.Application.Features.Permissions.GetPermissionImplications;
 using Auth.Application.DTOs;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Enums;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -113,7 +114,7 @@ public class GetPermissionsQueryHandlerTests
         };
 
         _permissionRepositoryMock
-            .Setup(r => r.GetByApplicationAsync(applicationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByApplicationAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(permissions);
 
         // Act
@@ -125,11 +126,11 @@ public class GetPermissionsQueryHandlerTests
         result.Value.Should().AllSatisfy(p => p.ApplicationId.Should().Be(applicationId));
 
         _permissionRepositoryMock.Verify(
-            r => r.GetByApplicationAsync(applicationId, It.IsAny<CancellationToken>()),
+            r => r.GetByApplicationAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Once);
 
         _permissionRepositoryMock.Verify(
-            r => r.GetAllAsync(It.IsAny<CancellationToken>()),
+            r => r.GetAllAsync(It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -147,7 +148,7 @@ public class GetPermissionsQueryHandlerTests
         };
 
         _permissionRepositoryMock
-            .Setup(r => r.GetAllAsync(It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetAllAsync(It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(permissions);
 
         // Act
@@ -158,11 +159,11 @@ public class GetPermissionsQueryHandlerTests
         result.Value.Should().HaveCount(3);
 
         _permissionRepositoryMock.Verify(
-            r => r.GetAllAsync(It.IsAny<CancellationToken>()),
+            r => r.GetAllAsync(It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Once);
 
         _permissionRepositoryMock.Verify(
-            r => r.GetByApplicationAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            r => r.GetByApplicationAsync(It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 }

@@ -17,6 +17,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
     private readonly ITokenBlacklistService _tokenBlacklistService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly IUserSessionRepository _sessionRepository;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<LogoutCommandHandler> _logger;
@@ -26,6 +27,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         ITokenBlacklistService tokenBlacklistService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IJwtTokenService jwtTokenService,
+        IUserSessionRepository sessionRepository,
         IPublisher publisher,
         IOptions<JwtSettings> jwtSettings,
         ILogger<LogoutCommandHandler> logger)
@@ -34,6 +36,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         _tokenBlacklistService = tokenBlacklistService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _jwtTokenService = jwtTokenService;
+        _sessionRepository = sessionRepository;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
@@ -73,6 +76,27 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         {
             // No specific token provided, just acknowledge the logout
             _logger.LogInformation("User {UserId} logout acknowledged (no token to revoke)", request.UserId);
+        }
+
+        // Terminate the session row(s) so they don't linger as "active" and
+        // accumulate on the user's Sessions list. Best-effort: never fail logout.
+        try
+        {
+            if (request.LogoutAllDevices)
+            {
+                await _sessionRepository.TerminateAllForUserAsync(
+                    request.UserId, "logout", cancellationToken);
+            }
+            else if (request.SessionId.HasValue)
+            {
+                await _sessionRepository.TerminateAsync(
+                    request.SessionId.Value, "logout", cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to terminate session(s) on logout for user {UserId}", request.UserId);
         }
 
         await _publisher.Publish(

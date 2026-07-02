@@ -24,14 +24,23 @@ public interface IRoleRepository
     Task<Role?> GetByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets all active roles.
+    /// Gets all active roles. <paramref name="sortBy"/> accepts the allow-listed
+    /// field names in <see cref="Constants.SortFields.Roles"/>; null keeps the default order.
     /// </summary>
-    Task<IReadOnlyList<Role>> GetAllAsync(CancellationToken cancellationToken);
+    Task<IReadOnlyList<Role>> GetAllAsync(
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets all roles for an application.
+    /// Gets all roles for an application. <paramref name="sortBy"/> accepts the
+    /// allow-listed field names in <see cref="Constants.SortFields.Roles"/>.
     /// </summary>
-    Task<IReadOnlyList<Role>> GetByApplicationAsync(Guid applicationId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Role>> GetByApplicationAsync(
+        Guid applicationId,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets roles assigned to a user.

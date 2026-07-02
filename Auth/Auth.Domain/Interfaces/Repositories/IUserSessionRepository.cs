@@ -28,9 +28,15 @@ public interface IUserSessionRepository
     Task UpdateAsync(UserSession session, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets all active sessions for a user.
+    /// Gets all active sessions for a user. <paramref name="sortBy"/> accepts the
+    /// allow-listed field names in <see cref="Constants.SortFields.Sessions"/>;
+    /// null keeps the default order.
     /// </summary>
-    Task<IReadOnlyList<UserSession>> GetActiveSessionsForUserAsync(Guid userId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<UserSession>> GetActiveSessionsForUserAsync(
+        Guid userId,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Terminates all sessions for a user.

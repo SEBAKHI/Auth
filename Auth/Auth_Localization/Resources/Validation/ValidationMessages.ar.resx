@@ -78,6 +78,9 @@
   <data name="Validation.PageSize.Range" xml:space="preserve">
     <value>يجب أن يكون حجم الصفحة بين 1 و100.</value>
   </data>
+  <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
+    <value>حقل الفرز غير مسموح به لهذه القائمة.</value>
+  </data>
   <data name="Validation.Url.MaxLength" xml:space="preserve">
     <value>يجب ألا يتجاوز الرابط 2048 حرفًا.</value>
   </data>

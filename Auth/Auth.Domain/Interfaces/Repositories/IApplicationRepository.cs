@@ -49,12 +49,16 @@ public interface IApplicationRepository
 
     /// <summary>
     /// Gets applications with pagination and optional filtering.
+    /// <paramref name="sortBy"/> accepts the allow-listed field names in
+    /// <see cref="Constants.SortFields.Applications"/>; null keeps the default order.
     /// </summary>
     Task<(IReadOnlyList<AppEntity> Applications, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
         string? search,
         bool? isActive,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
         CancellationToken cancellationToken);
 
     /// <summary>
@@ -73,12 +77,22 @@ public interface IApplicationRepository
     Task<bool> HasActiveOrganizationsAsync(Guid applicationId, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets roles for an application.
+    /// Gets roles for an application. <paramref name="sortBy"/> accepts the
+    /// allow-listed field names in <see cref="Constants.SortFields.Roles"/>.
     /// </summary>
-    Task<IReadOnlyList<Auth.Domain.Entities.Role>> GetRolesAsync(Guid applicationId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Auth.Domain.Entities.Role>> GetRolesAsync(
+        Guid applicationId,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets permissions for an application.
+    /// Gets permissions for an application. <paramref name="sortBy"/> accepts the
+    /// allow-listed field names in <see cref="Constants.SortFields.Permissions"/>.
     /// </summary>
-    Task<IReadOnlyList<Auth.Domain.Entities.Permission>> GetPermissionsAsync(Guid applicationId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Auth.Domain.Entities.Permission>> GetPermissionsAsync(
+        Guid applicationId,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
 }

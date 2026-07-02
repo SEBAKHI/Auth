@@ -1,5 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -69,6 +71,17 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
 
         _logger.LogDebug("Retrieved {Count} applications for organization {OrganizationId}", dtos.Count, request.OrganizationId);
 
-        return dtos;
+        // Sort in memory: application code/name are enrichment values resolved
+        // per-row above. The SQL has no ORDER BY, so default to application name
+        // for a deterministic order.
+        return SortHelper
+            .Apply(dtos, request.SortBy ?? SortFields.OrganizationApplications.ApplicationName, request.SortDirection, SortSelectors)
+            .ToList();
     }
+
+    private static readonly IReadOnlyDictionary<string, Func<OrganizationApplicationDto, object?>> SortSelectors =
+        SortHelper.Selectors<OrganizationApplicationDto>(
+            (SortFields.OrganizationApplications.ApplicationName, dto => dto.ApplicationName),
+            (SortFields.OrganizationApplications.ApplicationCode, dto => dto.ApplicationCode),
+            (SortFields.OrganizationApplications.IsActive, dto => dto.IsActive));
 }

@@ -1,4 +1,6 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 using AppEntity = Auth.Domain.Entities.Application;
@@ -194,12 +196,22 @@ public class ApplicationRepository : IApplicationRepository
             new { Id = id });
     }
 
+    private static readonly IReadOnlyDictionary<string, string[]> PagedSortColumns = SortSql.Map(
+        (SortFields.Applications.Name, ["[Name]"]),
+        (SortFields.Applications.Code, ["[Code]"]),
+        (SortFields.Applications.ContactEmail, ["[ContactEmail]"]),
+        (SortFields.Applications.Status, ["[IsActive]"]),
+        (SortFields.Applications.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.Applications.ModifiedAt, ["[ModifiedAt]"]));
+
     /// <inheritdoc />
     public async Task<(IReadOnlyList<AppEntity> Applications, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
         string? search,
         bool? isActive,
+        string? sortBy,
+        SortDirection sortDirection,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -222,6 +234,8 @@ public class ApplicationRepository : IApplicationRepository
         });
 
         var offset = (pageNumber - 1) * pageSize;
+        var orderBy = SortSql.OrderBy(
+            PagedSortColumns, sortBy, sortDirection, "[Code]", "[Id]");
         var dataSql = $@"
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
@@ -230,7 +244,7 @@ public class ApplicationRepository : IApplicationRepository
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             {whereClause}
-            ORDER BY [Code]
+            ORDER BY {orderBy}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
 
         var dtos = await connection.QueryAsync<ApplicationDto>(dataSql, new
@@ -290,37 +304,59 @@ public class ApplicationRepository : IApplicationRepository
         return count > 0;
     }
 
+    private static readonly IReadOnlyDictionary<string, string[]> RoleSortColumns = SortSql.Map(
+        (SortFields.Roles.Name, ["[Name]"]),
+        (SortFields.Roles.Code, ["[Code]"]),
+        (SortFields.Roles.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.Roles.ModifiedAt, ["[ModifiedAt]"]));
+
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Role>> GetRolesAsync(Guid applicationId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Role>> GetRolesAsync(
+        Guid applicationId,
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var roles = await connection.QueryAsync<RoleDto>(@"
+        var orderBy = SortSql.OrderBy(RoleSortColumns, sortBy, sortDirection, "[Code]", "[Id]");
+        var roles = await connection.QueryAsync<RoleDto>($@"
             SELECT
                 [Id], [ApplicationId], [Code], [Name], [Description],
                 [IsSystem], [IsActive],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Roles]
             WHERE [ApplicationId] = @ApplicationId
-            ORDER BY [Code]",
+            ORDER BY {orderBy}",
             new { ApplicationId = applicationId });
 
         return roles.Select(r => r.ToEntity()).ToList().AsReadOnly();
     }
 
+    private static readonly IReadOnlyDictionary<string, string[]> PermissionSortColumns = SortSql.Map(
+        (SortFields.Permissions.Name, ["[Name]"]),
+        (SortFields.Permissions.Code, ["[Code]"]),
+        (SortFields.Permissions.Level, ["[Level]"]),
+        (SortFields.Permissions.CreatedAt, ["[CreatedAt]"]));
+
     /// <inheritdoc />
-    public async Task<IReadOnlyList<Permission>> GetPermissionsAsync(Guid applicationId, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<Permission>> GetPermissionsAsync(
+        Guid applicationId,
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var permissions = await connection.QueryAsync<PermissionDto>(@"
+        var orderBy = SortSql.OrderBy(PermissionSortColumns, sortBy, sortDirection, "[Code]", "[Id]");
+        var permissions = await connection.QueryAsync<PermissionDto>($@"
             SELECT
                 [Id], [ApplicationId], [ParentId], [Code], [Name], [Description],
                 [Level], [IsWildcard], [IsActive],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Permissions]
             WHERE [ApplicationId] = @ApplicationId
-            ORDER BY [Code]",
+            ORDER BY {orderBy}",
             new { ApplicationId = applicationId });
 
         return permissions.Select(p => p.ToEntity()).ToList().AsReadOnly();

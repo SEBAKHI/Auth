@@ -22,11 +22,26 @@ public interface ITokenBlacklistService
     void BlacklistAllUserTokens(Guid userId, DateTime revokedAt);
 
     /// <summary>
+    /// Blacklist an entire login session by its session id (sid claim), so every
+    /// access token carrying that sid is rejected until it would have expired.
+    /// </summary>
+    /// <param name="sessionId">The session id (sid claim) to blacklist.</param>
+    /// <param name="expiresAt">When the blacklist entry can be cleaned up.</param>
+    void BlacklistSession(string sessionId, DateTime expiresAt);
+
+    /// <summary>
     /// Check if a specific token is blacklisted.
     /// </summary>
     /// <param name="jti">The JWT ID to check.</param>
     /// <returns>True if the token is blacklisted.</returns>
     bool IsTokenBlacklisted(string jti);
+
+    /// <summary>
+    /// Check if a login session has been blacklisted.
+    /// </summary>
+    /// <param name="sessionId">The session id (sid claim) to check.</param>
+    /// <returns>True if the session is blacklisted.</returns>
+    bool IsSessionBlacklisted(string sessionId);
 
     /// <summary>
     /// Check if all tokens for a user issued before a certain time are blacklisted.

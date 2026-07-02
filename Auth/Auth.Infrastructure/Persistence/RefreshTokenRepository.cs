@@ -48,7 +48,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         await connection.ExecuteAsync(
-            "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt",
+            "EXEC [dbo].[sp_CreateRefreshToken] @UserId, @TokenHash, @JwtId, @ApplicationId, @DeviceInfo, @IpAddress, @ExpiresAt, @SessionId",
             new
             {
                 token.UserId,
@@ -57,7 +57,8 @@ public class RefreshTokenRepository : IRefreshTokenRepository
                 token.ApplicationId,
                 token.DeviceInfo,
                 token.IpAddress,
-                token.ExpiresAt
+                token.ExpiresAt,
+                token.SessionId
             });
 
         return token;
@@ -132,6 +133,30 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
+    public async Task RevokeBySessionIdAsync(
+        Guid sessionId,
+        Guid? revokedBy,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[RefreshTokens] SET
+                [RevokedAt] = GETUTCDATE(),
+                [RevokedBy] = @RevokedBy,
+                [ReasonRevoked] = @ReasonRevoked
+            WHERE [SessionId] = @SessionId
+              AND [RevokedAt] IS NULL",
+            new
+            {
+                SessionId = sessionId,
+                RevokedBy = revokedBy,
+                ReasonRevoked = reason
+            });
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<RefreshToken>> GetActiveTokensForUserAsync(
         Guid userId,
         CancellationToken cancellationToken)
@@ -166,6 +191,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
         public Guid UserId { get; init; }
         public string TokenHash { get; init; } = string.Empty;
         public string JwtId { get; init; } = string.Empty;
+        public Guid? SessionId { get; init; }
         public Guid? ApplicationId { get; init; }
         public string? DeviceInfo { get; init; }
         public string? IpAddress { get; init; }
@@ -181,6 +207,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
             UserId,
             TokenHash,
             JwtId,
+            SessionId,
             ApplicationId,
             DeviceInfo,
             IpAddress,

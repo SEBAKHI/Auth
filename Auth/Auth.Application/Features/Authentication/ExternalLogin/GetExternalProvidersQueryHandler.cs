@@ -22,7 +22,8 @@ public class GetExternalProvidersQueryHandler
         GetExternalProvidersQuery request,
         CancellationToken cancellationToken)
     {
-        var providers = await _providerRepository.GetAllEnabledAsync(cancellationToken);
+        var providers = await _providerRepository.GetAllEnabledAsync(
+            request.SortBy, request.SortDirection, cancellationToken);
 
         var response = providers
             .Select(p => new ExternalAuthProviderResponse(p.Code, p.Name, p.IconUrl))

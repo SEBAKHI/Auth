@@ -25,6 +25,12 @@ public class RefreshToken : EntityBase
     public string JwtId { get; private set; } = string.Empty;
 
     /// <summary>
+    /// Gets the ID of the login session this token belongs to. Stable across
+    /// token rotation so a session can be tracked and revoked as a unit.
+    /// </summary>
+    public Guid? SessionId { get; private set; }
+
+    /// <summary>
     /// Gets the ID of the application this token belongs to.
     /// </summary>
     public Guid? ApplicationId { get; private set; }
@@ -83,6 +89,7 @@ public class RefreshToken : EntityBase
         Guid userId,
         string tokenHash,
         string jwtId,
+        Guid? sessionId,
         Guid? applicationId,
         string? deviceInfo,
         string? ipAddress,
@@ -96,6 +103,7 @@ public class RefreshToken : EntityBase
         UserId = userId;
         TokenHash = tokenHash;
         JwtId = jwtId;
+        SessionId = sessionId;
         ApplicationId = applicationId;
         DeviceInfo = deviceInfo;
         IpAddress = ipAddress;
@@ -114,13 +122,15 @@ public class RefreshToken : EntityBase
         Guid? applicationId,
         TimeSpan lifetime,
         string? ipAddress,
-        string? deviceInfo)
+        string? deviceInfo,
+        Guid? sessionId = null)
     {
         return new RefreshToken
         {
             UserId = userId,
             TokenHash = tokenHash,
             JwtId = jwtId,
+            SessionId = sessionId,
             ApplicationId = applicationId,
             DeviceInfo = deviceInfo,
             IpAddress = ipAddress,
@@ -182,7 +192,8 @@ public class RefreshToken : EntityBase
             ApplicationId,
             lifetime,
             ipAddress,
-            DeviceInfo);
+            DeviceInfo,
+            SessionId);
 
         Revoke(revokedBy, "Rotated", newTokenHash);
         return newRefreshToken;

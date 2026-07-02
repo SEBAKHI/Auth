@@ -1,5 +1,7 @@
 using System.Text;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
 
@@ -63,6 +65,15 @@ public class AuditLogRepository : IAuditLogRepository
         return dto?.ToEntity();
     }
 
+    // Actor sorts on the joined Users row (1:1 by primary key, LEFT so system
+    // events with a null UserId stay included); mirrors the UI's
+    // `userEmail ?? userName` display value.
+    private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
+        (SortFields.AuditLogs.Action, ["a.[Action]"]),
+        (SortFields.AuditLogs.EntityType, ["a.[EntityType]"]),
+        (SortFields.AuditLogs.Timestamp, ["a.[Timestamp]"]),
+        (SortFields.AuditLogs.Actor, ["COALESCE(u.[Email], u.[FullName])"]));
+
     /// <inheritdoc />
     public async Task<(IReadOnlyList<AuditLog> Logs, int TotalCount)> GetPagedAsync(
         int pageNumber,
@@ -74,6 +85,8 @@ public class AuditLogRepository : IAuditLogRepository
         DateTime? fromDate,
         DateTime? toDate,
         bool? isSuccess,
+        string? sortBy,
+        SortDirection sortDirection,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -83,36 +96,36 @@ public class AuditLogRepository : IAuditLogRepository
 
         if (userId.HasValue)
         {
-            whereClause.Append(" AND [UserId] = @UserId");
+            whereClause.Append(" AND a.[UserId] = @UserId");
             parameters.Add("UserId", userId.Value);
         }
 
         if (applicationId.HasValue)
         {
-            whereClause.Append(" AND [ApplicationId] = @ApplicationId");
+            whereClause.Append(" AND a.[ApplicationId] = @ApplicationId");
             parameters.Add("ApplicationId", applicationId.Value);
         }
 
         if (!string.IsNullOrEmpty(action))
         {
-            whereClause.Append(" AND [Action] = @Action");
-            parameters.Add("Action", action);
+            whereClause.Append(" AND a.[Action] LIKE @Action");
+            parameters.Add("Action", $"%{action}%");
         }
 
         if (fromDate.HasValue)
         {
-            whereClause.Append(" AND [Timestamp] >= @FromDate");
+            whereClause.Append(" AND a.[Timestamp] >= @FromDate");
             parameters.Add("FromDate", fromDate.Value);
         }
 
         if (toDate.HasValue)
         {
-            whereClause.Append(" AND [Timestamp] <= @ToDate");
+            whereClause.Append(" AND a.[Timestamp] <= @ToDate");
             parameters.Add("ToDate", toDate.Value);
         }
 
         // Get total count
-        var countSql = $"SELECT COUNT(1) FROM [dbo].[AuditLogs] {whereClause}";
+        var countSql = $"SELECT COUNT(1) FROM [dbo].[AuditLogs] a {whereClause}";
         var totalCount = await connection.ExecuteScalarAsync<int>(countSql, parameters);
 
         // Get paged results
@@ -120,10 +133,13 @@ public class AuditLogRepository : IAuditLogRepository
         parameters.Add("Offset", offset);
         parameters.Add("PageSize", pageSize);
 
+        var orderBy = SortSql.OrderBy(
+            SortColumns, sortBy, sortDirection, "a.[Timestamp] DESC", "a.[Id]");
         var sql = $@"
-            SELECT * FROM [dbo].[AuditLogs]
+            SELECT a.* FROM [dbo].[AuditLogs] a
+            LEFT JOIN [dbo].[Users] u ON a.[UserId] = u.[Id]
             {whereClause}
-            ORDER BY [Timestamp] DESC
+            ORDER BY {orderBy}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
 
         var dtos = await connection.QueryAsync<AuditLogDto>(sql, parameters);
@@ -136,14 +152,19 @@ public class AuditLogRepository : IAuditLogRepository
     public async Task<IReadOnlyList<AuditLog>> GetByEntityAsync(
         string entityType,
         Guid entityId,
+        string? sortBy,
+        SortDirection sortDirection,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var dtos = await connection.QueryAsync<AuditLogDto>(@"
-            SELECT * FROM [dbo].[AuditLogs]
-            WHERE [EntityType] = @EntityType AND [EntityId] = @EntityId
-            ORDER BY [Timestamp] DESC",
+        var orderBy = SortSql.OrderBy(
+            SortColumns, sortBy, sortDirection, "a.[Timestamp] DESC", "a.[Id]");
+        var dtos = await connection.QueryAsync<AuditLogDto>($@"
+            SELECT a.* FROM [dbo].[AuditLogs] a
+            LEFT JOIN [dbo].[Users] u ON a.[UserId] = u.[Id]
+            WHERE a.[EntityType] = @EntityType AND a.[EntityId] = @EntityId
+            ORDER BY {orderBy}",
             new { EntityType = entityType, EntityId = entityId });
 
         return dtos.Select(dto => dto.ToEntity()).ToList();

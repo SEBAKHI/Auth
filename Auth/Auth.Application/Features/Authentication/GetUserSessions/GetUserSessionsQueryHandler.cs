@@ -27,6 +27,8 @@ public class GetUserSessionsQueryHandler : IRequestHandler<GetUserSessionsQuery,
     {
         var sessions = await _sessionRepository.GetActiveSessionsForUserAsync(
             request.UserId,
+            request.SortBy,
+            request.SortDirection,
             cancellationToken);
 
         var sessionDtos = sessions.Select(s => new SessionDto

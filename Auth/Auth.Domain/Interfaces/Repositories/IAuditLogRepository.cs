@@ -18,7 +18,9 @@ public interface IAuditLogRepository
     Task<AuditLog?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets audit logs with filtering and pagination.
+    /// Gets audit logs with filtering and pagination. <paramref name="sortBy"/>
+    /// accepts the allow-listed field names in
+    /// <see cref="Constants.SortFields.AuditLogs"/>; null keeps the default order.
     /// </summary>
     Task<(IReadOnlyList<AuditLog> Logs, int TotalCount)> GetPagedAsync(
         int pageNumber,
@@ -30,14 +32,19 @@ public interface IAuditLogRepository
         DateTime? fromDate,
         DateTime? toDate,
         bool? isSuccess,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets audit logs for a specific entity.
+    /// Gets audit logs for a specific entity. <paramref name="sortBy"/> accepts
+    /// the allow-listed field names in <see cref="Constants.SortFields.AuditLogs"/>.
     /// </summary>
     Task<IReadOnlyList<AuditLog>> GetByEntityAsync(
         string entityType,
         Guid entityId,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
         CancellationToken cancellationToken);
 
     /// <summary>
