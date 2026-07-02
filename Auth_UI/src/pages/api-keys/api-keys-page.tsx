@@ -178,7 +178,10 @@ export function ApiKeysPage() {
 
   const columns: ColumnDef<ApiKeyDto, unknown>[] = [
     {
+      id: "name",
+      accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
+      meta: { label: t("common.name") },
       cell: ({ row }) => (
         <div className="min-w-0">
           <p className="truncate font-medium">{row.original.name}</p>
@@ -188,9 +191,25 @@ export function ApiKeysPage() {
         </div>
       ),
     },
-    { header: t("apiKeys.environment"), accessorKey: "environment" },
     {
+      accessorKey: "environment",
+      filterFn: "faceted",
+      header: t("apiKeys.environment"),
+      meta: { label: t("apiKeys.environment"), filterVariant: "faceted" },
+    },
+    {
+      id: "status",
+      accessorFn: (row) => (row.isRevoked ? "revoked" : "active"),
+      filterFn: "faceted",
       header: t("common.status"),
+      meta: {
+        label: t("common.status"),
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "active", label: t("common.active") },
+          { value: "revoked", label: t("common.revoked") },
+        ],
+      },
       cell: ({ row }) => (
         <Badge variant={row.original.isRevoked ? "destructive" : "default"}>
           {row.original.isRevoked ? t("common.revoked") : t("common.active")}
@@ -198,7 +217,10 @@ export function ApiKeysPage() {
       ),
     },
     {
+      id: "lastUsedAt",
+      accessorFn: (row) => row.lastUsedAt ?? "",
       header: t("common.lastUsed"),
+      meta: { label: t("common.lastUsed") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.lastUsedAt
@@ -208,7 +230,10 @@ export function ApiKeysPage() {
       ),
     },
     {
+      id: "createdAt",
+      accessorFn: (row) => row.createdAt ?? "",
       header: t("common.createdAt"),
+      meta: { label: t("common.createdAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatDate(row.original.createdAt)}
@@ -219,6 +244,8 @@ export function ApiKeysPage() {
       ? [
           {
             id: "actions",
+            enableSorting: false,
+            enableHiding: false,
             header: () => (
               <span className="sr-only">{t("common.actions")}</span>
             ),
@@ -300,6 +327,8 @@ export function ApiKeysPage() {
 
       {applicationId ? (
         <DataTable
+          tableId="api-keys"
+          globalSearch
           columns={columns}
           data={query.data ?? []}
           isLoading={query.isLoading}

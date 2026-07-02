@@ -74,14 +74,24 @@ export function PermissionsPage() {
 
   const columns: ColumnDef<PermissionDto, unknown>[] = [
     {
+      id: "code",
+      accessorFn: (row) => row.code ?? "",
       header: t("common.code"),
+      meta: { label: t("common.code") },
       cell: ({ row }) => (
         <span className="font-mono text-sm">{row.original.code}</span>
       ),
     },
-    { header: t("common.name"), accessorKey: "name" },
     {
+      accessorKey: "name",
+      header: t("common.name"),
+      meta: { label: t("common.name") },
+    },
+    {
+      id: "description",
+      accessorFn: (row) => row.description ?? "",
       header: t("common.description"),
+      meta: { label: t("common.description") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.description ?? "—"}
@@ -92,6 +102,8 @@ export function PermissionsPage() {
       ? [
           {
             id: "actions",
+            enableSorting: false,
+            enableHiding: false,
             header: () => (
               <span className="sr-only">{t("common.actions")}</span>
             ),
@@ -176,11 +188,21 @@ export function PermissionsPage() {
       </div>
 
       <DataTable
+        tableId="permissions"
+        globalSearch
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        onEditRow={
+          canUpdate
+            ? (perm) => {
+                setEditing(perm)
+                setFormOpen(true)
+              }
+            : undefined
+        }
       />
 
       <PermissionFormDialog

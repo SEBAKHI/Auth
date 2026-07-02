@@ -15,3 +15,41 @@ export function toNumber(value: number | string | null | undefined): number {
   if (value === null || value === undefined) return 0
   return typeof value === "string" ? Number(value) : value
 }
+
+/** Page size used when walking every page for a full-dataset CSV export. */
+export const EXPORT_PAGE_SIZE = 100
+/** Safety ceiling so a runaway export can never lock the browser. */
+export const EXPORT_MAX_ROWS = 50_000
+
+/**
+ * Walk a paginated list endpoint and collect every row, honoring whatever
+ * filters `fetchPage` closes over. Stops on the last (short) page, once the
+ * reported total is reached, or at {@link EXPORT_MAX_ROWS} as a safety cap.
+ * Used to back the DataTable's full-dataset CSV export on server-paginated pages.
+ */
+export async function collectAllPages<T>(
+  fetchPage: (
+    pageNumber: number,
+    pageSize: number
+  ) => Promise<{ items: T[]; totalCount: number }>,
+  options?: { pageSize?: number; maxRows?: number }
+): Promise<T[]> {
+  const pageSize = options?.pageSize ?? EXPORT_PAGE_SIZE
+  const maxRows = options?.maxRows ?? EXPORT_MAX_ROWS
+  const all: T[] = []
+  let pageNumber = 1
+  for (;;) {
+    const { items, totalCount } = await fetchPage(pageNumber, pageSize)
+    all.push(...items)
+    if (
+      items.length === 0 ||
+      items.length < pageSize ||
+      all.length >= totalCount ||
+      all.length >= maxRows
+    ) {
+      break
+    }
+    pageNumber += 1
+  }
+  return all
+}

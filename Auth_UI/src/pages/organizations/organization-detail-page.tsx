@@ -38,7 +38,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useDirtyClose } from "@/hooks/use-dirty-close"
 import { api } from "@/lib/api/client"
-import { unwrap, toNumber } from "@/lib/api/helpers"
+import { collectAllPages, unwrap, toNumber } from "@/lib/api/helpers"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
 import { formatDate, fullName } from "@/lib/format"
@@ -68,6 +68,27 @@ function MembersTab({ orgId }: { orgId: string }) {
       ),
   })
 
+  const exportAll = React.useCallback(
+    () =>
+      collectAllPages<Schemas["OrganizationMemberDto"]>(
+        async (pageNumber, size) => {
+          const result = await unwrap(
+            api.GET("/api/v1/Organizations/{id}/members", {
+              params: {
+                path: { id: orgId },
+                query: { pageNumber, pageSize: size },
+              },
+            })
+          )
+          return {
+            items: result.members ?? [],
+            totalCount: toNumber(result.totalCount),
+          }
+        }
+      ),
+    [orgId]
+  )
+
   const removeMutation = useMutation({
     mutationFn: async (userId: string) => {
       const { error } = await api.DELETE(
@@ -86,7 +107,11 @@ function MembersTab({ orgId }: { orgId: string }) {
 
   const columns: ColumnDef<Schemas["OrganizationMemberDto"], unknown>[] = [
     {
+      id: "name",
+      accessorFn: (row) =>
+        row.fullName || fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
+      meta: { label: t("common.name") },
       cell: ({ row }) => (
         <div className="min-w-0">
           <p className="truncate font-medium">
@@ -103,9 +128,17 @@ function MembersTab({ orgId }: { orgId: string }) {
         </div>
       ),
     },
-    { header: t("common.role"), accessorKey: "roleName" },
     {
+      accessorKey: "roleName",
+      filterFn: "faceted",
+      header: t("common.role"),
+      meta: { label: t("common.role"), filterVariant: "faceted" },
+    },
+    {
+      id: "joinedAt",
+      accessorFn: (row) => row.joinedAt ?? "",
       header: t("common.createdAt"),
+      meta: { label: t("common.createdAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatDate(row.original.joinedAt)}
@@ -114,6 +147,8 @@ function MembersTab({ orgId }: { orgId: string }) {
     },
     {
       id: "actions",
+      enableSorting: false,
+      enableHiding: false,
       header: () => <span className="sr-only">{t("common.actions")}</span>,
       cell: ({ row }) => (
         <div className="text-end">
@@ -132,11 +167,13 @@ function MembersTab({ orgId }: { orgId: string }) {
   return (
     <>
       <DataTable
+        tableId="org-members"
         columns={columns}
         data={query.data?.members ?? []}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        onExportAll={exportAll}
         pagination={{
           pageIndex: page,
           pageSize,
@@ -304,10 +341,23 @@ function InvitationsTab({ orgId }: { orgId: string }) {
   })
 
   const columns: ColumnDef<Schemas["OrganizationInvitationDto"], unknown>[] = [
-    { header: t("common.email"), accessorKey: "email" },
-    { header: t("common.role"), accessorKey: "roleName" },
     {
+      accessorKey: "email",
+      header: t("common.email"),
+      meta: { label: t("common.email") },
+    },
+    {
+      accessorKey: "roleName",
+      filterFn: "faceted",
+      header: t("common.role"),
+      meta: { label: t("common.role"), filterVariant: "faceted" },
+    },
+    {
+      id: "status",
+      accessorFn: (row) => row.status ?? "",
+      filterFn: "faceted",
       header: t("common.status"),
+      meta: { label: t("common.status"), filterVariant: "faceted" },
       cell: ({ row }) => (
         <Badge variant={row.original.isExpired ? "destructive" : "secondary"}>
           {row.original.isExpired ? t("common.expired") : row.original.status}
@@ -315,7 +365,10 @@ function InvitationsTab({ orgId }: { orgId: string }) {
       ),
     },
     {
+      id: "expiresAt",
+      accessorFn: (row) => row.expiresAt ?? "",
       header: t("common.expiresAt"),
+      meta: { label: t("common.expiresAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatDate(row.original.expiresAt)}
@@ -324,6 +377,8 @@ function InvitationsTab({ orgId }: { orgId: string }) {
     },
     {
       id: "actions",
+      enableSorting: false,
+      enableHiding: false,
       header: () => <span className="sr-only">{t("common.actions")}</span>,
       cell: ({ row }) => (
         <div className="text-end">
@@ -352,6 +407,8 @@ function InvitationsTab({ orgId }: { orgId: string }) {
         </Button>
       </div>
       <DataTable
+        tableId="org-invitations"
+        globalSearch
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}
@@ -422,9 +479,20 @@ function ApplicationsTab({ orgId }: { orgId: string }) {
   })
 
   const columns: ColumnDef<Schemas["OrganizationApplicationDto"], unknown>[] = [
-    { header: t("common.name"), accessorKey: "applicationName" },
     {
+      accessorKey: "applicationName",
+      header: t("common.name"),
+      meta: { label: t("common.name") },
+    },
+    {
+      id: "subscriptionTier",
+      accessorFn: (row) => row.subscriptionTier ?? "",
+      filterFn: "faceted",
       header: t("applications.subscriptionTier"),
+      meta: {
+        label: t("applications.subscriptionTier"),
+        filterVariant: "faceted",
+      },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.subscriptionTier ?? "—"}
@@ -432,7 +500,18 @@ function ApplicationsTab({ orgId }: { orgId: string }) {
       ),
     },
     {
+      id: "status",
+      accessorFn: (row) => (row.isActive ? "active" : "inactive"),
+      filterFn: "faceted",
       header: t("common.status"),
+      meta: {
+        label: t("common.status"),
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "active", label: t("common.active") },
+          { value: "inactive", label: t("common.inactive") },
+        ],
+      },
       cell: ({ row }) => (
         <Badge variant={row.original.isActive ? "default" : "secondary"}>
           {row.original.isActive ? t("common.active") : t("common.inactive")}
@@ -441,6 +520,8 @@ function ApplicationsTab({ orgId }: { orgId: string }) {
     },
     {
       id: "actions",
+      enableSorting: false,
+      enableHiding: false,
       header: () => <span className="sr-only">{t("common.actions")}</span>,
       cell: ({ row }) => (
         <div className="text-end">
@@ -484,6 +565,8 @@ function ApplicationsTab({ orgId }: { orgId: string }) {
         </Button>
       </div>
       <DataTable
+        tableId="org-apps"
+        globalSearch
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}

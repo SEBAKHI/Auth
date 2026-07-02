@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { api } from "@/lib/api/client"
-import { unwrap, toNumber } from "@/lib/api/helpers"
+import { collectAllPages, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
@@ -68,6 +68,28 @@ export function ApplicationsPage() {
       ),
   })
 
+  const exportAll = React.useCallback(
+    () =>
+      collectAllPages<ApplicationDto>(async (pageNumber, size) => {
+        const result = await unwrap(
+          api.GET("/api/v1/Applications", {
+            params: {
+              query: {
+                pageNumber,
+                pageSize: size,
+                search: search || undefined,
+              },
+            },
+          })
+        )
+        return {
+          items: result.applications ?? [],
+          totalCount: toNumber(result.totalCount),
+        }
+      }),
+    [search]
+  )
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await api.DELETE("/api/v1/Applications/{id}", {
@@ -85,7 +107,10 @@ export function ApplicationsPage() {
 
   const columns: ColumnDef<ApplicationDto, unknown>[] = [
     {
+      id: "name",
+      accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
+      meta: { label: t("common.name") },
       cell: ({ row }) => (
         <div className="min-w-0">
           <p className="truncate font-medium">{row.original.name}</p>
@@ -96,7 +121,18 @@ export function ApplicationsPage() {
       ),
     },
     {
+      id: "status",
+      accessorFn: (row) => (row.isActive ? "active" : "inactive"),
+      filterFn: "faceted",
       header: t("common.status"),
+      meta: {
+        label: t("common.status"),
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "active", label: t("common.active") },
+          { value: "inactive", label: t("common.inactive") },
+        ],
+      },
       cell: ({ row }) => (
         <Badge variant={row.original.isActive ? "default" : "secondary"}>
           {row.original.isActive ? t("common.active") : t("common.inactive")}
@@ -104,7 +140,10 @@ export function ApplicationsPage() {
       ),
     },
     {
+      id: "contactEmail",
+      accessorFn: (row) => row.contactEmail ?? "",
       header: t("applications.contactEmail"),
+      meta: { label: t("applications.contactEmail") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.contactEmail ?? "—"}
@@ -112,7 +151,10 @@ export function ApplicationsPage() {
       ),
     },
     {
+      id: "createdAt",
+      accessorFn: (row) => row.createdAt ?? "",
       header: t("common.createdAt"),
+      meta: { label: t("common.createdAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatDate(row.original.createdAt)}
@@ -123,6 +165,8 @@ export function ApplicationsPage() {
       ? [
           {
             id: "actions",
+            enableSorting: false,
+            enableHiding: false,
             header: () => (
               <span className="sr-only">{t("common.actions")}</span>
             ),
@@ -196,11 +240,14 @@ export function ApplicationsPage() {
       </div>
 
       <DataTable
+        tableId="applications"
         columns={columns}
         data={query.data?.applications ?? []}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        onExportAll={exportAll}
+        onEditRow={canUpdate ? (app) => setEditing(app) : undefined}
         pagination={{
           pageIndex: page,
           pageSize,

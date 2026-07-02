@@ -58,7 +58,10 @@ export function OrganizationsPage() {
 
   const columns: ColumnDef<OrganizationSummaryDto, unknown>[] = [
     {
+      id: "name",
+      accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
+      meta: { label: t("common.name") },
       cell: ({ row }) => (
         <button
           type="button"
@@ -73,7 +76,10 @@ export function OrganizationsPage() {
       ),
     },
     {
+      id: "memberCount",
+      accessorFn: (row) => row.memberCount ?? 0,
       header: t("organizations.memberCount"),
+      meta: { label: t("organizations.memberCount") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.memberCount ?? 0}
@@ -81,7 +87,11 @@ export function OrganizationsPage() {
       ),
     },
     {
+      id: "userRole",
+      accessorFn: (row) => row.userRole ?? "",
+      filterFn: "faceted",
       header: t("common.role"),
+      meta: { label: t("common.role"), filterVariant: "faceted" },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.userRole ?? "—"}
@@ -89,7 +99,18 @@ export function OrganizationsPage() {
       ),
     },
     {
+      id: "status",
+      accessorFn: (row) => (row.isActive ? "active" : "inactive"),
+      filterFn: "faceted",
       header: t("common.status"),
+      meta: {
+        label: t("common.status"),
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "active", label: t("common.active") },
+          { value: "inactive", label: t("common.inactive") },
+        ],
+      },
       cell: ({ row }) => (
         <Badge variant={row.original.isActive ? "default" : "secondary"}>
           {row.original.isActive ? t("common.active") : t("common.inactive")}
@@ -98,6 +119,8 @@ export function OrganizationsPage() {
     },
     {
       id: "actions",
+      enableSorting: false,
+      enableHiding: false,
       header: () => <span className="sr-only">{t("common.actions")}</span>,
       cell: ({ row }) => {
         const org = row.original
@@ -148,11 +171,16 @@ export function OrganizationsPage() {
       />
 
       <DataTable
+        tableId="organizations"
+        globalSearch
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        // Row click navigates to the full organization detail page, so the
+        // generic detail panel is disabled here (CSV export stays on).
+        enableRowDetail={false}
       />
 
       <OrganizationFormDialog open={createOpen} onOpenChange={setCreateOpen} />

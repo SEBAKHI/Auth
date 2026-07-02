@@ -96,7 +96,10 @@ export function AuditLogsPage() {
 
   const columns: ColumnDef<AuditLogDto, unknown>[] = [
     {
+      id: "action",
+      accessorFn: (row) => row.action ?? "",
       header: t("auditLogs.action"),
+      meta: { label: t("auditLogs.action") },
       cell: ({ row }) => (
         <div className="min-w-0">
           <p className="truncate font-medium">{row.original.action}</p>
@@ -109,7 +112,22 @@ export function AuditLogsPage() {
       ),
     },
     {
+      id: "entityType",
+      accessorFn: (row) => row.entityType ?? "",
+      filterFn: "faceted",
+      header: t("auditLogs.target"),
+      meta: { label: t("auditLogs.target"), filterVariant: "faceted" },
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {row.original.entityType ?? "—"}
+        </span>
+      ),
+    },
+    {
+      id: "actor",
+      accessorFn: (row) => row.userEmail ?? row.userName ?? "",
       header: t("auditLogs.actor"),
+      meta: { label: t("auditLogs.actor") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.userEmail ?? row.original.userName ?? "—"}
@@ -117,7 +135,10 @@ export function AuditLogsPage() {
       ),
     },
     {
+      id: "timestamp",
+      accessorFn: (row) => row.timestamp ?? "",
       header: t("auditLogs.timestamp"),
+      meta: { label: t("auditLogs.timestamp") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatDateTime(row.original.timestamp)}
@@ -126,6 +147,8 @@ export function AuditLogsPage() {
     },
     {
       id: "actions",
+      enableSorting: false,
+      enableHiding: false,
       header: () => <span className="sr-only">{t("common.actions")}</span>,
       cell: ({ row }) => (
         <div className="text-end">
@@ -199,11 +222,16 @@ export function AuditLogsPage() {
       </div>
 
       <DataTable
+        tableId="audit-logs"
         columns={columns}
         data={query.data?.logs ?? []}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        // Audit logs keep their dedicated server-side export (CSV/JSON, in the
+        // page header) and the JSON-diff detail dialog (Eye action).
+        enableExport={false}
+        enableRowDetail={false}
         pagination={{
           pageIndex: page,
           pageSize,

@@ -20,7 +20,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { api } from "@/lib/api/client"
-import { unwrap, toNumber } from "@/lib/api/helpers"
+import { collectAllPages, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
@@ -76,6 +76,28 @@ export function UsersPage() {
 
   const invalidateUsers = () =>
     queryClient.invalidateQueries({ queryKey: ["users"] })
+
+  const exportAll = React.useCallback(
+    () =>
+      collectAllPages<UserDto>(async (pageNumber, size) => {
+        const result = await unwrap(
+          api.GET("/api/v1/Users", {
+            params: {
+              query: {
+                pageNumber,
+                pageSize: size,
+                searchTerm: search || undefined,
+              },
+            },
+          })
+        )
+        return {
+          items: result.users ?? [],
+          totalCount: toNumber(result.totalCount),
+        }
+      }),
+    [search]
+  )
 
   const statusAction = useMutation({
     mutationFn: async (input: {
@@ -145,7 +167,11 @@ export function UsersPage() {
 
   const columns: ColumnDef<UserDto, unknown>[] = [
     {
+      id: "name",
+      accessorFn: (row) =>
+        row.displayName || fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
+      meta: { label: t("common.name") },
       cell: ({ row }) => {
         const user = row.original
         return (
@@ -158,27 +184,50 @@ export function UsersPage() {
         )
       },
     },
-    { header: t("common.email"), accessorKey: "email" },
     {
+      accessorKey: "email",
+      header: t("common.email"),
+      meta: { label: t("common.email") },
+    },
+    {
+      id: "status",
+      accessorFn: (row) => userStatusMeta(row.status).key,
+      filterFn: "faceted",
       header: t("common.status"),
+      meta: {
+        label: t("common.status"),
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "active", label: t("common.active") },
+          { value: "inactive", label: t("common.inactive") },
+          { value: "locked", label: t("common.locked") },
+          { value: "pending", label: t("common.pending") },
+        ],
+      },
       cell: ({ row }) => {
         const meta = userStatusMeta(row.original.status)
         return <Badge variant={meta.variant}>{t(`common.${meta.key}`)}</Badge>
       },
     },
     {
+      id: "roles",
+      accessorFn: (row) => row.roles?.length ?? 0,
       header: t("users.roles"),
+      meta: { label: t("users.roles") },
       cell: ({ row }) => {
         const roles = row.original.roles ?? []
-        return roles.length > 0 ? (
-          <span className="text-sm text-muted-foreground">{roles.length}</span>
-        ) : (
-          <span className="text-sm text-muted-foreground">—</span>
+        return (
+          <span className="text-sm text-muted-foreground">
+            {roles.length > 0 ? roles.length : "—"}
+          </span>
         )
       },
     },
     {
+      id: "lastLoginAt",
+      accessorFn: (row) => row.lastLoginAt ?? "",
       header: t("users.lastLogin"),
+      meta: { label: t("users.lastLogin") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatDate(row.original.lastLoginAt)}
@@ -186,7 +235,10 @@ export function UsersPage() {
       ),
     },
     {
+      id: "createdAt",
+      accessorFn: (row) => row.createdAt ?? "",
       header: t("common.createdAt"),
+      meta: { label: t("common.createdAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatDate(row.original.createdAt)}
@@ -197,6 +249,8 @@ export function UsersPage() {
       ? [
           {
             id: "actions",
+            enableSorting: false,
+            enableHiding: false,
             header: () => (
               <span className="sr-only">{t("common.actions")}</span>
             ),
@@ -335,11 +389,21 @@ export function UsersPage() {
       </div>
 
       <DataTable
+        tableId="users"
         columns={columns}
         data={query.data?.users ?? []}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        onExportAll={exportAll}
+        onEditRow={
+          canUpdate
+            ? (user) => {
+                setEditing(user)
+                setFormOpen(true)
+              }
+            : undefined
+        }
         pagination={{
           pageIndex: page,
           pageSize,

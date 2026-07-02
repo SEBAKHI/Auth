@@ -1,11 +1,21 @@
+import * as React from "react"
 import {
   flexRender,
   getCoreRowModel,
+  getFacetedRowModel,
+  getFacetedUniqueValues,
+  getFilteredRowModel,
+  getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type ColumnFiltersState,
+  type Header,
+  type SortingState,
+  type VisibilityState,
 } from "@tanstack/react-table"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -25,6 +35,13 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { getErrorMessage } from "@/lib/errors"
+import { buildDisplayColumns } from "./auto-columns"
+import { buildExportColumns, exportRowsToCsv } from "./csv"
+import { DataTableRowDetail } from "./data-table-row-detail"
+import { humanizeKey } from "./field-format"
+import { facetedFilterFn } from "./filters"
+import { DataTableToolbar } from "./data-table-toolbar"
+import "./types"
 
 const PAGE_SIZES = [10, 20, 50, 100]
 
@@ -46,12 +63,80 @@ interface DataTableProps<TData> {
   emptyMessage?: string
   /** Provide for server-paginated tables; omit for in-place arrays. */
   pagination?: DataTablePagination
+  /**
+   * Stable key used to persist column-visibility choices in localStorage.
+   * Omit to keep visibility in-memory only.
+   */
+  tableId?: string
+  /** Render the toolbar (search/filters/columns button). Defaults to true. */
+  enableToolbar?: boolean
+  /** Show a client-side global search box in the toolbar. */
+  globalSearch?: boolean
+  searchPlaceholder?: string
+  /** Page-owned filter controls to merge into the toolbar. */
+  toolbarExtras?: React.ReactNode
+  /** Render the CSV export button (defaults to true). */
+  enableExport?: boolean
+  /** Base name for the exported file; defaults to `tableId` or "export". */
+  exportFileName?: string
+  /**
+   * Fetch the full, filter-aware dataset for export. Omit on in-memory tables —
+   * export then uses the loaded `data`. Provide on server-paginated tables so the
+   * export covers every page, not just the current one.
+   */
+  onExportAll?: () => Promise<TData[]>
+  /** Enable click-to-open row detail panel (defaults to true). */
+  enableRowDetail?: boolean
+  /** Show an Edit button in the detail panel that hands the row to the page. */
+  onEditRow?: (row: TData) => void
+  /** Field names grouped under "Audit Fields" in the detail panel. */
+  auditFieldKeys?: readonly string[]
+  /** Build the detail panel title from the open row. */
+  getDetailTitle?: (row: TData) => string
+}
+
+function readPersistedVisibility(tableId?: string): VisibilityState {
+  if (!tableId || typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(`dt:cols:${tableId}`)
+    return raw ? (JSON.parse(raw) as VisibilityState) : {}
+  } catch {
+    return {}
+  }
 }
 
 /**
- * Data table built on TanStack Table + shadcn primitives. Renders skeletons
- * while loading, an error state with retry, and an empty state so every list
- * screen behaves consistently. Server pagination is opt-in via `pagination`.
+ * Header cell that toggles sorting; used only for columns that can sort. The
+ * visible column title stays the accessible name; sort state is announced via
+ * `aria-sort` on the parent `<th>`.
+ */
+function SortableHeader<TData>({ header }: { header: Header<TData, unknown> }) {
+  const sorted = header.column.getIsSorted()
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="-ms-2.5 h-8"
+      onClick={header.column.getToggleSortingHandler()}
+    >
+      <span>{flexRender(header.column.columnDef.header, header.getContext())}</span>
+      {sorted === "asc" ? (
+        <ArrowUp />
+      ) : sorted === "desc" ? (
+        <ArrowDown />
+      ) : (
+        <ChevronsUpDown className="opacity-50" />
+      )}
+    </Button>
+  )
+}
+
+/**
+ * Data table built on TanStack Table + shadcn primitives. Provides, for every
+ * table that uses it, client-side sorting, faceted filtering, and a
+ * column-visibility menu (rendered via the toolbar), plus loading, error, and
+ * empty states. Server pagination stays opt-in via `pagination`; sorting and
+ * filtering then operate on the loaded page only.
  */
 export function DataTable<TData>({
   columns,
@@ -61,43 +146,186 @@ export function DataTable<TData>({
   onRetry,
   emptyMessage,
   pagination,
+  tableId,
+  enableToolbar = true,
+  globalSearch = false,
+  searchPlaceholder,
+  toolbarExtras,
+  enableExport = true,
+  exportFileName,
+  onExportAll,
+  enableRowDetail = true,
+  onEditRow,
+  auditFieldKeys,
+  getDetailTitle,
 }: DataTableProps<TData>) {
   const { t } = useTranslation()
 
+  const [sorting, setSorting] = React.useState<SortingState>([])
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = React.useState("")
+  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
+    () => readPersistedVisibility(tableId)
+  )
+  const [detailRow, setDetailRow] = React.useState<TData | null>(null)
+  const [isExporting, setIsExporting] = React.useState(false)
+
+  React.useEffect(() => {
+    if (!tableId || typeof window === "undefined") return
+    try {
+      window.localStorage.setItem(`dt:cols:${tableId}`, JSON.stringify(columnVisibility))
+    } catch {
+      // Ignore storage failures (private mode / quota); visibility stays in-memory.
+    }
+  }, [tableId, columnVisibility])
+
+  // Augment the page's curated columns with one hidden column per remaining
+  // field on the data rows, so the visibility menu lists the full record.
+  const built = React.useMemo(
+    () => buildDisplayColumns(columns, data, t),
+    [columns, data, t]
+  )
+  const autoHiddenDefaults = React.useMemo(() => {
+    const defaults: VisibilityState = {}
+    for (const id of built.autoColumnIds) defaults[id] = false
+    return defaults
+  }, [built])
+  // Merge the hidden-by-default auto columns at render time (rather than via an
+  // effect) so newly discovered fields stay hidden until the user opts in,
+  // while persisted/user choices still win.
+  const effectiveVisibility = React.useMemo(
+    () => ({ ...autoHiddenDefaults, ...columnVisibility }),
+    [autoHiddenDefaults, columnVisibility]
+  )
+
   const table = useReactTable({
     data,
-    columns,
+    columns: built.columns,
+    filterFns: { faceted: facetedFilterFn },
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getFacetedRowModel: getFacetedRowModel(),
+    getFacetedUniqueValues: getFacetedUniqueValues(),
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    onColumnVisibilityChange: (updater) =>
+      setColumnVisibility((prev) => {
+        const current = { ...autoHiddenDefaults, ...prev }
+        return typeof updater === "function" ? updater(current) : updater
+      }),
+    onGlobalFilterChange: setGlobalFilter,
     manualPagination: Boolean(pagination),
     pageCount: pagination ? Math.max(pagination.pageCount, 1) : undefined,
-    state: pagination
-      ? {
-          pagination: {
-            pageIndex: pagination.pageIndex,
-            pageSize: pagination.pageSize,
-          },
-        }
-      : undefined,
+    state: {
+      sorting,
+      columnFilters,
+      globalFilter,
+      columnVisibility: effectiveVisibility,
+      ...(pagination
+        ? {
+            pagination: {
+              pageIndex: pagination.pageIndex,
+              pageSize: pagination.pageSize,
+            },
+          }
+        : {}),
+    },
   })
 
-  const columnCount = columns.length
+  const visibleColumnCount = table.getVisibleLeafColumns().length
   const rows = table.getRowModel().rows
+
+  // Field name → localized label, sourced from the same column definitions the
+  // grid uses, so the detail panel reuses the page's translated headers.
+  const detailLabelMap = React.useMemo(() => {
+    const map: Record<string, string> = {}
+    for (const column of table.getAllLeafColumns()) {
+      if (column.id === "actions") continue
+      const def = column.columnDef as { accessorKey?: string; header?: unknown }
+      const key = def.accessorKey ?? column.id
+      const label =
+        column.columnDef.meta?.label ??
+        (typeof def.header === "string" ? def.header : humanizeKey(column.id))
+      map[key] = label
+    }
+    return map
+    // built.columns drives the leaf set; recompute when columns or locale change.
+  }, [built, t]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const detailHiddenKeys = React.useMemo(
+    () =>
+      table
+        .getAllLeafColumns()
+        .filter((column) => column.columnDef.meta?.detailHidden)
+        .map((column) => {
+          const def = column.columnDef as { accessorKey?: string }
+          return def.accessorKey ?? column.id
+        }),
+    [built] // eslint-disable-line react-hooks/exhaustive-deps
+  )
+
+  const exportDisabled = data.length === 0 && !onExportAll
+
+  const handleExport = React.useCallback(async () => {
+    const exportColumns = buildExportColumns(table)
+    const fileBase = exportFileName ?? tableId ?? "export"
+    if (!onExportAll) {
+      exportRowsToCsv(data, exportColumns, fileBase, t)
+      return
+    }
+    setIsExporting(true)
+    try {
+      const all = await onExportAll()
+      exportRowsToCsv(all, exportColumns, fileBase, t)
+    } catch (err) {
+      toast.error(getErrorMessage(err, t("common.error")))
+    } finally {
+      setIsExporting(false)
+    }
+  }, [table, exportFileName, tableId, onExportAll, data, t])
 
   return (
     <div className="space-y-3">
+      {enableToolbar ? (
+        <DataTableToolbar
+          table={table}
+          globalSearch={globalSearch}
+          searchPlaceholder={searchPlaceholder}
+          extras={toolbarExtras}
+          enableExport={enableExport}
+          onExport={enableExport ? handleExport : undefined}
+          isExporting={isExporting}
+          exportDisabled={exportDisabled}
+        />
+      ) : null}
+
       <div className="overflow-hidden rounded-lg border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id}>
                 {group.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                  <TableHead
+                    key={header.id}
+                    aria-sort={
+                      header.column.getCanSort()
+                        ? header.column.getIsSorted() === "asc"
+                          ? "ascending"
+                          : header.column.getIsSorted() === "desc"
+                            ? "descending"
+                            : "none"
+                        : undefined
+                    }
+                  >
+                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                      <SortableHeader header={header} />
+                    ) : (
+                      flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )
+                    )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -107,7 +335,7 @@ export function DataTable<TData>({
             {isLoading ? (
               Array.from({ length: 6 }).map((_, rowIdx) => (
                 <TableRow key={`skeleton-${rowIdx}`}>
-                  {Array.from({ length: columnCount }).map((__, cellIdx) => (
+                  {Array.from({ length: visibleColumnCount }).map((__, cellIdx) => (
                     <TableCell key={`skeleton-${rowIdx}-${cellIdx}`}>
                       <Skeleton className="h-5 w-full" />
                     </TableCell>
@@ -116,7 +344,7 @@ export function DataTable<TData>({
               ))
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={columnCount} className="h-32 text-center">
+                <TableCell colSpan={visibleColumnCount} className="h-32 text-center">
                   <div className="flex flex-col items-center gap-2">
                     <p className="text-sm text-muted-foreground">
                       {getErrorMessage(error, t("common.error"))}
@@ -132,7 +360,7 @@ export function DataTable<TData>({
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell
-                  colSpan={columnCount}
+                  colSpan={visibleColumnCount}
                   className="h-32 text-center text-sm text-muted-foreground"
                 >
                   {emptyMessage ?? t("common.noResults")}
@@ -140,9 +368,39 @@ export function DataTable<TData>({
               </TableRow>
             ) : (
               rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  {...(enableRowDetail
+                    ? {
+                        // Keep the native row semantics (a11y/grid) but make the
+                        // row focusable and openable; the trailing actions cell
+                        // stops propagation so its menu keeps working.
+                        tabIndex: 0,
+                        "aria-label": t("common.details"),
+                        className: "cursor-pointer",
+                        onClick: () => setDetailRow(row.original),
+                        onKeyDown: (event: React.KeyboardEvent) => {
+                          // Only when the row itself is focused, so an inner
+                          // button keeps its own keyboard behavior.
+                          if (event.target !== event.currentTarget) return
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault()
+                            setDetailRow(row.original)
+                          }
+                        },
+                      }
+                    : {})}
+                >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
+                    <TableCell
+                      key={cell.id}
+                      {...(enableRowDetail && cell.column.id === "actions"
+                        ? {
+                            onClick: (event: React.MouseEvent) =>
+                              event.stopPropagation(),
+                          }
+                        : {})}
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -212,6 +470,23 @@ export function DataTable<TData>({
             </Button>
           </div>
         </div>
+      ) : null}
+
+      {enableRowDetail ? (
+        <DataTableRowDetail
+          row={detailRow}
+          open={detailRow !== null}
+          onOpenChange={(open) => {
+            if (!open) setDetailRow(null)
+          }}
+          labelMap={detailLabelMap}
+          auditFieldKeys={auditFieldKeys}
+          hiddenKeys={detailHiddenKeys}
+          onEdit={onEditRow}
+          title={
+            detailRow && getDetailTitle ? getDetailTitle(detailRow) : undefined
+          }
+        />
       ) : null}
     </div>
   )

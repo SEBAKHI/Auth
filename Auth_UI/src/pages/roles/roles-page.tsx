@@ -70,7 +70,10 @@ export function RolesPage() {
 
   const columns: ColumnDef<RoleDto, unknown>[] = [
     {
+      id: "name",
+      accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
+      meta: { label: t("common.name") },
       cell: ({ row }) => (
         <div className="min-w-0">
           <p className="truncate font-medium">{row.original.name}</p>
@@ -81,7 +84,10 @@ export function RolesPage() {
       ),
     },
     {
+      id: "description",
+      accessorFn: (row) => row.description ?? "",
       header: t("common.description"),
+      meta: { label: t("common.description") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.description ?? "—"}
@@ -89,7 +95,10 @@ export function RolesPage() {
       ),
     },
     {
+      id: "permissions",
+      accessorFn: (row) => row.permissions?.length ?? 0,
       header: t("roles.permissions"),
+      meta: { label: t("roles.permissions") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.permissions?.length ?? 0}
@@ -97,7 +106,18 @@ export function RolesPage() {
       ),
     },
     {
+      id: "isSystem",
+      accessorFn: (row) => (row.isSystem ? "true" : "false"),
+      filterFn: "faceted",
       header: t("roles.system"),
+      meta: {
+        label: t("roles.system"),
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "true", label: t("common.yes") },
+          { value: "false", label: t("common.no") },
+        ],
+      },
       cell: ({ row }) =>
         row.original.isSystem ? (
           <Badge variant="outline">{t("roles.system")}</Badge>
@@ -109,6 +129,8 @@ export function RolesPage() {
       ? [
           {
             id: "actions",
+            enableSorting: false,
+            enableHiding: false,
             header: () => (
               <span className="sr-only">{t("common.actions")}</span>
             ),
@@ -188,11 +210,21 @@ export function RolesPage() {
       </div>
 
       <DataTable
+        tableId="roles"
+        globalSearch
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        onEditRow={
+          canUpdate
+            ? (role) => {
+                setEditing(role)
+                setFormOpen(true)
+              }
+            : undefined
+        }
       />
 
       <RoleFormDialog

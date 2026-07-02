@@ -179,7 +179,10 @@ export function WebhookKeysPage() {
 
   const columns: ColumnDef<WebhookKeyDto, unknown>[] = [
     {
+      id: "name",
+      accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
+      meta: { label: t("common.name") },
       cell: ({ row }) => (
         <div className="min-w-0">
           <p className="truncate font-medium">{row.original.name}</p>
@@ -190,7 +193,10 @@ export function WebhookKeysPage() {
       ),
     },
     {
+      id: "targetUrl",
+      accessorFn: (row) => row.targetUrl ?? "",
       header: t("webhookKeys.targetUrl"),
+      meta: { label: t("webhookKeys.targetUrl") },
       cell: ({ row }) => (
         <span className="block max-w-[220px] truncate text-sm text-muted-foreground">
           {row.original.targetUrl}
@@ -198,7 +204,18 @@ export function WebhookKeysPage() {
       ),
     },
     {
+      id: "status",
+      accessorFn: (row) => (row.isRevoked ? "revoked" : "active"),
+      filterFn: "faceted",
       header: t("common.status"),
+      meta: {
+        label: t("common.status"),
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "active", label: t("common.active") },
+          { value: "revoked", label: t("common.revoked") },
+        ],
+      },
       cell: ({ row }) => (
         <Badge variant={row.original.isRevoked ? "destructive" : "default"}>
           {row.original.isRevoked ? t("common.revoked") : t("common.active")}
@@ -206,7 +223,10 @@ export function WebhookKeysPage() {
       ),
     },
     {
+      id: "createdAt",
+      accessorFn: (row) => row.createdAt ?? "",
       header: t("common.createdAt"),
+      meta: { label: t("common.createdAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {formatDate(row.original.createdAt)}
@@ -217,6 +237,8 @@ export function WebhookKeysPage() {
       ? [
           {
             id: "actions",
+            enableSorting: false,
+            enableHiding: false,
             header: () => (
               <span className="sr-only">{t("common.actions")}</span>
             ),
@@ -298,6 +320,8 @@ export function WebhookKeysPage() {
 
       {applicationId ? (
         <DataTable
+          tableId="webhook-keys"
+          globalSearch
           columns={columns}
           data={query.data ?? []}
           isLoading={query.isLoading}
