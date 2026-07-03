@@ -94,7 +94,12 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
         SortHelper.Selectors<OrganizationInvitationDto>(
             (SortFields.OrganizationInvitations.Email, dto => dto.Email),
             (SortFields.OrganizationInvitations.RoleName, dto => dto.RoleName),
+            (SortFields.OrganizationInvitations.RoleCode, dto => dto.RoleCode),
             (SortFields.OrganizationInvitations.Status, dto => dto.Status),
+            (SortFields.OrganizationInvitations.IsExpired, dto => dto.IsExpired),
+            (SortFields.OrganizationInvitations.InvitedByName, dto => dto.InvitedByName),
+            (SortFields.OrganizationInvitations.InvitedByEmail, dto => dto.InvitedByEmail),
+            (SortFields.OrganizationInvitations.AcceptedAt, dto => dto.AcceptedAt),
             (SortFields.OrganizationInvitations.CreatedAt, dto => dto.CreatedAt),
             (SortFields.OrganizationInvitations.ExpiresAt, dto => dto.ExpiresAt));
 }

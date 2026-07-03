@@ -64,5 +64,6 @@ public class GetUserOrganizationsQueryHandler : IRequestHandler<GetUserOrganizat
             (SortFields.UserOrganizations.Name, dto => dto.Name),
             (SortFields.UserOrganizations.Code, dto => dto.Code),
             (SortFields.UserOrganizations.RoleName, dto => dto.UserRole),
-            (SortFields.UserOrganizations.MemberCount, dto => dto.MemberCount));
+            (SortFields.UserOrganizations.MemberCount, dto => dto.MemberCount),
+            (SortFields.UserOrganizations.IsActive, dto => dto.IsActive));
 }

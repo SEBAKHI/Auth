@@ -45,8 +45,14 @@ public class ApiKeyRepository : IApiKeyRepository
 
     private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
         (SortFields.ApiKeys.Name, ["[Name]"]),
+        (SortFields.ApiKeys.Description, ["[Description]"]),
+        (SortFields.ApiKeys.KeyPrefix, ["[KeyPrefix]"]),
+        (SortFields.ApiKeys.Environment, ["[Environment]"]),
+        (SortFields.ApiKeys.RateLimitPerMinute, ["[RateLimitPerMinute]"]),
+        (SortFields.ApiKeys.RateLimitPerDay, ["[RateLimitPerDay]"]),
         (SortFields.ApiKeys.CreatedAt, ["[CreatedAt]"]),
         (SortFields.ApiKeys.ExpiresAt, ["[ExpiresAt]"]),
+        (SortFields.ApiKeys.LastUsedAt, ["[LastUsedAt]"]),
         (SortFields.ApiKeys.RevokedAt, ["[RevokedAt]"]));
 
     /// <inheritdoc />

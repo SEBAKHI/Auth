@@ -121,10 +121,16 @@ public class UserSessionRepository : IUserSessionRepository
             });
     }
 
+    // Column names are the real table columns ([StartedAt], [DeviceType]), not
+    // the SELECT aliases, to stay unambiguous.
     private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
-        (SortFields.Sessions.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.Sessions.CreatedAt, ["[StartedAt]"]),
         (SortFields.Sessions.LastActivityAt, ["[LastActivityAt]"]),
-        (SortFields.Sessions.IpAddress, ["[IpAddress]"]));
+        (SortFields.Sessions.ExpiresAt, ["[ExpiresAt]"]),
+        (SortFields.Sessions.IpAddress, ["[IpAddress]"]),
+        (SortFields.Sessions.UserAgent, ["[UserAgent]"]),
+        (SortFields.Sessions.DeviceName, ["[DeviceType]"]),
+        (SortFields.Sessions.Location, ["[Location]"]));
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<UserSession>> GetActiveSessionsForUserAsync(

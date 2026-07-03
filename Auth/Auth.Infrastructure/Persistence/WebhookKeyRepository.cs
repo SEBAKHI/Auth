@@ -47,8 +47,13 @@ public class WebhookKeyRepository : IWebhookKeyRepository
 
     private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
         (SortFields.WebhookKeys.Name, ["[Name]"]),
+        (SortFields.WebhookKeys.Description, ["[Description]"]),
+        (SortFields.WebhookKeys.KeyPrefix, ["[KeyPrefix]"]),
+        (SortFields.WebhookKeys.TargetUrl, ["[TargetUrl]"]),
+        (SortFields.WebhookKeys.Environment, ["[Environment]"]),
         (SortFields.WebhookKeys.CreatedAt, ["[CreatedAt]"]),
         (SortFields.WebhookKeys.ExpiresAt, ["[ExpiresAt]"]),
+        (SortFields.WebhookKeys.LastUsedAt, ["[LastUsedAt]"]),
         (SortFields.WebhookKeys.RevokedAt, ["[RevokedAt]"]));
 
     /// <inheritdoc />

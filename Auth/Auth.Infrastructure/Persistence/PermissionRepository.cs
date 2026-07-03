@@ -46,7 +46,10 @@ public class PermissionRepository : IPermissionRepository
     private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
         (SortFields.Permissions.Name, ["[Name]"]),
         (SortFields.Permissions.Code, ["[Code]"]),
+        (SortFields.Permissions.Description, ["[Description]"]),
         (SortFields.Permissions.Level, ["[Level]"]),
+        (SortFields.Permissions.IsWildcard, ["[IsWildcard]"]),
+        (SortFields.Permissions.IsActive, ["[IsActive]"]),
         (SortFields.Permissions.CreatedAt, ["[CreatedAt]"]),
         (SortFields.Permissions.ModifiedAt, ["[ModifiedAt]"]));
 
