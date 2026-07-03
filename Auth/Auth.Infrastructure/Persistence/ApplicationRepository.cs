@@ -199,8 +199,16 @@ public class ApplicationRepository : IApplicationRepository
     private static readonly IReadOnlyDictionary<string, string[]> PagedSortColumns = SortSql.Map(
         (SortFields.Applications.Name, ["[Name]"]),
         (SortFields.Applications.Code, ["[Code]"]),
+        (SortFields.Applications.Description, ["[Description]"]),
+        (SortFields.Applications.BaseUrl, ["[BaseUrl]"]),
         (SortFields.Applications.ContactEmail, ["[ContactEmail]"]),
         (SortFields.Applications.Status, ["[IsActive]"]),
+        (SortFields.Applications.IsActive, ["[IsActive]"]),
+        (SortFields.Applications.AllowSelfRegistration, ["[AllowSelfRegistration]"]),
+        (SortFields.Applications.RequireTwoFactor, ["[RequireTwoFactor]"]),
+        (SortFields.Applications.RequireEmailVerification, ["[RequireEmailVerification]"]),
+        (SortFields.Applications.SessionTimeoutMinutes, ["[SessionTimeoutMinutes]"]),
+        (SortFields.Applications.MaxConcurrentSessions, ["[MaxConcurrentSessions]"]),
         (SortFields.Applications.CreatedAt, ["[CreatedAt]"]),
         (SortFields.Applications.ModifiedAt, ["[ModifiedAt]"]));
 
@@ -307,6 +315,9 @@ public class ApplicationRepository : IApplicationRepository
     private static readonly IReadOnlyDictionary<string, string[]> RoleSortColumns = SortSql.Map(
         (SortFields.Roles.Name, ["[Name]"]),
         (SortFields.Roles.Code, ["[Code]"]),
+        (SortFields.Roles.Description, ["[Description]"]),
+        (SortFields.Roles.IsSystem, ["[IsSystem]"]),
+        (SortFields.Roles.IsActive, ["[IsActive]"]),
         (SortFields.Roles.CreatedAt, ["[CreatedAt]"]),
         (SortFields.Roles.ModifiedAt, ["[ModifiedAt]"]));
 
@@ -336,8 +347,12 @@ public class ApplicationRepository : IApplicationRepository
     private static readonly IReadOnlyDictionary<string, string[]> PermissionSortColumns = SortSql.Map(
         (SortFields.Permissions.Name, ["[Name]"]),
         (SortFields.Permissions.Code, ["[Code]"]),
+        (SortFields.Permissions.Description, ["[Description]"]),
         (SortFields.Permissions.Level, ["[Level]"]),
-        (SortFields.Permissions.CreatedAt, ["[CreatedAt]"]));
+        (SortFields.Permissions.IsWildcard, ["[IsWildcard]"]),
+        (SortFields.Permissions.IsActive, ["[IsActive]"]),
+        (SortFields.Permissions.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.Permissions.ModifiedAt, ["[ModifiedAt]"]));
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Permission>> GetPermissionsAsync(

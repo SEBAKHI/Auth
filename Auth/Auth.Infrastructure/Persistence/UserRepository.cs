@@ -181,8 +181,17 @@ public class UserRepository : IUserRepository
 
     private static readonly IReadOnlyDictionary<string, string[]> PagedSortColumns = SortSql.Map(
         (SortFields.Users.Name, ["[FullName]"]),
+        (SortFields.Users.DisplayName, ["[FullName]"]),
+        (SortFields.Users.FirstName, ["[FirstName]"]),
+        (SortFields.Users.LastName, ["[LastName]"]),
         (SortFields.Users.Email, ["[Email]"]),
+        (SortFields.Users.PhoneNumber, ["[PhoneNumber]"]),
         (SortFields.Users.Status, ["[Status]"]),
+        (SortFields.Users.EmailConfirmed, ["[IsEmailConfirmed]"]),
+        (SortFields.Users.PhoneConfirmed, ["[IsPhoneConfirmed]"]),
+        (SortFields.Users.TwoFactorEnabled, ["[IsTwoFactorEnabled]"]),
+        (SortFields.Users.PreferredLanguage, ["[PreferredLanguage]"]),
+        (SortFields.Users.TimeZone, ["[TimeZone]"]),
         (SortFields.Users.CreatedAt, ["[CreatedAt]"]),
         (SortFields.Users.ModifiedAt, ["[ModifiedAt]"]),
         (SortFields.Users.LastLoginAt, ["[LastLoginUtc]"]));

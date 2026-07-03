@@ -249,13 +249,20 @@ public class OrganizationRepository : IOrganizationRepository
         return dtos.Select(dto => dto.ToEntity()).ToList().AsReadOnly();
     }
 
-    // Name/email sort on the joined Users row; role sort on the joined Roles row
-    // (LEFT — membership may carry no role). Both joins are 1:1 by primary key.
+    // Name/email sort on the joined Users row, role on the joined Roles row,
+    // inviter on a second Users join (all LEFT and 1:1 by primary key).
     private static readonly IReadOnlyDictionary<string, string[]> MemberSortColumns = SortSql.Map(
         (SortFields.OrganizationMembers.Name, ["u.[FirstName]", "u.[LastName]"]),
+        (SortFields.OrganizationMembers.FullName, ["u.[FullName]"]),
+        (SortFields.OrganizationMembers.FirstName, ["u.[FirstName]"]),
+        (SortFields.OrganizationMembers.LastName, ["u.[LastName]"]),
         (SortFields.OrganizationMembers.Email, ["u.[Email]"]),
         (SortFields.OrganizationMembers.RoleName, ["r.[Name]"]),
-        (SortFields.OrganizationMembers.JoinedAt, ["ou.[JoinedAt]"]));
+        (SortFields.OrganizationMembers.RoleCode, ["r.[Code]"]),
+        (SortFields.OrganizationMembers.IsActive, ["ou.[IsActive]"]),
+        (SortFields.OrganizationMembers.JoinedAt, ["ou.[JoinedAt]"]),
+        (SortFields.OrganizationMembers.InvitedByName, ["inv.[FullName]"]),
+        (SortFields.OrganizationMembers.ExpiresAt, ["ou.[ExpiresAt]"]));
 
     /// <inheritdoc />
     public async Task<(IReadOnlyList<OrganizationUser> Members, int TotalCount)> GetMembersPagedAsync(
@@ -297,6 +304,7 @@ public class OrganizationRepository : IOrganizationRepository
             FROM [dbo].[OrganizationUsers] ou
             INNER JOIN [dbo].[Users] u ON ou.[UserId] = u.[Id]
             LEFT JOIN [dbo].[Roles] r ON ou.[RoleId] = r.[Id]
+            LEFT JOIN [dbo].[Users] inv ON ou.[InvitedBy] = inv.[Id]
             WHERE ou.[OrganizationId] = @OrganizationId AND ou.[IsActive] = 1
             AND (@SearchPattern IS NULL OR u.[Email] LIKE @SearchPattern OR u.[FirstName] LIKE @SearchPattern OR u.[LastName] LIKE @SearchPattern)
             ORDER BY {orderBy}

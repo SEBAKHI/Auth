@@ -65,14 +65,19 @@ public class AuditLogRepository : IAuditLogRepository
         return dto?.ToEntity();
     }
 
-    // Actor sorts on the joined Users row (1:1 by primary key, LEFT so system
-    // events with a null UserId stay included); mirrors the UI's
-    // `userEmail ?? userName` display value.
+    // Actor/user/application fields sort on the joined Users and Applications
+    // rows (1:1 by primary key, LEFT so system events with null FKs stay
+    // included); actor mirrors the UI's `userEmail ?? userName` display value.
     private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
         (SortFields.AuditLogs.Action, ["a.[Action]"]),
         (SortFields.AuditLogs.EntityType, ["a.[EntityType]"]),
         (SortFields.AuditLogs.Timestamp, ["a.[Timestamp]"]),
-        (SortFields.AuditLogs.Actor, ["COALESCE(u.[Email], u.[FullName])"]));
+        (SortFields.AuditLogs.IpAddress, ["a.[IpAddress]"]),
+        (SortFields.AuditLogs.UserAgent, ["a.[UserAgent]"]),
+        (SortFields.AuditLogs.Actor, ["COALESCE(u.[Email], u.[FullName])"]),
+        (SortFields.AuditLogs.UserName, ["u.[FullName]"]),
+        (SortFields.AuditLogs.UserEmail, ["u.[Email]"]),
+        (SortFields.AuditLogs.ApplicationName, ["ap.[Name]"]));
 
     /// <inheritdoc />
     public async Task<(IReadOnlyList<AuditLog> Logs, int TotalCount)> GetPagedAsync(
@@ -138,6 +143,7 @@ public class AuditLogRepository : IAuditLogRepository
         var sql = $@"
             SELECT a.* FROM [dbo].[AuditLogs] a
             LEFT JOIN [dbo].[Users] u ON a.[UserId] = u.[Id]
+            LEFT JOIN [dbo].[Applications] ap ON a.[ApplicationId] = ap.[Id]
             {whereClause}
             ORDER BY {orderBy}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
@@ -163,6 +169,7 @@ public class AuditLogRepository : IAuditLogRepository
         var dtos = await connection.QueryAsync<AuditLogDto>($@"
             SELECT a.* FROM [dbo].[AuditLogs] a
             LEFT JOIN [dbo].[Users] u ON a.[UserId] = u.[Id]
+            LEFT JOIN [dbo].[Applications] ap ON a.[ApplicationId] = ap.[Id]
             WHERE a.[EntityType] = @EntityType AND a.[EntityId] = @EntityId
             ORDER BY {orderBy}",
             new { EntityType = entityType, EntityId = entityId });

@@ -74,5 +74,10 @@ public class GetPermissionImplicationsQueryHandler : IRequestHandler<GetPermissi
         SortHelper.Selectors<PermissionDto>(
             (SortFields.PermissionImplications.Name, dto => dto.Name),
             (SortFields.PermissionImplications.Code, dto => dto.Code),
-            (SortFields.PermissionImplications.Level, dto => dto.Level));
+            (SortFields.PermissionImplications.Description, dto => dto.Description),
+            (SortFields.PermissionImplications.Level, dto => dto.Level),
+            (SortFields.PermissionImplications.IsWildcard, dto => dto.IsWildcard),
+            (SortFields.PermissionImplications.IsActive, dto => dto.IsActive),
+            (SortFields.PermissionImplications.CreatedAt, dto => dto.CreatedAt),
+            (SortFields.PermissionImplications.ModifiedAt, dto => dto.ModifiedAt));
 }

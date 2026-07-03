@@ -63,6 +63,7 @@ public class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPermissions
             {
                 dto.PermissionName = permission.Name;
                 dto.PermissionCode = permission.Code;
+                dto.PermissionDescription = permission.Description;
             }
 
             // Get application name if applicable
@@ -72,6 +73,7 @@ public class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPermissions
                 if (app != null)
                 {
                     dto.ApplicationName = app.Name;
+                    dto.ApplicationCode = app.Code;
                 }
             }
 
@@ -91,6 +93,11 @@ public class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPermissions
     private static readonly IReadOnlyDictionary<string, Func<UserPermissionDto, object?>> SortSelectors =
         SortHelper.Selectors<UserPermissionDto>(
             (SortFields.UserPermissions.PermissionName, dto => dto.PermissionName),
+            (SortFields.UserPermissions.PermissionCode, dto => dto.PermissionCode),
+            (SortFields.UserPermissions.PermissionDescription, dto => dto.PermissionDescription),
             (SortFields.UserPermissions.ApplicationName, dto => dto.ApplicationName),
+            (SortFields.UserPermissions.ApplicationCode, dto => dto.ApplicationCode),
+            (SortFields.UserPermissions.IsActive, dto => dto.IsActive),
+            (SortFields.UserPermissions.ExpiresAt, dto => dto.ExpiresAt),
             (SortFields.UserPermissions.CreatedAt, dto => dto.CreatedAt));
 }

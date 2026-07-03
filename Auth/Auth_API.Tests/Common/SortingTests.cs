@@ -121,6 +121,51 @@ public class SortFieldValidationTests
     public void AllowList_MatchesDocumentedFields()
     {
         SortFields.Users.Allowed.Should().BeEquivalentTo(
-            ["name", "email", "status", "createdAt", "modifiedAt", "lastLoginAt"]);
+        [
+            "name", "displayName", "firstName", "lastName", "email",
+            "phoneNumber", "status", "emailConfirmed", "phoneConfirmed",
+            "twoFactorEnabled", "preferredLanguage", "timeZone",
+            "createdAt", "modifiedAt", "lastLoginAt"
+        ]);
+    }
+
+    [Fact]
+    public void AllowLists_NeverContainSecretsOrBlobs()
+    {
+        // Guard against accidentally exposing sensitive or unsortable fields:
+        // sorting by a secret column is an information-leak oracle, and JSON
+        // blobs force full scans. See SortFields doc comment.
+        string[] forbidden =
+        [
+            "passwordHash", "keyHash", "sessionToken", "twoFactorSecret",
+            "oldValues", "newValues", "details", "additionalData",
+        ];
+
+        var allLists = new Dictionary<string, IReadOnlyList<string>>
+        {
+            [nameof(SortFields.Users)] = SortFields.Users.Allowed,
+            [nameof(SortFields.Applications)] = SortFields.Applications.Allowed,
+            [nameof(SortFields.AuditLogs)] = SortFields.AuditLogs.Allowed,
+            [nameof(SortFields.OrganizationMembers)] = SortFields.OrganizationMembers.Allowed,
+            [nameof(SortFields.Roles)] = SortFields.Roles.Allowed,
+            [nameof(SortFields.Permissions)] = SortFields.Permissions.Allowed,
+            [nameof(SortFields.ApiKeys)] = SortFields.ApiKeys.Allowed,
+            [nameof(SortFields.WebhookKeys)] = SortFields.WebhookKeys.Allowed,
+            [nameof(SortFields.Sessions)] = SortFields.Sessions.Allowed,
+            [nameof(SortFields.ExternalProviders)] = SortFields.ExternalProviders.Allowed,
+            [nameof(SortFields.UserRoles)] = SortFields.UserRoles.Allowed,
+            [nameof(SortFields.UserPermissions)] = SortFields.UserPermissions.Allowed,
+            [nameof(SortFields.PermissionImplications)] = SortFields.PermissionImplications.Allowed,
+            [nameof(SortFields.UserOrganizations)] = SortFields.UserOrganizations.Allowed,
+            [nameof(SortFields.OrganizationInvitations)] = SortFields.OrganizationInvitations.Allowed,
+            [nameof(SortFields.OrganizationApplications)] = SortFields.OrganizationApplications.Allowed,
+        };
+
+        foreach (var (name, allowed) in allLists)
+        {
+            allowed.Should().NotContain(
+                field => forbidden.Contains(field, StringComparer.OrdinalIgnoreCase),
+                $"the {name} allow-list must never expose secret or blob fields");
+        }
     }
 }

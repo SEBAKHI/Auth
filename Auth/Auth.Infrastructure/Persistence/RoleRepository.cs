@@ -60,6 +60,9 @@ public class RoleRepository : IRoleRepository
     private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
         (SortFields.Roles.Name, ["[Name]"]),
         (SortFields.Roles.Code, ["[Code]"]),
+        (SortFields.Roles.Description, ["[Description]"]),
+        (SortFields.Roles.IsSystem, ["[IsSystem]"]),
+        (SortFields.Roles.IsActive, ["[IsActive]"]),
         (SortFields.Roles.CreatedAt, ["[CreatedAt]"]),
         (SortFields.Roles.ModifiedAt, ["[ModifiedAt]"]));
 

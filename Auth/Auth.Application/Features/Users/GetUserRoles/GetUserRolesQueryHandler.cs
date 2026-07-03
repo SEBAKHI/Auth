@@ -63,6 +63,7 @@ public class GetUserRolesQueryHandler : IRequestHandler<GetUserRolesQuery, Error
             {
                 dto.RoleName = role.Name;
                 dto.RoleCode = role.Code;
+                dto.RoleDescription = role.Description;
             }
 
             // Get application name if applicable
@@ -72,6 +73,7 @@ public class GetUserRolesQueryHandler : IRequestHandler<GetUserRolesQuery, Error
                 if (app != null)
                 {
                     dto.ApplicationName = app.Name;
+                    dto.ApplicationCode = app.Code;
                 }
             }
 
@@ -91,6 +93,11 @@ public class GetUserRolesQueryHandler : IRequestHandler<GetUserRolesQuery, Error
     private static readonly IReadOnlyDictionary<string, Func<UserRoleDto, object?>> SortSelectors =
         SortHelper.Selectors<UserRoleDto>(
             (SortFields.UserRoles.RoleName, dto => dto.RoleName),
+            (SortFields.UserRoles.RoleCode, dto => dto.RoleCode),
+            (SortFields.UserRoles.RoleDescription, dto => dto.RoleDescription),
             (SortFields.UserRoles.ApplicationName, dto => dto.ApplicationName),
+            (SortFields.UserRoles.ApplicationCode, dto => dto.ApplicationCode),
+            (SortFields.UserRoles.IsActive, dto => dto.IsActive),
+            (SortFields.UserRoles.ExpiresAt, dto => dto.ExpiresAt),
             (SortFields.UserRoles.CreatedAt, dto => dto.CreatedAt));
 }

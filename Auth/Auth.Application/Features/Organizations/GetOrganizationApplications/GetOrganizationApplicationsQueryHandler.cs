@@ -83,5 +83,9 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
         SortHelper.Selectors<OrganizationApplicationDto>(
             (SortFields.OrganizationApplications.ApplicationName, dto => dto.ApplicationName),
             (SortFields.OrganizationApplications.ApplicationCode, dto => dto.ApplicationCode),
+            (SortFields.OrganizationApplications.ApplicationDescription, dto => dto.ApplicationDescription),
+            (SortFields.OrganizationApplications.SubscriptionTier, dto => dto.SubscriptionTier),
+            (SortFields.OrganizationApplications.EnabledAt, dto => dto.EnabledAt),
+            (SortFields.OrganizationApplications.ExpiresAt, dto => dto.ExpiresAt),
             (SortFields.OrganizationApplications.IsActive, dto => dto.IsActive));
 }
