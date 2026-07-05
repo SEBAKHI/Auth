@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -11,10 +12,14 @@ namespace Auth.Application.Features.WebhookKeys.GetWebhookKeys;
 public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, ErrorOr<IReadOnlyList<WebhookKeyDto>>>
 {
     private readonly IWebhookKeyRepository _webhookKeyRepository;
+    private readonly IApplicationRepository _applicationRepository;
 
-    public GetWebhookKeysQueryHandler(IWebhookKeyRepository webhookKeyRepository)
+    public GetWebhookKeysQueryHandler(
+        IWebhookKeyRepository webhookKeyRepository,
+        IApplicationRepository applicationRepository)
     {
         _webhookKeyRepository = webhookKeyRepository;
+        _applicationRepository = applicationRepository;
     }
 
     public async Task<ErrorOr<IReadOnlyList<WebhookKeyDto>>> Handle(
@@ -24,10 +29,16 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
         var webhookKeys = await _webhookKeyRepository.GetByApplicationAsync(
             request.ApplicationId, request.SortBy, request.SortDirection, cancellationToken);
 
+        var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
+            _applicationRepository,
+            webhookKeys.Select(wk => (Guid?)wk.ApplicationId),
+            cancellationToken);
+
         var dtos = webhookKeys.Select(wk => new WebhookKeyDto
         {
             Id = wk.Id,
             ApplicationId = wk.ApplicationId,
+            ApplicationName = applicationNames.GetValueOrDefault(wk.ApplicationId),
             Name = wk.Name,
             Description = wk.Description,
             KeyPrefix = wk.KeyPrefix,

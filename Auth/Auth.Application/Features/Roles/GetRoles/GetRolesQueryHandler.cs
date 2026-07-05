@@ -1,5 +1,6 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using ErrorOr;
 using MediatR;
@@ -13,13 +14,16 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
 {
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IApplicationRepository _applicationRepository;
 
     public GetRolesQueryHandler(
         IRoleRepository roleRepository,
-        IPermissionRepository permissionRepository)
+        IPermissionRepository permissionRepository,
+        IApplicationRepository applicationRepository)
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _applicationRepository = applicationRepository;
     }
 
     public async Task<ErrorOr<IReadOnlyList<RoleDto>>> Handle(GetRolesQuery request, CancellationToken cancellationToken)
@@ -37,6 +41,11 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
                 request.SortBy, request.SortDirection, cancellationToken);
         }
 
+        var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
+            _applicationRepository,
+            roles.Select(role => role.ApplicationId),
+            cancellationToken);
+
         var roleDtos = new List<RoleDto>();
         foreach (var role in roles)
         {
@@ -45,6 +54,9 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
             {
                 Id = role.Id,
                 ApplicationId = role.ApplicationId,
+                ApplicationName = role.ApplicationId.HasValue
+                    ? applicationNames.GetValueOrDefault(role.ApplicationId.Value)
+                    : null,
                 Code = role.Code,
                 Name = role.Name,
                 Description = role.Description,

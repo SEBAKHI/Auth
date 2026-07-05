@@ -7,6 +7,8 @@ using Auth.Application.Features.Users.AssignRole;
 using Auth.Application.Features.Users.CreateUser;
 using Auth.Application.Features.Users.DeactivateAccount;
 using Auth.Application.Features.Users.DeleteUser;
+using Auth.Application.Features.Organizations.GetUserOrganizations;
+using Auth.Application.Features.Users.GetUserApplications;
 using Auth.Application.Features.Users.GetUserById;
 using Auth.Application.Features.Users.GetUserPermissions;
 using Auth.Application.Features.Users.GetUserRoles;
@@ -214,6 +216,52 @@ public class UsersController : ApiController
 
         return result.Match(
             roles => Ok(roles),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get all organizations a user is a member of.
+    /// </summary>
+    [HttpGet("{id:guid}/organizations")]
+    [RequirePermission("users:read")]
+    [ProducesResponseType(typeof(IReadOnlyList<OrganizationSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetUserOrganizations(
+        Guid id,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetUserOrganizationsQuery(id, sortBy, sortDirection);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            organizations => Ok(organizations),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get all applications a user has access to.
+    /// </summary>
+    [HttpGet("{id:guid}/applications")]
+    [RequirePermission("users:read")]
+    [ProducesResponseType(typeof(IReadOnlyList<UserApplicationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetUserApplications(
+        Guid id,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetUserApplicationsQuery(id, sortBy, sortDirection);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            applications => Ok(applications),
             errors => Problem(errors));
     }
 

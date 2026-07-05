@@ -438,6 +438,34 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, int>> GetAssignedUserCountsAsync(
+        Guid organizationId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<(Guid ApplicationId, int AssignedUserCount)>(@"
+            SELECT [ApplicationId], COUNT(DISTINCT [UserId]) AS [AssignedUserCount]
+            FROM (
+                SELECT [ApplicationId], [UserId]
+                FROM [dbo].[OrganizationUserRoles]
+                WHERE [OrganizationId] = @OrganizationId
+                  AND [IsActive] = 1
+                  AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())
+                UNION
+                SELECT [ApplicationId], [UserId]
+                FROM [dbo].[OrganizationUserPermissions]
+                WHERE [OrganizationId] = @OrganizationId
+                  AND [IsActive] = 1
+                  AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())
+            ) AS assignments
+            GROUP BY [ApplicationId]",
+            new { OrganizationId = organizationId });
+
+        return rows.ToDictionary(row => row.ApplicationId, row => row.AssignedUserCount);
+    }
+
+    /// <inheritdoc />
     public async Task<OrganizationApplication?> GetApplicationSubscriptionAsync(
         Guid organizationId,
         Guid applicationId,

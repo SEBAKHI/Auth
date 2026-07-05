@@ -7,6 +7,10 @@ public class RoleDto
 {
     public Guid Id { get; set; }
     public Guid? ApplicationId { get; set; }
+
+    /// <summary>Name of the owning application; null for system-wide roles or when unresolved.</summary>
+    public string? ApplicationName { get; set; }
+
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }

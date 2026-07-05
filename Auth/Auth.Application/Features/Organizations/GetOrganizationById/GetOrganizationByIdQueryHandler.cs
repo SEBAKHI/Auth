@@ -84,6 +84,7 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
 
         // Get enabled applications
         var apps = await _organizationRepository.GetEnabledApplicationsAsync(request.OrganizationId, cancellationToken);
+        var assignedUserCounts = await _organizationRepository.GetAssignedUserCountsAsync(request.OrganizationId, cancellationToken);
         var appDtos = new List<OrganizationApplicationDto>();
 
         foreach (var app in apps)
@@ -106,7 +107,7 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
                 EnabledByName = enabledByUser != null ? $"{enabledByUser.FirstName} {enabledByUser.LastName}".Trim() : null,
                 ExpiresAt = app.ExpiresAt,
                 SubscriptionTier = app.SubscriptionTier,
-                AssignedUserCount = 0 // TODO: Calculate assigned user count
+                AssignedUserCount = assignedUserCounts.GetValueOrDefault(app.ApplicationId)
             });
         }
 

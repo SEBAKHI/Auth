@@ -44,6 +44,7 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
         }
 
         var orgApps = await _organizationRepository.GetEnabledApplicationsAsync(request.OrganizationId, cancellationToken);
+        var assignedUserCounts = await _organizationRepository.GetAssignedUserCountsAsync(request.OrganizationId, cancellationToken);
 
         // Enrich with application details
         var dtos = new List<OrganizationApplicationDto>();
@@ -64,7 +65,8 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
                     EnabledAt = orgApp.EnabledAt,
                     EnabledBy = orgApp.EnabledBy,
                     ExpiresAt = orgApp.ExpiresAt,
-                    IsActive = orgApp.IsActive
+                    IsActive = orgApp.IsActive,
+                    AssignedUserCount = assignedUserCounts.GetValueOrDefault(orgApp.ApplicationId)
                 });
             }
         }
@@ -87,5 +89,6 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
             (SortFields.OrganizationApplications.SubscriptionTier, dto => dto.SubscriptionTier),
             (SortFields.OrganizationApplications.EnabledAt, dto => dto.EnabledAt),
             (SortFields.OrganizationApplications.ExpiresAt, dto => dto.ExpiresAt),
-            (SortFields.OrganizationApplications.IsActive, dto => dto.IsActive));
+            (SortFields.OrganizationApplications.IsActive, dto => dto.IsActive),
+            (SortFields.OrganizationApplications.AssignedUserCount, dto => dto.AssignedUserCount));
 }

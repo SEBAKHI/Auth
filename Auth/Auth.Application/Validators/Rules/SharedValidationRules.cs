@@ -89,6 +89,12 @@ public static class SharedValidationRules
             .InclusiveBetween(1, 100).WithMessage("Validation.PageSize.Range");
     }
 
+    public static IRuleBuilderOptions<T, int> IsValidTrailingWindowDays<T>(this IRuleBuilder<T, int> ruleBuilder)
+    {
+        return ruleBuilder
+            .InclusiveBetween(1, 90).WithMessage("Validation.Days.Range");
+    }
+
     /// <summary>
     /// The sort field must be null (server default order) or one of the
     /// endpoint's allow-listed field names (case-insensitive). The allow-list is

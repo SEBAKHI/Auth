@@ -286,11 +286,90 @@ public static class SortFields
         public const string EnabledAt = "enabledAt";
         public const string ExpiresAt = "expiresAt";
         public const string IsActive = "isActive";
+        public const string AssignedUserCount = "assignedUserCount";
 
         public static readonly IReadOnlyList<string> Allowed =
         [
             ApplicationName, ApplicationCode, ApplicationDescription,
-            SubscriptionTier, EnabledAt, ExpiresAt, IsActive
+            SubscriptionTier, EnabledAt, ExpiresAt, IsActive, AssignedUserCount
         ];
+    }
+
+    public static class UserApplications
+    {
+        public const string Name = "name";
+        public const string Code = "code";
+        public const string IsActive = "isActive";
+        public const string AccessSource = "accessSource";
+
+        public static readonly IReadOnlyList<string> Allowed =
+            [Name, Code, IsActive, AccessSource];
+    }
+
+    public static class ApplicationUsers
+    {
+        public const string Email = "email";
+        public const string FirstName = "firstName";
+        public const string LastName = "lastName";
+        public const string DisplayName = "displayName";
+        public const string Status = "status";
+        public const string LastLoginAt = "lastLoginAt";
+        public const string CreatedAt = "createdAt";
+
+        public static readonly IReadOnlyList<string> Allowed =
+            [Email, FirstName, LastName, DisplayName, Status, LastLoginAt, CreatedAt];
+    }
+
+    public static class ApplicationOrganizations
+    {
+        public const string Name = "name";
+        public const string Code = "code";
+        public const string EnabledAt = "enabledAt";
+        public const string ExpiresAt = "expiresAt";
+        public const string IsActive = "isActive";
+        public const string OrganizationIsActive = "organizationIsActive";
+        public const string MemberCount = "memberCount";
+
+        public static readonly IReadOnlyList<string> Allowed =
+            [Name, Code, EnabledAt, ExpiresAt, IsActive, OrganizationIsActive, MemberCount];
+    }
+
+    public static class RoleUsers
+    {
+        public const string Email = "email";
+        public const string FirstName = "firstName";
+        public const string LastName = "lastName";
+        public const string DisplayName = "displayName";
+        public const string Status = "status";
+        public const string LastLoginAt = "lastLoginAt";
+        public const string CreatedAt = "createdAt";
+
+        public static readonly IReadOnlyList<string> Allowed =
+            [Email, FirstName, LastName, DisplayName, Status, LastLoginAt, CreatedAt];
+    }
+
+    public static class RoleApplications
+    {
+        public const string Name = "name";
+        public const string Code = "code";
+        public const string IsActive = "isActive";
+        public const string Relationship = "relationship";
+
+        public static readonly IReadOnlyList<string> Allowed =
+            [Name, Code, IsActive, Relationship];
+    }
+
+    public static class PermissionUsers
+    {
+        public const string Email = "email";
+        public const string FirstName = "firstName";
+        public const string LastName = "lastName";
+        public const string DisplayName = "displayName";
+        public const string Status = "status";
+        public const string LastLoginAt = "lastLoginAt";
+        public const string CreatedAt = "createdAt";
+
+        public static readonly IReadOnlyList<string> Allowed =
+            [Email, FirstName, LastName, DisplayName, Status, LastLoginAt, CreatedAt];
     }
 }

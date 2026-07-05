@@ -95,4 +95,34 @@ public interface IApplicationRepository
         string? sortBy,
         Enums.SortDirection sortDirection,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the distinct users holding an active role assignment scoped to the
+    /// application (direct or through an organization), with pagination.
+    /// <paramref name="sortBy"/> accepts the allow-listed field names in
+    /// <see cref="Constants.SortFields.ApplicationUsers"/>.
+    /// </summary>
+    Task<(IReadOnlyList<ReadModels.Access.ApplicationUserRow> Users, int TotalCount)> GetUsersPagedAsync(
+        Guid applicationId,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the organizations that have the application enabled (including
+    /// inactive enablement links), with pagination. <paramref name="sortBy"/>
+    /// accepts the allow-listed field names in
+    /// <see cref="Constants.SortFields.ApplicationOrganizations"/>.
+    /// </summary>
+    Task<(IReadOnlyList<ReadModels.Access.ApplicationOrganizationRow> Organizations, int TotalCount)> GetOrganizationsPagedAsync(
+        Guid applicationId,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
 }

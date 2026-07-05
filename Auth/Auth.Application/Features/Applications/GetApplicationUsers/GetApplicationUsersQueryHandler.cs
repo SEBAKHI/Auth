@@ -1,0 +1,71 @@
+using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.DTOs;
+using Auth.Domain.Errors;
+using ErrorOr;
+using MediatR;
+
+namespace Auth.Application.Features.Applications.GetApplicationUsers;
+
+/// <summary>
+/// Handler for getting paginated users under an application.
+/// </summary>
+public class GetApplicationUsersQueryHandler : IRequestHandler<GetApplicationUsersQuery, ErrorOr<PagedApplicationUsersDto>>
+{
+    private readonly IApplicationRepository _applicationRepository;
+    private readonly ILogger<GetApplicationUsersQueryHandler> _logger;
+
+    public GetApplicationUsersQueryHandler(
+        IApplicationRepository applicationRepository,
+        ILogger<GetApplicationUsersQueryHandler> logger)
+    {
+        _applicationRepository = applicationRepository;
+        _logger = logger;
+    }
+
+    public async Task<ErrorOr<PagedApplicationUsersDto>> Handle(
+        GetApplicationUsersQuery request,
+        CancellationToken cancellationToken)
+    {
+        // Verify application exists
+        var application = await _applicationRepository.GetByIdAsync(request.ApplicationId, cancellationToken);
+        if (application == null)
+        {
+            return ApplicationErrors.NotFound(request.ApplicationId);
+        }
+
+        var (users, totalCount) = await _applicationRepository.GetUsersPagedAsync(
+            request.ApplicationId,
+            request.PageNumber,
+            request.PageSize,
+            request.SearchTerm,
+            request.SortBy,
+            request.SortDirection,
+            cancellationToken);
+
+        var dtos = users.Select(user => new ApplicationUserDto
+        {
+            UserId = user.UserId,
+            Email = user.Email,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            FullName = $"{user.FirstName} {user.LastName}".Trim(),
+            DisplayName = user.DisplayName,
+            Status = user.Status,
+            LastLoginAt = user.LastLoginAt,
+            CreatedAt = user.CreatedAt,
+            RoleNames = user.RoleNames
+        }).ToList();
+
+        _logger.LogDebug(
+            "Retrieved {Count} of {Total} users for application {ApplicationId}",
+            dtos.Count, totalCount, request.ApplicationId);
+
+        return new PagedApplicationUsersDto
+        {
+            Users = dtos,
+            TotalCount = totalCount,
+            PageNumber = request.PageNumber,
+            PageSize = request.PageSize
+        };
+    }
+}

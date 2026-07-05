@@ -13,6 +13,16 @@ public interface IUserRepository
     Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the users matching the given identifiers in a single round-trip.
+    /// </summary>
+    /// <remarks>
+    /// Intended for display-name resolution of audit fields, so soft-deleted
+    /// users are included — historical records keep resolving to a name.
+    /// Missing identifiers are simply absent from the result.
+    /// </remarks>
+    Task<IReadOnlyList<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets a user by their email address.
     /// </summary>
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken);
@@ -155,4 +165,13 @@ public interface IUserRepository
     Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken);
 
     #endregion
+
+    /// <summary>
+    /// Gets the distinct applications a user can access, either through an
+    /// organization (membership + enabled app + app-level role or permission)
+    /// or through a direct app-scoped role assignment.
+    /// </summary>
+    Task<IReadOnlyList<ReadModels.Access.UserApplicationAccess>> GetUserApplicationsAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
 }

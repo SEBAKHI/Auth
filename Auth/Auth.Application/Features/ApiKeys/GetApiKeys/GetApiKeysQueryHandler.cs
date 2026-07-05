@@ -1,4 +1,5 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using ErrorOr;
 using MediatR;
@@ -11,10 +12,14 @@ namespace Auth.Application.Features.ApiKeys.GetApiKeys;
 public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<IReadOnlyList<ApiKeyDto>>>
 {
     private readonly IApiKeyRepository _apiKeyRepository;
+    private readonly IApplicationRepository _applicationRepository;
 
-    public GetApiKeysQueryHandler(IApiKeyRepository apiKeyRepository)
+    public GetApiKeysQueryHandler(
+        IApiKeyRepository apiKeyRepository,
+        IApplicationRepository applicationRepository)
     {
         _apiKeyRepository = apiKeyRepository;
+        _applicationRepository = applicationRepository;
     }
 
     public async Task<ErrorOr<IReadOnlyList<ApiKeyDto>>> Handle(
@@ -24,6 +29,11 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
         var apiKeys = await _apiKeyRepository.GetByApplicationAsync(
             request.ApplicationId, request.SortBy, request.SortDirection, cancellationToken);
 
+        var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
+            _applicationRepository,
+            apiKeys.Select(key => (Guid?)key.ApplicationId),
+            cancellationToken);
+
         var apiKeyDtos = new List<ApiKeyDto>();
         foreach (var apiKey in apiKeys)
         {
@@ -32,6 +42,7 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
             {
                 Id = apiKey.Id,
                 ApplicationId = apiKey.ApplicationId,
+                ApplicationName = applicationNames.GetValueOrDefault(apiKey.ApplicationId),
                 Name = apiKey.Name,
                 Description = apiKey.Description,
                 KeyPrefix = apiKey.KeyPrefix,

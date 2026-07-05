@@ -204,6 +204,7 @@ builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IExternalAuthProviderRepository, ExternalAuthProviderRepository>();
 builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
 builder.Services.AddScoped<IWebhookKeyRepository, WebhookKeyRepository>();
+builder.Services.AddScoped<IDashboardStatsRepository, DashboardStatsRepository>();
 
 // Domain Event Dispatcher
 builder.Services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();

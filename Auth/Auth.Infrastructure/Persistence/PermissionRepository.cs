@@ -2,6 +2,7 @@ using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ReadModels.Access;
 using Dapper;
 
 namespace Auth.Infrastructure.Persistence;
@@ -557,6 +558,133 @@ public class PermissionRepository : IPermissionRepository
         }
 
         return false;
+    }
+
+    private static readonly IReadOnlyDictionary<string, string[]> PermissionUserSortColumns = SortSql.Map(
+        (SortFields.PermissionUsers.Email, ["u.[Email]"]),
+        (SortFields.PermissionUsers.FirstName, ["u.[FirstName]", "u.[LastName]"]),
+        (SortFields.PermissionUsers.LastName, ["u.[LastName]", "u.[FirstName]"]),
+        (SortFields.PermissionUsers.DisplayName, ["u.[FullName]"]),
+        (SortFields.PermissionUsers.Status, ["u.[Status]"]),
+        (SortFields.PermissionUsers.LastLoginAt, ["u.[LastLoginUtc]"]),
+        (SortFields.PermissionUsers.CreatedAt, ["u.[CreatedAt]"]));
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<PermissionUserRow> Users, int TotalCount)> GetUsersPagedAsync(
+        Guid permissionId,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm,
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var offset = (pageNumber - 1) * pageSize;
+        var searchPattern = string.IsNullOrEmpty(searchTerm) ? null : $"%{searchTerm}%";
+        var orderBy = SortSql.OrderBy(
+            PermissionUserSortColumns, sortBy, sortDirection, "u.[Email]", "u.[Id]");
+
+        // The grant flags are computed once in the CROSS APPLY and shared by
+        // the WHERE filter and the SELECT list.
+        const string fromClause = @"
+            FROM [dbo].[Users] u
+            CROSS APPLY (SELECT
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM [dbo].[UserPermissions] up
+                    WHERE up.[UserId] = u.[Id]
+                      AND up.[PermissionId] = @PermissionId
+                      AND up.[IsActive] = 1
+                      AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE()))
+                    THEN 1 ELSE 0 END AS [ViaDirect],
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM [dbo].[OrganizationUserPermissions] oup
+                    WHERE oup.[UserId] = u.[Id]
+                      AND oup.[PermissionId] = @PermissionId
+                      AND oup.[IsActive] = 1
+                      AND (oup.[ExpiresAt] IS NULL OR oup.[ExpiresAt] > GETUTCDATE()))
+                    THEN 1 ELSE 0 END AS [ViaOrganization],
+                CASE WHEN EXISTS (
+                    SELECT 1 FROM [dbo].[RolePermissions] rp
+                    WHERE rp.[PermissionId] = @PermissionId
+                      AND (
+                          EXISTS (
+                              SELECT 1 FROM [dbo].[UserRoles] ur
+                              WHERE ur.[UserId] = u.[Id]
+                                AND ur.[RoleId] = rp.[RoleId]
+                                AND ur.[IsActive] = 1
+                                AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE()))
+                          OR EXISTS (
+                              SELECT 1 FROM [dbo].[OrganizationUserRoles] our
+                              WHERE our.[UserId] = u.[Id]
+                                AND our.[RoleId] = rp.[RoleId]
+                                AND our.[IsActive] = 1
+                                AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE()))
+                      ))
+                    THEN 1 ELSE 0 END AS [ViaRole]
+            ) f
+            WHERE u.[IsDeleted] = 0
+              AND (@SearchPattern IS NULL OR
+                   u.[Email] LIKE @SearchPattern OR
+                   u.[FirstName] LIKE @SearchPattern OR
+                   u.[LastName] LIKE @SearchPattern)
+              AND (f.[ViaDirect] = 1 OR f.[ViaOrganization] = 1 OR f.[ViaRole] = 1)";
+
+        var sql = $@"
+            SELECT COUNT(1) {fromClause};
+
+            SELECT
+                u.[Id] AS [UserId],
+                u.[Email],
+                u.[FirstName],
+                u.[LastName],
+                u.[FullName] AS [DisplayName],
+                u.[Status],
+                u.[LastLoginUtc] AS [LastLoginAt],
+                u.[CreatedAt],
+                CAST(f.[ViaDirect] AS BIT) AS [ViaDirect],
+                CAST(f.[ViaOrganization] AS BIT) AS [ViaOrganization],
+                CAST(f.[ViaRole] AS BIT) AS [ViaRole],
+                (
+                    SELECT STRING_AGG(x.[Name], ', ') WITHIN GROUP (ORDER BY x.[Name])
+                    FROM (
+                        SELECT DISTINCT r.[Name]
+                        FROM [dbo].[RolePermissions] rp
+                        INNER JOIN [dbo].[Roles] r ON rp.[RoleId] = r.[Id]
+                        WHERE rp.[PermissionId] = @PermissionId
+                          AND (
+                              EXISTS (
+                                  SELECT 1 FROM [dbo].[UserRoles] ur
+                                  WHERE ur.[UserId] = u.[Id]
+                                    AND ur.[RoleId] = rp.[RoleId]
+                                    AND ur.[IsActive] = 1
+                                    AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE()))
+                              OR EXISTS (
+                                  SELECT 1 FROM [dbo].[OrganizationUserRoles] our
+                                  WHERE our.[UserId] = u.[Id]
+                                    AND our.[RoleId] = rp.[RoleId]
+                                    AND our.[IsActive] = 1
+                                    AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE()))
+                          )
+                    ) x
+                ) AS [RoleNames]
+            {fromClause}
+            ORDER BY {orderBy}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        using var multi = await connection.QueryMultipleAsync(sql, new
+        {
+            PermissionId = permissionId,
+            SearchPattern = searchPattern,
+            Offset = offset,
+            PageSize = pageSize
+        });
+
+        var totalCount = await multi.ReadSingleAsync<int>();
+        var users = (await multi.ReadAsync<PermissionUserRow>()).ToList();
+
+        return (users, totalCount);
     }
 
     private record PermissionDto

@@ -1,4 +1,5 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -12,13 +13,16 @@ namespace Auth.Application.Features.Applications.GetApplicationById;
 public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationByIdQuery, ErrorOr<ApplicationDto>>
 {
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<GetApplicationByIdQueryHandler> _logger;
 
     public GetApplicationByIdQueryHandler(
         IApplicationRepository applicationRepository,
+        IUserRepository userRepository,
         ILogger<GetApplicationByIdQueryHandler> logger)
     {
         _applicationRepository = applicationRepository;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -30,6 +34,11 @@ public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationById
         {
             return ApplicationErrors.NotFound(request.Id);
         }
+
+        var userNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository,
+            [application.CreatedBy, application.ModifiedBy],
+            cancellationToken);
 
         _logger.LogDebug("Retrieved application {ApplicationId} ({ApplicationCode})", application.Id, application.Code);
 
@@ -50,8 +59,12 @@ public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationById
             MaxConcurrentSessions = application.MaxConcurrentSessions,
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
+            CreatedByName = userNames.GetValueOrDefault(application.CreatedBy),
             ModifiedAt = application.ModifiedAt,
-            ModifiedBy = application.ModifiedBy
+            ModifiedBy = application.ModifiedBy,
+            ModifiedByName = application.ModifiedBy.HasValue
+                ? userNames.GetValueOrDefault(application.ModifiedBy.Value)
+                : null
         };
     }
 }

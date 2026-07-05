@@ -154,5 +154,20 @@ public interface IPermissionRepository
         bool? isActive,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Gets the distinct users granted the permission via a direct grant, an
+    /// organization grant, or a role containing the permission, with pagination.
+    /// <paramref name="sortBy"/> accepts the allow-listed field names in
+    /// <see cref="Constants.SortFields.PermissionUsers"/>.
+    /// </summary>
+    Task<(IReadOnlyList<ReadModels.Access.PermissionUserRow> Users, int TotalCount)> GetUsersPagedAsync(
+        Guid permissionId,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
+
     #endregion
 }

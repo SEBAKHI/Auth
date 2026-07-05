@@ -86,4 +86,27 @@ public interface IRoleRepository
     /// Checks if a user has a specific role.
     /// </summary>
     Task<bool> UserHasRoleAsync(Guid userId, Guid roleId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the distinct users holding an active assignment of the role
+    /// (direct or through an organization), with pagination.
+    /// <paramref name="sortBy"/> accepts the allow-listed field names in
+    /// <see cref="Constants.SortFields.RoleUsers"/>.
+    /// </summary>
+    Task<(IReadOnlyList<ReadModels.Access.RoleUserRow> Users, int TotalCount)> GetUsersPagedAsync(
+        Guid roleId,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm,
+        string? sortBy,
+        Enums.SortDirection sortDirection,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the distinct applications related to the role: its owning
+    /// application and applications appearing on active assignments of the role.
+    /// </summary>
+    Task<IReadOnlyList<ReadModels.Access.RoleApplicationRow>> GetRoleApplicationsAsync(
+        Guid roleId,
+        CancellationToken cancellationToken);
 }

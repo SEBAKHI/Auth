@@ -114,6 +114,11 @@ public static class OrganizationErrors
         code: "Organization.RoleNotForApplication",
         description: "The specified role does not belong to the specified application.");
 
+    public static Error InvalidMembershipRole(Guid roleId) => Error.Validation(
+        code: "Organization.InvalidMembershipRole",
+        description: "An organization membership role must be an organization-level role, not an application-scoped role.",
+        metadata: new() { ["args"] = new object[] { roleId } });
+
     #endregion
 
     #region Permission Grant Errors

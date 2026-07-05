@@ -52,6 +52,12 @@ public class UpdateMemberRoleCommandHandler : IRequestHandler<UpdateMemberRoleCo
             return OrganizationErrors.RoleNotFound(request.NewRoleId);
         }
 
+        // The membership role must be organization-level; app roles are assigned separately
+        if (role.ApplicationId != null)
+        {
+            return OrganizationErrors.InvalidMembershipRole(request.NewRoleId);
+        }
+
         // Get membership
         var membership = await _organizationRepository.GetMembershipAsync(
             request.OrganizationId,

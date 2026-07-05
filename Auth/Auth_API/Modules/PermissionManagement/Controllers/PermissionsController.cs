@@ -8,6 +8,7 @@ using Auth.Application.Features.Permissions.DeletePermission;
 using Auth.Application.Features.Permissions.GetPermissionById;
 using Auth.Application.Features.Permissions.GetPermissionImplications;
 using Auth.Application.Features.Permissions.GetPermissions;
+using Auth.Application.Features.Permissions.GetPermissionUsers;
 using Auth.Application.Features.Permissions.RemovePermissionImplication;
 using Auth.Application.Features.Permissions.UpdatePermission;
 using Auth.Application.DTOs;
@@ -71,6 +72,32 @@ public class PermissionsController : ApiController
 
         return result.Match(
             permission => Ok(permission),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get paginated users granted a permission.
+    /// </summary>
+    [HttpGet("{id:guid}/users")]
+    [RequirePermission("permissions:read")]
+    [ProducesResponseType(typeof(PagedPermissionUsersDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetPermissionUsers(
+        Guid id,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetPermissionUsersQuery(id, pageNumber, pageSize, search, sortBy, sortDirection);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            users => Ok(users),
             errors => Problem(errors));
     }
 

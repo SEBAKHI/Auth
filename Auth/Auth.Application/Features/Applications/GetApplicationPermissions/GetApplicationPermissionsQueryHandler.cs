@@ -38,6 +38,7 @@ public class GetApplicationPermissionsQueryHandler : IRequestHandler<GetApplicat
         {
             Id = permission.Id,
             ApplicationId = permission.ApplicationId,
+            ApplicationName = permission.ApplicationId.HasValue ? application.Name : null,
             Code = permission.Code,
             Name = permission.Name,
             Description = permission.Description,

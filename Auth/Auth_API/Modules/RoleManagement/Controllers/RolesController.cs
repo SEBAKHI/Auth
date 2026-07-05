@@ -4,8 +4,10 @@ using Auth_API.Common;
 using Auth_API.Modules.RoleManagement.Contracts;
 using Auth.Application.Features.Roles.CreateRole;
 using Auth.Application.Features.Roles.DeleteRole;
+using Auth.Application.Features.Roles.GetRoleApplications;
 using Auth.Application.Features.Roles.GetRoleById;
 using Auth.Application.Features.Roles.GetRoles;
+using Auth.Application.Features.Roles.GetRoleUsers;
 using Auth.Application.Features.Roles.UpdateRole;
 using Auth.Application.DTOs;
 using Auth.Domain.Enums;
@@ -69,6 +71,55 @@ public class RolesController : ApiController
 
         return result.Match(
             role => Ok(role),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get paginated users assigned a role.
+    /// </summary>
+    [HttpGet("{id:guid}/users")]
+    [RequirePermission("roles:read")]
+    [ProducesResponseType(typeof(PagedRoleUsersDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetRoleUsers(
+        Guid id,
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetRoleUsersQuery(id, pageNumber, pageSize, search, sortBy, sortDirection);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            users => Ok(users),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get the applications related to a role.
+    /// </summary>
+    [HttpGet("{id:guid}/applications")]
+    [RequirePermission("roles:read")]
+    [ProducesResponseType(typeof(IReadOnlyList<RoleApplicationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetRoleApplications(
+        Guid id,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetRoleApplicationsQuery(id, sortBy, sortDirection);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            applications => Ok(applications),
             errors => Problem(errors));
     }
 

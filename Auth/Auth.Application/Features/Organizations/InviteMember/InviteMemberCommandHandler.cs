@@ -58,6 +58,12 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             return OrganizationErrors.RoleNotFound(request.RoleId);
         }
 
+        // The membership role must be organization-level; app roles are assigned separately
+        if (role.ApplicationId != null)
+        {
+            return OrganizationErrors.InvalidMembershipRole(request.RoleId);
+        }
+
         // Get inviter info
         var inviter = await _userRepository.GetByIdAsync(request.InvitedBy, cancellationToken);
         var inviterEmail = inviter?.Email?.Value;

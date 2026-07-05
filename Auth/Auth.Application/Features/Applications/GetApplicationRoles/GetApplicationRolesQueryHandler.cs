@@ -38,6 +38,7 @@ public class GetApplicationRolesQueryHandler : IRequestHandler<GetApplicationRol
         {
             Id = role.Id,
             ApplicationId = role.ApplicationId,
+            ApplicationName = role.ApplicationId.HasValue ? application.Name : null,
             Code = role.Code,
             Name = role.Name,
             Description = role.Description,

@@ -171,6 +171,15 @@ public interface IOrganizationRepository
         Guid applicationId,
         CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Gets, per application, the number of distinct users with an active,
+    /// unexpired app-role assignment or direct permission grant within an
+    /// organization. Applications with no assigned users are omitted.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, int>> GetAssignedUserCountsAsync(
+        Guid organizationId,
+        CancellationToken cancellationToken);
+
     #endregion
 
     #region Organization User Roles (App-level roles within org)

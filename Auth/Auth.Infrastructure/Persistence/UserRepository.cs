@@ -4,6 +4,7 @@ using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ReadModels.Access;
 using Dapper;
 using Microsoft.Extensions.Options;
 
@@ -35,6 +36,38 @@ public class UserRepository : IUserRepository
             new { UserId = id });
 
         return result?.ToUser();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<User>> GetByIdsAsync(
+        IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
+    {
+        if (ids.Count == 0)
+        {
+            return [];
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var results = await connection.QueryAsync<UserDto>(@"
+            SELECT
+                [Id], [Username], [Email], [NormalizedEmail], [PasswordHash],
+                [FirstName], [LastName], [FullName] AS [DisplayName], [PhoneNumber],
+                [PreferredLanguage], [TimeZone],
+                [IsEmailConfirmed] AS [EmailConfirmed],
+                [IsPhoneConfirmed] AS [PhoneConfirmed],
+                [IsTwoFactorEnabled] AS [TwoFactorEnabled],
+                [Status], [FailedLoginAttempts],
+                [LockoutEndUtc] AS [LockoutEnd],
+                [LastLoginUtc] AS [LastLoginAt],
+                [LastPasswordChangeUtc] AS [PasswordChangedAt],
+                [MustChangePassword],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+            FROM [dbo].[Users]
+            WHERE [Id] IN @Ids",
+            new { Ids = ids });
+
+        return results.Select(dto => dto.ToUser()).ToList();
     }
 
     /// <inheritdoc />
@@ -630,6 +663,64 @@ public class UserRepository : IUserRepository
             CreatedBy,
             ModifiedAt,
             ModifiedBy);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<UserApplicationAccess>> GetUserApplicationsAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Same access semantics as OrganizationRepository.HasAppAccessAsync,
+        // generalized to a list and unioned with direct app-scoped role assignments.
+        var rows = await connection.QueryAsync<UserApplicationAccess>(@"
+            SELECT
+                a.[Id] AS [ApplicationId],
+                a.[Code],
+                a.[Name],
+                a.[LogoUrl],
+                a.[IsActive],
+                CAST(MAX(src.[ViaOrganization]) AS BIT) AS [ViaOrganization],
+                CAST(MAX(src.[ViaDirect]) AS BIT) AS [ViaDirect]
+            FROM (
+                SELECT oa.[ApplicationId], 1 AS [ViaOrganization], 0 AS [ViaDirect]
+                FROM [dbo].[OrganizationUsers] ou
+                INNER JOIN [dbo].[Organizations] o ON ou.[OrganizationId] = o.[Id]
+                INNER JOIN [dbo].[OrganizationApplications] oa ON o.[Id] = oa.[OrganizationId]
+                WHERE ou.[UserId] = @UserId
+                  AND ou.[IsActive] = 1 AND o.[IsActive] = 1 AND oa.[IsActive] = 1
+                  AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())
+                  AND (oa.[ExpiresAt] IS NULL OR oa.[ExpiresAt] > GETUTCDATE())
+                  AND (
+                      EXISTS (
+                          SELECT 1 FROM [dbo].[OrganizationUserRoles] our
+                          WHERE our.[OrganizationId] = o.[Id]
+                            AND our.[UserId] = @UserId
+                            AND our.[ApplicationId] = oa.[ApplicationId]
+                            AND our.[IsActive] = 1
+                            AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE()))
+                      OR EXISTS (
+                          SELECT 1 FROM [dbo].[OrganizationUserPermissions] oup
+                          WHERE oup.[OrganizationId] = o.[Id]
+                            AND oup.[UserId] = @UserId
+                            AND oup.[ApplicationId] = oa.[ApplicationId]
+                            AND oup.[IsActive] = 1
+                            AND (oup.[ExpiresAt] IS NULL OR oup.[ExpiresAt] > GETUTCDATE()))
+                  )
+                UNION ALL
+                SELECT ur.[ApplicationId], 0, 1
+                FROM [dbo].[UserRoles] ur
+                WHERE ur.[UserId] = @UserId
+                  AND ur.[ApplicationId] IS NOT NULL
+                  AND ur.[IsActive] = 1
+                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+            ) src
+            INNER JOIN [dbo].[Applications] a ON src.[ApplicationId] = a.[Id]
+            GROUP BY a.[Id], a.[Code], a.[Name], a.[LogoUrl], a.[IsActive]",
+            new { UserId = userId });
+
+        return rows.ToList();
     }
 
     private record UserRoleInternalDto

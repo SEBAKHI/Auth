@@ -2,6 +2,7 @@ using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ReadModels.Access;
 using Dapper;
 using AppEntity = Auth.Domain.Entities.Application;
 
@@ -444,6 +445,179 @@ public class ApplicationRepository : IApplicationRepository
             CreatedBy,
             ModifiedAt,
             ModifiedBy);
+    }
+
+    private static readonly IReadOnlyDictionary<string, string[]> ApplicationUserSortColumns = SortSql.Map(
+        (SortFields.ApplicationUsers.Email, ["u.[Email]"]),
+        (SortFields.ApplicationUsers.FirstName, ["u.[FirstName]", "u.[LastName]"]),
+        (SortFields.ApplicationUsers.LastName, ["u.[LastName]", "u.[FirstName]"]),
+        (SortFields.ApplicationUsers.DisplayName, ["u.[FullName]"]),
+        (SortFields.ApplicationUsers.Status, ["u.[Status]"]),
+        (SortFields.ApplicationUsers.LastLoginAt, ["u.[LastLoginUtc]"]),
+        (SortFields.ApplicationUsers.CreatedAt, ["u.[CreatedAt]"]));
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<ApplicationUserRow> Users, int TotalCount)> GetUsersPagedAsync(
+        Guid applicationId,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm,
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var offset = (pageNumber - 1) * pageSize;
+        var searchPattern = string.IsNullOrEmpty(searchTerm) ? null : $"%{searchTerm}%";
+        var orderBy = SortSql.OrderBy(
+            ApplicationUserSortColumns, sortBy, sortDirection, "u.[Email]", "u.[Id]");
+
+        // A user belongs to the application when they hold an active app-scoped
+        // role assignment, directly (UserRoles) or through an organization
+        // (OrganizationUserRoles) — same signals as HasActiveUserAssignmentsAsync.
+        const string filter = @"
+            u.[IsDeleted] = 0
+              AND (@SearchPattern IS NULL OR
+                   u.[Email] LIKE @SearchPattern OR
+                   u.[FirstName] LIKE @SearchPattern OR
+                   u.[LastName] LIKE @SearchPattern)
+              AND (
+                  EXISTS (
+                      SELECT 1 FROM [dbo].[UserRoles] ur
+                      WHERE ur.[UserId] = u.[Id]
+                        AND ur.[ApplicationId] = @ApplicationId
+                        AND ur.[IsActive] = 1
+                        AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE()))
+                  OR EXISTS (
+                      SELECT 1 FROM [dbo].[OrganizationUserRoles] our
+                      WHERE our.[UserId] = u.[Id]
+                        AND our.[ApplicationId] = @ApplicationId
+                        AND our.[IsActive] = 1
+                        AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE()))
+              )";
+
+        var sql = $@"
+            SELECT COUNT(1) FROM [dbo].[Users] u
+            WHERE {filter};
+
+            SELECT
+                u.[Id] AS [UserId],
+                u.[Email],
+                u.[FirstName],
+                u.[LastName],
+                u.[FullName] AS [DisplayName],
+                u.[Status],
+                u.[LastLoginUtc] AS [LastLoginAt],
+                u.[CreatedAt],
+                rn.[RoleNames]
+            FROM [dbo].[Users] u
+            OUTER APPLY (
+                SELECT STRING_AGG(x.[Name], ', ') WITHIN GROUP (ORDER BY x.[Name]) AS [RoleNames]
+                FROM (
+                    SELECT r.[Name]
+                    FROM [dbo].[UserRoles] ur
+                    INNER JOIN [dbo].[Roles] r ON ur.[RoleId] = r.[Id]
+                    WHERE ur.[UserId] = u.[Id]
+                      AND ur.[ApplicationId] = @ApplicationId
+                      AND ur.[IsActive] = 1
+                      AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
+                    UNION
+                    SELECT r.[Name]
+                    FROM [dbo].[OrganizationUserRoles] our
+                    INNER JOIN [dbo].[Roles] r ON our.[RoleId] = r.[Id]
+                    WHERE our.[UserId] = u.[Id]
+                      AND our.[ApplicationId] = @ApplicationId
+                      AND our.[IsActive] = 1
+                      AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE())
+                ) x
+            ) rn
+            WHERE {filter}
+            ORDER BY {orderBy}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        using var multi = await connection.QueryMultipleAsync(sql, new
+        {
+            ApplicationId = applicationId,
+            SearchPattern = searchPattern,
+            Offset = offset,
+            PageSize = pageSize
+        });
+
+        var totalCount = await multi.ReadSingleAsync<int>();
+        var users = (await multi.ReadAsync<ApplicationUserRow>()).ToList();
+
+        return (users, totalCount);
+    }
+
+    private static readonly IReadOnlyDictionary<string, string[]> ApplicationOrganizationSortColumns = SortSql.Map(
+        (SortFields.ApplicationOrganizations.Name, ["o.[Name]"]),
+        (SortFields.ApplicationOrganizations.Code, ["o.[Code]"]),
+        (SortFields.ApplicationOrganizations.EnabledAt, ["oa.[EnabledAt]"]),
+        (SortFields.ApplicationOrganizations.ExpiresAt, ["oa.[ExpiresAt]"]),
+        (SortFields.ApplicationOrganizations.IsActive, ["oa.[IsActive]"]),
+        (SortFields.ApplicationOrganizations.OrganizationIsActive, ["o.[IsActive]"]),
+        (SortFields.ApplicationOrganizations.MemberCount, ["[MemberCount]"]));
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<ApplicationOrganizationRow> Organizations, int TotalCount)> GetOrganizationsPagedAsync(
+        Guid applicationId,
+        int pageNumber,
+        int pageSize,
+        string? searchTerm,
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var offset = (pageNumber - 1) * pageSize;
+        var searchPattern = string.IsNullOrEmpty(searchTerm) ? null : $"%{searchTerm}%";
+        var orderBy = SortSql.OrderBy(
+            ApplicationOrganizationSortColumns, sortBy, sortDirection, "o.[Name]", "o.[Id]");
+
+        // Inactive enablement links are included so admins can see disabled tenants.
+        var sql = $@"
+            SELECT COUNT(1)
+            FROM [dbo].[OrganizationApplications] oa
+            INNER JOIN [dbo].[Organizations] o ON oa.[OrganizationId] = o.[Id]
+            WHERE oa.[ApplicationId] = @ApplicationId
+              AND (@SearchPattern IS NULL OR
+                   o.[Name] LIKE @SearchPattern OR
+                   o.[Code] LIKE @SearchPattern);
+
+            SELECT
+                o.[Id] AS [OrganizationId],
+                o.[Code],
+                o.[Name],
+                o.[LogoUrl],
+                o.[IsActive] AS [OrganizationIsActive],
+                oa.[IsActive] AS [LinkIsActive],
+                oa.[EnabledAt],
+                oa.[ExpiresAt],
+                (SELECT COUNT(1) FROM [dbo].[OrganizationUsers] ou
+                 WHERE ou.[OrganizationId] = o.[Id] AND ou.[IsActive] = 1) AS [MemberCount]
+            FROM [dbo].[OrganizationApplications] oa
+            INNER JOIN [dbo].[Organizations] o ON oa.[OrganizationId] = o.[Id]
+            WHERE oa.[ApplicationId] = @ApplicationId
+              AND (@SearchPattern IS NULL OR
+                   o.[Name] LIKE @SearchPattern OR
+                   o.[Code] LIKE @SearchPattern)
+            ORDER BY {orderBy}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        using var multi = await connection.QueryMultipleAsync(sql, new
+        {
+            ApplicationId = applicationId,
+            SearchPattern = searchPattern,
+            Offset = offset,
+            PageSize = pageSize
+        });
+
+        var totalCount = await multi.ReadSingleAsync<int>();
+        var organizations = (await multi.ReadAsync<ApplicationOrganizationRow>()).ToList();
+
+        return (organizations, totalCount);
     }
 
     private record PermissionDto

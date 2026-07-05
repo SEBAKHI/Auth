@@ -7,6 +7,10 @@ public class WebhookKeyDto
 {
     public Guid Id { get; set; }
     public Guid ApplicationId { get; set; }
+
+    /// <summary>Name of the owning application; null when unresolved.</summary>
+    public string? ApplicationName { get; set; }
+
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public string KeyPrefix { get; set; } = string.Empty;

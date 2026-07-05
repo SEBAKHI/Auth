@@ -1,4 +1,5 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using ErrorOr;
 using MediatR;
@@ -11,13 +12,16 @@ namespace Auth.Application.Features.Applications.GetApplications;
 public class GetApplicationsQueryHandler : IRequestHandler<GetApplicationsQuery, ErrorOr<PagedApplicationsDto>>
 {
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<GetApplicationsQueryHandler> _logger;
 
     public GetApplicationsQueryHandler(
         IApplicationRepository applicationRepository,
+        IUserRepository userRepository,
         ILogger<GetApplicationsQueryHandler> logger)
     {
         _applicationRepository = applicationRepository;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -30,6 +34,11 @@ public class GetApplicationsQueryHandler : IRequestHandler<GetApplicationsQuery,
             request.IsActive,
             request.SortBy,
             request.SortDirection,
+            cancellationToken);
+
+        var userNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository,
+            applications.SelectMany(app => new Guid?[] { app.CreatedBy, app.ModifiedBy }),
             cancellationToken);
 
         var dtos = applications.Select(app => new ApplicationDto
@@ -49,8 +58,12 @@ public class GetApplicationsQueryHandler : IRequestHandler<GetApplicationsQuery,
             MaxConcurrentSessions = app.MaxConcurrentSessions,
             CreatedAt = app.CreatedAt,
             CreatedBy = app.CreatedBy,
+            CreatedByName = userNames.GetValueOrDefault(app.CreatedBy),
             ModifiedAt = app.ModifiedAt,
-            ModifiedBy = app.ModifiedBy
+            ModifiedBy = app.ModifiedBy,
+            ModifiedByName = app.ModifiedBy.HasValue
+                ? userNames.GetValueOrDefault(app.ModifiedBy.Value)
+                : null
         }).ToList();
 
         _logger.LogDebug(

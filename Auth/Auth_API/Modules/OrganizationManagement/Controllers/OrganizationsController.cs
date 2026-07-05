@@ -7,6 +7,7 @@ using Auth.Application.Features.Organizations.CreateOrganization;
 using Auth.Application.Features.Organizations.DeleteOrganization;
 using Auth.Application.Features.Organizations.DisableApplication;
 using Auth.Application.Features.Organizations.EnableApplication;
+using Auth.Application.Features.Organizations.GetMemberAppRoles;
 using Auth.Application.Features.Organizations.GetOrganizationApplications;
 using Auth.Application.Features.Organizations.GetOrganizationById;
 using Auth.Application.Features.Organizations.GetOrganizationMembers;
@@ -14,6 +15,7 @@ using Auth.Application.Features.Organizations.GetPendingInvitations;
 using Auth.Application.Features.Organizations.GetUserOrganizations;
 using Auth.Application.Features.Organizations.GrantPermission;
 using Auth.Application.Features.Organizations.InviteMember;
+using Auth.Application.Features.Organizations.RemoveAppRole;
 using Auth.Application.Features.Organizations.ResendInvitation;
 using Auth.Application.Features.Organizations.RemoveMember;
 using Auth.Application.Features.Organizations.UpdateMemberRole;
@@ -407,6 +409,29 @@ public class OrganizationsController : ApiController
     #region Member App Roles
 
     /// <summary>
+    /// Get all app-level role assignments for a member.
+    /// </summary>
+    [HttpGet("{orgId:guid}/members/{userId:guid}/roles")]
+    [RequirePermission("org:permissions:read")]
+    [ProducesResponseType(typeof(IReadOnlyList<OrganizationMemberAppRoleDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMemberAppRoles(
+        Guid orgId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var currentUserId = GetCurrentUserId();
+        var query = new GetMemberAppRolesQuery(orgId, userId) { RequestedBy = currentUserId };
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            roles => Ok(roles),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
     /// Assign an app-level role to a member.
     /// </summary>
     [HttpPost("{orgId:guid}/members/{userId:guid}/roles")]
@@ -431,6 +456,31 @@ public class OrganizationsController : ApiController
 
         return result.Match(
             role => CreatedAtAction(nameof(GetMembers), new { id = orgId }, role),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Remove an app-level role from a member. The application is derived
+    /// from the role, since a role belongs to exactly one application.
+    /// </summary>
+    [HttpDelete("{orgId:guid}/members/{userId:guid}/roles/{roleId:guid}")]
+    [RequirePermission("org:permissions:manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> RemoveAppRole(
+        Guid orgId,
+        Guid userId,
+        Guid roleId,
+        CancellationToken cancellationToken)
+    {
+        var currentUserId = GetCurrentUserId();
+        var command = new RemoveAppRoleCommand(orgId, userId, roleId) { RemovedBy = currentUserId };
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
             errors => Problem(errors));
     }
 
