@@ -78,6 +78,9 @@
   <data name="Validation.PageSize.Range" xml:space="preserve">
     <value>每页条数必须在1到100之间。</value>
   </data>
+  <data name="Validation.Days.Range" xml:space="preserve">
+    <value>天数必须在1到90之间。</value>
+  </data>
   <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
     <value>此列表不允许使用该排序字段。</value>
   </data>

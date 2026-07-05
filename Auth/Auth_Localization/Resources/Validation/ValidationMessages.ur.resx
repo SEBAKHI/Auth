@@ -78,6 +78,9 @@
   <data name="Validation.PageSize.Range" xml:space="preserve">
     <value>صفحے کا سائز ۱ سے ۱۰۰ کے درمیان ہونا چاہیے۔</value>
   </data>
+  <data name="Validation.Days.Range" xml:space="preserve">
+    <value>دنوں کی تعداد ۱ سے ۹۰ کے درمیان ہونی چاہیے۔</value>
+  </data>
   <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
     <value>اس فہرست کے لیے ترتیب دینے کی فیلڈ کی اجازت نہیں ہے۔</value>
   </data>

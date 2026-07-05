@@ -78,6 +78,9 @@
   <data name="Validation.PageSize.Range" xml:space="preserve">
     <value>La taille de page doit être comprise entre 1 et 100.</value>
   </data>
+  <data name="Validation.Days.Range" xml:space="preserve">
+    <value>Le nombre de jours doit être compris entre 1 et 90.</value>
+  </data>
   <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
     <value>Le champ de tri n'est pas autorisé pour cette liste.</value>
   </data>

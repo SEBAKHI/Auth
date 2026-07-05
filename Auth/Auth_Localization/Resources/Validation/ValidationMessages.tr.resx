@@ -78,6 +78,9 @@
   <data name="Validation.PageSize.Range" xml:space="preserve">
     <value>Sayfa boyutu 1 ile 100 arasında olmalıdır.</value>
   </data>
+  <data name="Validation.Days.Range" xml:space="preserve">
+    <value>Gün sayısı 1 ile 90 arasında olmalıdır.</value>
+  </data>
   <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
     <value>Sıralama alanına bu liste için izin verilmiyor.</value>
   </data>
