@@ -17,16 +17,19 @@ public class GetRoleByIdQueryHandlerTests
 {
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock;
+    private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
     private readonly GetRoleByIdQueryHandler _handler;
 
     public GetRoleByIdQueryHandlerTests()
     {
         _roleRepositoryMock = new Mock<IRoleRepository>();
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
+        _applicationRepositoryMock = new Mock<IApplicationRepository>();
 
         _handler = new GetRoleByIdQueryHandler(
             _roleRepositoryMock.Object,
-            _permissionRepositoryMock.Object);
+            _permissionRepositoryMock.Object,
+            _applicationRepositoryMock.Object);
     }
 
     [Fact]
@@ -58,6 +61,10 @@ public class GetRoleByIdQueryHandlerTests
             .Setup(r => r.GetRolePermissionsAsync(roleId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(permissions);
 
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "CRM App"));
+
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
 
@@ -66,6 +73,7 @@ public class GetRoleByIdQueryHandlerTests
         result.Value.Should().NotBeNull();
         result.Value.Id.Should().Be(roleId);
         result.Value.ApplicationId.Should().Be(applicationId);
+        result.Value.ApplicationName.Should().Be("CRM App");
         result.Value.Code.Should().Be("EDITOR");
         result.Value.Name.Should().Be("Editor");
         result.Value.Description.Should().Be("Can edit content");
@@ -102,16 +110,19 @@ public class GetRolesQueryHandlerTests
 {
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock;
+    private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
     private readonly GetRolesQueryHandler _handler;
 
     public GetRolesQueryHandlerTests()
     {
         _roleRepositoryMock = new Mock<IRoleRepository>();
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
+        _applicationRepositoryMock = new Mock<IApplicationRepository>();
 
         _handler = new GetRolesQueryHandler(
             _roleRepositoryMock.Object,
-            _permissionRepositoryMock.Object);
+            _permissionRepositoryMock.Object,
+            _applicationRepositoryMock.Object);
     }
 
     [Fact]
@@ -140,6 +151,10 @@ public class GetRolesQueryHandlerTests
             .Setup(r => r.GetRolePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Permission>());
 
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "CRM App"));
+
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
 
@@ -148,6 +163,12 @@ public class GetRolesQueryHandlerTests
         result.Value.Should().HaveCount(2);
         result.Value[0].Code.Should().Be("ADMIN");
         result.Value[1].Code.Should().Be("VIEWER");
+        result.Value.Should().OnlyContain(r => r.ApplicationName == "CRM App");
+
+        // Distinct application ids resolve once, not per role.
+        _applicationRepositoryMock.Verify(
+            r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()),
+            Times.Once);
 
         _roleRepositoryMock.Verify(
             r => r.GetByApplicationAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),

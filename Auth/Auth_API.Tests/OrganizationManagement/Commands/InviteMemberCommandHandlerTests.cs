@@ -433,4 +433,41 @@ public class InviteMemberCommandHandlerTests
         result.Value.Email.Should().Be("test@example.com");
         capturedInvitation!.Email.Value.Should().Be("test@example.com");
     }
+
+    [Fact]
+    public async Task Handle_WhenRoleIsApplicationScoped_ReturnsValidationError()
+    {
+        // Arrange
+        var orgId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+
+        var command = new InviteMemberCommand(
+            OrganizationId: orgId,
+            Email: "test@example.com",
+            RoleId: roleId)
+        { InvitedBy = Guid.NewGuid() };
+
+        var organization = TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: true);
+        var appScopedRole = TestHelpers.CreateRole(
+            id: roleId, applicationId: Guid.NewGuid(), code: "APP-ADMIN", name: "Administrator");
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(organization);
+
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(appScopedRole);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Type.Should().Be(ErrorType.Validation);
+        result.FirstError.Code.Should().Be("Organization.InvalidMembershipRole");
+        _organizationRepositoryMock.Verify(
+            r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
 }

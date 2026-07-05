@@ -227,6 +227,28 @@ public class UpdateMemberRoleCommandHandlerTests
 
         result.IsError.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task Handle_ApplicationScopedRole_ReturnsValidationError()
+    {
+        var orgId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var newRoleId = Guid.NewGuid();
+        var org = TestHelpers.CreateOrganization(id: orgId, isActive: true);
+        var appScopedRole = TestHelpers.CreateRole(id: newRoleId, applicationId: Guid.NewGuid(), name: "Administrator");
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
+        _roleRepoMock.Setup(r => r.GetByIdAsync(newRoleId, It.IsAny<CancellationToken>())).ReturnsAsync(appScopedRole);
+
+        var result = await _handler.Handle(
+            new UpdateMemberRoleCommand(orgId, userId, newRoleId) { ModifiedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Type.Should().Be(ErrorType.Validation);
+        result.FirstError.Code.Should().Be("Organization.InvalidMembershipRole");
+        _orgRepoMock.Verify(r => r.UpdateMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
 }
 
 public class ResendInvitationCommandHandlerTests

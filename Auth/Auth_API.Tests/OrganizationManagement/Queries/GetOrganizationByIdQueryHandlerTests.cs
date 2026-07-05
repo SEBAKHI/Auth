@@ -97,6 +97,10 @@ public class GetOrganizationByIdQueryHandlerTests
             .Setup(r => r.GetEnabledApplicationsAsync(orgId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<OrganizationApplication> { enabledApp });
 
+        _organizationRepositoryMock
+            .Setup(r => r.GetAssignedUserCountsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, int> { [appId] = 3 });
+
         _applicationRepositoryMock
             .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
@@ -118,6 +122,7 @@ public class GetOrganizationByIdQueryHandlerTests
         result.Value.Members.Should().HaveCount(1);
         result.Value.EnabledApplications.Should().HaveCount(1);
         result.Value.EnabledApplications.First().SubscriptionTier.Should().Be("pro");
+        result.Value.EnabledApplications.First().AssignedUserCount.Should().Be(3);
     }
 
     [Fact]
@@ -234,6 +239,10 @@ public class GetOrganizationByIdQueryHandlerTests
         _organizationRepositoryMock
             .Setup(r => r.GetEnabledApplicationsAsync(orgId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(apps);
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetAssignedUserCountsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, int>());
 
         _applicationRepositoryMock
             .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))

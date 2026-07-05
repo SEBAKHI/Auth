@@ -189,6 +189,8 @@ public class GetOrganizationApplicationsQueryHandlerTests
         _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
         _orgRepoMock.Setup(r => r.IsMemberAsync(orgId, requestedBy, It.IsAny<CancellationToken>())).ReturnsAsync(true);
         _orgRepoMock.Setup(r => r.GetEnabledApplicationsAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(orgApps);
+        _orgRepoMock.Setup(r => r.GetAssignedUserCountsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, int> { [appId] = 2 });
         _appRepoMock.Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>())).ReturnsAsync(app);
 
         var result = await _handler.Handle(
@@ -197,6 +199,7 @@ public class GetOrganizationApplicationsQueryHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.Should().HaveCount(1);
+        result.Value[0].AssignedUserCount.Should().Be(2);
     }
 
     [Fact]

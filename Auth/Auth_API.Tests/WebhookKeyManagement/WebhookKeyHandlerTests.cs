@@ -231,11 +231,14 @@ public class ValidateWebhookKeyQueryHandlerTests
 public class GetWebhookKeysQueryHandlerTests
 {
     private readonly Mock<IWebhookKeyRepository> _repoMock = new();
+    private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
     private readonly GetWebhookKeysQueryHandler _handler;
 
     public GetWebhookKeysQueryHandlerTests()
     {
-        _handler = new GetWebhookKeysQueryHandler(_repoMock.Object);
+        _handler = new GetWebhookKeysQueryHandler(
+            _repoMock.Object,
+            _applicationRepositoryMock.Object);
     }
 
     [Fact]
@@ -251,9 +254,14 @@ public class GetWebhookKeysQueryHandlerTests
         _repoMock.Setup(r => r.GetByApplicationAsync(appId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(keys);
 
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: appId, name: "Hooked App"));
+
         var result = await _handler.Handle(new GetWebhookKeysQuery(appId), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         result.Value.Should().HaveCount(2);
+        result.Value.Should().OnlyContain(k => k.ApplicationName == "Hooked App");
     }
 }

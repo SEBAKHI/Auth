@@ -17,16 +17,19 @@ namespace Auth_API.Tests.PermissionManagement.Queries;
 public class GetPermissionByIdQueryHandlerTests
 {
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock;
+    private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
     private readonly Mock<ILogger<GetPermissionByIdQueryHandler>> _loggerMock;
     private readonly GetPermissionByIdQueryHandler _handler;
 
     public GetPermissionByIdQueryHandlerTests()
     {
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
+        _applicationRepositoryMock = new Mock<IApplicationRepository>();
         _loggerMock = new Mock<ILogger<GetPermissionByIdQueryHandler>>();
 
         _handler = new GetPermissionByIdQueryHandler(
             _permissionRepositoryMock.Object,
+            _applicationRepositoryMock.Object,
             _loggerMock.Object);
     }
 
@@ -49,6 +52,10 @@ public class GetPermissionByIdQueryHandlerTests
             .Setup(r => r.GetByIdAsync(permissionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(permission);
 
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "Orders App"));
+
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
 
@@ -57,6 +64,7 @@ public class GetPermissionByIdQueryHandlerTests
         result.Value.Should().NotBeNull();
         result.Value.Id.Should().Be(permissionId);
         result.Value.ApplicationId.Should().Be(applicationId);
+        result.Value.ApplicationName.Should().Be("Orders App");
         result.Value.Code.Should().Be(permission.Code);
         result.Value.Name.Should().Be(permission.Name);
         result.Value.Description.Should().Be(permission.Description);
@@ -90,14 +98,17 @@ public class GetPermissionByIdQueryHandlerTests
 public class GetPermissionsQueryHandlerTests
 {
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock;
+    private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
     private readonly GetPermissionsQueryHandler _handler;
 
     public GetPermissionsQueryHandlerTests()
     {
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
+        _applicationRepositoryMock = new Mock<IApplicationRepository>();
 
         _handler = new GetPermissionsQueryHandler(
-            _permissionRepositoryMock.Object);
+            _permissionRepositoryMock.Object,
+            _applicationRepositoryMock.Object);
     }
 
     [Fact]
@@ -117,6 +128,10 @@ public class GetPermissionsQueryHandlerTests
             .Setup(r => r.GetByApplicationAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(permissions);
 
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "Orders App"));
+
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
 
@@ -124,6 +139,12 @@ public class GetPermissionsQueryHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Should().HaveCount(2);
         result.Value.Should().AllSatisfy(p => p.ApplicationId.Should().Be(applicationId));
+        result.Value.Should().OnlyContain(p => p.ApplicationName == "Orders App");
+
+        // Distinct application ids resolve once, not per permission.
+        _applicationRepositoryMock.Verify(
+            r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()),
+            Times.Once);
 
         _permissionRepositoryMock.Verify(
             r => r.GetByApplicationAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),

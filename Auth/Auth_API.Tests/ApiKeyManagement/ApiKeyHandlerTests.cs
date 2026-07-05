@@ -461,12 +461,16 @@ public class ValidateApiKeyQueryHandlerTests
 public class GetApiKeysQueryHandlerTests
 {
     private readonly Mock<IApiKeyRepository> _apiKeyRepositoryMock;
+    private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
     private readonly GetApiKeysQueryHandler _handler;
 
     public GetApiKeysQueryHandlerTests()
     {
         _apiKeyRepositoryMock = new Mock<IApiKeyRepository>();
-        _handler = new GetApiKeysQueryHandler(_apiKeyRepositoryMock.Object);
+        _applicationRepositoryMock = new Mock<IApplicationRepository>();
+        _handler = new GetApiKeysQueryHandler(
+            _apiKeyRepositoryMock.Object,
+            _applicationRepositoryMock.Object);
     }
 
     [Fact]
@@ -491,6 +495,10 @@ public class GetApiKeysQueryHandlerTests
             .Setup(r => r.GetByApplicationAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ApiKey> { apiKey1, apiKey2 });
 
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "Keyed App"));
+
         _apiKeyRepositoryMock
             .Setup(r => r.GetScopesAsync(apiKey1.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "read:users" });
@@ -508,6 +516,7 @@ public class GetApiKeysQueryHandlerTests
 
         result.Value[0].Name.Should().Be("Key One");
         result.Value[0].ApplicationId.Should().Be(applicationId);
+        result.Value[0].ApplicationName.Should().Be("Keyed App");
         result.Value[0].KeyPrefix.Should().Be("ak_prod_");
         result.Value[0].Environment.Should().Be("production");
         result.Value[0].Scopes.Should().HaveCount(1);
