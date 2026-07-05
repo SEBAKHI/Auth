@@ -3,6 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApplicationSelect } from "@/components/common/application-select"
@@ -31,6 +32,7 @@ type RoleDto = Schemas["RoleDto"]
 export function RolesPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [applicationId, setApplicationId] = React.useState<string>()
@@ -41,7 +43,6 @@ export function RolesPage() {
   const canCreate = hasPermission(PERMISSIONS.roles.create)
   const canUpdate = hasPermission(PERMISSIONS.roles.update)
   const canDelete = hasPermission(PERMISSIONS.roles.delete)
-  const hasRowActions = canUpdate || canDelete
 
   const query = useQuery({
     queryKey: ["roles", { applicationId }],
@@ -75,12 +76,16 @@ export function RolesPage() {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <div className="min-w-0">
+        <button
+          type="button"
+          className="min-w-0 text-start hover:underline"
+          onClick={() => navigate(`/roles/${row.original.id}`)}
+        >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </div>
+        </button>
       ),
     },
     {
@@ -125,8 +130,7 @@ export function RolesPage() {
           <span className="text-sm text-muted-foreground">—</span>
         ),
     },
-    ...(hasRowActions
-      ? [
+    ...[
           {
             id: "actions",
             enableSorting: false,
@@ -149,6 +153,11 @@ export function RolesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => navigate(`/roles/${role.id}`)}
+                      >
+                        {t("common.view")}
+                      </DropdownMenuItem>
                       {canUpdate ? (
                         <DropdownMenuItem
                           onClick={() => {
@@ -176,8 +185,7 @@ export function RolesPage() {
               )
             },
           } satisfies ColumnDef<RoleDto, unknown>,
-        ]
-      : []),
+        ],
   ]
 
   return (
@@ -217,14 +225,7 @@ export function RolesPage() {
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
-        onEditRow={
-          canUpdate
-            ? (role) => {
-                setEditing(role)
-                setFormOpen(true)
-              }
-            : undefined
-        }
+        enableRowDetail={false}
       />
 
       <RoleFormDialog

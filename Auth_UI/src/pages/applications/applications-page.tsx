@@ -3,6 +3,7 @@ import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { MoreHorizontal, Plus, Search } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
@@ -36,6 +37,7 @@ type ApplicationDto = Schemas["ApplicationDto"]
 export function ApplicationsPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [page, setPage] = React.useState(0)
@@ -53,7 +55,6 @@ export function ApplicationsPage() {
   const canCreate = hasPermission(PERMISSIONS.applications.create)
   const canUpdate = hasPermission(PERMISSIONS.applications.update)
   const canDelete = hasPermission(PERMISSIONS.applications.delete)
-  const hasRowActions = canUpdate || canDelete
 
   const query = useQuery({
     queryKey: ["applications", { page, pageSize, search, sortBy, sortDirection }],
@@ -119,12 +120,16 @@ export function ApplicationsPage() {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <div className="min-w-0">
+        <button
+          type="button"
+          className="min-w-0 text-start hover:underline"
+          onClick={() => navigate(`/applications/${row.original.id}`)}
+        >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </div>
+        </button>
       ),
     },
     {
@@ -168,8 +173,7 @@ export function ApplicationsPage() {
         </span>
       ),
     },
-    ...(hasRowActions
-      ? [
+    ...[
           {
             id: "actions",
             enableSorting: false,
@@ -192,6 +196,11 @@ export function ApplicationsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => navigate(`/applications/${app.id}`)}
+                      >
+                        {t("common.view")}
+                      </DropdownMenuItem>
                       {canUpdate ? (
                         <DropdownMenuItem onClick={() => setEditing(app)}>
                           {t("common.edit")}
@@ -214,8 +223,7 @@ export function ApplicationsPage() {
               )
             },
           } satisfies ColumnDef<ApplicationDto, unknown>,
-        ]
-      : []),
+        ],
   ]
 
   return (
@@ -259,7 +267,7 @@ export function ApplicationsPage() {
           setSorting(next)
           setPage(0)
         }}
-        onEditRow={canUpdate ? (app) => setEditing(app) : undefined}
+        enableRowDetail={false}
         pagination={{
           pageIndex: page,
           pageSize,

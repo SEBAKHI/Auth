@@ -24,6 +24,8 @@ import {
   DEFAULT_AUDIT_FIELD_KEYS,
   formatFieldValue,
   humanizeKey,
+  nameSiblingKey,
+  pairedLabelKey,
 } from "./field-format"
 
 interface DataTableRowDetailProps<TData> {
@@ -84,23 +86,49 @@ export function DataTableRowDetail<TData>({
   )
 
   const { main, audit } = React.useMemo(() => {
-    const mainFields: Array<[string, unknown]> = []
-    const auditFields: Array<[string, unknown]> = []
+    type DetailField = { key: string; value: unknown; paired: boolean }
+    const mainFields: DetailField[] = []
+    const auditFields: DetailField[] = []
     if (row && typeof row === "object") {
+      const record = row as Record<string, unknown>
       const auditOrder = auditFieldKeys as readonly string[]
       const auditSet = new Set(auditOrder)
       const hiddenSet = new Set(hiddenKeys ?? [])
-      for (const [key, value] of Object.entries(row)) {
-        if (hiddenSet.has(key)) continue
-        if (auditSet.has(key)) auditFields.push([key, value])
-        else mainFields.push([key, value])
+      const keySet = new Set(Object.keys(record))
+      // Resolved-name siblings collapse into their id field (applicationId +
+      // applicationName, createdBy + createdByName): the id row shows the
+      // name and the sibling row is dropped as a duplicate.
+      const consumed = new Set<string>()
+      for (const key of keySet) {
+        const sibling = nameSiblingKey(key)
+        if (sibling !== key && keySet.has(sibling)) consumed.add(sibling)
+      }
+      for (const [key, value] of Object.entries(record)) {
+        if (hiddenSet.has(key) || consumed.has(key)) continue
+        const paired = consumed.has(nameSiblingKey(key))
+        const name = paired ? record[nameSiblingKey(key)] : undefined
+        const display =
+          typeof name === "string" && name !== "" ? name : value
+        const entry: DetailField = { key, value: display, paired }
+        if (auditSet.has(key)) auditFields.push(entry)
+        else mainFields.push(entry)
       }
       auditFields.sort(
-        (a, b) => auditOrder.indexOf(a[0]) - auditOrder.indexOf(b[0])
+        (a, b) => auditOrder.indexOf(a.key) - auditOrder.indexOf(b.key)
       )
     }
     return { main: mainFields, audit: auditFields }
   }, [row, auditFieldKeys, hiddenKeys])
+
+  // Paired id fields drop the "Id" suffix from their label ("Application id"
+  // → "Application"); everything else keeps the table/i18n label.
+  const detailLabel = React.useCallback(
+    (field: { key: string; paired: boolean }): string =>
+      field.paired && field.key.endsWith("Id")
+        ? humanizeKey(pairedLabelKey(field.key))
+        : resolveLabel(field.key),
+    [resolveLabel]
+  )
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -113,13 +141,13 @@ export function DataTableRowDetail<TData>({
             </SheetDescription>
           </SheetHeader>
 
-          <ScrollArea className="flex-1">
+          <ScrollArea className="min-h-0 flex-1">
             <FieldGroup className="px-6 pb-6">
-              {main.map(([key, value]) => (
+              {main.map((field) => (
                 <FieldRow
-                  key={key}
-                  label={resolveLabel(key)}
-                  value={formatFieldValue(value, t)}
+                  key={field.key}
+                  label={detailLabel(field)}
+                  value={formatFieldValue(field.value, t)}
                 />
               ))}
 
@@ -128,11 +156,11 @@ export function DataTableRowDetail<TData>({
                   <FieldLegend variant="label">
                     {t("common.auditFields")}
                   </FieldLegend>
-                  {audit.map(([key, value]) => (
+                  {audit.map((field) => (
                     <FieldRow
-                      key={key}
-                      label={resolveLabel(key)}
-                      value={formatFieldValue(value, t)}
+                      key={field.key}
+                      label={detailLabel(field)}
+                      value={formatFieldValue(field.value, t)}
                     />
                   ))}
                 </FieldSet>

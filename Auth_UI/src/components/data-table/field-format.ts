@@ -15,6 +15,21 @@ export const DEFAULT_AUDIT_FIELD_KEYS = [
   "updatedBy",
 ] as const
 
+/**
+ * Key of the resolved-name sibling the API pairs with an id-like field:
+ * "applicationId" → "applicationName", "createdBy" → "createdByName",
+ * "ownerId" → "ownerName". When a record carries both, generic renders (auto
+ * columns, detail panel, CSV export) show the name and drop the raw id.
+ */
+export function nameSiblingKey(key: string): string {
+  return `${key.endsWith("Id") ? key.slice(0, -2) : key}Name`
+}
+
+/** Label source for a paired id field: "applicationId" → "application". */
+export function pairedLabelKey(key: string): string {
+  return key.endsWith("Id") ? key.slice(0, -2) : key
+}
+
 /** "phoneNumber" → "Phone number", "twoFactorEnabled" → "Two factor enabled". */
 export function humanizeKey(key: string): string {
   const words = key

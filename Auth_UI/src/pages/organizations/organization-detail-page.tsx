@@ -8,6 +8,7 @@ import { toast } from "sonner"
 
 import { ApplicationSelect } from "@/components/common/application-select"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
+import { DetailList } from "@/components/common/detail-list"
 import { PageHeader } from "@/components/common/page-header"
 import { DataTable } from "@/components/data-table/data-table"
 import { Badge } from "@/components/ui/badge"
@@ -43,6 +44,7 @@ import { DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
 import { formatDate, fullName } from "@/lib/format"
 import type { Schemas } from "@/lib/api/types"
+import { MemberAppRolesDialog } from "./member-app-roles-dialog"
 import { OrganizationFormDialog } from "./organization-form-dialog"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -53,6 +55,8 @@ function MembersTab({ orgId }: { orgId: string }) {
   const [page, setPage] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
   const [removing, setRemoving] =
+    React.useState<Schemas["OrganizationMemberDto"]>()
+  const [managingRoles, setManagingRoles] =
     React.useState<Schemas["OrganizationMemberDto"]>()
   // Server-side sort over the whole dataset; initial value mirrors the API default.
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -157,13 +161,28 @@ function MembersTab({ orgId }: { orgId: string }) {
       header: () => <span className="sr-only">{t("common.actions")}</span>,
       cell: ({ row }) => (
         <div className="text-end">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setRemoving(row.original)}
-          >
-            {t("organizations.removeMember")}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("common.actions")}
+              >
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setManagingRoles(row.original)}>
+                {t("organizations.manageAppRoles")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                onClick={() => setRemoving(row.original)}
+              >
+                {t("organizations.removeMember")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       ),
     },
@@ -208,6 +227,14 @@ function MembersTab({ orgId }: { orgId: string }) {
           removing?.userId && removeMutation.mutate(removing.userId)
         }
       />
+      {managingRoles ? (
+        <MemberAppRolesDialog
+          open={Boolean(managingRoles)}
+          onOpenChange={(open) => !open && setManagingRoles(undefined)}
+          orgId={orgId}
+          member={managingRoles}
+        />
+      ) : null}
     </>
   )
 }
@@ -289,8 +316,10 @@ function InviteDialog({
                 <SelectValue placeholder={t("common.role")} />
               </SelectTrigger>
               <SelectContent>
+                {/* The invited role becomes the org membership role, so only
+                    organization-level roles (no application) are valid here. */}
                 {(rolesQuery.data ?? [])
-                  .filter((role) => role.id)
+                  .filter((role) => role.id && !role.applicationId)
                   .map((role) => (
                     <SelectItem key={role.id} value={role.id as string}>
                       {role.name}
@@ -529,6 +558,17 @@ function ApplicationsTab({ orgId }: { orgId: string }) {
       ),
     },
     {
+      id: "assignedUserCount",
+      accessorFn: (row) => toNumber(row.assignedUserCount),
+      header: t("organizations.assignedUserCount"),
+      meta: { label: t("organizations.assignedUserCount") },
+      cell: ({ row }) => (
+        <span className="text-sm tabular-nums">
+          {toNumber(row.original.assignedUserCount)}
+        </span>
+      ),
+    },
+    {
       id: "actions",
       enableSorting: false,
       enableHiding: false,
@@ -661,15 +701,55 @@ export function OrganizationDetailPage() {
       {detailQuery.isLoading || !org ? (
         <Skeleton className="h-20 w-full" />
       ) : (
-        <PageHeader
-          title={org.name ?? "—"}
-          description={org.code}
-          actions={
-            <Button variant="outline" onClick={() => setEditOpen(true)}>
-              {t("common.edit")}
-            </Button>
-          }
-        />
+        <>
+          <PageHeader
+            title={org.name ?? "—"}
+            description={org.code}
+            actions={
+              <Button variant="outline" onClick={() => setEditOpen(true)}>
+                {t("common.edit")}
+              </Button>
+            }
+          />
+          <DetailList
+            items={[
+              {
+                label: t("common.description"),
+                value: org.description,
+                fullWidth: true,
+              },
+              {
+                label: t("common.status"),
+                value: (
+                  <Badge variant={org.isActive ? "default" : "secondary"}>
+                    {org.isActive ? t("common.active") : t("common.inactive")}
+                  </Badge>
+                ),
+              },
+              { label: t("organizations.website"), value: org.website },
+              {
+                label: t("applications.contactEmail"),
+                value: org.contactEmail,
+              },
+              {
+                label: t("organizations.owner"),
+                value: org.ownerName || org.ownerEmail,
+              },
+              {
+                label: t("organizations.memberCount"),
+                value: toNumber(org.memberCount),
+              },
+              {
+                label: t("organizations.enabledAppCount"),
+                value: toNumber(org.enabledAppCount),
+              },
+              {
+                label: t("common.createdAt"),
+                value: formatDate(org.createdAt),
+              },
+            ]}
+          />
+        </>
       )}
 
       <Tabs defaultValue="members">

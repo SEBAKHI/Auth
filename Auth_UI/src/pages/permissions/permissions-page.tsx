@@ -3,6 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApplicationSelect } from "@/components/common/application-select"
@@ -31,6 +32,7 @@ type PermissionDto = Schemas["PermissionDto"]
 export function PermissionsPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const [applicationId, setApplicationId] = React.useState<string>()
@@ -45,7 +47,6 @@ export function PermissionsPage() {
   const canUpdate = hasPermission(PERMISSIONS.permissions.update)
   const canDelete = hasPermission(PERMISSIONS.permissions.delete)
   const canManage = hasPermission(PERMISSIONS.permissions.manage)
-  const hasRowActions = canUpdate || canDelete || canManage
 
   const query = useQuery({
     queryKey: ["permissions", { applicationId }],
@@ -79,7 +80,13 @@ export function PermissionsPage() {
       header: t("common.code"),
       meta: { label: t("common.code") },
       cell: ({ row }) => (
-        <span className="font-mono text-sm">{row.original.code}</span>
+        <button
+          type="button"
+          className="text-start hover:underline"
+          onClick={() => navigate(`/permissions/${row.original.id}`)}
+        >
+          <span className="font-mono text-sm">{row.original.code}</span>
+        </button>
       ),
     },
     {
@@ -98,8 +105,7 @@ export function PermissionsPage() {
         </span>
       ),
     },
-    ...(hasRowActions
-      ? [
+    ...[
           {
             id: "actions",
             enableSorting: false,
@@ -122,6 +128,11 @@ export function PermissionsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => navigate(`/permissions/${perm.id}`)}
+                      >
+                        {t("common.view")}
+                      </DropdownMenuItem>
                       {canUpdate ? (
                         <DropdownMenuItem
                           onClick={() => {
@@ -154,8 +165,7 @@ export function PermissionsPage() {
               )
             },
           } satisfies ColumnDef<PermissionDto, unknown>,
-        ]
-      : []),
+        ],
   ]
 
   return (
@@ -195,14 +205,7 @@ export function PermissionsPage() {
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
-        onEditRow={
-          canUpdate
-            ? (perm) => {
-                setEditing(perm)
-                setFormOpen(true)
-              }
-            : undefined
-        }
+        enableRowDetail={false}
       />
 
       <PermissionFormDialog

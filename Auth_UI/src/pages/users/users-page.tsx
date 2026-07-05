@@ -1,9 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { MoreHorizontal, Plus, Search } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
+import { useNavigate } from "react-router-dom"
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { PageHeader } from "@/components/common/page-header"
@@ -23,10 +23,10 @@ import { api } from "@/lib/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
-import { getErrorMessage } from "@/lib/errors"
 import { formatDate, fullName, userStatusMeta } from "@/lib/format"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import type { Schemas } from "@/lib/api/types"
+import { useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
 import { UserPermissionsDialog } from "./user-permissions-dialog"
 import { UserRolesDialog } from "./user-roles-dialog"
@@ -36,7 +36,7 @@ type UserDto = Schemas["UserDto"]
 export function UsersPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
-  const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const [page, setPage] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
@@ -81,9 +81,6 @@ export function UsersPage() {
       ),
   })
 
-  const invalidateUsers = () =>
-    queryClient.invalidateQueries({ queryKey: ["users"] })
-
   const exportAll = React.useCallback(
     () =>
       collectAllPages<UserDto>(async (pageNumber, size) => {
@@ -108,71 +105,13 @@ export function UsersPage() {
     [search, sortBy, sortDirection]
   )
 
-  const statusAction = useMutation({
-    mutationFn: async (input: {
-      id: string
-      action: "lock" | "unlock" | "activate" | "deactivate"
-      reason?: string
-    }): Promise<string> => {
-      const path = { id: input.id }
-      switch (input.action) {
-        case "lock": {
-          const { error } = await api.POST("/api/v1/Users/{id}/lock", {
-            params: { path },
-            body: { reason: input.reason ?? "" },
-          })
-          if (error) throw error
-          return "users.locked"
-        }
-        case "unlock": {
-          const { error } = await api.POST("/api/v1/Users/{id}/unlock", {
-            params: { path },
-          })
-          if (error) throw error
-          return "users.unlocked"
-        }
-        case "activate": {
-          const { error } = await api.POST("/api/v1/Users/{id}/activate", {
-            params: { path },
-          })
-          if (error) throw error
-          return "users.activated"
-        }
-        case "deactivate": {
-          const { error } = await api.POST("/api/v1/Users/{id}/deactivate", {
-            params: { path },
-          })
-          if (error) throw error
-          return "users.deactivated"
-        }
-      }
-    },
-    onSuccess: (successKey) => {
-      void invalidateUsers()
-      toast.success(t(successKey))
+  const { statusAction, deleteMutation } = useUserActions({
+    onStatusChanged: () => {
       setLockUser(undefined)
       setLockReason("")
     },
-    onError: (error) => toast.error(getErrorMessage(error)),
+    onDeleted: () => setDeleteUser(undefined),
   })
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await api.DELETE("/api/v1/Users/{id}", {
-        params: { path: { id } },
-      })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      void invalidateUsers()
-      toast.success(t("users.deleted"))
-      setDeleteUser(undefined)
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
-
-  const hasRowActions =
-    canUpdate || canDelete || canManageRoles || canManagePerms || canManage
 
   const columns: ColumnDef<UserDto, unknown>[] = [
     {
@@ -184,12 +123,16 @@ export function UsersPage() {
       cell: ({ row }) => {
         const user = row.original
         return (
-          <div className="min-w-0">
+          <button
+            type="button"
+            className="min-w-0 text-start hover:underline"
+            onClick={() => navigate(`/users/${user.id}`)}
+          >
             <p className="truncate font-medium">
               {user.displayName ||
                 fullName(user.firstName, user.lastName, user.email ?? "")}
             </p>
-          </div>
+          </button>
         )
       },
     },
@@ -254,8 +197,7 @@ export function UsersPage() {
         </span>
       ),
     },
-    ...(hasRowActions
-      ? [
+    ...[
           {
             id: "actions",
             enableSorting: false,
@@ -279,6 +221,11 @@ export function UsersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuItem
+                        onClick={() => navigate(`/users/${user.id}`)}
+                      >
+                        {t("common.view")}
+                      </DropdownMenuItem>
                       {canUpdate ? (
                         <DropdownMenuItem
                           onClick={() => {
@@ -360,8 +307,7 @@ export function UsersPage() {
               )
             },
           } satisfies ColumnDef<UserDto, unknown>,
-        ]
-      : []),
+        ],
   ]
 
   return (
@@ -410,14 +356,7 @@ export function UsersPage() {
           setSorting(next)
           setPage(0)
         }}
-        onEditRow={
-          canUpdate
-            ? (user) => {
-                setEditing(user)
-                setFormOpen(true)
-              }
-            : undefined
-        }
+        enableRowDetail={false}
         pagination={{
           pageIndex: page,
           pageSize,

@@ -1,7 +1,12 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import type { TFunction } from "i18next"
 
-import { formatFieldValue, humanizeKey } from "./field-format"
+import {
+  formatFieldValue,
+  humanizeKey,
+  nameSiblingKey,
+  pairedLabelKey,
+} from "./field-format"
 
 const SAMPLE_SIZE = 50
 
@@ -42,17 +47,44 @@ export function buildDisplayColumns<TData>(
     return { columns, autoColumnIds: [] }
   }
 
-  const autoColumns: ColumnDef<TData, unknown>[] = discovered.map((key) => ({
-    id: key,
-    accessorFn: (row) => (row as Record<string, unknown>)[key],
-    header: humanizeKey(key),
-    meta: { label: humanizeKey(key) },
-    cell: ({ getValue }) => (
-      <span className="block max-w-[260px] truncate text-sm text-muted-foreground">
-        {formatFieldValue(getValue(), t)}
-      </span>
-    ),
-  }))
+  // Pair id-like fields with their resolved-name siblings (applicationId +
+  // applicationName, createdBy + createdByName, …): the id column shows the
+  // name (raw id as fallback) and the sibling is dropped so the pair doesn't
+  // render twice. Only auto-discovered siblings collapse — when a curated
+  // column already shows the name, the raw id column is left untouched.
+  const discoveredSet = new Set(discovered)
+  const consumedNameKeys = new Set<string>()
+  for (const key of discovered) {
+    const sibling = nameSiblingKey(key)
+    if (sibling !== key && discoveredSet.has(sibling)) {
+      consumedNameKeys.add(sibling)
+    }
+  }
+  const emitted = discovered.filter((key) => !consumedNameKeys.has(key))
+
+  const autoColumns: ColumnDef<TData, unknown>[] = emitted.map((key) => {
+    const sibling = nameSiblingKey(key)
+    const isPaired = consumedNameKeys.has(sibling)
+    const label = humanizeKey(isPaired ? pairedLabelKey(key) : key)
+    return {
+      id: key,
+      accessorFn: (row) => {
+        const record = row as Record<string, unknown>
+        if (isPaired) {
+          const name = record[sibling]
+          if (typeof name === "string" && name !== "") return name
+        }
+        return record[key]
+      },
+      header: label,
+      meta: { label },
+      cell: ({ getValue }) => (
+        <span className="block max-w-[260px] truncate text-sm text-muted-foreground">
+          {formatFieldValue(getValue(), t)}
+        </span>
+      ),
+    }
+  })
 
   const actionIndex = columns.findIndex((column) => column.id === "actions")
   const merged =
@@ -64,5 +96,5 @@ export function buildDisplayColumns<TData>(
           ...columns.slice(actionIndex),
         ]
 
-  return { columns: merged, autoColumnIds: discovered }
+  return { columns: merged, autoColumnIds: emitted }
 }

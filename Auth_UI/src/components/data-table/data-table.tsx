@@ -1,4 +1,5 @@
 import * as React from "react"
+import { flushSync } from "react-dom"
 import {
   flexRender,
   getCoreRowModel,
@@ -9,6 +10,7 @@ import {
   useReactTable,
   type ColumnDef,
   type ColumnFiltersState,
+  type ColumnSizingState,
   type Header,
   type OnChangeFn,
   type SortingState,
@@ -115,6 +117,16 @@ function readPersistedVisibility(tableId?: string): VisibilityState {
   }
 }
 
+function readPersistedSizing(tableId?: string): ColumnSizingState {
+  if (!tableId || typeof window === "undefined") return {}
+  try {
+    const raw = window.localStorage.getItem(`dt:size:${tableId}`)
+    return raw ? (JSON.parse(raw) as ColumnSizingState) : {}
+  } catch {
+    return {}
+  }
+}
+
 /**
  * Header cell that toggles sorting; used only for columns that can sort. The
  * visible column title stays the accessible name; sort state is announced via
@@ -171,13 +183,16 @@ export function DataTable<TData>({
   sorting: controlledSorting,
   onSortingChange: onControlledSortingChange,
 }: DataTableProps<TData>) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
     () => readPersistedVisibility(tableId)
+  )
+  const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>(
+    () => readPersistedSizing(tableId)
   )
   const [detailRow, setDetailRow] = React.useState<TData | null>(null)
   const [isExporting, setIsExporting] = React.useState(false)
@@ -190,6 +205,15 @@ export function DataTable<TData>({
       // Ignore storage failures (private mode / quota); visibility stays in-memory.
     }
   }, [tableId, columnVisibility])
+
+  React.useEffect(() => {
+    if (!tableId || typeof window === "undefined") return
+    try {
+      window.localStorage.setItem(`dt:size:${tableId}`, JSON.stringify(columnSizing))
+    } catch {
+      // Ignore storage failures (private mode / quota); sizing stays in-memory.
+    }
+  }, [tableId, columnSizing])
 
   // Server-controlled sorting is active when the page lifts the sort state.
   const isManualSorting =
@@ -209,14 +233,20 @@ export function DataTable<TData>({
   )
   // Under server sorting, auto-discovered columns must not offer sorting — their
   // field names are not in the endpoint's sortBy allow-list (the API would 400).
+  // The trailing actions column keeps its natural width, so it never resizes.
   const effectiveColumns = React.useMemo(() => {
-    if (!isManualSorting || built.autoColumnIds.length === 0) return built.columns
     const autoIds = new Set<string>(built.autoColumnIds)
-    return built.columns.map((column) =>
-      column.id && autoIds.has(column.id)
-        ? { ...column, enableSorting: false }
-        : column
-    )
+    return built.columns.map((column) => {
+      const disableSorting =
+        isManualSorting && Boolean(column.id && autoIds.has(column.id))
+      const disableResizing = column.id === "actions"
+      if (!disableSorting && !disableResizing) return column
+      return {
+        ...column,
+        ...(disableSorting ? { enableSorting: false } : {}),
+        ...(disableResizing ? { enableResizing: false } : {}),
+      }
+    })
   }, [built, isManualSorting])
   const autoHiddenDefaults = React.useMemo(() => {
     const defaults: VisibilityState = {}
@@ -249,6 +279,11 @@ export function DataTable<TData>({
         return typeof updater === "function" ? updater(current) : updater
       }),
     onGlobalFilterChange: setGlobalFilter,
+    enableColumnResizing: true,
+    columnResizeMode: "onChange",
+    columnResizeDirection: i18n.dir(),
+    defaultColumn: { minSize: 60 },
+    onColumnSizingChange: setColumnSizing,
     manualPagination: Boolean(pagination),
     pageCount: pagination ? Math.max(pagination.pageCount, 1) : undefined,
     state: {
@@ -256,6 +291,7 @@ export function DataTable<TData>({
       columnFilters,
       globalFilter,
       columnVisibility: effectiveVisibility,
+      columnSizing,
       ...(pagination
         ? {
             pagination: {
@@ -269,6 +305,29 @@ export function DataTable<TData>({
 
   const visibleColumnCount = table.getVisibleLeafColumns().length
   const rows = table.getRowModel().rows
+
+  // TanStack measures a drag against the column's current size, which is the
+  // built-in default for columns that were never resized (their widths are
+  // content-driven until then). Seed the real rendered width into the sizing
+  // state synchronously so the drag starts from what the user actually sees.
+  const beginResize = React.useCallback(
+    (
+      event: React.MouseEvent | React.TouchEvent,
+      header: Header<TData, unknown>
+    ) => {
+      event.stopPropagation()
+      const headCell = (event.currentTarget as HTMLElement).closest("th")
+      const columnId = header.column.id
+      if (headCell && columnSizing[columnId] == null) {
+        const width = Math.round(headCell.getBoundingClientRect().width)
+        flushSync(() => {
+          setColumnSizing((prev) => ({ ...prev, [columnId]: width }))
+        })
+      }
+      header.getResizeHandler()(event)
+    },
+    [columnSizing]
+  )
 
   // Field name → localized label, sourced from the same column definitions the
   // grid uses, so the detail panel reuses the page's translated headers.
@@ -339,29 +398,62 @@ export function DataTable<TData>({
           <TableHeader>
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id}>
-                {group.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    aria-sort={
-                      header.column.getCanSort()
-                        ? header.column.getIsSorted() === "asc"
-                          ? "ascending"
-                          : header.column.getIsSorted() === "desc"
-                            ? "descending"
-                            : "none"
-                        : undefined
-                    }
-                  >
-                    {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                      <SortableHeader header={header} />
-                    ) : (
-                      flexRender(
-                        header.column.columnDef.header,
-                        header.getContext()
-                      )
-                    )}
-                  </TableHead>
-                ))}
+                {group.headers.map((header) => {
+                  // Only user-resized columns get an explicit width; the rest
+                  // keep the content-driven auto layout.
+                  const resizedWidth =
+                    columnSizing[header.column.id] != null
+                      ? header.getSize()
+                      : undefined
+                  return (
+                    <TableHead
+                      key={header.id}
+                      className="relative"
+                      style={
+                        resizedWidth != null
+                          ? {
+                              width: resizedWidth,
+                              minWidth: resizedWidth,
+                              maxWidth: resizedWidth,
+                            }
+                          : undefined
+                      }
+                      aria-sort={
+                        header.column.getCanSort()
+                          ? header.column.getIsSorted() === "asc"
+                            ? "ascending"
+                            : header.column.getIsSorted() === "desc"
+                              ? "descending"
+                              : "none"
+                          : undefined
+                      }
+                    >
+                      {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                        <SortableHeader header={header} />
+                      ) : (
+                        flexRender(
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )
+                      )}
+                      {header.column.getCanResize() ? (
+                        <div
+                          role="separator"
+                          aria-orientation="vertical"
+                          onMouseDown={(event) => beginResize(event, header)}
+                          onTouchStart={(event) => beginResize(event, header)}
+                          onDoubleClick={() => header.column.resetSize()}
+                          className={
+                            "absolute inset-y-0 end-0 z-10 w-1.5 cursor-col-resize touch-none select-none " +
+                            (header.column.getIsResizing()
+                              ? "bg-primary/50"
+                              : "hover:bg-border")
+                          }
+                        />
+                      ) : null}
+                    </TableHead>
+                  )
+                })}
               </TableRow>
             ))}
           </TableHeader>
@@ -425,22 +517,45 @@ export function DataTable<TData>({
                       }
                     : {})}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell
-                      key={cell.id}
-                      {...(enableRowDetail && cell.column.id === "actions"
-                        ? {
-                            onClick: (event: React.MouseEvent) =>
-                              event.stopPropagation(),
-                          }
-                        : {})}
-                    >
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const resizedWidth =
+                      columnSizing[cell.column.id] != null
+                        ? cell.column.getSize()
+                        : undefined
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        // Cells are whitespace-nowrap; the explicit max width
+                        // is what lets a narrowed column truncate instead of
+                        // forcing the table wider.
+                        className={
+                          resizedWidth != null
+                            ? "overflow-hidden text-ellipsis"
+                            : undefined
+                        }
+                        style={
+                          resizedWidth != null
+                            ? {
+                                width: resizedWidth,
+                                minWidth: resizedWidth,
+                                maxWidth: resizedWidth,
+                              }
+                            : undefined
+                        }
+                        {...(enableRowDetail && cell.column.id === "actions"
+                          ? {
+                              onClick: (event: React.MouseEvent) =>
+                                event.stopPropagation(),
+                            }
+                          : {})}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    )
+                  })}
                 </TableRow>
               ))
             )}

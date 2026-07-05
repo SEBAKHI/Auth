@@ -12,8 +12,9 @@ signing secrets, with a dashboard and data tables.
 ## Stack
 
 - **Vite + React 19 + TypeScript** (SPA)
-- **shadcn/ui** via the customized preset `b1VlIzU8` (style: `radix-luma`,
-  Tailwind v4, lucide icons, IBM Plex Sans, RTL enabled). **All styling comes
+- **shadcn/ui** via the customized preset `b1tel7QNE` (style: `radix-luma`,
+  Tailwind v4, lucide icons, IBM Plex Sans, RTL enabled; supersedes `b1VlIzU8`
+  by switching the `--chart-*` tokens to a cyan ramp). **All styling comes
   from the preset** — no custom colors/themes are introduced.
 - **React Router** (routing + guards), **TanStack Query** (server state),
   **TanStack Table** (data tables)
