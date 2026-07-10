@@ -18,6 +18,7 @@ public class GetRoleByIdQueryHandlerTests
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock;
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly GetRoleByIdQueryHandler _handler;
 
     public GetRoleByIdQueryHandlerTests()
@@ -25,11 +26,13 @@ public class GetRoleByIdQueryHandlerTests
         _roleRepositoryMock = new Mock<IRoleRepository>();
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
+        _userRepositoryMock = new Mock<IUserRepository>();
 
         _handler = new GetRoleByIdQueryHandler(
             _roleRepositoryMock.Object,
             _permissionRepositoryMock.Object,
-            _applicationRepositoryMock.Object);
+            _applicationRepositoryMock.Object,
+            _userRepositoryMock.Object);
     }
 
     [Fact]
@@ -111,6 +114,7 @@ public class GetRolesQueryHandlerTests
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock;
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly GetRolesQueryHandler _handler;
 
     public GetRolesQueryHandlerTests()
@@ -118,11 +122,13 @@ public class GetRolesQueryHandlerTests
         _roleRepositoryMock = new Mock<IRoleRepository>();
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
+        _userRepositoryMock = new Mock<IUserRepository>();
 
         _handler = new GetRolesQueryHandler(
             _roleRepositoryMock.Object,
             _permissionRepositoryMock.Object,
-            _applicationRepositoryMock.Object);
+            _applicationRepositoryMock.Object,
+            _userRepositoryMock.Object);
     }
 
     [Fact]

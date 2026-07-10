@@ -462,15 +462,18 @@ public class GetApiKeysQueryHandlerTests
 {
     private readonly Mock<IApiKeyRepository> _apiKeyRepositoryMock;
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly GetApiKeysQueryHandler _handler;
 
     public GetApiKeysQueryHandlerTests()
     {
         _apiKeyRepositoryMock = new Mock<IApiKeyRepository>();
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
+        _userRepositoryMock = new Mock<IUserRepository>();
         _handler = new GetApiKeysQueryHandler(
             _apiKeyRepositoryMock.Object,
-            _applicationRepositoryMock.Object);
+            _applicationRepositoryMock.Object,
+            _userRepositoryMock.Object);
     }
 
     [Fact]

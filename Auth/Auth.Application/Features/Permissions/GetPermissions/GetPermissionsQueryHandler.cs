@@ -14,13 +14,16 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
 {
     private readonly IPermissionRepository _permissionRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IUserRepository _userRepository;
 
     public GetPermissionsQueryHandler(
         IPermissionRepository permissionRepository,
-        IApplicationRepository applicationRepository)
+        IApplicationRepository applicationRepository,
+        IUserRepository userRepository)
     {
         _permissionRepository = permissionRepository;
         _applicationRepository = applicationRepository;
+        _userRepository = userRepository;
     }
 
     public async Task<ErrorOr<IReadOnlyList<PermissionDto>>> Handle(
@@ -45,6 +48,11 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
             permissions.Select(p => p.ApplicationId),
             cancellationToken);
 
+        var userNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository,
+            permissions.SelectMany(p => new Guid?[] { p.CreatedBy, p.ModifiedBy }),
+            cancellationToken);
+
         var permissionDtos = permissions.Select(p => new PermissionDto
         {
             Id = p.Id,
@@ -60,7 +68,13 @@ public class GetPermissionsQueryHandler : IRequestHandler<GetPermissionsQuery, E
             IsWildcard = p.IsWildcard,
             IsActive = p.IsActive,
             CreatedAt = p.CreatedAt,
-            ModifiedAt = p.ModifiedAt
+            CreatedBy = p.CreatedBy,
+            CreatedByName = userNames.GetValueOrDefault(p.CreatedBy),
+            ModifiedAt = p.ModifiedAt,
+            ModifiedBy = p.ModifiedBy,
+            ModifiedByName = p.ModifiedBy.HasValue
+                ? userNames.GetValueOrDefault(p.ModifiedBy.Value)
+                : null
         }).ToList();
 
         return permissionDtos;

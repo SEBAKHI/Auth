@@ -31,6 +31,7 @@ public sealed record ApplicationUserRow
     public string? FirstName { get; init; }
     public string? LastName { get; init; }
     public string? DisplayName { get; init; }
+    public string? ProfileImageUrl { get; init; }
     public UserStatus Status { get; init; }
     public DateTime? LastLoginAt { get; init; }
     public DateTime CreatedAt { get; init; }
@@ -67,6 +68,7 @@ public sealed record RoleUserRow
     public string? FirstName { get; init; }
     public string? LastName { get; init; }
     public string? DisplayName { get; init; }
+    public string? ProfileImageUrl { get; init; }
     public UserStatus Status { get; init; }
     public DateTime? LastLoginAt { get; init; }
     public DateTime CreatedAt { get; init; }
@@ -104,6 +106,7 @@ public sealed record PermissionUserRow
     public string? FirstName { get; init; }
     public string? LastName { get; init; }
     public string? DisplayName { get; init; }
+    public string? ProfileImageUrl { get; init; }
     public UserStatus Status { get; init; }
     public DateTime? LastLoginAt { get; init; }
     public DateTime CreatedAt { get; init; }

@@ -1,5 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -15,17 +17,20 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
 
     public GetOrganizationByIdQueryHandler(
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
         IRoleRepository roleRepository,
-        IApplicationRepository applicationRepository)
+        IApplicationRepository applicationRepository,
+        IImageUrlComposer imageUrlComposer)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _applicationRepository = applicationRepository;
+        _imageUrlComposer = imageUrlComposer;
     }
 
     public async Task<ErrorOr<OrganizationDetailDto>> Handle(
@@ -100,7 +105,7 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
                 ApplicationCode = application?.Code ?? string.Empty,
                 ApplicationName = application?.Name ?? string.Empty,
                 ApplicationDescription = application?.Description,
-                ApplicationLogoUrl = application?.LogoUrl,
+                ApplicationLogoUrl = _imageUrlComposer.Compose(application?.LogoUrl),
                 IsActive = app.IsActive,
                 EnabledAt = app.EnabledAt,
                 EnabledBy = app.EnabledBy,
@@ -111,13 +116,18 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
             });
         }
 
+        var auditNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository,
+            [organization.CreatedBy, organization.ModifiedBy],
+            cancellationToken);
+
         return new OrganizationDetailDto
         {
             Id = organization.Id,
             Code = organization.Code,
             Name = organization.Name,
             Description = organization.Description,
-            LogoUrl = organization.LogoUrl,
+            LogoUrl = _imageUrlComposer.Compose(organization.LogoUrl),
             Website = organization.Website,
             ContactEmail = organization.ContactEmail,
             OwnerId = organization.OwnerId,
@@ -127,7 +137,13 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
             MemberCount = members.Count,
             EnabledAppCount = apps.Count,
             CreatedAt = organization.CreatedAt,
+            CreatedBy = organization.CreatedBy,
+            CreatedByName = auditNames.GetValueOrDefault(organization.CreatedBy),
             ModifiedAt = organization.ModifiedAt,
+            ModifiedBy = organization.ModifiedBy,
+            ModifiedByName = organization.ModifiedBy.HasValue
+                ? auditNames.GetValueOrDefault(organization.ModifiedBy.Value)
+                : null,
             Members = memberDtos,
             EnabledApplications = appDtos
         };

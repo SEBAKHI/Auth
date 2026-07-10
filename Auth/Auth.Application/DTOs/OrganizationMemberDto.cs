@@ -12,6 +12,7 @@ public class OrganizationMemberDto
     public string? FirstName { get; set; }
     public string? LastName { get; set; }
     public string? FullName { get; set; }
+    public string? ProfileImageUrl { get; set; }
     public Guid RoleId { get; set; }
     public string RoleCode { get; set; } = string.Empty;
     public string RoleName { get; set; } = string.Empty;

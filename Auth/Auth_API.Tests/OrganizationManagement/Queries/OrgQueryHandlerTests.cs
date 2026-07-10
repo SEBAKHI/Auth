@@ -21,7 +21,8 @@ public class GetUserOrganizationsQueryHandlerTests
     {
         _handler = new GetUserOrganizationsQueryHandler(
             _orgRepoMock.Object,
-            _roleRepoMock.Object);
+            _roleRepoMock.Object,
+            Mock.Of<Auth.Application.Interfaces.IImageUrlComposer>());
     }
 
     [Fact]
@@ -58,7 +59,8 @@ public class GetOrganizationMembersQueryHandlerTests
         _handler = new GetOrganizationMembersQueryHandler(
             _orgRepoMock.Object,
             _userRepoMock.Object,
-            _roleRepoMock.Object);
+            _roleRepoMock.Object,
+            Mock.Of<Auth.Application.Interfaces.IImageUrlComposer>());
     }
 
     [Fact]
@@ -170,6 +172,7 @@ public class GetOrganizationApplicationsQueryHandlerTests
         _handler = new GetOrganizationApplicationsQueryHandler(
             _orgRepoMock.Object,
             _appRepoMock.Object,
+            Mock.Of<Auth.Application.Interfaces.IImageUrlComposer>(),
             new Mock<ILogger<GetOrganizationApplicationsQueryHandler>>().Object);
     }
 

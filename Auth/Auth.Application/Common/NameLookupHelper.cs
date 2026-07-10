@@ -37,7 +37,9 @@ public static class NameLookupHelper
         }
 
         var users = await userRepository.GetByIdsAsync(ids, cancellationToken);
-        return users.ToDictionary(user => user.Id, DisplayName);
+        return users is null
+            ? new Dictionary<Guid, string>()
+            : users.ToDictionary(user => user.Id, DisplayName);
     }
 
     /// <summary>

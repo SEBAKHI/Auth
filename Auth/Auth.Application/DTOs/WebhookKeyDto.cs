@@ -17,6 +17,11 @@ public class WebhookKeyDto
     public string TargetUrl { get; set; } = string.Empty;
     public string Environment { get; set; } = "production";
     public DateTime CreatedAt { get; set; }
+    public Guid CreatedBy { get; set; }
+
+    /// <summary>Display name of the creating user; null when unresolved.</summary>
+    public string? CreatedByName { get; set; }
+
     public DateTime? ExpiresAt { get; set; }
     public DateTime? LastUsedAt { get; set; }
     public bool IsRevoked { get; set; }

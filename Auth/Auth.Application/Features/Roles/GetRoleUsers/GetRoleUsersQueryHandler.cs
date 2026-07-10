@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -12,13 +13,16 @@ namespace Auth.Application.Features.Roles.GetRoleUsers;
 public class GetRoleUsersQueryHandler : IRequestHandler<GetRoleUsersQuery, ErrorOr<PagedRoleUsersDto>>
 {
     private readonly IRoleRepository _roleRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<GetRoleUsersQueryHandler> _logger;
 
     public GetRoleUsersQueryHandler(
         IRoleRepository roleRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<GetRoleUsersQueryHandler> logger)
     {
         _roleRepository = roleRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -50,6 +54,7 @@ public class GetRoleUsersQueryHandler : IRequestHandler<GetRoleUsersQuery, Error
             LastName = user.LastName,
             FullName = $"{user.FirstName} {user.LastName}".Trim(),
             DisplayName = user.DisplayName,
+            ProfileImageUrl = _imageUrlComposer.Compose(user.ProfileImageUrl),
             Status = user.Status,
             LastLoginAt = user.LastLoginAt,
             CreatedAt = user.CreatedAt,

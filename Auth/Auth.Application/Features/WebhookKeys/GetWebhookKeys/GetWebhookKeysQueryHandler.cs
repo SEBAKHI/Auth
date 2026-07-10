@@ -13,13 +13,16 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
 {
     private readonly IWebhookKeyRepository _webhookKeyRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IUserRepository _userRepository;
 
     public GetWebhookKeysQueryHandler(
         IWebhookKeyRepository webhookKeyRepository,
-        IApplicationRepository applicationRepository)
+        IApplicationRepository applicationRepository,
+        IUserRepository userRepository)
     {
         _webhookKeyRepository = webhookKeyRepository;
         _applicationRepository = applicationRepository;
+        _userRepository = userRepository;
     }
 
     public async Task<ErrorOr<IReadOnlyList<WebhookKeyDto>>> Handle(
@@ -34,6 +37,11 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
             webhookKeys.Select(wk => (Guid?)wk.ApplicationId),
             cancellationToken);
 
+        var userNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository,
+            webhookKeys.Select(wk => (Guid?)wk.CreatedBy),
+            cancellationToken);
+
         var dtos = webhookKeys.Select(wk => new WebhookKeyDto
         {
             Id = wk.Id,
@@ -45,6 +53,8 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
             TargetUrl = wk.TargetUrl,
             Environment = wk.Environment,
             CreatedAt = wk.CreatedAt,
+            CreatedBy = wk.CreatedBy,
+            CreatedByName = userNames.GetValueOrDefault(wk.CreatedBy),
             ExpiresAt = wk.ExpiresAt,
             LastUsedAt = wk.LastUsedAt,
             IsRevoked = wk.IsRevoked,

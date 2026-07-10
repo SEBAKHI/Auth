@@ -1,6 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using ErrorOr;
 using MediatR;
@@ -14,13 +15,16 @@ public class GetUserOrganizationsQueryHandler : IRequestHandler<GetUserOrganizat
 {
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
 
     public GetUserOrganizationsQueryHandler(
         IOrganizationRepository organizationRepository,
-        IRoleRepository roleRepository)
+        IRoleRepository roleRepository,
+        IImageUrlComposer imageUrlComposer)
     {
         _organizationRepository = organizationRepository;
         _roleRepository = roleRepository;
+        _imageUrlComposer = imageUrlComposer;
     }
 
     public async Task<ErrorOr<IReadOnlyList<OrganizationSummaryDto>>> Handle(
@@ -44,7 +48,7 @@ public class GetUserOrganizationsQueryHandler : IRequestHandler<GetUserOrganizat
                 Id = organization.Id,
                 Code = organization.Code,
                 Name = organization.Name,
-                LogoUrl = organization.LogoUrl,
+                LogoUrl = _imageUrlComposer.Compose(organization.LogoUrl),
                 IsActive = organization.IsActive,
                 UserRole = role?.Name,
                 MemberCount = members.Count

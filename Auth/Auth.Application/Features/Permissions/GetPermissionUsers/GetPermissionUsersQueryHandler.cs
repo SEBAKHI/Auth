@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -12,13 +13,16 @@ namespace Auth.Application.Features.Permissions.GetPermissionUsers;
 public class GetPermissionUsersQueryHandler : IRequestHandler<GetPermissionUsersQuery, ErrorOr<PagedPermissionUsersDto>>
 {
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<GetPermissionUsersQueryHandler> _logger;
 
     public GetPermissionUsersQueryHandler(
         IPermissionRepository permissionRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<GetPermissionUsersQueryHandler> logger)
     {
         _permissionRepository = permissionRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -50,6 +54,7 @@ public class GetPermissionUsersQueryHandler : IRequestHandler<GetPermissionUsers
             LastName = user.LastName,
             FullName = $"{user.FirstName} {user.LastName}".Trim(),
             DisplayName = user.DisplayName,
+            ProfileImageUrl = _imageUrlComposer.Compose(user.ProfileImageUrl),
             Status = user.Status,
             LastLoginAt = user.LastLoginAt,
             CreatedAt = user.CreatedAt,

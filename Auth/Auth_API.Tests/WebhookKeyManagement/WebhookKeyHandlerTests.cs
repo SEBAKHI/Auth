@@ -232,13 +232,15 @@ public class GetWebhookKeysQueryHandlerTests
 {
     private readonly Mock<IWebhookKeyRepository> _repoMock = new();
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
+    private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly GetWebhookKeysQueryHandler _handler;
 
     public GetWebhookKeysQueryHandlerTests()
     {
         _handler = new GetWebhookKeysQueryHandler(
             _repoMock.Object,
-            _applicationRepositoryMock.Object);
+            _applicationRepositoryMock.Object,
+            _userRepositoryMock.Object);
     }
 
     [Fact]

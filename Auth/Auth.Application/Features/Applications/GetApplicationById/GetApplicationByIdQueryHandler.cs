@@ -1,6 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -14,15 +15,18 @@ public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationById
 {
     private readonly IApplicationRepository _applicationRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<GetApplicationByIdQueryHandler> _logger;
 
     public GetApplicationByIdQueryHandler(
         IApplicationRepository applicationRepository,
         IUserRepository userRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<GetApplicationByIdQueryHandler> logger)
     {
         _applicationRepository = applicationRepository;
         _userRepository = userRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -49,7 +53,7 @@ public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationById
             Name = application.Name,
             Description = application.Description,
             BaseUrl = application.BaseUrl,
-            LogoUrl = application.LogoUrl,
+            LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
             AllowSelfRegistration = application.AllowSelfRegistration,

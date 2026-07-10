@@ -1,4 +1,5 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -35,14 +36,16 @@ public class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrganizati
             return OrganizationErrors.NotFound(request.OrganizationId);
         }
 
-        // Update organization properties
+        // Update organization properties.
+        // Named arguments guard against the parameter-order mismatch that previously
+        // swapped Website/ContactEmail/Description (see Organization.Update signature).
         organization.Update(
-            request.Name,
-            request.ContactEmail,
-            request.Description,
-            request.LogoUrl,
-            request.Website,
-            request.ModifiedBy);
+            name: request.Name,
+            description: request.Description,
+            logoUrl: request.LogoUrl,
+            website: request.Website,
+            contactEmail: request.ContactEmail,
+            modifiedBy: request.ModifiedBy);
 
         if (request.IsActive.HasValue)
         {
@@ -60,6 +63,11 @@ public class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrganizati
 
         // Get owner info
         var owner = await _userRepository.GetByIdAsync(organization.OwnerId, cancellationToken);
+
+        var auditNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository,
+            [organization.CreatedBy, organization.ModifiedBy],
+            cancellationToken);
 
         _logger.LogInformation(
             "Organization updated: {OrganizationId} by {ModifiedBy}",
@@ -81,7 +89,13 @@ public class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrganizati
             MemberCount = members.Count,
             EnabledAppCount = apps.Count,
             CreatedAt = organization.CreatedAt,
-            ModifiedAt = organization.ModifiedAt
+            CreatedBy = organization.CreatedBy,
+            CreatedByName = auditNames.GetValueOrDefault(organization.CreatedBy),
+            ModifiedAt = organization.ModifiedAt,
+            ModifiedByName = organization.ModifiedBy.HasValue
+                ? auditNames.GetValueOrDefault(organization.ModifiedBy.Value)
+                : null,
+            ModifiedBy = organization.ModifiedBy
         };
     }
 }

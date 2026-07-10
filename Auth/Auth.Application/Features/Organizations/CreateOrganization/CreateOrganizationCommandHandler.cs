@@ -96,7 +96,11 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
             MemberCount = 1,
             EnabledAppCount = 0,
             CreatedAt = organization.CreatedAt,
-            ModifiedAt = organization.ModifiedAt
+            CreatedBy = organization.CreatedBy,
+            CreatedByName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : null,
+            ModifiedAt = organization.ModifiedAt,
+            ModifiedBy = organization.ModifiedBy,
+            ModifiedByName = null
         };
     }
 }

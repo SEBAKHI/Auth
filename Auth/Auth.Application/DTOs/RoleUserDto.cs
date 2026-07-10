@@ -13,6 +13,7 @@ public class RoleUserDto
     public string? LastName { get; set; }
     public string? FullName { get; set; }
     public string? DisplayName { get; set; }
+    public string? ProfileImageUrl { get; set; }
     public UserStatus Status { get; set; }
     public DateTime? LastLoginAt { get; set; }
     public DateTime CreatedAt { get; set; }

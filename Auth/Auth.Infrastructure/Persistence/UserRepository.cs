@@ -62,6 +62,7 @@ public class UserRepository : IUserRepository
                 [LastLoginUtc] AS [LastLoginAt],
                 [LastPasswordChangeUtc] AS [PasswordChangedAt],
                 [MustChangePassword],
+                [ProfileImageUrl], [LastLoginIp], [PasswordExpiresUtc],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Users]
             WHERE [Id] IN @Ids",
@@ -105,14 +106,14 @@ public class UserRepository : IUserRepository
                 [PhoneNumber], [PreferredLanguage], [TimeZone],
                 [IsEmailConfirmed], [IsPhoneConfirmed], [IsTwoFactorEnabled],
                 [Status], [FailedLoginAttempts], [LockoutEndUtc], [LastLoginUtc],
-                [LastPasswordChangeUtc], [MustChangePassword],
+                [LastPasswordChangeUtc], [MustChangePassword], [ProfileImageUrl],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             ) VALUES (
                 @Id, @Username, @Email, @NormalizedEmail, @PasswordHash, @FirstName, @LastName,
                 @PhoneNumber, @PreferredLanguage, @TimeZone,
                 @IsEmailConfirmed, @IsPhoneConfirmed, @IsTwoFactorEnabled,
                 @Status, @FailedLoginAttempts, @LockoutEndUtc, @LastLoginUtc,
-                @LastPasswordChangeUtc, @MustChangePassword,
+                @LastPasswordChangeUtc, @MustChangePassword, @ProfileImageUrl,
                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
             )",
             new
@@ -136,6 +137,7 @@ public class UserRepository : IUserRepository
                 LastLoginUtc = user.LastLoginAt,
                 LastPasswordChangeUtc = user.PasswordChangedAt,
                 user.MustChangePassword,
+                user.ProfileImageUrl,
                 user.CreatedAt,
                 user.CreatedBy,
                 user.ModifiedAt,
@@ -167,6 +169,9 @@ public class UserRepository : IUserRepository
                 [LastLoginUtc] = @LastLoginUtc,
                 [LastPasswordChangeUtc] = @LastPasswordChangeUtc,
                 [MustChangePassword] = @MustChangePassword,
+                [ProfileImageUrl] = @ProfileImageUrl,
+                [LastLoginIp] = @LastLoginIp,
+                [PasswordExpiresUtc] = @PasswordExpiresUtc,
                 [PreferredLanguage] = @PreferredLanguage,
                 [TimeZone] = @TimeZone,
                 [ModifiedAt] = @ModifiedAt,
@@ -190,6 +195,9 @@ public class UserRepository : IUserRepository
                 LastLoginUtc = user.LastLoginAt,
                 LastPasswordChangeUtc = user.PasswordChangedAt,
                 user.MustChangePassword,
+                user.ProfileImageUrl,
+                user.LastLoginIp,
+                PasswordExpiresUtc = user.PasswordExpiresUtc,
                 user.PreferredLanguage,
                 user.TimeZone,
                 user.ModifiedAt,
@@ -265,6 +273,7 @@ public class UserRepository : IUserRepository
                 [LastLoginUtc] AS [LastLoginAt],
                 [LastPasswordChangeUtc] AS [PasswordChangedAt],
                 [MustChangePassword],
+                [ProfileImageUrl], [LastLoginIp], [PasswordExpiresUtc],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Users]
             WHERE [IsDeleted] = 0
@@ -289,18 +298,19 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
-    public async Task RecordSuccessfulLoginAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task RecordSuccessfulLoginAsync(Guid userId, string? ipAddress, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[Users] SET
                 [LastLoginUtc] = GETUTCDATE(),
+                [LastLoginIp] = @IpAddress,
                 [FailedLoginAttempts] = 0,
                 [LockoutEndUtc] = NULL,
                 [ModifiedAt] = GETUTCDATE()
             WHERE [Id] = @UserId",
-            new { UserId = userId });
+            new { UserId = userId, IpAddress = ipAddress });
     }
 
     /// <inheritdoc />
@@ -635,6 +645,9 @@ public class UserRepository : IUserRepository
         public Guid CreatedBy { get; init; }
         public DateTime? ModifiedAt { get; init; }
         public Guid? ModifiedBy { get; init; }
+        public string? ProfileImageUrl { get; init; }
+        public string? LastLoginIp { get; init; }
+        public DateTime? PasswordExpiresUtc { get; init; }
 
         public User ToUser() => new(
             Id,
@@ -662,7 +675,10 @@ public class UserRepository : IUserRepository
             CreatedAt,
             CreatedBy,
             ModifiedAt,
-            ModifiedBy);
+            ModifiedBy,
+            ProfileImageUrl,
+            LastLoginIp,
+            PasswordExpiresUtc);
     }
 
     /// <inheritdoc />

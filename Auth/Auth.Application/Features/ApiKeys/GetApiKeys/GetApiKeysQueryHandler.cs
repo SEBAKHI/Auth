@@ -13,13 +13,16 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
 {
     private readonly IApiKeyRepository _apiKeyRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IUserRepository _userRepository;
 
     public GetApiKeysQueryHandler(
         IApiKeyRepository apiKeyRepository,
-        IApplicationRepository applicationRepository)
+        IApplicationRepository applicationRepository,
+        IUserRepository userRepository)
     {
         _apiKeyRepository = apiKeyRepository;
         _applicationRepository = applicationRepository;
+        _userRepository = userRepository;
     }
 
     public async Task<ErrorOr<IReadOnlyList<ApiKeyDto>>> Handle(
@@ -32,6 +35,11 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
         var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
             _applicationRepository,
             apiKeys.Select(key => (Guid?)key.ApplicationId),
+            cancellationToken);
+
+        var userNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository,
+            apiKeys.Select(key => (Guid?)key.CreatedBy),
             cancellationToken);
 
         var apiKeyDtos = new List<ApiKeyDto>();
@@ -50,6 +58,8 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
                 RateLimitPerMinute = apiKey.RateLimitPerMinute,
                 RateLimitPerDay = apiKey.RateLimitPerDay,
                 CreatedAt = apiKey.CreatedAt,
+                CreatedBy = apiKey.CreatedBy,
+                CreatedByName = userNames.GetValueOrDefault(apiKey.CreatedBy),
                 ExpiresAt = apiKey.ExpiresAt,
                 LastUsedAt = apiKey.LastUsedAt,
                 IsRevoked = apiKey.IsRevoked,

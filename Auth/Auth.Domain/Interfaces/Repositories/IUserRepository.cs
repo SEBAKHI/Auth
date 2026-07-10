@@ -83,7 +83,7 @@ public interface IUserRepository
     /// <summary>
     /// Records a successful login for a user.
     /// </summary>
-    Task RecordSuccessfulLoginAsync(Guid userId, CancellationToken cancellationToken);
+    Task RecordSuccessfulLoginAsync(Guid userId, string? ipAddress, CancellationToken cancellationToken);
 
     /// <summary>
     /// Records a failed login attempt for a user.

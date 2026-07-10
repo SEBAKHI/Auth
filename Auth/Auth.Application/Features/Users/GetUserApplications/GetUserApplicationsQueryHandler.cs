@@ -1,6 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -14,13 +15,16 @@ namespace Auth.Application.Features.Users.GetUserApplications;
 public class GetUserApplicationsQueryHandler : IRequestHandler<GetUserApplicationsQuery, ErrorOr<IReadOnlyList<UserApplicationDto>>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<GetUserApplicationsQueryHandler> _logger;
 
     public GetUserApplicationsQueryHandler(
         IUserRepository userRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<GetUserApplicationsQueryHandler> logger)
     {
         _userRepository = userRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -42,7 +46,7 @@ public class GetUserApplicationsQueryHandler : IRequestHandler<GetUserApplicatio
             ApplicationId = access.ApplicationId,
             Code = access.Code,
             Name = access.Name,
-            LogoUrl = access.LogoUrl,
+            LogoUrl = _imageUrlComposer.Compose(access.LogoUrl),
             IsActive = access.IsActive,
             AccessSource = access switch
             {

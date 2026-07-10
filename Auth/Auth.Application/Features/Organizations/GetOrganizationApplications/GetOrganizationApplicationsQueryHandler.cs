@@ -1,6 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -15,15 +16,18 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
 {
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<GetOrganizationApplicationsQueryHandler> _logger;
 
     public GetOrganizationApplicationsQueryHandler(
         IOrganizationRepository organizationRepository,
         IApplicationRepository applicationRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<GetOrganizationApplicationsQueryHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _applicationRepository = applicationRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -61,6 +65,7 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
                     ApplicationCode = app.Code,
                     ApplicationName = app.Name,
                     ApplicationDescription = app.Description,
+                    ApplicationLogoUrl = _imageUrlComposer.Compose(app.LogoUrl),
                     SubscriptionTier = orgApp.SubscriptionTier,
                     EnabledAt = orgApp.EnabledAt,
                     EnabledBy = orgApp.EnabledBy,

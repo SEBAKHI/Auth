@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -12,13 +13,16 @@ namespace Auth.Application.Features.Applications.GetApplicationUsers;
 public class GetApplicationUsersQueryHandler : IRequestHandler<GetApplicationUsersQuery, ErrorOr<PagedApplicationUsersDto>>
 {
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<GetApplicationUsersQueryHandler> _logger;
 
     public GetApplicationUsersQueryHandler(
         IApplicationRepository applicationRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<GetApplicationUsersQueryHandler> logger)
     {
         _applicationRepository = applicationRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -50,6 +54,7 @@ public class GetApplicationUsersQueryHandler : IRequestHandler<GetApplicationUse
             LastName = user.LastName,
             FullName = $"{user.FirstName} {user.LastName}".Trim(),
             DisplayName = user.DisplayName,
+            ProfileImageUrl = _imageUrlComposer.Compose(user.ProfileImageUrl),
             Status = user.Status,
             LastLoginAt = user.LastLoginAt,
             CreatedAt = user.CreatedAt,

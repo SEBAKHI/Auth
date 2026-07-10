@@ -3,6 +3,7 @@ using Auth.Application.Features.Users.GetUsers;
 using Auth.Application.Features.Users.GetUserRoles;
 using Auth.Application.Features.Users.GetUserPermissions;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -23,7 +24,8 @@ public class GetUserByIdQueryHandlerTests
     public GetUserByIdQueryHandlerTests()
     {
         _handler = new GetUserByIdQueryHandler(
-            _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object);
+            _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object,
+            Mock.Of<IImageUrlComposer>());
     }
 
     [Fact]
@@ -63,7 +65,8 @@ public class GetUsersQueryHandlerTests
     public GetUsersQueryHandlerTests()
     {
         _handler = new GetUsersQueryHandler(
-            _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object);
+            _userRepositoryMock.Object, _roleRepositoryMock.Object, _permissionRepositoryMock.Object,
+            Mock.Of<IImageUrlComposer>());
     }
 
     [Fact]

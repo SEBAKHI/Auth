@@ -119,7 +119,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         }
 
         // Record successful login
-        await _userRepository.RecordSuccessfulLoginAsync(user.Id, cancellationToken);
+        await _userRepository.RecordSuccessfulLoginAsync(user.Id, ipAddress, cancellationToken);
 
         var loginAttempt = LoginAttempt.CreateSuccess(user.Id, user.Email, ipAddress, null);
         await _loginAttemptRepository.CreateAsync(loginAttempt, cancellationToken);

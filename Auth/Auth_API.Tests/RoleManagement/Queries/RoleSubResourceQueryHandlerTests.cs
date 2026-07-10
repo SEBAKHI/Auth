@@ -1,5 +1,6 @@
 using Auth.Application.Features.Roles.GetRoleApplications;
 using Auth.Application.Features.Roles.GetRoleUsers;
+using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -22,6 +23,7 @@ public class GetRoleUsersQueryHandlerTests
     {
         _handler = new GetRoleUsersQueryHandler(
             _roleRepositoryMock.Object,
+            Mock.Of<IImageUrlComposer>(),
             new Mock<ILogger<GetRoleUsersQueryHandler>>().Object);
     }
 
@@ -102,6 +104,7 @@ public class GetRoleApplicationsQueryHandlerTests
     {
         _handler = new GetRoleApplicationsQueryHandler(
             _roleRepositoryMock.Object,
+            Mock.Of<IImageUrlComposer>(),
             new Mock<ILogger<GetRoleApplicationsQueryHandler>>().Object);
     }
 

@@ -116,6 +116,21 @@ public class User : AggregateRoot
     /// </summary>
     public bool IsSystemUser { get; private set; }
 
+    /// <summary>
+    /// Gets the storage key (or absolute URL) of the user's profile image; null when unset.
+    /// </summary>
+    public string? ProfileImageUrl { get; private set; }
+
+    /// <summary>
+    /// Gets the IP address recorded at the last successful login.
+    /// </summary>
+    public string? LastLoginIp { get; private set; }
+
+    /// <summary>
+    /// Gets the UTC timestamp when the current password expires; null when no expiry policy applies.
+    /// </summary>
+    public DateTime? PasswordExpiresUtc { get; private set; }
+
     private User() : base()
     {
     }
@@ -146,7 +161,10 @@ public class User : AggregateRoot
         DateTime createdAt,
         Guid createdBy,
         DateTime? modifiedAt,
-        Guid? modifiedBy) : base(id)
+        Guid? modifiedBy,
+        string? profileImageUrl = null,
+        string? lastLoginIp = null,
+        DateTime? passwordExpiresUtc = null) : base(id)
     {
         Email = Email.From(email);
         NormalizedEmail = normalizedEmail;
@@ -173,6 +191,9 @@ public class User : AggregateRoot
         CreatedBy = createdBy;
         ModifiedAt = modifiedAt;
         ModifiedBy = modifiedBy;
+        ProfileImageUrl = profileImageUrl;
+        LastLoginIp = lastLoginIp;
+        PasswordExpiresUtc = passwordExpiresUtc;
     }
 
     public static User Create(
@@ -243,11 +264,26 @@ public class User : AggregateRoot
             MustChangePassword = false,
             PreferredLanguage = preferredLanguage,
             TimeZone = timeZone,
-            IsSystemUser = false
+            IsSystemUser = false,
+            ProfileImageUrl = profileImageUrl
         };
         user.SetCreated(createdBy);
         user.RaiseDomainEvent(new UserCreatedEvent(user.Id, user.Email, user.FirstName, user.LastName, createdBy));
         return user;
+    }
+
+    /// <summary>Sets the profile image storage key (or absolute URL).</summary>
+    public void SetProfileImage(string imageKey, Guid modifiedBy)
+    {
+        ProfileImageUrl = imageKey;
+        SetModified(modifiedBy);
+    }
+
+    /// <summary>Clears the profile image.</summary>
+    public void RemoveProfileImage(Guid modifiedBy)
+    {
+        ProfileImageUrl = null;
+        SetModified(modifiedBy);
     }
 
     public void UpdateProfile(
@@ -280,6 +316,7 @@ public class User : AggregateRoot
     public void RecordSuccessfulLogin(string? ipAddress = null, string? userAgent = null)
     {
         LastLoginAt = DateTime.UtcNow;
+        LastLoginIp = ipAddress;
         FailedLoginAttempts = 0;
         LockoutEnd = null;
         RaiseDomainEvent(new UserLoggedInEvent(Id, Email, ipAddress, userAgent));

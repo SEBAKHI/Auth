@@ -14,15 +14,18 @@ public class GetPermissionByIdQueryHandler : IRequestHandler<GetPermissionByIdQu
 {
     private readonly IPermissionRepository _permissionRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IUserRepository _userRepository;
     private readonly ILogger<GetPermissionByIdQueryHandler> _logger;
 
     public GetPermissionByIdQueryHandler(
         IPermissionRepository permissionRepository,
         IApplicationRepository applicationRepository,
+        IUserRepository userRepository,
         ILogger<GetPermissionByIdQueryHandler> logger)
     {
         _permissionRepository = permissionRepository;
         _applicationRepository = applicationRepository;
+        _userRepository = userRepository;
         _logger = logger;
     }
 
@@ -37,6 +40,8 @@ public class GetPermissionByIdQueryHandler : IRequestHandler<GetPermissionByIdQu
 
         var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
             _applicationRepository, [permission.ApplicationId], cancellationToken);
+        var userNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository, [permission.CreatedBy, permission.ModifiedBy], cancellationToken);
 
         _logger.LogDebug("Retrieved permission {PermissionId} ({PermissionCode})", permission.Id, permission.Code);
 
@@ -55,7 +60,13 @@ public class GetPermissionByIdQueryHandler : IRequestHandler<GetPermissionByIdQu
             IsWildcard = permission.IsWildcard,
             IsActive = permission.IsActive,
             CreatedAt = permission.CreatedAt,
-            ModifiedAt = permission.ModifiedAt
+            CreatedBy = permission.CreatedBy,
+            CreatedByName = userNames.GetValueOrDefault(permission.CreatedBy),
+            ModifiedAt = permission.ModifiedAt,
+            ModifiedBy = permission.ModifiedBy,
+            ModifiedByName = permission.ModifiedBy.HasValue
+                ? userNames.GetValueOrDefault(permission.ModifiedBy.Value)
+                : null
         };
     }
 }

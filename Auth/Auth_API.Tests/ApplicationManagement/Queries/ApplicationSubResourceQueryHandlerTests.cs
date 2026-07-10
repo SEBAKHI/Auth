@@ -1,5 +1,6 @@
 using Auth.Application.Features.Applications.GetApplicationOrganizations;
 using Auth.Application.Features.Applications.GetApplicationUsers;
+using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Access;
@@ -22,6 +23,7 @@ public class GetApplicationUsersQueryHandlerTests
     {
         _handler = new GetApplicationUsersQueryHandler(
             _applicationRepositoryMock.Object,
+            Mock.Of<IImageUrlComposer>(),
             new Mock<ILogger<GetApplicationUsersQueryHandler>>().Object);
     }
 
@@ -98,6 +100,7 @@ public class GetApplicationOrganizationsQueryHandlerTests
     {
         _handler = new GetApplicationOrganizationsQueryHandler(
             _applicationRepositoryMock.Object,
+            Mock.Of<IImageUrlComposer>(),
             new Mock<ILogger<GetApplicationOrganizationsQueryHandler>>().Object);
     }
 

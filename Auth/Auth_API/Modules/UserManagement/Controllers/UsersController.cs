@@ -15,8 +15,10 @@ using Auth.Application.Features.Users.GetUserRoles;
 using Auth.Application.Features.Users.GetUsers;
 using Auth.Application.Features.Users.GrantUserPermission;
 using Auth.Application.Features.Users.LockAccount;
+using Auth.Application.Features.Users.RemoveProfileImage;
 using Auth.Application.Features.Users.RemoveUserRole;
 using Auth.Application.Features.Users.RevokeUserPermission;
+using Auth.Application.Features.Users.SetProfileImage;
 using Auth.Application.Features.Users.UnlockAccount;
 using Auth.Application.Features.Users.UpdateProfile;
 using Auth.Application.Features.Users.UpdateUser;
@@ -493,6 +495,68 @@ public class UsersController : ApiController
         return result.Match(
             user => Ok(user),
             errors => Problem(errors));
+    }
+
+    /// <summary>Sets the current user's profile image to a previously uploaded image key.</summary>
+    [HttpPut("me/profile-image")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SetMyProfileImage(
+        [FromBody] SetProfileImageRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(
+            new SetProfileImageCommand(userId, request.ImageKey, userId), cancellationToken);
+
+        return result.Match(_ => NoContent(), errors => Problem(errors));
+    }
+
+    /// <summary>Clears the current user's profile image.</summary>
+    [HttpDelete("me/profile-image")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> RemoveMyProfileImage(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(
+            new RemoveProfileImageCommand(userId, userId), cancellationToken);
+
+        return result.Match(_ => NoContent(), errors => Problem(errors));
+    }
+
+    /// <summary>Sets a user's profile image (admin).</summary>
+    [HttpPut("{id:guid}/profile-image")]
+    [RequirePermission("users:update")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> SetUserProfileImage(
+        Guid id, [FromBody] SetProfileImageRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new SetProfileImageCommand(id, request.ImageKey, GetCurrentUserId()), cancellationToken);
+
+        return result.Match(_ => NoContent(), errors => Problem(errors));
+    }
+
+    /// <summary>Clears a user's profile image (admin).</summary>
+    [HttpDelete("{id:guid}/profile-image")]
+    [RequirePermission("users:update")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> RemoveUserProfileImage(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new RemoveProfileImageCommand(id, GetCurrentUserId()), cancellationToken);
+
+        return result.Match(_ => NoContent(), errors => Problem(errors));
     }
 
 }

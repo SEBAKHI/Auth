@@ -9,6 +9,7 @@ using Auth_API.Common.HealthChecks;
 using Auth_API.Common.Middleware;
 using Auth_API.Tools;
 using Auth.Application.Interfaces;
+using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.Security;
 using Auth.Domain.Interfaces.Repositories;
@@ -16,7 +17,9 @@ using Auth.Infrastructure;
 using Auth.Infrastructure.Authentication;
 using Auth.Infrastructure.Authorization;
 using Auth.Infrastructure.Persistence;
+using Auth.Infrastructure.Services;
 using Auth.Infrastructure.Email;
+using Microsoft.Extensions.FileProviders;
 using Auth.Infrastructure.Configuration;
 using Auth.Infrastructure.Security;
 using Auth.Shared.Configuration;
@@ -59,6 +62,7 @@ builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(Gat
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(EmailSettings.SectionName));
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
+builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
 
 // ════════════════════════════════════════════════════════════════════════════
 // Secret Management - choose how the RSA signing key, HMAC key, and gateway token
@@ -296,6 +300,8 @@ builder.Services.AddSingleton<ITotpService>(sp => new TotpService(sp.GetRequired
 builder.Services.AddSingleton<IOtpGenerator, OtpGenerator>();
 builder.Services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
 builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageService>();
+builder.Services.AddSingleton<IImageUrlComposer, ImageUrlComposer>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
 
@@ -583,6 +589,26 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Serve uploaded images (profile pictures, logos) from the configured storage directory.
+// The directory lives outside the deploy tree; responses get nosniff + caching, and the
+// request path is exempted from gateway-token validation (see Gateway:ExemptPaths).
+var imageStorageSettings = app.Services.GetRequiredService<IOptions<ImageStorageSettings>>().Value;
+var imageStorageRoot = Path.IsPathRooted(imageStorageSettings.PhysicalPath)
+    ? imageStorageSettings.PhysicalPath
+    : Path.Combine(AppContext.BaseDirectory, imageStorageSettings.PhysicalPath);
+Directory.CreateDirectory(imageStorageRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(imageStorageRoot),
+    RequestPath = imageStorageSettings.RequestPath,
+    OnPrepareResponse = ctx =>
+    {
+        ctx.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=86400";
+    }
+});
+
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();

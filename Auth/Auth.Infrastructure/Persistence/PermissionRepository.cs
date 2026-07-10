@@ -640,6 +640,7 @@ public class PermissionRepository : IPermissionRepository
                 u.[FirstName],
                 u.[LastName],
                 u.[FullName] AS [DisplayName],
+                u.[ProfileImageUrl],
                 u.[Status],
                 u.[LastLoginUtc] AS [LastLoginAt],
                 u.[CreatedAt],

@@ -29,7 +29,8 @@ public class GetOrganizationByIdQueryHandlerTests
             _organizationRepositoryMock.Object,
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
-            _applicationRepositoryMock.Object);
+            _applicationRepositoryMock.Object,
+            Mock.Of<Auth.Application.Interfaces.IImageUrlComposer>());
     }
 
     [Fact]

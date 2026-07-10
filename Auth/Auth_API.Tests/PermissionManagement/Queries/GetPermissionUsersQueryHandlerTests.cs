@@ -1,4 +1,5 @@
 using Auth.Application.Features.Permissions.GetPermissionUsers;
+using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -21,6 +22,7 @@ public class GetPermissionUsersQueryHandlerTests
     {
         _handler = new GetPermissionUsersQueryHandler(
             _permissionRepositoryMock.Object,
+            Mock.Of<IImageUrlComposer>(),
             new Mock<ILogger<GetPermissionUsersQueryHandler>>().Object);
     }
 

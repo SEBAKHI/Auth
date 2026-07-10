@@ -18,6 +18,7 @@ public class GetPermissionByIdQueryHandlerTests
 {
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock;
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<ILogger<GetPermissionByIdQueryHandler>> _loggerMock;
     private readonly GetPermissionByIdQueryHandler _handler;
 
@@ -25,11 +26,13 @@ public class GetPermissionByIdQueryHandlerTests
     {
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
+        _userRepositoryMock = new Mock<IUserRepository>();
         _loggerMock = new Mock<ILogger<GetPermissionByIdQueryHandler>>();
 
         _handler = new GetPermissionByIdQueryHandler(
             _permissionRepositoryMock.Object,
             _applicationRepositoryMock.Object,
+            _userRepositoryMock.Object,
             _loggerMock.Object);
     }
 
@@ -99,16 +102,19 @@ public class GetPermissionsQueryHandlerTests
 {
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock;
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+    private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly GetPermissionsQueryHandler _handler;
 
     public GetPermissionsQueryHandlerTests()
     {
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
+        _userRepositoryMock = new Mock<IUserRepository>();
 
         _handler = new GetPermissionsQueryHandler(
             _permissionRepositoryMock.Object,
-            _applicationRepositoryMock.Object);
+            _applicationRepositoryMock.Object,
+            _userRepositoryMock.Object);
     }
 
     [Fact]

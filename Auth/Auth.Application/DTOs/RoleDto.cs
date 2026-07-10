@@ -18,7 +18,17 @@ public class RoleDto
     public bool IsActive { get; set; }
     public byte Level { get; set; }
     public DateTime CreatedAt { get; set; }
+    public Guid CreatedBy { get; set; }
+
+    /// <summary>Display name of the creating user; null when unresolved.</summary>
+    public string? CreatedByName { get; set; }
+
     public DateTime? ModifiedAt { get; set; }
+    public Guid? ModifiedBy { get; set; }
+
+    /// <summary>Display name of the last modifying user; null when unresolved.</summary>
+    public string? ModifiedByName { get; set; }
+
     public IReadOnlyList<string> Permissions { get; set; } = [];
 }
 

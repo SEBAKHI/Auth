@@ -3,6 +3,7 @@ using Auth.Application.Features.Applications.GetApplications;
 using Auth.Application.Features.Applications.GetApplicationRoles;
 using Auth.Application.Features.Applications.GetApplicationPermissions;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Enums;
@@ -32,6 +33,7 @@ public class GetApplicationByIdQueryHandlerTests
         _handler = new GetApplicationByIdQueryHandler(
             _applicationRepositoryMock.Object,
             _userRepositoryMock.Object,
+            Mock.Of<IImageUrlComposer>(),
             _loggerMock.Object);
     }
 
@@ -116,6 +118,7 @@ public class GetApplicationsQueryHandlerTests
         _handler = new GetApplicationsQueryHandler(
             _applicationRepositoryMock.Object,
             _userRepositoryMock.Object,
+            Mock.Of<IImageUrlComposer>(),
             _loggerMock.Object);
     }
 

@@ -1,6 +1,7 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.Common;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -14,13 +15,16 @@ namespace Auth.Application.Features.Roles.GetRoleApplications;
 public class GetRoleApplicationsQueryHandler : IRequestHandler<GetRoleApplicationsQuery, ErrorOr<IReadOnlyList<RoleApplicationDto>>>
 {
     private readonly IRoleRepository _roleRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<GetRoleApplicationsQueryHandler> _logger;
 
     public GetRoleApplicationsQueryHandler(
         IRoleRepository roleRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<GetRoleApplicationsQueryHandler> logger)
     {
         _roleRepository = roleRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -42,7 +46,7 @@ public class GetRoleApplicationsQueryHandler : IRequestHandler<GetRoleApplicatio
             ApplicationId = application.ApplicationId,
             Code = application.Code,
             Name = application.Name,
-            LogoUrl = application.LogoUrl,
+            LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             IsActive = application.IsActive,
             Relationship = application switch
             {

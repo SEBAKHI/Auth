@@ -19,7 +19,16 @@ public class OrganizationDto
     public int MemberCount { get; set; }
     public int EnabledAppCount { get; set; }
     public DateTime CreatedAt { get; set; }
+    public Guid CreatedBy { get; set; }
+
+    /// <summary>Display name of the creating user; null when unresolved.</summary>
+    public string? CreatedByName { get; set; }
+
     public DateTime? ModifiedAt { get; set; }
+    public Guid? ModifiedBy { get; set; }
+
+    /// <summary>Display name of the last modifying user; null when unresolved.</summary>
+    public string? ModifiedByName { get; set; }
 }
 
 /// <summary>
