@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom"
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { PageHeader } from "@/components/common/page-header"
+import { avatarColumn } from "@/components/data-table/columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -23,7 +24,7 @@ import { api } from "@/lib/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
-import { formatDate, fullName, userStatusMeta } from "@/lib/format"
+import { formatDateTime, fullName, userStatusMeta } from "@/lib/format"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import type { Schemas } from "@/lib/api/types"
 import { useUserActions } from "./use-user-actions"
@@ -114,6 +115,12 @@ export function UsersPage() {
   })
 
   const columns: ColumnDef<UserDto, unknown>[] = [
+    avatarColumn<UserDto>({
+      getSrc: (row) => row.profileImageUrl,
+      getName: (row) =>
+        row.displayName ||
+        fullName(row.firstName, row.lastName, row.email ?? ""),
+    }),
     {
       id: "name",
       accessorFn: (row) =>
@@ -182,7 +189,7 @@ export function UsersPage() {
       meta: { label: t("users.lastLogin") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.lastLoginAt)}
+          {formatDateTime(row.original.lastLoginAt)}
         </span>
       ),
     },
@@ -193,7 +200,7 @@ export function UsersPage() {
       meta: { label: t("common.createdAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.createdAt)}
+          {formatDateTime(row.original.createdAt)}
         </span>
       ),
     },

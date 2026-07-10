@@ -1639,6 +1639,144 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Users/me/profile-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetProfileImageRequest"];
+                    "text/json": components["schemas"]["SetProfileImageRequest"];
+                    "application/*+json": components["schemas"]["SetProfileImageRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Users/{id}/profile-image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetProfileImageRequest"];
+                    "text/json": components["schemas"]["SetProfileImageRequest"];
+                    "application/*+json": components["schemas"]["SetProfileImageRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Roles": {
         parameters: {
             query?: never;
@@ -4142,6 +4280,60 @@ export interface paths {
                 };
                 /** @description Conflict */
                 409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        file?: components["schemas"]["IFormFile"];
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["UploadImageResponse"];
+                        "application/json": components["schemas"]["UploadImageResponse"];
+                        "text/json": components["schemas"]["UploadImageResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -7686,6 +7878,9 @@ export interface components {
             rateLimitPerDay?: number | string;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            createdByName?: null | string;
             /** Format: date-time */
             expiresAt?: null | string;
             /** Format: date-time */
@@ -7773,6 +7968,7 @@ export interface components {
             lastName?: null | string;
             fullName?: null | string;
             displayName?: null | string;
+            profileImageUrl?: null | string;
             status?: components["schemas"]["UserStatus"];
             /** Format: date-time */
             lastLoginAt?: null | string;
@@ -8069,6 +8265,8 @@ export interface components {
             success?: boolean;
             message?: string;
         };
+        /** Format: binary */
+        IFormFile: string;
         IntrospectTokenRequest: {
             token: string;
             tokenTypeHint?: null | components["schemas"]["TokenTypeHint"];
@@ -8194,8 +8392,14 @@ export interface components {
             enabledAppCount?: number | string;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            createdByName?: null | string;
             /** Format: date-time */
             modifiedAt?: null | string;
+            /** Format: uuid */
+            modifiedBy?: null | string;
+            modifiedByName?: null | string;
         };
         OrganizationDto: {
             /** Format: uuid */
@@ -8217,8 +8421,14 @@ export interface components {
             enabledAppCount?: number | string;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            createdByName?: null | string;
             /** Format: date-time */
             modifiedAt?: null | string;
+            /** Format: uuid */
+            modifiedBy?: null | string;
+            modifiedByName?: null | string;
         };
         OrganizationInvitationDto: {
             /** Format: uuid */
@@ -8287,6 +8497,7 @@ export interface components {
             firstName?: null | string;
             lastName?: null | string;
             fullName?: null | string;
+            profileImageUrl?: null | string;
             /** Format: uuid */
             roleId?: string;
             roleCode?: string;
@@ -8459,8 +8670,14 @@ export interface components {
             isActive?: boolean;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            createdByName?: null | string;
             /** Format: date-time */
             modifiedAt?: null | string;
+            /** Format: uuid */
+            modifiedBy?: null | string;
+            modifiedByName?: null | string;
         };
         PermissionUserDto: {
             /** Format: uuid */
@@ -8470,6 +8687,7 @@ export interface components {
             lastName?: null | string;
             fullName?: null | string;
             displayName?: null | string;
+            profileImageUrl?: null | string;
             status?: components["schemas"]["UserStatus"];
             /** Format: date-time */
             lastLoginAt?: null | string;
@@ -8564,8 +8782,14 @@ export interface components {
             level?: number | string;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            createdByName?: null | string;
             /** Format: date-time */
             modifiedAt?: null | string;
+            /** Format: uuid */
+            modifiedBy?: null | string;
+            modifiedByName?: null | string;
             permissions?: string[];
         };
         RoleUserDto: {
@@ -8576,6 +8800,7 @@ export interface components {
             lastName?: null | string;
             fullName?: null | string;
             displayName?: null | string;
+            profileImageUrl?: null | string;
             status?: components["schemas"]["UserStatus"];
             /** Format: date-time */
             lastLoginAt?: null | string;
@@ -8683,6 +8908,9 @@ export interface components {
             /** Format: int32 */
             tokensExpiringIn7Days?: number | string;
         };
+        SetProfileImageRequest: {
+            imageKey: string;
+        };
         SetSecretRequest: {
             value?: string;
         };
@@ -8780,6 +9008,10 @@ export interface components {
             preferredLanguage?: null | string;
             timeZone?: null | string;
         };
+        UploadImageResponse: {
+            key: string;
+            url: string;
+        };
         UserApplicationDto: {
             /** Format: uuid */
             applicationId?: string;
@@ -8797,6 +9029,7 @@ export interface components {
             lastName?: string;
             displayName?: null | string;
             phoneNumber?: null | string;
+            profileImageUrl?: null | string;
             status?: components["schemas"]["UserStatus"];
             emailConfirmed?: boolean;
             phoneConfirmed?: boolean;
@@ -8805,10 +9038,26 @@ export interface components {
             timeZone?: null | string;
             /** Format: date-time */
             lastLoginAt?: null | string;
+            /** Format: int32 */
+            failedLoginAttempts?: number | string;
+            /** Format: date-time */
+            lockoutEnd?: null | string;
+            lastLoginIp?: null | string;
+            /** Format: date-time */
+            passwordChangedAt?: null | string;
+            /** Format: date-time */
+            passwordExpiresUtc?: null | string;
+            mustChangePassword?: boolean;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            createdByName?: null | string;
             /** Format: date-time */
             modifiedAt?: null | string;
+            /** Format: uuid */
+            modifiedBy?: null | string;
+            modifiedByName?: null | string;
             roles?: string[];
             permissions?: string[];
         };
@@ -8954,6 +9203,9 @@ export interface components {
             environment?: string;
             /** Format: date-time */
             createdAt?: string;
+            /** Format: uuid */
+            createdBy?: string;
+            createdByName?: null | string;
             /** Format: date-time */
             expiresAt?: null | string;
             /** Format: date-time */

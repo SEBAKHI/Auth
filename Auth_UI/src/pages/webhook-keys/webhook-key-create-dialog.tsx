@@ -52,6 +52,7 @@ export function WebhookKeyCreateDialog({
     targetUrl: z.string().min(1, t("validation.required")),
     environment: z.string().optional(),
     description: z.string().optional(),
+    expiresAt: z.string().optional(),
   })
   type Values = z.infer<typeof schema>
 
@@ -62,6 +63,7 @@ export function WebhookKeyCreateDialog({
       targetUrl: "",
       environment: "production",
       description: "",
+      expiresAt: "",
     },
   })
 
@@ -78,6 +80,9 @@ export function WebhookKeyCreateDialog({
           targetUrl: values.targetUrl,
           description: emptyToNull(values.description),
           environment: emptyToNull(values.environment),
+          expiresAt: values.expiresAt
+            ? new Date(values.expiresAt).toISOString()
+            : null,
         },
       })
       if (error) throw error
@@ -153,6 +158,19 @@ export function WebhookKeyCreateDialog({
                     <FormLabel>{t("common.description")}</FormLabel>
                     <FormControl>
                       <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="expiresAt"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("common.expiresAt")}</FormLabel>
+                    <FormControl>
+                      <Input type="date" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

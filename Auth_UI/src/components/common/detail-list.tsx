@@ -24,13 +24,13 @@ export function DetailList({ items }: { items: DetailItem[] }) {
   return (
     <Card size="sm">
       <CardContent>
-        <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+        <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
           {visible.map((item) => (
             <div
               key={item.label}
               className={cn(
                 "min-w-0",
-                item.fullWidth && "sm:col-span-2 lg:col-span-3"
+                item.fullWidth && "sm:col-span-2 lg:col-span-4"
               )}
             >
               <dt className="text-xs text-muted-foreground">{item.label}</dt>

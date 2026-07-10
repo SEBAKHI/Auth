@@ -33,7 +33,7 @@ import { unwrap } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { PERMISSIONS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
-import { formatDate } from "@/lib/format"
+import { formatDateTime } from "@/lib/format"
 import type { Schemas } from "@/lib/api/types"
 import { ApiKeyCreateDialog } from "./api-key-create-dialog"
 
@@ -224,7 +224,7 @@ export function ApiKeysPage() {
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.lastUsedAt
-            ? formatDate(row.original.lastUsedAt)
+            ? formatDateTime(row.original.lastUsedAt)
             : t("common.never")}
         </span>
       ),
@@ -236,7 +236,7 @@ export function ApiKeysPage() {
       meta: { label: t("common.createdAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.createdAt)}
+          {formatDateTime(row.original.createdAt)}
         </span>
       ),
     },

@@ -8,6 +8,7 @@ import { toast } from "sonner"
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { PageHeader } from "@/components/common/page-header"
+import { avatarColumn } from "@/components/data-table/columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,7 +25,7 @@ import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpe
 import { useAuth } from "@/lib/auth/auth-context"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
-import { formatDate } from "@/lib/format"
+import { formatDateTime } from "@/lib/format"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import type { Schemas } from "@/lib/api/types"
 import {
@@ -114,6 +115,10 @@ export function ApplicationsPage() {
   })
 
   const columns: ColumnDef<ApplicationDto, unknown>[] = [
+    avatarColumn<ApplicationDto>({
+      getSrc: (row) => row.logoUrl,
+      getName: (row) => row.name,
+    }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
@@ -169,7 +174,7 @@ export function ApplicationsPage() {
       meta: { label: t("common.createdAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.createdAt)}
+          {formatDateTime(row.original.createdAt)}
         </span>
       ),
     },

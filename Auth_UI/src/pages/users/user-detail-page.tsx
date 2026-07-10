@@ -6,9 +6,12 @@ import { useTranslation } from "react-i18next"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
+import { AvatarMenu } from "@/components/common/avatar-menu"
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { DetailList } from "@/components/common/detail-list"
+import { EntityAvatar } from "@/components/common/entity-avatar"
 import { PageHeader } from "@/components/common/page-header"
+import { avatarColumn } from "@/components/data-table/columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -25,10 +28,11 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/lib/api/client"
 import { toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
+import { useProfileImage } from "@/lib/api/use-profile-image"
 import { useAuth } from "@/lib/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
-import { formatDate, formatDateTime, fullName, userStatusMeta } from "@/lib/format"
+import { formatDateTime, fullName, userStatusMeta } from "@/lib/format"
 import type { Schemas } from "@/lib/api/types"
 import { useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
@@ -52,6 +56,10 @@ function UserOrganizationsTab({ userId }: { userId: string }) {
   })
 
   const columns: ColumnDef<Schemas["OrganizationSummaryDto"], unknown>[] = [
+    avatarColumn<Schemas["OrganizationSummaryDto"]>({
+      getSrc: (row) => row.logoUrl,
+      getName: (row) => row.name,
+    }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
@@ -138,6 +146,10 @@ function UserApplicationsTab({ userId }: { userId: string }) {
   })
 
   const columns: ColumnDef<Schemas["UserApplicationDto"], unknown>[] = [
+    avatarColumn<Schemas["UserApplicationDto"]>({
+      getSrc: (row) => row.logoUrl,
+      getName: (row) => row.name,
+    }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
@@ -274,7 +286,7 @@ function UserRolesTab({ userId }: { userId: string }) {
       meta: { label: t("common.expiresAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.expiresAt)}
+          {formatDateTime(row.original.expiresAt)}
         </span>
       ),
     },
@@ -285,7 +297,7 @@ function UserRolesTab({ userId }: { userId: string }) {
       meta: { label: t("common.createdAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.createdAt)}
+          {formatDateTime(row.original.createdAt)}
         </span>
       ),
     },
@@ -376,7 +388,7 @@ function UserPermissionsTab({ userId }: { userId: string }) {
       meta: { label: t("common.expiresAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.expiresAt)}
+          {formatDateTime(row.original.expiresAt)}
         </span>
       ),
     },
@@ -511,6 +523,7 @@ export function UserDetailPage() {
   const { hasPermission } = useAuth()
 
   const canUpdate = hasPermission(PERMISSIONS.users.update)
+  const profileImage = useProfileImage(userId)
   const canDelete = hasPermission(PERMISSIONS.users.delete)
   const canManageRoles = hasPermission(PERMISSIONS.users.manageRoles)
   const canManagePerms = hasPermission(PERMISSIONS.users.managePermissions)
@@ -594,6 +607,24 @@ export function UserDetailPage() {
           <PageHeader
             title={displayName}
             description={user.email}
+            leading={
+              canUpdate ? (
+                <AvatarMenu
+                  src={user.profileImageUrl}
+                  name={displayName}
+                  size="xl"
+                  onChange={profileImage.onChange}
+                  onRemove={profileImage.onRemove}
+                  pending={profileImage.pending}
+                />
+              ) : (
+                <EntityAvatar
+                  src={user.profileImageUrl}
+                  name={displayName}
+                  size="xl"
+                />
+              )
+            }
             actions={
               <>
                 {canUpdate ? (
@@ -713,6 +744,12 @@ export function UserDetailPage() {
                   : t("common.no"),
               },
               {
+                label: t("users.phoneConfirmed"),
+                value: user.phoneConfirmed
+                  ? t("common.yes")
+                  : t("common.no"),
+              },
+              {
                 label: t("users.twoFactor"),
                 value: user.twoFactorEnabled
                   ? t("common.enabled")
@@ -728,14 +765,39 @@ export function UserDetailPage() {
                 label: t("users.lastLogin"),
                 value: formatDateTime(user.lastLoginAt),
               },
+              { label: t("users.lastLoginIp"), value: user.lastLoginIp },
+              {
+                label: t("users.failedLoginAttempts"),
+                value: toNumber(user.failedLoginAttempts),
+              },
+              {
+                label: t("users.lockoutEnd"),
+                value: formatDateTime(user.lockoutEnd),
+              },
+              {
+                label: t("users.passwordChangedAt"),
+                value: formatDateTime(user.passwordChangedAt),
+              },
+              {
+                label: t("users.passwordExpires"),
+                value: formatDateTime(user.passwordExpiresUtc),
+              },
+              {
+                label: t("users.mustChangePassword"),
+                value: user.mustChangePassword
+                  ? t("common.yes")
+                  : t("common.no"),
+              },
               {
                 label: t("common.createdAt"),
-                value: formatDate(user.createdAt),
+                value: formatDateTime(user.createdAt),
               },
+              { label: t("common.createdBy"), value: user.createdByName },
               {
                 label: t("common.modifiedAt"),
-                value: formatDate(user.modifiedAt),
+                value: formatDateTime(user.modifiedAt),
               },
+              { label: t("common.modifiedBy"), value: user.modifiedByName },
             ]}
           />
         </>

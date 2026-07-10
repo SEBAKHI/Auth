@@ -33,7 +33,7 @@ import { unwrap } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { PERMISSIONS } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
-import { formatDate } from "@/lib/format"
+import { formatDateTime } from "@/lib/format"
 import type { Schemas } from "@/lib/api/types"
 import { WebhookKeyCreateDialog } from "./webhook-key-create-dialog"
 
@@ -204,6 +204,12 @@ export function WebhookKeysPage() {
       ),
     },
     {
+      accessorKey: "environment",
+      filterFn: "faceted",
+      header: t("apiKeys.environment"),
+      meta: { label: t("apiKeys.environment"), filterVariant: "faceted" },
+    },
+    {
       id: "status",
       accessorFn: (row) => (row.isRevoked ? "revoked" : "active"),
       filterFn: "faceted",
@@ -229,7 +235,7 @@ export function WebhookKeysPage() {
       meta: { label: t("common.createdAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.createdAt)}
+          {formatDateTime(row.original.createdAt)}
         </span>
       ),
     },

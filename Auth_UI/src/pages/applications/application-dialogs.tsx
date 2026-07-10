@@ -64,6 +64,7 @@ export function ApplicationCreateDialog({
     name: z.string().min(1, t("validation.required")),
     description: z.string().optional(),
     baseUrl: z.string().optional(),
+    logoUrl: z.string().optional(),
     contactEmail: z.string().optional(),
     allowSelfRegistration: z.boolean(),
     requireTwoFactor: z.boolean(),
@@ -80,6 +81,7 @@ export function ApplicationCreateDialog({
       name: "",
       description: "",
       baseUrl: "",
+      logoUrl: "",
       contactEmail: "",
       allowSelfRegistration: false,
       requireTwoFactor: false,
@@ -101,6 +103,7 @@ export function ApplicationCreateDialog({
           name: values.name,
           description: emptyToNull(values.description),
           baseUrl: emptyToNull(values.baseUrl),
+          logoUrl: emptyToNull(values.logoUrl),
           contactEmail: emptyToNull(values.contactEmail),
           allowSelfRegistration: values.allowSelfRegistration,
           requireTwoFactor: values.requireTwoFactor,
@@ -177,6 +180,19 @@ export function ApplicationCreateDialog({
         render={({ field }) => (
           <FormItem>
             <FormLabel>{t("applications.baseUrl")}</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="logoUrl"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.logoUrl")}</FormLabel>
             <FormControl>
               <Input {...field} />
             </FormControl>
@@ -266,6 +282,7 @@ export function ApplicationEditDialog({
     name: z.string().min(1, t("validation.required")),
     description: z.string().optional(),
     baseUrl: z.string().optional(),
+    logoUrl: z.string().optional(),
     contactEmail: z.string().optional(),
     allowSelfRegistration: z.boolean(),
     requireTwoFactor: z.boolean(),
@@ -281,6 +298,7 @@ export function ApplicationEditDialog({
       name: "",
       description: "",
       baseUrl: "",
+      logoUrl: "",
       contactEmail: "",
       allowSelfRegistration: false,
       requireTwoFactor: false,
@@ -296,6 +314,7 @@ export function ApplicationEditDialog({
       name: application.name ?? "",
       description: application.description ?? "",
       baseUrl: application.baseUrl ?? "",
+      logoUrl: application.logoUrl ?? "",
       contactEmail: application.contactEmail ?? "",
       allowSelfRegistration: application.allowSelfRegistration ?? false,
       requireTwoFactor: application.requireTwoFactor ?? false,
@@ -313,7 +332,7 @@ export function ApplicationEditDialog({
           name: values.name,
           description: emptyToNull(values.description),
           baseUrl: emptyToNull(values.baseUrl),
-          logoUrl: application.logoUrl ?? null,
+          logoUrl: emptyToNull(values.logoUrl),
           contactEmail: emptyToNull(values.contactEmail),
           allowSelfRegistration: values.allowSelfRegistration,
           requireTwoFactor: values.requireTwoFactor,
@@ -377,6 +396,19 @@ export function ApplicationEditDialog({
         render={({ field }) => (
           <FormItem>
             <FormLabel>{t("applications.baseUrl")}</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="logoUrl"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.logoUrl")}</FormLabel>
             <FormControl>
               <Input {...field} />
             </FormControl>

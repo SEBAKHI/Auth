@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ export function UserPermissionsDialog({
   const queryClient = useQueryClient()
   const userId = user.id as string
   const [selected, setSelected] = React.useState<string>()
+  const [expiresAt, setExpiresAt] = React.useState("")
 
   const grantedQuery = useQuery({
     queryKey: ["users", userId, "permissions"],
@@ -74,13 +76,17 @@ export function UserPermissionsDialog({
     mutationFn: async (permissionId: string) => {
       const { error } = await api.POST("/api/v1/Users/{id}/permissions", {
         params: { path: { id: userId } },
-        body: { permissionId },
+        body: {
+          permissionId,
+          expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        },
       })
       if (error) throw error
     },
     onSuccess: () => {
       void invalidate()
       setSelected(undefined)
+      setExpiresAt("")
       toast.success(t("users.permissionGranted"))
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -127,6 +133,13 @@ export function UserPermissionsDialog({
                 </SelectContent>
               </Select>
             </div>
+            <Input
+              type="date"
+              className="w-40"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              aria-label={t("common.expiresAt")}
+            />
             <Button
               onClick={() => selected && grantMutation.mutate(selected)}
               disabled={!selected || grantMutation.isPending}

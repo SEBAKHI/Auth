@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -46,6 +47,7 @@ export function MemberAppRolesDialog({
   const userId = member.userId as string
   const [selectedApp, setSelectedApp] = React.useState<string>()
   const [selectedRole, setSelectedRole] = React.useState<string>()
+  const [expiresAt, setExpiresAt] = React.useState("")
 
   const assignmentsQuery = useQuery({
     queryKey: ["org-member-app-roles", orgId, userId],
@@ -109,7 +111,11 @@ export function MemberAppRolesDialog({
         "/api/v1/Organizations/{orgId}/members/{userId}/roles",
         {
           params: { path: { orgId, userId } },
-          body: { applicationId, roleId },
+          body: {
+            applicationId,
+            roleId,
+            expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+          },
         }
       )
       if (error) throw error
@@ -117,6 +123,7 @@ export function MemberAppRolesDialog({
     onSuccess: () => {
       invalidate()
       setSelectedRole(undefined)
+      setExpiresAt("")
       toast.success(t("organizations.appRoleAssigned"))
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -190,6 +197,13 @@ export function MemberAppRolesDialog({
                 </SelectContent>
               </Select>
             </div>
+            <Input
+              type="date"
+              className="w-40"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              aria-label={t("common.expiresAt")}
+            />
             <Button
               onClick={() =>
                 selectedApp &&

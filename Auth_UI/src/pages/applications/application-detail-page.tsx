@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { ArrowLeft, Search } from "lucide-react"
 import * as React from "react"
@@ -6,7 +6,9 @@ import { useTranslation } from "react-i18next"
 import { Link, useNavigate, useParams } from "react-router-dom"
 
 import { DetailList } from "@/components/common/detail-list"
+import { LogoAvatar } from "@/components/common/logo-avatar"
 import { PageHeader } from "@/components/common/page-header"
+import { avatarColumn } from "@/components/data-table/columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +19,7 @@ import { api } from "@/lib/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
-import { formatDate, fullName, userStatusMeta } from "@/lib/format"
+import { formatDateTime, fullName, userStatusMeta } from "@/lib/format"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import type { Schemas } from "@/lib/api/types"
 import { ApplicationEditDialog } from "./application-dialogs"
@@ -84,6 +86,12 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
   )
 
   const columns: ColumnDef<Schemas["ApplicationUserDto"], unknown>[] = [
+    avatarColumn<Schemas["ApplicationUserDto"]>({
+      getSrc: (row) => row.profileImageUrl,
+      getName: (row) =>
+        row.displayName ||
+        fullName(row.firstName, row.lastName, row.email ?? ""),
+    }),
     {
       id: "firstName",
       accessorFn: (row) =>
@@ -149,7 +157,7 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
       meta: { label: t("users.lastLogin") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.lastLoginAt)}
+          {formatDateTime(row.original.lastLoginAt)}
         </span>
       ),
     },
@@ -224,6 +232,10 @@ function ApplicationOrganizationsTab({ appId }: { appId: string }) {
   })
 
   const columns: ColumnDef<Schemas["ApplicationOrganizationDto"], unknown>[] = [
+    avatarColumn<Schemas["ApplicationOrganizationDto"]>({
+      getSrc: (row) => row.logoUrl,
+      getName: (row) => row.name,
+    }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
@@ -260,7 +272,7 @@ function ApplicationOrganizationsTab({ appId }: { appId: string }) {
       meta: { label: t("applications.enabledAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.enabledAt)}
+          {formatDateTime(row.original.enabledAt)}
         </span>
       ),
     },
@@ -491,6 +503,7 @@ export function ApplicationDetailPage() {
   const appId = id as string
   const { hasPermission } = useAuth()
   const canUpdate = hasPermission(PERMISSIONS.applications.update)
+  const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = React.useState(false)
 
   const detailQuery = useQuery({
@@ -522,6 +535,47 @@ export function ApplicationDetailPage() {
           <PageHeader
             title={app.name ?? "—"}
             description={app.code}
+            leading={
+              <LogoAvatar
+                src={app.logoUrl}
+                name={app.name}
+                canEdit={canUpdate}
+                successMessage={t("applications.updated")}
+                invalidate={() => {
+                  void queryClient.invalidateQueries({
+                    queryKey: ["applications", appId],
+                  })
+                  void queryClient.invalidateQueries({
+                    queryKey: ["applications"],
+                  })
+                }}
+                persist={async (logoKey) => {
+                  const { error } = await api.PUT(
+                    "/api/v1/Applications/{id}",
+                    {
+                      params: { path: { id: appId } },
+                      body: {
+                        name: app.name ?? "",
+                        description: app.description ?? null,
+                        baseUrl: app.baseUrl ?? null,
+                        logoUrl: logoKey,
+                        contactEmail: app.contactEmail ?? null,
+                        allowSelfRegistration:
+                          app.allowSelfRegistration ?? false,
+                        requireTwoFactor: app.requireTwoFactor ?? false,
+                        requireEmailVerification:
+                          app.requireEmailVerification ?? false,
+                        sessionTimeoutMinutes:
+                          app.sessionTimeoutMinutes ?? 60,
+                        maxConcurrentSessions:
+                          app.maxConcurrentSessions ?? 5,
+                      },
+                    }
+                  )
+                  if (error) throw error
+                }}
+              />
+            }
             actions={
               canUpdate ? (
                 <Button variant="outline" onClick={() => setEditOpen(true)}>
@@ -576,12 +630,14 @@ export function ApplicationDetailPage() {
               },
               {
                 label: t("common.createdAt"),
-                value: formatDate(app.createdAt),
+                value: formatDateTime(app.createdAt),
               },
+              { label: t("common.createdBy"), value: app.createdByName },
               {
                 label: t("common.modifiedAt"),
-                value: formatDate(app.modifiedAt),
+                value: formatDateTime(app.modifiedAt),
               },
+              { label: t("common.modifiedBy"), value: app.modifiedByName },
             ]}
           />
         </>

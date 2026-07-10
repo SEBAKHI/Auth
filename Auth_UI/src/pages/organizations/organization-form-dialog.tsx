@@ -48,6 +48,7 @@ export function OrganizationFormDialog({
       .min(1, t("validation.required"))
       .regex(EMAIL_RE, t("validation.email")),
     website: z.string().optional(),
+    logoUrl: z.string().optional(),
     description: z.string().optional(),
     isActive: z.boolean(),
   })
@@ -60,6 +61,7 @@ export function OrganizationFormDialog({
       name: "",
       contactEmail: "",
       website: "",
+      logoUrl: "",
       description: "",
       isActive: true,
     },
@@ -72,6 +74,7 @@ export function OrganizationFormDialog({
       name: organization?.name ?? "",
       contactEmail: organization?.contactEmail ?? "",
       website: organization?.website ?? "",
+      logoUrl: organization?.logoUrl ?? "",
       description: organization?.description ?? "",
       isActive: organization?.isActive ?? true,
     })
@@ -86,6 +89,7 @@ export function OrganizationFormDialog({
             name: values.name,
             contactEmail: values.contactEmail,
             website: emptyToNull(values.website),
+            logoUrl: emptyToNull(values.logoUrl),
             description: emptyToNull(values.description),
             isActive: values.isActive,
           },
@@ -99,6 +103,7 @@ export function OrganizationFormDialog({
           name: values.name,
           contactEmail: values.contactEmail,
           website: emptyToNull(values.website),
+          logoUrl: emptyToNull(values.logoUrl),
           description: emptyToNull(values.description),
         },
       })
@@ -175,6 +180,19 @@ export function OrganizationFormDialog({
         render={({ field }) => (
           <FormItem>
             <FormLabel>{t("organizations.website")}</FormLabel>
+            <FormControl>
+              <Input {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="logoUrl"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.logoUrl")}</FormLabel>
             <FormControl>
               <Input {...field} />
             </FormControl>

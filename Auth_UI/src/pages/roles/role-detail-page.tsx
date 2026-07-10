@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 
 import { DetailList } from "@/components/common/detail-list"
 import { PageHeader } from "@/components/common/page-header"
+import { avatarColumn } from "@/components/data-table/columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +18,7 @@ import { api } from "@/lib/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
-import { formatDate, fullName, userStatusMeta } from "@/lib/format"
+import { formatDateTime, fullName, userStatusMeta } from "@/lib/format"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import type { Schemas } from "@/lib/api/types"
 import { RoleFormDialog } from "./role-form-dialog"
@@ -84,6 +85,12 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
   )
 
   const columns: ColumnDef<Schemas["RoleUserDto"], unknown>[] = [
+    avatarColumn<Schemas["RoleUserDto"]>({
+      getSrc: (row) => row.profileImageUrl,
+      getName: (row) =>
+        row.displayName ||
+        fullName(row.firstName, row.lastName, row.email ?? ""),
+    }),
     {
       id: "firstName",
       accessorFn: (row) =>
@@ -161,7 +168,7 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
       meta: { label: t("users.lastLogin") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
-          {formatDate(row.original.lastLoginAt)}
+          {formatDateTime(row.original.lastLoginAt)}
         </span>
       ),
     },
@@ -226,6 +233,10 @@ function RoleApplicationsTab({ roleId }: { roleId: string }) {
   })
 
   const columns: ColumnDef<Schemas["RoleApplicationDto"], unknown>[] = [
+    avatarColumn<Schemas["RoleApplicationDto"]>({
+      getSrc: (row) => row.logoUrl,
+      getName: (row) => row.name,
+    }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
@@ -391,12 +402,14 @@ export function RoleDetailPage() {
               { label: t("roles.level"), value: toNumber(role.level) },
               {
                 label: t("common.createdAt"),
-                value: formatDate(role.createdAt),
+                value: formatDateTime(role.createdAt),
               },
+              { label: t("common.createdBy"), value: role.createdByName },
               {
                 label: t("common.modifiedAt"),
-                value: formatDate(role.modifiedAt),
+                value: formatDateTime(role.modifiedAt),
               },
+              { label: t("common.modifiedBy"), value: role.modifiedByName },
             ]}
           />
         </>

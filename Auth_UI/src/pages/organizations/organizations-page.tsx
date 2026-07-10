@@ -8,6 +8,7 @@ import { toast } from "sonner"
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { PageHeader } from "@/components/common/page-header"
+import { avatarColumn } from "@/components/data-table/columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -57,6 +58,10 @@ export function OrganizationsPage() {
   })
 
   const columns: ColumnDef<OrganizationSummaryDto, unknown>[] = [
+    avatarColumn<OrganizationSummaryDto>({
+      getSrc: (row) => row.logoUrl,
+      getName: (row) => row.name,
+    }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",

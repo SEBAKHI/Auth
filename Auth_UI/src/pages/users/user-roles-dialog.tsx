@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -39,6 +40,7 @@ export function UserRolesDialog({
   const queryClient = useQueryClient()
   const userId = user.id as string
   const [selectedRole, setSelectedRole] = React.useState<string>()
+  const [expiresAt, setExpiresAt] = React.useState("")
 
   const rolesQuery = useQuery({
     queryKey: ["users", userId, "roles"],
@@ -71,7 +73,10 @@ export function UserRolesDialog({
     mutationFn: async (roleId: string) => {
       const { error } = await api.POST("/api/v1/Users/{id}/roles", {
         params: { path: { id: userId } },
-        body: { roleId },
+        body: {
+          roleId,
+          expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        },
       })
       if (error) throw error
     },
@@ -79,6 +84,7 @@ export function UserRolesDialog({
       void invalidate()
       void queryClient.invalidateQueries({ queryKey: ["users"] })
       setSelectedRole(undefined)
+      setExpiresAt("")
       toast.success(t("users.roleAssigned"))
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -120,12 +126,23 @@ export function UserRolesDialog({
                   {availableRoles.map((role) => (
                     <SelectItem key={role.id} value={role.id as string}>
                       {role.name}
-                      {role.applicationId ? null : ` (${t("nav.platform")})`}
+                      {role.applicationName
+                        ? ` (${role.applicationName})`
+                        : role.applicationId
+                          ? null
+                          : ` (${t("nav.platform")})`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
+            <Input
+              type="date"
+              className="w-40"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              aria-label={t("common.expiresAt")}
+            />
             <Button
               onClick={() =>
                 selectedRole && assignMutation.mutate(selectedRole)

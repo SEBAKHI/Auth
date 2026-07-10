@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import { AvatarMenu } from "@/components/common/avatar-menu"
 import { PageHeader } from "@/components/common/page-header"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,7 +30,9 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/lib/api/client"
 import { unwrap } from "@/lib/api/helpers"
+import { useProfileImage } from "@/lib/api/use-profile-image"
 import { getErrorMessage } from "@/lib/errors"
+import { fullName } from "@/lib/format"
 import type { Schemas } from "@/lib/api/types"
 import { ProfileSecurity } from "./profile-security"
 import { ProfileSessions } from "./profile-sessions"
@@ -41,6 +44,8 @@ function emptyToNull(value: string | undefined): string | null {
 function AccountTab({ me }: { me: Schemas["UserDto"] }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const profileImage = useProfileImage()
+  const meName = me.displayName || fullName(me.firstName, me.lastName, me.email ?? "")
 
   const schema = z.object({
     firstName: z.string().min(1, t("validation.required")),
@@ -92,6 +97,20 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
         <CardDescription>{t("profile.accountDetailsSubtitle")}</CardDescription>
       </CardHeader>
       <CardContent>
+        <div className="mb-6 flex items-center gap-4">
+          <AvatarMenu
+            src={me.profileImageUrl}
+            name={meName}
+            size="xl"
+            onChange={profileImage.onChange}
+            onRemove={profileImage.onRemove}
+            pending={profileImage.pending}
+          />
+          <div className="min-w-0">
+            <p className="truncate font-medium">{meName}</p>
+            <p className="truncate text-sm text-muted-foreground">{me.email}</p>
+          </div>
+        </div>
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit((values) => mutation.mutate(values))}

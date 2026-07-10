@@ -1,9 +1,10 @@
+import { useQuery } from "@tanstack/react-query"
 import { LogOut, User as UserIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { EntityAvatar } from "@/components/common/entity-avatar"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -13,13 +14,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { api } from "@/lib/api/client"
+import { unwrap } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
-import { fullName, initials } from "@/lib/format"
+import { fullName } from "@/lib/format"
 
 export function UserMenu() {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+
+  // Shares the ["me"] cache with the Profile page, so a changed avatar updates here too.
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () => unwrap(api.GET("/api/v1/Users/me")),
+  })
 
   const name = fullName(user?.firstName, user?.lastName, user?.email ?? "")
 
@@ -33,11 +42,11 @@ export function UserMenu() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="gap-2 px-2">
-          <Avatar className="size-7">
-            <AvatarFallback className="text-xs">
-              {initials(name)}
-            </AvatarFallback>
-          </Avatar>
+          <EntityAvatar
+            src={meQuery.data?.profileImageUrl}
+            name={name}
+            className="size-7"
+          />
           <span className="hidden text-sm sm:inline">{name}</span>
         </Button>
       </DropdownMenuTrigger>

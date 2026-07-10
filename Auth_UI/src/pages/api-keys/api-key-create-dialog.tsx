@@ -48,6 +48,7 @@ export function ApiKeyCreateDialog({
     description: z.string().optional(),
     rateLimitPerMinute: z.string().optional(),
     rateLimitPerDay: z.string().optional(),
+    expiresAt: z.string().optional(),
   })
   type Values = z.infer<typeof schema>
 
@@ -59,6 +60,7 @@ export function ApiKeyCreateDialog({
       description: "",
       rateLimitPerMinute: "",
       rateLimitPerDay: "",
+      expiresAt: "",
     },
   })
 
@@ -76,6 +78,9 @@ export function ApiKeyCreateDialog({
           environment: emptyToNull(values.environment),
           rateLimitPerMinute: toIntOrNull(values.rateLimitPerMinute),
           rateLimitPerDay: toIntOrNull(values.rateLimitPerDay),
+          expiresAt: values.expiresAt
+            ? new Date(values.expiresAt).toISOString()
+            : null,
         },
       })
       if (error) throw error
@@ -162,6 +167,19 @@ export function ApiKeyCreateDialog({
             <FormLabel>{t("apiKeys.rateLimitPerDay")}</FormLabel>
             <FormControl>
               <Input type="number" min={1} {...field} />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="expiresAt"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("common.expiresAt")}</FormLabel>
+            <FormControl>
+              <Input type="date" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>

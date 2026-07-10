@@ -7,6 +7,7 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 
 import { DetailList } from "@/components/common/detail-list"
 import { PageHeader } from "@/components/common/page-header"
+import { avatarColumn } from "@/components/data-table/columns"
 import { DataTable } from "@/components/data-table/data-table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -17,7 +18,7 @@ import { api } from "@/lib/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
-import { formatDate, fullName, userStatusMeta } from "@/lib/format"
+import { formatDateTime, fullName, userStatusMeta } from "@/lib/format"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
 import type { Schemas } from "@/lib/api/types"
 import { PermissionFormDialog } from "./permission-form-dialog"
@@ -94,6 +95,12 @@ function PermissionUsersTab({ permissionId }: { permissionId: string }) {
   )
 
   const columns: ColumnDef<Schemas["PermissionUserDto"], unknown>[] = [
+    avatarColumn<Schemas["PermissionUserDto"]>({
+      getSrc: (row) => row.profileImageUrl,
+      getName: (row) =>
+        row.displayName ||
+        fullName(row.firstName, row.lastName, row.email ?? ""),
+    }),
     {
       id: "firstName",
       accessorFn: (row) =>
@@ -344,13 +351,23 @@ export function PermissionDetailPage() {
                   </Badge>
                 ),
               },
+              { label: t("permissions.level"), value: toNumber(permission.level) },
               {
-                label: t("common.createdAt"),
-                value: formatDate(permission.createdAt),
+                label: t("permissions.wildcard"),
+                value: permission.isWildcard ? t("common.yes") : t("common.no"),
               },
               {
+                label: t("common.createdAt"),
+                value: formatDateTime(permission.createdAt),
+              },
+              { label: t("common.createdBy"), value: permission.createdByName },
+              {
                 label: t("common.modifiedAt"),
-                value: formatDate(permission.modifiedAt),
+                value: formatDateTime(permission.modifiedAt),
+              },
+              {
+                label: t("common.modifiedBy"),
+                value: permission.modifiedByName,
               },
             ]}
           />
