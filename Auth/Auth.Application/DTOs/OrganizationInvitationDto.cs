@@ -33,11 +33,14 @@ public class InvitationPreviewDto
     public Guid Id { get; set; }
     public string OrganizationName { get; set; } = string.Empty;
     public string? OrganizationLogoUrl { get; set; }
+    public string Email { get; set; } = string.Empty;
     public string RoleName { get; set; } = string.Empty;
     public string InvitedByName { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
     public DateTime ExpiresAt { get; set; }
     public bool IsExpired { get; set; }
     public bool IsAlreadyMember { get; set; }
+    public bool UserExists { get; set; }
 }
 
 /// <summary>
