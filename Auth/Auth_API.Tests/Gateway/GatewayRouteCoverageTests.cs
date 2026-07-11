@@ -6,11 +6,12 @@ namespace Auth_API.Tests.Gateway;
 
 /// <summary>
 /// Guards against gateway route drift: in production the SPA reaches the Auth API only
-/// through the YARP gateway, whose routes are an explicit per-prefix allowlist in
-/// API_Gateway/appsettings.json. A controller without a matching gateway route surfaces
-/// as a bodiless 404 for that whole feature — images, dashboard and webhook keys have
-/// each drifted this way. These tests fail as soon as a controller (or the uploads
-/// static path) is not forwarded by any gateway route.
+/// through the YARP gateway, whose routes are an explicit per-feature allowlist in
+/// API_Gateway/appsettings.json. Routes are version-agnostic (v{version:int} matches
+/// every numeric API version), but a controller for a NEW feature without a matching
+/// gateway route surfaces as a bodiless 404 for that whole feature — images, dashboard
+/// and webhook keys have each drifted this way. These tests fail as soon as a controller
+/// (or the uploads static path) is not forwarded by any gateway route.
 /// </summary>
 public class GatewayRouteCoverageTests
 {
@@ -84,7 +85,8 @@ public class GatewayRouteCoverageTests
 
     /// <summary>
     /// Reads the YARP route patterns from the gateway's base appsettings.json and returns
-    /// them as path prefixes with the catch-all stripped, e.g. "/api/v1/images/".
+    /// them as path prefixes with the catch-all stripped and the version parameter
+    /// resolved to v1, e.g. "/api/v{version:int}/images/{**catch-all}" -> "/api/v1/images/".
     /// </summary>
     private static List<string> GatewayRoutePrefixes()
     {
@@ -103,7 +105,9 @@ public class GatewayRouteCoverageTests
                 continue;
             }
 
-            var prefix = pattern.Replace("{**catch-all}", string.Empty, StringComparison.OrdinalIgnoreCase);
+            var prefix = pattern
+                .Replace("{**catch-all}", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace("{version:int}", "1", StringComparison.OrdinalIgnoreCase);
             prefixes.Add(prefix.EndsWith('/') ? prefix : prefix + "/");
         }
 
