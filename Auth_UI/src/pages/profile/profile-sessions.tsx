@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Monitor } from "lucide-react"
+import { Loader2, Monitor, Smartphone, Tablet } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -9,10 +9,73 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { api } from "@/lib/api/client"
 import { unwrap } from "@/lib/api/helpers"
 import { getErrorMessage } from "@/lib/errors"
-import { formatRelative } from "@/lib/format"
+import { formatDateTime, formatRelative } from "@/lib/format"
+import { parseUserAgent, type DeviceType } from "@/lib/user-agent"
+import type { Schemas } from "@/lib/api/types"
+
+const DEVICE_ICONS: Record<DeviceType, typeof Monitor> = {
+  desktop: Monitor,
+  mobile: Smartphone,
+  tablet: Tablet,
+}
+
+/** "Chrome on Windows"-style label a non-technical user can read. */
+function DeviceCell({ session }: { session: Schemas["SessionDto"] }) {
+  const { t } = useTranslation()
+  const parsed = parseUserAgent(session.userAgent)
+  const Icon = DEVICE_ICONS[parsed.deviceType]
+
+  const browser = parsed.browser ?? t("profile.unknownBrowser")
+  const label =
+    session.deviceName ??
+    (parsed.os ? t("profile.browserOnOs", { browser, os: parsed.os }) : browser)
+
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <Icon className="size-5 shrink-0 text-muted-foreground" />
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 truncate text-sm font-medium">
+          {label}
+          {session.isCurrent ? (
+            <Badge variant="outline">{t("profile.currentSession")}</Badge>
+          ) : null}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">
+          {t(`profile.deviceType.${parsed.deviceType}`)}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function RelativeTimeCell({ value }: { value: string | undefined }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className="text-sm text-muted-foreground">
+          {formatRelative(value)}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent>{formatDateTime(value)}</TooltipContent>
+    </Tooltip>
+  )
+}
 
 export function ProfileSessions() {
   const { t } = useTranslation()
@@ -82,42 +145,56 @@ export function ProfileSessions() {
             {t("common.empty")}
           </p>
         ) : (
-          <ul className="divide-y">
-            {sessions.map((session) => (
-              <li
-                key={session.id}
-                className="flex items-center justify-between gap-3 py-3"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <Monitor className="size-5 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-2 truncate text-sm font-medium">
-                      {session.deviceName ?? session.userAgent ?? "—"}
-                      {session.isCurrent ? (
-                        <Badge variant="outline">
-                          {t("profile.currentSession")}
-                        </Badge>
-                      ) : null}
-                    </p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {session.ipAddress ?? "—"} ·{" "}
-                      {formatRelative(session.lastActivityAt)}
-                    </p>
-                  </div>
-                </div>
-                {!session.isCurrent ? (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => session.id && revokeOne.mutate(session.id)}
-                    disabled={revokeOne.isPending}
-                  >
-                    {t("profile.revokeSession")}
-                  </Button>
-                ) : null}
-              </li>
-            ))}
-          </ul>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("profile.device")}</TableHead>
+                <TableHead>{t("profile.ipAddress")}</TableHead>
+                <TableHead>{t("profile.lastActivity")}</TableHead>
+                <TableHead>{t("profile.signedInAt")}</TableHead>
+                <TableHead>
+                  <span className="sr-only">{t("common.actions")}</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sessions.map((session) => (
+                <TableRow key={session.id}>
+                  <TableCell className="max-w-64">
+                    <DeviceCell session={session} />
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">{session.ipAddress ?? "—"}</div>
+                    {session.location ? (
+                      <div className="text-xs text-muted-foreground">
+                        {session.location}
+                      </div>
+                    ) : null}
+                  </TableCell>
+                  <TableCell>
+                    <RelativeTimeCell value={session.lastActivityAt} />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatDateTime(session.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-end">
+                    {!session.isCurrent ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          session.id && revokeOne.mutate(session.id)
+                        }
+                        disabled={revokeOne.isPending}
+                      >
+                        {t("profile.revokeSession")}
+                      </Button>
+                    ) : null}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </CardContent>
 
