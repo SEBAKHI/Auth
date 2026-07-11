@@ -1,0 +1,67 @@
+using Auth.Application.Features.Users.UpdateProfile;
+
+namespace Auth_API.Tests.Validators;
+
+public class SharedValidationRulesTests
+{
+    private readonly UpdateProfileCommandValidator _validator = new();
+
+    [Theory]
+    [InlineData("UTC")]
+    [InlineData("Asia/Riyadh")]
+    [InlineData("Etc/UTC")]
+    [InlineData("Europe/Paris")]
+    public void TimeZone_IanaIdentifiers_AreValid(string timeZone)
+    {
+        var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid(), TimeZone: timeZone));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("Arab Standard Time")] // Windows id — rejected to keep stored values IANA
+    [InlineData("Not/AZone")]
+    [InlineData("Riyadh")]
+    public void TimeZone_NonIanaIdentifiers_AreRejected(string timeZone)
+    {
+        var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid(), TimeZone: timeZone));
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Validation.TimeZone.Invalid");
+    }
+
+    [Fact]
+    public void TimeZone_Null_IsValid()
+    {
+        var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid()));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("en")]
+    [InlineData("ar")]
+    [InlineData("tr")]
+    [InlineData("fr")]
+    [InlineData("zh")]
+    [InlineData("ur")]
+    [InlineData("fa")]
+    public void PreferredLanguage_SupportedCultures_AreValid(string language)
+    {
+        var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid(), PreferredLanguage: language));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("english")]
+    [InlineData("")]
+    public void PreferredLanguage_UnsupportedValues_AreRejected(string language)
+    {
+        var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid(), PreferredLanguage: language));
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Validation.PreferredLanguage.NotSupported");
+    }
+}

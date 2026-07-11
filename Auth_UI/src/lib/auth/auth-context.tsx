@@ -9,6 +9,12 @@ import {
   getRefreshToken,
   setTokens,
 } from "@/lib/auth/token-store"
+import i18n, {
+  persistLanguage,
+  SUPPORTED_LANGUAGES,
+  type LanguageCode,
+} from "@/lib/i18n"
+import { setActiveTimeZone } from "@/lib/timezone"
 import type { UserInfo } from "@/lib/api/types"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
@@ -60,6 +66,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const { roles, permissions } = React.useMemo(() => derive(user), [user])
 
+  // Adopt the profile's preferred language once per session, so a login on a
+  // fresh browser follows the profile without fighting a mid-session toggle.
+  const languageAdoptedRef = React.useRef(false)
+  const applyProfilePreferences = React.useCallback(
+    (profile: UserInfo | null | undefined) => {
+      setActiveTimeZone(profile?.timeZone)
+
+      if (languageAdoptedRef.current) return
+      languageAdoptedRef.current = true
+      const code = profile?.preferredLanguage
+      const supported = SUPPORTED_LANGUAGES.some((l) => l.code === code)
+      if (code && supported && i18n.language !== code) {
+        persistLanguage(code as LanguageCode)
+        void i18n.changeLanguage(code)
+      }
+    },
+    []
+  )
+
   const loadCurrentUser = React.useCallback(async () => {
     const { data, error } = await api.GET("/api/v1/Auth/me")
     if (error || !data) {
@@ -70,7 +95,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setUser(data)
     setStatus("authenticated")
-  }, [])
+    applyProfilePreferences(data)
+  }, [applyProfilePreferences])
 
   // Bootstrap an existing session on first load (silent refresh via middleware).
   React.useEffect(() => {
@@ -84,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const handler = () => {
       setUser(null)
       setStatus("unauthenticated")
+      setActiveTimeZone(null)
     }
     window.addEventListener(SESSION_EXPIRED_EVENT, handler)
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handler)
@@ -101,13 +128,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTokens(data.token.accessToken, data.token.refreshToken)
       setUser(data.user)
       setStatus("authenticated")
+      applyProfilePreferences(data.user)
 
       return {
         requiresPasswordChange: data.requiresPasswordChange ?? false,
         requiresTwoFactor: data.requiresTwoFactor ?? false,
       }
     },
-    []
+    [applyProfilePreferences]
   )
 
   const logout = React.useCallback(async () => {
@@ -121,6 +149,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearTokens()
     setUser(null)
     setStatus("unauthenticated")
+    setActiveTimeZone(null)
+    languageAdoptedRef.current = false
   }, [])
 
   const hasPermission = React.useCallback(

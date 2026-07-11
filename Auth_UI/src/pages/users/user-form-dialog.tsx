@@ -7,6 +7,8 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { FormDialog } from "@/components/common/form-dialog"
+import { LanguageSelect } from "@/components/common/language-select"
+import { TimeZoneSelect } from "@/components/common/timezone-select"
 import { Field, FieldLabel } from "@/components/ui/field"
 import {
   FormControl,
@@ -158,114 +160,120 @@ export function UserFormDialog({
       onSubmit={(values) => mutation.mutate(values)}
       submitLabel={isEdit ? t("common.save") : t("common.create")}
       pending={mutation.isPending}
-      contentClassName="sm:max-w-lg"
+      contentClassName="sm:max-w-2xl"
     >
-      {!isEdit ? (
-        <>
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("common.email")}</FormLabel>
-                <FormControl>
-                  <Input type="email" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t("users.password")}</FormLabel>
-                <FormControl>
-                  <Input
-                    type="password"
-                    autoComplete="new-password"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </>
-      ) : null}
+      <div className="grid gap-7 sm:grid-cols-2">
+        {!isEdit ? (
+          <>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("common.email")}</FormLabel>
+                  <FormControl>
+                    <Input type="email" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("users.password")}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="password"
+                      autoComplete="new-password"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </>
+        ) : null}
 
-      <FormField
-        control={form.control}
-        name="firstName"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t("users.firstName")}</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="lastName"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t("users.lastName")}</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <Field>
-        <FieldLabel htmlFor="user-display-name">
-          {t("users.displayName")}
-        </FieldLabel>
-        <Input id="user-display-name" value={displayName} readOnly disabled />
-      </Field>
-      <FormField
-        control={form.control}
-        name="phoneNumber"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t("users.phoneNumber")}</FormLabel>
-            <FormControl>
-              <Input {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="preferredLanguage"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t("users.preferredLanguage")}</FormLabel>
-            <FormControl>
-              <Input placeholder="en" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="timeZone"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t("users.timeZone")}</FormLabel>
-            <FormControl>
-              <Input placeholder="UTC" {...field} />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
+        <FormField
+          control={form.control}
+          name="firstName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("users.firstName")}</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="lastName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("users.lastName")}</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <Field>
+          <FieldLabel htmlFor="user-display-name">
+            {t("users.displayName")}
+          </FieldLabel>
+          <Input id="user-display-name" value={displayName} readOnly disabled />
+        </Field>
+        <FormField
+          control={form.control}
+          name="phoneNumber"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("users.phoneNumber")}</FormLabel>
+              <FormControl>
+                <Input {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="preferredLanguage"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("users.preferredLanguage")}</FormLabel>
+              <FormControl>
+                <LanguageSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  className="w-full"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="timeZone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("users.timeZone")}</FormLabel>
+              <FormControl>
+                <TimeZoneSelect value={field.value} onChange={field.onChange} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </div>
     </FormDialog>
   )
 }

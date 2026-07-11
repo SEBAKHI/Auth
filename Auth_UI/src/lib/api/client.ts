@@ -1,6 +1,7 @@
 import createClient, { type Middleware } from "openapi-fetch"
 
 import { API_BASE_URL } from "@/lib/env"
+import i18n from "@/lib/i18n"
 import { decodeJwt, isTokenExpired } from "@/lib/auth/jwt"
 import {
   clearTokens,
@@ -32,7 +33,10 @@ export async function refreshAccessToken(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Accept-Language": i18n.language,
+      },
       body: JSON.stringify({ refreshToken }),
     })
     if (!res.ok) return false
@@ -86,6 +90,10 @@ function isAuthFlow(url: string): boolean {
 
 const authMiddleware: Middleware = {
   async onRequest({ request }) {
+    // Culture signal for backend localization (errors, validation, emails) —
+    // sent on every request, including the anonymous login flow.
+    request.headers.set("Accept-Language", i18n.language)
+
     if (isAuthFlow(request.url)) return request
 
     // Proactively refresh an expired/missing access token so requests rarely 401.

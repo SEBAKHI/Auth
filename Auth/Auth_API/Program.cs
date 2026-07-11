@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Auth_API.Authorization;
+using Auth_API.Common;
 using Auth_API.Common.Filters;
 using Auth_API.Common.HealthChecks;
 using Auth_API.Common.Middleware;
@@ -372,6 +373,10 @@ builder.Services.AddControllers(options =>
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        // DB timestamps are UTC but arrive as Kind.Unspecified from Dapper;
+        // these converters guarantee offset-qualified ("Z") ISO-8601 output.
+        options.JsonSerializerOptions.Converters.Add(new UtcDateTimeConverter());
+        options.JsonSerializerOptions.Converters.Add(new NullableUtcDateTimeConverter());
     });
 
 // API Versioning

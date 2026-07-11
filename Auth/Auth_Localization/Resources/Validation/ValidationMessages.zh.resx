@@ -273,4 +273,10 @@
   <data name="Validation.LockDuration.GreaterThanZero" xml:space="preserve">
     <value>锁定时长必须大于0。</value>
   </data>
+  <data name="Validation.PreferredLanguage.NotSupported" xml:space="preserve">
+    <value>不支持所选的首选语言。</value>
+  </data>
+  <data name="Validation.TimeZone.Invalid" xml:space="preserve">
+    <value>时区必须是有效的 IANA 标识符（例如 Asia/Riyadh）。</value>
+  </data>
 </root>

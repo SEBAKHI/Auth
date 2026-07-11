@@ -273,4 +273,10 @@
   <data name="Validation.LockDuration.GreaterThanZero" xml:space="preserve">
     <value>مقفل کرنے کی مدت ۰ سے زیادہ ہونی چاہیے۔</value>
   </data>
+  <data name="Validation.PreferredLanguage.NotSupported" xml:space="preserve">
+    <value>ترجیحی زبان معاون نہیں ہے۔</value>
+  </data>
+  <data name="Validation.TimeZone.Invalid" xml:space="preserve">
+    <value>ٹائم زون ایک درست IANA شناخت ہونا چاہیے (مثلاً Asia/Riyadh)۔</value>
+  </data>
 </root>

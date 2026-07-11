@@ -273,4 +273,10 @@
   <data name="Validation.LockDuration.GreaterThanZero" xml:space="preserve">
     <value>يجب أن تكون مدة القفل أكبر من 0.</value>
   </data>
+  <data name="Validation.PreferredLanguage.NotSupported" xml:space="preserve">
+    <value>اللغة المفضلة غير مدعومة.</value>
+  </data>
+  <data name="Validation.TimeZone.Invalid" xml:space="preserve">
+    <value>المنطقة الزمنية يجب أن تكون معرّف IANA صالحًا (مثل Asia/Riyadh).</value>
+  </data>
 </root>

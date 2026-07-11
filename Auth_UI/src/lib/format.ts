@@ -1,28 +1,48 @@
+import { TZDate } from "@date-fns/tz"
 import { format, formatDistanceToNow, parseISO } from "date-fns"
+
+import { getActiveTimeZone } from "@/lib/timezone"
 
 /** Badge variants exposed by the shadcn Badge component (preset-styled). */
 export type BadgeVariant = "default" | "secondary" | "destructive" | "outline"
 
+// Datetime string carrying neither a "Z" nor a numeric offset. The API emits
+// UTC with "Z"; this is a belt-and-braces guard for older cached payloads.
+const DATETIME_WITHOUT_OFFSET = /^\d{4}-\d{2}-\d{2}T[\d:.]+$/
+
+// Pure calendar date ("2026-07-04") — rendered as-is, never zone-shifted.
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
+
 function toDate(value: string | null | undefined): Date | null {
   if (!value) return null
   try {
-    const date = parseISO(value)
+    const iso = DATETIME_WITHOUT_OFFSET.test(value) ? `${value}Z` : value
+    const date = parseISO(iso)
     return Number.isNaN(date.getTime()) ? null : date
   } catch {
     return null
   }
 }
 
+/** The instant re-expressed in the user's active display time zone. */
+function inActiveZone(date: Date): TZDate {
+  return new TZDate(date, getActiveTimeZone())
+}
+
 /** Absolute date-time, e.g. "21 Jun 2026, 14:05". Empty values render as an em dash. */
 export function formatDateTime(value: string | null | undefined): string {
   const date = toDate(value)
-  return date ? format(date, "dd MMM yyyy, HH:mm") : "—"
+  return date ? format(inActiveZone(date), "dd MMM yyyy, HH:mm") : "—"
 }
 
 /** Date only, e.g. "21 Jun 2026". */
 export function formatDate(value: string | null | undefined): string {
+  if (value && DATE_ONLY.test(value)) {
+    const date = toDate(value)
+    return date ? format(date, "dd MMM yyyy") : "—"
+  }
   const date = toDate(value)
-  return date ? format(date, "dd MMM yyyy") : "—"
+  return date ? format(inActiveZone(date), "dd MMM yyyy") : "—"
 }
 
 /** Relative time, e.g. "3 hours ago". */

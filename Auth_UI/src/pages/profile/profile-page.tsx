@@ -7,7 +7,9 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { AvatarMenu } from "@/components/common/avatar-menu"
+import { LanguageSelect } from "@/components/common/language-select"
 import { PageHeader } from "@/components/common/page-header"
+import { TimeZoneSelect } from "@/components/common/timezone-select"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -33,6 +35,12 @@ import { unwrap } from "@/lib/api/helpers"
 import { useProfileImage } from "@/lib/api/use-profile-image"
 import { getErrorMessage } from "@/lib/errors"
 import { fullName } from "@/lib/format"
+import i18n, {
+  persistLanguage,
+  SUPPORTED_LANGUAGES,
+  type LanguageCode,
+} from "@/lib/i18n"
+import { setActiveTimeZone } from "@/lib/timezone"
 import type { Schemas } from "@/lib/api/types"
 import { ProfileSecurity } from "./profile-security"
 import { ProfileSessions } from "./profile-sessions"
@@ -83,8 +91,19 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
       })
       if (error) throw error
     },
-    onSuccess: () => {
+    onSuccess: (_, values) => {
       void queryClient.invalidateQueries({ queryKey: ["me"] })
+      // Apply the saved preferences immediately, without a reload.
+      setActiveTimeZone(emptyToNull(values.timeZone))
+      const code = values.preferredLanguage
+      if (
+        code &&
+        SUPPORTED_LANGUAGES.some((lang) => lang.code === code) &&
+        i18n.language !== code
+      ) {
+        persistLanguage(code as LanguageCode)
+        void i18n.changeLanguage(code)
+      }
       toast.success(t("profile.profileUpdated"))
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -116,84 +135,93 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
             onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
           >
             <FieldGroup>
-              <FormField
-                control={form.control}
-                name="firstName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("users.firstName")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="lastName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("users.lastName")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="displayName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("users.displayName")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phoneNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("users.phoneNumber")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="preferredLanguage"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("users.preferredLanguage")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="timeZone"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("users.timeZone")}</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid gap-7 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.firstName")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.lastName")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="displayName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.displayName")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.phoneNumber")}</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="preferredLanguage"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.preferredLanguage")}</FormLabel>
+                      <FormControl>
+                        <LanguageSelect
+                          value={field.value}
+                          onChange={field.onChange}
+                          className="w-full"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="timeZone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("users.timeZone")}</FormLabel>
+                      <FormControl>
+                        <TimeZoneSelect
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <Button
                 type="submit"
                 className="w-fit"

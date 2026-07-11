@@ -273,4 +273,10 @@
   <data name="Validation.LockDuration.GreaterThanZero" xml:space="preserve">
     <value>Kilitleme süresi 0'dan büyük olmalıdır.</value>
   </data>
+  <data name="Validation.PreferredLanguage.NotSupported" xml:space="preserve">
+    <value>Tercih edilen dil desteklenmiyor.</value>
+  </data>
+  <data name="Validation.TimeZone.Invalid" xml:space="preserve">
+    <value>Saat dilimi geçerli bir IANA tanımlayıcısı olmalıdır (örn. Asia/Riyadh).</value>
+  </data>
 </root>

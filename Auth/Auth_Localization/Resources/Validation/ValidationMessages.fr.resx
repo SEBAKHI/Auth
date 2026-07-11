@@ -273,4 +273,10 @@
   <data name="Validation.LockDuration.GreaterThanZero" xml:space="preserve">
     <value>La durée de verrouillage doit être supérieure à 0.</value>
   </data>
+  <data name="Validation.PreferredLanguage.NotSupported" xml:space="preserve">
+    <value>La langue préférée n'est pas prise en charge.</value>
+  </data>
+  <data name="Validation.TimeZone.Invalid" xml:space="preserve">
+    <value>Le fuseau horaire doit être un identifiant IANA valide (p. ex. Asia/Riyadh).</value>
+  </data>
 </root>

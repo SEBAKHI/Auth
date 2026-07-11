@@ -1,6 +1,7 @@
 import { ensureFreshAccessToken, sharedRefresh } from "@/lib/api/client"
 import { getRefreshToken } from "@/lib/auth/token-store"
 import { API_BASE_URL } from "@/lib/env"
+import i18n from "@/lib/i18n"
 
 /**
  * Uploads an image to the generic image endpoint and returns its storage key +
@@ -18,7 +19,10 @@ export async function uploadImage(
   const send = (token: string | null) =>
     fetch(`${API_BASE_URL}/api/v1/Images`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token ?? ""}` },
+      headers: {
+        Authorization: `Bearer ${token ?? ""}`,
+        "Accept-Language": i18n.language,
+      },
       body,
     })
 

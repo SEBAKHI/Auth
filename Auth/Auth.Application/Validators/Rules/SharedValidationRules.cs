@@ -128,4 +128,45 @@ public static class SharedValidationRules
             .NotEmpty().WithMessage("Validation.TotpCode.Required")
             .Matches("^[0-9]{6}$").WithMessage("Validation.TotpCode.InvalidFormat");
     }
+
+    /// <summary>
+    /// Languages a user may store as a preferred language. Mirrors the culture
+    /// list served by the localization layer; kept local so Application does
+    /// not reference Auth_Localization.
+    /// </summary>
+    private static readonly string[] SupportedPreferredLanguages = ["en", "ar", "tr", "fr", "zh", "ur", "fa"];
+
+    public static IRuleBuilderOptions<T, string?> IsValidPreferredLanguage<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(language => language is null ||
+                SupportedPreferredLanguages.Contains(language, StringComparer.OrdinalIgnoreCase))
+            .WithMessage("Validation.PreferredLanguage.NotSupported");
+    }
+
+    /// <summary>
+    /// The time zone must be an IANA identifier (e.g. "Asia/Riyadh") or "UTC".
+    /// Windows ids are rejected so stored values stay portable across clients.
+    /// </summary>
+    public static IRuleBuilderOptions<T, string?> IsValidTimeZone<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(timeZone => timeZone is null || IsIanaTimeZone(timeZone))
+            .WithMessage("Validation.TimeZone.Invalid");
+    }
+
+    private static bool IsIanaTimeZone(string id)
+    {
+        if (id.Length > 50)
+        {
+            return false;
+        }
+
+        if (!id.Contains('/') && !string.Equals(id, "UTC", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return TimeZoneInfo.TryFindSystemTimeZoneById(id, out _);
+    }
 }
