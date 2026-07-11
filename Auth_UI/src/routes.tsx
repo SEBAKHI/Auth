@@ -4,6 +4,7 @@ import { AppShell } from "@/components/layout/app-shell"
 import { RequireAnonymous, RequireAuth } from "@/lib/auth/require-auth"
 import { PermissionRoute } from "@/lib/auth/require-permission"
 import { PERMISSIONS } from "@/lib/constants"
+import { AcceptInvitationPage } from "@/pages/auth/accept-invitation"
 import { ForcePasswordChangePage } from "@/pages/auth/force-password-change"
 import { ForgotPasswordPage } from "@/pages/auth/forgot-password"
 import { LoginPage } from "@/pages/auth/login"
@@ -107,6 +108,10 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  // Top-level on purpose: the page serves both anonymous invitees (register /
+  // sign-in-to-accept) and already-authenticated users (one-click accept), so
+  // it must live under neither RequireAnonymous nor RequireAuth.
+  { path: "/accept-invitation", element: <AcceptInvitationPage /> },
   { path: "/403", element: <ForbiddenPage /> },
   { path: "*", element: <NotFoundPage /> },
 ])

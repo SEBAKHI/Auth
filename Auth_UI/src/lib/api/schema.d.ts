@@ -2861,6 +2861,156 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Invitations/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["InvitationPreviewDto"];
+                        "application/json": components["schemas"]["InvitationPreviewDto"];
+                        "text/json": components["schemas"]["InvitationPreviewDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Invitations/{token}/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    token: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RegisterWithInvitationRequest"];
+                    "text/json": components["schemas"]["RegisterWithInvitationRequest"];
+                    "application/*+json": components["schemas"]["RegisterWithInvitationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["RegisterWithInvitationResponse"];
+                        "application/json": components["schemas"]["RegisterWithInvitationResponse"];
+                        "text/json": components["schemas"]["RegisterWithInvitationResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Invitations/{token}/accept": {
         parameters: {
             query?: never;
@@ -8299,6 +8449,21 @@ export interface components {
             roleName?: string;
             message?: null | string;
         };
+        InvitationPreviewDto: {
+            /** Format: uuid */
+            id?: string;
+            organizationName?: string;
+            organizationLogoUrl?: null | string;
+            email?: string;
+            roleName?: string;
+            invitedByName?: string;
+            status?: string;
+            /** Format: date-time */
+            expiresAt?: string;
+            isExpired?: boolean;
+            isAlreadyMember?: boolean;
+            userExists?: boolean;
+        };
         InviteMemberRequest: {
             email: string;
             /** Format: uuid */
@@ -8732,6 +8897,21 @@ export interface components {
             message: string;
             /** @default false */
             organizationCreated: boolean;
+        };
+        RegisterWithInvitationRequest: {
+            password: string;
+            firstName: string;
+            lastName: string;
+            preferredLanguage?: null | string;
+            timeZone?: null | string;
+        };
+        RegisterWithInvitationResponse: {
+            /** Format: uuid */
+            userId: string;
+            email: string;
+            organizationName: string;
+            roleName: string;
+            message: string;
         };
         ResendEmailVerificationRequest: {
             email: string;

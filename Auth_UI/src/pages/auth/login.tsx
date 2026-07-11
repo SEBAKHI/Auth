@@ -24,7 +24,8 @@ import { AuthLayout } from "./auth-layout"
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 interface LocationState {
-  from?: { pathname?: string }
+  from?: { pathname?: string; search?: string }
+  email?: string
 }
 
 export function LoginPage() {
@@ -32,7 +33,11 @@ export function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as LocationState | null)?.from?.pathname ?? "/"
+  const state = location.state as LocationState | null
+  const from = state?.from?.pathname
+    ? state.from.pathname + (state.from.search ?? "")
+    : "/"
+  const presetEmail = state?.email ?? ""
 
   const schema = z.object({
     email: z
@@ -44,7 +49,7 @@ export function LoginPage() {
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { email: presetEmail, password: "" },
   })
 
   const onSubmit = async (values: z.infer<typeof schema>) => {

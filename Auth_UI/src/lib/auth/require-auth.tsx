@@ -32,9 +32,21 @@ export function RequireAuth() {
 /** Inverse guard: keeps already-authenticated users out of auth pages. */
 export function RequireAnonymous() {
   const { status } = useAuth()
+  const location = useLocation()
 
   if (status === "loading") return <FullScreenLoader />
-  if (status === "authenticated") return <Navigate to="/" replace />
+  if (status === "authenticated") {
+    // Honor the post-login return target; this guard races the login page's
+    // own navigate(from) once the session flips to authenticated, so both
+    // must agree on the destination (including the query string).
+    const state = location.state as {
+      from?: { pathname?: string; search?: string }
+    } | null
+    const to = state?.from?.pathname
+      ? state.from.pathname + (state.from.search ?? "")
+      : "/"
+    return <Navigate to={to} replace />
+  }
 
   return <Outlet />
 }
