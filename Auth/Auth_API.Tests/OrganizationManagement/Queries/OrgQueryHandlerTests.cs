@@ -81,8 +81,12 @@ public class GetOrganizationMembersQueryHandlerTests
         _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, requestedBy, It.IsAny<CancellationToken>())).ReturnsAsync(requesterMembership);
         _orgRepoMock.Setup(r => r.GetMembersPagedAsync(orgId, 1, 20, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((members as IReadOnlyList<OrganizationUser>, 1));
-        _userRepoMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: userId));
-        _userRepoMock.Setup(r => r.GetByIdAsync(members[0].InvitedBy, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: members[0].InvitedBy));
+        _userRepoMock.Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<User>
+            {
+                TestHelpers.CreateUser(id: userId),
+                TestHelpers.CreateUser(id: members[0].InvitedBy, firstName: "Inviting", lastName: "Admin")
+            });
         _roleRepoMock.Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateRole(id: roleId));
 
         var result = await _handler.Handle(
@@ -91,6 +95,7 @@ public class GetOrganizationMembersQueryHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.TotalCount.Should().Be(1);
+        result.Value.Members[0].InvitedByName.Should().Be("Inviting Admin");
     }
 
     [Fact]
@@ -138,7 +143,11 @@ public class GetPendingInvitationsQueryHandlerTests
         _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, requestedBy, It.IsAny<CancellationToken>())).ReturnsAsync(requesterMembership);
         _orgRepoMock.Setup(r => r.GetPendingInvitationsAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(invitations);
         _roleRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateRole());
-        _userRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser());
+        _userRepoMock.Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<User>
+            {
+                TestHelpers.CreateUser(id: invitations[0].InvitedBy, firstName: "Inviting", lastName: "Admin")
+            });
 
         var result = await _handler.Handle(
             new GetPendingInvitationsQuery(orgId) { RequestedBy = requestedBy },
@@ -146,6 +155,7 @@ public class GetPendingInvitationsQueryHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.Should().HaveCount(1);
+        result.Value[0].InvitedByName.Should().Be("Inviting Admin");
     }
 
     [Fact]
@@ -165,6 +175,7 @@ public class GetOrganizationApplicationsQueryHandlerTests
 {
     private readonly Mock<IOrganizationRepository> _orgRepoMock = new();
     private readonly Mock<IApplicationRepository> _appRepoMock = new();
+    private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly GetOrganizationApplicationsQueryHandler _handler;
 
     public GetOrganizationApplicationsQueryHandlerTests()
@@ -172,6 +183,7 @@ public class GetOrganizationApplicationsQueryHandlerTests
         _handler = new GetOrganizationApplicationsQueryHandler(
             _orgRepoMock.Object,
             _appRepoMock.Object,
+            _userRepoMock.Object,
             Mock.Of<Auth.Application.Interfaces.IImageUrlComposer>(),
             new Mock<ILogger<GetOrganizationApplicationsQueryHandler>>().Object);
     }
@@ -195,6 +207,11 @@ public class GetOrganizationApplicationsQueryHandlerTests
         _orgRepoMock.Setup(r => r.GetAssignedUserCountsAsync(orgId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Dictionary<Guid, int> { [appId] = 2 });
         _appRepoMock.Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>())).ReturnsAsync(app);
+        _userRepoMock.Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<User>
+            {
+                TestHelpers.CreateUser(id: orgApps[0].EnabledBy, firstName: "Enabling", lastName: "Admin")
+            });
 
         var result = await _handler.Handle(
             new GetOrganizationApplicationsQuery(orgId) { RequestedBy = requestedBy },
@@ -203,6 +220,7 @@ public class GetOrganizationApplicationsQueryHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Should().HaveCount(1);
         result.Value[0].AssignedUserCount.Should().Be(2);
+        result.Value[0].EnabledByName.Should().Be("Enabling Admin");
     }
 
     [Fact]

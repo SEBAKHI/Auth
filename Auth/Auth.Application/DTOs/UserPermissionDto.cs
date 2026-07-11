@@ -18,6 +18,7 @@ public class UserPermissionDto
     public DateTime? ExpiresAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public Guid CreatedBy { get; set; }
+    public string? CreatedByName { get; set; }
 }
 
 /// <summary>

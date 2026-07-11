@@ -40,6 +40,8 @@ public class GetUserRolesQueryHandler : IRequestHandler<GetUserRolesQuery, Error
         }
 
         var userRoles = await _userRepository.GetUserRolesAsync(request.UserId, cancellationToken);
+        var assignerNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository, userRoles.Select(userRole => (Guid?)userRole.AssignedBy), cancellationToken);
 
         // Enrich with role and application names
         var dtos = new List<UserRoleDto>();
@@ -53,6 +55,7 @@ public class GetUserRolesQueryHandler : IRequestHandler<GetUserRolesQuery, Error
                 ApplicationId = userRole.ApplicationId,
                 CreatedAt = userRole.AssignedAt,
                 CreatedBy = userRole.AssignedBy,
+                CreatedByName = assignerNames.GetValueOrDefault(userRole.AssignedBy),
                 ExpiresAt = userRole.ExpiresAt,
                 IsActive = userRole.IsActive
             };

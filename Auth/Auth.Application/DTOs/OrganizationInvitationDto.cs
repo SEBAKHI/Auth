@@ -22,6 +22,7 @@ public class OrganizationInvitationDto
     public string? InvitedByEmail { get; set; }
     public DateTime? AcceptedAt { get; set; }
     public Guid? AcceptedByUserId { get; set; }
+    public string? AcceptedByUserName { get; set; }
     public DateTime CreatedAt { get; set; }
 }
 

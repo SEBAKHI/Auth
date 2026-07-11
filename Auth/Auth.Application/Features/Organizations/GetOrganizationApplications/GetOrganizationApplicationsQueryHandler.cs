@@ -16,17 +16,20 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
 {
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IUserRepository _userRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<GetOrganizationApplicationsQueryHandler> _logger;
 
     public GetOrganizationApplicationsQueryHandler(
         IOrganizationRepository organizationRepository,
         IApplicationRepository applicationRepository,
+        IUserRepository userRepository,
         IImageUrlComposer imageUrlComposer,
         ILogger<GetOrganizationApplicationsQueryHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _applicationRepository = applicationRepository;
+        _userRepository = userRepository;
         _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
@@ -49,6 +52,8 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
 
         var orgApps = await _organizationRepository.GetEnabledApplicationsAsync(request.OrganizationId, cancellationToken);
         var assignedUserCounts = await _organizationRepository.GetAssignedUserCountsAsync(request.OrganizationId, cancellationToken);
+        var enabledByNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository, orgApps.Select(orgApp => (Guid?)orgApp.EnabledBy), cancellationToken);
 
         // Enrich with application details
         var dtos = new List<OrganizationApplicationDto>();
@@ -69,6 +74,7 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
                     SubscriptionTier = orgApp.SubscriptionTier,
                     EnabledAt = orgApp.EnabledAt,
                     EnabledBy = orgApp.EnabledBy,
+                    EnabledByName = enabledByNames.GetValueOrDefault(orgApp.EnabledBy),
                     ExpiresAt = orgApp.ExpiresAt,
                     IsActive = orgApp.IsActive,
                     AssignedUserCount = assignedUserCounts.GetValueOrDefault(orgApp.ApplicationId)

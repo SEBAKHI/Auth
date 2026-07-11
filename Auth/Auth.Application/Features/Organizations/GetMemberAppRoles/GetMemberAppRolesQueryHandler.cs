@@ -1,4 +1,5 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -59,12 +60,14 @@ public class GetMemberAppRolesQueryHandler : IRequestHandler<GetMemberAppRolesQu
             cancellationToken);
 
         // Enrich with application, role, and assigner details
+        var assignerNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository, assignments.Select(assignment => (Guid?)assignment.AssignedBy), cancellationToken);
+
         var dtos = new List<OrganizationMemberAppRoleDto>();
         foreach (var assignment in assignments)
         {
             var application = await _applicationRepository.GetByIdAsync(assignment.ApplicationId, cancellationToken);
             var role = await _roleRepository.GetByIdAsync(assignment.RoleId, cancellationToken);
-            var assignedByUser = await _userRepository.GetByIdAsync(assignment.AssignedBy, cancellationToken);
 
             dtos.Add(new OrganizationMemberAppRoleDto
             {
@@ -77,7 +80,7 @@ public class GetMemberAppRolesQueryHandler : IRequestHandler<GetMemberAppRolesQu
                 RoleName = role?.Name ?? string.Empty,
                 AssignedAt = assignment.AssignedAt,
                 AssignedBy = assignment.AssignedBy,
-                AssignedByName = assignedByUser != null ? $"{assignedByUser.FirstName} {assignedByUser.LastName}".Trim() : null,
+                AssignedByName = assignerNames.GetValueOrDefault(assignment.AssignedBy),
                 ExpiresAt = assignment.ExpiresAt
             });
         }

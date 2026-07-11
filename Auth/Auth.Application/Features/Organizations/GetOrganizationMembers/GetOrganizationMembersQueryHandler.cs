@@ -1,4 +1,5 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
@@ -61,13 +62,24 @@ public class GetOrganizationMembersQueryHandler : IRequestHandler<GetOrganizatio
             request.SortDirection,
             cancellationToken);
 
+        // Batch-resolve member/inviter users once instead of per-row lookups.
+        var userIds = members
+            .SelectMany(member => new[] { member.UserId, member.InvitedBy })
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
+        var users = userIds.Count == 0
+            ? []
+            : await _userRepository.GetByIdsAsync(userIds, cancellationToken) ?? [];
+        var usersById = users.ToDictionary(user => user.Id);
+
         var memberDtos = new List<OrganizationMemberDto>();
 
         foreach (var member in members)
         {
-            var user = await _userRepository.GetByIdAsync(member.UserId, cancellationToken);
+            var user = usersById.GetValueOrDefault(member.UserId);
             var role = await _roleRepository.GetByIdAsync(member.RoleId, cancellationToken);
-            var inviter = await _userRepository.GetByIdAsync(member.InvitedBy, cancellationToken);
+            var inviter = usersById.GetValueOrDefault(member.InvitedBy);
 
             memberDtos.Add(new OrganizationMemberDto
             {
@@ -85,7 +97,7 @@ public class GetOrganizationMembersQueryHandler : IRequestHandler<GetOrganizatio
                 IsActive = member.IsActive,
                 JoinedAt = member.JoinedAt,
                 InvitedBy = member.InvitedBy,
-                InvitedByName = inviter != null ? $"{inviter.FirstName} {inviter.LastName}".Trim() : null,
+                InvitedByName = inviter != null ? NameLookupHelper.DisplayName(inviter) : null,
                 ExpiresAt = member.ExpiresAt
             });
         }

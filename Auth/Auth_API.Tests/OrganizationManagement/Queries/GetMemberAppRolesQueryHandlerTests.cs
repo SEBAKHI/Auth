@@ -145,8 +145,8 @@ public class GetMemberAppRolesQueryHandlerTests
             .ReturnsAsync(TestHelpers.CreateRole(id: roleId, applicationId: appId, code: "CMS-EDITOR", name: "Editor"));
 
         _userRepositoryMock
-            .Setup(r => r.GetByIdAsync(assignedById, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(TestHelpers.CreateUser(id: assignedById, firstName: "Admin", lastName: "User"));
+            .Setup(r => r.GetByIdsAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<User> { TestHelpers.CreateUser(id: assignedById, firstName: "Admin", lastName: "User") });
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);

@@ -40,6 +40,8 @@ public class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPermissions
         }
 
         var userPermissions = await _userRepository.GetUserPermissionsAsync(request.UserId, cancellationToken);
+        var granterNames = await NameLookupHelper.UserNamesAsync(
+            _userRepository, userPermissions.Select(userPerm => (Guid?)userPerm.GrantedBy), cancellationToken);
 
         // Enrich with permission and application names
         var dtos = new List<UserPermissionDto>();
@@ -53,6 +55,7 @@ public class GetUserPermissionsQueryHandler : IRequestHandler<GetUserPermissions
                 ApplicationId = userPerm.ApplicationId,
                 CreatedAt = userPerm.GrantedAt,
                 CreatedBy = userPerm.GrantedBy,
+                CreatedByName = granterNames.GetValueOrDefault(userPerm.GrantedBy),
                 ExpiresAt = userPerm.ExpiresAt,
                 IsActive = userPerm.IsActive
             };

@@ -8620,6 +8620,7 @@ export interface components {
             acceptedAt?: null | string;
             /** Format: uuid */
             acceptedByUserId?: null | string;
+            acceptedByUserName?: null | string;
             /** Format: date-time */
             createdAt?: string;
         };
@@ -9274,6 +9275,7 @@ export interface components {
             createdAt?: string;
             /** Format: uuid */
             createdBy?: string;
+            createdByName?: null | string;
         };
         UserRoleDto: {
             /** Format: uuid */
@@ -9296,6 +9298,7 @@ export interface components {
             createdAt?: string;
             /** Format: uuid */
             createdBy?: string;
+            createdByName?: null | string;
         };
         UserStatsDto: {
             /** Format: int32 */

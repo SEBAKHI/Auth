@@ -54,12 +54,27 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
             request.OrganizationId,
             cancellationToken);
 
+        // Batch-resolve inviter/accepter users once instead of per-row lookups.
+        var userIds = invitations
+            .SelectMany(invitation => new[] { (Guid?)invitation.InvitedBy, invitation.AcceptedByUserId })
+            .Where(id => id.HasValue && id.Value != Guid.Empty)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+        var users = userIds.Count == 0
+            ? []
+            : await _userRepository.GetByIdsAsync(userIds, cancellationToken) ?? [];
+        var usersById = users.ToDictionary(user => user.Id);
+
         var invitationDtos = new List<OrganizationInvitationDto>();
 
         foreach (var invitation in invitations)
         {
             var role = await _roleRepository.GetByIdAsync(invitation.RoleId, cancellationToken);
-            var inviter = await _userRepository.GetByIdAsync(invitation.InvitedBy, cancellationToken);
+            var inviter = usersById.GetValueOrDefault(invitation.InvitedBy);
+            var accepter = invitation.AcceptedByUserId.HasValue
+                ? usersById.GetValueOrDefault(invitation.AcceptedByUserId.Value)
+                : null;
 
             invitationDtos.Add(new OrganizationInvitationDto
             {
@@ -75,10 +90,11 @@ public class GetPendingInvitationsQueryHandler : IRequestHandler<GetPendingInvit
                 ExpiresAt = invitation.ExpiresAt,
                 IsExpired = invitation.IsExpired(),
                 InvitedBy = invitation.InvitedBy,
-                InvitedByName = inviter != null ? $"{inviter.FirstName} {inviter.LastName}".Trim() : null,
+                InvitedByName = inviter != null ? NameLookupHelper.DisplayName(inviter) : null,
                 InvitedByEmail = inviter?.Email,
                 AcceptedAt = invitation.AcceptedAt,
                 AcceptedByUserId = invitation.AcceptedByUserId,
+                AcceptedByUserName = accepter != null ? NameLookupHelper.DisplayName(accepter) : null,
                 CreatedAt = invitation.CreatedAt
             });
         }

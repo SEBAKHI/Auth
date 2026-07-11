@@ -1,4 +1,5 @@
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using ErrorOr;
 using MediatR;
@@ -43,7 +44,21 @@ public class GetAuditLogsQueryHandler : IRequestHandler<GetAuditLogsQuery, Error
             request.SortDirection,
             cancellationToken);
 
-        // Enrich logs with user and application names
+        // Enrich logs with user and application names, batching the user lookup
+        // so a page of logs stays one round-trip instead of one per row.
+        var actorIds = logs
+            .Where(log => log.UserId.HasValue && log.UserId.Value != Guid.Empty)
+            .Select(log => log.UserId!.Value)
+            .Distinct()
+            .ToList();
+        var actors = actorIds.Count == 0
+            ? []
+            : await _userRepository.GetByIdsAsync(actorIds, cancellationToken) ?? [];
+        var actorsById = actors.ToDictionary(user => user.Id);
+
+        var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
+            _applicationRepository, logs.Select(log => log.ApplicationId), cancellationToken);
+
         var dtos = new List<AuditLogDto>();
         foreach (var log in logs)
         {
@@ -67,25 +82,15 @@ public class GetAuditLogsQueryHandler : IRequestHandler<GetAuditLogsQuery, Error
                 CorrelationId = log.CorrelationId
             };
 
-            // Get user name if available
-            if (log.UserId.HasValue)
+            if (log.UserId.HasValue && actorsById.TryGetValue(log.UserId.Value, out var user))
             {
-                var user = await _userRepository.GetByIdAsync(log.UserId.Value, cancellationToken);
-                if (user != null)
-                {
-                    dto.UserName = user.DisplayName ?? $"{user.FirstName} {user.LastName}".Trim();
-                    dto.UserEmail = user.Email;
-                }
+                dto.UserName = NameLookupHelper.DisplayName(user);
+                dto.UserEmail = user.Email;
             }
 
-            // Get application name if available
             if (log.ApplicationId.HasValue)
             {
-                var app = await _applicationRepository.GetByIdAsync(log.ApplicationId.Value, cancellationToken);
-                if (app != null)
-                {
-                    dto.ApplicationName = app.Name;
-                }
+                dto.ApplicationName = applicationNames.GetValueOrDefault(log.ApplicationId.Value);
             }
 
             dtos.Add(dto);
