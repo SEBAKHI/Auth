@@ -108,6 +108,7 @@ export const en = {
     auditLogs: "Audit Logs",
     secrets: "Secrets",
     platformSettings: "Platform Settings",
+    profile: "Profile",
     management: "Management",
     security: "Security",
     platform: "Platform",

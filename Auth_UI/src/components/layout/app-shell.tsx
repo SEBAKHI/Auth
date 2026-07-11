@@ -8,6 +8,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { useActiveTimeZone } from "@/lib/timezone"
+import { AppBreadcrumbs } from "./app-breadcrumbs"
 import { AppSidebar } from "./app-sidebar"
 import { LanguageToggle } from "./language-toggle"
 import { ThemeToggle } from "./theme-toggle"
@@ -35,6 +36,7 @@ export function AppShell() {
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-6" />
+          <AppBreadcrumbs />
           <div className="ms-auto flex items-center gap-1">
             <LanguageToggle />
             <ThemeToggle />

@@ -109,6 +109,7 @@ export const ar = {
     auditLogs: "سجلات التدقيق",
     secrets: "الأسرار",
     platformSettings: "إعدادات المنصة",
+    profile: "الملف الشخصي",
     management: "الإدارة",
     security: "الأمان",
     platform: "المنصة",

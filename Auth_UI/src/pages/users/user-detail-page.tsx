@@ -1,9 +1,9 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { ArrowLeft, ChevronDown } from "lucide-react"
+import { ChevronDown } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { AvatarMenu } from "@/components/common/avatar-menu"
@@ -30,6 +30,7 @@ import { api } from "@/lib/api/client"
 import { toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { useProfileImage } from "@/lib/api/use-profile-image"
 import { useAuth } from "@/lib/auth/auth-context"
+import { usePageBreadcrumb } from "@/lib/breadcrumb"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
 import { formatDateTime, fullName, userStatusMeta } from "@/lib/format"
@@ -590,16 +591,10 @@ export function UserDetailPage() {
   const hasActions =
     canManageRoles || canManagePerms || canManage || canDelete
 
+  usePageBreadcrumb(user ? displayName : undefined)
+
   return (
     <div className="space-y-6">
-      <Link
-        to="/users"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4 rtl:rotate-180" />
-        {t("users.title")}
-      </Link>
-
       {detailQuery.isLoading || !user ? (
         <Skeleton className="h-20 w-full" />
       ) : (

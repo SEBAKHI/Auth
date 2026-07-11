@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { ArrowLeft, Loader2, MoreHorizontal, Plus, Send } from "lucide-react"
+import { Loader2, MoreHorizontal, Plus, Send } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApplicationSelect } from "@/components/common/application-select"
@@ -43,6 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useDirtyClose } from "@/hooks/use-dirty-close"
 import { api } from "@/lib/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
+import { usePageBreadcrumb } from "@/lib/breadcrumb"
 import { DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
 import { formatDateTime, fullName } from "@/lib/format"
@@ -54,6 +55,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function MembersTab({ orgId }: { orgId: string }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [page, setPage] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
@@ -132,7 +134,11 @@ function MembersTab({ orgId }: { orgId: string }) {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <div className="min-w-0">
+        <button
+          type="button"
+          className="min-w-0 text-start hover:underline"
+          onClick={() => navigate(`/users/${row.original.userId}`)}
+        >
           <p className="truncate font-medium">
             {row.original.fullName ||
               fullName(
@@ -144,7 +150,7 @@ function MembersTab({ orgId }: { orgId: string }) {
           <p className="truncate text-xs text-muted-foreground">
             {row.original.email}
           </p>
-        </div>
+        </button>
       ),
     },
     {
@@ -210,6 +216,7 @@ function MembersTab({ orgId }: { orgId: string }) {
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        enableRowDetail={false}
         onExportAll={exportAll}
         sorting={sorting}
         onSortingChange={(next) => {
@@ -566,6 +573,7 @@ function InvitationsTab({ orgId }: { orgId: string }) {
 
 function ApplicationsTab({ orgId }: { orgId: string }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [enableOpen, setEnableOpen] = React.useState(false)
   const [appId, setAppId] = React.useState<string>()
@@ -640,6 +648,17 @@ function ApplicationsTab({ orgId }: { orgId: string }) {
       accessorKey: "applicationName",
       header: t("common.name"),
       meta: { label: t("common.name") },
+      cell: ({ row }) => (
+        <button
+          type="button"
+          className="min-w-0 text-start font-medium hover:underline"
+          onClick={() =>
+            navigate(`/applications/${row.original.applicationId}`)
+          }
+        >
+          <span className="truncate">{row.original.applicationName}</span>
+        </button>
+      ),
     },
     {
       id: "subscriptionTier",
@@ -750,6 +769,7 @@ function ApplicationsTab({ orgId }: { orgId: string }) {
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        enableRowDetail={false}
       />
 
       <Dialog open={enableOpen} onOpenChange={requestEnableClose}>
@@ -924,17 +944,10 @@ export function OrganizationDetailPage() {
   })
 
   const org = detailQuery.data
+  usePageBreadcrumb(org?.name)
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/organizations"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4 rtl:rotate-180" />
-        {t("organizations.title")}
-      </Link>
-
       {detailQuery.isLoading || !org ? (
         <Skeleton className="h-20 w-full" />
       ) : (

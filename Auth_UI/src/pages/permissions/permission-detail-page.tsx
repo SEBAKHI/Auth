@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { ArrowLeft, Search } from "lucide-react"
+import { Search } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { Link, useNavigate, useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 
 import { DetailList } from "@/components/common/detail-list"
 import { PageHeader } from "@/components/common/page-header"
@@ -17,6 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { api } from "@/lib/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@/lib/api/helpers"
 import { useAuth } from "@/lib/auth/auth-context"
+import { usePageBreadcrumb } from "@/lib/breadcrumb"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { formatDateTime, fullName, userStatusMeta } from "@/lib/format"
 import { useDebouncedValue } from "@/hooks/use-debounced-value"
@@ -302,17 +303,10 @@ export function PermissionDetailPage() {
       ),
   })
   const permission = detailQuery.data
+  usePageBreadcrumb(permission?.name)
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/permissions"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft className="size-4 rtl:rotate-180" />
-        {t("permissions.title")}
-      </Link>
-
       {detailQuery.isLoading || !permission ? (
         <Skeleton className="h-20 w-full" />
       ) : (

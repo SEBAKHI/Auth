@@ -41,22 +41,28 @@ export function UserMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="gap-2 px-2">
+        <Button variant="ghost" size="icon" aria-label={name}>
           <EntityAvatar
             src={meQuery.data?.profileImageUrl}
             name={name}
             className="size-7"
           />
-          <span className="hidden text-sm sm:inline">{name}</span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium">{name}</span>
-            <span className="truncate text-xs font-normal text-muted-foreground">
-              {user?.email}
-            </span>
+          <div className="flex items-center gap-2">
+            <EntityAvatar
+              src={meQuery.data?.profileImageUrl}
+              name={name}
+              className="size-8"
+            />
+            <div className="flex min-w-0 flex-col">
+              <span className="truncate text-sm font-medium">{name}</span>
+              <span className="truncate text-xs font-normal text-muted-foreground">
+                {user?.email}
+              </span>
+            </div>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
