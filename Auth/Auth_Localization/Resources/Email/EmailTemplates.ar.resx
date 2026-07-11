@@ -39,4 +39,64 @@
   <data name="Email.Verification.Footer" xml:space="preserve">
     <value>هذه رسالة تلقائية من {0}. يرجى عدم الرد على هذا البريد الإلكتروني.</value>
   </data>
+
+  <!-- ==================== Common ==================== -->
+  <data name="Email.Common.Footer" xml:space="preserve">
+    <value>هذه رسالة تلقائية من {0}. يرجى عدم الرد على هذا البريد الإلكتروني.</value>
+  </data>
+  <data name="Email.Common.LinkFallback" xml:space="preserve">
+    <value>إذا لم يعمل الزر، انسخ الرابط التالي والصقه في متصفحك:</value>
+  </data>
+
+  <!-- ==================== Password Reset ==================== -->
+  <data name="Email.PasswordReset.Subject" xml:space="preserve">
+    <value>إعادة تعيين كلمة المرور</value>
+  </data>
+  <data name="Email.PasswordReset.Heading" xml:space="preserve">
+    <value>إعادة تعيين كلمة المرور</value>
+  </data>
+  <data name="Email.PasswordReset.Greeting" xml:space="preserve">
+    <value>مرحبًا {0}،</value>
+  </data>
+  <data name="Email.PasswordReset.Instruction" xml:space="preserve">
+    <value>تلقينا طلبًا لإعادة تعيين كلمة المرور الخاصة بك. انقر على الزر أدناه لاختيار كلمة مرور جديدة:</value>
+  </data>
+  <data name="Email.PasswordReset.ButtonText" xml:space="preserve">
+    <value>إعادة تعيين كلمة المرور</value>
+  </data>
+  <data name="Email.PasswordReset.TokenInstruction" xml:space="preserve">
+    <value>أو أدخل هذا الرمز في صفحة إعادة تعيين كلمة المرور:</value>
+  </data>
+  <data name="Email.PasswordReset.Expiration" xml:space="preserve">
+    <value>ستنتهي صلاحية هذا الرابط خلال {0} دقيقة.</value>
+  </data>
+  <data name="Email.PasswordReset.SecurityNotice" xml:space="preserve">
+    <value>تنبيه أمني: إذا لم تطلب إعادة تعيين كلمة المرور، يرجى تجاهل هذا البريد الإلكتروني. ستبقى كلمة المرور الخاصة بك دون تغيير.</value>
+  </data>
+
+  <!-- ==================== Organization Invitation ==================== -->
+  <data name="Email.Invitation.Subject" xml:space="preserve">
+    <value>أنت مدعو للانضمام إلى {0}</value>
+  </data>
+  <data name="Email.Invitation.Heading" xml:space="preserve">
+    <value>دعوة إلى مؤسسة</value>
+  </data>
+  <data name="Email.Invitation.Greeting" xml:space="preserve">
+    <value>مرحبًا،</value>
+  </data>
+  <data name="Email.Invitation.Instruction" xml:space="preserve">
+    <value>قام {0} بدعوتك للانضمام إلى {1}.</value>
+  </data>
+  <data name="Email.Invitation.TokenInstruction" xml:space="preserve">
+    <value>أو أدخل رمز الدعوة التالي في صفحة الدعوة:</value>
+  </data>
+  <data name="Email.Invitation.ButtonText" xml:space="preserve">
+    <value>قبول الدعوة</value>
+  </data>
+  <data name="Email.Invitation.Expiration" xml:space="preserve">
+    <value>تنتهي صلاحية هذه الدعوة في {0}.</value>
+  </data>
+  <data name="Email.Invitation.SecurityNotice" xml:space="preserve">
+    <value>تنبيه أمني: إذا لم تكن تتوقع هذه الدعوة، يرجى تجاهل هذا البريد الإلكتروني.</value>
+  </data>
 </root>

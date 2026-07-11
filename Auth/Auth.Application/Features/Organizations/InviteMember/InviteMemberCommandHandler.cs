@@ -19,6 +19,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
+    private readonly IEmailService _emailService;
     private readonly ILogger<InviteMemberCommandHandler> _logger;
 
     public InviteMemberCommandHandler(
@@ -26,12 +27,14 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         ISecureTokenGenerator tokenGenerator,
+        IEmailService emailService,
         ILogger<InviteMemberCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _tokenGenerator = tokenGenerator;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -118,7 +121,25 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             "Invitation created for {Email} to organization {OrganizationId} by {InvitedBy}",
             request.Email, request.OrganizationId, request.InvitedBy);
 
-        // TODO: Send invitation email
+        var inviterName = inviter != null
+            ? $"{inviter.FirstName} {inviter.LastName}".Trim()
+            : "An administrator";
+        var emailSent = await _emailService.SendInvitationAsync(
+            invitation.Email.Value,
+            organization.Name,
+            inviterName,
+            token,
+            invitation.ExpiresAt,
+            cancellationToken);
+
+        // Email failure must not fail the command: the token stays available
+        // to the admin in the response/UI and can be shared manually.
+        if (!emailSent)
+        {
+            _logger.LogWarning(
+                "Failed to send invitation email for invitation {InvitationId}; token remains available to admin",
+                invitation.Id);
+        }
 
         return new OrganizationInvitationDto
         {

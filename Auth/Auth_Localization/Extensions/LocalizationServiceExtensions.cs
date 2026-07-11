@@ -23,10 +23,11 @@ public static class LocalizationServiceExtensions
     /// </summary>
     public static IServiceCollection AddAuthLocalization(this IServiceCollection services)
     {
-        services.AddLocalization(options =>
-        {
-            options.ResourcesPath = "Resources";
-        });
+        // No ResourcesPath: the marker classes' namespaces already mirror the Resources/
+        // folder (e.g. Auth_Localization.Resources.Email.EmailTemplates), so the type's
+        // full name matches the embedded manifest name exactly. Setting ResourcesPath
+        // here would double the "Resources" segment and make every lookup miss.
+        services.AddLocalization();
 
         services.AddScoped<AuthLocalizer>();
 

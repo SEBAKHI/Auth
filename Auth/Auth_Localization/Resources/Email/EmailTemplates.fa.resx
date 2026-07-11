@@ -39,4 +39,64 @@
   <data name="Email.Verification.Footer" xml:space="preserve">
     <value>این یک پیام خودکار از {0} است. لطفاً به این ایمیل پاسخ ندهید.</value>
   </data>
+
+  <!-- ==================== Common ==================== -->
+  <data name="Email.Common.Footer" xml:space="preserve">
+    <value>این یک پیام خودکار از {0} است. لطفاً به این ایمیل پاسخ ندهید.</value>
+  </data>
+  <data name="Email.Common.LinkFallback" xml:space="preserve">
+    <value>اگر دکمه کار نکرد، این پیوند را کپی کرده و در مرورگر خود جای‌گذاری کنید:</value>
+  </data>
+
+  <!-- ==================== Password Reset ==================== -->
+  <data name="Email.PasswordReset.Subject" xml:space="preserve">
+    <value>بازنشانی رمز عبور</value>
+  </data>
+  <data name="Email.PasswordReset.Heading" xml:space="preserve">
+    <value>بازنشانی رمز عبور</value>
+  </data>
+  <data name="Email.PasswordReset.Greeting" xml:space="preserve">
+    <value>سلام {0}،</value>
+  </data>
+  <data name="Email.PasswordReset.Instruction" xml:space="preserve">
+    <value>درخواستی برای بازنشانی رمز عبور شما دریافت کردیم. برای انتخاب رمز عبور جدید روی دکمه زیر کلیک کنید:</value>
+  </data>
+  <data name="Email.PasswordReset.ButtonText" xml:space="preserve">
+    <value>بازنشانی رمز عبور</value>
+  </data>
+  <data name="Email.PasswordReset.TokenInstruction" xml:space="preserve">
+    <value>یا این کد را در صفحه بازنشانی رمز عبور وارد کنید:</value>
+  </data>
+  <data name="Email.PasswordReset.Expiration" xml:space="preserve">
+    <value>این پیوند تا {0} دقیقه دیگر منقضی می‌شود.</value>
+  </data>
+  <data name="Email.PasswordReset.SecurityNotice" xml:space="preserve">
+    <value>هشدار امنیتی: اگر شما درخواست بازنشانی رمز عبور نکرده‌اید، لطفاً این ایمیل را نادیده بگیرید. رمز عبور شما بدون تغییر باقی می‌ماند.</value>
+  </data>
+
+  <!-- ==================== Organization Invitation ==================== -->
+  <data name="Email.Invitation.Subject" xml:space="preserve">
+    <value>شما برای پیوستن به {0} دعوت شده‌اید</value>
+  </data>
+  <data name="Email.Invitation.Heading" xml:space="preserve">
+    <value>دعوت‌نامه سازمان</value>
+  </data>
+  <data name="Email.Invitation.Greeting" xml:space="preserve">
+    <value>سلام،</value>
+  </data>
+  <data name="Email.Invitation.Instruction" xml:space="preserve">
+    <value>{0} شما را برای پیوستن به {1} دعوت کرده است.</value>
+  </data>
+  <data name="Email.Invitation.TokenInstruction" xml:space="preserve">
+    <value>یا این کد دعوت را در صفحه دعوت وارد کنید:</value>
+  </data>
+  <data name="Email.Invitation.ButtonText" xml:space="preserve">
+    <value>پذیرش دعوت</value>
+  </data>
+  <data name="Email.Invitation.Expiration" xml:space="preserve">
+    <value>این دعوت‌نامه در {0} منقضی می‌شود.</value>
+  </data>
+  <data name="Email.Invitation.SecurityNotice" xml:space="preserve">
+    <value>هشدار امنیتی: اگر انتظار این دعوت‌نامه را نداشتید، لطفاً این ایمیل را نادیده بگیرید.</value>
+  </data>
 </root>

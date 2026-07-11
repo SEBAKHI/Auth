@@ -18,6 +18,7 @@ public class ForgotPasswordCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPasswordResetTokenRepository> _passwordResetTokenRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
+    private readonly Mock<IEmailService> _emailServiceMock;
     private readonly Mock<ILogger<ForgotPasswordCommandHandler>> _loggerMock;
     private readonly EmailSettings _emailSettings;
     private readonly ForgotPasswordCommandHandler _handler;
@@ -27,7 +28,17 @@ public class ForgotPasswordCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _passwordResetTokenRepositoryMock = new Mock<IPasswordResetTokenRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
+        _emailServiceMock = new Mock<IEmailService>();
         _loggerMock = new Mock<ILogger<ForgotPasswordCommandHandler>>();
+
+        _emailServiceMock
+            .Setup(e => e.SendPasswordResetAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         _emailSettings = new EmailSettings
         {
@@ -39,6 +50,7 @@ public class ForgotPasswordCommandHandlerTests
             _userRepositoryMock.Object,
             _passwordResetTokenRepositoryMock.Object,
             _passwordHasherMock.Object,
+            _emailServiceMock.Object,
             TestHelpers.CreateOptions(_emailSettings),
             _loggerMock.Object);
     }
@@ -171,5 +183,86 @@ public class ForgotPasswordCommandHandlerTests
 
         // Assert - email is disabled by default in test setup, so token should be logged
         result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_ExistingUser_SendsPasswordResetEmail()
+    {
+        // Arrange
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var command = new ForgotPasswordCommand("john@example.com");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("john@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _passwordHasherMock
+            .Setup(h => h.HashPassword(It.IsAny<string>()))
+            .Returns("HashedToken");
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        _emailServiceMock.Verify(e => e.SendPasswordResetAsync(
+            "john@example.com",
+            It.IsAny<string>(),
+            It.Is<string>(token => !string.IsNullOrEmpty(token)),
+            It.IsAny<int>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_NonExistentUser_DoesNotSendEmail()
+    {
+        // Arrange
+        var command = new ForgotPasswordCommand("nonexistent@example.com");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("nonexistent@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        _emailServiceMock.Verify(e => e.SendPasswordResetAsync(
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<string>(),
+            It.IsAny<int>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_EmailSendFails_StillReturnsGenericSuccess()
+    {
+        // Arrange
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var command = new ForgotPasswordCommand("john@example.com");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("john@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _passwordHasherMock
+            .Setup(h => h.HashPassword(It.IsAny<string>()))
+            .Returns("HashedToken");
+
+        _emailServiceMock
+            .Setup(e => e.SendPasswordResetAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<int>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert - anti-enumeration: response stays a generic success
+        result.IsError.Should().BeFalse();
+        result.Value.MaskedEmail.Should().NotBeNullOrEmpty();
     }
 }

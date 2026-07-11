@@ -64,6 +64,12 @@ public class EmailSettings
     public bool Enabled { get; set; } = false;
 
     /// <summary>
+    /// Gets or sets the base URL of the frontend application,
+    /// used to build links embedded in emails (e.g. the password reset page).
+    /// </summary>
+    public string FrontendBaseUrl { get; set; } = string.Empty;
+
+    /// <summary>
     /// Gets the rate limit window as a TimeSpan.
     /// </summary>
     public TimeSpan RateLimitWindow => TimeSpan.FromSeconds(RateLimitWindowSeconds);

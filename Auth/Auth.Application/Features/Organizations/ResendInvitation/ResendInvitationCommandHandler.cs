@@ -16,6 +16,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRepository _userRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
+    private readonly IEmailService _emailService;
     private readonly ILogger<ResendInvitationCommandHandler> _logger;
 
     public ResendInvitationCommandHandler(
@@ -23,12 +24,14 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         IRoleRepository roleRepository,
         IUserRepository userRepository,
         ISecureTokenGenerator tokenGenerator,
+        IEmailService emailService,
         ILogger<ResendInvitationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _roleRepository = roleRepository;
         _userRepository = userRepository;
         _tokenGenerator = tokenGenerator;
+        _emailService = emailService;
         _logger = logger;
     }
 
@@ -64,6 +67,26 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         var organization = await _organizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken);
         var role = await _roleRepository.GetByIdAsync(invitation.RoleId, cancellationToken);
         var inviter = await _userRepository.GetByIdAsync(invitation.InvitedBy, cancellationToken);
+
+        var inviterName = inviter != null
+            ? $"{inviter.FirstName} {inviter.LastName}".Trim()
+            : "An administrator";
+        var emailSent = await _emailService.SendInvitationAsync(
+            invitation.Email.Value,
+            organization?.Name ?? string.Empty,
+            inviterName,
+            newToken,
+            invitation.ExpiresAt,
+            cancellationToken);
+
+        // Email failure must not fail the command: the regenerated token stays
+        // available to the admin in the response/UI and can be shared manually.
+        if (!emailSent)
+        {
+            _logger.LogWarning(
+                "Failed to send invitation email for resent invitation {InvitationId}; token remains available to admin",
+                invitation.Id);
+        }
 
         return new OrganizationInvitationDto
         {

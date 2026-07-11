@@ -22,6 +22,40 @@ public interface IEmailService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Sends a password reset email containing a reset link and the reset token.
+    /// </summary>
+    /// <param name="toEmail">Recipient email address.</param>
+    /// <param name="recipientName">Recipient name.</param>
+    /// <param name="resetToken">The plaintext password reset token.</param>
+    /// <param name="expirationMinutes">Token expiration time in minutes.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if email was sent successfully.</returns>
+    Task<bool> SendPasswordResetAsync(
+        string toEmail,
+        string recipientName,
+        string resetToken,
+        int expirationMinutes,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sends an organization invitation email containing the invitation token.
+    /// </summary>
+    /// <param name="toEmail">Recipient email address.</param>
+    /// <param name="organizationName">Name of the organization the recipient is invited to.</param>
+    /// <param name="inviterName">Display name of the user who sent the invitation.</param>
+    /// <param name="invitationToken">The plaintext invitation token.</param>
+    /// <param name="expiresAt">UTC timestamp when the invitation expires.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if email was sent successfully.</returns>
+    Task<bool> SendInvitationAsync(
+        string toEmail,
+        string organizationName,
+        string inviterName,
+        string invitationToken,
+        DateTime expiresAt,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Sends a generic email.
     /// </summary>
     /// <param name="toEmail">Recipient email address.</param>

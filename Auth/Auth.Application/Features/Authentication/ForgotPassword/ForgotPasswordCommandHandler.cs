@@ -17,6 +17,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
     private readonly IUserRepository _userRepository;
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IEmailService _emailService;
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<ForgotPasswordCommandHandler> _logger;
 
@@ -27,12 +28,14 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         IUserRepository userRepository,
         IPasswordResetTokenRepository passwordResetTokenRepository,
         IPasswordHasher passwordHasher,
+        IEmailService emailService,
         IOptions<EmailSettings> emailSettings,
         ILogger<ForgotPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;
         _passwordResetTokenRepository = passwordResetTokenRepository;
         _passwordHasher = passwordHasher;
+        _emailService = emailService;
         _emailSettings = emailSettings.Value;
         _logger = logger;
     }
@@ -81,11 +84,27 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
                 MaskEmail(user.Email), token, TokenExpirationMinutes);
         }
 
+        var recipientName = user.DisplayName ?? user.FirstName ?? "User";
+        var emailSent = await _emailService.SendPasswordResetAsync(
+            user.Email,
+            recipientName,
+            token,
+            TokenExpirationMinutes,
+            cancellationToken);
+
+        // Anti-enumeration: the response stays a generic success even when the email
+        // could not be delivered; the plaintext token is never returned to the caller.
+        if (!emailSent)
+        {
+            _logger.LogError(
+                "Failed to send password reset email to user {UserId}",
+                user.Id);
+        }
+
         _logger.LogInformation(
             "Password reset token generated for user {UserId}",
             user.Id);
 
-        // Token is sent via email in production, logged to console in development
         return new ForgotPasswordResponse(resetToken.ExpiresAt, MaskEmail(user.Email));
     }
 

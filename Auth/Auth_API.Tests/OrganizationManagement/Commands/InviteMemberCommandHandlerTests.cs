@@ -18,6 +18,7 @@ public class InviteMemberCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
     private readonly Mock<ISecureTokenGenerator> _tokenGeneratorMock;
+    private readonly Mock<IEmailService> _emailServiceMock;
     private readonly Mock<ILogger<InviteMemberCommandHandler>> _loggerMock;
     private readonly InviteMemberCommandHandler _handler;
 
@@ -27,17 +28,29 @@ public class InviteMemberCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _roleRepositoryMock = new Mock<IRoleRepository>();
         _tokenGeneratorMock = new Mock<ISecureTokenGenerator>();
+        _emailServiceMock = new Mock<IEmailService>();
         _loggerMock = new Mock<ILogger<InviteMemberCommandHandler>>();
 
         _tokenGeneratorMock
             .Setup(g => g.Generate())
             .Returns("dGVzdC10b2tlbi1mb3ItaW52aXRhdGlvbi10aGF0LWlzLWxvbmctZW5vdWdo");
 
+        _emailServiceMock
+            .Setup(e => e.SendInvitationAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         _handler = new InviteMemberCommandHandler(
             _organizationRepositoryMock.Object,
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
             _tokenGeneratorMock.Object,
+            _emailServiceMock.Object,
             _loggerMock.Object);
     }
 
@@ -432,6 +445,122 @@ public class InviteMemberCommandHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Email.Should().Be("test@example.com");
         capturedInvitation!.Email.Value.Should().Be("test@example.com");
+    }
+
+    [Fact]
+    public async Task Handle_ValidInvitation_SendsInvitationEmail()
+    {
+        // Arrange
+        var orgId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var inviterId = Guid.NewGuid();
+
+        var command = new InviteMemberCommand(
+            OrganizationId: orgId,
+            Email: "newmember@example.com",
+            RoleId: roleId)
+        { InvitedBy = inviterId };
+
+        var organization = TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: true);
+        var role = TestHelpers.CreateRole(id: roleId, code: "ORG-MEMBER", name: "Member");
+        var inviter = TestHelpers.CreateUser(id: inviterId, email: "inviter@example.com", firstName: "John", lastName: "Doe");
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(organization);
+
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(role);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(inviterId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(inviter);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetPendingInvitationsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<OrganizationInvitation>());
+
+        _organizationRepositoryMock
+            .Setup(r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationInvitation inv, CancellationToken _) => inv);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        _emailServiceMock.Verify(e => e.SendInvitationAsync(
+            "newmember@example.com",
+            "Test Org",
+            "John Doe",
+            It.Is<string>(token => !string.IsNullOrEmpty(token)),
+            It.IsAny<DateTime>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_EmailSendFails_StillReturnsInvitationWithToken()
+    {
+        // Arrange
+        var orgId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var inviterId = Guid.NewGuid();
+
+        var command = new InviteMemberCommand(
+            OrganizationId: orgId,
+            Email: "newmember@example.com",
+            RoleId: roleId)
+        { InvitedBy = inviterId };
+
+        var organization = TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: true);
+        var role = TestHelpers.CreateRole(id: roleId, code: "ORG-MEMBER", name: "Member");
+        var inviter = TestHelpers.CreateUser(id: inviterId, email: "inviter@example.com", firstName: "John", lastName: "Doe");
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(organization);
+
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(role);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(inviterId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(inviter);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetPendingInvitationsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<OrganizationInvitation>());
+
+        _organizationRepositoryMock
+            .Setup(r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationInvitation inv, CancellationToken _) => inv);
+
+        _emailServiceMock
+            .Setup(e => e.SendInvitationAsync(
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert - email failure must not fail the command; token stays available to admin
+        result.IsError.Should().BeFalse();
+        result.Value.Token.Should().NotBeNullOrEmpty();
     }
 
     [Fact]
