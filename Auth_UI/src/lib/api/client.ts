@@ -47,13 +47,37 @@ export async function refreshAccessToken(): Promise<boolean> {
   }
 }
 
-function sharedRefresh(): Promise<boolean> {
+/**
+ * Refresh the token pair, de-duplicating concurrent callers into one request.
+ * The refresh token ROTATES on use, so callers must never race their own
+ * refresh — always go through this.
+ */
+export function sharedRefresh(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = refreshAccessToken().finally(() => {
       refreshPromise = null
     })
   }
   return refreshPromise
+}
+
+/**
+ * Returns an access token that is not known to be expired, refreshing first
+ * when needed. Non-client callers (raw fetch, e.g. multipart uploads) must use
+ * this instead of reading the token store directly, or they will send stale
+ * tokens after the ~15-minute access-token lifetime.
+ */
+export async function ensureFreshAccessToken(): Promise<string | null> {
+  let token = getAccessToken()
+  const claims = token ? decodeJwt(token) : null
+
+  const needsRefresh = !token || (claims !== null && isTokenExpired(claims))
+  if (needsRefresh && getRefreshToken()) {
+    await sharedRefresh()
+    token = getAccessToken()
+  }
+
+  return token
 }
 
 function isAuthFlow(url: string): boolean {
@@ -64,15 +88,8 @@ const authMiddleware: Middleware = {
   async onRequest({ request }) {
     if (isAuthFlow(request.url)) return request
 
-    let token = getAccessToken()
-    const claims = token ? decodeJwt(token) : null
-
     // Proactively refresh an expired/missing access token so requests rarely 401.
-    const needsRefresh = !token || (claims !== null && isTokenExpired(claims))
-    if (needsRefresh && getRefreshToken()) {
-      await sharedRefresh()
-      token = getAccessToken()
-    }
+    const token = await ensureFreshAccessToken()
 
     if (token) {
       request.headers.set("Authorization", `Bearer ${token}`)
