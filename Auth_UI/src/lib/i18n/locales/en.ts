@@ -107,6 +107,7 @@ export const en = {
     webhookKeys: "Webhook Keys",
     auditLogs: "Audit Logs",
     secrets: "Secrets",
+    platformSettings: "Platform Settings",
     management: "Management",
     security: "Security",
     platform: "Platform",
@@ -573,6 +574,16 @@ export const en = {
     deleteCustomBody: "This removes the custom secret '{{key}}'.",
     rotateWarning:
       "Regenerating signing keys invalidates all existing tokens. Proceed with care.",
+  },
+  platformSettings: {
+    title: "Platform settings",
+    subtitle: "Control the platform branding shown across the console.",
+    brandingTitle: "Branding",
+    brandingSubtitle:
+      "The platform name and logo appear on the sidebar, sign-in screens, and the browser tab.",
+    platformName: "Platform name",
+    logoHint: "Click the logo to change or remove it.",
+    updated: "Platform settings updated.",
   },
   profile: {
     title: "My profile",

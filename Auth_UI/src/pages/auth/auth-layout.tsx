@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react"
 import { LanguageToggle } from "@/components/layout/language-toggle"
 import { ThemeToggle } from "@/components/layout/theme-toggle"
 import { Card, CardContent } from "@/components/ui/card"
+import { BrandingLogo } from "@/lib/branding"
 
 /** Centered card layout shared by all unauthenticated auth screens. */
 export function AuthLayout({
@@ -26,9 +27,15 @@ export function AuthLayout({
 
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
-          <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-            <ShieldCheck className="size-6" />
-          </div>
+          <BrandingLogo
+            className="size-11 rounded-xl object-cover"
+            fallback={
+              <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                <ShieldCheck className="size-6" />
+              </div>
+            }
+          />
+
           <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
           {subtitle ? (
             <p className="text-sm text-muted-foreground">{subtitle}</p>

@@ -7336,6 +7336,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Platform/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformBrandingDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformSettingsDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdatePlatformSettingsRequest"];
+                    "text/json": components["schemas"]["UpdatePlatformSettingsRequest"];
+                    "application/*+json": components["schemas"]["UpdatePlatformSettingsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlatformSettingsDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/Secrets/status": {
         parameters: {
             query?: never;
@@ -8864,6 +9004,19 @@ export interface components {
             viaRole?: boolean;
             roleNames?: null | string;
         };
+        PlatformBrandingDto: {
+            platformName?: string;
+            logoUrl?: null | string;
+        };
+        PlatformSettingsDto: {
+            platformName?: string;
+            logoUrl?: null | string;
+            /** Format: date-time */
+            modifiedAt?: null | string;
+            /** Format: uuid */
+            modifiedBy?: null | string;
+            modifiedByName?: null | string;
+        };
         ProblemDetails: {
             type?: null | string;
             title?: null | string;
@@ -9168,6 +9321,10 @@ export interface components {
         UpdatePermissionRequest: {
             name: string;
             description?: null | string;
+        };
+        UpdatePlatformSettingsRequest: {
+            platformName: string;
+            logoUrl: null | string;
         };
         UpdateProfileRequest: {
             firstName?: null | string;

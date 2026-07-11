@@ -394,5 +394,17 @@ BEGIN
     PRINT 'Created secrets.manage permission';
 END
 
+-- ============================================================
+-- Platform Settings Permissions
+-- ============================================================
+
+-- platform-settings:manage
+IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'platform-settings:manage')
+BEGIN
+    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (N'20000000-0000-0000-0000-0000000000A2', N'platform-settings:manage', N'Manage Platform Settings', N'Manage platform branding (name and logo)', @AuthAppId, N'20000000-0000-0000-0000-000000000002', 3, 0, 1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created platform-settings:manage permission';
+END
+
 PRINT 'Created all additional permissions';
 GO

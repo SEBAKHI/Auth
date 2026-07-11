@@ -13,6 +13,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/lib/auth/auth-context"
+import { BrandingLogo, useBranding } from "@/lib/branding"
 import { NAV_ITEMS } from "@/lib/constants"
 import { useLanguage } from "@/lib/i18n/direction"
 
@@ -21,6 +22,7 @@ export function AppSidebar() {
   const { hasPermission } = useAuth()
   const { pathname } = useLocation()
   const { dir } = useLanguage()
+  const branding = useBranding()
 
   const items = NAV_ITEMS.filter((item) => hasPermission(item.permission))
 
@@ -31,12 +33,15 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
               <NavLink to="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <ShieldCheck className="size-5" />
-                </div>
-                <span className="truncate font-semibold">
-                  {t("common.appName")}
-                </span>
+                <BrandingLogo
+                  className="aspect-square size-8 rounded-lg object-cover"
+                  fallback={
+                    <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+                      <ShieldCheck className="size-5" />
+                    </div>
+                  }
+                />
+                <span className="truncate font-semibold">{branding.name}</span>
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

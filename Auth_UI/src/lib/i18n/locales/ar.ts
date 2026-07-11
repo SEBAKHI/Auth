@@ -108,6 +108,7 @@ export const ar = {
     webhookKeys: "مفاتيح Webhook",
     auditLogs: "سجلات التدقيق",
     secrets: "الأسرار",
+    platformSettings: "إعدادات المنصة",
     management: "الإدارة",
     security: "الأمان",
     platform: "المنصة",
@@ -398,6 +399,16 @@ export const ar = {
   secrets: {
     title: "الأسرار",
     subtitle: "إدارة مفاتيح التوقيع ورموز البوابة لهذه النسخة.",
+  },
+  platformSettings: {
+    title: "إعدادات المنصة",
+    subtitle: "التحكم بهوية المنصة الظاهرة في كل الشاشات.",
+    brandingTitle: "الهوية",
+    brandingSubtitle:
+      "يظهر اسم المنصة والشعار في القائمة الجانبية وشاشات الدخول وتبويب المتصفح.",
+    platformName: "اسم المنصة",
+    logoHint: "انقر على الشعار لتغييره أو إزالته.",
+    updated: "تم تحديث إعدادات المنصة.",
   },
   profile: {
     title: "ملفي الشخصي",

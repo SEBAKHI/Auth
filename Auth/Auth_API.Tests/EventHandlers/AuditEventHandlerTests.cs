@@ -281,3 +281,35 @@ public class ApiKeyRevokedAuditEventHandlerTests
         _repoMock.Verify(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()), Times.Once());
     }
 }
+
+public class PlatformSettingsUpdatedAuditEventHandlerTests
+{
+    private readonly Mock<IAuditLogRepository> _repoMock = new();
+    private readonly PlatformSettingsUpdatedAuditEventHandler _handler;
+
+    public PlatformSettingsUpdatedAuditEventHandlerTests()
+    {
+        _handler = new PlatformSettingsUpdatedAuditEventHandler(
+            _repoMock.Object,
+            new Mock<ILogger<PlatformSettingsUpdatedAuditEventHandler>>().Object);
+    }
+
+    [Fact]
+    public async Task Handle_CreatesAuditLogEntry()
+    {
+        var updatedBy = Guid.NewGuid();
+        var evt = new PlatformSettingsUpdatedEvent(
+            Guid.NewGuid(), "Auth Console", "Sebakhi Console", null, "logo.webp", updatedBy);
+
+        await _handler.Handle(evt, CancellationToken.None);
+
+        _repoMock.Verify(
+            r => r.CreateAsync(
+                It.Is<AuditLog>(log =>
+                    log.Action == "platform-settings.updated" &&
+                    log.EntityType == "PlatformSettings" &&
+                    log.UserId == updatedBy),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+}

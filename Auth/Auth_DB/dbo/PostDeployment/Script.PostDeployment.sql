@@ -553,6 +553,34 @@ PRINT 'Step 7: Creating external auth providers...';
 GO
 
 -- ============================================
+-- STEP 8: PLATFORM SETTINGS
+-- ============================================
+PRINT '';
+PRINT 'Step 8: Creating platform settings...';
+
+-- Singleton branding row (name/logo shown across the console and auth screens)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[PlatformSettings] WHERE [Id] = '30000000-0000-0000-0000-000000000001')
+BEGIN
+    INSERT INTO [dbo].[PlatformSettings] ([Id], [PlatformName])
+    VALUES ('30000000-0000-0000-0000-000000000001', N'Auth Console');
+    PRINT 'Created default platform settings';
+END
+ELSE
+BEGIN
+    PRINT 'Platform settings already exist';
+END
+
+-- platform-settings:manage permission (child of auth:* so the seeded admin
+-- role inherits it; super-admin is covered by the global * wildcard)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'platform-settings:manage')
+BEGIN
+    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (N'20000000-0000-0000-0000-0000000000A2', N'platform-settings:manage', N'Manage Platform Settings', N'Manage platform branding (name and logo)', '00000000-0000-0000-0000-000000000001', N'20000000-0000-0000-0000-000000000002', 3, 0, 1, GETUTCDATE(), '00000000-0000-0000-0000-000000000001');
+    PRINT 'Created platform-settings:manage permission';
+END
+GO
+
+-- ============================================
 -- COMPLETION
 -- ============================================
 PRINT '';

@@ -6,6 +6,7 @@ import {
   KeySquare,
   Lock,
   ScrollText,
+  Settings2,
   ShieldCheck,
   Users,
   Webhook,
@@ -66,6 +67,9 @@ export const PERMISSIONS = {
   },
   secrets: {
     manage: "secrets.manage",
+  },
+  platformSettings: {
+    manage: "platform-settings:manage",
   },
 } as const
 
@@ -130,6 +134,12 @@ export const NAV_ITEMS: NavItem[] = [
     url: "/admin/secrets",
     icon: Lock,
     permission: PERMISSIONS.secrets.manage,
+  },
+  {
+    titleKey: "platformSettings",
+    url: "/admin/platform-settings",
+    icon: Settings2,
+    permission: PERMISSIONS.platformSettings.manage,
   },
 ]
 
