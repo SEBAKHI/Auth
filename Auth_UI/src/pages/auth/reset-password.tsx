@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Link, useLocation, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -27,7 +27,9 @@ export function ResetPasswordPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
   const presetEmail = (location.state as { email?: string } | null)?.email ?? ""
+  const presetToken = searchParams.get("token") ?? ""
 
   const schema = z
     .object({
@@ -48,7 +50,7 @@ export function ResetPasswordPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       email: presetEmail,
-      token: "",
+      token: presetToken,
       newPassword: "",
       confirmNewPassword: "",
     },
