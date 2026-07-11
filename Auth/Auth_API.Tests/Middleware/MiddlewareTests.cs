@@ -54,15 +54,18 @@ public class ExceptionHandlingMiddlewareTests
     }
 
     [Fact]
-    public async Task InvokeAsync_UnauthorizedAccessException_Returns401()
+    public async Task InvokeAsync_UnauthorizedAccessException_Returns500()
     {
+        // Filesystem/OS ACL denials throw UnauthorizedAccessException; they are server
+        // faults, not HTTP auth failures, and must not masquerade as a 401.
         var context = new DefaultHttpContext();
         context.Response.Body = new MemoryStream();
+        _envMock.Setup(e => e.EnvironmentName).Returns("Production");
         var middleware = CreateMiddleware(_ => throw new UnauthorizedAccessException());
 
         await middleware.InvokeAsync(context);
 
-        context.Response.StatusCode.Should().Be(401);
+        context.Response.StatusCode.Should().Be(500);
     }
 
     [Fact]

@@ -52,12 +52,10 @@ public class ExceptionHandlingMiddleware
                 Localize(localizer, "Middleware.ValidationError.Detail", "One or more validation errors occurred."),
                 validationEx.Errors.Select(e => new { field = e.PropertyName, message = e.ErrorMessage })
             ),
-            UnauthorizedAccessException => (
-                HttpStatusCode.Unauthorized,
-                Localize(localizer, "Middleware.Unauthorized.Title", "Unauthorized"),
-                Localize(localizer, "Middleware.Unauthorized.Detail", "You are not authorized to access this resource."),
-                (object?)null
-            ),
+            // NOTE: UnauthorizedAccessException is deliberately NOT mapped to 401. In .NET it is
+            // thrown by filesystem/OS ACL denials, not HTTP authentication (which is handled by the
+            // JWT middleware before controllers run). Mapping it to 401 disguised a storage-permission
+            // failure as an auth failure; it now falls through to 500 and is logged with its stack.
             KeyNotFoundException => (
                 HttpStatusCode.NotFound,
                 Localize(localizer, "Middleware.NotFound.Title", "Not Found"),

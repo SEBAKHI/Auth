@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using ErrorOr;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
@@ -56,7 +57,11 @@ public class ImagesController : ControllerBase
 
         return result.Match<IActionResult>(
             key => Ok(new UploadImageResponse(key, _urlComposer.Compose(key)!)),
-            errors => BadRequest(new { error = errors[0].Description }));
+            errors => errors[0].Type == ErrorType.Unexpected
+                // Storage/environment fault (e.g. the uploads directory is not writable) — a
+                // server fault, not a problem with the uploaded file.
+                ? StatusCode(StatusCodes.Status500InternalServerError, new { error = errors[0].Description })
+                : BadRequest(new { error = errors[0].Description }));
     }
 }
 

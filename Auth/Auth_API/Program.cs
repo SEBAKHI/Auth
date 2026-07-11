@@ -598,6 +598,24 @@ var imageStorageRoot = Path.IsPathRooted(imageStorageSettings.PhysicalPath)
     ? imageStorageSettings.PhysicalPath
     : Path.Combine(AppContext.BaseDirectory, imageStorageSettings.PhysicalPath);
 Directory.CreateDirectory(imageStorageRoot);
+
+// Write-probe the uploads directory at startup: on IIS/Plesk the app-pool identity often lacks
+// write access to a folder outside the deploy tree, which would otherwise only surface as
+// failed uploads at runtime. Non-fatal — the rest of the API works without image uploads.
+try
+{
+    var probePath = Path.Combine(imageStorageRoot, $".write-probe-{Guid.NewGuid():N}");
+    File.Create(probePath).Dispose();
+    File.Delete(probePath);
+}
+catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+{
+    app.Logger.LogError(ex,
+        "Image storage directory {Root} is not writable by the process identity; image uploads " +
+        "WILL FAIL. Grant the app-pool identity Modify permission on ImageStorage:PhysicalPath.",
+        imageStorageRoot);
+}
+
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(imageStorageRoot),

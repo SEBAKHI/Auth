@@ -1,6 +1,7 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using ErrorOr;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SkiaSharp;
 
@@ -16,10 +17,14 @@ namespace Auth.Infrastructure.Services;
 public sealed class FileSystemImageStorageService : IImageStorageService
 {
     private readonly ImageStorageSettings _settings;
+    private readonly ILogger<FileSystemImageStorageService> _logger;
 
-    public FileSystemImageStorageService(IOptions<ImageStorageSettings> settings)
+    public FileSystemImageStorageService(
+        IOptions<ImageStorageSettings> settings,
+        ILogger<FileSystemImageStorageService> logger)
     {
         _settings = settings.Value;
+        _logger = logger;
     }
 
     public async Task<ErrorOr<string>> SaveImageAsync(
@@ -67,13 +72,25 @@ public sealed class FileSystemImageStorageService : IImageStorageService
             }
 
             var root = ResolvedRoot();
-            Directory.CreateDirectory(root);
             var key = $"{Guid.NewGuid():N}.webp";
             var fullPath = Path.Combine(root, key);
 
-            await using (var fs = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            try
             {
+                Directory.CreateDirectory(root);
+                await using var fs = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
                 data.SaveTo(fs);
+            }
+            catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+            {
+                // Environment fault (ACL denial, disk full, ...), not a bad upload. Surface a
+                // typed error so it reaches logs and clients as a server fault, never a 4xx.
+                _logger.LogError(ex,
+                    "Image storage write failed for path {Path}. Verify the process identity has " +
+                    "write permission on ImageStorage:PhysicalPath ({Root}).", fullPath, root);
+                return Error.Unexpected(
+                    "Image.StorageUnavailable",
+                    "Image storage is not writable on the server. Contact the administrator.");
             }
 
             return key;
