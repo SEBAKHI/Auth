@@ -28,10 +28,10 @@ export function AuthLayout({
       <div className="w-full max-w-sm">
         <div className="mb-6 flex flex-col items-center gap-2 text-center">
           <BrandingLogo
-            className="size-11 rounded-xl object-cover"
+            className="mb-2 h-20 w-auto max-w-64 object-contain"
             fallback={
-              <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                <ShieldCheck className="size-6" />
+              <div className="mb-2 flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+                <ShieldCheck className="size-8" />
               </div>
             }
           />

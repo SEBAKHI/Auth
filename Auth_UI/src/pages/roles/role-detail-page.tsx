@@ -237,6 +237,7 @@ function RoleApplicationsTab({ roleId }: { roleId: string }) {
     avatarColumn<Schemas["RoleApplicationDto"]>({
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
+      fit: "contain",
     }),
     {
       id: "name",

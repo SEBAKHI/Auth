@@ -643,6 +643,7 @@ function ApplicationsTab({ orgId }: { orgId: string }) {
     avatarColumn<Schemas["OrganizationApplicationDto"]>({
       getSrc: (row) => row.applicationLogoUrl,
       getName: (row) => row.applicationName,
+      fit: "contain",
     }),
     {
       accessorKey: "applicationName",

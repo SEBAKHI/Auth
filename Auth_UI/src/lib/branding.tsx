@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
+import { useTheme, type ResolvedTheme } from "@/components/theme-provider"
 import { api } from "@/lib/api/client"
 import { unwrap } from "@/lib/api/helpers"
 import { API_BASE_URL } from "@/lib/env"
@@ -14,7 +15,10 @@ const DEFAULT_FAVICON = "/vite.svg"
 interface BrandingValue {
   /** Platform display name (admin-configured, falls back to the app default). */
   name: string
-  /** Absolute logo URL, or null when no logo has been uploaded. */
+  /**
+   * Absolute logo URL for the active theme (falls back to the other theme's
+   * logo), or null when no logo has been uploaded.
+   */
   logoUrl: string | null
 }
 
@@ -28,6 +32,15 @@ function toAbsolute(url: string | null | undefined): string | null {
   return url.startsWith("/") ? `${API_BASE_URL}${url}` : url
 }
 
+/** Picks the logo for the resolved theme, falling back to the other variant. */
+export function pickLogo(
+  light: string | null,
+  dark: string | null,
+  resolvedTheme: ResolvedTheme
+): string | null {
+  return resolvedTheme === "dark" ? (dark ?? light) : (light ?? dark)
+}
+
 /**
  * Fetches the public platform branding (anonymous endpoint) and applies it to
  * the browser tab (title + favicon). Screens read the name/logo via
@@ -35,6 +48,7 @@ function toAbsolute(url: string | null | undefined): string | null {
  */
 export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()
+  const { resolvedTheme } = useTheme()
 
   const query = useQuery({
     queryKey: BRANDING_QUERY_KEY,
@@ -43,7 +57,14 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   })
 
   const name = query.data?.platformName || t("common.appName")
-  const logoUrl = toAbsolute(query.data?.logoUrl)
+  const logoUrl = pickLogo(
+    toAbsolute(query.data?.logoUrl),
+    toAbsolute(query.data?.logoUrlDark),
+    resolvedTheme
+  )
+  // Dedicated square favicon when uploaded; wordmark logos are illegible at
+  // tab-icon size, so admins can set a distinct mark. Falls back to the logo.
+  const faviconUrl = toAbsolute(query.data?.faviconUrl) ?? logoUrl
 
   React.useEffect(() => {
     document.title = name
@@ -52,15 +73,15 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
     if (!link) return
-    if (logoUrl) {
-      // Uploaded logos are raster (webp); drop the svg type of the default icon.
+    if (faviconUrl) {
+      // Uploaded images are raster (webp); drop the svg type of the default icon.
       link.removeAttribute("type")
-      link.href = logoUrl
+      link.href = faviconUrl
     } else {
       link.type = "image/svg+xml"
       link.href = DEFAULT_FAVICON
     }
-  }, [logoUrl])
+  }, [faviconUrl])
 
   const value = React.useMemo<BrandingValue>(
     () => ({ name, logoUrl }),

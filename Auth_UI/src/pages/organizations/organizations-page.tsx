@@ -61,6 +61,7 @@ export function OrganizationsPage() {
     avatarColumn<OrganizationSummaryDto>({
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
+      fit: "contain",
     }),
     {
       id: "name",

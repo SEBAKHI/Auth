@@ -299,7 +299,7 @@ public class PlatformSettingsUpdatedAuditEventHandlerTests
     {
         var updatedBy = Guid.NewGuid();
         var evt = new PlatformSettingsUpdatedEvent(
-            Guid.NewGuid(), "Auth Console", "Sebakhi Console", null, "logo.webp", updatedBy);
+            Guid.NewGuid(), "Auth Console", "Sebakhi Console", null, "logo.webp", null, "logo-dark.webp", null, "favicon.webp", updatedBy);
 
         await _handler.Handle(evt, CancellationToken.None);
 
@@ -308,7 +308,8 @@ public class PlatformSettingsUpdatedAuditEventHandlerTests
                 It.Is<AuditLog>(log =>
                     log.Action == "platform-settings.updated" &&
                     log.EntityType == "PlatformSettings" &&
-                    log.UserId == updatedBy),
+                    log.UserId == updatedBy &&
+                    log.NewValues!.Contains("\"logoUrlDark\":\"logo-dark.webp\"")),
                 It.IsAny<CancellationToken>()),
             Times.Once());
     }

@@ -32,12 +32,16 @@ public class PlatformSettingsUpdatedAuditEventHandler : INotificationHandler<Pla
             oldValues: JsonSerializer.Serialize(new
             {
                 platformName = notification.OldPlatformName,
-                logoUrl = notification.OldLogoUrl
+                logoUrl = notification.OldLogoUrl,
+                logoUrlDark = notification.OldLogoUrlDark,
+                faviconUrl = notification.OldFaviconUrl
             }),
             newValues: JsonSerializer.Serialize(new
             {
                 platformName = notification.NewPlatformName,
-                logoUrl = notification.NewLogoUrl
+                logoUrl = notification.NewLogoUrl,
+                logoUrlDark = notification.NewLogoUrlDark,
+                faviconUrl = notification.NewFaviconUrl
             }));
 
         await _auditLogRepository.CreateAsync(log, cancellationToken);

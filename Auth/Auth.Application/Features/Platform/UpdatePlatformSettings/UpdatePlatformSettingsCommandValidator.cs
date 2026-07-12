@@ -12,5 +12,7 @@ public class UpdatePlatformSettingsCommandValidator : AbstractValidator<UpdatePl
     {
         RuleFor(x => x.PlatformName).IsValidName();
         RuleFor(x => x.LogoUrl).IsValidUrl().When(x => x.LogoUrl is not null);
+        RuleFor(x => x.LogoUrlDark).IsValidUrl().When(x => x.LogoUrlDark is not null);
+        RuleFor(x => x.FaviconUrl).IsValidUrl().When(x => x.FaviconUrl is not null);
     }
 }

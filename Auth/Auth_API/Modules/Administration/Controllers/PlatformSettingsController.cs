@@ -70,6 +70,8 @@ public class PlatformSettingsController : ApiController
         var command = new UpdatePlatformSettingsCommand(
             request.PlatformName,
             request.LogoUrl,
+            request.LogoUrlDark,
+            request.FaviconUrl,
             GetUserId());
 
         var result = await _sender.Send(command, cancellationToken);

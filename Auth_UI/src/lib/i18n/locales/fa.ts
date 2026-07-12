@@ -615,7 +615,10 @@ export const fa: TranslationResources = {
     brandingSubtitle:
       "نام و لوگوی پلتفرم در نوار کناری، صفحات ورود و برگه مرورگر نمایش داده می‌شوند.",
     platformName: "نام پلتفرم",
-    logoHint: "برای تغییر یا حذف، روی لوگو کلیک کنید.",
+    logoHint: "برای تغییر یا حذف، روی یک لوگو کلیک کنید.",
+    logoLight: "حالت روشن",
+    logoDark: "حالت تیره",
+    favicon: "آیکون سایت",
     updated: "تنظیمات پلتفرم به‌روزرسانی شد.",
   },
   profile: {

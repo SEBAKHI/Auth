@@ -27,7 +27,7 @@ export function LogoAvatar({
   const logo = useLogo({ persist, invalidate, successMessage })
 
   if (!canEdit) {
-    return <EntityAvatar src={src} name={name} size={size} />
+    return <EntityAvatar src={src} name={name} size={size} fit="contain" />
   }
 
   return (
@@ -35,6 +35,7 @@ export function LogoAvatar({
       src={src}
       name={name}
       size={size}
+      fit="contain"
       onChange={logo.onChange}
       onRemove={logo.onRemove}
       pending={logo.pending}

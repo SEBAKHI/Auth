@@ -3,6 +3,8 @@ CREATE TABLE [dbo].[PlatformSettings]
     [Id] UNIQUEIDENTIFIER NOT NULL,
     [PlatformName] NVARCHAR(255) NOT NULL CONSTRAINT [DF_PlatformSettings_PlatformName] DEFAULT N'Auth Console',
     [LogoUrl] NVARCHAR(500) NULL,
+    [LogoUrlDark] NVARCHAR(500) NULL,
+    [FaviconUrl] NVARCHAR(500) NULL,
     [ModifiedAt] DATETIME2 NULL,
     [ModifiedBy] UNIQUEIDENTIFIER NULL,
 

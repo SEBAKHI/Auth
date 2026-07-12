@@ -9008,10 +9008,14 @@ export interface components {
         PlatformBrandingDto: {
             platformName?: string;
             logoUrl?: null | string;
+            logoUrlDark?: null | string;
+            faviconUrl?: null | string;
         };
         PlatformSettingsDto: {
             platformName?: string;
             logoUrl?: null | string;
+            logoUrlDark?: null | string;
+            faviconUrl?: null | string;
             /** Format: date-time */
             modifiedAt?: null | string;
             /** Format: uuid */
@@ -9327,6 +9331,8 @@ export interface components {
         UpdatePlatformSettingsRequest: {
             platformName: string;
             logoUrl: null | string;
+            logoUrlDark: null | string;
+            faviconUrl: null | string;
         };
         UpdateProfileRequest: {
             firstName?: null | string;

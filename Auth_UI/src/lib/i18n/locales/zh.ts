@@ -583,7 +583,10 @@ export const zh: TranslationResources = {
     brandingSubtitle:
       "平台名称和 Logo 显示在侧边栏、登录页面和浏览器标签页中。",
     platformName: "平台名称",
-    logoHint: "点击 Logo 以更改或移除。",
+    logoHint: "点击任一 Logo 以更改或移除。",
+    logoLight: "浅色模式",
+    logoDark: "深色模式",
+    favicon: "网站图标",
     updated: "平台设置已更新。",
   },
   profile: {

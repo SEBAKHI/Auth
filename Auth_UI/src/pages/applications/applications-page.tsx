@@ -118,6 +118,7 @@ export function ApplicationsPage() {
     avatarColumn<ApplicationDto>({
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
+      fit: "contain",
     }),
     {
       id: "name",

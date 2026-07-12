@@ -610,7 +610,10 @@ export const tr: TranslationResources = {
     brandingSubtitle:
       "Platform adı ve logosu kenar çubuğunda, oturum açma ekranlarında ve tarayıcı sekmesinde görünür.",
     platformName: "Platform adı",
-    logoHint: "Değiştirmek veya kaldırmak için logoya tıklayın.",
+    logoHint: "Değiştirmek veya kaldırmak için bir logoya tıklayın.",
+    logoLight: "Açık tema",
+    logoDark: "Koyu tema",
+    favicon: "Site simgesi",
     updated: "Platform ayarları güncellendi.",
   },
   profile: {

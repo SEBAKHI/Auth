@@ -618,7 +618,10 @@ export const fr: TranslationResources = {
     brandingSubtitle:
       "Le nom et le logo de la plateforme apparaissent dans la barre latérale, les écrans de connexion et l'onglet du navigateur.",
     platformName: "Nom de la plateforme",
-    logoHint: "Cliquez sur le logo pour le changer ou le supprimer.",
+    logoHint: "Cliquez sur un logo pour le changer ou le supprimer.",
+    logoLight: "Mode clair",
+    logoDark: "Mode sombre",
+    favicon: "Favicon",
     updated: "Paramètres de la plateforme mis à jour.",
   },
   profile: {

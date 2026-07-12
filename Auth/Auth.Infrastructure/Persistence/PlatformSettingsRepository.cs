@@ -22,7 +22,7 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var dto = await connection.QueryFirstOrDefaultAsync<PlatformSettingsDto>(@"
-            SELECT [Id], [PlatformName], [LogoUrl], [ModifiedAt], [ModifiedBy]
+            SELECT [Id], [PlatformName], [LogoUrl], [LogoUrlDark], [FaviconUrl], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[PlatformSettings]
             WHERE [Id] = @Id",
             new { Id = PlatformSettings.SingletonId });
@@ -45,16 +45,20 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
                 UPDATE SET
                     [PlatformName] = @PlatformName,
                     [LogoUrl] = @LogoUrl,
+                    [LogoUrlDark] = @LogoUrlDark,
+                    [FaviconUrl] = @FaviconUrl,
                     [ModifiedAt] = @ModifiedAt,
                     [ModifiedBy] = @ModifiedBy
             WHEN NOT MATCHED THEN
-                INSERT ([Id], [PlatformName], [LogoUrl], [ModifiedAt], [ModifiedBy])
-                VALUES (@Id, @PlatformName, @LogoUrl, @ModifiedAt, @ModifiedBy);",
+                INSERT ([Id], [PlatformName], [LogoUrl], [LogoUrlDark], [FaviconUrl], [ModifiedAt], [ModifiedBy])
+                VALUES (@Id, @PlatformName, @LogoUrl, @LogoUrlDark, @FaviconUrl, @ModifiedAt, @ModifiedBy);",
             new
             {
                 settings.Id,
                 settings.PlatformName,
                 settings.LogoUrl,
+                settings.LogoUrlDark,
+                settings.FaviconUrl,
                 settings.ModifiedAt,
                 settings.ModifiedBy
             });
@@ -65,6 +69,8 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
         public Guid Id { get; init; }
         public string PlatformName { get; init; } = string.Empty;
         public string? LogoUrl { get; init; }
+        public string? LogoUrlDark { get; init; }
+        public string? FaviconUrl { get; init; }
         public DateTime? ModifiedAt { get; init; }
         public Guid? ModifiedBy { get; init; }
 
@@ -72,6 +78,8 @@ public class PlatformSettingsRepository : IPlatformSettingsRepository
             Id,
             PlatformName,
             LogoUrl,
+            LogoUrlDark,
+            FaviconUrl,
             ModifiedAt,
             ModifiedBy);
     }

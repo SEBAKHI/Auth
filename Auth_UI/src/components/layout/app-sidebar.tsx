@@ -34,14 +34,17 @@ export function AppSidebar() {
             <SidebarMenuButton size="lg" asChild>
               <NavLink to="/">
                 <BrandingLogo
-                  className="aspect-square size-8 rounded-lg object-cover"
+                  className="h-9 w-auto max-w-40 object-contain group-data-[collapsible=icon]:size-8"
                   fallback={
                     <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                       <ShieldCheck className="size-5" />
                     </div>
                   }
                 />
-                <span className="truncate font-semibold">{branding.name}</span>
+                {/* A logo usually carries the brand name; avoid repeating it. */}
+                {branding.logoUrl ? null : (
+                  <span className="truncate font-semibold">{branding.name}</span>
+                )}
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

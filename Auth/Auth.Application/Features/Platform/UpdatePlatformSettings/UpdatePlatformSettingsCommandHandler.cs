@@ -17,6 +17,7 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
     private readonly IPlatformSettingsRepository _platformSettingsRepository;
     private readonly IUserRepository _userRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly IImageStorageService _imageStorage;
     private readonly IPublisher _publisher;
     private readonly ILogger<UpdatePlatformSettingsCommandHandler> _logger;
 
@@ -24,12 +25,14 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
         IPlatformSettingsRepository platformSettingsRepository,
         IUserRepository userRepository,
         IImageUrlComposer imageUrlComposer,
+        IImageStorageService imageStorage,
         IPublisher publisher,
         ILogger<UpdatePlatformSettingsCommandHandler> logger)
     {
         _platformSettingsRepository = platformSettingsRepository;
         _userRepository = userRepository;
         _imageUrlComposer = imageUrlComposer;
+        _imageStorage = imageStorage;
         _publisher = publisher;
         _logger = logger;
     }
@@ -41,8 +44,17 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
 
         var oldPlatformName = settings.PlatformName;
         var oldLogoUrl = settings.LogoUrl;
+        var oldLogoUrlDark = settings.LogoUrlDark;
+        var oldFaviconUrl = settings.FaviconUrl;
 
-        settings.Update(request.PlatformName, request.LogoUrl, request.UpdatedBy);
+        // Clients resend the composed absolute URL they last read; store the
+        // raw key so replaced-file cleanup and future URL changes stay sound.
+        settings.Update(
+            request.PlatformName,
+            _imageUrlComposer.Decompose(request.LogoUrl),
+            _imageUrlComposer.Decompose(request.LogoUrlDark),
+            _imageUrlComposer.Decompose(request.FaviconUrl),
+            request.UpdatedBy);
         await _platformSettingsRepository.UpdateAsync(settings, cancellationToken);
 
         await _publisher.Publish(
@@ -52,7 +64,16 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
                 settings.PlatformName,
                 oldLogoUrl,
                 settings.LogoUrl,
+                oldLogoUrlDark,
+                settings.LogoUrlDark,
+                oldFaviconUrl,
+                settings.FaviconUrl,
                 request.UpdatedBy),
+            cancellationToken);
+
+        await DeleteReplacedLogoFilesAsync(
+            oldValues: [oldLogoUrl, oldLogoUrlDark, oldFaviconUrl],
+            newValues: [settings.LogoUrl, settings.LogoUrlDark, settings.FaviconUrl],
             cancellationToken);
 
         _logger.LogInformation(
@@ -66,11 +87,39 @@ public class UpdatePlatformSettingsCommandHandler : IRequestHandler<UpdatePlatfo
         {
             PlatformName = settings.PlatformName,
             LogoUrl = _imageUrlComposer.Compose(settings.LogoUrl),
+            LogoUrlDark = _imageUrlComposer.Compose(settings.LogoUrlDark),
+            FaviconUrl = _imageUrlComposer.Compose(settings.FaviconUrl),
             ModifiedAt = settings.ModifiedAt,
             ModifiedBy = settings.ModifiedBy,
             ModifiedByName = settings.ModifiedBy.HasValue
                 ? modifierNames.GetValueOrDefault(settings.ModifiedBy.Value)
                 : null
         };
+    }
+
+    /// <summary>
+    /// Best-effort removal of logo files no longer referenced by either slot.
+    /// Rows written before key normalization may hold composed absolute URLs,
+    /// so still-referenced files are matched by file name and old values are
+    /// decomposed back to keys before deletion (external URLs stay no-ops).
+    /// </summary>
+    private async Task DeleteReplacedLogoFilesAsync(
+        string?[] oldValues,
+        string?[] newValues,
+        CancellationToken cancellationToken)
+    {
+        var retainedFileNames = newValues
+            .Where(value => !string.IsNullOrEmpty(value))
+            .Select(value => Path.GetFileName(value!))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var oldValue in oldValues.Where(value => !string.IsNullOrEmpty(value)).Distinct())
+        {
+            if (!retainedFileNames.Contains(Path.GetFileName(oldValue!)))
+            {
+                await _imageStorage.DeleteImageAsync(
+                    _imageUrlComposer.Decompose(oldValue), cancellationToken);
+            }
+        }
     }
 }

@@ -236,6 +236,7 @@ function ApplicationOrganizationsTab({ appId }: { appId: string }) {
     avatarColumn<Schemas["ApplicationOrganizationDto"]>({
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
+      fit: "contain",
     }),
     {
       id: "name",

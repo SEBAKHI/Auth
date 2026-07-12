@@ -61,6 +61,7 @@ function UserOrganizationsTab({ userId }: { userId: string }) {
     avatarColumn<Schemas["OrganizationSummaryDto"]>({
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
+      fit: "contain",
     }),
     {
       id: "name",
@@ -151,6 +152,7 @@ function UserApplicationsTab({ userId }: { userId: string }) {
     avatarColumn<Schemas["UserApplicationDto"]>({
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
+      fit: "contain",
     }),
     {
       id: "name",

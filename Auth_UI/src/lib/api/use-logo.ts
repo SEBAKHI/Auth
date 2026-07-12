@@ -3,6 +3,7 @@ import { toast } from "sonner"
 
 import { uploadImage } from "@/lib/api/upload"
 import { getErrorMessage } from "@/lib/errors"
+import { trimLogoFile } from "@/lib/trim-logo"
 
 /**
  * Change/Remove handlers for an entity logo (organization/application), for use
@@ -16,7 +17,9 @@ export function useLogo(opts: {
 }) {
   const changeMutation = useMutation({
     mutationFn: async (file: File) => {
-      const { key } = await uploadImage(file)
+      // Logos are often exported on large padded canvases; trim the margin so
+      // they render at their natural aspect ratio in the sidebar/auth screens.
+      const { key } = await uploadImage(await trimLogoFile(file))
       await opts.persist(key)
     },
     onSuccess: () => {

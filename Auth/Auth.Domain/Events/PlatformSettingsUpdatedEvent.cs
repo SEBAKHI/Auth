@@ -11,4 +11,8 @@ public record PlatformSettingsUpdatedEvent(
     string NewPlatformName,
     string? OldLogoUrl,
     string? NewLogoUrl,
+    string? OldLogoUrlDark,
+    string? NewLogoUrlDark,
+    string? OldFaviconUrl,
+    string? NewFaviconUrl,
     Guid UpdatedBy) : IDomainEvent;

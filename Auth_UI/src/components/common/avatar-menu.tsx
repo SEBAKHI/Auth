@@ -23,6 +23,7 @@ export function AvatarMenu({
   src,
   name,
   size = "lg",
+  fit,
   onChange,
   onRemove,
   pending,
@@ -30,6 +31,7 @@ export function AvatarMenu({
   src?: string | null
   name?: string | null
   size?: "default" | "sm" | "lg" | "xl"
+  fit?: "cover" | "contain"
   onChange: (file: File) => void
   onRemove: () => void
   pending?: boolean
@@ -48,7 +50,7 @@ export function AvatarMenu({
             disabled={pending}
             className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
           >
-            <EntityAvatar src={src} name={name} size={size} />
+            <EntityAvatar src={src} name={name} size={size} fit={fit} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">

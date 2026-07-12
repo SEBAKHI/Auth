@@ -61,6 +61,8 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
         body: {
           platformName: values.platformName,
           logoUrl: settings.logoUrl ?? null,
+          logoUrlDark: settings.logoUrlDark ?? null,
+          faviconUrl: settings.faviconUrl ?? null,
         },
       })
       if (error) throw error
@@ -73,17 +75,49 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
   })
 
   // Logo changes persist immediately (same flow as organization logos).
-  const persistLogo = React.useCallback(
+  const persistLogoLight = React.useCallback(
     async (logoKey: string | null) => {
       const { error } = await api.PUT("/api/v1/admin/platform-settings", {
         body: {
           platformName: settings.platformName ?? "",
           logoUrl: logoKey,
+          logoUrlDark: settings.logoUrlDark ?? null,
+          faviconUrl: settings.faviconUrl ?? null,
         },
       })
       if (error) throw error
     },
-    [settings.platformName]
+    [settings.platformName, settings.logoUrlDark, settings.faviconUrl]
+  )
+
+  const persistLogoDark = React.useCallback(
+    async (logoKey: string | null) => {
+      const { error } = await api.PUT("/api/v1/admin/platform-settings", {
+        body: {
+          platformName: settings.platformName ?? "",
+          logoUrl: settings.logoUrl ?? null,
+          logoUrlDark: logoKey,
+          faviconUrl: settings.faviconUrl ?? null,
+        },
+      })
+      if (error) throw error
+    },
+    [settings.platformName, settings.logoUrl, settings.faviconUrl]
+  )
+
+  const persistFavicon = React.useCallback(
+    async (logoKey: string | null) => {
+      const { error } = await api.PUT("/api/v1/admin/platform-settings", {
+        body: {
+          platformName: settings.platformName ?? "",
+          logoUrl: settings.logoUrl ?? null,
+          logoUrlDark: settings.logoUrlDark ?? null,
+          faviconUrl: logoKey,
+        },
+      })
+      if (error) throw error
+    },
+    [settings.platformName, settings.logoUrl, settings.logoUrlDark]
   )
 
   return (
@@ -95,15 +129,46 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="mb-6 flex items-center gap-4">
-          <LogoAvatar
-            src={settings.logoUrl}
-            name={settings.platformName}
-            canEdit
-            persist={persistLogo}
-            invalidate={invalidate}
-            successMessage={t("platformSettings.updated")}
-          />
+        <div className="mb-6 flex items-center gap-6">
+          <div className="flex flex-col items-center gap-1.5">
+            <LogoAvatar
+              src={settings.logoUrl}
+              name={settings.platformName}
+              canEdit
+              persist={persistLogoLight}
+              invalidate={invalidate}
+              successMessage={t("platformSettings.updated")}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("platformSettings.logoLight")}
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-1.5">
+            <LogoAvatar
+              src={settings.logoUrlDark}
+              name={settings.platformName}
+              canEdit
+              persist={persistLogoDark}
+              invalidate={invalidate}
+              successMessage={t("platformSettings.updated")}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("platformSettings.logoDark")}
+            </p>
+          </div>
+          <div className="flex flex-col items-center gap-1.5">
+            <LogoAvatar
+              src={settings.faviconUrl}
+              name={settings.platformName}
+              canEdit
+              persist={persistFavicon}
+              invalidate={invalidate}
+              successMessage={t("platformSettings.updated")}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("platformSettings.favicon")}
+            </p>
+          </div>
           <div className="min-w-0">
             <p className="truncate font-medium">{settings.platformName}</p>
             <p className="truncate text-sm text-muted-foreground">

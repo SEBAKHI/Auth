@@ -39,6 +39,8 @@ public class GetPlatformSettingsQueryHandler : IRequestHandler<GetPlatformSettin
         {
             PlatformName = settings.PlatformName,
             LogoUrl = _imageUrlComposer.Compose(settings.LogoUrl),
+            LogoUrlDark = _imageUrlComposer.Compose(settings.LogoUrlDark),
+            FaviconUrl = _imageUrlComposer.Compose(settings.FaviconUrl),
             ModifiedAt = settings.ModifiedAt,
             ModifiedBy = settings.ModifiedBy,
             ModifiedByName = settings.ModifiedBy.HasValue

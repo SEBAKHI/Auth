@@ -33,4 +33,20 @@ public sealed class ImageUrlComposer : IImageUrlComposer
 
         return $"{_settings.PublicBaseUrl.TrimEnd('/')}/{keyOrUrl.TrimStart('/')}";
     }
+
+    public string? Decompose(string? keyOrUrl)
+    {
+        if (string.IsNullOrWhiteSpace(keyOrUrl))
+        {
+            return null;
+        }
+
+        var basePrefix = $"{_settings.PublicBaseUrl.TrimEnd('/')}/";
+        if (keyOrUrl.StartsWith(basePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return keyOrUrl[basePrefix.Length..];
+        }
+
+        return keyOrUrl;
+    }
 }

@@ -11,6 +11,8 @@ export function avatarColumn<T>(opts: {
   getSrc: (row: T) => string | null | undefined
   getName: (row: T) => string | null | undefined
   size?: "default" | "sm" | "lg" | "xl"
+  /** Use "contain" for logo columns so marks keep their aspect ratio. */
+  fit?: "cover" | "contain"
 }): ColumnDef<T, unknown> {
   return {
     id: "avatar",
@@ -22,6 +24,7 @@ export function avatarColumn<T>(opts: {
         src={opts.getSrc(row.original)}
         name={opts.getName(row.original)}
         size={opts.size}
+        fit={opts.fit}
       />
     ),
   }

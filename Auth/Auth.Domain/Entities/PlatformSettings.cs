@@ -26,10 +26,23 @@ public class PlatformSettings : EntityBase
     public string PlatformName { get; private set; } = DefaultPlatformName;
 
     /// <summary>
-    /// Gets the uploaded logo image key (relative key composed into a public
-    /// URL at the API edge), or null when no logo has been uploaded.
+    /// Gets the uploaded light-mode logo image key (relative key composed into
+    /// a public URL at the API edge), or null when no logo has been uploaded.
     /// </summary>
     public string? LogoUrl { get; private set; }
+
+    /// <summary>
+    /// Gets the uploaded dark-mode logo image key, or null when no dark-mode
+    /// logo has been uploaded (clients fall back to the light-mode logo).
+    /// </summary>
+    public string? LogoUrlDark { get; private set; }
+
+    /// <summary>
+    /// Gets the uploaded favicon image key, or null when no favicon has been
+    /// uploaded (clients fall back to the theme logo, then the default icon).
+    /// A dedicated square mark: wordmark logos are illegible at tab-icon size.
+    /// </summary>
+    public string? FaviconUrl { get; private set; }
 
     /// <summary>
     /// Gets the last modification timestamp.
@@ -49,11 +62,15 @@ public class PlatformSettings : EntityBase
         Guid id,
         string platformName,
         string? logoUrl,
+        string? logoUrlDark,
+        string? faviconUrl,
         DateTime? modifiedAt,
         Guid? modifiedBy) : base(id)
     {
         PlatformName = platformName;
         LogoUrl = logoUrl;
+        LogoUrlDark = logoUrlDark;
+        FaviconUrl = faviconUrl;
         ModifiedAt = modifiedAt;
         ModifiedBy = modifiedBy;
     }
@@ -66,10 +83,12 @@ public class PlatformSettings : EntityBase
     /// <summary>
     /// Applies new branding values and stamps the modification audit fields.
     /// </summary>
-    public void Update(string platformName, string? logoUrl, Guid modifiedBy)
+    public void Update(string platformName, string? logoUrl, string? logoUrlDark, string? faviconUrl, Guid modifiedBy)
     {
         PlatformName = platformName;
         LogoUrl = logoUrl;
+        LogoUrlDark = logoUrlDark;
+        FaviconUrl = faviconUrl;
         ModifiedAt = DateTime.UtcNow;
         ModifiedBy = modifiedBy;
     }
