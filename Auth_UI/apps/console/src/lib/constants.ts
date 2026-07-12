@@ -1,6 +1,5 @@
 import {
   AppWindow,
-  Building2,
   KeyRound,
   LayoutDashboard,
   KeySquare,
@@ -110,7 +109,6 @@ export const NAV_ITEMS: NavItem[] = [
     icon: AppWindow,
     permission: PERMISSIONS.applications.read,
   },
-  { titleKey: "organizations", url: "/organizations", icon: Building2 },
   {
     titleKey: "apiKeys",
     url: "/api-keys",
@@ -143,5 +141,4 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ]
 
-/** Default server-side page size for paged data tables. */
-export const DEFAULT_PAGE_SIZE = 20
+export { DEFAULT_PAGE_SIZE } from "@astoom/api/constants"

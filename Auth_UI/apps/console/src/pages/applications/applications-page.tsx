@@ -8,8 +8,8 @@ import { toast } from "sonner"
 
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { PageHeader } from "@astoom/ui/common/page-header"
-import { avatarColumn } from "@/components/data-table/columns"
-import { DataTable } from "@/components/data-table/data-table"
+import { avatarColumn } from "@astoom/ui/data-table/columns"
+import { DataTable } from "@astoom/ui/data-table/data-table"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
 import {

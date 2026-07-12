@@ -21,7 +21,7 @@ import {
 import { Input } from "@astoom/ui/input"
 import { useAuth } from "@astoom/auth/auth-context"
 import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
-import { AuthLayout } from "./auth-layout"
+import { AuthLayout } from "@astoom/ui/auth-layout"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -30,7 +30,15 @@ interface LocationState {
   email?: string
 }
 
-export function LoginPage() {
+export function LoginPage({
+  providers,
+  footer,
+}: {
+  /** External sign-in options rendered under the credentials form. */
+  providers?: React.ReactNode
+  /** Extra content under the card (e.g. a create-account link). */
+  footer?: React.ReactNode
+} = {}) {
   const { t } = useTranslation()
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -82,6 +90,7 @@ export function LoginPage() {
     <AuthLayout
       title={t("auth.signInTitle")}
       subtitle={t("auth.signInSubtitle")}
+      footer={footer}
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
@@ -146,6 +155,7 @@ export function LoginPage() {
           </FieldGroup>
         </form>
       </Form>
+      {providers}
       <VerifyEmailDialog
         open={verifyEmail !== null}
         onOpenChange={(open) => {

@@ -187,6 +187,16 @@ export const fr: TranslationResources = {
     invitationEmailMismatch:
       "Vous êtes connecté en tant que {{current}}, mais cette invitation est destinée à {{invited}}. Déconnectez-vous et utilisez le compte invité.",
     invitationSignOut: "Se déconnecter",
+    orContinueWith: "Ou continuer avec",
+    registerTitle: "Créez votre compte",
+    registerSubtitle: "Inscrivez-vous avec votre adresse e-mail.",
+    firstName: "Prénom",
+    lastName: "Nom",
+    createAccount: "Créer un compte",
+    creatingAccount: "Création du compte…",
+    noAccount: "Vous n'avez pas de compte ?",
+    haveAccount: "Vous avez déjà un compte ?",
+    signUp: "S'inscrire",
   },
   dashboard: {
     title: "Tableau de bord",

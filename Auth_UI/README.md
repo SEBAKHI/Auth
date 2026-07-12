@@ -4,8 +4,12 @@ A pnpm workspace hosting the frontend apps of the Auth system, built with
 **React + Vite + TypeScript** and **shadcn/ui**:
 
 - `apps/console` — the admin console (`console.astoom.com`): users, roles,
-  permissions, applications, organizations, API/webhook keys, audit logs,
-  signing secrets, dashboard.
+  permissions, applications, API/webhook keys, audit logs, signing secrets,
+  dashboard.
+- `apps/accounts` — the end-user self-service app (`accounts.astoom.com`):
+  sign in/up (email + Google), password flows, invitations, profile,
+  organization self-service. Google Identity Services needs
+  `VITE_GOOGLE_CLIENT_ID` and the GSI origins in its CSP (accounts only).
 - `packages/api` — typed API client (openapi-fetch + generated schema), token
   store/JWT, upload helpers, error normalization, query client.
 - `packages/auth` — AuthProvider, route/permission guards.
@@ -55,7 +59,8 @@ Configure the API origin via each app's Vite env files:
 
 | Script | Purpose |
 |--------|---------|
-| `pnpm dev` | Start the console dev server |
+| `pnpm dev` | Start the console dev server (5173) |
+| `pnpm dev:accounts` | Start the accounts dev server (5174) |
 | `pnpm build` | Type-check (`tsc -b`) and build every app to its `dist/` |
 | `pnpm typecheck` | Type-check only |
 | `pnpm gen:api` | Regenerate `packages/api/src/schema.d.ts` from `/openapi/v1.json` |
@@ -111,10 +116,12 @@ English and Arabic are bundled; switching language updates the document `dir`
 pnpm build           # outputs static files to apps/<app>/dist/
 ```
 
-Deploy `apps/console/dist/` (including `web.config`) as a static site —
-`console.astoom.com`, which is already in the API's production CORS allow-list.
-`web.config` provides SPA fallback routing and security headers. Update the CSP
-`connect-src` and `VITE_API_BASE_URL` to match your API origin.
+Deploy each app's `dist/` (including its `web.config`) as its own static site:
+`apps/console/dist/` → `console.astoom.com` and `apps/accounts/dist/` →
+`accounts.astoom.com`; both origins are in the API's production CORS
+allow-list. `web.config` provides SPA fallback routing and security headers.
+Update the CSP `connect-src` and `VITE_API_BASE_URL` to match your API origin.
+Invitation/reset emails link to the accounts origin (`Email:FrontendBaseUrl`).
 
 ## Known constraints
 

@@ -181,6 +181,16 @@ export const ar: TranslationResources = {
     invitationEmailMismatch:
       "أنت مسجّل الدخول باسم {{current}}، لكن هذه الدعوة موجهة إلى {{invited}}. سجّل الخروج واستخدم الحساب المدعو.",
     invitationSignOut: "تسجيل الخروج",
+    orContinueWith: "أو تابع باستخدام",
+    registerTitle: "أنشئ حسابك",
+    registerSubtitle: "سجّل باستخدام بريدك الإلكتروني.",
+    firstName: "الاسم الأول",
+    lastName: "اسم العائلة",
+    createAccount: "إنشاء حساب",
+    creatingAccount: "جارٍ إنشاء الحساب…",
+    noAccount: "ليس لديك حساب؟",
+    haveAccount: "لديك حساب بالفعل؟",
+    signUp: "سجّل الآن",
   },
   dashboard: {
     title: "لوحة التحكم",

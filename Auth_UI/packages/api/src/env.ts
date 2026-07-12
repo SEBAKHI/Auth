@@ -9,3 +9,20 @@ const rawBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:5100"
 
 /** Absolute base URL of the Auth API, without a trailing slash. */
 export const API_BASE_URL = rawBaseUrl.replace(/\/+$/, "")
+
+const rawAccountsUrl =
+  import.meta.env.VITE_ACCOUNTS_URL ?? "http://localhost:5174"
+
+/**
+ * Absolute origin of the accounts app (end-user self-service), without a
+ * trailing slash. Used by the console to hand off user-facing flows
+ * (profile, invitations).
+ */
+export const ACCOUNTS_URL = rawAccountsUrl.replace(/\/+$/, "")
+
+/**
+ * Google OAuth client id for "Continue with Google" (must match the API's
+ * Google audience). Empty disables the button.
+ */
+export const GOOGLE_CLIENT_ID: string =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ""

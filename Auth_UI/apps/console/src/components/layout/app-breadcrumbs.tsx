@@ -10,7 +10,7 @@ import {
   BreadcrumbSeparator,
 } from "@astoom/ui/breadcrumb"
 import { Skeleton } from "@astoom/ui/skeleton"
-import { useBreadcrumbOverride, type CrumbHandle } from "@/lib/breadcrumb"
+import { useBreadcrumbOverride, type CrumbHandle } from "@astoom/ui/crumbs"
 
 /**
  * Header breadcrumb trail: Home › section › record. Sections come from route

@@ -184,6 +184,16 @@ export const tr: TranslationResources = {
     invitationEmailMismatch:
       "{{current}} olarak oturum açtınız, ancak bu davet {{invited}} için. Oturumu kapatın ve davet edilen hesabı kullanın.",
     invitationSignOut: "Oturumu kapat",
+    orContinueWith: "veya şununla devam edin",
+    registerTitle: "Hesabınızı oluşturun",
+    registerSubtitle: "E-posta adresinizle kaydolun.",
+    firstName: "Ad",
+    lastName: "Soyad",
+    createAccount: "Hesap oluştur",
+    creatingAccount: "Hesap oluşturuluyor…",
+    noAccount: "Hesabınız yok mu?",
+    haveAccount: "Zaten hesabınız var mı?",
+    signUp: "Kaydol",
   },
   dashboard: {
     title: "Kontrol Paneli",

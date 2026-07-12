@@ -2,11 +2,14 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
 import { api } from "@astoom/api/client"
+import { getErrorMessage } from "@astoom/api/errors"
+import { unwrap } from "@astoom/api/helpers"
+import { AuthLayout } from "@astoom/ui/auth-layout"
 import { Button } from "@astoom/ui/button"
 import { FieldGroup } from "@astoom/ui/field"
 import {
@@ -18,18 +21,15 @@ import {
   FormMessage,
 } from "@astoom/ui/form"
 import { Input } from "@astoom/ui/input"
-import { getErrorMessage } from "@astoom/api/errors"
-import { AuthLayout } from "./auth-layout"
+
+import { GoogleSignIn } from "@/components/google-sign-in"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-export function ResetPasswordPage() {
-  const { t } = useTranslation()
+/** Public email/password self-registration (plus Google as a shortcut). */
+export function RegisterPage() {
+  const { t, i18n } = useTranslation()
   const navigate = useNavigate()
-  const location = useLocation()
-  const [searchParams] = useSearchParams()
-  const presetEmail = (location.state as { email?: string } | null)?.email ?? ""
-  const presetToken = searchParams.get("token") ?? ""
 
   const schema = z
     .object({
@@ -37,33 +37,45 @@ export function ResetPasswordPage() {
         .string()
         .min(1, t("validation.required"))
         .regex(EMAIL_RE, t("validation.email")),
-      token: z.string().min(1, t("validation.required")),
-      newPassword: z.string().min(8, t("validation.minLength", { count: 8 })),
-      confirmNewPassword: z.string().min(1, t("validation.required")),
+      firstName: z.string().min(1, t("validation.required")),
+      lastName: z.string().min(1, t("validation.required")),
+      password: z.string().min(8, t("validation.minLength", { count: 8 })),
+      confirmPassword: z.string().min(1, t("validation.required")),
     })
-    .refine((data) => data.newPassword === data.confirmNewPassword, {
+    .refine((data) => data.password === data.confirmPassword, {
       message: t("validation.passwordMismatch"),
-      path: ["confirmNewPassword"],
+      path: ["confirmPassword"],
     })
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
-      email: presetEmail,
-      token: presetToken,
-      newPassword: "",
-      confirmNewPassword: "",
+      email: "",
+      firstName: "",
+      lastName: "",
+      password: "",
+      confirmPassword: "",
     },
   })
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
-      const { error } = await api.POST("/api/v1/Auth/reset-password", {
-        body: values,
-      })
-      if (error) throw error
-      toast.success(t("auth.resetSuccess"))
-      navigate("/login", { replace: true })
+      const data = await unwrap(
+        api.POST("/api/v1/Auth/register", {
+          body: {
+            email: values.email,
+            password: values.password,
+            firstName: values.firstName,
+            lastName: values.lastName,
+            preferredLanguage: i18n.language,
+          },
+        })
+      )
+      // The message is localized by the API (verification email sent, …).
+      toast.success(data.message)
+      // Login preseeds the email and opens the verify-email dialog on the
+      // EmailNotConfirmed error, so the verification code entry lives there.
+      navigate("/login", { state: { email: values.email } })
     } catch (error) {
       toast.error(getErrorMessage(error))
     }
@@ -71,12 +83,15 @@ export function ResetPasswordPage() {
 
   return (
     <AuthLayout
-      title={t("auth.resetTitle")}
-      subtitle={t("auth.resetSubtitle")}
+      title={t("auth.registerTitle")}
+      subtitle={t("auth.registerSubtitle")}
       footer={
-        <Link to="/login" className="underline-offset-4 hover:underline">
-          {t("auth.backToSignIn")}
-        </Link>
+        <span>
+          {t("auth.haveAccount")}{" "}
+          <Link to="/login" className="underline-offset-4 hover:underline">
+            {t("auth.signIn")}
+          </Link>
+        </span>
       }
     >
       <Form {...form}>
@@ -89,7 +104,12 @@ export function ResetPasswordPage() {
                 <FormItem>
                   <FormLabel>{t("auth.email")}</FormLabel>
                   <FormControl>
-                    <Input type="email" autoComplete="username" {...field} />
+                    <Input
+                      type="email"
+                      autoComplete="username"
+                      autoFocus
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -97,12 +117,12 @@ export function ResetPasswordPage() {
             />
             <FormField
               control={form.control}
-              name="token"
+              name="firstName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("auth.resetCode")}</FormLabel>
+                  <FormLabel>{t("auth.firstName")}</FormLabel>
                   <FormControl>
-                    <Input autoComplete="one-time-code" {...field} />
+                    <Input autoComplete="given-name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -110,10 +130,23 @@ export function ResetPasswordPage() {
             />
             <FormField
               control={form.control}
-              name="newPassword"
+              name="lastName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("auth.newPassword")}</FormLabel>
+                  <FormLabel>{t("auth.lastName")}</FormLabel>
+                  <FormControl>
+                    <Input autoComplete="family-name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("auth.password")}</FormLabel>
                   <FormControl>
                     <Input
                       type="password"
@@ -127,7 +160,7 @@ export function ResetPasswordPage() {
             />
             <FormField
               control={form.control}
-              name="confirmNewPassword"
+              name="confirmPassword"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("auth.confirmPassword")}</FormLabel>
@@ -148,13 +181,18 @@ export function ResetPasswordPage() {
               disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting ? (
-                <Loader2 className="animate-spin" />
-              ) : null}
-              {t("auth.resetPassword")}
+                <>
+                  <Loader2 className="animate-spin" />
+                  {t("auth.creatingAccount")}
+                </>
+              ) : (
+                t("auth.createAccount")
+              )}
             </Button>
           </FieldGroup>
         </form>
       </Form>
+      <GoogleSignIn />
     </AuthLayout>
   )
 }

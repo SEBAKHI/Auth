@@ -8,11 +8,12 @@ import {
   SidebarTrigger,
 } from "@astoom/ui/sidebar"
 import { useActiveTimeZone } from "@astoom/i18n/timezone"
+import { ACCOUNTS_URL } from "@astoom/api/env"
+import { LanguageToggle } from "@astoom/ui/common/language-toggle"
+import { ThemeToggle } from "@astoom/ui/common/theme-toggle"
+import { UserMenu } from "@astoom/ui/common/user-menu"
 import { AppBreadcrumbs } from "./app-breadcrumbs"
 import { AppSidebar } from "./app-sidebar"
-import { LanguageToggle } from "./language-toggle"
-import { ThemeToggle } from "./theme-toggle"
-import { UserMenu } from "./user-menu"
 
 /**
  * Routed content keyed on the active display time zone, so every visible
@@ -40,7 +41,8 @@ export function AppShell() {
           <div className="ms-auto flex items-center gap-1">
             <LanguageToggle />
             <ThemeToggle />
-            <UserMenu />
+            {/* Self-service profile lives in the accounts app now. */}
+            <UserMenu profileHref={`${ACCOUNTS_URL}/profile`} />
           </div>
         </header>
         <main className="flex-1 p-4 md:p-6">

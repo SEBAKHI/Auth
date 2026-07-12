@@ -185,6 +185,16 @@ export const ur: TranslationResources = {
     invitationEmailMismatch:
       "آپ {{current}} کے طور پر سائن ان ہیں، لیکن یہ دعوت {{invited}} کے لیے ہے۔ سائن آؤٹ کریں اور مدعو اکاؤنٹ استعمال کریں۔",
     invitationSignOut: "سائن آؤٹ",
+    orContinueWith: "یا اس کے ذریعے جاری رکھیں",
+    registerTitle: "اپنا اکاؤنٹ بنائیں",
+    registerSubtitle: "اپنے ای میل پتے کے ساتھ رجسٹر کریں۔",
+    firstName: "پہلا نام",
+    lastName: "آخری نام",
+    createAccount: "اکاؤنٹ بنائیں",
+    creatingAccount: "اکاؤنٹ بنایا جا رہا ہے…",
+    noAccount: "اکاؤنٹ نہیں ہے؟",
+    haveAccount: "پہلے سے اکاؤنٹ موجود ہے؟",
+    signUp: "سائن اپ کریں",
   },
   dashboard: {
     title: "ڈیش بورڈ",

@@ -187,6 +187,16 @@ export const fa: TranslationResources = {
     invitationEmailMismatch:
       "شما با {{current}} وارد شده‌اید، اما این دعوت برای {{invited}} است. خارج شوید و از حساب دعوت‌شده استفاده کنید.",
     invitationSignOut: "خروج",
+    orContinueWith: "یا ادامه با",
+    registerTitle: "حساب خود را بسازید",
+    registerSubtitle: "با نشانی ایمیل خود ثبت‌نام کنید.",
+    firstName: "نام",
+    lastName: "نام خانوادگی",
+    createAccount: "ایجاد حساب",
+    creatingAccount: "در حال ایجاد حساب…",
+    noAccount: "حساب ندارید؟",
+    haveAccount: "قبلاً حساب دارید؟",
+    signUp: "ثبت‌نام",
   },
   dashboard: {
     title: "داشبورد",

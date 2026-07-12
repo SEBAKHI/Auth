@@ -9,7 +9,7 @@ import { ApplicationSelect } from "@astoom/ui/common/application-select"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { SecretRevealDialog } from "@astoom/ui/common/secret-reveal-dialog"
-import { DataTable } from "@/components/data-table/data-table"
+import { DataTable } from "@astoom/ui/data-table/data-table"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
 import {

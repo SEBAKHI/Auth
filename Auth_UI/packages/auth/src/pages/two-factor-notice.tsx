@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 
 import { Button } from "@astoom/ui/button"
-import { AuthLayout } from "./auth-layout"
+import { AuthLayout } from "@astoom/ui/auth-layout"
 
 /**
  * The current API build issues a session at login and exposes 2FA only for

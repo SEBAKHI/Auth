@@ -1,29 +1,27 @@
+import * as React from "react"
 import { createBrowserRouter } from "react-router-dom"
 
-import { AppShell } from "@/components/layout/app-shell"
+import { ACCOUNTS_URL } from "@astoom/api/env"
 import { RequireAnonymous, RequireAuth } from "@astoom/auth/require-auth"
 import { PermissionRoute } from "@astoom/auth/require-permission"
-import type { CrumbHandle } from "@/lib/breadcrumb"
+import { ForcePasswordChangePage } from "@astoom/auth/pages/force-password-change"
+import { ForgotPasswordPage } from "@astoom/auth/pages/forgot-password"
+import { LoginPage } from "@astoom/auth/pages/login"
+import { ResetPasswordPage } from "@astoom/auth/pages/reset-password"
+import { TwoFactorNoticePage } from "@astoom/auth/pages/two-factor-notice"
+import type { CrumbHandle } from "@astoom/ui/crumbs"
+import { ForbiddenPage } from "@astoom/ui/error-pages/forbidden"
+import { NotFoundPage } from "@astoom/ui/error-pages/not-found"
+import { AppShell } from "@/components/layout/app-shell"
 import { PERMISSIONS } from "@/lib/constants"
-import { AcceptInvitationPage } from "@/pages/auth/accept-invitation"
-import { ForcePasswordChangePage } from "@/pages/auth/force-password-change"
-import { ForgotPasswordPage } from "@/pages/auth/forgot-password"
-import { LoginPage } from "@/pages/auth/login"
-import { ResetPasswordPage } from "@/pages/auth/reset-password"
-import { TwoFactorNoticePage } from "@/pages/auth/two-factor-notice"
 import { ApiKeysPage } from "@/pages/api-keys/api-keys-page"
 import { ApplicationDetailPage } from "@/pages/applications/application-detail-page"
 import { ApplicationsPage } from "@/pages/applications/applications-page"
 import { AuditLogsPage } from "@/pages/audit-logs/audit-logs-page"
 import { DashboardPage } from "@/pages/dashboard/dashboard-page"
-import { ForbiddenPage } from "@/pages/error/forbidden"
-import { NotFoundPage } from "@/pages/error/not-found"
-import { OrganizationDetailPage } from "@/pages/organizations/organization-detail-page"
-import { OrganizationsPage } from "@/pages/organizations/organizations-page"
 import { PermissionDetailPage } from "@/pages/permissions/permission-detail-page"
 import { PermissionsPage } from "@/pages/permissions/permissions-page"
 import { PlatformSettingsPage } from "@/pages/platform-settings/platform-settings-page"
-import { ProfilePage } from "@/pages/profile/profile-page"
 import { RoleDetailPage } from "@/pages/roles/role-detail-page"
 import { RolesPage } from "@/pages/roles/roles-page"
 import { SecretsPage } from "@/pages/secrets/secrets-page"
@@ -34,6 +32,19 @@ import { WebhookKeysPage } from "@/pages/webhook-keys/webhook-keys-page"
 /** Breadcrumb metadata: list pages label themselves, `:id` pages add a record crumb. */
 function crumb(titleKey: string, href: string, detail = false): CrumbHandle {
   return { crumb: { titleKey, href, detail } }
+}
+
+/**
+ * Invitations are an end-user flow owned by the accounts app. Links in old
+ * emails may still point here, so forward them (token and all) instead of 404.
+ */
+function AcceptInvitationRedirect() {
+  React.useEffect(() => {
+    window.location.replace(
+      `${ACCOUNTS_URL}/accept-invitation${window.location.search}`
+    )
+  }, [])
+  return null
 }
 
 export const router = createBrowserRouter([
@@ -57,21 +68,6 @@ export const router = createBrowserRouter([
             index: true,
             element: <DashboardPage />,
             handle: crumb("dashboard", "/"),
-          },
-          {
-            path: "profile",
-            element: <ProfilePage />,
-            handle: crumb("profile", "/profile"),
-          },
-          {
-            path: "organizations",
-            element: <OrganizationsPage />,
-            handle: crumb("organizations", "/organizations"),
-          },
-          {
-            path: "organizations/:id",
-            element: <OrganizationDetailPage />,
-            handle: crumb("organizations", "/organizations", true),
           },
           {
             element: <PermissionRoute permission={PERMISSIONS.users.read} />,
@@ -201,10 +197,7 @@ export const router = createBrowserRouter([
       },
     ],
   },
-  // Top-level on purpose: the page serves both anonymous invitees (register /
-  // sign-in-to-accept) and already-authenticated users (one-click accept), so
-  // it must live under neither RequireAnonymous nor RequireAuth.
-  { path: "/accept-invitation", element: <AcceptInvitationPage /> },
+  { path: "/accept-invitation", element: <AcceptInvitationRedirect /> },
   { path: "/403", element: <ForbiddenPage /> },
   { path: "*", element: <NotFoundPage /> },
 ])

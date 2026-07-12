@@ -32,6 +32,11 @@ interface AuthContextValue {
   hasPermission: (permission: string | undefined) => boolean
   hasAnyPermission: (permissions: string[]) => boolean
   login: (email: string, password: string) => Promise<LoginResult>
+  loginExternal: (
+    provider: string,
+    idToken: string,
+    nonce?: string
+  ) => Promise<LoginResult>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -138,6 +143,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [applyProfilePreferences]
   )
 
+  const loginExternal = React.useCallback(
+    async (
+      provider: string,
+      idToken: string,
+      nonce?: string
+    ): Promise<LoginResult> => {
+      const { data, error } = await api.POST("/api/v1/Auth/external-login", {
+        body: { provider, idToken, nonce },
+      })
+      if (error || !data) {
+        throw error ?? new Error("External login failed")
+      }
+
+      setTokens(data.token.accessToken, data.token.refreshToken)
+      setUser(data.user)
+      setStatus("authenticated")
+      applyProfilePreferences(data.user)
+
+      return {
+        requiresPasswordChange: data.requiresPasswordChange ?? false,
+        requiresTwoFactor: data.requiresTwoFactor ?? false,
+      }
+    },
+    [applyProfilePreferences]
+  )
+
   const logout = React.useCallback(async () => {
     try {
       await api.POST("/api/v1/Auth/logout", {
@@ -178,6 +209,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasPermission,
       hasAnyPermission,
       login,
+      loginExternal,
       logout,
       refreshUser: loadCurrentUser,
     }),
@@ -189,6 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasPermission,
       hasAnyPermission,
       login,
+      loginExternal,
       logout,
       loadCurrentUser,
     ]

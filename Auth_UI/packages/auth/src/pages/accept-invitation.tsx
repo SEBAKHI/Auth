@@ -25,7 +25,7 @@ import type { Schemas } from "@astoom/api/types"
 import { useAuth } from "@astoom/auth/auth-context"
 import { getErrorMessage } from "@astoom/api/errors"
 import { formatDateTime } from "@astoom/ui/format"
-import { AuthLayout } from "./auth-layout"
+import { AuthLayout } from "@astoom/ui/auth-layout"
 
 type InvitationPreview = Schemas["InvitationPreviewDto"]
 

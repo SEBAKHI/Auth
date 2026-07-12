@@ -9,7 +9,7 @@ import { toast } from "sonner"
 import { ApplicationSelect } from "@astoom/ui/common/application-select"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { PageHeader } from "@astoom/ui/common/page-header"
-import { DataTable } from "@/components/data-table/data-table"
+import { DataTable } from "@astoom/ui/data-table/data-table"
 import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,

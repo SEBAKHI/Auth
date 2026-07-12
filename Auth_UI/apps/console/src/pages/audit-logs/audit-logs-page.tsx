@@ -8,7 +8,7 @@ import { toast } from "sonner"
 import { ApplicationSelect } from "@astoom/ui/common/application-select"
 import { DateRangePicker } from "@astoom/ui/common/date-range-picker"
 import { PageHeader } from "@astoom/ui/common/page-header"
-import { DataTable } from "@/components/data-table/data-table"
+import { DataTable } from "@astoom/ui/data-table/data-table"
 import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,

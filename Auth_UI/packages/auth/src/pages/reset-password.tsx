@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -19,15 +19,25 @@ import {
 } from "@astoom/ui/form"
 import { Input } from "@astoom/ui/input"
 import { getErrorMessage } from "@astoom/api/errors"
-import { AuthLayout } from "./auth-layout"
+import { AuthLayout } from "@astoom/ui/auth-layout"
 
-export function ForcePasswordChangePage() {
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export function ResetPasswordPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const presetEmail = (location.state as { email?: string } | null)?.email ?? ""
+  const presetToken = searchParams.get("token") ?? ""
 
   const schema = z
     .object({
-      currentPassword: z.string().min(1, t("validation.required")),
+      email: z
+        .string()
+        .min(1, t("validation.required"))
+        .regex(EMAIL_RE, t("validation.email")),
+      token: z.string().min(1, t("validation.required")),
       newPassword: z.string().min(8, t("validation.minLength", { count: 8 })),
       confirmNewPassword: z.string().min(1, t("validation.required")),
     })
@@ -39,7 +49,8 @@ export function ForcePasswordChangePage() {
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
     defaultValues: {
-      currentPassword: "",
+      email: presetEmail,
+      token: presetToken,
       newPassword: "",
       confirmNewPassword: "",
     },
@@ -47,34 +58,51 @@ export function ForcePasswordChangePage() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
-      const { error } = await api.POST("/api/v1/Auth/change-password", {
-        body: { ...values, terminateSessions: false },
+      const { error } = await api.POST("/api/v1/Auth/reset-password", {
+        body: values,
       })
       if (error) throw error
-      toast.success(t("profile.passwordChanged"))
-      navigate("/", { replace: true })
+      toast.success(t("auth.resetSuccess"))
+      navigate("/login", { replace: true })
     } catch (error) {
       toast.error(getErrorMessage(error))
     }
   }
 
   return (
-    <AuthLayout title={t("auth.forceTitle")} subtitle={t("auth.forceSubtitle")}>
+    <AuthLayout
+      title={t("auth.resetTitle")}
+      subtitle={t("auth.resetSubtitle")}
+      footer={
+        <Link to="/login" className="underline-offset-4 hover:underline">
+          {t("auth.backToSignIn")}
+        </Link>
+      }
+    >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
             <FormField
               control={form.control}
-              name="currentPassword"
+              name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("auth.currentPassword")}</FormLabel>
+                  <FormLabel>{t("auth.email")}</FormLabel>
                   <FormControl>
-                    <Input
-                      type="password"
-                      autoComplete="current-password"
-                      {...field}
-                    />
+                    <Input type="email" autoComplete="username" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="token"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("auth.resetCode")}</FormLabel>
+                  <FormControl>
+                    <Input autoComplete="one-time-code" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -122,7 +150,7 @@ export function ForcePasswordChangePage() {
               {form.formState.isSubmitting ? (
                 <Loader2 className="animate-spin" />
               ) : null}
-              {t("auth.changePassword")}
+              {t("auth.resetPassword")}
             </Button>
           </FieldGroup>
         </form>

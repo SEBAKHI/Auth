@@ -19,7 +19,7 @@ import {
 } from "@astoom/ui/form"
 import { Input } from "@astoom/ui/input"
 import { getErrorMessage } from "@astoom/api/errors"
-import { AuthLayout } from "./auth-layout"
+import { AuthLayout } from "@astoom/ui/auth-layout"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
