@@ -647,6 +647,8 @@ export const en = {
     forbiddenTitle: "Access denied",
     forbiddenBody: "You don't have permission to view this page.",
     goHome: "Go to dashboard",
+    generic: "Something went wrong. Please try again.",
+    uploadFailed: "Image upload failed (HTTP {{status}}).",
   },
 }
 

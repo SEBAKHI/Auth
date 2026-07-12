@@ -1,7 +1,23 @@
 import { TZDate } from "@date-fns/tz"
-import { format, formatDistanceToNow, parseISO } from "date-fns"
+import { format, formatDistanceToNow, parseISO, type Locale } from "date-fns"
+import { ar, faIR, fr, tr, zhCN } from "date-fns/locale"
 
+import i18n from "@/lib/i18n"
 import { getActiveTimeZone } from "@/lib/timezone"
+
+// date-fns locale per UI language. English needs none, and date-fns ships no
+// Urdu locale, so "en" and "ur" use the default English date formatting.
+const DATE_LOCALES: Record<string, Locale> = { ar, tr, fr, zh: zhCN, fa: faIR }
+
+/** The date-fns locale matching the active UI language (undefined = English). */
+export function activeDateLocale(): Locale | undefined {
+  return DATE_LOCALES[i18n.language]
+}
+
+/** BCP-47 tag for number formatting: active language with Latin digits. */
+export function numberLocale(): string {
+  return `${i18n.language}-u-nu-latn`
+}
 
 /** Badge variants exposed by the shadcn Badge component (preset-styled). */
 export type BadgeVariant = "default" | "secondary" | "destructive" | "outline"
@@ -32,23 +48,33 @@ function inActiveZone(date: Date): TZDate {
 /** Absolute date-time, e.g. "21 Jun 2026, 14:05". Empty values render as an em dash. */
 export function formatDateTime(value: string | null | undefined): string {
   const date = toDate(value)
-  return date ? format(inActiveZone(date), "dd MMM yyyy, HH:mm") : "—"
+  return date
+    ? format(inActiveZone(date), "dd MMM yyyy, HH:mm", {
+        locale: activeDateLocale(),
+      })
+    : "—"
 }
 
 /** Date only, e.g. "21 Jun 2026". */
 export function formatDate(value: string | null | undefined): string {
   if (value && DATE_ONLY.test(value)) {
     const date = toDate(value)
-    return date ? format(date, "dd MMM yyyy") : "—"
+    return date
+      ? format(date, "dd MMM yyyy", { locale: activeDateLocale() })
+      : "—"
   }
   const date = toDate(value)
-  return date ? format(inActiveZone(date), "dd MMM yyyy") : "—"
+  return date
+    ? format(inActiveZone(date), "dd MMM yyyy", { locale: activeDateLocale() })
+    : "—"
 }
 
 /** Relative time, e.g. "3 hours ago". */
 export function formatRelative(value: string | null | undefined): string {
   const date = toDate(value)
-  return date ? formatDistanceToNow(date, { addSuffix: true }) : "—"
+  return date
+    ? formatDistanceToNow(date, { addSuffix: true, locale: activeDateLocale() })
+    : "—"
 }
 
 // ─── UserStatus (Domain enum: Active=1, Inactive=2, Locked=3, Pending=4) ──────

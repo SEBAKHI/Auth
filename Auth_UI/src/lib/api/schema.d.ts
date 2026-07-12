@@ -8588,6 +8588,7 @@ export interface components {
             organizationName?: string;
             roleName?: string;
             message?: null | string;
+            messageCode?: null | string;
         };
         InvitationPreviewDto: {
             /** Format: uuid */
@@ -9160,6 +9161,7 @@ export interface components {
             /** Format: uuid */
             oldApiKeyId?: string;
             message: string;
+            messageCode?: null | string;
         };
         RotateWebhookKeyRequest: {
             /**

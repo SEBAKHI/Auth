@@ -6,6 +6,7 @@ import {
 } from "lucide-react"
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 
+import { activeDateLocale } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
 
@@ -22,6 +23,7 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
+  locale = activeDateLocale(),
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
@@ -31,6 +33,7 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      locale={locale}
       className={cn(
         "group/calendar p-3 [--cell-size:--spacing(8)] [[data-slot=popover-content]_&]:bg-transparent",
         className

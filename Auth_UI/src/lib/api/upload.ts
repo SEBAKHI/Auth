@@ -36,7 +36,9 @@ export async function uploadImage(
     const payload = (await res.json().catch(() => null)) as {
       error?: string
     } | null
-    throw new Error(payload?.error ?? `Image upload failed (HTTP ${res.status})`)
+    throw new Error(
+      payload?.error ?? i18n.t("errors.uploadFailed", { status: res.status })
+    )
   }
 
   return (await res.json()) as { key: string; url: string }

@@ -5,6 +5,7 @@
  * carry either an ErrorOr-style `errors: [{ code, description }]` array or an
  * ASP.NET validation `errors: { field: string[] }` dictionary.
  */
+import i18n from "@/lib/i18n"
 
 interface ErrorOrEntry {
   code?: string
@@ -35,7 +36,8 @@ function flattenErrors(
  */
 export function getErrorMessage(
   error: unknown,
-  fallback = "Something went wrong. Please try again."
+  // Default parameter expressions run per call, so language switches apply.
+  fallback = i18n.t("errors.generic")
 ): string {
   if (!error) return fallback
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { getErrorMessage, getFieldErrors } from "./errors"
+import { en } from "./i18n/locales/en"
 
 describe("getErrorMessage", () => {
   it("reads an ErrorOr-style errors array", () => {
@@ -23,6 +24,10 @@ describe("getErrorMessage", () => {
 
   it("uses the fallback for empty input", () => {
     expect(getErrorMessage(null, "fallback")).toBe("fallback")
+  })
+
+  it("localizes the default fallback via i18n", () => {
+    expect(getErrorMessage(null)).toBe(en.errors.generic)
   })
 })
 

@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next"
 
-import { formatDate, formatDateTime } from "@/lib/format"
+import { formatDate, formatDateTime, numberLocale } from "@/lib/format"
 
 export const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
 export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -47,7 +47,7 @@ export function humanizeKey(key: string): string {
 export function formatFieldValue(value: unknown, t: TFunction): string {
   if (value === null || value === undefined || value === "") return "—"
   if (typeof value === "boolean") return value ? t("common.yes") : t("common.no")
-  if (typeof value === "number") return value.toLocaleString()
+  if (typeof value === "number") return value.toLocaleString(numberLocale())
   if (Array.isArray(value)) return value.length === 0 ? "—" : String(value.length)
   if (typeof value === "object") return "—"
   const text = String(value)
