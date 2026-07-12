@@ -1,13 +1,22 @@
-# Auth Console (Auth_UI)
+# Auth UI workspace (Auth_UI)
 
-A production admin console for the Auth system, built with **React + Vite +
-TypeScript** and **shadcn/ui**. It lets an operator manage users, roles,
-permissions, applications, organizations, API/webhook keys, audit logs, and
-signing secrets, with a dashboard and data tables.
+A pnpm workspace hosting the frontend apps of the Auth system, built with
+**React + Vite + TypeScript** and **shadcn/ui**:
 
-> The UI is a static SPA that talks to the .NET Auth API (JWT bearer). It is a
-> Node/React project — **not** a Visual Studio C# project — and is best worked on
-> in VS Code.
+- `apps/console` — the admin console (`console.astoom.com`): users, roles,
+  permissions, applications, organizations, API/webhook keys, audit logs,
+  signing secrets, dashboard.
+- `packages/api` — typed API client (openapi-fetch + generated schema), token
+  store/JWT, upload helpers, error normalization, query client.
+- `packages/auth` — AuthProvider, route/permission guards.
+- `packages/i18n` — i18next setup, the 7 locales, RTL DirectionProvider,
+  timezone display helpers.
+- `packages/ui` — shadcn primitives, shared widgets (`common/`), hooks,
+  formatting utils, theme + branding providers.
+
+> The UIs are static SPAs that talk to the .NET Auth API (JWT bearer). This is
+> a Node/React workspace — **not** a Visual Studio C# project — and is best
+> worked on in VS Code.
 
 ## Stack
 
@@ -31,45 +40,52 @@ signing secrets, with a dashboard and data tables.
 ## Getting started
 
 ```bash
-pnpm install
+pnpm install      # once, at the workspace root
 pnpm gen:api      # regenerate the typed client (requires the API running)
-pnpm dev          # http://localhost:5173
+pnpm dev          # console app on http://localhost:5173
 ```
 
-Configure the API origin via Vite env files:
+Configure the API origin via each app's Vite env files:
 
-- `.env.development` → `VITE_API_BASE_URL=http://localhost:5100`
-- `.env.production` → the deployed API origin (keep in sync with the CSP in
-  `public/web.config`)
+- `apps/console/.env.development` → `VITE_API_BASE_URL=http://localhost:5100`
+- `apps/console/.env.production` → the deployed API origin (keep in sync with
+  the CSP in `apps/console/public/web.config`)
 
-## Scripts
+## Scripts (run at the workspace root)
 
 | Script | Purpose |
 |--------|---------|
-| `pnpm dev` | Start the dev server |
-| `pnpm build` | Type-check (`tsc -b`) and build to `dist/` |
+| `pnpm dev` | Start the console dev server |
+| `pnpm build` | Type-check (`tsc -b`) and build every app to its `dist/` |
 | `pnpm typecheck` | Type-check only |
-| `pnpm gen:api` | Regenerate `src/lib/api/schema.d.ts` from `/openapi/v1.json` |
-| `pnpm test` / `pnpm test:coverage` | Unit tests |
+| `pnpm gen:api` | Regenerate `packages/api/src/schema.d.ts` from `/openapi/v1.json` |
+| `pnpm test` / `pnpm test:coverage` | Unit tests (all apps + packages) |
 | `pnpm e2e` | Playwright e2e (run `pnpm exec playwright install` first) |
 | `pnpm lint` / `pnpm format` | Lint / format |
 
 ## Architecture
 
 ```
-src/
-  lib/
-    api/        typed client (openapi-fetch) + generated schema + auth middleware
-    auth/       token store, JWT decode, AuthProvider, route + permission guards
-    i18n/       i18next setup, en/ar resources, RTL DirectionProvider
-    constants   permission codes + sidebar nav
-  components/
-    ui/         shadcn components (preset-styled)
-    layout/     AppShell (sidebar + header), menus
-    common/     PageHeader, DataTable, ConfirmDialog, SecretRevealDialog, …
-  pages/        one folder per feature area
-  routes.tsx    route tree (public / authenticated / permission-gated)
+apps/
+  console/
+    src/
+      lib/        console-only constants (permissions + nav) and breadcrumbs
+      components/ layout (AppShell, sidebar) + data-table system
+      pages/      one folder per feature area
+      routes.tsx  route tree (public / authenticated / permission-gated)
+packages/
+  api/    typed client (openapi-fetch) + generated schema + auth middleware,
+          token store, JWT decode, uploads, error helpers, query client
+  auth/   AuthProvider, RequireAuth/RequireAnonymous, PermissionRoute
+  i18n/   i18next setup, locales (en/ar/tr/fr/zh/ur/fa), RTL DirectionProvider,
+          timezone helpers
+  ui/     shadcn components (preset-styled), shared widgets (common/), hooks,
+          format utils, ThemeProvider, BrandingProvider
 ```
+
+Workspace packages are consumed as `@astoom/api`, `@astoom/auth`,
+`@astoom/i18n`, and `@astoom/ui` — resolved from source via tsconfig paths +
+Vite aliases (no per-package build step).
 
 ### Auth & security
 
@@ -82,7 +98,7 @@ src/
   (403s are handled gracefully).
 - Generated secret material (API/webhook keys, generated PEM/token, 2FA recovery
   codes) is shown **once** in a copy dialog and never persisted in app state.
-- A strict CSP ships in `public/web.config`.
+- A strict CSP ships in `apps/console/public/web.config`.
 
 ### Internationalization & RTL
 
@@ -92,11 +108,11 @@ English and Arabic are bundled; switching language updates the document `dir`
 ## Deployment (IIS / Plesk)
 
 ```bash
-pnpm build           # outputs static files to dist/
+pnpm build           # outputs static files to apps/<app>/dist/
 ```
 
-Deploy `dist/` (including `web.config`) as a static site — e.g.
-`app.astoom.com`, which is already in the API's production CORS allow-list.
+Deploy `apps/console/dist/` (including `web.config`) as a static site —
+`console.astoom.com`, which is already in the API's production CORS allow-list.
 `web.config` provides SPA fallback routing and security headers. Update the CSP
 `connect-src` and `VITE_API_BASE_URL` to match your API origin.
 

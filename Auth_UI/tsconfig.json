@@ -1,12 +1,13 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
+    "types": ["vite/client", "node"]
+  },
+  "include": [
+    "packages",
+    "test",
+    "e2e",
+    "vitest.config.ts",
+    "playwright.config.ts"
+  ]
 }

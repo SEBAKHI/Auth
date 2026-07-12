@@ -7,19 +7,26 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(__dirname, "./apps/console/src"),
+      "@astoom/api": path.resolve(__dirname, "./packages/api/src"),
+      "@astoom/auth": path.resolve(__dirname, "./packages/auth/src"),
+      "@astoom/i18n": path.resolve(__dirname, "./packages/i18n/src"),
+      "@astoom/ui": path.resolve(__dirname, "./packages/ui/src"),
     },
   },
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: ["./src/test/setup.ts"],
+    setupFiles: ["./test/setup.ts"],
     css: false,
-    include: ["src/**/*.{test,spec}.{ts,tsx}"],
+    include: [
+      "apps/*/src/**/*.{test,spec}.{ts,tsx}",
+      "packages/*/src/**/*.{test,spec}.{ts,tsx}",
+    ],
     coverage: {
       provider: "v8",
       reporter: ["text", "html"],
-      include: ["src/lib/**", "src/components/**"],
+      include: ["packages/*/src/**", "apps/*/src/**"],
     },
   },
 })

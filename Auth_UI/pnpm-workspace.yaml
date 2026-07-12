@@ -1,4 +1,11 @@
-packages: []
+packages:
+  - apps/*
+  - packages/*
+
+# @hookform/resolvers imports zod without declaring it as a peer, relying on
+# a hoisted layout; hoist zod to the virtual-store root so it can resolve it.
+publicHoistPattern:
+  - zod
 
 allowBuilds:
   esbuild: true

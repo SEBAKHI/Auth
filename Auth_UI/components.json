@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "src/index.css",
+    "css": "apps/console/src/index.css",
     "baseColor": "neutral",
     "cssVariables": true,
     "prefix": ""
@@ -13,11 +13,11 @@
   "iconLibrary": "lucide",
   "rtl": true,
   "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
+    "components": "@astoom/ui",
+    "utils": "@astoom/ui/utils",
+    "ui": "@astoom/ui",
+    "lib": "@astoom/ui",
+    "hooks": "@astoom/ui/hooks"
   },
   "menuColor": "default",
   "menuAccent": "subtle",
