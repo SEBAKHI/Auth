@@ -83,7 +83,9 @@ public class SecretsController : ApiController
             publicKeyPem => Ok(new RsaKeyGenerationResponse
             {
                 Success = true,
-                Message = "RSA key pair regenerated successfully. All existing access tokens are now invalid. Users must re-authenticate.",
+                Message = LocalizeMessage(
+                    "Secrets.RsaRegenerated",
+                    "RSA key pair regenerated successfully. All existing access tokens are now invalid. Users must re-authenticate."),
                 PublicKeyPem = publicKeyPem
             }),
             errors => Problem(errors));
@@ -111,7 +113,9 @@ public class SecretsController : ApiController
             _ => Ok(new HmacKeyGenerationResponse
             {
                 Success = true,
-                Message = "HMAC key regenerated successfully. All existing refresh tokens are now invalid. Users must re-authenticate."
+                Message = LocalizeMessage(
+                    "Secrets.HmacRegenerated",
+                    "HMAC key regenerated successfully. All existing refresh tokens are now invalid. Users must re-authenticate.")
             }),
             errors => Problem(errors));
     }
@@ -137,7 +141,9 @@ public class SecretsController : ApiController
             token => Ok(new GatewayTokenGenerationResponse
             {
                 Success = true,
-                Message = "Gateway token regenerated successfully. Update API Gateway configuration with the new token.",
+                Message = LocalizeMessage(
+                    "Secrets.GatewayTokenRegenerated",
+                    "Gateway token regenerated successfully. Update API Gateway configuration with the new token."),
                 Token = token
             }),
             errors => Problem(errors));
@@ -174,7 +180,9 @@ public class SecretsController : ApiController
             publicKeyPem => Ok(new KeyImportResponse
             {
                 Success = true,
-                Message = "RSA signing key imported successfully. All existing access tokens are now invalid. Users must re-authenticate.",
+                Message = LocalizeMessage(
+                    "Secrets.RsaImported",
+                    "RSA signing key imported successfully. All existing access tokens are now invalid. Users must re-authenticate."),
                 PublicKeyPem = publicKeyPem
             }),
             errors => Problem(errors));
@@ -210,7 +218,9 @@ public class SecretsController : ApiController
             _ => Ok(new KeyImportResponse
             {
                 Success = true,
-                Message = "HMAC key imported successfully. All existing refresh tokens are now invalid. Users must re-authenticate."
+                Message = LocalizeMessage(
+                    "Secrets.HmacImported",
+                    "HMAC key imported successfully. All existing refresh tokens are now invalid. Users must re-authenticate.")
             }),
             errors => Problem(errors));
     }
@@ -245,7 +255,9 @@ public class SecretsController : ApiController
             _ => Ok(new KeyImportResponse
             {
                 Success = true,
-                Message = "Gateway token imported successfully. Update the API Gateway configuration with the same token."
+                Message = LocalizeMessage(
+                    "Secrets.GatewayTokenImported",
+                    "Gateway token imported successfully. Update the API Gateway configuration with the same token.")
             }),
             errors => Problem(errors));
     }

@@ -78,4 +78,13 @@
   <data name="Middleware.TooManyRequests" xml:space="preserve">
     <value>Trop de requêtes. Veuillez réessayer plus tard.</value>
   </data>
+  <data name="Middleware.TooManyRequests.Title" xml:space="preserve">
+    <value>Trop de requêtes</value>
+  </data>
+  <data name="Middleware.InvalidOperation.Detail" xml:space="preserve">
+    <value>La requête n'a pas pu être traitée.</value>
+  </data>
+  <data name="Middleware.InvalidArgument.Detail" xml:space="preserve">
+    <value>Un ou plusieurs arguments n'étaient pas valides.</value>
+  </data>
 </root>

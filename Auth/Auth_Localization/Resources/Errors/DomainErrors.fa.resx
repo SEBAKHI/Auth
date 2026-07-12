@@ -520,4 +520,28 @@
   <data name="Secret.NotFound" xml:space="preserve">
     <value>کلید محرمانه سفارشی '{0}' یافت نشد.</value>
   </data>
+  <data name="Secret.InvalidKeyMaterial" xml:space="preserve">
+    <value>ماده کلید ارائه‌شده نامعتبر است: {0}</value>
+  </data>
+  <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
+    <value>درون‌ریزی کلیدها از طریق API مدیریتی فقط در حالت ذخیره‌سازی Certificate یا Dpapi پشتیبانی می‌شود. در حالت PlainText، کلیدها را مستقیماً در appsettings.Production.json تنظیم کنید.</value>
+  </data>
+  <data name="User.PasswordBreached" xml:space="preserve">
+    <value>این رمز عبور در یک نشت داده شناخته‌شده دیده شده است. لطفاً رمز عبور دیگری انتخاب کنید.</value>
+  </data>
+  <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
+    <value>بررسی امنیتی رمز عبور موقتاً در دسترس نیست. لطفاً بعداً دوباره تلاش کنید.</value>
+  </data>
+  <data name="User.RoleAlreadyAssigned" xml:space="preserve">
+    <value>کاربر از قبل نقش '{0}' را دارد.</value>
+  </data>
+  <data name="Role.CannotUpdateSystemRole" xml:space="preserve">
+    <value>نقش‌های سیستمی قابل تغییر نیستند.</value>
+  </data>
+  <data name="Organization.InvalidMembershipRole" xml:space="preserve">
+    <value>نقش عضویت سازمان باید نقشی در سطح سازمان باشد، نه نقشی محدود به برنامه.</value>
+  </data>
+  <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
+    <value>خطای پیکربندی سیستم: نقش مالک سازمان یافت نشد.</value>
+  </data>
 </root>

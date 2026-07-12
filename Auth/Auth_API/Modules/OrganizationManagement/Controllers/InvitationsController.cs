@@ -97,7 +97,13 @@ public class InvitationsController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
-            acceptResult => Ok(acceptResult),
+            acceptResult =>
+            {
+                acceptResult.Message = LocalizeMessage(
+                    acceptResult.MessageCode,
+                    acceptResult.Message ?? string.Empty);
+                return Ok(acceptResult);
+            },
             errors => Problem(errors));
     }
 

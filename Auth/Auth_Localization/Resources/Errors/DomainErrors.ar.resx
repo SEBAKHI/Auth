@@ -520,4 +520,28 @@
   <data name="Secret.NotFound" xml:space="preserve">
     <value>لم يتم العثور على السر المخصص '{0}'.</value>
   </data>
+  <data name="Secret.InvalidKeyMaterial" xml:space="preserve">
+    <value>مادة المفتاح المقدمة غير صالحة: {0}</value>
+  </data>
+  <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
+    <value>استيراد المفاتيح عبر واجهة الإدارة مدعوم فقط في وضعي التخزين Certificate أو Dpapi. في وضع PlainText، عيّن المفاتيح مباشرة في appsettings.Production.json.</value>
+  </data>
+  <data name="User.PasswordBreached" xml:space="preserve">
+    <value>ظهرت كلمة المرور هذه في تسريب بيانات معروف. يرجى اختيار كلمة مرور مختلفة.</value>
+  </data>
+  <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
+    <value>فحص أمان كلمة المرور غير متاح مؤقتًا. يرجى المحاولة مرة أخرى لاحقًا.</value>
+  </data>
+  <data name="User.RoleAlreadyAssigned" xml:space="preserve">
+    <value>المستخدم لديه الدور '{0}' بالفعل.</value>
+  </data>
+  <data name="Role.CannotUpdateSystemRole" xml:space="preserve">
+    <value>لا يمكن تعديل أدوار النظام.</value>
+  </data>
+  <data name="Organization.InvalidMembershipRole" xml:space="preserve">
+    <value>يجب أن يكون دور عضوية المنظمة دورًا على مستوى المنظمة، وليس دورًا مرتبطًا بتطبيق.</value>
+  </data>
+  <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
+    <value>خطأ في إعدادات النظام: لم يتم العثور على دور مالك المنظمة.</value>
+  </data>
 </root>

@@ -51,7 +51,8 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
         {
             return Error.Conflict(
                 code: "User.RoleAlreadyAssigned",
-                description: $"User already has role '{role.Name}'.");
+                description: $"User already has role '{role.Name}'.",
+                metadata: new() { ["args"] = new object[] { role.Name } });
         }
 
         // Create the assignment

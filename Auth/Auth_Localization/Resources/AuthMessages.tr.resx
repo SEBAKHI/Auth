@@ -157,4 +157,31 @@
   <data name="TooManyRequests" xml:space="preserve">
     <value>Çok fazla istek. Lütfen daha sonra tekrar deneyin</value>
   </data>
+  <data name="Invitation.AlreadyMember" xml:space="preserve">
+    <value>Zaten bu organizasyonun bir üyesisiniz.</value>
+  </data>
+  <data name="Invitation.Joined" xml:space="preserve">
+    <value>Organizasyona başarıyla katıldınız.</value>
+  </data>
+  <data name="ApiKey.Rotated" xml:space="preserve">
+    <value>Yeni API anahtarı başarıyla oluşturuldu. Eski anahtar {0:yyyy-MM-dd HH:mm:ss} UTC'ye kadar geçerli kalacak. Lütfen ek süre dolmadan uygulamalarınızı yeni anahtarı kullanacak şekilde güncelleyin.</value>
+  </data>
+  <data name="Secrets.RsaRegenerated" xml:space="preserve">
+    <value>RSA anahtar çifti başarıyla yeniden oluşturuldu. Mevcut tüm erişim jetonları artık geçersiz. Kullanıcılar yeniden oturum açmalıdır.</value>
+  </data>
+  <data name="Secrets.HmacRegenerated" xml:space="preserve">
+    <value>HMAC anahtarı başarıyla yeniden oluşturuldu. Mevcut tüm yenileme jetonları artık geçersiz. Kullanıcılar yeniden oturum açmalıdır.</value>
+  </data>
+  <data name="Secrets.GatewayTokenRegenerated" xml:space="preserve">
+    <value>Ağ geçidi jetonu başarıyla yeniden oluşturuldu. API Gateway yapılandırmasını yeni jetonla güncelleyin.</value>
+  </data>
+  <data name="Secrets.RsaImported" xml:space="preserve">
+    <value>RSA imzalama anahtarı başarıyla içe aktarıldı. Mevcut tüm erişim jetonları artık geçersiz. Kullanıcılar yeniden oturum açmalıdır.</value>
+  </data>
+  <data name="Secrets.HmacImported" xml:space="preserve">
+    <value>HMAC anahtarı başarıyla içe aktarıldı. Mevcut tüm yenileme jetonları artık geçersiz. Kullanıcılar yeniden oturum açmalıdır.</value>
+  </data>
+  <data name="Secrets.GatewayTokenImported" xml:space="preserve">
+    <value>Ağ geçidi jetonu başarıyla içe aktarıldı. API Gateway yapılandırmasını aynı jetonla güncelleyin.</value>
+  </data>
 </root>

@@ -1,3 +1,4 @@
+using Auth_Localization.Resources;
 using Auth_Localization.Resources.Errors;
 using Auth_Localization.Resources.Validation;
 using ErrorOr;
@@ -57,6 +58,34 @@ public abstract class ApiController : ControllerBase
     {
         var userIdClaim = User.FindFirst("sub")?.Value;
         return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
+    }
+
+    /// <summary>
+    /// Resolves a success-message resource from <see cref="AuthMessages"/> for
+    /// the current request culture, falling back to the English text produced
+    /// by the handler when the code is missing or has no resource entry.
+    /// </summary>
+    protected string LocalizeMessage(string? code, string fallback, params object[] args)
+    {
+        if (string.IsNullOrEmpty(code))
+        {
+            return fallback;
+        }
+
+        var localizer = HttpContext.RequestServices
+            .GetService<IStringLocalizer<AuthMessages>>();
+        if (localizer is null)
+        {
+            return fallback;
+        }
+
+        var localized = localizer[code];
+        if (localized.ResourceNotFound)
+        {
+            return fallback;
+        }
+
+        return args.Length > 0 ? string.Format(localized.Value, args) : localized.Value;
     }
 
     private static string LocalizeError(

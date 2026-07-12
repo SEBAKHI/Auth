@@ -78,4 +78,13 @@
   <data name="Middleware.TooManyRequests" xml:space="preserve">
     <value>بہت زیادہ درخواستیں۔ براہ کرم بعد میں دوبارہ کوشش کریں۔</value>
   </data>
+  <data name="Middleware.TooManyRequests.Title" xml:space="preserve">
+    <value>بہت زیادہ درخواستیں</value>
+  </data>
+  <data name="Middleware.InvalidOperation.Detail" xml:space="preserve">
+    <value>درخواست پر عمل نہیں ہو سکا۔</value>
+  </data>
+  <data name="Middleware.InvalidArgument.Detail" xml:space="preserve">
+    <value>ایک یا زیادہ پیرامیٹر درست نہیں تھے۔</value>
+  </data>
 </root>

@@ -50,4 +50,10 @@ public record RotateApiKeyResponse
     /// Message indicating the grace period status.
     /// </summary>
     public required string Message { get; init; }
+
+    /// <summary>
+    /// Stable AuthMessages resource key for <see cref="Message"/>; the API edge
+    /// replaces the English fallback with the request-culture translation.
+    /// </summary>
+    public string? MessageCode { get; init; }
 }

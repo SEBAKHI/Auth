@@ -157,4 +157,31 @@
   <data name="TooManyRequests" xml:space="preserve">
     <value>بہت زیادہ درخواستیں۔ براہ کرم بعد میں دوبارہ کوشش کریں</value>
   </data>
+  <data name="Invitation.AlreadyMember" xml:space="preserve">
+    <value>آپ پہلے ہی اس تنظیم کے رکن ہیں۔</value>
+  </data>
+  <data name="Invitation.Joined" xml:space="preserve">
+    <value>تنظیم میں کامیابی سے شامل ہو گئے۔</value>
+  </data>
+  <data name="ApiKey.Rotated" xml:space="preserve">
+    <value>نئی API کلید کامیابی سے بن گئی۔ پرانی کلید {0:yyyy-MM-dd HH:mm:ss} UTC تک درست رہے گی۔ براہ کرم مہلت ختم ہونے سے پہلے اپنی ایپلیکیشنز کو نئی کلید پر منتقل کریں۔</value>
+  </data>
+  <data name="Secrets.RsaRegenerated" xml:space="preserve">
+    <value>RSA کلیدی جوڑا کامیابی سے دوبارہ بن گیا۔ تمام موجودہ رسائی ٹوکن اب غیر مؤثر ہیں۔ صارفین کو دوبارہ سائن ان کرنا ہوگا۔</value>
+  </data>
+  <data name="Secrets.HmacRegenerated" xml:space="preserve">
+    <value>HMAC کلید کامیابی سے دوبارہ بن گئی۔ تمام موجودہ ریفریش ٹوکن اب غیر مؤثر ہیں۔ صارفین کو دوبارہ سائن ان کرنا ہوگا۔</value>
+  </data>
+  <data name="Secrets.GatewayTokenRegenerated" xml:space="preserve">
+    <value>گیٹ وے ٹوکن کامیابی سے دوبارہ بن گیا۔ API گیٹ وے کی ترتیب کو نئے ٹوکن سے اپ ڈیٹ کریں۔</value>
+  </data>
+  <data name="Secrets.RsaImported" xml:space="preserve">
+    <value>RSA دستخطی کلید کامیابی سے درآمد ہو گئی۔ تمام موجودہ رسائی ٹوکن اب غیر مؤثر ہیں۔ صارفین کو دوبارہ سائن ان کرنا ہوگا۔</value>
+  </data>
+  <data name="Secrets.HmacImported" xml:space="preserve">
+    <value>HMAC کلید کامیابی سے درآمد ہو گئی۔ تمام موجودہ ریفریش ٹوکن اب غیر مؤثر ہیں۔ صارفین کو دوبارہ سائن ان کرنا ہوگا۔</value>
+  </data>
+  <data name="Secrets.GatewayTokenImported" xml:space="preserve">
+    <value>گیٹ وے ٹوکن کامیابی سے درآمد ہو گیا۔ API گیٹ وے کی ترتیب کو اسی ٹوکن سے اپ ڈیٹ کریں۔</value>
+  </data>
 </root>

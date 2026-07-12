@@ -157,4 +157,31 @@
   <data name="TooManyRequests" xml:space="preserve">
     <value>درخواست‌های بیش از حد. لطفاً بعداً دوباره تلاش کنید</value>
   </data>
+  <data name="Invitation.AlreadyMember" xml:space="preserve">
+    <value>شما هم‌اکنون عضو این سازمان هستید.</value>
+  </data>
+  <data name="Invitation.Joined" xml:space="preserve">
+    <value>با موفقیت به سازمان پیوستید.</value>
+  </data>
+  <data name="ApiKey.Rotated" xml:space="preserve">
+    <value>کلید API جدید با موفقیت تولید شد. کلید قدیمی تا {0:yyyy-MM-dd HH:mm:ss} UTC معتبر می‌ماند. لطفاً پیش از پایان مهلت، برنامه‌های خود را برای استفاده از کلید جدید به‌روزرسانی کنید.</value>
+  </data>
+  <data name="Secrets.RsaRegenerated" xml:space="preserve">
+    <value>جفت‌کلید RSA با موفقیت دوباره تولید شد. همه توکن‌های دسترسی موجود اکنون نامعتبرند. کاربران باید دوباره وارد شوند.</value>
+  </data>
+  <data name="Secrets.HmacRegenerated" xml:space="preserve">
+    <value>کلید HMAC با موفقیت دوباره تولید شد. همه توکن‌های تازه‌سازی موجود اکنون نامعتبرند. کاربران باید دوباره وارد شوند.</value>
+  </data>
+  <data name="Secrets.GatewayTokenRegenerated" xml:space="preserve">
+    <value>توکن درگاه با موفقیت دوباره تولید شد. پیکربندی API Gateway را با توکن جدید به‌روزرسانی کنید.</value>
+  </data>
+  <data name="Secrets.RsaImported" xml:space="preserve">
+    <value>کلید امضای RSA با موفقیت درون‌ریزی شد. همه توکن‌های دسترسی موجود اکنون نامعتبرند. کاربران باید دوباره وارد شوند.</value>
+  </data>
+  <data name="Secrets.HmacImported" xml:space="preserve">
+    <value>کلید HMAC با موفقیت درون‌ریزی شد. همه توکن‌های تازه‌سازی موجود اکنون نامعتبرند. کاربران باید دوباره وارد شوند.</value>
+  </data>
+  <data name="Secrets.GatewayTokenImported" xml:space="preserve">
+    <value>توکن درگاه با موفقیت درون‌ریزی شد. پیکربندی API Gateway را با همان توکن به‌روزرسانی کنید.</value>
+  </data>
 </root>

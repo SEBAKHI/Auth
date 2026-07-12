@@ -157,4 +157,31 @@
   <data name="TooManyRequests" xml:space="preserve">
     <value>Trop de requêtes. Veuillez réessayer plus tard</value>
   </data>
+  <data name="Invitation.AlreadyMember" xml:space="preserve">
+    <value>Vous êtes déjà membre de cette organisation.</value>
+  </data>
+  <data name="Invitation.Joined" xml:space="preserve">
+    <value>Vous avez rejoint l'organisation avec succès.</value>
+  </data>
+  <data name="ApiKey.Rotated" xml:space="preserve">
+    <value>Nouvelle clé API générée avec succès. L'ancienne clé restera valide jusqu'au {0:yyyy-MM-dd HH:mm:ss} UTC. Veuillez mettre à jour vos applications pour utiliser la nouvelle clé avant la fin du délai de grâce.</value>
+  </data>
+  <data name="Secrets.RsaRegenerated" xml:space="preserve">
+    <value>Paire de clés RSA régénérée avec succès. Tous les jetons d'accès existants sont désormais invalides. Les utilisateurs doivent se reconnecter.</value>
+  </data>
+  <data name="Secrets.HmacRegenerated" xml:space="preserve">
+    <value>Clé HMAC régénérée avec succès. Tous les jetons de rafraîchissement existants sont désormais invalides. Les utilisateurs doivent se reconnecter.</value>
+  </data>
+  <data name="Secrets.GatewayTokenRegenerated" xml:space="preserve">
+    <value>Jeton de passerelle régénéré avec succès. Mettez à jour la configuration de l'API Gateway avec le nouveau jeton.</value>
+  </data>
+  <data name="Secrets.RsaImported" xml:space="preserve">
+    <value>Clé de signature RSA importée avec succès. Tous les jetons d'accès existants sont désormais invalides. Les utilisateurs doivent se reconnecter.</value>
+  </data>
+  <data name="Secrets.HmacImported" xml:space="preserve">
+    <value>Clé HMAC importée avec succès. Tous les jetons de rafraîchissement existants sont désormais invalides. Les utilisateurs doivent se reconnecter.</value>
+  </data>
+  <data name="Secrets.GatewayTokenImported" xml:space="preserve">
+    <value>Jeton de passerelle importé avec succès. Mettez à jour la configuration de l'API Gateway avec le même jeton.</value>
+  </data>
 </root>

@@ -520,4 +520,28 @@
   <data name="Secret.NotFound" xml:space="preserve">
     <value>حسب ضرورت خفیہ '{0}' نہیں ملا۔</value>
   </data>
+  <data name="Secret.InvalidKeyMaterial" xml:space="preserve">
+    <value>فراہم کردہ کلیدی مواد درست نہیں ہے: {0}</value>
+  </data>
+  <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
+    <value>ایڈمن API کے ذریعے کلیدیں درآمد کرنا صرف Certificate یا Dpapi اسٹوریج موڈ میں معاون ہے۔ PlainText موڈ میں کلیدیں براہ راست appsettings.Production.json میں مقرر کریں۔</value>
+  </data>
+  <data name="User.PasswordBreached" xml:space="preserve">
+    <value>یہ پاس ورڈ کسی معلوم ڈیٹا لیک میں سامنے آ چکا ہے۔ براہ کرم مختلف پاس ورڈ منتخب کریں۔</value>
+  </data>
+  <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
+    <value>پاس ورڈ کی حفاظتی جانچ عارضی طور پر دستیاب نہیں ہے۔ براہ کرم بعد میں دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="User.RoleAlreadyAssigned" xml:space="preserve">
+    <value>صارف کے پاس پہلے سے کردار '{0}' موجود ہے۔</value>
+  </data>
+  <data name="Role.CannotUpdateSystemRole" xml:space="preserve">
+    <value>سسٹم کردار تبدیل نہیں کیے جا سکتے۔</value>
+  </data>
+  <data name="Organization.InvalidMembershipRole" xml:space="preserve">
+    <value>تنظیمی رکنیت کا کردار تنظیمی سطح کا ہونا چاہیے، ایپلیکیشن سے مخصوص نہیں۔</value>
+  </data>
+  <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
+    <value>سسٹم ترتیب کی خرابی: تنظیم کے مالک کا کردار نہیں ملا۔</value>
+  </data>
 </root>

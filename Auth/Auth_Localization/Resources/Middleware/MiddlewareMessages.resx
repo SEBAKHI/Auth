@@ -78,4 +78,13 @@
   <data name="Middleware.TooManyRequests" xml:space="preserve">
     <value>Too many requests. Please try again later.</value>
   </data>
+  <data name="Middleware.TooManyRequests.Title" xml:space="preserve">
+    <value>Too Many Requests</value>
+  </data>
+  <data name="Middleware.InvalidOperation.Detail" xml:space="preserve">
+    <value>The request could not be processed.</value>
+  </data>
+  <data name="Middleware.InvalidArgument.Detail" xml:space="preserve">
+    <value>One or more arguments were invalid.</value>
+  </data>
 </root>

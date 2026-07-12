@@ -150,7 +150,13 @@ public class ApiKeysController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(
-            response => Ok(response),
+            response => Ok(response with
+            {
+                Message = LocalizeMessage(
+                    response.MessageCode,
+                    response.Message,
+                    response.OldKeyExpiresAt)
+            }),
             errors => Problem(errors));
     }
 

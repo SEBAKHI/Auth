@@ -520,4 +520,28 @@
   <data name="Secret.NotFound" xml:space="preserve">
     <value>Le secret personnalisé '{0}' est introuvable.</value>
   </data>
+  <data name="Secret.InvalidKeyMaterial" xml:space="preserve">
+    <value>Le matériel de clé fourni n'est pas valide : {0}</value>
+  </data>
+  <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
+    <value>L'importation de clés via l'API d'administration n'est prise en charge qu'en mode de stockage Certificate ou Dpapi. En mode PlainText, définissez les clés directement dans appsettings.Production.json.</value>
+  </data>
+  <data name="User.PasswordBreached" xml:space="preserve">
+    <value>Ce mot de passe est apparu dans une fuite de données connue. Veuillez en choisir un autre.</value>
+  </data>
+  <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
+    <value>La vérification de sécurité du mot de passe est temporairement indisponible. Veuillez réessayer plus tard.</value>
+  </data>
+  <data name="User.RoleAlreadyAssigned" xml:space="preserve">
+    <value>L'utilisateur possède déjà le rôle '{0}'.</value>
+  </data>
+  <data name="Role.CannotUpdateSystemRole" xml:space="preserve">
+    <value>Les rôles système ne peuvent pas être modifiés.</value>
+  </data>
+  <data name="Organization.InvalidMembershipRole" xml:space="preserve">
+    <value>Un rôle d'adhésion à une organisation doit être un rôle au niveau de l'organisation, et non un rôle limité à une application.</value>
+  </data>
+  <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
+    <value>Erreur de configuration système : le rôle de propriétaire d'organisation est introuvable.</value>
+  </data>
 </root>

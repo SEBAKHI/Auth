@@ -54,4 +54,10 @@ public class InvitationAcceptResultDto
     public string OrganizationName { get; set; } = string.Empty;
     public string RoleName { get; set; } = string.Empty;
     public string? Message { get; set; }
+
+    /// <summary>
+    /// Stable AuthMessages resource key for <see cref="Message"/>; the API edge
+    /// replaces the English fallback with the request-culture translation.
+    /// </summary>
+    public string? MessageCode { get; set; }
 }

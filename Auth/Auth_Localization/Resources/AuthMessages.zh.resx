@@ -157,4 +157,31 @@
   <data name="TooManyRequests" xml:space="preserve">
     <value>请求过多。请稍后重试</value>
   </data>
+  <data name="Invitation.AlreadyMember" xml:space="preserve">
+    <value>您已经是该组织的成员。</value>
+  </data>
+  <data name="Invitation.Joined" xml:space="preserve">
+    <value>已成功加入组织。</value>
+  </data>
+  <data name="ApiKey.Rotated" xml:space="preserve">
+    <value>新 API 密钥生成成功。旧密钥将在 {0:yyyy-MM-dd HH:mm:ss} UTC 前保持有效。请在宽限期结束前将您的应用更新为使用新密钥。</value>
+  </data>
+  <data name="Secrets.RsaRegenerated" xml:space="preserve">
+    <value>RSA 密钥对重新生成成功。所有现有访问令牌已失效，用户必须重新登录。</value>
+  </data>
+  <data name="Secrets.HmacRegenerated" xml:space="preserve">
+    <value>HMAC 密钥重新生成成功。所有现有刷新令牌已失效，用户必须重新登录。</value>
+  </data>
+  <data name="Secrets.GatewayTokenRegenerated" xml:space="preserve">
+    <value>网关令牌重新生成成功。请使用新令牌更新 API 网关配置。</value>
+  </data>
+  <data name="Secrets.RsaImported" xml:space="preserve">
+    <value>RSA 签名密钥导入成功。所有现有访问令牌已失效，用户必须重新登录。</value>
+  </data>
+  <data name="Secrets.HmacImported" xml:space="preserve">
+    <value>HMAC 密钥导入成功。所有现有刷新令牌已失效，用户必须重新登录。</value>
+  </data>
+  <data name="Secrets.GatewayTokenImported" xml:space="preserve">
+    <value>网关令牌导入成功。请使用相同令牌更新 API 网关配置。</value>
+  </data>
 </root>

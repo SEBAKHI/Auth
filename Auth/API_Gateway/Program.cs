@@ -162,6 +162,16 @@ builder.Services.AddRateLimiter(options =>
 
     options.OnRejected = async (context, token) =>
     {
+        var localizer = context.HttpContext.RequestServices
+            .GetService<Microsoft.Extensions.Localization.IStringLocalizer<Auth_Localization.Resources.Middleware.MiddlewareMessages>>();
+
+        string Localize(string key, string fallback)
+        {
+            if (localizer is null) return fallback;
+            var localized = localizer[key];
+            return localized.ResourceNotFound ? fallback : localized.Value;
+        }
+
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
         context.HttpContext.Response.ContentType = "application/json";
 
@@ -174,9 +184,9 @@ builder.Services.AddRateLimiter(options =>
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
             type = "https://httpstatuses.com/429",
-            title = "Too Many Requests",
+            title = Localize("Middleware.TooManyRequests.Title", "Too Many Requests"),
             status = 429,
-            detail = "Rate limit exceeded. Please try again later.",
+            detail = Localize("Middleware.TooManyRequests", "Rate limit exceeded. Please try again later."),
             retryAfter
         }, token);
     };

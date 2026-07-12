@@ -83,7 +83,8 @@ public class RotateApiKeyCommandHandler : IRequestHandler<RotateApiKeyCommand, E
             OldKeyExpiresAt = gracePeriodEnd,
             OldApiKeyId = existingKey.Id,
             Message = $"New API key generated successfully. Old key will remain valid until {gracePeriodEnd:yyyy-MM-dd HH:mm:ss} UTC. " +
-                      "Please update your applications to use the new key before the grace period ends."
+                      "Please update your applications to use the new key before the grace period ends.",
+            MessageCode = "ApiKey.Rotated"
         };
     }
 }

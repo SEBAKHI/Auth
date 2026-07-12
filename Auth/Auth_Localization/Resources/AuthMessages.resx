@@ -157,4 +157,31 @@
   <data name="TooManyRequests" xml:space="preserve">
     <value>Too many requests. Please try again later</value>
   </data>
+  <data name="Invitation.AlreadyMember" xml:space="preserve">
+    <value>You are already a member of this organization.</value>
+  </data>
+  <data name="Invitation.Joined" xml:space="preserve">
+    <value>Successfully joined the organization.</value>
+  </data>
+  <data name="ApiKey.Rotated" xml:space="preserve">
+    <value>New API key generated successfully. Old key will remain valid until {0:yyyy-MM-dd HH:mm:ss} UTC. Please update your applications to use the new key before the grace period ends.</value>
+  </data>
+  <data name="Secrets.RsaRegenerated" xml:space="preserve">
+    <value>RSA key pair regenerated successfully. All existing access tokens are now invalid. Users must re-authenticate.</value>
+  </data>
+  <data name="Secrets.HmacRegenerated" xml:space="preserve">
+    <value>HMAC key regenerated successfully. All existing refresh tokens are now invalid. Users must re-authenticate.</value>
+  </data>
+  <data name="Secrets.GatewayTokenRegenerated" xml:space="preserve">
+    <value>Gateway token regenerated successfully. Update API Gateway configuration with the new token.</value>
+  </data>
+  <data name="Secrets.RsaImported" xml:space="preserve">
+    <value>RSA signing key imported successfully. All existing access tokens are now invalid. Users must re-authenticate.</value>
+  </data>
+  <data name="Secrets.HmacImported" xml:space="preserve">
+    <value>HMAC key imported successfully. All existing refresh tokens are now invalid. Users must re-authenticate.</value>
+  </data>
+  <data name="Secrets.GatewayTokenImported" xml:space="preserve">
+    <value>Gateway token imported successfully. Update the API Gateway configuration with the same token.</value>
+  </data>
 </root>

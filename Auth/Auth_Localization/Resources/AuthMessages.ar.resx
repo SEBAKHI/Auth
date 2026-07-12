@@ -157,4 +157,31 @@
   <data name="TooManyRequests" xml:space="preserve">
     <value>طلبات كثيرة جداً. يرجى المحاولة مرة أخرى لاحقاً</value>
   </data>
+  <data name="Invitation.AlreadyMember" xml:space="preserve">
+    <value>أنت عضو في هذه المنظمة بالفعل.</value>
+  </data>
+  <data name="Invitation.Joined" xml:space="preserve">
+    <value>تم الانضمام إلى المنظمة بنجاح.</value>
+  </data>
+  <data name="ApiKey.Rotated" xml:space="preserve">
+    <value>تم توليد مفتاح API جديد بنجاح. سيبقى المفتاح القديم صالحًا حتى {0:yyyy-MM-dd HH:mm:ss} بالتوقيت العالمي UTC. يرجى تحديث تطبيقاتك لاستخدام المفتاح الجديد قبل انتهاء فترة السماح.</value>
+  </data>
+  <data name="Secrets.RsaRegenerated" xml:space="preserve">
+    <value>تمت إعادة توليد زوج مفاتيح RSA بنجاح. كل رموز الوصول الحالية أصبحت غير صالحة الآن. يجب على المستخدمين إعادة تسجيل الدخول.</value>
+  </data>
+  <data name="Secrets.HmacRegenerated" xml:space="preserve">
+    <value>تمت إعادة توليد مفتاح HMAC بنجاح. كل رموز التحديث الحالية أصبحت غير صالحة الآن. يجب على المستخدمين إعادة تسجيل الدخول.</value>
+  </data>
+  <data name="Secrets.GatewayTokenRegenerated" xml:space="preserve">
+    <value>تمت إعادة توليد رمز البوابة بنجاح. حدّث إعدادات بوابة الـ API بالرمز الجديد.</value>
+  </data>
+  <data name="Secrets.RsaImported" xml:space="preserve">
+    <value>تم استيراد مفتاح توقيع RSA بنجاح. كل رموز الوصول الحالية أصبحت غير صالحة الآن. يجب على المستخدمين إعادة تسجيل الدخول.</value>
+  </data>
+  <data name="Secrets.HmacImported" xml:space="preserve">
+    <value>تم استيراد مفتاح HMAC بنجاح. كل رموز التحديث الحالية أصبحت غير صالحة الآن. يجب على المستخدمين إعادة تسجيل الدخول.</value>
+  </data>
+  <data name="Secrets.GatewayTokenImported" xml:space="preserve">
+    <value>تم استيراد رمز البوابة بنجاح. حدّث إعدادات بوابة الـ API بالرمز نفسه.</value>
+  </data>
 </root>

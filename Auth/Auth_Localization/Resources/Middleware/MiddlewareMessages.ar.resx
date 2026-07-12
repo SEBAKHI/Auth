@@ -78,4 +78,13 @@
   <data name="Middleware.TooManyRequests" xml:space="preserve">
     <value>طلبات كثيرة جدًا. يرجى المحاولة لاحقًا.</value>
   </data>
+  <data name="Middleware.TooManyRequests.Title" xml:space="preserve">
+    <value>طلبات كثيرة جدًا</value>
+  </data>
+  <data name="Middleware.InvalidOperation.Detail" xml:space="preserve">
+    <value>تعذّرت معالجة الطلب.</value>
+  </data>
+  <data name="Middleware.InvalidArgument.Detail" xml:space="preserve">
+    <value>واحد أو أكثر من المعطيات غير صالح.</value>
+  </data>
 </root>

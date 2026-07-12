@@ -62,16 +62,23 @@ public class ExceptionHandlingMiddleware
                 Localize(localizer, "Middleware.NotFound.Detail", "The requested resource was not found."),
                 (object?)null
             ),
+            // Raw exception messages are English-only and can leak internals, so
+            // clients get a localized generic detail outside Development. The full
+            // exception is still logged below.
             InvalidOperationException invalidOpEx => (
                 HttpStatusCode.BadRequest,
                 Localize(localizer, "Middleware.InvalidOperation.Title", "Invalid Operation"),
-                invalidOpEx.Message,
+                _environment.IsDevelopment()
+                    ? invalidOpEx.Message
+                    : Localize(localizer, "Middleware.InvalidOperation.Detail", "The request could not be processed."),
                 (object?)null
             ),
             ArgumentException argEx => (
                 HttpStatusCode.BadRequest,
                 Localize(localizer, "Middleware.InvalidArgument.Title", "Invalid Argument"),
-                argEx.Message,
+                _environment.IsDevelopment()
+                    ? argEx.Message
+                    : Localize(localizer, "Middleware.InvalidArgument.Detail", "One or more arguments were invalid."),
                 (object?)null
             ),
             _ => (

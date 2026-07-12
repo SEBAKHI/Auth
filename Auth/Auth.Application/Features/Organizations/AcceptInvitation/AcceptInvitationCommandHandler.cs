@@ -109,7 +109,8 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
                 OrganizationId = organization.Id,
                 OrganizationName = organization.Name,
                 RoleName = (await _roleRepository.GetByIdAsync(invitation.RoleId, cancellationToken))?.Name ?? string.Empty,
-                Message = "You are already a member of this organization."
+                Message = "You are already a member of this organization.",
+                MessageCode = "Invitation.AlreadyMember"
             };
         }
 
@@ -141,7 +142,8 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
             OrganizationId = organization.Id,
             OrganizationName = organization.Name,
             RoleName = role?.Name ?? string.Empty,
-            Message = "Successfully joined the organization."
+            Message = "Successfully joined the organization.",
+            MessageCode = "Invitation.Joined"
         };
     }
 }

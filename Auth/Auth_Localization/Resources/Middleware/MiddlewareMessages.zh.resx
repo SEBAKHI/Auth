@@ -78,4 +78,13 @@
   <data name="Middleware.TooManyRequests" xml:space="preserve">
     <value>请求过多，请稍后再试。</value>
   </data>
+  <data name="Middleware.TooManyRequests.Title" xml:space="preserve">
+    <value>请求过多</value>
+  </data>
+  <data name="Middleware.InvalidOperation.Detail" xml:space="preserve">
+    <value>无法处理该请求。</value>
+  </data>
+  <data name="Middleware.InvalidArgument.Detail" xml:space="preserve">
+    <value>一个或多个参数无效。</value>
+  </data>
 </root>

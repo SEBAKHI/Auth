@@ -520,4 +520,28 @@
   <data name="Secret.NotFound" xml:space="preserve">
     <value>Özel gizli anahtar '{0}' bulunamadı.</value>
   </data>
+  <data name="Secret.InvalidKeyMaterial" xml:space="preserve">
+    <value>Sağlanan anahtar malzemesi geçersiz: {0}</value>
+  </data>
+  <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
+    <value>Yönetici API'si üzerinden anahtar içe aktarma yalnızca Certificate veya Dpapi depolama modunda desteklenir. PlainText modunda anahtarları doğrudan appsettings.Production.json içinde ayarlayın.</value>
+  </data>
+  <data name="User.PasswordBreached" xml:space="preserve">
+    <value>Bu parola bilinen bir veri ihlalinde ortaya çıkmış. Lütfen farklı bir parola seçin.</value>
+  </data>
+  <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
+    <value>Parola güvenlik denetimi geçici olarak kullanılamıyor. Lütfen daha sonra tekrar deneyin.</value>
+  </data>
+  <data name="User.RoleAlreadyAssigned" xml:space="preserve">
+    <value>Kullanıcı '{0}' rolüne zaten sahip.</value>
+  </data>
+  <data name="Role.CannotUpdateSystemRole" xml:space="preserve">
+    <value>Sistem rolleri değiştirilemez.</value>
+  </data>
+  <data name="Organization.InvalidMembershipRole" xml:space="preserve">
+    <value>Organizasyon üyelik rolü, uygulamaya özgü değil, organizasyon düzeyinde bir rol olmalıdır.</value>
+  </data>
+  <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
+    <value>Sistem yapılandırma hatası: Organizasyon sahibi rolü bulunamadı.</value>
+  </data>
 </root>

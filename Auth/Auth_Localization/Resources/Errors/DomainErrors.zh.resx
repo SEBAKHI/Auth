@@ -520,4 +520,28 @@
   <data name="Secret.NotFound" xml:space="preserve">
     <value>未找到自定义密钥'{0}'。</value>
   </data>
+  <data name="Secret.InvalidKeyMaterial" xml:space="preserve">
+    <value>提供的密钥材料无效：{0}</value>
+  </data>
+  <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
+    <value>仅在 Certificate 或 Dpapi 存储模式下支持通过管理 API 导入密钥。在 PlainText 模式下，请直接在 appsettings.Production.json 中设置密钥。</value>
+  </data>
+  <data name="User.PasswordBreached" xml:space="preserve">
+    <value>该密码曾出现在已知的数据泄露中。请选择其他密码。</value>
+  </data>
+  <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
+    <value>密码安全检查暂时不可用，请稍后重试。</value>
+  </data>
+  <data name="User.RoleAlreadyAssigned" xml:space="preserve">
+    <value>用户已拥有角色'{0}'。</value>
+  </data>
+  <data name="Role.CannotUpdateSystemRole" xml:space="preserve">
+    <value>系统角色不可修改。</value>
+  </data>
+  <data name="Organization.InvalidMembershipRole" xml:space="preserve">
+    <value>组织成员角色必须是组织级角色，而不是应用级角色。</value>
+  </data>
+  <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
+    <value>系统配置错误：未找到组织所有者角色。</value>
+  </data>
 </root>
