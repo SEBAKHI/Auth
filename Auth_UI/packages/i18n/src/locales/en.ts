@@ -176,6 +176,7 @@ export const en = {
     invitationEmailMismatch:
       "You are signed in as {{current}}, but this invitation is for {{invited}}. Sign out and use the invited account.",
     invitationSignOut: "Sign out",
+    signInSubtitleAccounts: "Sign in to your account.",
     orContinueWith: "Or continue with",
     registerTitle: "Create your account",
     registerSubtitle: "Sign up with your email address.",

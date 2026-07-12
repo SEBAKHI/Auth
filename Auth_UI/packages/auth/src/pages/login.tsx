@@ -33,11 +33,14 @@ interface LocationState {
 export function LoginPage({
   providers,
   footer,
+  subtitle,
 }: {
   /** External sign-in options rendered under the credentials form. */
   providers?: React.ReactNode
   /** Extra content under the card (e.g. a create-account link). */
   footer?: React.ReactNode
+  /** Overrides the console-flavored default subtitle. */
+  subtitle?: string
 } = {}) {
   const { t } = useTranslation()
   const { login } = useAuth()
@@ -89,7 +92,7 @@ export function LoginPage({
   return (
     <AuthLayout
       title={t("auth.signInTitle")}
-      subtitle={t("auth.signInSubtitle")}
+      subtitle={subtitle ?? t("auth.signInSubtitle")}
       footer={footer}
     >
       <Form {...form}>

@@ -185,6 +185,7 @@ export const ur: TranslationResources = {
     invitationEmailMismatch:
       "آپ {{current}} کے طور پر سائن ان ہیں، لیکن یہ دعوت {{invited}} کے لیے ہے۔ سائن آؤٹ کریں اور مدعو اکاؤنٹ استعمال کریں۔",
     invitationSignOut: "سائن آؤٹ",
+    signInSubtitleAccounts: "اپنے اکاؤنٹ میں سائن ان کریں۔",
     orContinueWith: "یا اس کے ذریعے جاری رکھیں",
     registerTitle: "اپنا اکاؤنٹ بنائیں",
     registerSubtitle: "اپنے ای میل پتے کے ساتھ رجسٹر کریں۔",

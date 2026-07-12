@@ -184,6 +184,7 @@ export const tr: TranslationResources = {
     invitationEmailMismatch:
       "{{current}} olarak oturum açtınız, ancak bu davet {{invited}} için. Oturumu kapatın ve davet edilen hesabı kullanın.",
     invitationSignOut: "Oturumu kapat",
+    signInSubtitleAccounts: "Hesabınıza giriş yapın.",
     orContinueWith: "veya şununla devam edin",
     registerTitle: "Hesabınızı oluşturun",
     registerSubtitle: "E-posta adresinizle kaydolun.",

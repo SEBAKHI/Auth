@@ -4,14 +4,12 @@ import { RequireAnonymous, RequireAuth } from "@astoom/auth/require-auth"
 import { AcceptInvitationPage } from "@astoom/auth/pages/accept-invitation"
 import { ForcePasswordChangePage } from "@astoom/auth/pages/force-password-change"
 import { ForgotPasswordPage } from "@astoom/auth/pages/forgot-password"
-import { LoginPage } from "@astoom/auth/pages/login"
 import { ResetPasswordPage } from "@astoom/auth/pages/reset-password"
 import { TwoFactorNoticePage } from "@astoom/auth/pages/two-factor-notice"
 import { NotFoundPage } from "@astoom/ui/error-pages/not-found"
 
 import { AccountShell } from "@/components/account-shell"
-import { LoginFooter } from "@/pages/auth/login-footer"
-import { GoogleSignIn } from "@/components/google-sign-in"
+import { AccountsLoginPage } from "@/pages/auth/login"
 import { RegisterPage } from "@/pages/auth/register"
 import { OrganizationDetailPage } from "@/pages/organizations/organization-detail-page"
 import { OrganizationsPage } from "@/pages/organizations/organizations-page"
@@ -21,12 +19,7 @@ export const router = createBrowserRouter([
   {
     element: <RequireAnonymous />,
     children: [
-      {
-        path: "/login",
-        element: (
-          <LoginPage providers={<GoogleSignIn />} footer={<LoginFooter />} />
-        ),
-      },
+      { path: "/login", element: <AccountsLoginPage /> },
       { path: "/register", element: <RegisterPage /> },
       { path: "/forgot-password", element: <ForgotPasswordPage /> },
       { path: "/reset-password", element: <ResetPasswordPage /> },

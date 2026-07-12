@@ -2,10 +2,15 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/ibm-plex-sans";
-
-/* Shared workspace packages live outside this app's root, so Tailwind's
-   automatic source detection misses them. Scan them explicitly. */
-@source "../../../packages";
-
 /* Shared preset tokens (single source of truth for the whole workspace). */
 @import "../../../packages/ui/src/preset.css";
+
+/* Shared workspace packages live outside this app's root, so Tailwind's
+   automatic source detection misses them. Each package src must be
+   registered EXPLICITLY: registering the parent "packages" dir (or using
+   wildcards in directory segments) silently scans nothing, because every
+   package is its own package root (has a package.json). */
+@source "../../../packages/api/src";
+@source "../../../packages/auth/src";
+@source "../../../packages/i18n/src";
+@source "../../../packages/ui/src";

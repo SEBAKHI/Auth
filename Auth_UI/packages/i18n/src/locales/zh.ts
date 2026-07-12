@@ -180,6 +180,7 @@ export const zh: TranslationResources = {
     invitationEmailMismatch:
       "您当前以 {{current}} 登录，但此邀请属于 {{invited}}。请退出并使用受邀账户。",
     invitationSignOut: "退出登录",
+    signInSubtitleAccounts: "登录您的账户。",
     orContinueWith: "或通过以下方式继续",
     registerTitle: "创建您的账户",
     registerSubtitle: "使用您的电子邮箱注册。",

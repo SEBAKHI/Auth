@@ -187,6 +187,7 @@ export const fr: TranslationResources = {
     invitationEmailMismatch:
       "Vous êtes connecté en tant que {{current}}, mais cette invitation est destinée à {{invited}}. Déconnectez-vous et utilisez le compte invité.",
     invitationSignOut: "Se déconnecter",
+    signInSubtitleAccounts: "Connectez-vous à votre compte.",
     orContinueWith: "Ou continuer avec",
     registerTitle: "Créez votre compte",
     registerSubtitle: "Inscrivez-vous avec votre adresse e-mail.",
