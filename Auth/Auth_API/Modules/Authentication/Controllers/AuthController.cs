@@ -506,7 +506,7 @@ public class AuthController : ApiController
     /// <summary>
     /// Verifies a user's email address using a 6-digit OTP.
     /// </summary>
-    /// <param name="request">User ID and OTP code</param>
+    /// <param name="request">User ID or email address, and the OTP code</param>
     /// <returns>Success status</returns>
     [HttpPost("verify-email")]
     [AllowAnonymous]
@@ -516,7 +516,7 @@ public class AuthController : ApiController
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request, CancellationToken cancellationToken)
     {
-        var command = new VerifyEmailCommand(request.UserId, request.Otp);
+        var command = new VerifyEmailCommand(request.UserId, request.Otp, request.Email);
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(

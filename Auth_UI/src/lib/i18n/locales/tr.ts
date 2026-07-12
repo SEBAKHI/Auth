@@ -145,6 +145,13 @@ export const tr: TranslationResources = {
     twoFactorTitle: "İki adımlı doğrulama",
     twoFactorSubtitle: "Hesabınız bir doğrulama kodu gerektiriyor.",
     twoFactorCode: "Doğrulama kodu",
+    verifyEmailTitle: "E-postayı doğrula",
+    verifyEmailDescription: "{{email}} adresine gönderilen 6 haneli kodu girin.",
+    verifyEmailCodeLabel: "Doğrulama kodu",
+    codeExpiresIn: "Kodun süresi {{time}} içinde doluyor",
+    codeExpired: "Kodun süresi doldu. Yeni bir kod isteyin.",
+    resendCode: "Kodu yeniden gönder",
+    emailVerifiedSuccess: "E-posta doğrulandı.",
     verify: "Doğrula",
     twoFactorLoginNotice:
       "Bu hesapta iki adımlı doğrulama etkin. Bir oturum açıldı; 2FA'yı profilinizden yönetin.",

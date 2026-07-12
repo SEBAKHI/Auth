@@ -146,6 +146,13 @@ export const ur: TranslationResources = {
     twoFactorTitle: "دو مرحلہ توثیق",
     twoFactorSubtitle: "آپ کے اکاؤنٹ کو تصدیقی کوڈ درکار ہے۔",
     twoFactorCode: "تصدیقی کوڈ",
+    verifyEmailTitle: "ای میل کی تصدیق کریں",
+    verifyEmailDescription: "{{email}} پر بھیجا گیا 6 ہندسوں کا کوڈ درج کریں۔",
+    verifyEmailCodeLabel: "تصدیقی کوڈ",
+    codeExpiresIn: "کوڈ کی میعاد {{time}} میں ختم ہو جائے گی",
+    codeExpired: "کوڈ کی میعاد ختم ہو گئی۔ نیا کوڈ طلب کریں۔",
+    resendCode: "کوڈ دوبارہ بھیجیں",
+    emailVerifiedSuccess: "ای میل کی تصدیق ہو گئی۔",
     verify: "تصدیق کریں",
     twoFactorLoginNotice:
       "اس اکاؤنٹ پر دو مرحلہ توثیق فعال ہے۔ سیشن جاری کر دیا گیا؛ اپنے پروفائل سے 2FA کا انتظام کریں۔",

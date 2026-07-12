@@ -148,6 +148,13 @@ export const fa: TranslationResources = {
     twoFactorTitle: "احراز هویت دومرحله‌ای",
     twoFactorSubtitle: "حساب شما به کد تأیید نیاز دارد.",
     twoFactorCode: "کد تأیید",
+    verifyEmailTitle: "تأیید ایمیل",
+    verifyEmailDescription: "کد 6 رقمی ارسال‌شده به {{email}} را وارد کنید.",
+    verifyEmailCodeLabel: "کد تأیید",
+    codeExpiresIn: "اعتبار کد تا {{time}} دیگر به پایان می‌رسد",
+    codeExpired: "اعتبار کد به پایان رسید. کد جدیدی درخواست کنید.",
+    resendCode: "ارسال مجدد کد",
+    emailVerifiedSuccess: "ایمیل تأیید شد.",
     verify: "تأیید",
     twoFactorLoginNotice:
       "احراز هویت دومرحله‌ای برای این حساب فعال است. نشست ایجاد شد؛ مدیریت آن از طریق پروفایل شما امکان‌پذیر است.",

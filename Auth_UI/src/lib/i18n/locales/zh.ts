@@ -143,6 +143,13 @@ export const zh: TranslationResources = {
     twoFactorTitle: "双重认证",
     twoFactorSubtitle: "您的账户需要验证码。",
     twoFactorCode: "验证码",
+    verifyEmailTitle: "确认邮箱",
+    verifyEmailDescription: "请输入发送至 {{email}} 的 6 位验证码。",
+    verifyEmailCodeLabel: "验证码",
+    codeExpiresIn: "验证码将于 {{time}} 后失效",
+    codeExpired: "验证码已失效，请重新获取。",
+    resendCode: "重新发送验证码",
+    emailVerifiedSuccess: "邮箱已确认。",
     verify: "验证",
     twoFactorLoginNotice:
       "此账户已启用双重认证。会话已创建；请在个人资料中管理双重认证。",

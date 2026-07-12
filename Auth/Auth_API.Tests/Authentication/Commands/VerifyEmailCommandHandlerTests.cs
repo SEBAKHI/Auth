@@ -193,4 +193,51 @@ public class VerifyEmailCommandHandlerTests
             r => r.IncrementAttemptCountAsync(token.Id, It.IsAny<CancellationToken>()),
             Times.Once());
     }
+
+    [Fact]
+    public async Task Handle_ValidOtpByEmail_ConfirmsEmailSuccessfully()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, emailConfirmed: false);
+        var token = TestHelpers.CreateEmailVerificationToken(userId: userId);
+        var command = new VerifyEmailCommand(null, "123456", user.Email);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _tokenRepositoryMock
+            .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(token);
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
+            .Returns(true);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        _userRepositoryMock.Verify(
+            r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_UnknownEmail_ReturnsInvalidOtpNotUserNotFound()
+    {
+        // Arrange: unknown email must not reveal account existence.
+        var command = new VerifyEmailCommand(null, "123456", "unknown@example.com");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("unknown@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(EmailVerificationErrors.InvalidOrExpiredOtp.Code);
+    }
 }

@@ -143,6 +143,13 @@ export const ar: TranslationResources = {
     twoFactorTitle: "المصادقة الثنائية",
     twoFactorSubtitle: "يتطلب حسابك رمز تحقق.",
     twoFactorCode: "رمز التحقق",
+    verifyEmailTitle: "تأكيد البريد الإلكتروني",
+    verifyEmailDescription: "أدخل رمز التحقق المكوّن من 6 أرقام المرسل إلى {{email}}.",
+    verifyEmailCodeLabel: "رمز التحقق",
+    codeExpiresIn: "تنتهي صلاحية الرمز خلال {{time}}",
+    codeExpired: "انتهت صلاحية الرمز. اطلب رمزًا جديدًا.",
+    resendCode: "إعادة إرسال الرمز",
+    emailVerifiedSuccess: "تم تأكيد البريد الإلكتروني.",
     verify: "تحقق",
     twoFactorLoginNotice:
       "هذا الحساب يفعّل المصادقة الثنائية. تم إصدار جلسة؛ يمكنك إدارة المصادقة الثنائية من ملفك الشخصي.",

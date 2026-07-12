@@ -41,11 +41,29 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
             return EmailVerificationErrors.InvalidOtpFormat;
         }
 
-        // Get the user
-        var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
-        if (user == null)
+        // Get the user by ID (admin flows) or by email (anonymous flows).
+        User? user;
+        if (request.UserId.HasValue)
         {
-            return EmailVerificationErrors.UserNotFound;
+            user = await _userRepository.GetByIdAsync(request.UserId.Value, cancellationToken);
+            if (user == null)
+            {
+                return EmailVerificationErrors.UserNotFound;
+            }
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return EmailVerificationErrors.UserNotFound;
+            }
+
+            user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
+            if (user == null)
+            {
+                // Do not reveal account existence on the anonymous email-keyed path.
+                return EmailVerificationErrors.InvalidOrExpiredOtp;
+            }
         }
 
         // Check if already verified
@@ -55,12 +73,12 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         }
 
         // Get valid token for user
-        var token = await _tokenRepository.GetValidTokenForUserAsync(request.UserId, cancellationToken);
+        var token = await _tokenRepository.GetValidTokenForUserAsync(user.Id, cancellationToken);
         if (token == null)
         {
             _logger.LogWarning(
                 "No valid verification token found for user {UserId}",
-                request.UserId);
+                user.Id);
             return EmailVerificationErrors.InvalidOrExpiredOtp;
         }
 
@@ -69,7 +87,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         {
             _logger.LogWarning(
                 "Max verification attempts exceeded for user {UserId}",
-                request.UserId);
+                user.Id);
             return EmailVerificationErrors.TooManyAttempts;
         }
 
@@ -84,7 +102,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
             var remainingAttempts = EmailVerificationToken.MaxAttempts - token.AttemptCount - 1;
             _logger.LogWarning(
                 "Invalid OTP for user {UserId}. Remaining attempts: {RemainingAttempts}",
-                request.UserId, remainingAttempts);
+                user.Id, remainingAttempts);
 
             return EmailVerificationErrors.InvalidOrExpiredOtp;
         }

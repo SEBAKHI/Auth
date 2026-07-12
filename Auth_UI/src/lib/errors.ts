@@ -58,6 +58,23 @@ export function getErrorMessage(
   return fallback
 }
 
+/** Extract the ErrorOr error codes (e.g. "User.EmailNotConfirmed") from an API error. */
+export function getErrorCodes(error: unknown): string[] {
+  if (!error || typeof error !== "object") return []
+  const body = error as ApiErrorBody
+  const codes: string[] = []
+  if (Array.isArray(body.errors)) {
+    for (const e of body.errors) {
+      if (e.code) codes.push(e.code)
+    }
+  }
+  // Single-error ProblemDetails carry the ErrorOr code in `title`.
+  if (codes.length === 0 && body.title && !body.title.includes(" ")) {
+    codes.push(body.title)
+  }
+  return codes
+}
+
 /** Map a ProblemDetails `errors` array/dictionary to per-field messages. */
 export function getFieldErrors(error: unknown): Record<string, string> {
   const result: Record<string, string> = {}

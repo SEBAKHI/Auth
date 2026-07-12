@@ -139,6 +139,13 @@ export const en = {
     twoFactorTitle: "Two-factor authentication",
     twoFactorSubtitle: "Your account requires a verification code.",
     twoFactorCode: "Verification code",
+    verifyEmailTitle: "Confirm email",
+    verifyEmailDescription: "Enter the 6-digit code sent to {{email}}.",
+    verifyEmailCodeLabel: "Verification code",
+    codeExpiresIn: "Code expires in {{time}}",
+    codeExpired: "The code has expired. Request a new one.",
+    resendCode: "Resend code",
+    emailVerifiedSuccess: "Email confirmed.",
     verify: "Verify",
     twoFactorLoginNotice:
       "This account has two-factor authentication enabled. A session was issued; manage 2FA from your profile.",

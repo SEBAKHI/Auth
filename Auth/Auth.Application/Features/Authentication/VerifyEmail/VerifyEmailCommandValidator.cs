@@ -11,5 +11,13 @@ public class VerifyEmailCommandValidator : AbstractValidator<VerifyEmailCommand>
     public VerifyEmailCommandValidator()
     {
         RuleFor(x => x.Otp).IsValidTotpCode();
+
+        RuleFor(x => x)
+            .Must(x => x.UserId.HasValue || !string.IsNullOrWhiteSpace(x.Email))
+            .WithMessage("Either UserId or Email must be provided.");
+
+        RuleFor(x => x.Email)
+            .EmailAddress()
+            .When(x => !string.IsNullOrWhiteSpace(x.Email));
     }
 }

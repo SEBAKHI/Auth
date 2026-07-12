@@ -9529,7 +9529,8 @@ export interface components {
         };
         VerifyEmailRequest: {
             /** Format: uuid */
-            userId: string;
+            userId?: null | string;
+            email?: null | string;
             otp: string;
         };
         WebhookKeyDto: {

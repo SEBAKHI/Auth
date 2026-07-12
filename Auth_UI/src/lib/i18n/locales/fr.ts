@@ -148,6 +148,13 @@ export const fr: TranslationResources = {
     twoFactorTitle: "Authentification à deux facteurs",
     twoFactorSubtitle: "Votre compte requiert un code de vérification.",
     twoFactorCode: "Code de vérification",
+    verifyEmailTitle: "Confirmer l'e-mail",
+    verifyEmailDescription: "Saisissez le code à 6 chiffres envoyé à {{email}}.",
+    verifyEmailCodeLabel: "Code de vérification",
+    codeExpiresIn: "Le code expire dans {{time}}",
+    codeExpired: "Le code a expiré. Demandez-en un nouveau.",
+    resendCode: "Renvoyer le code",
+    emailVerifiedSuccess: "E-mail confirmé.",
     verify: "Vérifier",
     twoFactorLoginNotice:
       "Ce compte a l'authentification à deux facteurs activée. Une session a été ouverte ; gérez la 2FA depuis votre profil.",

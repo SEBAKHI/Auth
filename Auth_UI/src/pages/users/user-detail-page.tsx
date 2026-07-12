@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import { ChevronDown } from "lucide-react"
 import * as React from "react"
@@ -35,6 +35,7 @@ import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { getErrorMessage } from "@/lib/errors"
 import { formatDateTime, fullName, userStatusMeta } from "@/lib/format"
 import type { Schemas } from "@/lib/api/types"
+import { VerifyEmailDialog } from "@/components/common/verify-email-dialog"
 import { useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
 import { UserPermissionsDialog } from "./user-permissions-dialog"
@@ -521,6 +522,7 @@ export function UserDetailPage() {
   const { id } = useParams<{ id: string }>()
   const userId = id as string
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { hasPermission } = useAuth()
 
   const canUpdate = hasPermission(PERMISSIONS.users.update)
@@ -537,6 +539,7 @@ export function UserDetailPage() {
   const [lockOpen, setLockOpen] = React.useState(false)
   const [lockReason, setLockReason] = React.useState("")
   const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [verifyEmailOpen, setVerifyEmailOpen] = React.useState(false)
 
   const detailQuery = useQuery({
     queryKey: ["users", userId],
@@ -567,18 +570,6 @@ export function UserDetailPage() {
       if (error) throw error
     },
     onSuccess: () => toast.success(t("users.passwordResetSent")),
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
-
-  const resendConfirmation = useMutation({
-    mutationFn: async () => {
-      const { error } = await api.POST(
-        "/api/v1/Auth/resend-verification-email",
-        { body: { email: user?.email ?? "" } }
-      )
-      if (error) throw error
-    },
-    onSuccess: () => toast.success(t("users.confirmationResent")),
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
@@ -657,8 +648,7 @@ export function UserDetailPage() {
                           </DropdownMenuItem>
                           {!user.emailConfirmed ? (
                             <DropdownMenuItem
-                              disabled={resendConfirmation.isPending}
-                              onClick={() => resendConfirmation.mutate()}
+                              onClick={() => setVerifyEmailOpen(true)}
                             >
                               {t("users.resendConfirmation")}
                             </DropdownMenuItem>
@@ -846,6 +836,17 @@ export function UserDetailPage() {
           open={permsOpen}
           onOpenChange={setPermsOpen}
           user={user}
+        />
+      ) : null}
+      {user && !user.emailConfirmed ? (
+        <VerifyEmailDialog
+          open={verifyEmailOpen}
+          onOpenChange={setVerifyEmailOpen}
+          userId={userId}
+          email={user.email ?? ""}
+          onVerified={() =>
+            void queryClient.invalidateQueries({ queryKey: ["users"] })
+          }
         />
       ) : null}
 

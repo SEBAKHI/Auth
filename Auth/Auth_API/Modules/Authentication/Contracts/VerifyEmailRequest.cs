@@ -8,10 +8,15 @@ namespace Auth_API.Modules.Authentication.Contracts;
 public record VerifyEmailRequest
 {
     /// <summary>
-    /// Gets the user ID to verify email for.
+    /// Gets the user ID to verify email for. Either this or <see cref="Email"/> must be provided.
     /// </summary>
-    [Required]
-    public required Guid UserId { get; init; }
+    public Guid? UserId { get; init; }
+
+    /// <summary>
+    /// Gets the email address to verify. Either this or <see cref="UserId"/> must be provided.
+    /// </summary>
+    [EmailAddress]
+    public string? Email { get; init; }
 
     /// <summary>
     /// Gets the 6-digit OTP code sent to the user's email.
