@@ -41,6 +41,11 @@ public record UserInfo
     public string? TimeZone { get; init; }
 
     /// <summary>
+    /// Gets the user's preferred UI theme (light, dark, or system).
+    /// </summary>
+    public string? Theme { get; init; }
+
+    /// <summary>
     /// Gets the user's roles.
     /// </summary>
     public IReadOnlyList<string> Roles { get; init; } = [];

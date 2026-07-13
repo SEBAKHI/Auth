@@ -19,6 +19,7 @@ BEGIN
         [ProfileImageUrl],
         [PreferredLanguage],
         [TimeZone],
+        [Theme],
         [IsEmailConfirmed] AS [EmailConfirmed],
         [IsPhoneConfirmed] AS [PhoneConfirmed],
         [IsTwoFactorEnabled] AS [TwoFactorEnabled],

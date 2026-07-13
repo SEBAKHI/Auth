@@ -53,7 +53,7 @@ public class UserRepository : IUserRepository
             SELECT
                 [Id], [Username], [Email], [NormalizedEmail], [PasswordHash],
                 [FirstName], [LastName], [FullName] AS [DisplayName], [PhoneNumber],
-                [PreferredLanguage], [TimeZone],
+                [PreferredLanguage], [TimeZone], [Theme],
                 [IsEmailConfirmed] AS [EmailConfirmed],
                 [IsPhoneConfirmed] AS [PhoneConfirmed],
                 [IsTwoFactorEnabled] AS [TwoFactorEnabled],
@@ -103,14 +103,14 @@ public class UserRepository : IUserRepository
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[Users] (
                 [Id], [Username], [Email], [NormalizedEmail], [PasswordHash], [FirstName], [LastName],
-                [PhoneNumber], [PreferredLanguage], [TimeZone],
+                [PhoneNumber], [PreferredLanguage], [TimeZone], [Theme],
                 [IsEmailConfirmed], [IsPhoneConfirmed], [IsTwoFactorEnabled],
                 [Status], [FailedLoginAttempts], [LockoutEndUtc], [LastLoginUtc],
                 [LastPasswordChangeUtc], [MustChangePassword], [ProfileImageUrl],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             ) VALUES (
                 @Id, @Username, @Email, @NormalizedEmail, @PasswordHash, @FirstName, @LastName,
-                @PhoneNumber, @PreferredLanguage, @TimeZone,
+                @PhoneNumber, @PreferredLanguage, @TimeZone, @Theme,
                 @IsEmailConfirmed, @IsPhoneConfirmed, @IsTwoFactorEnabled,
                 @Status, @FailedLoginAttempts, @LockoutEndUtc, @LastLoginUtc,
                 @LastPasswordChangeUtc, @MustChangePassword, @ProfileImageUrl,
@@ -128,6 +128,7 @@ public class UserRepository : IUserRepository
                 PhoneNumber = user.PhoneNumber?.Value,
                 user.PreferredLanguage,
                 user.TimeZone,
+                user.Theme,
                 IsEmailConfirmed = user.EmailConfirmed,
                 IsPhoneConfirmed = user.PhoneConfirmed,
                 IsTwoFactorEnabled = user.TwoFactorEnabled,
@@ -174,6 +175,7 @@ public class UserRepository : IUserRepository
                 [PasswordExpiresUtc] = @PasswordExpiresUtc,
                 [PreferredLanguage] = @PreferredLanguage,
                 [TimeZone] = @TimeZone,
+                [Theme] = @Theme,
                 [ModifiedAt] = @ModifiedAt,
                 [ModifiedBy] = @ModifiedBy
             WHERE [Id] = @Id",
@@ -200,6 +202,7 @@ public class UserRepository : IUserRepository
                 PasswordExpiresUtc = user.PasswordExpiresUtc,
                 user.PreferredLanguage,
                 user.TimeZone,
+                user.Theme,
                 user.ModifiedAt,
                 user.ModifiedBy
             });
@@ -264,7 +267,7 @@ public class UserRepository : IUserRepository
             SELECT
                 [Id], [Username], [Email], [NormalizedEmail], [PasswordHash],
                 [FirstName], [LastName], [FullName] AS [DisplayName], [PhoneNumber],
-                [PreferredLanguage], [TimeZone],
+                [PreferredLanguage], [TimeZone], [Theme],
                 [IsEmailConfirmed] AS [EmailConfirmed],
                 [IsPhoneConfirmed] AS [PhoneConfirmed],
                 [IsTwoFactorEnabled] AS [TwoFactorEnabled],
@@ -639,6 +642,7 @@ public class UserRepository : IUserRepository
         public bool MustChangePassword { get; init; }
         public string? PreferredLanguage { get; init; }
         public string? TimeZone { get; init; }
+        public string? Theme { get; init; }
         public string? Metadata { get; init; }
         public bool IsSystemUser { get; init; }
         public DateTime CreatedAt { get; init; }
@@ -678,7 +682,8 @@ public class UserRepository : IUserRepository
             ModifiedBy,
             ProfileImageUrl,
             LastLoginIp,
-            PasswordExpiresUtc);
+            PasswordExpiresUtc,
+            Theme ?? "system");
     }
 
     /// <inheritdoc />

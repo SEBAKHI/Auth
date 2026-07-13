@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import * as React from "react"
 
-type Theme = "dark" | "light" | "system"
+export type Theme = "dark" | "light" | "system"
 export type ResolvedTheme = "dark" | "light"
 
 type ThemeProviderProps = {
@@ -25,7 +25,7 @@ const ThemeProviderContext = React.createContext<
   ThemeProviderState | undefined
 >(undefined)
 
-function isTheme(value: string | null): value is Theme {
+export function isTheme(value: string | null): value is Theme {
   if (value === null) {
     return false
   }

@@ -14,7 +14,8 @@ public record UpdateUserCommand(
     string? DisplayName = null,
     string? PhoneNumber = null,
     string? PreferredLanguage = null,
-    string? TimeZone = null) : IRequest<ErrorOr<UserDto>>
+    string? TimeZone = null,
+    string? Theme = null) : IRequest<ErrorOr<UserDto>>
 {
     /// <summary>
     /// The ID of the user performing the update (for audit).

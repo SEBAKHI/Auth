@@ -107,6 +107,11 @@ public class User : AggregateRoot
     public string? TimeZone { get; private set; }
 
     /// <summary>
+    /// Gets the user's preferred UI theme (light, dark, or system).
+    /// </summary>
+    public string? Theme { get; private set; }
+
+    /// <summary>
     /// Gets optional metadata as JSON.
     /// </summary>
     public string? Metadata { get; private set; }
@@ -164,7 +169,8 @@ public class User : AggregateRoot
         Guid? modifiedBy,
         string? profileImageUrl = null,
         string? lastLoginIp = null,
-        DateTime? passwordExpiresUtc = null) : base(id)
+        DateTime? passwordExpiresUtc = null,
+        string? theme = "system") : base(id)
     {
         Email = Email.From(email);
         NormalizedEmail = normalizedEmail;
@@ -194,6 +200,7 @@ public class User : AggregateRoot
         ProfileImageUrl = profileImageUrl;
         LastLoginIp = lastLoginIp;
         PasswordExpiresUtc = passwordExpiresUtc;
+        Theme = theme;
     }
 
     public static User Create(
@@ -205,7 +212,8 @@ public class User : AggregateRoot
         string? displayName = null,
         string? phoneNumber = null,
         string preferredLanguage = "en",
-        string timeZone = "UTC")
+        string timeZone = "UTC",
+        string theme = "system")
     {
         var emailVo = Email.From(email.ToLowerInvariant());
         var user = new User
@@ -225,6 +233,7 @@ public class User : AggregateRoot
             MustChangePassword = false,
             PreferredLanguage = preferredLanguage,
             TimeZone = timeZone,
+            Theme = theme,
             IsSystemUser = false,
             PasswordChangedAt = DateTime.UtcNow
         };
@@ -245,7 +254,8 @@ public class User : AggregateRoot
         string? displayName = null,
         string? profileImageUrl = null,
         string preferredLanguage = "en",
-        string timeZone = "UTC")
+        string timeZone = "UTC",
+        string theme = "system")
     {
         var emailVo = Email.From(email.ToLowerInvariant());
         var user = new User
@@ -264,6 +274,7 @@ public class User : AggregateRoot
             MustChangePassword = false,
             PreferredLanguage = preferredLanguage,
             TimeZone = timeZone,
+            Theme = theme,
             IsSystemUser = false,
             ProfileImageUrl = profileImageUrl
         };
@@ -293,6 +304,7 @@ public class User : AggregateRoot
         string? phoneNumber,
         string? preferredLanguage,
         string? timeZone,
+        string? theme,
         Guid modifiedBy)
     {
         FirstName = firstName;
@@ -301,6 +313,7 @@ public class User : AggregateRoot
         PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber);
         PreferredLanguage = preferredLanguage;
         TimeZone = timeZone;
+        Theme = theme;
         SetModified(modifiedBy);
     }
 

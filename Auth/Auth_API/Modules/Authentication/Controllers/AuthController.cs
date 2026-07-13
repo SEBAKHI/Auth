@@ -389,6 +389,7 @@ public class AuthController : ApiController
             DisplayName = User.FindFirstValue(JwtClaimNames.Name),
             PreferredLanguage = User.FindFirstValue(JwtClaimNames.Locale),
             TimeZone = User.FindFirstValue(JwtClaimNames.TimeZone),
+            Theme = User.FindFirstValue(JwtClaimNames.Theme),
             Roles = User.FindAll(JwtClaimNames.Roles).Select(c => c.Value).ToList(),
             Permissions = User.FindAll(JwtClaimNames.Permissions).Select(c => c.Value).ToList()
         };
@@ -410,23 +411,6 @@ public class AuthController : ApiController
         }
 
         return null;
-    }
-
-    private string? GetClientIpAddress()
-    {
-        // Check for forwarded header (when behind proxy/gateway)
-        var forwardedFor = Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(forwardedFor))
-        {
-            return forwardedFor.Split(',').FirstOrDefault()?.Trim();
-        }
-
-        return HttpContext.Connection.RemoteIpAddress?.ToString();
-    }
-
-    private string? GetUserAgent()
-    {
-        return Request.Headers.UserAgent.FirstOrDefault();
     }
 
     /// <summary>

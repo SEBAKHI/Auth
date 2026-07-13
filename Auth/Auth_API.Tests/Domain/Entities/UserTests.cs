@@ -83,6 +83,7 @@ public class UserTests
         user.IsSystemUser.Should().BeFalse();
         user.PreferredLanguage.Should().Be("en");
         user.TimeZone.Should().Be("UTC");
+        user.Theme.Should().Be("system");
         user.PasswordChangedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 
@@ -126,6 +127,17 @@ public class UserTests
         user.TimeZone.Should().Be("Asia/Riyadh");
     }
 
+    [Fact]
+    public void Create_WithCustomTheme_SetsValue()
+    {
+        // Arrange & Act
+        var user = User.Create("user@example.com", "hash", "Alice", "Smith", Guid.NewGuid(),
+            theme: "dark");
+
+        // Assert
+        user.Theme.Should().Be("dark");
+    }
+
     #endregion
 
     #region CreateFromExternalProvider Tests
@@ -148,6 +160,16 @@ public class UserTests
 
         // Assert
         user.EmailConfirmed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateFromExternalProvider_DefaultParameters_DefaultsThemeToSystem()
+    {
+        // Arrange & Act
+        var user = User.CreateFromExternalProvider("user@example.com", "Alice", "Smith", Guid.NewGuid());
+
+        // Assert
+        user.Theme.Should().Be("system");
     }
 
     [Fact]
@@ -176,7 +198,7 @@ public class UserTests
         var modifiedBy = Guid.NewGuid();
 
         // Act
-        user.UpdateProfile("Jane", "Doe", "J. Doe", "+1234567890", "fr", "Europe/Paris", modifiedBy);
+        user.UpdateProfile("Jane", "Doe", "J. Doe", "+1234567890", "fr", "Europe/Paris", "dark", modifiedBy);
 
         // Assert
         user.FirstName.Should().Be("Jane");
@@ -184,6 +206,7 @@ public class UserTests
         user.DisplayName.Should().Be("J. Doe");
         user.PreferredLanguage.Should().Be("fr");
         user.TimeZone.Should().Be("Europe/Paris");
+        user.Theme.Should().Be("dark");
         user.ModifiedBy.Should().Be(modifiedBy);
         user.ModifiedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
@@ -195,7 +218,7 @@ public class UserTests
         var user = CreateDefaultUser();
 
         // Act
-        user.UpdateProfile("Jane", "Doe", null, null, null, null, Guid.NewGuid());
+        user.UpdateProfile("Jane", "Doe", null, null, null, null, null, Guid.NewGuid());
 
         // Assert
         user.DisplayName.Should().BeNull();

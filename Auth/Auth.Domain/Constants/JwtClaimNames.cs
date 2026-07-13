@@ -50,6 +50,12 @@ public static class JwtClaimNames
     public const string TimeZone = "timezone";
 
     /// <summary>
+    /// Preferred UI theme of the user (light, dark, or system).
+    /// Custom claim: "theme"
+    /// </summary>
+    public const string Theme = "theme";
+
+    /// <summary>
     /// Roles assigned to the user.
     /// Custom claim: "roles"
     /// </summary>

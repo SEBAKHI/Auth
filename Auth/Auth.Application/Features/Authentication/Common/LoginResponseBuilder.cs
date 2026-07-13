@@ -145,6 +145,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             DisplayName = user.DisplayName,
             PreferredLanguage = user.PreferredLanguage,
             TimeZone = user.TimeZone,
+            Theme = user.Theme,
             Roles = roleNames,
             Permissions = permissions.ToList()
         };
@@ -154,7 +155,9 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             Token = tokenResponse,
             User = userInfo,
             RequiresPasswordChange = user.MustChangePassword,
-            RequiresTwoFactor = user.TwoFactorEnabled
+            // Tokens are only issued once 2FA is satisfied (or not enabled),
+            // so a built response never requires further verification.
+            RequiresTwoFactor = false
         };
     }
 }

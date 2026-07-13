@@ -279,4 +279,7 @@
   <data name="Validation.TimeZone.Invalid" xml:space="preserve">
     <value>المنطقة الزمنية يجب أن تكون معرّف IANA صالحًا (مثل Asia/Riyadh).</value>
   </data>
+  <data name="Validation.Theme.NotSupported" xml:space="preserve">
+    <value>يجب أن يكون المظهر أحد الخيارات: light أو dark أو system.</value>
+  </data>
 </root>

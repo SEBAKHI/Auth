@@ -64,6 +64,7 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
                 TwoFactorEnabled = user.TwoFactorEnabled,
                 PreferredLanguage = user.PreferredLanguage,
                 TimeZone = user.TimeZone,
+                Theme = user.Theme,
                 LastLoginAt = user.LastLoginAt,
                 FailedLoginAttempts = user.FailedLoginAttempts,
                 LockoutEnd = user.LockoutEnd,

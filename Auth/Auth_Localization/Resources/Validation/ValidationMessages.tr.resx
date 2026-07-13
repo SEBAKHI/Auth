@@ -279,4 +279,7 @@
   <data name="Validation.TimeZone.Invalid" xml:space="preserve">
     <value>Saat dilimi geçerli bir IANA tanımlayıcısı olmalıdır (örn. Asia/Riyadh).</value>
   </data>
+  <data name="Validation.Theme.NotSupported" xml:space="preserve">
+    <value>Tema şunlardan biri olmalıdır: light, dark, system.</value>
+  </data>
 </root>

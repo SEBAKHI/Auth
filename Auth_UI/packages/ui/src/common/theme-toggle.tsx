@@ -1,7 +1,7 @@
 import { Monitor, Moon, Sun } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { useTheme } from "@astoom/ui/theme-provider"
+import { useTheme, type Theme } from "@astoom/ui/theme-provider"
 import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
@@ -10,10 +10,19 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { usePreferenceSync } from "@astoom/ui/common/use-preference-sync"
 
 export function ThemeToggle() {
   const { t } = useTranslation()
   const { setTheme } = useTheme()
+  const syncPreference = usePreferenceSync()
+
+  const changeTheme = (theme: Theme) => {
+    setTheme(theme)
+    // Keep the profile's theme in sync so the other apps adopt it on their
+    // next session.
+    syncPreference({ theme })
+  }
 
   return (
     <DropdownMenu>
@@ -25,15 +34,15 @@ export function ThemeToggle() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>{t("common.theme")}</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => setTheme("light")}>
+        <DropdownMenuItem onClick={() => changeTheme("light")}>
           <Sun />
           {t("common.light")}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("dark")}>
+        <DropdownMenuItem onClick={() => changeTheme("dark")}>
           <Moon />
           {t("common.dark")}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme("system")}>
+        <DropdownMenuItem onClick={() => changeTheme("system")}>
           <Monitor />
           {t("common.system")}
         </DropdownMenuItem>

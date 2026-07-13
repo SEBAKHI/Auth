@@ -6,4 +6,5 @@ public record UpdateUserRequest(
     string? DisplayName = null,
     string? PhoneNumber = null,
     string? PreferredLanguage = null,
-    string? TimeZone = null);
+    string? TimeZone = null,
+    string? Theme = null);

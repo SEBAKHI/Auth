@@ -16,4 +16,5 @@ public record UpdateProfileCommand(
     string? DisplayName = null,
     string? PhoneNumber = null,
     string? PreferredLanguage = null,
-    string? TimeZone = null) : IRequest<ErrorOr<UserDto>>;
+    string? TimeZone = null,
+    string? Theme = null) : IRequest<ErrorOr<UserDto>>;

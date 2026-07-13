@@ -279,4 +279,7 @@
   <data name="Validation.TimeZone.Invalid" xml:space="preserve">
     <value>时区必须是有效的 IANA 标识符（例如 Asia/Riyadh）。</value>
   </data>
+  <data name="Validation.Theme.NotSupported" xml:space="preserve">
+    <value>主题必须是以下之一：light、dark、system。</value>
+  </data>
 </root>

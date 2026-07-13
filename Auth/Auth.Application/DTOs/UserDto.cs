@@ -23,6 +23,7 @@ public class UserDto
     public bool TwoFactorEnabled { get; set; }
     public string? PreferredLanguage { get; set; }
     public string? TimeZone { get; set; }
+    public string? Theme { get; set; }
     public DateTime? LastLoginAt { get; set; }
 
     // Security / account fields

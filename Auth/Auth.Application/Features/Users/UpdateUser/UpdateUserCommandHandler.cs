@@ -44,6 +44,8 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Error
             phoneNumber: request.PhoneNumber,
             preferredLanguage: request.PreferredLanguage,
             timeZone: request.TimeZone,
+            // Admin updates omit the theme, so a null must not wipe the user's choice.
+            theme: request.Theme ?? user.Theme,
             modifiedBy: request.ModifiedBy);
 
         await _userRepository.UpdateAsync(user, cancellationToken);
@@ -71,6 +73,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Error
             TwoFactorEnabled = user.TwoFactorEnabled,
             PreferredLanguage = user.PreferredLanguage,
             TimeZone = user.TimeZone,
+            Theme = user.Theme,
             LastLoginAt = user.LastLoginAt,
             CreatedAt = user.CreatedAt,
             ModifiedAt = user.ModifiedAt,

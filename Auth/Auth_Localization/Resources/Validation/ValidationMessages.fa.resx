@@ -279,4 +279,7 @@
   <data name="Validation.TimeZone.Invalid" xml:space="preserve">
     <value>منطقه زمانی باید یک شناسه معتبر IANA باشد (مثلاً Asia/Riyadh).</value>
   </data>
+  <data name="Validation.Theme.NotSupported" xml:space="preserve">
+    <value>پوسته باید یکی از این موارد باشد: light، dark، system.</value>
+  </data>
 </root>

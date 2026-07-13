@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider } from "react-router-dom"
 
 import { Toaster } from "@astoom/ui/sonner"
+import { ThemeSync } from "@astoom/ui/common/theme-sync"
 import { TooltipProvider } from "@astoom/ui/tooltip"
 import { AuthProvider } from "@astoom/auth/auth-context"
 import { BrandingProvider } from "@astoom/ui/branding"
@@ -17,6 +18,7 @@ export function App() {
       <QueryClientProvider client={queryClient}>
         <BrandingProvider>
           <AuthProvider>
+            <ThemeSync />
             <TooltipProvider delayDuration={300}>
               <RouterProvider router={router} />
             </TooltipProvider>

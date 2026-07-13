@@ -77,6 +77,12 @@ public class JwtTokenService : IJwtTokenService, IDisposable
             claims.Add(new Claim(JwtClaimNames.TimeZone, user.TimeZone));
         }
 
+        // Add theme if set
+        if (!string.IsNullOrEmpty(user.Theme))
+        {
+            claims.Add(new Claim(JwtClaimNames.Theme, user.Theme));
+        }
+
         // Add roles as individual claims
         foreach (var role in roles)
         {

@@ -40,6 +40,7 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
         var phoneNumber = request.PhoneNumber ?? user.PhoneNumber;
         var preferredLanguage = request.PreferredLanguage ?? user.PreferredLanguage;
         var timeZone = request.TimeZone ?? user.TimeZone;
+        var theme = request.Theme ?? user.Theme;
 
         user.UpdateProfile(
             firstName,
@@ -48,6 +49,7 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
             phoneNumber,
             preferredLanguage,
             timeZone,
+            theme,
             request.UserId);
 
         await _userRepository.UpdateAsync(user, cancellationToken);
@@ -66,6 +68,7 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
             PhoneNumber = user.PhoneNumber,
             PreferredLanguage = user.PreferredLanguage,
             TimeZone = user.TimeZone,
+            Theme = user.Theme,
             Status = user.Status,
             EmailConfirmed = user.EmailConfirmed,
             PhoneConfirmed = user.PhoneConfirmed,

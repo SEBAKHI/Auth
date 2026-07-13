@@ -16,6 +16,7 @@ public record CreateUserCommand(
     string? PhoneNumber = null,
     string? PreferredLanguage = null,
     string? TimeZone = null,
+    string? Theme = null,
     IReadOnlyList<Guid>? RoleIds = null) : IRequest<ErrorOr<UserDto>>
 {
     /// <summary>

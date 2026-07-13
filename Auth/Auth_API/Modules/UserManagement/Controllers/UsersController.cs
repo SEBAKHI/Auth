@@ -110,6 +110,7 @@ public class UsersController : ApiController
             request.PhoneNumber,
             request.PreferredLanguage,
             request.TimeZone,
+            request.Theme,
             request.RoleIds)
         {
             CreatedBy = userId
@@ -141,7 +142,8 @@ public class UsersController : ApiController
             request.DisplayName,
             request.PhoneNumber,
             request.PreferredLanguage,
-            request.TimeZone)
+            request.TimeZone,
+            request.Theme)
         {
             ModifiedBy = userId
         };
@@ -488,7 +490,8 @@ public class UsersController : ApiController
             request.DisplayName,
             request.PhoneNumber,
             request.PreferredLanguage,
-            request.TimeZone);
+            request.TimeZone,
+            request.Theme);
 
         var result = await _sender.Send(command, cancellationToken);
 

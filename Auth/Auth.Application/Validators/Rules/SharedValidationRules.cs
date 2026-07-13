@@ -145,6 +145,19 @@ public static class SharedValidationRules
     }
 
     /// <summary>
+    /// UI themes a user may store as a display preference.
+    /// </summary>
+    private static readonly string[] SupportedThemes = ["light", "dark", "system"];
+
+    public static IRuleBuilderOptions<T, string?> IsValidTheme<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(theme => theme is null ||
+                SupportedThemes.Contains(theme, StringComparer.OrdinalIgnoreCase))
+            .WithMessage("Validation.Theme.NotSupported");
+    }
+
+    /// <summary>
     /// The time zone must be an IANA identifier (e.g. "Asia/Riyadh") or "UTC".
     /// Windows ids are rejected so stored values stay portable across clients.
     /// </summary>

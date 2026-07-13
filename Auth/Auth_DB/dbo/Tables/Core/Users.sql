@@ -12,6 +12,7 @@ CREATE TABLE [dbo].[Users]
     [ProfileImageUrl] NVARCHAR(500) NULL,
     [PreferredLanguage] NVARCHAR(10) NOT NULL CONSTRAINT [DF_Users_PreferredLanguage] DEFAULT N'en',
     [TimeZone] NVARCHAR(50) NOT NULL CONSTRAINT [DF_Users_TimeZone] DEFAULT N'UTC',
+    [Theme] NVARCHAR(10) NOT NULL CONSTRAINT [DF_Users_Theme] DEFAULT N'system',
     [IsEmailConfirmed] BIT NOT NULL CONSTRAINT [DF_Users_IsEmailConfirmed] DEFAULT 0,
     [IsPhoneConfirmed] BIT NOT NULL CONSTRAINT [DF_Users_IsPhoneConfirmed] DEFAULT 0,
     [IsTwoFactorEnabled] BIT NOT NULL CONSTRAINT [DF_Users_IsTwoFactorEnabled] DEFAULT 0,
@@ -42,6 +43,7 @@ GO
 
 -- Status values: 1=Active, 2=Inactive, 3=Locked, 4=PendingVerification
 -- PreferredLanguage values: 'en', 'ar', 'tr', 'fr', 'zh', 'ur', 'fa'
+-- Theme values: 'light', 'dark', 'system'
 
 -- Indexes
 CREATE NONCLUSTERED INDEX [IX_Users_NormalizedEmail]

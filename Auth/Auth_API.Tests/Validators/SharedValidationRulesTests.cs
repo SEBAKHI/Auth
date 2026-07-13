@@ -64,4 +64,36 @@ public class SharedValidationRulesTests
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(e => e.ErrorMessage == "Validation.PreferredLanguage.NotSupported");
     }
+
+    [Theory]
+    [InlineData("light")]
+    [InlineData("dark")]
+    [InlineData("system")]
+    [InlineData("DARK")] // case-insensitive, like preferred language
+    public void Theme_SupportedValues_AreValid(string theme)
+    {
+        var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid(), Theme: theme));
+
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("blue")]
+    [InlineData("auto")]
+    [InlineData("")]
+    public void Theme_UnsupportedValues_AreRejected(string theme)
+    {
+        var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid(), Theme: theme));
+
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.ErrorMessage == "Validation.Theme.NotSupported");
+    }
+
+    [Fact]
+    public void Theme_Null_IsValid()
+    {
+        var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid()));
+
+        result.IsValid.Should().BeTrue();
+    }
 }

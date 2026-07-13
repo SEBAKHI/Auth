@@ -279,4 +279,7 @@
   <data name="Validation.TimeZone.Invalid" xml:space="preserve">
     <value>Le fuseau horaire doit être un identifiant IANA valide (p. ex. Asia/Riyadh).</value>
   </data>
+  <data name="Validation.Theme.NotSupported" xml:space="preserve">
+    <value>Le thème doit être l'un des suivants : light, dark, system.</value>
+  </data>
 </root>

@@ -5901,6 +5901,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/2fa/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TwoFactorLoginVerifyRequest"];
+                    "text/json": components["schemas"]["TwoFactorLoginVerifyRequest"];
+                    "application/*+json": components["schemas"]["TwoFactorLoginVerifyRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LoginResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/2fa/disable": {
         parameters: {
             query?: never;
@@ -8418,6 +8486,7 @@ export interface components {
             phoneNumber?: null | string;
             preferredLanguage?: null | string;
             timeZone?: null | string;
+            theme?: null | string;
             roleIds?: null | string[];
         };
         CreateWebhookKeyRequest: {
@@ -8633,10 +8702,11 @@ export interface components {
             deviceId?: null | string;
         };
         LoginResponse: {
-            token: components["schemas"]["TokenResponse"];
-            user: components["schemas"]["UserInfo"];
+            token?: null | components["schemas"]["TokenResponse"];
+            user?: null | components["schemas"]["UserInfo"];
             requiresPasswordChange?: boolean;
             requiresTwoFactor?: boolean;
+            twoFactorChallengeToken?: null | string;
         };
         LogoutRequest: {
             refreshToken?: null | string;
@@ -9275,6 +9345,11 @@ export interface components {
         };
         /** @enum {unknown} */
         TokenTypeHint: "access_token" | "refresh_token" | null;
+        TwoFactorLoginVerifyRequest: {
+            challengeToken: string;
+            code: string;
+            useRecoveryCode?: boolean;
+        };
         TwoFactorSetupResponse: {
             secret: string;
             qrCodeUri: string;
@@ -9341,6 +9416,7 @@ export interface components {
             phoneNumber?: null | string;
             preferredLanguage?: null | string;
             timeZone?: null | string;
+            theme?: null | string;
         };
         UpdateRoleRequest: {
             name: string;
@@ -9353,6 +9429,7 @@ export interface components {
             phoneNumber?: null | string;
             preferredLanguage?: null | string;
             timeZone?: null | string;
+            theme?: null | string;
         };
         UploadImageResponse: {
             key: string;
@@ -9382,6 +9459,7 @@ export interface components {
             twoFactorEnabled?: boolean;
             preferredLanguage?: null | string;
             timeZone?: null | string;
+            theme?: null | string;
             /** Format: date-time */
             lastLoginAt?: null | string;
             /** Format: int32 */
@@ -9416,6 +9494,7 @@ export interface components {
             displayName?: null | string;
             preferredLanguage?: null | string;
             timeZone?: null | string;
+            theme?: null | string;
             roles?: string[];
             permissions?: string[];
         };

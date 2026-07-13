@@ -78,7 +78,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
             displayName: request.DisplayName,
             phoneNumber: request.PhoneNumber,
             preferredLanguage: request.PreferredLanguage ?? "en",
-            timeZone: request.TimeZone ?? "UTC");
+            timeZone: request.TimeZone ?? "UTC",
+            theme: request.Theme ?? "system");
 
         await _userRepository.CreateAsync(user, cancellationToken);
 
@@ -121,6 +122,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
             TwoFactorEnabled = user.TwoFactorEnabled,
             PreferredLanguage = user.PreferredLanguage,
             TimeZone = user.TimeZone,
+            Theme = user.Theme,
             LastLoginAt = user.LastLoginAt,
             CreatedAt = user.CreatedAt,
             ModifiedAt = user.ModifiedAt,

@@ -423,6 +423,7 @@ BEGIN
         [LastName],
         [PreferredLanguage],
         [TimeZone],
+        [Theme],
         [IsEmailConfirmed],
         [Status],
         [CreatedAt],
@@ -439,6 +440,7 @@ BEGIN
         N'Account',
         N'en',
         N'UTC',
+        N'system',
         1,  -- Email confirmed
         2,  -- Status: Inactive (cannot login)
         GETUTCDATE(),
@@ -463,6 +465,7 @@ BEGIN
         [LastName],
         [PreferredLanguage],
         [TimeZone],
+        [Theme],
         [IsEmailConfirmed],
         [Status],
         [MustChangePassword],
@@ -483,6 +486,7 @@ BEGIN
         N'Administrator',
         N'en',
         N'UTC',
+        N'system',
         1,  -- Email confirmed
         1,  -- Status: Active
         1,  -- Must change password on first login
