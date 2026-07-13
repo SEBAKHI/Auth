@@ -164,6 +164,110 @@ public class OrganizationRepository : IOrganizationRepository
             new { Id = id });
     }
 
+    private static readonly IReadOnlyDictionary<string, string[]> PagedSortColumns = SortSql.Map(
+        (SortFields.Organizations.Name, ["[Name]"]),
+        (SortFields.Organizations.Code, ["[Code]"]),
+        (SortFields.Organizations.ContactEmail, ["[ContactEmail]"]),
+        (SortFields.Organizations.IsActive, ["[IsActive]"]),
+        (SortFields.Organizations.MemberCount,
+            ["(SELECT COUNT(1) FROM [dbo].[OrganizationUsers] WHERE [OrganizationId] = [Organizations].[Id] AND [IsActive] = 1)"]),
+        (SortFields.Organizations.CreatedAt, ["[CreatedAt]"]),
+        (SortFields.Organizations.ModifiedAt, ["[ModifiedAt]"]));
+
+    /// <inheritdoc />
+    public async Task<(IReadOnlyList<Organization> Organizations, int TotalCount)> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? searchTerm,
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var offset = (pageNumber - 1) * pageSize;
+        var searchPattern = string.IsNullOrEmpty(searchTerm) ? null : $"%{searchTerm}%";
+        var orderBy = SortSql.OrderBy(
+            PagedSortColumns, sortBy, sortDirection, "[Name] ASC", "[Id]");
+
+        var sql = $@"
+            SELECT COUNT(1) FROM [dbo].[Organizations]
+            WHERE (@SearchPattern IS NULL OR
+                   [Name] LIKE @SearchPattern OR
+                   [Code] LIKE @SearchPattern OR
+                   [ContactEmail] LIKE @SearchPattern);
+
+            SELECT
+                [Id], [Code], [Name], [Description], [LogoUrl], [Website],
+                [ContactEmail], [OwnerId], [IsActive], [IsAutoCreated],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+            FROM [dbo].[Organizations]
+            WHERE (@SearchPattern IS NULL OR
+                   [Name] LIKE @SearchPattern OR
+                   [Code] LIKE @SearchPattern OR
+                   [ContactEmail] LIKE @SearchPattern)
+            ORDER BY {orderBy}
+            OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
+
+        using var multi = await connection.QueryMultipleAsync(sql, new
+        {
+            SearchPattern = searchPattern,
+            Offset = offset,
+            PageSize = pageSize
+        });
+
+        var totalCount = await multi.ReadSingleAsync<int>();
+        var organizations = (await multi.ReadAsync<OrganizationDto>())
+            .Select(dto => dto.ToEntity())
+            .ToList();
+
+        return (organizations, totalCount);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, int>> GetMemberCountsAsync(
+        IReadOnlyCollection<Guid> organizationIds,
+        CancellationToken cancellationToken)
+    {
+        if (organizationIds.Count == 0)
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<(Guid OrganizationId, int Count)>(@"
+            SELECT [OrganizationId], COUNT(1) AS [Count]
+            FROM [dbo].[OrganizationUsers]
+            WHERE [OrganizationId] IN @Ids AND [IsActive] = 1
+            GROUP BY [OrganizationId]",
+            new { Ids = organizationIds });
+
+        return rows.ToDictionary(r => r.OrganizationId, r => r.Count);
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, int>> GetEnabledApplicationCountsAsync(
+        IReadOnlyCollection<Guid> organizationIds,
+        CancellationToken cancellationToken)
+    {
+        if (organizationIds.Count == 0)
+        {
+            return new Dictionary<Guid, int>();
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<(Guid OrganizationId, int Count)>(@"
+            SELECT [OrganizationId], COUNT(1) AS [Count]
+            FROM [dbo].[OrganizationApplications]
+            WHERE [OrganizationId] IN @Ids AND [IsActive] = 1
+            GROUP BY [OrganizationId]",
+            new { Ids = organizationIds });
+
+        return rows.ToDictionary(r => r.OrganizationId, r => r.Count);
+    }
+
     #endregion
 
     #region Organization Membership

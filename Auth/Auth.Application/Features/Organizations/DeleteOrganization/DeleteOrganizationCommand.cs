@@ -13,4 +13,11 @@ public record DeleteOrganizationCommand(Guid OrganizationId) : IRequest<ErrorOr<
     /// The ID of the user requesting the deletion.
     /// </summary>
     public Guid RequestedBy { get; init; }
+
+    /// <summary>
+    /// True when the caller holds the platform-wide organizations manage
+    /// permission — allows deleting without being the owner. Set by the
+    /// controller from JWT claims only, never bound from the request.
+    /// </summary>
+    public bool PlatformScope { get; init; }
 }

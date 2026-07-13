@@ -466,6 +466,7 @@ export const tr: TranslationResources = {
     subtitle:
       "Organizasyonları, üyeleri, davetleri ve uygulamaları yönetin.",
     newOrganization: "Yeni organizasyon",
+    searchPlaceholder: "Ada, koda veya iletişim e-postasına göre ara…",
     createTitle: "Organizasyon oluştur",
     editTitle: "Organizasyonu düzenle",
     contactEmail: "İletişim e-postası",

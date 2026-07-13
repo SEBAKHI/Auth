@@ -1,3 +1,5 @@
+using Auth.Domain.Constants;
+using Auth_API.Authorization;
 using Auth_Localization.Resources;
 using Auth_Localization.Resources.Errors;
 using Auth_Localization.Resources.Validation;
@@ -58,6 +60,19 @@ public abstract class ApiController : ControllerBase
     {
         var userIdClaim = User.FindFirst("sub")?.Value;
         return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
+    }
+
+    /// <summary>
+    /// True when the caller's JWT permission claims satisfy
+    /// <paramref name="permission"/>, using the same wildcard semantics as
+    /// <c>[RequirePermission]</c>. For widening handler scoping (e.g. platform
+    /// administration over all organizations) — endpoint gating still belongs
+    /// to the attribute.
+    /// </summary>
+    protected bool HasPermissionClaim(string permission)
+    {
+        var held = User.FindAll(JwtClaimNames.Permissions).Select(c => c.Value);
+        return PermissionRequirementHandler.PermissionMatches(held, permission);
     }
 
     protected string? GetClientIpAddress()

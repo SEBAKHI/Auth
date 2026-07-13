@@ -584,6 +584,23 @@ BEGIN
 END
 GO
 
+-- Platform-wide organizations administration (children of auth:* so the
+-- seeded admin role inherits them; distinct from the membership-scoped org:*)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'organizations:read')
+BEGIN
+    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (N'20000000-0000-0000-0000-0000000000A3', N'organizations:read', N'Read All Organizations', N'View any organization on the platform, including ones the caller is not a member of', '00000000-0000-0000-0000-000000000001', N'20000000-0000-0000-0000-000000000002', 3, 0, 1, GETUTCDATE(), '00000000-0000-0000-0000-000000000001');
+    PRINT 'Created organizations:read permission';
+END
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'organizations:manage')
+BEGIN
+    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (N'20000000-0000-0000-0000-0000000000A4', N'organizations:manage', N'Manage All Organizations', N'Administer any organization on the platform, including delete', '00000000-0000-0000-0000-000000000001', N'20000000-0000-0000-0000-000000000002', 3, 0, 1, GETUTCDATE(), '00000000-0000-0000-0000-000000000001');
+    PRINT 'Created organizations:manage permission';
+END
+GO
+
 -- ============================================
 -- COMPLETION
 -- ============================================

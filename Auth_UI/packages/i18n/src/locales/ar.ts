@@ -457,6 +457,7 @@ export const ar: TranslationResources = {
     title: "المنظمات",
     subtitle: "إدارة المنظمات والأعضاء والدعوات والتطبيقات.",
     newOrganization: "منظمة جديدة",
+    searchPlaceholder: "ابحث بالاسم أو الرمز أو بريد التواصل…",
     createTitle: "إنشاء منظمة",
     editTitle: "تعديل منظمة",
     contactEmail: "بريد التواصل",

@@ -37,6 +37,22 @@ public static class SortFields
         ];
     }
 
+    public static class Organizations
+    {
+        public const string Name = "name";
+        public const string Code = "code";
+        public const string ContactEmail = "contactEmail";
+        public const string IsActive = "isActive";
+        public const string MemberCount = "memberCount";
+        public const string CreatedAt = "createdAt";
+        public const string ModifiedAt = "modifiedAt";
+
+        public static readonly IReadOnlyList<string> Allowed =
+        [
+            Name, Code, ContactEmail, IsActive, MemberCount, CreatedAt, ModifiedAt
+        ];
+    }
+
     public static class Applications
     {
         public const string Name = "name";

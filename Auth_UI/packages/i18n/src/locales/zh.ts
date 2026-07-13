@@ -447,6 +447,7 @@ export const zh: TranslationResources = {
     title: "组织",
     subtitle: "管理组织、成员、邀请和应用。",
     newOrganization: "新建组织",
+    searchPlaceholder: "按名称、代码或联系邮箱搜索…",
     createTitle: "创建组织",
     editTitle: "编辑组织",
     contactEmail: "联系邮箱",

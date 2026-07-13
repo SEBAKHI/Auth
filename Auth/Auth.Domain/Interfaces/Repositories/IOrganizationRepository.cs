@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -44,6 +45,32 @@ public interface IOrganizationRepository
     /// Deletes an organization and all related data.
     /// </summary>
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets a paginated list of ALL organizations (platform administration),
+    /// with optional search over name/code/contact email.
+    /// </summary>
+    Task<(IReadOnlyList<Organization> Organizations, int TotalCount)> GetPagedAsync(
+        int pageNumber,
+        int pageSize,
+        string? searchTerm,
+        string? sortBy,
+        SortDirection sortDirection,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets active member counts for a set of organizations in one query.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, int>> GetMemberCountsAsync(
+        IReadOnlyCollection<Guid> organizationIds,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets enabled application counts for a set of organizations in one query.
+    /// </summary>
+    Task<IReadOnlyDictionary<Guid, int>> GetEnabledApplicationCountsAsync(
+        IReadOnlyCollection<Guid> organizationIds,
+        CancellationToken cancellationToken);
 
     #endregion
 

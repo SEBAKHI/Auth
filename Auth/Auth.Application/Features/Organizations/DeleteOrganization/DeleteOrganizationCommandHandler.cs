@@ -32,8 +32,8 @@ public class DeleteOrganizationCommandHandler : IRequestHandler<DeleteOrganizati
             return OrganizationErrors.NotFound(request.OrganizationId);
         }
 
-        // Only owner can delete
-        if (organization.OwnerId != request.RequestedBy)
+        // Only the owner can delete — unless the caller administers all organizations.
+        if (!request.PlatformScope && organization.OwnerId != request.RequestedBy)
         {
             return OrganizationErrors.NotOwner;
         }

@@ -20,4 +20,11 @@ public record GetOrganizationMembersQuery(
     /// The ID of the user making the request.
     /// </summary>
     public Guid RequestedBy { get; set; }
+
+    /// <summary>
+    /// True when the caller holds the platform-wide organizations permission —
+    /// skips the membership check. Set by the controller from JWT claims only,
+    /// never bound from the request.
+    /// </summary>
+    public bool PlatformScope { get; init; }
 }

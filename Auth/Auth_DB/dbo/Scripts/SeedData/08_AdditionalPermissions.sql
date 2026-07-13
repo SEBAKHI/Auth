@@ -406,5 +406,26 @@ BEGIN
     PRINT 'Created platform-settings:manage permission';
 END
 
+-- ============================================================
+-- Platform-wide Organizations Administration Permissions
+-- (distinct from org:* which is membership-scoped self-service)
+-- ============================================================
+
+-- organizations:read
+IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'organizations:read')
+BEGIN
+    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (N'20000000-0000-0000-0000-0000000000A3', N'organizations:read', N'Read All Organizations', N'View any organization on the platform, including ones the caller is not a member of', @AuthAppId, N'20000000-0000-0000-0000-000000000002', 3, 0, 1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created organizations:read permission';
+END
+
+-- organizations:manage
+IF NOT EXISTS (SELECT 1 FROM [dbo].[Permissions] WHERE [Code] = N'organizations:manage')
+BEGIN
+    INSERT INTO [dbo].[Permissions] ([Id], [Code], [Name], [Description], [ApplicationId], [ParentId], [Level], [IsWildcard], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (N'20000000-0000-0000-0000-0000000000A4', N'organizations:manage', N'Manage All Organizations', N'Administer any organization on the platform, including delete', @AuthAppId, N'20000000-0000-0000-0000-000000000002', 3, 0, 1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created organizations:manage permission';
+END
+
 PRINT 'Created all additional permissions';
 GO

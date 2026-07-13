@@ -450,6 +450,7 @@ export const en = {
     title: "Organizations",
     subtitle: "Manage organizations, members, invitations, and applications.",
     newOrganization: "New organization",
+    searchPlaceholder: "Search by name, code, or contact email…",
     createTitle: "Create organization",
     editTitle: "Edit organization",
     contactEmail: "Contact email",

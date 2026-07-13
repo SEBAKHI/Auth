@@ -469,6 +469,7 @@ export const ur: TranslationResources = {
     title: "تنظیمیں",
     subtitle: "تنظیموں، اراکین، دعوتوں اور ایپلیکیشنز کا انتظام کریں۔",
     newOrganization: "نئی تنظیم",
+    searchPlaceholder: "نام، کوڈ یا رابطہ ای میل سے تلاش کریں…",
     createTitle: "تنظیم بنائیں",
     editTitle: "تنظیم میں ترمیم کریں",
     contactEmail: "رابطہ ای میل",

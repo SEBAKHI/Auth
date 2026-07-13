@@ -2,7 +2,6 @@ import * as React from "react"
 import { createBrowserRouter } from "react-router-dom"
 
 import { OrganizationDetailPage } from "@astoom/account/pages/organizations/organization-detail-page"
-import { OrganizationsPage } from "@astoom/account/pages/organizations/organizations-page"
 import { ProfilePage } from "@astoom/account/pages/profile/profile-page"
 import { ACCOUNTS_URL } from "@astoom/api/env"
 import { RequireAnonymous, RequireAuth } from "@astoom/auth/require-auth"
@@ -22,6 +21,7 @@ import { ApplicationDetailPage } from "@/pages/applications/application-detail-p
 import { ApplicationsPage } from "@/pages/applications/applications-page"
 import { AuditLogsPage } from "@/pages/audit-logs/audit-logs-page"
 import { DashboardPage } from "@/pages/dashboard/dashboard-page"
+import { ConsoleOrganizationsPage } from "@/pages/organizations/organizations-page"
 import { PermissionDetailPage } from "@/pages/permissions/permission-detail-page"
 import { PermissionsPage } from "@/pages/permissions/permissions-page"
 import { PlatformSettingsPage } from "@/pages/platform-settings/platform-settings-page"
@@ -130,11 +130,11 @@ export const router = createBrowserRouter([
               },
             ],
           },
-          // Self-service (membership-scoped), like the pre-split console:
-          // any authenticated admin manages the organizations they belong to.
+          // Platform admins (organizations:read) manage ALL organizations;
+          // everyone else gets the membership-scoped self-service list.
           {
             path: "organizations",
-            element: <OrganizationsPage />,
+            element: <ConsoleOrganizationsPage />,
             handle: crumb("organizations", "/organizations"),
           },
           {

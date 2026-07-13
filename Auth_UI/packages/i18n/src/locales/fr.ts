@@ -474,6 +474,7 @@ export const fr: TranslationResources = {
     subtitle:
       "Gérez les organisations, les membres, les invitations et les applications.",
     newOrganization: "Nouvelle organisation",
+    searchPlaceholder: "Rechercher par nom, code ou e-mail de contact…",
     createTitle: "Créer une organisation",
     editTitle: "Modifier l'organisation",
     contactEmail: "E-mail de contact",

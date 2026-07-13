@@ -43,15 +43,18 @@ public class GetOrganizationByIdQueryHandler : IRequestHandler<GetOrganizationBy
             return OrganizationErrors.NotFound(request.OrganizationId);
         }
 
-        // Check if user is a member of this organization
-        var membership = await _organizationRepository.GetMembershipAsync(
-            request.OrganizationId,
-            request.RequestedBy,
-            cancellationToken);
-
-        if (membership == null)
+        // Members only — unless the caller administers all organizations.
+        if (!request.PlatformScope)
         {
-            return OrganizationErrors.NotMember(request.RequestedBy, request.OrganizationId);
+            var membership = await _organizationRepository.GetMembershipAsync(
+                request.OrganizationId,
+                request.RequestedBy,
+                cancellationToken);
+
+            if (membership == null)
+            {
+                return OrganizationErrors.NotMember(request.RequestedBy, request.OrganizationId);
+            }
         }
 
         // Get owner info

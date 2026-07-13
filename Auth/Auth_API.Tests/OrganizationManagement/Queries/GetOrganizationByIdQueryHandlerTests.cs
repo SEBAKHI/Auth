@@ -178,6 +178,55 @@ public class GetOrganizationByIdQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_PlatformScope_NonMember_ReturnsOrganizationDetails()
+    {
+        // Arrange — a platform admin who is NOT a member opens any organization.
+        var orgId = Guid.NewGuid();
+        var requesterId = Guid.NewGuid();
+        var query = new GetOrganizationByIdQuery(orgId)
+        {
+            RequestedBy = requesterId,
+            PlatformScope = true
+        };
+
+        var organization = TestHelpers.CreateOrganization(
+            id: orgId,
+            code: "test-org",
+            name: "Test Organization",
+            isActive: true);
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(organization);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(firstName: "Owner", lastName: "User", email: "owner@test.com"));
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetMembersAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<OrganizationUser>());
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetEnabledApplicationsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<OrganizationApplication>());
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetAssignedUserCountsAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, int>());
+
+        // Act
+        var result = await _handler.Handle(query, CancellationToken.None);
+
+        // Assert — no membership lookup at all; details returned.
+        result.IsError.Should().BeFalse();
+        result.Value.Id.Should().Be(orgId);
+        _organizationRepositoryMock.Verify(
+            r => r.GetMembershipAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task Handle_WithMultipleMembersAndApps_ReturnsCompleteData()
     {
         // Arrange

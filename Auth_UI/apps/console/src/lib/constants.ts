@@ -71,6 +71,12 @@ export const PERMISSIONS = {
   platformSettings: {
     manage: "platform-settings:manage",
   },
+  // Platform-wide administration over ALL organizations — distinct from the
+  // membership-scoped org:* permissions used by self-service.
+  organizations: {
+    read: "organizations:read",
+    manage: "organizations:manage",
+  },
 } as const
 
 export interface NavItem {

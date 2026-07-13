@@ -471,6 +471,7 @@ export const fa: TranslationResources = {
     title: "سازمان‌ها",
     subtitle: "مدیریت سازمان‌ها، اعضا، دعوت‌نامه‌ها و برنامه‌ها.",
     newOrganization: "سازمان جدید",
+    searchPlaceholder: "جستجو بر اساس نام، کد یا ایمیل تماس…",
     createTitle: "ایجاد سازمان",
     editTitle: "ویرایش سازمان",
     contactEmail: "ایمیل تماس",

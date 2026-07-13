@@ -43,11 +43,14 @@ public class GetOrganizationApplicationsQueryHandler : IRequestHandler<GetOrgani
             return OrganizationErrors.NotFound(request.OrganizationId);
         }
 
-        // Check if user is a member of the organization
-        var isMember = await _organizationRepository.IsMemberAsync(request.OrganizationId, request.RequestedBy, cancellationToken);
-        if (!isMember)
+        // Members only — unless the caller administers all organizations.
+        if (!request.PlatformScope)
         {
-            return OrganizationErrors.NotAMember;
+            var isMember = await _organizationRepository.IsMemberAsync(request.OrganizationId, request.RequestedBy, cancellationToken);
+            if (!isMember)
+            {
+                return OrganizationErrors.NotAMember;
+            }
         }
 
         var orgApps = await _organizationRepository.GetEnabledApplicationsAsync(request.OrganizationId, cancellationToken);

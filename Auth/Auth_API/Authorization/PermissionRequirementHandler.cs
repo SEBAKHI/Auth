@@ -53,8 +53,10 @@ public class PermissionRequirementHandler : AuthorizationHandler<PermissionRequi
 
     /// <summary>
     /// Checks if the user's permissions match the required permission using wildcard logic.
+    /// Public so controllers can evaluate optional scope-widening claims (e.g.
+    /// platform administration) with identical semantics to endpoint gating.
     /// </summary>
-    private static bool PermissionMatches(IEnumerable<string> userPermissions, string requiredPermission)
+    public static bool PermissionMatches(IEnumerable<string> userPermissions, string requiredPermission)
     {
         foreach (var heldPermission in userPermissions)
         {

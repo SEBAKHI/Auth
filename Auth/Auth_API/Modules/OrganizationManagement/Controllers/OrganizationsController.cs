@@ -7,6 +7,7 @@ using Auth.Application.Features.Organizations.CreateOrganization;
 using Auth.Application.Features.Organizations.DeleteOrganization;
 using Auth.Application.Features.Organizations.DisableApplication;
 using Auth.Application.Features.Organizations.EnableApplication;
+using Auth.Application.Features.Organizations.GetAllOrganizations;
 using Auth.Application.Features.Organizations.GetMemberAppRoles;
 using Auth.Application.Features.Organizations.GetOrganizationApplications;
 using Auth.Application.Features.Organizations.GetOrganizationById;
@@ -66,6 +67,32 @@ public class OrganizationsController : ApiController
     }
 
     /// <summary>
+    /// Get a paginated list of ALL organizations (platform administration).
+    /// </summary>
+    [HttpGet("all")]
+    [RequirePermission("organizations:read")]
+    [ProducesResponseType(typeof(PagedOrganizationsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAllOrganizations(
+        [FromQuery] int pageNumber = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? searchTerm = null,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetAllOrganizationsQuery(
+            pageNumber, pageSize, searchTerm, sortBy, sortDirection);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            organizations => Ok(organizations),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
     /// Get organization details by ID.
     /// </summary>
     [HttpGet("{id:guid}")]
@@ -76,7 +103,11 @@ public class OrganizationsController : ApiController
     public async Task<IActionResult> GetOrganization(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var query = new GetOrganizationByIdQuery(id) { RequestedBy = userId };
+        var query = new GetOrganizationByIdQuery(id)
+        {
+            RequestedBy = userId,
+            PlatformScope = HasPermissionClaim("organizations:read")
+        };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -155,7 +186,11 @@ public class OrganizationsController : ApiController
     public async Task<IActionResult> DeleteOrganization(Guid id, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var command = new DeleteOrganizationCommand(id) { RequestedBy = userId };
+        var command = new DeleteOrganizationCommand(id)
+        {
+            RequestedBy = userId,
+            PlatformScope = HasPermissionClaim("organizations:manage")
+        };
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -186,7 +221,8 @@ public class OrganizationsController : ApiController
         var userId = GetCurrentUserId();
         var query = new GetOrganizationMembersQuery(id, pageNumber, pageSize, search, sortBy, sortDirection)
         {
-            RequestedBy = userId
+            RequestedBy = userId,
+            PlatformScope = HasPermissionClaim("organizations:read")
         };
         var result = await _sender.Send(query, cancellationToken);
 
@@ -259,7 +295,11 @@ public class OrganizationsController : ApiController
         CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
-        var query = new GetPendingInvitationsQuery(id, sortBy, sortDirection) { RequestedBy = userId };
+        var query = new GetPendingInvitationsQuery(id, sortBy, sortDirection)
+        {
+            RequestedBy = userId,
+            PlatformScope = HasPermissionClaim("organizations:read")
+        };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -329,7 +369,11 @@ public class OrganizationsController : ApiController
         CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
-        var query = new GetOrganizationApplicationsQuery(id, sortBy, sortDirection) { RequestedBy = userId };
+        var query = new GetOrganizationApplicationsQuery(id, sortBy, sortDirection)
+        {
+            RequestedBy = userId,
+            PlatformScope = HasPermissionClaim("organizations:read")
+        };
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
