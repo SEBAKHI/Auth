@@ -75,3 +75,6 @@ function InputOTPSeparator({ ...props }: React.ComponentProps<"div">) {
 }
 
 export { InputOTP, InputOTPGroup, InputOTPSlot, InputOTPSeparator }
+// Re-exported so consumers outside packages/ui don't need their own
+// dependency on input-otp just for the digit pattern.
+export { REGEXP_ONLY_DIGITS } from "input-otp"

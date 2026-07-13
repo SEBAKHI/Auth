@@ -491,6 +491,9 @@
   <data name="TwoFactor.VerificationRequired" xml:space="preserve">
     <value>La vérification de l'authentification à deux facteurs est requise.</value>
   </data>
+  <data name="TwoFactor.ChallengeInvalid" xml:space="preserve">
+    <value>Le défi d'authentification à deux facteurs est invalide ou a expiré. Veuillez vous reconnecter.</value>
+  </data>
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>L'authentification à deux facteurs a été temporairement verrouillée en raison de trop nombreuses tentatives échouées.</value>
   </data>

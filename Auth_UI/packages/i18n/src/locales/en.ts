@@ -112,6 +112,7 @@ export const en = {
     management: "Management",
     security: "Security",
     platform: "Platform",
+    account: "Account",
   },
   auth: {
     signInTitle: "Sign in",
@@ -147,8 +148,11 @@ export const en = {
     resendCode: "Resend code",
     emailVerifiedSuccess: "Email confirmed.",
     verify: "Verify",
-    twoFactorLoginNotice:
-      "This account has two-factor authentication enabled. A session was issued; manage 2FA from your profile.",
+    useRecoveryCode: "Use a recovery code",
+    useAuthenticatorCode: "Use an authenticator code",
+    recoveryCode: "Recovery code",
+    twoFactorChallengeExpired:
+      "Your sign-in attempt expired. Please sign in again.",
     forgotSent: "If that email exists, a reset code has been sent.",
     signedOut: "You have been signed out.",
     sessionExpired: "Your session has expired. Please sign in again.",

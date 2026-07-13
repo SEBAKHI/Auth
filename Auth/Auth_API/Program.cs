@@ -204,6 +204,7 @@ builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
 builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
 builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 builder.Services.AddScoped<ITwoFactorAuthRepository, TwoFactorAuthRepository>();
+builder.Services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IExternalAuthProviderRepository, ExternalAuthProviderRepository>();
@@ -340,6 +341,7 @@ builder.Services.AddSingleton<Auth.Application.IntegrationEvents.IIntegrationEve
 
 // Shared Application Services
 builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
+builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
 
 // Authorization

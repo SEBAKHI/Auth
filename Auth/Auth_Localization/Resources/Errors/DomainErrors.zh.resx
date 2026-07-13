@@ -491,6 +491,9 @@
   <data name="TwoFactor.VerificationRequired" xml:space="preserve">
     <value>需要双因素身份验证。</value>
   </data>
+  <data name="TwoFactor.ChallengeInvalid" xml:space="preserve">
+    <value>双因素验证挑战无效或已过期。请重新登录。</value>
+  </data>
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>由于失败尝试次数过多，双因素身份验证已被临时锁定。</value>
   </data>

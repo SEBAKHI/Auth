@@ -13,6 +13,7 @@ import type { paths, Schemas } from "./types"
 
 const REFRESH_PATH = "/api/v1/Auth/refresh"
 const LOGIN_PATH = "/api/v1/Auth/login"
+const TWO_FACTOR_VERIFY_PATH = "/api/v1/auth/2fa/verify"
 
 /** Event dispatched when the session can no longer be refreshed. */
 export const SESSION_EXPIRED_EVENT = "auth:session-expired"
@@ -85,7 +86,11 @@ export async function ensureFreshAccessToken(): Promise<string | null> {
 }
 
 function isAuthFlow(url: string): boolean {
-  return url.includes(REFRESH_PATH) || url.includes(LOGIN_PATH)
+  return (
+    url.includes(REFRESH_PATH) ||
+    url.includes(LOGIN_PATH) ||
+    url.includes(TWO_FACTOR_VERIFY_PATH)
+  )
 }
 
 const authMiddleware: Middleware = {

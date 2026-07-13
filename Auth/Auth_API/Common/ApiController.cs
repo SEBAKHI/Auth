@@ -60,6 +60,23 @@ public abstract class ApiController : ControllerBase
         return Guid.TryParse(userIdClaim, out var userId) ? userId : Guid.Empty;
     }
 
+    protected string? GetClientIpAddress()
+    {
+        // Check for forwarded header (when behind proxy/gateway)
+        var forwardedFor = Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(forwardedFor))
+        {
+            return forwardedFor.Split(',').FirstOrDefault()?.Trim();
+        }
+
+        return HttpContext.Connection.RemoteIpAddress?.ToString();
+    }
+
+    protected string? GetUserAgent()
+    {
+        return Request.Headers.UserAgent.FirstOrDefault();
+    }
+
     /// <summary>
     /// Resolves a success-message resource from <see cref="AuthMessages"/> for
     /// the current request culture, falling back to the English text produced

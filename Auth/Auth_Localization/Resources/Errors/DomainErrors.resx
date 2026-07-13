@@ -491,6 +491,9 @@
   <data name="TwoFactor.VerificationRequired" xml:space="preserve">
     <value>Two-factor authentication verification is required.</value>
   </data>
+  <data name="TwoFactor.ChallengeInvalid" xml:space="preserve">
+    <value>The two-factor challenge is invalid or has expired. Please sign in again.</value>
+  </data>
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>Two-factor authentication has been temporarily locked due to too many failed attempts.</value>
   </data>

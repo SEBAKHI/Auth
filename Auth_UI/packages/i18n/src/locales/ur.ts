@@ -117,6 +117,7 @@ export const ur: TranslationResources = {
     management: "انتظام",
     security: "سلامتی",
     platform: "پلیٹ فارم",
+    account: "اکاؤنٹ",
   },
   auth: {
     signInTitle: "سائن ان",
@@ -154,8 +155,11 @@ export const ur: TranslationResources = {
     resendCode: "کوڈ دوبارہ بھیجیں",
     emailVerifiedSuccess: "ای میل کی تصدیق ہو گئی۔",
     verify: "تصدیق کریں",
-    twoFactorLoginNotice:
-      "اس اکاؤنٹ پر دو مرحلہ توثیق فعال ہے۔ سیشن جاری کر دیا گیا؛ اپنے پروفائل سے 2FA کا انتظام کریں۔",
+    useRecoveryCode: "ریکوری کوڈ استعمال کریں",
+    useAuthenticatorCode: "تصدیقی ایپ کا کوڈ استعمال کریں",
+    recoveryCode: "ریکوری کوڈ",
+    twoFactorChallengeExpired:
+      "سائن ان کی کوشش کی میعاد ختم ہو گئی۔ براہ کرم دوبارہ سائن ان کریں۔",
     forgotSent: "اگر یہ ای میل موجود ہے تو ری سیٹ کوڈ بھیج دیا گیا ہے۔",
     signedOut: "آپ سائن آؤٹ ہو گئے ہیں۔",
     sessionExpired: "آپ کا سیشن ختم ہو گیا ہے۔ براہ کرم دوبارہ سائن ان کریں۔",

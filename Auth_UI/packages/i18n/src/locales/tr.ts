@@ -117,6 +117,7 @@ export const tr: TranslationResources = {
     management: "Yönetim",
     security: "Güvenlik",
     platform: "Platform",
+    account: "Hesap",
   },
   auth: {
     signInTitle: "Oturum aç",
@@ -153,8 +154,11 @@ export const tr: TranslationResources = {
     resendCode: "Kodu yeniden gönder",
     emailVerifiedSuccess: "E-posta doğrulandı.",
     verify: "Doğrula",
-    twoFactorLoginNotice:
-      "Bu hesapta iki adımlı doğrulama etkin. Bir oturum açıldı; 2FA'yı profilinizden yönetin.",
+    useRecoveryCode: "Kurtarma kodu kullan",
+    useAuthenticatorCode: "Doğrulayıcı kodu kullan",
+    recoveryCode: "Kurtarma kodu",
+    twoFactorChallengeExpired:
+      "Oturum açma denemenizin süresi doldu. Lütfen tekrar oturum açın.",
     forgotSent: "Bu e-posta kayıtlıysa bir sıfırlama kodu gönderildi.",
     signedOut: "Oturumunuz kapatıldı.",
     sessionExpired: "Oturumunuzun süresi doldu. Lütfen tekrar oturum açın.",

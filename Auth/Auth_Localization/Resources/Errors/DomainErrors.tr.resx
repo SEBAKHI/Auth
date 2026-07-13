@@ -491,6 +491,9 @@
   <data name="TwoFactor.VerificationRequired" xml:space="preserve">
     <value>İki faktörlü kimlik doğrulama doğrulaması gereklidir.</value>
   </data>
+  <data name="TwoFactor.ChallengeInvalid" xml:space="preserve">
+    <value>İki faktörlü doğrulama isteği geçersiz veya süresi dolmuş. Lütfen tekrar giriş yapın.</value>
+  </data>
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>Çok fazla başarısız deneme nedeniyle iki faktörlü kimlik doğrulama geçici olarak kilitlenmiştir.</value>
   </data>

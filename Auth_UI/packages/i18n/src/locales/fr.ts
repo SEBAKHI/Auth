@@ -117,6 +117,7 @@ export const fr: TranslationResources = {
     management: "Gestion",
     security: "Sécurité",
     platform: "Plateforme",
+    account: "Compte",
   },
   auth: {
     signInTitle: "Connexion",
@@ -156,8 +157,11 @@ export const fr: TranslationResources = {
     resendCode: "Renvoyer le code",
     emailVerifiedSuccess: "E-mail confirmé.",
     verify: "Vérifier",
-    twoFactorLoginNotice:
-      "Ce compte a l'authentification à deux facteurs activée. Une session a été ouverte ; gérez la 2FA depuis votre profil.",
+    useRecoveryCode: "Utiliser un code de récupération",
+    useAuthenticatorCode: "Utiliser un code d'authentification",
+    recoveryCode: "Code de récupération",
+    twoFactorChallengeExpired:
+      "Votre tentative de connexion a expiré. Veuillez vous reconnecter.",
     forgotSent:
       "Si cet e-mail existe, un code de réinitialisation a été envoyé.",
     signedOut: "Vous avez été déconnecté.",

@@ -17,6 +17,7 @@ public class ExternalLoginCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPersonalOrganizationCreator> _personalOrgCreatorMock;
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock;
+    private readonly Mock<ITwoFactorChallengeService> _twoFactorChallengeServiceMock;
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
     private readonly Mock<ILogger<ExternalLoginCommandHandler>> _loggerMock;
     private readonly Mock<IExternalAuthProvider> _providerMock;
@@ -29,6 +30,7 @@ public class ExternalLoginCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _personalOrgCreatorMock = new Mock<IPersonalOrganizationCreator>();
         _loginResponseBuilderMock = new Mock<ILoginResponseBuilder>();
+        _twoFactorChallengeServiceMock = new Mock<ITwoFactorChallengeService>();
         _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
         _loggerMock = new Mock<ILogger<ExternalLoginCommandHandler>>();
         _providerMock = new Mock<IExternalAuthProvider>();
@@ -39,6 +41,7 @@ public class ExternalLoginCommandHandlerTests
             _userRepositoryMock.Object,
             _personalOrgCreatorMock.Object,
             _loginResponseBuilderMock.Object,
+            _twoFactorChallengeServiceMock.Object,
             _eventDispatcherMock.Object,
             _loggerMock.Object);
     }
@@ -164,7 +167,48 @@ public class ExternalLoginCommandHandlerTests
 
         // Assert
         result.IsError.Should().BeFalse();
-        result.Value.Token.AccessToken.Should().Be("access-token");
+        result.Value.Token!.AccessToken.Should().Be("access-token");
+    }
+
+    [Fact]
+    public async Task Handle_TwoFactorEnabled_ReturnsChallengeWithoutTokens()
+    {
+        // Arrange
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, twoFactorEnabled: true);
+        var externalUser = CreateExternalUserInfo();
+        var externalLogin = TestHelpers.CreateUserExternalLogin(userId: userId);
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalLogin);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(externalLogin.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _twoFactorChallengeServiceMock
+            .Setup(s => s.CreateChallengeAsync(user, command.IpAddress, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("challenge-token");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.RequiresTwoFactor.Should().BeTrue();
+        result.Value.TwoFactorChallengeToken.Should().Be("challenge-token");
+        result.Value.Token.Should().BeNull();
+        result.Value.User.Should().BeNull();
+
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

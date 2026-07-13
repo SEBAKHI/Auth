@@ -21,6 +21,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
+    private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly PasswordSettings _passwordSettings;
     private readonly ILogger<LoginCommandHandler> _logger;
@@ -30,6 +31,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         ILoginAttemptRepository loginAttemptRepository,
         IPasswordHasher passwordHasher,
         ILoginResponseBuilder loginResponseBuilder,
+        ITwoFactorChallengeService twoFactorChallengeService,
         IDomainEventDispatcher eventDispatcher,
         IOptions<PasswordSettings> passwordSettings,
         ILogger<LoginCommandHandler> logger)
@@ -38,6 +40,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         _loginAttemptRepository = loginAttemptRepository;
         _passwordHasher = passwordHasher;
         _loginResponseBuilder = loginResponseBuilder;
+        _twoFactorChallengeService = twoFactorChallengeService;
         _eventDispatcher = eventDispatcher;
         _passwordSettings = passwordSettings.Value;
         _logger = logger;
@@ -128,6 +131,23 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             var newHash = _passwordHasher.HashPassword(request.Password);
             await _userRepository.UpdatePasswordAsync(user.Id, newHash, user.Id, cancellationToken);
             _logger.LogInformation("Rehashed password for user {UserId} due to parameter changes", user.Id);
+        }
+
+        // Two-factor gate: no tokens are issued until the code is verified.
+        // The client completes the login via the 2fa/verify endpoint.
+        if (user.TwoFactorEnabled)
+        {
+            var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
+                user, request.IpAddress, cancellationToken);
+
+            await RecordLoginAttemptAsync(user.Id, request.Email, false, "Two-factor verification pending",
+                request.IpAddress, request.UserAgent, cancellationToken);
+
+            return new LoginResponse
+            {
+                RequiresTwoFactor = true,
+                TwoFactorChallengeToken = challengeToken
+            };
         }
 
         // Record successful login on entity (raises UserLoggedInEvent)

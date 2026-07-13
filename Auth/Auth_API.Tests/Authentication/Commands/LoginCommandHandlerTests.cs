@@ -21,6 +21,7 @@ public class LoginCommandHandlerTests
     private readonly Mock<ILoginAttemptRepository> _loginAttemptRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock;
+    private readonly Mock<ITwoFactorChallengeService> _twoFactorChallengeServiceMock;
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
     private readonly Mock<ILogger<LoginCommandHandler>> _loggerMock;
     private readonly PasswordSettings _passwordSettings;
@@ -32,6 +33,7 @@ public class LoginCommandHandlerTests
         _loginAttemptRepositoryMock = new Mock<ILoginAttemptRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _loginResponseBuilderMock = new Mock<ILoginResponseBuilder>();
+        _twoFactorChallengeServiceMock = new Mock<ITwoFactorChallengeService>();
         _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
         _loggerMock = new Mock<ILogger<LoginCommandHandler>>();
 
@@ -42,6 +44,7 @@ public class LoginCommandHandlerTests
             _loginAttemptRepositoryMock.Object,
             _passwordHasherMock.Object,
             _loginResponseBuilderMock.Object,
+            _twoFactorChallengeServiceMock.Object,
             _eventDispatcherMock.Object,
             TestHelpers.CreateOptions(_passwordSettings),
             _loggerMock.Object);
@@ -569,6 +572,78 @@ public class LoginCommandHandlerTests
             Times.Once);
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(user, token),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_TwoFactorEnabled_ReturnsChallengeWithoutTokens()
+    {
+        // Arrange
+        var user = TestHelpers.CreateUser(twoFactorEnabled: true);
+        var command = CreateCommand(email: user.Email);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Returns(true);
+
+        _passwordHasherMock
+            .Setup(h => h.NeedsRehash(user.PasswordHash))
+            .Returns(false);
+
+        _twoFactorChallengeServiceMock
+            .Setup(s => s.CreateChallengeAsync(user, command.IpAddress, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("challenge-token");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.RequiresTwoFactor.Should().BeTrue();
+        result.Value.TwoFactorChallengeToken.Should().Be("challenge-token");
+        result.Value.Token.Should().BeNull();
+        result.Value.User.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_TwoFactorEnabled_DoesNotBuildLoginResponseOrRecordSuccess()
+    {
+        // Arrange
+        var user = TestHelpers.CreateUser(twoFactorEnabled: true);
+        var command = CreateCommand(email: user.Email);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Returns(true);
+
+        _passwordHasherMock
+            .Setup(h => h.NeedsRehash(user.PasswordHash))
+            .Returns(false);
+
+        _twoFactorChallengeServiceMock
+            .Setup(s => s.CreateChallengeAsync(user, command.IpAddress, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("challenge-token");
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        user.LastLoginAt.Should().BeNull();
+
+        // A pending (failure-style) login attempt is recorded for the audit trail
+        _loginAttemptRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<LoginAttempt>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

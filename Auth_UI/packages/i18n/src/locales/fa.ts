@@ -117,6 +117,7 @@ export const fa: TranslationResources = {
     management: "مدیریت",
     security: "امنیت",
     platform: "پلتفرم",
+    account: "حساب",
   },
   auth: {
     signInTitle: "ورود",
@@ -156,8 +157,11 @@ export const fa: TranslationResources = {
     resendCode: "ارسال مجدد کد",
     emailVerifiedSuccess: "ایمیل تأیید شد.",
     verify: "تأیید",
-    twoFactorLoginNotice:
-      "احراز هویت دومرحله‌ای برای این حساب فعال است. نشست ایجاد شد؛ مدیریت آن از طریق پروفایل شما امکان‌پذیر است.",
+    useRecoveryCode: "استفاده از کد بازیابی",
+    useAuthenticatorCode: "استفاده از کد برنامه احراز هویت",
+    recoveryCode: "کد بازیابی",
+    twoFactorChallengeExpired:
+      "مهلت تلاش برای ورود به پایان رسید. لطفاً دوباره وارد شوید.",
     forgotSent: "اگر این ایمیل موجود باشد، کد بازنشانی ارسال شده است.",
     signedOut: "از حساب خود خارج شدید.",
     sessionExpired: "نشست شما منقضی شده است. لطفاً دوباره وارد شوید.",

@@ -19,9 +19,19 @@ import type { UserInfo } from "@astoom/api/types"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
 
-export interface LoginResult {
-  requiresPasswordChange: boolean
-  requiresTwoFactor: boolean
+export type LoginResult =
+  | { status: "authenticated"; requiresPasswordChange: boolean }
+  | { status: "twoFactorRequired"; challengeToken: string }
+
+/**
+ * In-memory fallback for the pending 2FA challenge so a lost navigation state
+ * (e.g. a re-render race) doesn't strand the verify page. Never persisted —
+ * a page refresh intentionally sends the user back to /login.
+ */
+let pendingTwoFactorChallenge: string | null = null
+
+export function getPendingTwoFactorChallenge(): string | null {
+  return pendingTwoFactorChallenge
 }
 
 interface AuthContextValue {
@@ -37,6 +47,11 @@ interface AuthContextValue {
     idToken: string,
     nonce?: string
   ) => Promise<LoginResult>
+  completeTwoFactor: (
+    challengeToken: string,
+    code: string,
+    useRecoveryCode: boolean
+  ) => Promise<{ requiresPasswordChange: boolean }>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -121,6 +136,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handler)
   }, [])
 
+  // Shared tail of every login variant: either a 2FA challenge (no tokens
+  // yet, the verify step completes the session) or a full token response.
+  const adoptLoginResponse = React.useCallback(
+    (data: {
+      token?: { accessToken: string; refreshToken: string } | null
+      user?: UserInfo | null
+      requiresPasswordChange?: boolean
+      twoFactorChallengeToken?: string | null
+    }): LoginResult => {
+      if (data.twoFactorChallengeToken) {
+        pendingTwoFactorChallenge = data.twoFactorChallengeToken
+        return {
+          status: "twoFactorRequired",
+          challengeToken: data.twoFactorChallengeToken,
+        }
+      }
+      if (!data.token || !data.user) {
+        throw new Error("Login failed")
+      }
+
+      pendingTwoFactorChallenge = null
+      setTokens(data.token.accessToken, data.token.refreshToken)
+      setUser(data.user)
+      setStatus("authenticated")
+      applyProfilePreferences(data.user)
+
+      return {
+        status: "authenticated",
+        requiresPasswordChange: data.requiresPasswordChange ?? false,
+      }
+    },
+    [applyProfilePreferences]
+  )
+
   const login = React.useCallback(
     async (email: string, password: string): Promise<LoginResult> => {
       const { data, error } = await api.POST("/api/v1/Auth/login", {
@@ -130,17 +179,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error ?? new Error("Login failed")
       }
 
-      setTokens(data.token.accessToken, data.token.refreshToken)
-      setUser(data.user)
-      setStatus("authenticated")
-      applyProfilePreferences(data.user)
-
-      return {
-        requiresPasswordChange: data.requiresPasswordChange ?? false,
-        requiresTwoFactor: data.requiresTwoFactor ?? false,
-      }
+      return adoptLoginResponse(data)
     },
-    [applyProfilePreferences]
+    [adoptLoginResponse]
   )
 
   const loginExternal = React.useCallback(
@@ -156,17 +197,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error ?? new Error("External login failed")
       }
 
-      setTokens(data.token.accessToken, data.token.refreshToken)
-      setUser(data.user)
-      setStatus("authenticated")
-      applyProfilePreferences(data.user)
-
-      return {
-        requiresPasswordChange: data.requiresPasswordChange ?? false,
-        requiresTwoFactor: data.requiresTwoFactor ?? false,
-      }
+      return adoptLoginResponse(data)
     },
-    [applyProfilePreferences]
+    [adoptLoginResponse]
+  )
+
+  const completeTwoFactor = React.useCallback(
+    async (
+      challengeToken: string,
+      code: string,
+      useRecoveryCode: boolean
+    ): Promise<{ requiresPasswordChange: boolean }> => {
+      const { data, error } = await api.POST("/api/v1/auth/2fa/verify", {
+        body: { challengeToken, code, useRecoveryCode },
+      })
+      if (error || !data) {
+        throw error ?? new Error("Two-factor verification failed")
+      }
+
+      const result = adoptLoginResponse(data)
+      if (result.status !== "authenticated") {
+        throw new Error("Two-factor verification failed")
+      }
+      return { requiresPasswordChange: result.requiresPasswordChange }
+    },
+    [adoptLoginResponse]
   )
 
   const logout = React.useCallback(async () => {
@@ -210,6 +265,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasAnyPermission,
       login,
       loginExternal,
+      completeTwoFactor,
       logout,
       refreshUser: loadCurrentUser,
     }),
@@ -222,6 +278,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasAnyPermission,
       login,
       loginExternal,
+      completeTwoFactor,
       logout,
       loadCurrentUser,
     ]

@@ -23,6 +23,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly IUserRepository _userRepository;
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
+    private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<ExternalLoginCommandHandler> _logger;
 
@@ -32,6 +33,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         IUserRepository userRepository,
         IPersonalOrganizationCreator personalOrganizationCreator,
         ILoginResponseBuilder loginResponseBuilder,
+        ITwoFactorChallengeService twoFactorChallengeService,
         IDomainEventDispatcher eventDispatcher,
         ILogger<ExternalLoginCommandHandler> logger)
     {
@@ -40,6 +42,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         _userRepository = userRepository;
         _personalOrganizationCreator = personalOrganizationCreator;
         _loginResponseBuilder = loginResponseBuilder;
+        _twoFactorChallengeService = twoFactorChallengeService;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -153,6 +156,24 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         {
             await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
             user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
+        }
+
+        // Two-factor gate: the user opted into 2FA, so a provider login must
+        // not bypass it. No tokens are issued until the code is verified.
+        if (user.TwoFactorEnabled)
+        {
+            var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
+                user, request.IpAddress, cancellationToken);
+
+            _logger.LogInformation(
+                "Two-factor verification pending for external login of user {UserId} via {Provider}",
+                user.Id, request.Provider);
+
+            return new LoginResponse
+            {
+                RequiresTwoFactor = true,
+                TwoFactorChallengeToken = challengeToken
+            };
         }
 
         // Record successful login on entity (raises UserLoggedInEvent)

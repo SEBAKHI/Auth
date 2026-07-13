@@ -491,6 +491,9 @@
   <data name="TwoFactor.VerificationRequired" xml:space="preserve">
     <value>التحقق من المصادقة الثنائية مطلوب.</value>
   </data>
+  <data name="TwoFactor.ChallengeInvalid" xml:space="preserve">
+    <value>تحدي المصادقة الثنائية غير صالح أو منتهي الصلاحية. يرجى تسجيل الدخول مرة أخرى.</value>
+  </data>
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>تم قفل المصادقة الثنائية مؤقتًا بسبب محاولات فاشلة كثيرة.</value>
   </data>

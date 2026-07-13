@@ -491,6 +491,9 @@
   <data name="TwoFactor.VerificationRequired" xml:space="preserve">
     <value>تأیید احراز هویت دو مرحله‌ای الزامی است.</value>
   </data>
+  <data name="TwoFactor.ChallengeInvalid" xml:space="preserve">
+    <value>چالش احراز هویت دو مرحله‌ای نامعتبر است یا منقضی شده است. لطفاً دوباره وارد شوید.</value>
+  </data>
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>احراز هویت دو مرحله‌ای به دلیل تلاش‌های ناموفق متعدد موقتاً قفل شده است.</value>
   </data>

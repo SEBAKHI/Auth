@@ -1,14 +1,17 @@
 using System.Security.Claims;
 using Asp.Versioning;
+using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.DisableTwoFactor;
 using Auth.Application.Features.Authentication.EnableTwoFactor;
 using Auth.Application.Features.Authentication.SetupTwoFactor;
+using Auth.Application.Features.Authentication.VerifyTwoFactorLogin;
 using Auth.Domain.Constants;
 using Auth_API.Common;
 using Auth_API.Modules.Authentication.Contracts;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Auth_API.Modules.Authentication.Controllers;
 
@@ -74,6 +77,35 @@ public class TwoFactorController : ApiController
         }
 
         var command = new EnableTwoFactorCommand(userId, request.Code);
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Completes a two-factor login by verifying a TOTP or recovery code
+    /// against a pending login challenge, then issues tokens.
+    /// </summary>
+    /// <param name="request">The challenge token and verification code.</param>
+    /// <returns>The full login response with tokens and user info.</returns>
+    [HttpPost("verify")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> Verify([FromBody] TwoFactorLoginVerifyRequest request, CancellationToken cancellationToken)
+    {
+        var command = new VerifyTwoFactorLoginCommand(
+            request.ChallengeToken,
+            request.Code,
+            request.UseRecoveryCode,
+            GetClientIpAddress(),
+            GetUserAgent());
+
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(

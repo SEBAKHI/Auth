@@ -116,6 +116,7 @@ export const ar: TranslationResources = {
     management: "الإدارة",
     security: "الأمان",
     platform: "المنصة",
+    account: "الحساب",
   },
   auth: {
     signInTitle: "تسجيل الدخول",
@@ -151,8 +152,11 @@ export const ar: TranslationResources = {
     resendCode: "إعادة إرسال الرمز",
     emailVerifiedSuccess: "تم تأكيد البريد الإلكتروني.",
     verify: "تحقق",
-    twoFactorLoginNotice:
-      "هذا الحساب يفعّل المصادقة الثنائية. تم إصدار جلسة؛ يمكنك إدارة المصادقة الثنائية من ملفك الشخصي.",
+    useRecoveryCode: "استخدام رمز استرداد",
+    useAuthenticatorCode: "استخدام رمز تطبيق المصادقة",
+    recoveryCode: "رمز الاسترداد",
+    twoFactorChallengeExpired:
+      "انتهت صلاحية محاولة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى.",
     forgotSent: "إذا كان البريد موجودًا، فقد تم إرسال رمز إعادة التعيين.",
     signedOut: "تم تسجيل خروجك.",
     sessionExpired: "انتهت صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى.",

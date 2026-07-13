@@ -116,6 +116,7 @@ export const zh: TranslationResources = {
     management: "管理",
     security: "安全",
     platform: "平台",
+    account: "账户",
   },
   auth: {
     signInTitle: "登录",
@@ -151,8 +152,10 @@ export const zh: TranslationResources = {
     resendCode: "重新发送验证码",
     emailVerifiedSuccess: "邮箱已确认。",
     verify: "验证",
-    twoFactorLoginNotice:
-      "此账户已启用双重认证。会话已创建；请在个人资料中管理双重认证。",
+    useRecoveryCode: "使用恢复代码",
+    useAuthenticatorCode: "使用验证器验证码",
+    recoveryCode: "恢复代码",
+    twoFactorChallengeExpired: "登录尝试已过期，请重新登录。",
     forgotSent: "如果该邮箱存在，重置验证码已发送。",
     signedOut: "您已退出登录。",
     sessionExpired: "会话已过期，请重新登录。",

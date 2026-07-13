@@ -70,11 +70,16 @@ export function LoginPage({
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
       const result = await login(values.email, values.password)
+      if (result.status === "twoFactorRequired") {
+        navigate("/two-factor", {
+          replace: true,
+          state: { challengeToken: result.challengeToken, from },
+        })
+        return
+      }
       toast.success(t("auth.welcomeBack"))
       if (result.requiresPasswordChange) {
         navigate("/force-password-change", { replace: true })
-      } else if (result.requiresTwoFactor) {
-        navigate("/two-factor", { replace: true })
       } else {
         navigate(from, { replace: true })
       }

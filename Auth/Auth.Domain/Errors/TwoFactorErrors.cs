@@ -15,6 +15,10 @@ public static class TwoFactorErrors
         code: "TwoFactor.VerificationRequired",
         description: "Two-factor authentication verification is required.");
 
+    public static Error ChallengeInvalid => Error.Unauthorized(
+        code: "TwoFactor.ChallengeInvalid",
+        description: "The two-factor challenge is invalid or has expired. Please sign in again.");
+
     public static Error LockedOut => Error.Forbidden(
         code: "TwoFactor.LockedOut",
         description: "Two-factor authentication has been temporarily locked due to too many failed attempts.");

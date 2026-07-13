@@ -27,7 +27,8 @@ public static class TestHelpers
         string? lastName = null,
         UserStatus status = UserStatus.Active,
         bool emailConfirmed = true,
-        Guid? createdBy = null)
+        Guid? createdBy = null,
+        bool twoFactorEnabled = false)
     {
         var userId = id ?? Guid.NewGuid();
         var userEmail = email ?? $"user-{userId:N}@test.com";
@@ -44,8 +45,8 @@ public static class TestHelpers
             status: status,
             emailConfirmed: emailConfirmed,
             phoneConfirmed: false,
-            twoFactorEnabled: false,
-            twoFactorSecret: null,
+            twoFactorEnabled: twoFactorEnabled,
+            twoFactorSecret: twoFactorEnabled ? "TESTBASE32SECRET" : null,
             failedLoginAttempts: 0,
             lockoutEnd: null,
             lastLoginAt: null,

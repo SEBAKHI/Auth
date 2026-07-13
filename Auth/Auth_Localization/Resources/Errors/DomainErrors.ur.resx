@@ -491,6 +491,9 @@
   <data name="TwoFactor.VerificationRequired" xml:space="preserve">
     <value>دو مرحلہ تصدیق کی توثیق لازمی ہے۔</value>
   </data>
+  <data name="TwoFactor.ChallengeInvalid" xml:space="preserve">
+    <value>دو مرحلہ تصدیق کا چیلنج غلط ہے یا اس کی میعاد ختم ہو گئی ہے۔ براہ کرم دوبارہ سائن ان کریں۔</value>
+  </data>
   <data name="TwoFactor.LockedOut" xml:space="preserve">
     <value>بہت زیادہ ناکام کوششوں کی وجہ سے دو مرحلہ تصدیق عارضی طور پر مقفل ہو گئی ہے۔</value>
   </data>
