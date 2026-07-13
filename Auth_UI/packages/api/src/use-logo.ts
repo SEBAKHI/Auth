@@ -14,12 +14,19 @@ export function useLogo(opts: {
   persist: (logoKey: string | null) => Promise<void>
   invalidate: () => void
   successMessage: string
+  /**
+   * Trim padded margins before upload. Only wanted where the logo renders at
+   * its natural aspect ratio (platform wordmark/favicon). Logos shown inside
+   * a circular avatar must keep their margins — like user photos — or the
+   * circle clips the content edges.
+   */
+  trim?: boolean
 }) {
   const changeMutation = useMutation({
     mutationFn: async (file: File) => {
-      // Logos are often exported on large padded canvases; trim the margin so
-      // they render at their natural aspect ratio in the sidebar/auth screens.
-      const { key } = await uploadImage(await trimLogoFile(file))
+      const { key } = await uploadImage(
+        opts.trim ? await trimLogoFile(file) : file
+      )
       await opts.persist(key)
     },
     onSuccess: () => {

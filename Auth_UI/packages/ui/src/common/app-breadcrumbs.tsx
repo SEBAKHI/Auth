@@ -17,7 +17,12 @@ import { useBreadcrumbOverride, type CrumbHandle } from "@astoom/ui/crumbs"
  * `handle.crumb` metadata; the record name is published by detail pages via
  * `usePageBreadcrumb`.
  */
-export function AppBreadcrumbs() {
+export function AppBreadcrumbs({
+  homeKey,
+}: {
+  /** i18n key under `nav.*` for the home crumb, linking to `/`. */
+  homeKey: string
+}) {
   const { t } = useTranslation()
   const matches = useMatches()
   const override = useBreadcrumbOverride()
@@ -27,7 +32,7 @@ export function AppBreadcrumbs() {
     .filter(Boolean)
     .at(-1)
 
-  const isHome = !crumb || crumb.titleKey === "dashboard"
+  const isHome = !crumb || crumb.titleKey === homeKey
   const isDetail = Boolean(crumb?.detail)
 
   return (
@@ -35,10 +40,10 @@ export function AppBreadcrumbs() {
       <BreadcrumbList className="flex-nowrap">
         <BreadcrumbItem>
           {isHome ? (
-            <BreadcrumbPage>{t("nav.dashboard")}</BreadcrumbPage>
+            <BreadcrumbPage>{t(`nav.${homeKey}`)}</BreadcrumbPage>
           ) : (
             <BreadcrumbLink asChild>
-              <Link to="/">{t("nav.dashboard")}</Link>
+              <Link to="/">{t(`nav.${homeKey}`)}</Link>
             </BreadcrumbLink>
           )}
         </BreadcrumbItem>

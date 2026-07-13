@@ -1,6 +1,9 @@
 import * as React from "react"
 import { createBrowserRouter } from "react-router-dom"
 
+import { OrganizationDetailPage } from "@astoom/account/pages/organizations/organization-detail-page"
+import { OrganizationsPage } from "@astoom/account/pages/organizations/organizations-page"
+import { ProfilePage } from "@astoom/account/pages/profile/profile-page"
 import { ACCOUNTS_URL } from "@astoom/api/env"
 import { RequireAnonymous, RequireAuth } from "@astoom/auth/require-auth"
 import { PermissionRoute } from "@astoom/auth/require-permission"
@@ -8,8 +11,8 @@ import { ForcePasswordChangePage } from "@astoom/auth/pages/force-password-chang
 import { ForgotPasswordPage } from "@astoom/auth/pages/forgot-password"
 import { LoginPage } from "@astoom/auth/pages/login"
 import { ResetPasswordPage } from "@astoom/auth/pages/reset-password"
-import { TwoFactorNoticePage } from "@astoom/auth/pages/two-factor-notice"
-import type { CrumbHandle } from "@astoom/ui/crumbs"
+import { TwoFactorVerifyPage } from "@astoom/auth/pages/two-factor-verify"
+import { crumb } from "@astoom/ui/crumbs"
 import { ForbiddenPage } from "@astoom/ui/error-pages/forbidden"
 import { NotFoundPage } from "@astoom/ui/error-pages/not-found"
 import { AppShell } from "@/components/layout/app-shell"
@@ -28,11 +31,6 @@ import { SecretsPage } from "@/pages/secrets/secrets-page"
 import { UserDetailPage } from "@/pages/users/user-detail-page"
 import { UsersPage } from "@/pages/users/users-page"
 import { WebhookKeysPage } from "@/pages/webhook-keys/webhook-keys-page"
-
-/** Breadcrumb metadata: list pages label themselves, `:id` pages add a record crumb. */
-function crumb(titleKey: string, href: string, detail = false): CrumbHandle {
-  return { crumb: { titleKey, href, detail } }
-}
 
 /**
  * Invitations are an end-user flow owned by the accounts app. Links in old
@@ -60,7 +58,6 @@ export const router = createBrowserRouter([
     element: <RequireAuth />,
     children: [
       { path: "/force-password-change", element: <ForcePasswordChangePage /> },
-      { path: "/two-factor", element: <TwoFactorNoticePage /> },
       {
         element: <AppShell />,
         children: [
@@ -133,6 +130,30 @@ export const router = createBrowserRouter([
               },
             ],
           },
+          // Self-service (membership-scoped), like the pre-split console:
+          // any authenticated admin manages the organizations they belong to.
+          {
+            path: "organizations",
+            element: <OrganizationsPage />,
+            handle: crumb("organizations", "/organizations"),
+          },
+          {
+            path: "organizations/:id",
+            element: (
+              <OrganizationDetailPage
+                userHref={(userId) => `/users/${userId}`}
+                applicationHref={(applicationId) =>
+                  `/applications/${applicationId}`
+                }
+              />
+            ),
+            handle: crumb("organizations", "/organizations", true),
+          },
+          {
+            path: "profile",
+            element: <ProfilePage />,
+            handle: crumb("profile", "/profile"),
+          },
           {
             element: <PermissionRoute permission={PERMISSIONS.apiKeys.read} />,
             children: [
@@ -197,6 +218,9 @@ export const router = createBrowserRouter([
       },
     ],
   },
+  // Top-level on purpose: the user holds a 2FA challenge but no tokens yet,
+  // so the page belongs under neither RequireAnonymous nor RequireAuth.
+  { path: "/two-factor", element: <TwoFactorVerifyPage /> },
   { path: "/accept-invitation", element: <AcceptInvitationRedirect /> },
   { path: "/403", element: <ForbiddenPage /> },
   { path: "*", element: <NotFoundPage /> },

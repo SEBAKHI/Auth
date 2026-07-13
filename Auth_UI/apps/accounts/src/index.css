@@ -10,6 +10,7 @@
    registered EXPLICITLY: registering the parent "packages" dir (or using
    wildcards in directory segments) silently scans nothing, because every
    package is its own package root (has a package.json). */
+@source "../../../packages/account/src";
 @source "../../../packages/api/src";
 @source "../../../packages/auth/src";
 @source "../../../packages/i18n/src";

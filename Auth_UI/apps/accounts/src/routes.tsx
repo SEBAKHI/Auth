@@ -5,15 +5,16 @@ import { AcceptInvitationPage } from "@astoom/auth/pages/accept-invitation"
 import { ForcePasswordChangePage } from "@astoom/auth/pages/force-password-change"
 import { ForgotPasswordPage } from "@astoom/auth/pages/forgot-password"
 import { ResetPasswordPage } from "@astoom/auth/pages/reset-password"
-import { TwoFactorNoticePage } from "@astoom/auth/pages/two-factor-notice"
+import { TwoFactorVerifyPage } from "@astoom/auth/pages/two-factor-verify"
+import { crumb } from "@astoom/ui/crumbs"
 import { NotFoundPage } from "@astoom/ui/error-pages/not-found"
 
+import { OrganizationDetailPage } from "@astoom/account/pages/organizations/organization-detail-page"
+import { OrganizationsPage } from "@astoom/account/pages/organizations/organizations-page"
+import { ProfilePage } from "@astoom/account/pages/profile/profile-page"
 import { AccountShell } from "@/components/account-shell"
 import { AccountsLoginPage } from "@/pages/auth/login"
 import { RegisterPage } from "@/pages/auth/register"
-import { OrganizationDetailPage } from "@/pages/organizations/organization-detail-page"
-import { OrganizationsPage } from "@/pages/organizations/organizations-page"
-import { ProfilePage } from "@/pages/profile/profile-page"
 
 export const router = createBrowserRouter([
   {
@@ -29,18 +30,32 @@ export const router = createBrowserRouter([
     element: <RequireAuth />,
     children: [
       { path: "/force-password-change", element: <ForcePasswordChangePage /> },
-      { path: "/two-factor", element: <TwoFactorNoticePage /> },
       {
         element: <AccountShell />,
         children: [
           { index: true, element: <Navigate to="/profile" replace /> },
-          { path: "profile", element: <ProfilePage /> },
-          { path: "organizations", element: <OrganizationsPage /> },
-          { path: "organizations/:id", element: <OrganizationDetailPage /> },
+          {
+            path: "profile",
+            element: <ProfilePage />,
+            handle: crumb("profile", "/profile"),
+          },
+          {
+            path: "organizations",
+            element: <OrganizationsPage />,
+            handle: crumb("organizations", "/organizations"),
+          },
+          {
+            path: "organizations/:id",
+            element: <OrganizationDetailPage />,
+            handle: crumb("organizations", "/organizations", true),
+          },
         ],
       },
     ],
   },
+  // Top-level on purpose: the user holds a 2FA challenge but no tokens yet,
+  // so the page belongs under neither RequireAnonymous nor RequireAuth.
+  { path: "/two-factor", element: <TwoFactorVerifyPage /> },
   // Top-level on purpose: the page serves both anonymous invitees (register /
   // sign-in-to-accept) and already-authenticated users (one-click accept), so
   // it must live under neither RequireAnonymous nor RequireAuth.

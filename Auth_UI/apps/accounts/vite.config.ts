@@ -14,6 +14,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@astoom/account": path.resolve(__dirname, "../../packages/account/src"),
       "@astoom/api": path.resolve(__dirname, "../../packages/api/src"),
       "@astoom/auth": path.resolve(__dirname, "../../packages/auth/src"),
       "@astoom/i18n": path.resolve(__dirname, "../../packages/i18n/src"),

@@ -53,7 +53,13 @@ import { OrganizationFormDialog } from "./organization-form-dialog"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-function MembersTab({ orgId }: { orgId: string }) {
+function MembersTab({
+  orgId,
+  userHref,
+}: {
+  orgId: string
+  userHref?: (userId: string) => string
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -133,25 +139,37 @@ function MembersTab({ orgId }: { orgId: string }) {
         row.fullName || fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
       meta: { label: t("common.name") },
-      cell: ({ row }) => (
-        <button
-          type="button"
-          className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/users/${row.original.userId}`)}
-        >
-          <p className="truncate font-medium">
-            {row.original.fullName ||
-              fullName(
-                row.original.firstName,
-                row.original.lastName,
-                row.original.email ?? ""
-              )}
-          </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {row.original.email}
-          </p>
-        </button>
-      ),
+      cell: ({ row }) => {
+        const { userId } = row.original
+        const content = (
+          <>
+            <p className="truncate font-medium">
+              {row.original.fullName ||
+                fullName(
+                  row.original.firstName,
+                  row.original.lastName,
+                  row.original.email ?? ""
+                )}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              {row.original.email}
+            </p>
+          </>
+        )
+
+        // Drill-down exists only where the host app has a user admin route.
+        return userHref && userId ? (
+          <button
+            type="button"
+            className="min-w-0 text-start hover:underline"
+            onClick={() => navigate(userHref(userId))}
+          >
+            {content}
+          </button>
+        ) : (
+          <div className="min-w-0">{content}</div>
+        )
+      },
     },
     {
       accessorKey: "roleName",
@@ -571,7 +589,13 @@ function InvitationsTab({ orgId }: { orgId: string }) {
   )
 }
 
-function ApplicationsTab({ orgId }: { orgId: string }) {
+function ApplicationsTab({
+  orgId,
+  applicationHref,
+}: {
+  orgId: string
+  applicationHref?: (applicationId: string) => string
+}) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -649,17 +673,24 @@ function ApplicationsTab({ orgId }: { orgId: string }) {
       accessorKey: "applicationName",
       header: t("common.name"),
       meta: { label: t("common.name") },
-      cell: ({ row }) => (
-        <button
-          type="button"
-          className="min-w-0 text-start font-medium hover:underline"
-          onClick={() =>
-            navigate(`/applications/${row.original.applicationId}`)
-          }
-        >
-          <span className="truncate">{row.original.applicationName}</span>
-        </button>
-      ),
+      cell: ({ row }) => {
+        const { applicationId } = row.original
+
+        // Drill-down exists only where the host app has an app admin route.
+        return applicationHref && applicationId ? (
+          <button
+            type="button"
+            className="min-w-0 text-start font-medium hover:underline"
+            onClick={() => navigate(applicationHref(applicationId))}
+          >
+            <span className="truncate">{row.original.applicationName}</span>
+          </button>
+        ) : (
+          <span className="truncate font-medium">
+            {row.original.applicationName}
+          </span>
+        )
+      },
     },
     {
       id: "subscriptionTier",
@@ -926,7 +957,15 @@ function EditOrgAppDialog({
   )
 }
 
-export function OrganizationDetailPage() {
+export function OrganizationDetailPage({
+  userHref,
+  applicationHref,
+}: {
+  /** Builds the member drill-down route; omit where the host app has none. */
+  userHref?: (userId: string) => string
+  /** Builds the application drill-down route; omit where the host app has none. */
+  applicationHref?: (applicationId: string) => string
+} = {}) {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const orgId = id as string
@@ -1056,13 +1095,13 @@ export function OrganizationDetailPage() {
           </TabsTrigger>
         </TabsList>
         <TabsContent value="members" className="mt-4">
-          <MembersTab orgId={orgId} />
+          <MembersTab orgId={orgId} userHref={userHref} />
         </TabsContent>
         <TabsContent value="invitations" className="mt-4">
           <InvitationsTab orgId={orgId} />
         </TabsContent>
         <TabsContent value="applications" className="mt-4">
-          <ApplicationsTab orgId={orgId} />
+          <ApplicationsTab orgId={orgId} applicationHref={applicationHref} />
         </TabsContent>
       </Tabs>
 

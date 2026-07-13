@@ -21,17 +21,16 @@ import { fullName } from "@astoom/ui/format"
 
 export function UserMenu({
   profileHref = "/profile",
+  showProfile = true,
 }: {
-  /**
-   * Where the profile entry points. In-app path by default; an absolute URL
-   * (e.g. the accounts origin) renders as a plain anchor instead.
-   */
+  /** In-app route the profile entry points to. */
   profileHref?: string
+  /** Hide the profile entry where the shell nav already links to it. */
+  showProfile?: boolean
 } = {}) {
   const { t } = useTranslation()
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const externalProfile = /^https?:\/\//.test(profileHref)
 
   // Shares the ["me"] cache with the Profile page, so a changed avatar updates here too.
   const meQuery = useQuery({
@@ -75,20 +74,17 @@ export function UserMenu({
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          {externalProfile ? (
-            <a href={profileHref}>
-              <UserIcon />
-              {t("common.profile")}
-            </a>
-          ) : (
-            <Link to={profileHref}>
-              <UserIcon />
-              {t("common.profile")}
-            </Link>
-          )}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
+        {showProfile ? (
+          <>
+            <DropdownMenuItem asChild>
+              <Link to={profileHref}>
+                <UserIcon />
+                {t("common.profile")}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut />
           {t("common.signOut")}

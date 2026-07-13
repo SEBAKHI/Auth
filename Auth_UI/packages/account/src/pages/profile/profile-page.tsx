@@ -28,8 +28,16 @@ import {
   FormMessage,
 } from "@astoom/ui/form"
 import { Input } from "@astoom/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@astoom/ui/select"
 import { Skeleton } from "@astoom/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
+import { isTheme, useTheme } from "@astoom/ui/theme-provider"
 import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
 import { useProfileImage } from "@astoom/api/use-profile-image"
@@ -53,6 +61,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const profileImage = useProfileImage()
+  const { theme: activeTheme, setTheme } = useTheme()
   const meName = me.displayName || fullName(me.firstName, me.lastName, me.email ?? "")
 
   const schema = z.object({
@@ -62,6 +71,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
     phoneNumber: z.string().optional(),
     preferredLanguage: z.string().optional(),
     timeZone: z.string().optional(),
+    theme: z.string().optional(),
   })
   type Values = z.infer<typeof schema>
 
@@ -74,6 +84,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
       phoneNumber: me.phoneNumber ?? "",
       preferredLanguage: me.preferredLanguage ?? "",
       timeZone: me.timeZone ?? "",
+      theme: me.theme ?? "system",
     },
   })
 
@@ -87,6 +98,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
           phoneNumber: emptyToNull(values.phoneNumber),
           preferredLanguage: emptyToNull(values.preferredLanguage),
           timeZone: emptyToNull(values.timeZone),
+          theme: emptyToNull(values.theme),
         },
       })
       if (error) throw error
@@ -103,6 +115,10 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
       ) {
         persistLanguage(code as LanguageCode)
         void i18n.changeLanguage(code)
+      }
+      const theme = values.theme
+      if (theme && isTheme(theme) && activeTheme !== theme) {
+        setTheme(theme)
       }
       toast.success(t("profile.profileUpdated"))
     },
@@ -217,6 +233,37 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                           onChange={field.onChange}
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="theme"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t("common.theme")}</FormLabel>
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="light">
+                            {t("common.light")}
+                          </SelectItem>
+                          <SelectItem value="dark">
+                            {t("common.dark")}
+                          </SelectItem>
+                          <SelectItem value="system">
+                            {t("common.system")}
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

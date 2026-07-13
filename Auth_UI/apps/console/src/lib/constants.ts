@@ -1,5 +1,6 @@
 import {
   AppWindow,
+  Building2,
   KeyRound,
   LayoutDashboard,
   KeySquare,
@@ -109,6 +110,8 @@ export const NAV_ITEMS: NavItem[] = [
     icon: AppWindow,
     permission: PERMISSIONS.applications.read,
   },
+  // Self-service (membership-scoped) — visible to any authenticated user.
+  { titleKey: "organizations", url: "/organizations", icon: Building2 },
   {
     titleKey: "apiKeys",
     url: "/api-keys",

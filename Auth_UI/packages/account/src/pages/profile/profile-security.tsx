@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { CopyButton } from "@astoom/ui/common/copy-button"
+import { QrCode } from "@astoom/ui/common/qr-code"
 import { SecretRevealDialog } from "@astoom/ui/common/secret-reveal-dialog"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
@@ -246,6 +247,9 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
             <p className="text-sm text-muted-foreground">
               {t("profile.setupTwoFactorBody")}
             </p>
+            <div className="flex justify-center">
+              <QrCode value={setup.qrCodeUri} />
+            </div>
             <div className="space-y-1">
               <Label>{t("profile.manualEntry")}</Label>
               <div className="flex items-center gap-2">
@@ -257,12 +261,6 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
                 <CopyButton value={setup.manualEntryKey} />
               </div>
             </div>
-            <Input
-              readOnly
-              value={setup.qrCodeUri}
-              className="font-mono text-xs"
-              onFocus={(e) => e.currentTarget.select()}
-            />
             <div className="flex items-end gap-2">
               <div className="flex-1 space-y-2">
                 <Label htmlFor="enable-code">{t("auth.twoFactorCode")}</Label>

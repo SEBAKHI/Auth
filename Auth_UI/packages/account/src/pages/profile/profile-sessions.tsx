@@ -50,8 +50,8 @@ function DeviceCell({ session }: { session: Schemas["SessionDto"] }) {
     <div className="flex min-w-0 items-center gap-3">
       <Icon className="size-5 shrink-0 text-muted-foreground" />
       <div className="min-w-0">
-        <p className="flex items-center gap-2 truncate text-sm font-medium">
-          {label}
+        <p className="flex items-center gap-2 text-sm font-medium">
+          <span className="truncate">{label}</span>
           {session.isCurrent ? (
             <Badge variant="outline">{t("profile.currentSession")}</Badge>
           ) : null}
@@ -160,7 +160,7 @@ export function ProfileSessions() {
             <TableBody>
               {sessions.map((session) => (
                 <TableRow key={session.id}>
-                  <TableCell className="max-w-64">
+                  <TableCell className="max-w-72">
                     <DeviceCell session={session} />
                   </TableCell>
                   <TableCell>

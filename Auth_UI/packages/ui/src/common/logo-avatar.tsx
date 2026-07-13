@@ -15,6 +15,7 @@ export function LogoAvatar({
   invalidate,
   successMessage,
   size = "xl",
+  trim = false,
 }: {
   src?: string | null
   name?: string | null
@@ -23,8 +24,15 @@ export function LogoAvatar({
   invalidate: () => void
   successMessage: string
   size?: "default" | "sm" | "lg" | "xl"
+  /**
+   * Trim padded margins on upload. Off by default: this avatar is a circle,
+   * so uploads keep their own margins exactly like user photos; only enable
+   * where the stored image also renders at natural aspect ratio elsewhere
+   * (platform wordmark/favicon).
+   */
+  trim?: boolean
 }) {
-  const logo = useLogo({ persist, invalidate, successMessage })
+  const logo = useLogo({ persist, invalidate, successMessage, trim })
 
   if (!canEdit) {
     return <EntityAvatar src={src} name={name} size={size} fit="contain" />

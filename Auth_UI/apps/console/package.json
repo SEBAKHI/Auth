@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@astoom/account": "workspace:*",
     "@astoom/api": "workspace:*",
     "@astoom/auth": "workspace:*",
     "@astoom/i18n": "workspace:*",

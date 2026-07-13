@@ -216,6 +216,9 @@ PublishScripts/
 **/[Pp]ackages/*
 # except build/, which is used as an MSBuild target.
 !**/[Pp]ackages/build/
+# Auth_UI is a pnpm workspace: its packages/ holds SOURCE CODE, not NuGet
+# restore output — never ignore it (new files were silently dropped before).
+!Auth_UI/packages/*
 # Uncomment if necessary however generally it will be regenerated when needed
 #!**/[Pp]ackages/repositories.config
 # NuGet v3's project.json files produces more ignorable files

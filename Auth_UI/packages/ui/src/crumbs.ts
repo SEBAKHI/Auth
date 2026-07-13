@@ -15,6 +15,15 @@ export interface CrumbHandle {
   }
 }
 
+/** Breadcrumb metadata: list pages label themselves, `:id` pages add a record crumb. */
+export function crumb(
+  titleKey: string,
+  href: string,
+  detail = false
+): CrumbHandle {
+  return { crumb: { titleKey, href, detail } }
+}
+
 /**
  * Detail pages publish their record's display name here once loaded; the
  * breadcrumb renders it as the final crumb. Cleared on unmount so a previous
