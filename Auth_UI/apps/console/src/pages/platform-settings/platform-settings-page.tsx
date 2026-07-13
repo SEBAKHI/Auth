@@ -138,8 +138,6 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
               persist={persistLogoLight}
               invalidate={invalidate}
               successMessage={t("platformSettings.updated")}
-              // Platform logos render at natural aspect ratio in the sidebar.
-              trim
             />
             <p className="text-xs text-muted-foreground">
               {t("platformSettings.logoLight")}
@@ -153,7 +151,6 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
               persist={persistLogoDark}
               invalidate={invalidate}
               successMessage={t("platformSettings.updated")}
-              trim
             />
             <p className="text-xs text-muted-foreground">
               {t("platformSettings.logoDark")}
@@ -167,7 +164,6 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
               persist={persistFavicon}
               invalidate={invalidate}
               successMessage={t("platformSettings.updated")}
-              trim
             />
             <p className="text-xs text-muted-foreground">
               {t("platformSettings.favicon")}

@@ -3,30 +3,22 @@ import { toast } from "sonner"
 
 import { uploadImage } from "@astoom/api/upload"
 import { getErrorMessage } from "@astoom/api/errors"
-import { trimLogoFile } from "@astoom/api/trim-logo"
 
 /**
- * Change/Remove handlers for an entity logo (organization/application), for use
- * with `AvatarMenu`. `persist` writes the uploaded logo key (or null on remove)
- * onto the entity via its update endpoint; `invalidate` refreshes the view.
+ * Change/Remove handlers for an entity logo (organization/application/platform),
+ * for use with `AvatarMenu`. `persist` writes the uploaded logo key (or null on
+ * remove) onto the entity via its update endpoint; `invalidate` refreshes the
+ * view. Uploads go up exactly as chosen — cropping is the user's decision, so
+ * the client never trims or reframes an image.
  */
 export function useLogo(opts: {
   persist: (logoKey: string | null) => Promise<void>
   invalidate: () => void
   successMessage: string
-  /**
-   * Trim padded margins before upload. Only wanted where the logo renders at
-   * its natural aspect ratio (platform wordmark/favicon). Logos shown inside
-   * a circular avatar must keep their margins — like user photos — or the
-   * circle clips the content edges.
-   */
-  trim?: boolean
 }) {
   const changeMutation = useMutation({
     mutationFn: async (file: File) => {
-      const { key } = await uploadImage(
-        opts.trim ? await trimLogoFile(file) : file
-      )
+      const { key } = await uploadImage(file)
       await opts.persist(key)
     },
     onSuccess: () => {
