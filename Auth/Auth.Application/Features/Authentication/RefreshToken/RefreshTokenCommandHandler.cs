@@ -20,6 +20,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IOrganizationRepository _organizationRepository;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IUserSessionRepository _sessionRepository;
@@ -31,6 +32,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IRefreshTokenRepository refreshTokenRepository,
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
+        IOrganizationRepository organizationRepository,
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserSessionRepository sessionRepository,
@@ -41,6 +43,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _refreshTokenRepository = refreshTokenRepository;
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _organizationRepository = organizationRepository;
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _sessionRepository = sessionRepository;
@@ -109,10 +112,13 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
         var roleNames = roles.Select(r => r.Code).ToList();
         var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
+        var organizationPermissions = await _organizationRepository
+            .GetMembershipPermissionCodesAsync(user.Id, cancellationToken);
 
         // Generate new access token, carrying the stable session id forward so
         // the access token's "sid" stays constant across refreshes.
-        var accessToken = _jwtTokenService.GenerateAccessToken(user, permissions, roleNames, storedToken.SessionId);
+        var accessToken = _jwtTokenService.GenerateAccessToken(
+            user, permissions, roleNames, storedToken.SessionId, organizationPermissions);
 
         // Keep the session's last-activity timestamp fresh (best-effort).
         if (storedToken.SessionId.HasValue)

@@ -334,6 +334,54 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<(Guid OrganizationId, string Code)>> GetMembershipPermissionCodesAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<(Guid OrganizationId, string Code)>(@"
+            SELECT DISTINCT ou.[OrganizationId], p.[Code]
+            FROM [dbo].[OrganizationUsers] ou
+            INNER JOIN [dbo].[Organizations] o ON ou.[OrganizationId] = o.[Id]
+            INNER JOIN [dbo].[RolePermissions] rp ON rp.[RoleId] = ou.[RoleId]
+            INNER JOIN [dbo].[Permissions] p ON p.[Id] = rp.[PermissionId]
+            WHERE ou.[UserId] = @UserId
+              AND ou.[IsActive] = 1
+              AND o.[IsActive] = 1
+              AND p.[IsActive] = 1
+              AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())",
+            new { UserId = userId });
+
+        return rows.ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<string>> GetMembershipPermissionCodesAsync(
+        Guid organizationId,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var codes = await connection.QueryAsync<string>(@"
+            SELECT DISTINCT p.[Code]
+            FROM [dbo].[OrganizationUsers] ou
+            INNER JOIN [dbo].[Organizations] o ON ou.[OrganizationId] = o.[Id]
+            INNER JOIN [dbo].[RolePermissions] rp ON rp.[RoleId] = ou.[RoleId]
+            INNER JOIN [dbo].[Permissions] p ON p.[Id] = rp.[PermissionId]
+            WHERE ou.[OrganizationId] = @OrganizationId
+              AND ou.[UserId] = @UserId
+              AND ou.[IsActive] = 1
+              AND o.[IsActive] = 1
+              AND p.[IsActive] = 1
+              AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())",
+            new { OrganizationId = organizationId, UserId = userId });
+
+        return codes.ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<OrganizationUser>> GetMembersAsync(
         Guid organizationId,
         CancellationToken cancellationToken)

@@ -1,7 +1,10 @@
 using System.Security.Claims;
 using Auth.Domain.Constants;
+using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Authorization;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.Authorization;
@@ -179,6 +182,129 @@ public class PermissionRequirementHandlerTests
         await _handler.HandleAsync(context);
 
         context.HasSucceeded.Should().BeFalse();
+    }
+
+    // ----- Organization-scoped ("org:*") requirements -----
+
+    private static AuthorizationHandlerContext CreateOrgContext(
+        PermissionRequirement requirement,
+        ClaimsPrincipal user,
+        Guid routeOrganizationId,
+        IOrganizationRepository organizationRepository)
+    {
+        var services = new ServiceCollection()
+            .AddSingleton(organizationRepository)
+            .BuildServiceProvider();
+        var httpContext = new DefaultHttpContext { RequestServices = services };
+        httpContext.Request.RouteValues["id"] = routeOrganizationId.ToString();
+
+        return new AuthorizationHandlerContext(new[] { requirement }, user, httpContext);
+    }
+
+    private static ClaimsPrincipal CreatePrincipal(params Claim[] claims)
+    {
+        var identity = new ClaimsIdentity(claims, "test");
+        return new ClaimsPrincipal(identity);
+    }
+
+    [Fact]
+    public async Task HandleRequirementAsync_OrgScopedClaim_MatchingOrganization_Succeeds()
+    {
+        var orgId = Guid.NewGuid();
+        var requirement = new PermissionRequirement("org:members:read");
+        var user = CreatePrincipal(
+            new Claim(JwtClaimNames.Subject, Guid.NewGuid().ToString()),
+            new Claim(JwtClaimNames.OrgPermissions, $"{orgId}:org:*"));
+        var repositoryMock = new Mock<IOrganizationRepository>();
+        var context = CreateOrgContext(requirement, user, orgId, repositoryMock.Object);
+
+        await _handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeTrue();
+        repositoryMock.Verify(
+            r => r.GetMembershipPermissionCodesAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleRequirementAsync_OrgScopedClaim_OtherOrganization_DoesNotSucceed()
+    {
+        var memberOrgId = Guid.NewGuid();
+        var targetOrgId = Guid.NewGuid();
+        var requirement = new PermissionRequirement("org:members:read");
+        var user = CreatePrincipal(
+            new Claim(JwtClaimNames.Subject, Guid.NewGuid().ToString()),
+            new Claim(JwtClaimNames.OrgPermissions, $"{memberOrgId}:org:*"));
+        var repositoryMock = new Mock<IOrganizationRepository>();
+        repositoryMock
+            .Setup(r => r.GetMembershipPermissionCodesAsync(
+                targetOrgId, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+        var context = CreateOrgContext(requirement, user, targetOrgId, repositoryMock.Object);
+
+        await _handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task HandleRequirementAsync_NoOrgClaims_LiveMembershipGrants_Succeeds()
+    {
+        // A token issued before the membership existed (e.g. the org was just
+        // created) has no org_perm claims — the gate checks the live role.
+        var orgId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var requirement = new PermissionRequirement("org:members:read");
+        var user = CreatePrincipal(new Claim(JwtClaimNames.Subject, userId.ToString()));
+        var repositoryMock = new Mock<IOrganizationRepository>();
+        repositoryMock
+            .Setup(r => r.GetMembershipPermissionCodesAsync(
+                orgId, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string> { "org:*" });
+        var context = CreateOrgContext(requirement, user, orgId, repositoryMock.Object);
+
+        await _handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task HandleRequirementAsync_NoOrgClaims_NonMember_DoesNotSucceed()
+    {
+        var orgId = Guid.NewGuid();
+        var requirement = new PermissionRequirement("org:members:manage");
+        var user = CreatePrincipal(new Claim(JwtClaimNames.Subject, Guid.NewGuid().ToString()));
+        var repositoryMock = new Mock<IOrganizationRepository>();
+        repositoryMock
+            .Setup(r => r.GetMembershipPermissionCodesAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+        var context = CreateOrgContext(requirement, user, orgId, repositoryMock.Object);
+
+        await _handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task HandleRequirementAsync_NonOrgPermission_DoesNotUseOrgFallback()
+    {
+        var orgId = Guid.NewGuid();
+        var requirement = new PermissionRequirement("users:read");
+        var user = CreatePrincipal(
+            new Claim(JwtClaimNames.Subject, Guid.NewGuid().ToString()),
+            new Claim(JwtClaimNames.OrgPermissions, $"{orgId}:org:*"));
+        var repositoryMock = new Mock<IOrganizationRepository>();
+        var context = CreateOrgContext(requirement, user, orgId, repositoryMock.Object);
+
+        await _handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeFalse();
+        repositoryMock.Verify(
+            r => r.GetMembershipPermissionCodesAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
 

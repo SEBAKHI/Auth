@@ -56,6 +56,13 @@ public static class JwtClaimNames
     public const string Theme = "theme";
 
     /// <summary>
+    /// Organization-scoped permission from the user's membership role, one
+    /// claim per code. Custom claim: "org_perm",
+    /// value "{organizationId}:{permissionCode}".
+    /// </summary>
+    public const string OrgPermissions = "org_perm";
+
+    /// <summary>
     /// Roles assigned to the user.
     /// Custom claim: "roles"
     /// </summary>

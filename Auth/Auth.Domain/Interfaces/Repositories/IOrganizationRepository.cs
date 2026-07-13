@@ -99,6 +99,24 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the permission codes granted by the user's membership role in each
+    /// organization they belong to. Feeds the token's org-scoped claims.
+    /// </summary>
+    Task<IReadOnlyList<(Guid OrganizationId, string Code)>> GetMembershipPermissionCodesAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the permission codes granted by the user's membership role in one
+    /// organization (empty when not a member). Used by the authorization gate
+    /// as a live fallback for tokens issued before the membership existed.
+    /// </summary>
+    Task<IReadOnlyList<string>> GetMembershipPermissionCodesAsync(
+        Guid organizationId,
+        Guid userId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets all members of an organization.
     /// </summary>
     Task<IReadOnlyList<OrganizationUser>> GetMembersAsync(

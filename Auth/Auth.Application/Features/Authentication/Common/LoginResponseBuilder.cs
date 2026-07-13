@@ -18,6 +18,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
 {
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IOrganizationRepository _organizationRepository;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
@@ -30,6 +31,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     public LoginResponseBuilder(
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
+        IOrganizationRepository organizationRepository,
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IRefreshTokenRepository refreshTokenRepository,
@@ -41,6 +43,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _organizationRepository = organizationRepository;
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _refreshTokenRepository = refreshTokenRepository;
@@ -63,12 +66,18 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         var roleNames = roles.Select(r => r.Code).ToList();
         var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
 
+        // Organization membership permissions ride in the token as org-scoped
+        // claims so members pass the org endpoint gates for their own orgs.
+        var organizationPermissions = await _organizationRepository
+            .GetMembershipPermissionCodesAsync(user.Id, cancellationToken);
+
         // A stable session id, constant across access-token refreshes, ties the
         // session row and all of its refresh tokens together (carried as "sid").
         var sessionId = Guid.NewGuid();
 
         // Generate tokens
-        var accessToken = _jwtTokenService.GenerateAccessToken(user, permissions, roleNames, sessionId);
+        var accessToken = _jwtTokenService.GenerateAccessToken(
+            user, permissions, roleNames, sessionId, organizationPermissions);
         var jwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);

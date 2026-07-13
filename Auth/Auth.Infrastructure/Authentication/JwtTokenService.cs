@@ -46,7 +46,12 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     }
 
     /// <inheritdoc />
-    public string GenerateAccessToken(User user, IEnumerable<string> permissions, IEnumerable<string> roles, Guid? sessionId = null)
+    public string GenerateAccessToken(
+        User user,
+        IEnumerable<string> permissions,
+        IEnumerable<string> roles,
+        Guid? sessionId = null,
+        IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null)
     {
         var claims = new List<Claim>
         {
@@ -93,6 +98,16 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         foreach (var permission in permissions)
         {
             claims.Add(new Claim(JwtClaimNames.Permissions, permission));
+        }
+
+        // Organization-scoped permissions ("{orgId}:{code}") let the gate
+        // authorize org endpoints per organization without a database hit.
+        if (organizationPermissions != null)
+        {
+            foreach (var (organizationId, code) in organizationPermissions)
+            {
+                claims.Add(new Claim(JwtClaimNames.OrgPermissions, $"{organizationId}:{code}"));
+            }
         }
 
         var tokenDescriptor = new SecurityTokenDescriptor
