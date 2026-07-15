@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
+import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -21,23 +22,27 @@ import { Input } from "@astoom/ui/input"
 import { getErrorMessage } from "@astoom/api/errors"
 import { AuthLayout } from "@astoom/ui/auth-layout"
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
+/**
+ * Sets a new password from a reset link. The token in the query string is the
+ * whole credential - it identifies the user server-side, so nothing else is
+ * asked for. It is captured once on mount and then stripped from the URL, which
+ * means a refresh drops it and lands on the invalid-link state by design.
+ */
 export function ResetPasswordPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const location = useLocation()
   const [searchParams] = useSearchParams()
-  const presetEmail = (location.state as { email?: string } | null)?.email ?? ""
-  const presetToken = searchParams.get("token") ?? ""
+
+  const [token] = React.useState(() => searchParams.get("token") ?? "")
+
+  React.useEffect(() => {
+    if (!token) return
+    // Keep the token out of the address bar, browser history and any Referer.
+    window.history.replaceState(window.history.state, "", window.location.pathname)
+  }, [token])
 
   const schema = z
     .object({
-      email: z
-        .string()
-        .min(1, t("validation.required"))
-        .regex(EMAIL_RE, t("validation.email")),
-      token: z.string().min(1, t("validation.required")),
       newPassword: z.string().min(8, t("validation.minLength", { count: 8 })),
       confirmNewPassword: z.string().min(1, t("validation.required")),
     })
@@ -48,18 +53,13 @@ export function ResetPasswordPage() {
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      email: presetEmail,
-      token: presetToken,
-      newPassword: "",
-      confirmNewPassword: "",
-    },
+    defaultValues: { newPassword: "", confirmNewPassword: "" },
   })
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
       const { error } = await api.POST("/api/v1/Auth/reset-password", {
-        body: values,
+        body: { token, ...values },
       })
       if (error) throw error
       toast.success(t("auth.resetSuccess"))
@@ -67,6 +67,24 @@ export function ResetPasswordPage() {
     } catch (error) {
       toast.error(getErrorMessage(error))
     }
+  }
+
+  if (!token) {
+    return (
+      <AuthLayout
+        title={t("auth.resetLinkInvalidTitle")}
+        subtitle={t("auth.resetLinkInvalidDescription")}
+        footer={
+          <Link to="/login" className="underline-offset-4 hover:underline">
+            {t("auth.backToSignIn")}
+          </Link>
+        }
+      >
+        <Button asChild className="w-full">
+          <Link to="/forgot-password">{t("auth.requestNewResetLink")}</Link>
+        </Button>
+      </AuthLayout>
+    )
   }
 
   return (
@@ -84,32 +102,6 @@ export function ResetPasswordPage() {
           <FieldGroup>
             <FormField
               control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("auth.email")}</FormLabel>
-                  <FormControl>
-                    <Input type="email" autoComplete="username" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="token"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("auth.resetCode")}</FormLabel>
-                  <FormControl>
-                    <Input autoComplete="one-time-code" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="newPassword"
               render={({ field }) => (
                 <FormItem>
@@ -118,6 +110,7 @@ export function ResetPasswordPage() {
                     <Input
                       type="password"
                       autoComplete="new-password"
+                      autoFocus
                       {...field}
                     />
                   </FormControl>

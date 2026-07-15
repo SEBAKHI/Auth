@@ -129,13 +129,21 @@ export const fa: TranslationResources = {
     forgotPassword: "رمز عبور را فراموش کرده‌اید؟",
     forgotTitle: "بازنشانی رمز عبور",
     forgotSubtitle:
-      "ایمیل خود را وارد کنید تا کد بازنشانی برایتان ارسال شود.",
-    sendResetLink: "ارسال کد بازنشانی",
+      "ایمیل خود را وارد کنید تا پیوند بازنشانی برایتان ارسال شود.",
+    sendResetLink: "ارسال پیوند بازنشانی",
     backToSignIn: "بازگشت به ورود",
+    resetLinkSentTitle: "ایمیل خود را بررسی کنید",
+    resetLinkSentDescription:
+      "اگر حسابی برای {{email}} وجود داشته باشد، پیوندی برای بازنشانی رمز عبور ارسال کرده‌ایم.",
+    resetLinkExpiresIn: "این پیوند تا {{time}} دیگر منقضی می‌شود",
+    resetLinkExpired: "پیوند منقضی شده است. پیوند تازه‌ای درخواست کنید.",
+    resendResetLink: "دریافت نکردید؟ دوباره ارسال کنید",
+    resetLinkInvalidTitle: "این پیوند دیگر معتبر نیست",
+    resetLinkInvalidDescription:
+      "پیوندهای بازنشانی رمز عبور تنها یک بار قابل استفاده‌اند و پس از مدتی منقضی می‌شوند.",
+    requestNewResetLink: "درخواست پیوند تازه",
     resetTitle: "تعیین رمز عبور جدید",
-    resetSubtitle:
-      "کد دریافتی را وارد کنید و رمز عبور جدیدی انتخاب کنید.",
-    resetCode: "کد بازنشانی",
+    resetSubtitle: "رمز عبور جدیدی برای حساب خود انتخاب کنید.",
     newPassword: "رمز عبور جدید",
     confirmPassword: "تأیید رمز عبور",
     resetPassword: "بازنشانی رمز عبور",
@@ -162,7 +170,6 @@ export const fa: TranslationResources = {
     recoveryCode: "کد بازیابی",
     twoFactorChallengeExpired:
       "مهلت تلاش برای ورود به پایان رسید. لطفاً دوباره وارد شوید.",
-    forgotSent: "اگر این ایمیل موجود باشد، کد بازنشانی ارسال شده است.",
     signedOut: "از حساب خود خارج شدید.",
     sessionExpired: "نشست شما منقضی شده است. لطفاً دوباره وارد شوید.",
     welcomeBack: "خوش برگشتید",

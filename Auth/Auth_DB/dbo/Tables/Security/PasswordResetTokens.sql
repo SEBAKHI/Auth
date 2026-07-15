@@ -2,7 +2,7 @@ CREATE TABLE [dbo].[PasswordResetTokens]
 (
     [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_PasswordResetTokens_Id] DEFAULT NEWID(),
     [UserId] UNIQUEIDENTIFIER NOT NULL,
-    [TokenHash] NVARCHAR(500) NOT NULL,   -- Argon2id hash
+    [TokenHash] NVARCHAR(500) NOT NULL,   -- HMAC-SHA256 hash (base64 encoded, ~44 chars)
     [ExpiresAt] DATETIME2 NOT NULL,
     [UsedAt] DATETIME2 NULL,
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_PasswordResetTokens_CreatedAt] DEFAULT GETUTCDATE(),
@@ -13,8 +13,12 @@ CREATE TABLE [dbo].[PasswordResetTokens]
 GO
 
 -- Stores password reset tokens for self-service password recovery
--- TokenHash is Argon2id hash of the actual token sent to the user
--- Token expires after a configurable time period (default 1 hour)
+-- TokenHash is the HMAC-SHA256 hash of the 256-bit token sent to the user.
+--   The hash is deterministic on purpose: the token alone identifies the row on
+--   redemption, so no email address is needed. Argon2id would be salted (and thus
+--   unindexable) for no benefit - the token is high-entropy and cannot be guessed.
+--   Column stays NVARCHAR(500) from the previous Argon2id scheme; a hash is ~44 chars.
+-- Token expires after a configurable time period (Email:ResetTokenExpirationMinutes)
 -- UsedAt is set when the token is consumed to prevent reuse
 
 -- Indexes

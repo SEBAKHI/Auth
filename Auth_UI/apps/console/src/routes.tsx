@@ -9,7 +9,6 @@ import { PermissionRoute } from "@astoom/auth/require-permission"
 import { ForcePasswordChangePage } from "@astoom/auth/pages/force-password-change"
 import { ForgotPasswordPage } from "@astoom/auth/pages/forgot-password"
 import { LoginPage } from "@astoom/auth/pages/login"
-import { ResetPasswordPage } from "@astoom/auth/pages/reset-password"
 import { TwoFactorVerifyPage } from "@astoom/auth/pages/two-factor-verify"
 import { VerifyEmailPage } from "@astoom/auth/pages/verify-email-page"
 import { crumb } from "@astoom/ui/crumbs"
@@ -46,13 +45,27 @@ function AcceptInvitationRedirect() {
   return null
 }
 
+/**
+ * Reset emails are built from a single configured origin (the accounts app), so
+ * a link never points here. Forward anything that still does - an old email, a
+ * bookmark - instead of 404ing, carrying the token across.
+ */
+function ResetPasswordRedirect() {
+  React.useEffect(() => {
+    window.location.replace(
+      `${ACCOUNTS_URL}/reset-password${window.location.search}`
+    )
+  }, [])
+  return null
+}
+
 export const router = createBrowserRouter([
   {
     element: <RequireAnonymous />,
     children: [
       { path: "/login", element: <LoginPage /> },
       { path: "/forgot-password", element: <ForgotPasswordPage /> },
-      { path: "/reset-password", element: <ResetPasswordPage /> },
+      { path: "/reset-password", element: <ResetPasswordRedirect /> },
     ],
   },
   {

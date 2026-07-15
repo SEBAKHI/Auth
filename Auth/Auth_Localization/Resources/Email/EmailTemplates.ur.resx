@@ -64,9 +64,6 @@
   <data name="Email.PasswordReset.ButtonText" xml:space="preserve">
     <value>پاس ورڈ ری سیٹ کریں</value>
   </data>
-  <data name="Email.PasswordReset.TokenInstruction" xml:space="preserve">
-    <value>یا یہ کوڈ پاس ورڈ ری سیٹ صفحے پر درج کریں:</value>
-  </data>
   <data name="Email.PasswordReset.Expiration" xml:space="preserve">
     <value>اس لنک کی میعاد {0} منٹ میں ختم ہو جائے گی۔</value>
   </data>

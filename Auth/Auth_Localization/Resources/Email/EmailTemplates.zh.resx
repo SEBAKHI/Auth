@@ -64,9 +64,6 @@
   <data name="Email.PasswordReset.ButtonText" xml:space="preserve">
     <value>重置密码</value>
   </data>
-  <data name="Email.PasswordReset.TokenInstruction" xml:space="preserve">
-    <value>或在密码重置页面输入此代码：</value>
-  </data>
   <data name="Email.PasswordReset.Expiration" xml:space="preserve">
     <value>此链接将在{0}分钟后失效。</value>
   </data>

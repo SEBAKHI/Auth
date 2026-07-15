@@ -61,7 +61,16 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSett
 builder.Services.Configure<PasswordSettings>(builder.Configuration.GetSection(PasswordSettings.SectionName));
 builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(GatewaySettings.SectionName));
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
-builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection(EmailSettings.SectionName));
+// Password reset and email verification links are built from FrontendBaseUrl. An
+// empty value silently yields a relative URL, i.e. a dead link in every email, so
+// it is validated up front - but only when email is actually enabled, since it is
+// off by default in development and CI.
+builder.Services.AddOptions<EmailSettings>()
+    .Bind(builder.Configuration.GetSection(EmailSettings.SectionName))
+    .Validate(
+        settings => !settings.Enabled || Uri.IsWellFormedUriString(settings.FrontendBaseUrl, UriKind.Absolute),
+        "Email:FrontendBaseUrl must be an absolute URL when Email:Enabled is true.")
+    .ValidateOnStart();
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
 builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
 
@@ -471,6 +480,21 @@ builder.Services.AddRateLimiter(options =>
         opt.Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:LoginWindowSeconds", 60));
         opt.QueueLimit = 0;
     });
+
+    // Redeeming a reset token cannot be brute forced (the token carries 256 bits
+    // of entropy), so this is hygiene for an anonymous endpoint rather than a
+    // guessing defence. It is partitioned per client address on purpose: the
+    // "login" policy above is a single process-wide bucket, so sharing it would
+    // let unrelated login traffic block password resets for everyone.
+    options.AddPolicy("password-reset", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:PasswordResetPermitLimit", 10),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:PasswordResetWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
 
     options.OnRejected = async (context, token) =>
     {

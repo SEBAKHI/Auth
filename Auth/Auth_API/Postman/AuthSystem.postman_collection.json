@@ -512,7 +512,7 @@
 						"header": [{ "key": "Content-Type", "value": "application/json" }],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n    \"email\": \"user@example.com\",\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \"NewPassword789!\",\n    \"confirmNewPassword\": \"NewPassword789!\",\n    \"terminateSessions\": true\n}"
+							"raw": "{\n    \"token\": \"{{resetToken}}\",\n    \"newPassword\": \"NewPassword789!\",\n    \"confirmNewPassword\": \"NewPassword789!\",\n    \"terminateSessions\": true\n}"
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/reset-password",

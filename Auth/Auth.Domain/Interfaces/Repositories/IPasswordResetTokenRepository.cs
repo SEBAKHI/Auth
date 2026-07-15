@@ -8,9 +8,9 @@ namespace Auth.Domain.Interfaces.Repositories;
 public interface IPasswordResetTokenRepository
 {
     /// <summary>
-    /// Gets a password reset token by its hash.
+    /// Gets an unused, unexpired password reset token by its hash.
     /// </summary>
-    /// <param name="tokenHash">The Argon2id hash of the token.</param>
+    /// <param name="tokenHash">The HMAC-SHA256 hash of the token.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The token if found and valid, null otherwise.</returns>
     Task<PasswordResetToken?> GetByTokenHashAsync(string tokenHash, CancellationToken cancellationToken);
@@ -41,13 +41,4 @@ public interface IPasswordResetTokenRepository
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     Task CleanupExpiredAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Gets the latest valid (unused and not expired) password reset token for a user.
-    /// Returns the most recently created token for efficient Argon2id verification.
-    /// </summary>
-    /// <param name="userId">The user ID to get the token for.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>The latest valid token if exists, null otherwise.</returns>
-    Task<PasswordResetToken?> GetLatestValidTokenForUserAsync(Guid userId, CancellationToken cancellationToken);
 }

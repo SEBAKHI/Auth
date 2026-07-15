@@ -129,13 +129,22 @@ export const fr: TranslationResources = {
     forgotPassword: "Mot de passe oublié ?",
     forgotTitle: "Réinitialisez votre mot de passe",
     forgotSubtitle:
-      "Saisissez votre e-mail et nous vous enverrons un code de réinitialisation.",
-    sendResetLink: "Envoyer le code de réinitialisation",
+      "Saisissez votre e-mail et nous vous enverrons un lien de réinitialisation.",
+    sendResetLink: "Envoyer le lien de réinitialisation",
     backToSignIn: "Retour à la connexion",
+    resetLinkSentTitle: "Consultez vos e-mails",
+    resetLinkSentDescription:
+      "Si un compte existe pour {{email}}, nous avons envoyé un lien pour réinitialiser votre mot de passe.",
+    resetLinkExpiresIn: "Le lien expire dans {{time}}",
+    resetLinkExpired: "Le lien a expiré. Demandez-en un nouveau.",
+    resendResetLink: "Rien reçu ? Renvoyer",
+    resetLinkInvalidTitle: "Ce lien n'est plus valide",
+    resetLinkInvalidDescription:
+      "Les liens de réinitialisation ne servent qu'une fois et expirent au bout d'un moment.",
+    requestNewResetLink: "Demander un nouveau lien",
     resetTitle: "Définir un nouveau mot de passe",
     resetSubtitle:
-      "Saisissez le code reçu et choisissez un nouveau mot de passe.",
-    resetCode: "Code de réinitialisation",
+      "Choisissez un nouveau mot de passe pour votre compte.",
     newPassword: "Nouveau mot de passe",
     confirmPassword: "Confirmer le mot de passe",
     resetPassword: "Réinitialiser le mot de passe",
@@ -162,8 +171,6 @@ export const fr: TranslationResources = {
     recoveryCode: "Code de récupération",
     twoFactorChallengeExpired:
       "Votre tentative de connexion a expiré. Veuillez vous reconnecter.",
-    forgotSent:
-      "Si cet e-mail existe, un code de réinitialisation a été envoyé.",
     signedOut: "Vous avez été déconnecté.",
     sessionExpired: "Votre session a expiré. Veuillez vous reconnecter.",
     welcomeBack: "Bon retour",

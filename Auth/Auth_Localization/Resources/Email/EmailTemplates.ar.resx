@@ -64,9 +64,6 @@
   <data name="Email.PasswordReset.ButtonText" xml:space="preserve">
     <value>إعادة تعيين كلمة المرور</value>
   </data>
-  <data name="Email.PasswordReset.TokenInstruction" xml:space="preserve">
-    <value>أو أدخل هذا الرمز في صفحة إعادة تعيين كلمة المرور:</value>
-  </data>
   <data name="Email.PasswordReset.Expiration" xml:space="preserve">
     <value>ستنتهي صلاحية هذا الرابط خلال {0} دقيقة.</value>
   </data>

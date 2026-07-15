@@ -17,11 +17,15 @@ namespace Auth_API.Tests.Authentication.Commands;
 /// </summary>
 public class ResetPasswordCommandHandlerTests
 {
+    private const string ValidToken = "valid-token";
+    private const string ValidTokenHash = $"hmac({ValidToken})";
+
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPasswordResetTokenRepository> _passwordResetTokenRepositoryMock;
     private readonly Mock<IPasswordHistoryRepository> _passwordHistoryRepositoryMock;
     private readonly Mock<IUserSessionRepository> _userSessionRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
+    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock;
     private readonly Mock<ILogger<ResetPasswordCommandHandler>> _loggerMock;
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
@@ -35,7 +39,11 @@ public class ResetPasswordCommandHandlerTests
         _passwordHistoryRepositoryMock = new Mock<IPasswordHistoryRepository>();
         _userSessionRepositoryMock = new Mock<IUserSessionRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
+        _tokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
         _loggerMock = new Mock<ILogger<ResetPasswordCommandHandler>>();
+
+        _tokenKeyServiceMock.Setup(k => k.ComputeTokenHash(It.IsAny<string>()))
+            .Returns((string token) => $"hmac({token})");
 
         _passwordSettings = TestHelpers.CreatePasswordSettings();
         _sessionSettings = TestHelpers.CreateSessionSettings();
@@ -49,6 +57,7 @@ public class ResetPasswordCommandHandlerTests
             _passwordHistoryRepositoryMock.Object,
             _userSessionRepositoryMock.Object,
             _passwordHasherMock.Object,
+            _tokenKeyServiceMock.Object,
             _passwordValidator,
             TestHelpers.CreatePassingBreachEvaluator(),
             TestHelpers.CreateOptions(_passwordSettings),
@@ -61,8 +70,8 @@ public class ResetPasswordCommandHandlerTests
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
-        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "HashedToken");
-        var command = new ResetPasswordCommand("john@example.com", "valid-token", "NewPass1!");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
 
         SetupValidResetScenario(user, resetToken, command);
 
@@ -76,36 +85,34 @@ public class ResetPasswordCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_UserNotFoundByEmail_ReturnsInvalidOrExpiredTokenError()
+    public async Task Handle_ValidReset_LooksTokenUpByItsDeterministicHash()
     {
-        // Arrange
-        var command = new ResetPasswordCommand("nonexistent@example.com", "token", "NewPass1!");
+        // Arrange - the token alone identifies the row; no email is involved.
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
 
-        _userRepositoryMock
-            .Setup(r => r.GetByEmailAsync("nonexistent@example.com", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((User?)null);
+        SetupValidResetScenario(user, resetToken, command);
 
         // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be("PasswordReset.InvalidOrExpiredToken");
+        _passwordResetTokenRepositoryMock.Verify(r => r.GetByTokenHashAsync(
+            ValidTokenHash, It.IsAny<CancellationToken>()), Times.Once);
+        _userRepositoryMock.Verify(r => r.GetByEmailAsync(
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task Handle_NoValidTokenFound_ReturnsInvalidOrExpiredTokenError()
+    public async Task Handle_UnknownToken_ReturnsInvalidOrExpiredTokenError()
     {
-        // Arrange
-        var user = TestHelpers.CreateUser(email: "john@example.com");
-        var command = new ResetPasswordCommand("john@example.com", "token", "NewPass1!");
-
-        _userRepositoryMock
-            .Setup(r => r.GetByEmailAsync("john@example.com", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
+        // Arrange - GetByTokenHashAsync also filters out used and expired tokens,
+        // so an unknown, spent or stale token all land here.
+        var command = new ResetPasswordCommand("wrong-token", "NewPass1!");
 
         _passwordResetTokenRepositoryMock
-            .Setup(r => r.GetLatestValidTokenForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PasswordResetToken?)null);
 
         // Act
@@ -117,24 +124,19 @@ public class ResetPasswordCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_TokenHashMismatch_ReturnsInvalidOrExpiredTokenError()
+    public async Task Handle_TokenResolvesToMissingUser_ReturnsInvalidOrExpiredTokenError()
     {
         // Arrange
-        var user = TestHelpers.CreateUser(email: "john@example.com");
-        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "HashedToken");
-        var command = new ResetPasswordCommand("john@example.com", "wrong-token", "NewPass1!");
-
-        _userRepositoryMock
-            .Setup(r => r.GetByEmailAsync("john@example.com", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: Guid.NewGuid(), tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
 
         _passwordResetTokenRepositoryMock
-            .Setup(r => r.GetLatestValidTokenForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync(ValidTokenHash, It.IsAny<CancellationToken>()))
             .ReturnsAsync(resetToken);
 
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("wrong-token", resetToken.TokenHash))
-            .Returns(false);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(resetToken.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -149,20 +151,10 @@ public class ResetPasswordCommandHandlerTests
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
-        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "HashedToken");
-        var command = new ResetPasswordCommand("john@example.com", "valid-token", "weak");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "weak");
 
-        _userRepositoryMock
-            .Setup(r => r.GetByEmailAsync("john@example.com", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-
-        _passwordResetTokenRepositoryMock
-            .Setup(r => r.GetLatestValidTokenForUserAsync(user.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(resetToken);
-
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("valid-token", resetToken.TokenHash))
-            .Returns(true);
+        SetupValidResetScenario(user, resetToken, command);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -177,20 +169,10 @@ public class ResetPasswordCommandHandlerTests
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
-        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "HashedToken");
-        var command = new ResetPasswordCommand("john@example.com", "valid-token", "NewPass1!");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
 
-        _userRepositoryMock
-            .Setup(r => r.GetByEmailAsync("john@example.com", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-
-        _passwordResetTokenRepositoryMock
-            .Setup(r => r.GetLatestValidTokenForUserAsync(user.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(resetToken);
-
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("valid-token", resetToken.TokenHash))
-            .Returns(true);
+        SetupValidResetScenario(user, resetToken, command);
 
         _passwordHistoryRepositoryMock
             .Setup(r => r.GetRecentHashesAsync(user.Id, _passwordSettings.HistoryCount, It.IsAny<CancellationToken>()))
@@ -213,24 +195,10 @@ public class ResetPasswordCommandHandlerTests
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
-        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "HashedToken");
-        var command = new ResetPasswordCommand("john@example.com", "valid-token", "NewPass1!");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
 
-        _userRepositoryMock
-            .Setup(r => r.GetByEmailAsync("john@example.com", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-
-        _passwordResetTokenRepositoryMock
-            .Setup(r => r.GetLatestValidTokenForUserAsync(user.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(resetToken);
-
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("valid-token", resetToken.TokenHash))
-            .Returns(true);
-
-        _passwordHistoryRepositoryMock
-            .Setup(r => r.GetRecentHashesAsync(user.Id, _passwordSettings.HistoryCount, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string>());
+        SetupValidResetScenario(user, resetToken, command);
 
         _passwordHasherMock
             .Setup(h => h.VerifyPassword("NewPass1!", user.PasswordHash))
@@ -249,8 +217,8 @@ public class ResetPasswordCommandHandlerTests
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
-        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "HashedToken");
-        var command = new ResetPasswordCommand("john@example.com", "valid-token", "NewPass1!");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
 
         SetupValidResetScenario(user, resetToken, command);
 
@@ -267,8 +235,8 @@ public class ResetPasswordCommandHandlerTests
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
-        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "HashedToken");
-        var command = new ResetPasswordCommand("john@example.com", "valid-token", "NewPass1!", TerminateSessions: true);
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!", TerminateSessions: true);
 
         SetupValidResetScenario(user, resetToken, command);
 
@@ -285,8 +253,8 @@ public class ResetPasswordCommandHandlerTests
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
-        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "HashedToken");
-        var command = new ResetPasswordCommand("john@example.com", "valid-token", "NewPass1!", TerminateSessions: false);
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!", TerminateSessions: false);
 
         SetupValidResetScenario(user, resetToken, command);
 
@@ -303,8 +271,8 @@ public class ResetPasswordCommandHandlerTests
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
-        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: "HashedToken");
-        var command = new ResetPasswordCommand("john@example.com", "valid-token", "NewPass1!");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
 
         SetupValidResetScenario(user, resetToken, command);
 
@@ -319,17 +287,13 @@ public class ResetPasswordCommandHandlerTests
 
     private void SetupValidResetScenario(User user, PasswordResetToken resetToken, ResetPasswordCommand command)
     {
-        _userRepositoryMock
-            .Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-
         _passwordResetTokenRepositoryMock
-            .Setup(r => r.GetLatestValidTokenForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByTokenHashAsync($"hmac({command.Token})", It.IsAny<CancellationToken>()))
             .ReturnsAsync(resetToken);
 
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Token, resetToken.TokenHash))
-            .Returns(true);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(resetToken.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
 
         _passwordHasherMock
             .Setup(h => h.VerifyPassword(command.NewPassword, It.IsAny<string>()))
