@@ -11,6 +11,7 @@ import { ForgotPasswordPage } from "@astoom/auth/pages/forgot-password"
 import { LoginPage } from "@astoom/auth/pages/login"
 import { ResetPasswordPage } from "@astoom/auth/pages/reset-password"
 import { TwoFactorVerifyPage } from "@astoom/auth/pages/two-factor-verify"
+import { VerifyEmailPage } from "@astoom/auth/pages/verify-email-page"
 import { crumb } from "@astoom/ui/crumbs"
 import { ForbiddenPage } from "@astoom/ui/error-pages/forbidden"
 import { NotFoundPage } from "@astoom/ui/error-pages/not-found"
@@ -221,6 +222,9 @@ export const router = createBrowserRouter([
   // Top-level on purpose: the user holds a 2FA challenge but no tokens yet,
   // so the page belongs under neither RequireAnonymous nor RequireAuth.
   { path: "/two-factor", element: <TwoFactorVerifyPage /> },
+  // Top-level on purpose: shared with accounts; an unconfirmed-email sign-in
+  // lands here, and verifying completes the session.
+  { path: "/verify-email", element: <VerifyEmailPage /> },
   { path: "/accept-invitation", element: <AcceptInvitationRedirect /> },
   { path: "/403", element: <ForbiddenPage /> },
   { path: "*", element: <NotFoundPage /> },

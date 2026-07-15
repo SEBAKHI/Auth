@@ -25,4 +25,10 @@ public record VerifyEmailRequest
     [StringLength(6, MinimumLength = 6)]
     [RegularExpression(@"^\d{6}$")]
     public required string Otp { get; init; }
+
+    /// <summary>
+    /// Gets the optional client device identifier. Used to tag the session when
+    /// the anonymous (email-keyed) path signs the user in on success.
+    /// </summary>
+    public string? DeviceId { get; init; }
 }

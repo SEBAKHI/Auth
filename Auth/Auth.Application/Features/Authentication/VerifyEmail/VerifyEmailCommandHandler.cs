@@ -1,3 +1,5 @@
+using Auth.Application.DTOs;
+using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -8,28 +10,41 @@ using MediatR;
 namespace Auth.Application.Features.Authentication.VerifyEmail;
 
 /// <summary>
-/// Handler for verifying email using OTP.
+/// Handler for verifying email using OTP. On the anonymous (email-keyed) path it
+/// also signs the user in — the OTP proves control of the address, so the
+/// just-registered (or just-authenticated) user is handed a session directly
+/// instead of being bounced to a manual sign-in. The admin (user-id-keyed) path
+/// only confirms the address and issues no tokens.
 /// </summary>
-public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, ErrorOr<Success>>
+public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, ErrorOr<VerifyEmailResult>>
 {
     private readonly IUserRepository _userRepository;
     private readonly IEmailVerificationTokenRepository _tokenRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly ILoginResponseBuilder _loginResponseBuilder;
+    private readonly ITwoFactorChallengeService _twoFactorChallengeService;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<VerifyEmailCommandHandler> _logger;
 
     public VerifyEmailCommandHandler(
         IUserRepository userRepository,
         IEmailVerificationTokenRepository tokenRepository,
         IPasswordHasher passwordHasher,
+        ILoginResponseBuilder loginResponseBuilder,
+        ITwoFactorChallengeService twoFactorChallengeService,
+        IDomainEventDispatcher eventDispatcher,
         ILogger<VerifyEmailCommandHandler> logger)
     {
         _userRepository = userRepository;
         _tokenRepository = tokenRepository;
         _passwordHasher = passwordHasher;
+        _loginResponseBuilder = loginResponseBuilder;
+        _twoFactorChallengeService = twoFactorChallengeService;
+        _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
 
-    public async Task<ErrorOr<Success>> Handle(
+    public async Task<ErrorOr<VerifyEmailResult>> Handle(
         VerifyEmailCommand request,
         CancellationToken cancellationToken)
     {
@@ -115,6 +130,63 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
             "Email verified successfully for user {UserId} ({Email})",
             user.Id, user.Email);
 
-        return Result.Success;
+        // Admin (user-id-keyed) path: confirm only, never issue tokens for another
+        // user. The controller maps a null login to 204 No Content.
+        if (request.UserId.HasValue)
+        {
+            return new VerifyEmailResult(null);
+        }
+
+        // Anonymous (email-keyed) self-service path: sign the user in. This mirrors
+        // the login handler's tail so the issued session is identical to a normal
+        // login (roles/permissions, refresh token, session row, audit trail).
+        return await IssueLoginAsync(user, request, cancellationToken);
+    }
+
+    /// <summary>
+    /// Completes sign-in for the self-service path after the address is confirmed.
+    /// Re-checks account status and honours two-factor, then delegates token
+    /// issuance to the shared login response builder.
+    /// </summary>
+    private async Task<ErrorOr<VerifyEmailResult>> IssueLoginAsync(
+        User user,
+        VerifyEmailCommand request,
+        CancellationToken cancellationToken)
+    {
+        var statusCheck = AuthenticationHelper.CheckAccountStatus(user);
+        if (statusCheck.IsError)
+        {
+            return statusCheck.Errors;
+        }
+
+        // Defensive parity with login: a user cannot enable two-factor before
+        // confirming their email, but if that ever holds we must not skip the
+        // challenge — hand back a pending-2FA response instead of tokens.
+        if (user.TwoFactorEnabled)
+        {
+            var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
+                user, request.IpAddress, cancellationToken);
+
+            return new VerifyEmailResult(new LoginResponse
+            {
+                RequiresTwoFactor = true,
+                TwoFactorChallengeToken = challengeToken
+            });
+        }
+
+        // Record successful login on entity (raises UserLoggedInEvent)
+        user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
+
+        var deviceInfo = AuthenticationHelper.BuildDeviceInfo(request.UserAgent, request.DeviceId);
+        var loginResponse = await _loginResponseBuilder.BuildAsync(
+            user, request.IpAddress, deviceInfo, cancellationToken);
+
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
+
+        _logger.LogInformation(
+            "Auto sign-in completed after email verification for user {UserId}",
+            user.Id);
+
+        return new VerifyEmailResult(loginResponse);
     }
 }

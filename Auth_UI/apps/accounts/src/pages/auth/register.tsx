@@ -73,9 +73,16 @@ export function RegisterPage() {
       )
       // The message is localized by the API (verification email sent, …).
       toast.success(data.message)
-      // Login preseeds the email and opens the verify-email dialog on the
-      // EmailNotConfirmed error, so the verification code entry lives there.
-      navigate("/login", { state: { email: values.email } })
+      // A code was just emailed; go straight to entering it. Verifying there
+      // signs the user in, so they never see the login screen. Pass the expiry
+      // so the page shows a countdown without requesting a fresh code.
+      navigate("/verify-email", {
+        state: {
+          email: values.email,
+          maskedEmail: data.maskedEmail,
+          expiresAt: data.verificationCodeExpiresAt,
+        },
+      })
     } catch (error) {
       toast.error(getErrorMessage(error))
     }

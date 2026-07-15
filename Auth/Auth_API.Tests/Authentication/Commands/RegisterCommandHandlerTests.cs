@@ -82,6 +82,9 @@ public class RegisterCommandHandlerTests
         result.Value.UserId.Should().NotBeEmpty();
         result.Value.Message.Should().Contain("Registration successful");
         result.Value.OrganizationCreated.Should().BeFalse();
+        // Expiry is surfaced so the verify screen can show a countdown without
+        // requesting a fresh code.
+        result.Value.VerificationCodeExpiresAt.Should().NotBeNull();
     }
 
     [Fact]
@@ -262,6 +265,8 @@ public class RegisterCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
         result.Value.UserId.Should().NotBeEmpty();
+        // A failed send leaves no expiry to advertise.
+        result.Value.VerificationCodeExpiresAt.Should().BeNull();
     }
 
     [Fact]

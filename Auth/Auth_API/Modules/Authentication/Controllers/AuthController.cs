@@ -489,22 +489,31 @@ public class AuthController : ApiController
 
     /// <summary>
     /// Verifies a user's email address using a 6-digit OTP.
+    /// The anonymous (email-keyed) path also signs the user in and returns a
+    /// login response; the admin (user-id-keyed) path returns 204 No Content.
     /// </summary>
     /// <param name="request">User ID or email address, and the OTP code</param>
-    /// <returns>Success status</returns>
+    /// <returns>A login response for the self-service path, or no content for the admin path.</returns>
     [HttpPost("verify-email")]
     [AllowAnonymous]
     [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailRequest request, CancellationToken cancellationToken)
     {
-        var command = new VerifyEmailCommand(request.UserId, request.Otp, request.Email);
+        var command = new VerifyEmailCommand(
+            request.UserId,
+            request.Otp,
+            request.Email,
+            GetClientIpAddress(),
+            GetUserAgent(),
+            request.DeviceId);
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            _ => NoContent(),
+            response => response.Login is not null ? Ok(response.Login) : NoContent(),
             errors => Problem(errors));
     }
 

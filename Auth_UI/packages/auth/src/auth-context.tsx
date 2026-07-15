@@ -52,6 +52,7 @@ interface AuthContextValue {
     code: string,
     useRecoveryCode: boolean
   ) => Promise<{ requiresPasswordChange: boolean }>
+  completeEmailVerification: (email: string, otp: string) => Promise<LoginResult>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -224,6 +225,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [adoptLoginResponse]
   )
 
+  const completeEmailVerification = React.useCallback(
+    async (email: string, otp: string): Promise<LoginResult> => {
+      // The anonymous verify-email path confirms the address and signs the user
+      // in, returning the same body as login. Feed it through the shared tail so
+      // a 2FA challenge (defensive) or a full session is handled identically.
+      const { data, error } = await api.POST("/api/v1/Auth/verify-email", {
+        body: { email, otp },
+      })
+      if (error || !data) {
+        throw error ?? new Error("Email verification failed")
+      }
+
+      return adoptLoginResponse(data)
+    },
+    [adoptLoginResponse]
+  )
+
   const logout = React.useCallback(async () => {
     try {
       await api.POST("/api/v1/Auth/logout", {
@@ -266,6 +284,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       loginExternal,
       completeTwoFactor,
+      completeEmailVerification,
       logout,
       refreshUser: loadCurrentUser,
     }),
@@ -279,6 +298,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       loginExternal,
       completeTwoFactor,
+      completeEmailVerification,
       logout,
       loadCurrentUser,
     ]

@@ -1,3 +1,4 @@
+using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.VerifyEmail;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
@@ -14,6 +15,9 @@ public class VerifyEmailCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IEmailVerificationTokenRepository> _tokenRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
+    private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock;
+    private readonly Mock<ITwoFactorChallengeService> _twoFactorChallengeServiceMock;
+    private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
     private readonly Mock<ILogger<VerifyEmailCommandHandler>> _loggerMock;
     private readonly VerifyEmailCommandHandler _handler;
 
@@ -22,19 +26,55 @@ public class VerifyEmailCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _tokenRepositoryMock = new Mock<IEmailVerificationTokenRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
+        _loginResponseBuilderMock = new Mock<ILoginResponseBuilder>();
+        _twoFactorChallengeServiceMock = new Mock<ITwoFactorChallengeService>();
+        _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
         _loggerMock = new Mock<ILogger<VerifyEmailCommandHandler>>();
 
         _handler = new VerifyEmailCommandHandler(
             _userRepositoryMock.Object,
             _tokenRepositoryMock.Object,
             _passwordHasherMock.Object,
+            _loginResponseBuilderMock.Object,
+            _twoFactorChallengeServiceMock.Object,
+            _eventDispatcherMock.Object,
             _loggerMock.Object);
     }
 
-    [Fact]
-    public async Task Handle_ValidOtp_ConfirmsEmailSuccessfully()
+    private static LoginResponse CreateLoginResponse() => new()
     {
-        // Arrange
+        Token = new TokenResponse
+        {
+            AccessToken = "access-token",
+            RefreshToken = "refresh-token",
+            ExpiresIn = 900,
+            RefreshExpiresIn = 604800
+        },
+        User = new UserInfo
+        {
+            Id = Guid.NewGuid(),
+            Email = "test@example.com",
+            FirstName = "Test",
+            LastName = "User"
+        }
+    };
+
+    private void SetupTokenBuilder()
+    {
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.IsAny<User>(),
+                It.IsAny<string>(),
+                It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLoginResponse());
+    }
+
+    [Fact]
+    public async Task Handle_ValidOtpByUserId_ConfirmsEmailWithoutIssuingTokens()
+    {
+        // Arrange: the admin (user-id-keyed) path must confirm only — an admin
+        // verifying another user must never receive that user's tokens.
         var userId = Guid.NewGuid();
         var user = TestHelpers.CreateUser(id: userId, emailConfirmed: false);
         var token = TestHelpers.CreateEmailVerificationToken(userId: userId);
@@ -55,12 +95,92 @@ public class VerifyEmailCommandHandlerTests
 
         // Assert
         result.IsError.Should().BeFalse();
+        result.Value.Login.Should().BeNull();
         _tokenRepositoryMock.Verify(
             r => r.MarkAsUsedAsync(token.Id, It.IsAny<CancellationToken>()),
             Times.Once());
         _userRepositoryMock.Verify(
             r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
             Times.Once());
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_ValidOtpByEmail_ConfirmsEmailAndSignsUserIn()
+    {
+        // Arrange: the anonymous (email-keyed) self-service path confirms the
+        // address and issues a session in one step.
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, emailConfirmed: false);
+        var token = TestHelpers.CreateEmailVerificationToken(userId: userId);
+        var command = new VerifyEmailCommand(null, "123456", user.Email, "127.0.0.1", "TestAgent/1.0");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _tokenRepositoryMock
+            .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(token);
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
+            .Returns(true);
+        SetupTokenBuilder();
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.Login.Should().NotBeNull();
+        result.Value.Login!.Token.Should().NotBeNull();
+        _userRepositoryMock.Verify(
+            r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
+            Times.Once());
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(user, It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_ValidOtpByEmail_WithTwoFactorEnabled_ReturnsChallengeInsteadOfTokens()
+    {
+        // Arrange: defensive parity with login — if the account has two-factor
+        // enabled we hand back a pending-2FA response, never tokens.
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, emailConfirmed: false, twoFactorEnabled: true);
+        var token = TestHelpers.CreateEmailVerificationToken(userId: userId);
+        var command = new VerifyEmailCommand(null, "123456", user.Email, "127.0.0.1", "TestAgent/1.0");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _tokenRepositoryMock
+            .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(token);
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
+            .Returns(true);
+        _twoFactorChallengeServiceMock
+            .Setup(s => s.CreateChallengeAsync(user, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("challenge-token");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.Login.Should().NotBeNull();
+        result.Value.Login!.RequiresTwoFactor.Should().BeTrue();
+        result.Value.Login!.TwoFactorChallengeToken.Should().Be("challenge-token");
+        result.Value.Login!.Token.Should().BeNull();
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 
     [Fact]
@@ -191,35 +311,6 @@ public class VerifyEmailCommandHandlerTests
         result.IsError.Should().BeTrue();
         _tokenRepositoryMock.Verify(
             r => r.IncrementAttemptCountAsync(token.Id, It.IsAny<CancellationToken>()),
-            Times.Once());
-    }
-
-    [Fact]
-    public async Task Handle_ValidOtpByEmail_ConfirmsEmailSuccessfully()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var user = TestHelpers.CreateUser(id: userId, emailConfirmed: false);
-        var token = TestHelpers.CreateEmailVerificationToken(userId: userId);
-        var command = new VerifyEmailCommand(null, "123456", user.Email);
-
-        _userRepositoryMock
-            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(user);
-        _tokenRepositoryMock
-            .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(token);
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
-            .Returns(true);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
-        result.IsError.Should().BeFalse();
-        _userRepositoryMock.Verify(
-            r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
             Times.Once());
     }
 

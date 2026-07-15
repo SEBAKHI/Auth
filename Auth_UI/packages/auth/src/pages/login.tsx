@@ -1,13 +1,12 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Loader2 } from "lucide-react"
-import * as React from "react"
+import type * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { VerifyEmailDialog } from "@astoom/ui/common/verify-email-dialog"
 import { Button } from "@astoom/ui/button"
 import { FieldGroup } from "@astoom/ui/field"
 import {
@@ -65,8 +64,6 @@ export function LoginPage({
     defaultValues: { email: presetEmail, password: "" },
   })
 
-  const [verifyEmail, setVerifyEmail] = React.useState<string | null>(null)
-
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
       const result = await login(values.email, values.password)
@@ -84,10 +81,13 @@ export function LoginPage({
         navigate(from, { replace: true })
       }
     } catch (error) {
-      // Unconfirmed email: open the verification dialog instead of a dead-end
-      // error, then retry the sign-in automatically once verified.
+      // Unconfirmed email: send the user to enter the verification code, which
+      // confirms the address and signs them in — no dead-end and no second
+      // manual login. The password was already accepted, so it isn't needed.
       if (getErrorCodes(error).includes("User.EmailNotConfirmed")) {
-        setVerifyEmail(values.email)
+        navigate("/verify-email", {
+          state: { email: values.email, from },
+        })
         return
       }
       toast.error(getErrorMessage(error))
@@ -164,14 +164,6 @@ export function LoginPage({
         </form>
       </Form>
       {providers}
-      <VerifyEmailDialog
-        open={verifyEmail !== null}
-        onOpenChange={(open) => {
-          if (!open) setVerifyEmail(null)
-        }}
-        email={verifyEmail ?? ""}
-        onVerified={() => void form.handleSubmit(onSubmit)()}
-      />
     </AuthLayout>
   )
 }

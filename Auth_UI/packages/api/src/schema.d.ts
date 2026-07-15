@@ -5762,6 +5762,15 @@ export interface paths {
                 };
             };
             responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LoginResponse"];
+                    };
+                };
                 /** @description No Content */
                 204: {
                     headers: {
@@ -9215,6 +9224,8 @@ export interface components {
             message: string;
             /** @default false */
             organizationCreated: boolean;
+            /** Format: date-time */
+            verificationCodeExpiresAt?: null | string;
         };
         RegisterWithInvitationRequest: {
             password: string;
@@ -9706,6 +9717,7 @@ export interface components {
             userId?: null | string;
             email?: null | string;
             otp: string;
+            deviceId?: null | string;
         };
         WebhookKeyDto: {
             /** Format: uuid */

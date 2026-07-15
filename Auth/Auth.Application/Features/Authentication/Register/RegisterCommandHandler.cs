@@ -97,11 +97,16 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
 
         var maskedEmail = MaskEmail(user.Email);
 
+        DateTime? verificationCodeExpiresAt = null;
         if (verificationResult.IsError)
         {
             _logger.LogWarning(
                 "User {UserId} registered but verification email failed: {Error}",
                 user.Id, verificationResult.FirstError.Description);
+        }
+        else
+        {
+            verificationCodeExpiresAt = verificationResult.Value.ExpiresAt;
         }
 
         _logger.LogInformation(
@@ -112,7 +117,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
             user.Id,
             maskedEmail,
             "Registration successful. Please verify your email to sign in.",
-            organizationCreated);
+            organizationCreated,
+            verificationCodeExpiresAt);
     }
 
     private static string MaskEmail(string email)
