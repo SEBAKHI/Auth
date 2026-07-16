@@ -282,4 +282,22 @@
   <data name="Validation.Theme.NotSupported" xml:space="preserve">
     <value>تھیم ان میں سے ایک ہونی چاہیے: light، dark، system۔</value>
   </data>
+  <data name="Validation.TwoFactorChallengeToken.Required" xml:space="preserve">
+    <value>دو عنصری توثیق کا چیلنج ٹوکن لازمی ہے۔</value>
+  </data>
+  <data name="Validation.RecoveryCode.Required" xml:space="preserve">
+    <value>ریکوری کوڈ لازمی ہے۔</value>
+  </data>
+  <data name="Validation.GatewayToken.Required" xml:space="preserve">
+    <value>گیٹ وے ٹوکن لازمی ہے۔</value>
+  </data>
+  <data name="Validation.GatewayToken.MinLength" xml:space="preserve">
+    <value>گیٹ وے ٹوکن کم از کم ۱۶ حروف کا ہونا چاہیے۔</value>
+  </data>
+  <data name="Validation.HmacKey.Required" xml:space="preserve">
+    <value>HMAC کلید لازمی ہے۔</value>
+  </data>
+  <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
+    <value>RSA نجی کلید لازمی ہے۔</value>
+  </data>
 </root>

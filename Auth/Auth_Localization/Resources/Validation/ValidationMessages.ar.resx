@@ -282,4 +282,22 @@
   <data name="Validation.Theme.NotSupported" xml:space="preserve">
     <value>يجب أن يكون المظهر أحد الخيارات: light أو dark أو system.</value>
   </data>
+  <data name="Validation.TwoFactorChallengeToken.Required" xml:space="preserve">
+    <value>رمز تحدي المصادقة الثنائية مطلوب.</value>
+  </data>
+  <data name="Validation.RecoveryCode.Required" xml:space="preserve">
+    <value>رمز الاسترداد مطلوب.</value>
+  </data>
+  <data name="Validation.GatewayToken.Required" xml:space="preserve">
+    <value>رمز البوابة مطلوب.</value>
+  </data>
+  <data name="Validation.GatewayToken.MinLength" xml:space="preserve">
+    <value>يجب ألا يقل رمز البوابة عن 16 حرفًا.</value>
+  </data>
+  <data name="Validation.HmacKey.Required" xml:space="preserve">
+    <value>مفتاح HMAC مطلوب.</value>
+  </data>
+  <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
+    <value>مفتاح RSA الخاص مطلوب.</value>
+  </data>
 </root>

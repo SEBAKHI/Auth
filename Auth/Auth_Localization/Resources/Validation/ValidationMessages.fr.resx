@@ -282,4 +282,22 @@
   <data name="Validation.Theme.NotSupported" xml:space="preserve">
     <value>Le thème doit être l'un des suivants : light, dark, system.</value>
   </data>
+  <data name="Validation.TwoFactorChallengeToken.Required" xml:space="preserve">
+    <value>Le jeton de vérification à deux facteurs est requis.</value>
+  </data>
+  <data name="Validation.RecoveryCode.Required" xml:space="preserve">
+    <value>Le code de récupération est requis.</value>
+  </data>
+  <data name="Validation.GatewayToken.Required" xml:space="preserve">
+    <value>Le jeton de passerelle est requis.</value>
+  </data>
+  <data name="Validation.GatewayToken.MinLength" xml:space="preserve">
+    <value>Le jeton de passerelle doit comporter au moins 16 caractères.</value>
+  </data>
+  <data name="Validation.HmacKey.Required" xml:space="preserve">
+    <value>La clé HMAC est requise.</value>
+  </data>
+  <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
+    <value>La clé privée RSA est requise.</value>
+  </data>
 </root>

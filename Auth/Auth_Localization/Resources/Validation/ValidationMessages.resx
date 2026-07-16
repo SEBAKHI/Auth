@@ -282,4 +282,22 @@
   <data name="Validation.Theme.NotSupported" xml:space="preserve">
     <value>Theme must be one of: light, dark, system.</value>
   </data>
+  <data name="Validation.TwoFactorChallengeToken.Required" xml:space="preserve">
+    <value>The two-factor challenge token is required.</value>
+  </data>
+  <data name="Validation.RecoveryCode.Required" xml:space="preserve">
+    <value>The recovery code is required.</value>
+  </data>
+  <data name="Validation.GatewayToken.Required" xml:space="preserve">
+    <value>The gateway token is required.</value>
+  </data>
+  <data name="Validation.GatewayToken.MinLength" xml:space="preserve">
+    <value>The gateway token must be at least 16 characters.</value>
+  </data>
+  <data name="Validation.HmacKey.Required" xml:space="preserve">
+    <value>The HMAC key is required.</value>
+  </data>
+  <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
+    <value>The RSA private key is required.</value>
+  </data>
 </root>

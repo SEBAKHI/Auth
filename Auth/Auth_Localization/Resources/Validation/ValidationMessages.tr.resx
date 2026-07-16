@@ -282,4 +282,22 @@
   <data name="Validation.Theme.NotSupported" xml:space="preserve">
     <value>Tema şunlardan biri olmalıdır: light, dark, system.</value>
   </data>
+  <data name="Validation.TwoFactorChallengeToken.Required" xml:space="preserve">
+    <value>İki aşamalı doğrulama sınama belirteci gereklidir.</value>
+  </data>
+  <data name="Validation.RecoveryCode.Required" xml:space="preserve">
+    <value>Kurtarma kodu gereklidir.</value>
+  </data>
+  <data name="Validation.GatewayToken.Required" xml:space="preserve">
+    <value>Ağ geçidi belirteci gereklidir.</value>
+  </data>
+  <data name="Validation.GatewayToken.MinLength" xml:space="preserve">
+    <value>Ağ geçidi belirteci en az 16 karakter olmalıdır.</value>
+  </data>
+  <data name="Validation.HmacKey.Required" xml:space="preserve">
+    <value>HMAC anahtarı gereklidir.</value>
+  </data>
+  <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
+    <value>RSA özel anahtarı gereklidir.</value>
+  </data>
 </root>

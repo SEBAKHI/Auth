@@ -282,4 +282,22 @@
   <data name="Validation.Theme.NotSupported" xml:space="preserve">
     <value>主题必须是以下之一：light、dark、system。</value>
   </data>
+  <data name="Validation.TwoFactorChallengeToken.Required" xml:space="preserve">
+    <value>双因素验证质询令牌为必填项。</value>
+  </data>
+  <data name="Validation.RecoveryCode.Required" xml:space="preserve">
+    <value>恢复代码为必填项。</value>
+  </data>
+  <data name="Validation.GatewayToken.Required" xml:space="preserve">
+    <value>网关令牌为必填项。</value>
+  </data>
+  <data name="Validation.GatewayToken.MinLength" xml:space="preserve">
+    <value>网关令牌不得少于16个字符。</value>
+  </data>
+  <data name="Validation.HmacKey.Required" xml:space="preserve">
+    <value>HMAC密钥为必填项。</value>
+  </data>
+  <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
+    <value>RSA私钥为必填项。</value>
+  </data>
 </root>

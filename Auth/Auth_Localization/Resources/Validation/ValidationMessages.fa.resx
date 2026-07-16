@@ -282,4 +282,22 @@
   <data name="Validation.Theme.NotSupported" xml:space="preserve">
     <value>پوسته باید یکی از این موارد باشد: light، dark، system.</value>
   </data>
+  <data name="Validation.TwoFactorChallengeToken.Required" xml:space="preserve">
+    <value>توکن چالش احراز هویت دومرحله‌ای الزامی است.</value>
+  </data>
+  <data name="Validation.RecoveryCode.Required" xml:space="preserve">
+    <value>کد بازیابی الزامی است.</value>
+  </data>
+  <data name="Validation.GatewayToken.Required" xml:space="preserve">
+    <value>توکن دروازه الزامی است.</value>
+  </data>
+  <data name="Validation.GatewayToken.MinLength" xml:space="preserve">
+    <value>توکن دروازه باید حداقل ۱۶ کاراکتر باشد.</value>
+  </data>
+  <data name="Validation.HmacKey.Required" xml:space="preserve">
+    <value>کلید HMAC الزامی است.</value>
+  </data>
+  <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
+    <value>کلید خصوصی RSA الزامی است.</value>
+  </data>
 </root>
