@@ -136,11 +136,15 @@ The Auth API can't start without a database. Do this first.
 
 1. **Create an empty database** and a least-privilege SQL login (read/write on that DB, **not** `sa`).
    Note the server, DB name, user, password.
-2. **Create the schema + seed data.** Connect to *your* database (not `master`) and run:
-   ```
-   Auth/Auth_DB/PublishLocations/deploy_shared_hosting.sql
-   ```
-   (Or, on a server you control with Visual Studio: right-click **Auth_DB** → **Publish**.)
+2. **Create the schema + seed data.** Publish the `Auth_DB` project to *your* database (not
+   `master`): in Visual Studio, right-click **Auth_DB** → **Publish**, set the target connection to
+   your database, and Publish. This deploys every table and the seed data (permissions, roles, the
+   default admin) from the project itself, so it is always current.
+
+   The `Auth_DB` project is the single source of truth for the schema — publishing is the only
+   supported path. Publish profiles under `Auth_DB/PublishLocations/` are per-environment and
+   gitignored; yours is created on first publish. Leave `CreateNewDatabase` off (step 1 already
+   created the database) — publishing only needs read/write on that one database, not `sa`.
 3. **Set a real admin password** (the seed ships a placeholder that can't log in):
    ```bash
    dotnet run --project Auth/Auth_Setup -c Release

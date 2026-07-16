@@ -80,12 +80,12 @@ cd AuthSystem
 dotnet build Auth/Auth.sln -c Release
 ```
 
-**2. Database** — create an empty database and a least-privilege SQL login (not `sa`), then:
+**2. Database** — create an empty database and a least-privilege SQL login (not `sa`), then publish
+the schema + seed data into it. In Visual Studio, right-click **Auth_DB** → **Publish**, point it at
+your database, and hit Publish. (Publish profiles are per-environment and gitignored — yours is
+created on first publish.)
 
 ```bash
-# Run the schema + seed against YOUR database (not master):
-#   Auth/Auth_DB/PublishLocations/deploy_shared_hosting.sql
-
 # Set a real admin password (the seed ships a non-working placeholder):
 dotnet run --project Auth/Auth_Setup -c Release
 ```
