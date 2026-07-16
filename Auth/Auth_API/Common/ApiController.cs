@@ -1,3 +1,4 @@
+using System.Globalization;
 using Auth.Domain.Constants;
 using Auth_API.Authorization;
 using Auth_Localization.Resources;
@@ -23,6 +24,8 @@ public abstract class ApiController : ControllerBase
             .GetService<IStringLocalizer<DomainErrors>>();
         var validationLocalizer = HttpContext.RequestServices
             .GetService<IStringLocalizer<ValidationMessages>>();
+        var logger = HttpContext.RequestServices
+            .GetService<ILogger<ApiController>>();
 
         var firstError = errors.First();
 
@@ -40,7 +43,7 @@ public abstract class ApiController : ControllerBase
         {
             Status = statusCode,
             Title = firstError.Code,
-            Detail = LocalizeError(firstError, domainLocalizer, validationLocalizer),
+            Detail = LocalizeError(firstError, domainLocalizer, validationLocalizer, logger),
             Instance = Request.Path
         };
 
@@ -49,7 +52,7 @@ public abstract class ApiController : ControllerBase
             problemDetails.Extensions["errors"] = errors.Select(e => new
             {
                 code = e.Code,
-                description = LocalizeError(e, domainLocalizer, validationLocalizer)
+                description = LocalizeError(e, domainLocalizer, validationLocalizer, logger)
             });
         }
 
@@ -117,13 +120,47 @@ public abstract class ApiController : ControllerBase
             return fallback;
         }
 
-        return args.Length > 0 ? string.Format(localized.Value, args) : localized.Value;
+        if (args.Length == 0)
+        {
+            return localized.Value;
+        }
+
+        var logger = HttpContext.RequestServices.GetService<ILogger<ApiController>>();
+        return SafeFormat(localized.Value, args, fallback, logger);
+    }
+
+    /// <summary>
+    /// Formats a localized resource, falling back to <paramref name="fallback"/> when its
+    /// placeholders do not match the supplied arguments. Without this guard a mis-indexed
+    /// format string throws while the error response is being built, turning a clean 404 or
+    /// 400 into a 500 — the failure surfaces on the error path, where it is least visible.
+    /// BaselineCoverageTests keeps placeholders consistent across cultures; this guards the
+    /// neutral resource against an argument-count change on the C# side.
+    /// </summary>
+    private static string SafeFormat(string format, object[] args, string fallback, ILogger? logger)
+    {
+        try
+        {
+            return string.Format(CultureInfo.CurrentCulture, format, args);
+        }
+        catch (FormatException exception)
+        {
+            logger?.LogError(
+                exception,
+                "Localized resource '{Format}' does not match its {ArgumentCount} argument(s) for culture {Culture}. Falling back.",
+                format,
+                args.Length,
+                CultureInfo.CurrentUICulture.Name);
+
+            return fallback;
+        }
     }
 
     private static string LocalizeError(
         Error error,
         IStringLocalizer<DomainErrors>? domainLocalizer,
-        IStringLocalizer<ValidationMessages>? validationLocalizer)
+        IStringLocalizer<ValidationMessages>? validationLocalizer,
+        ILogger? logger)
     {
         // 1. Try domain errors (keyed by error code, e.g., "User.InvalidCredentials")
         if (domainLocalizer is not null)
@@ -134,7 +171,7 @@ public abstract class ApiController : ControllerBase
                 if (error.Metadata?.TryGetValue("args", out var argsObj) == true
                     && argsObj is object[] args)
                 {
-                    return string.Format(localized.Value, args);
+                    return SafeFormat(localized.Value, args, error.Description, logger);
                 }
 
                 return localized.Value;
