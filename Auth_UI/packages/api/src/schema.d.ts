@@ -5394,6 +5394,15 @@ export interface paths {
                         "application/json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -9251,7 +9260,6 @@ export interface components {
             maskedEmail: string;
         };
         ResetPasswordRequest: {
-            email: string;
             token: string;
             newPassword: string;
             confirmNewPassword: string;

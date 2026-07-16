@@ -64,9 +64,6 @@
   <data name="Email.PasswordReset.ButtonText" xml:space="preserve">
     <value>بازنشانی رمز عبور</value>
   </data>
-  <data name="Email.PasswordReset.TokenInstruction" xml:space="preserve">
-    <value>یا این کد را در صفحه بازنشانی رمز عبور وارد کنید:</value>
-  </data>
   <data name="Email.PasswordReset.Expiration" xml:space="preserve">
     <value>این پیوند تا {0} دقیقه دیگر منقضی می‌شود.</value>
   </data>

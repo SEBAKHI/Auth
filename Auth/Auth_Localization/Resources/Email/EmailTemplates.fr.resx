@@ -64,9 +64,6 @@
   <data name="Email.PasswordReset.ButtonText" xml:space="preserve">
     <value>Réinitialiser le mot de passe</value>
   </data>
-  <data name="Email.PasswordReset.TokenInstruction" xml:space="preserve">
-    <value>Ou saisissez ce code sur la page de réinitialisation du mot de passe :</value>
-  </data>
   <data name="Email.PasswordReset.Expiration" xml:space="preserve">
     <value>Ce lien expirera dans {0} minutes.</value>
   </data>

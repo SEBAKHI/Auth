@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
+import { Loader2, MailCheck } from "lucide-react"
+import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Link, useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -20,12 +21,23 @@ import {
 import { Input } from "@astoom/ui/input"
 import { getErrorMessage } from "@astoom/api/errors"
 import { AuthLayout } from "@astoom/ui/auth-layout"
+import { useCountdown } from "@astoom/ui/hooks/use-countdown"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+interface SentState {
+  maskedEmail: string
+  expiresAt: Date | null
+}
+
+/**
+ * Requests a password reset link. On success the page stays put and reports that
+ * the mail was sent - the link in that mail is the only way onward, so there is
+ * nothing for the user to type here.
+ */
 export function ForgotPasswordPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
+  const [sent, setSent] = React.useState<SentState | null>(null)
 
   const schema = z.object({
     email: z
@@ -41,15 +53,23 @@ export function ForgotPasswordPage() {
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
-      const { error } = await api.POST("/api/v1/Auth/forgot-password", {
+      const { data, error } = await api.POST("/api/v1/Auth/forgot-password", {
         body: { email: values.email },
       })
       if (error) throw error
-      toast.success(t("auth.forgotSent"))
-      navigate("/reset-password", { state: { email: values.email } })
+      setSent({
+        // The response is deliberately identical for unknown addresses, so this
+        // reveals nothing about whether the account exists.
+        maskedEmail: data?.maskedEmail ?? values.email,
+        expiresAt: data?.expiresAt ? new Date(data.expiresAt) : null,
+      })
     } catch (error) {
       toast.error(getErrorMessage(error))
     }
+  }
+
+  if (sent) {
+    return <ResetLinkSent sent={sent} onResend={() => setSent(null)} />
   }
 
   return (
@@ -96,6 +116,54 @@ export function ForgotPasswordPage() {
           </FieldGroup>
         </form>
       </Form>
+    </AuthLayout>
+  )
+}
+
+function ResetLinkSent({
+  sent,
+  onResend,
+}: {
+  sent: SentState
+  onResend: () => void
+}) {
+  const { t } = useTranslation()
+  const countdown = useCountdown(sent.expiresAt)
+
+  return (
+    <AuthLayout
+      title={t("auth.resetLinkSentTitle")}
+      subtitle={t("auth.resetLinkSentDescription", { email: sent.maskedEmail })}
+      footer={
+        <Link to="/login" className="underline-offset-4 hover:underline">
+          {t("auth.backToSignIn")}
+        </Link>
+      }
+    >
+      <div className="flex flex-col items-center gap-4">
+        <MailCheck className="size-10 text-muted-foreground" aria-hidden />
+
+        {sent.expiresAt ? (
+          countdown.expired ? (
+            <p className="text-sm text-destructive">
+              {t("auth.resetLinkExpired")}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground tabular-nums">
+              {t("auth.resetLinkExpiresIn", { time: countdown.label })}
+            </p>
+          )
+        ) : null}
+
+        <Button
+          type="button"
+          variant="link"
+          className="text-muted-foreground"
+          onClick={onResend}
+        >
+          {t("auth.resendResetLink")}
+        </Button>
+      </div>
     </AuthLayout>
   )
 }

@@ -64,9 +64,6 @@
   <data name="Email.PasswordReset.ButtonText" xml:space="preserve">
     <value>Şifreyi Sıfırla</value>
   </data>
-  <data name="Email.PasswordReset.TokenInstruction" xml:space="preserve">
-    <value>Veya bu kodu şifre sıfırlama sayfasına girin:</value>
-  </data>
   <data name="Email.PasswordReset.Expiration" xml:space="preserve">
     <value>Bu bağlantının süresi {0} dakika içinde dolacaktır.</value>
   </data>

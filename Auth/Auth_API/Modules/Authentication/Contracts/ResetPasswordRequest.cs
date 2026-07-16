@@ -8,15 +8,8 @@ namespace Auth_API.Modules.Authentication.Contracts;
 public record ResetPasswordRequest
 {
     /// <summary>
-    /// Gets the user's email address.
-    /// Required for efficient token lookup and verification.
-    /// </summary>
-    [Required]
-    [EmailAddress]
-    public required string Email { get; init; }
-
-    /// <summary>
     /// Gets the password reset token received via email.
+    /// Identifies the user on its own; no email address is required.
     /// </summary>
     [Required]
     public required string Token { get; init; }

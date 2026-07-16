@@ -101,8 +101,6 @@ public class SmtpEmailService : IEmailService
         var instruction = Localize("Email.PasswordReset.Instruction",
             "We received a request to reset your password. Click the button below to choose a new password:");
         var buttonText = Localize("Email.PasswordReset.ButtonText", "Reset Password");
-        var tokenInstruction = Localize("Email.PasswordReset.TokenInstruction",
-            "Or enter this code on the password reset page:");
         var expiration = LocalizeFormat("Email.PasswordReset.Expiration",
             "This link will expire in {0} minutes.", expirationMinutes);
         var securityNotice = Localize("Email.PasswordReset.SecurityNotice",
@@ -112,7 +110,7 @@ public class SmtpEmailService : IEmailService
         var footer = LocalizeFormat("Email.Common.Footer",
             "This is an automated message from {0}. Please do not reply to this email.", _settings.SenderName);
 
-        var resetUrl = BuildFrontendUrl($"/reset-password?token={Uri.EscapeDataString(resetToken)}");
+        var resetUrl = _settings.BuildPasswordResetUrl(resetToken);
         var encodedUrl = WebUtility.HtmlEncode(resetUrl);
 
         var contentHtml = $@"
@@ -122,10 +120,6 @@ public class SmtpEmailService : IEmailService
                 <a class=""button"" href=""{encodedUrl}"">{WebUtility.HtmlEncode(buttonText)}</a>
             </div>
             <p class=""link-fallback"">{WebUtility.HtmlEncode(linkFallback)}<br><a href=""{encodedUrl}"">{encodedUrl}</a></p>
-            <p class=""message"">{WebUtility.HtmlEncode(tokenInstruction)}</p>
-            <div class=""code-container"">
-                <div class=""token-code"">{WebUtility.HtmlEncode(resetToken)}</div>
-            </div>
             <p class=""message"">{WebUtility.HtmlEncode(expiration)}</p>
             <div class=""warning"">
                 {WebUtility.HtmlEncode(securityNotice)}
@@ -141,10 +135,6 @@ public class SmtpEmailService : IEmailService
 {instruction}
 
 {resetUrl}
-
-{tokenInstruction}
-
-{resetToken}
 
 {expiration}
 
@@ -344,7 +334,7 @@ public class SmtpEmailService : IEmailService
     /// Builds an absolute frontend URL from the configured <see cref="EmailSettings.FrontendBaseUrl"/>.
     /// </summary>
     private string BuildFrontendUrl(string pathAndQuery) =>
-        $"{_settings.FrontendBaseUrl.TrimEnd('/')}{pathAndQuery}";
+        _settings.BuildFrontendUrl(pathAndQuery);
 
     private string Localize(string key, string fallback)
     {

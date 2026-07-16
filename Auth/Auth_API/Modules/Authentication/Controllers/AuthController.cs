@@ -271,16 +271,17 @@ public class AuthController : ApiController
     /// <summary>
     /// Resets a user's password using a reset token.
     /// </summary>
-    /// <param name="request">Email, reset token and new password.</param>
+    /// <param name="request">Reset token and new password.</param>
     /// <returns>Success status</returns>
     [HttpPost("reset-password")]
     [AllowAnonymous]
+    [EnableRateLimiting("password-reset")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
     {
         var command = new ResetPasswordCommand(
-            request.Email,
             request.Token,
             request.NewPassword,
             request.TerminateSessions);

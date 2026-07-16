@@ -129,12 +129,21 @@ export const ur: TranslationResources = {
     forgotPassword: "پاس ورڈ بھول گئے؟",
     forgotTitle: "اپنا پاس ورڈ دوبارہ ترتیب دیں",
     forgotSubtitle:
-      "اپنی ای میل درج کریں اور ہم آپ کو ری سیٹ کوڈ بھیجیں گے۔",
-    sendResetLink: "ری سیٹ کوڈ بھیجیں",
+      "اپنی ای میل درج کریں اور ہم آپ کو ری سیٹ لنک بھیجیں گے۔",
+    sendResetLink: "ری سیٹ لنک بھیجیں",
     backToSignIn: "سائن ان پر واپس جائیں",
+    resetLinkSentTitle: "اپنی ای میل دیکھیں",
+    resetLinkSentDescription:
+      "اگر {{email}} کے لیے کوئی اکاؤنٹ موجود ہے تو ہم نے پاس ورڈ ری سیٹ کرنے کا لنک بھیج دیا ہے۔",
+    resetLinkExpiresIn: "لنک {{time}} میں ختم ہو جائے گا",
+    resetLinkExpired: "لنک کی میعاد ختم ہو گئی۔ نیا لنک طلب کریں۔",
+    resendResetLink: "موصول نہیں ہوا؟ دوبارہ بھیجیں",
+    resetLinkInvalidTitle: "یہ لنک اب کارآمد نہیں",
+    resetLinkInvalidDescription:
+      "پاس ورڈ ری سیٹ لنک صرف ایک بار استعمال ہوتے ہیں اور کچھ دیر بعد ختم ہو جاتے ہیں۔",
+    requestNewResetLink: "نیا لنک طلب کریں",
     resetTitle: "نیا پاس ورڈ مقرر کریں",
-    resetSubtitle: "موصول شدہ کوڈ درج کریں اور نیا پاس ورڈ منتخب کریں۔",
-    resetCode: "ری سیٹ کوڈ",
+    resetSubtitle: "اپنے اکاؤنٹ کے لیے نیا پاس ورڈ منتخب کریں۔",
     newPassword: "نیا پاس ورڈ",
     confirmPassword: "پاس ورڈ کی تصدیق کریں",
     resetPassword: "پاس ورڈ ری سیٹ کریں",
@@ -160,7 +169,6 @@ export const ur: TranslationResources = {
     recoveryCode: "ریکوری کوڈ",
     twoFactorChallengeExpired:
       "سائن ان کی کوشش کی میعاد ختم ہو گئی۔ براہ کرم دوبارہ سائن ان کریں۔",
-    forgotSent: "اگر یہ ای میل موجود ہے تو ری سیٹ کوڈ بھیج دیا گیا ہے۔",
     signedOut: "آپ سائن آؤٹ ہو گئے ہیں۔",
     sessionExpired: "آپ کا سیشن ختم ہو گیا ہے۔ براہ کرم دوبارہ سائن ان کریں۔",
     welcomeBack: "خوش آمدید",

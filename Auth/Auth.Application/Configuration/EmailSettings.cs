@@ -48,6 +48,11 @@ public class EmailSettings
     public int OtpExpirationMinutes { get; set; } = 15;
 
     /// <summary>
+    /// Gets or sets the password reset token expiration in minutes.
+    /// </summary>
+    public int ResetTokenExpirationMinutes { get; set; } = 30;
+
+    /// <summary>
     /// Gets or sets the rate limit window in seconds.
     /// </summary>
     public int RateLimitWindowSeconds { get; set; } = 60;
@@ -73,4 +78,17 @@ public class EmailSettings
     /// Gets the rate limit window as a TimeSpan.
     /// </summary>
     public TimeSpan RateLimitWindow => TimeSpan.FromSeconds(RateLimitWindowSeconds);
+
+    /// <summary>
+    /// Builds an absolute frontend URL from <see cref="FrontendBaseUrl"/>.
+    /// </summary>
+    /// <param name="pathAndQuery">A root-relative path, including any query string.</param>
+    public string BuildFrontendUrl(string pathAndQuery) =>
+        $"{FrontendBaseUrl.TrimEnd('/')}{pathAndQuery}";
+
+    /// <summary>
+    /// Builds the absolute password reset URL for the given plaintext token.
+    /// </summary>
+    public string BuildPasswordResetUrl(string resetToken) =>
+        BuildFrontendUrl($"/reset-password?token={Uri.EscapeDataString(resetToken)}");
 }

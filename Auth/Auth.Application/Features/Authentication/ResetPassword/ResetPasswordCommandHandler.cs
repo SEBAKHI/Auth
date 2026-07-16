@@ -20,6 +20,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IPasswordHistoryRepository _passwordHistoryRepository;
     private readonly IUserSessionRepository _userSessionRepository;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly PasswordValidator _passwordValidator;
     private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly PasswordSettings _passwordSettings;
@@ -32,6 +33,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IPasswordHistoryRepository passwordHistoryRepository,
         IUserSessionRepository userSessionRepository,
         IPasswordHasher passwordHasher,
+        IRefreshTokenKeyService tokenKeyService,
         PasswordValidator passwordValidator,
         IPasswordBreachEvaluator breachEvaluator,
         IOptions<PasswordSettings> passwordSettings,
@@ -43,6 +45,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _passwordHistoryRepository = passwordHistoryRepository;
         _userSessionRepository = userSessionRepository;
         _passwordHasher = passwordHasher;
+        _tokenKeyService = tokenKeyService;
         _passwordValidator = passwordValidator;
         _breachEvaluator = breachEvaluator;
         _passwordSettings = passwordSettings.Value;
@@ -52,41 +55,25 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
 
     public async Task<ErrorOr<Success>> Handle(ResetPasswordCommand request, CancellationToken cancellationToken)
     {
-        // Look up user by email first (same pattern as login)
-        var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
-
-        if (user == null)
-        {
-            // Use same error message to prevent email enumeration
-            _logger.LogWarning("Password reset attempted for non-existent email");
-            return PasswordResetErrors.InvalidOrExpiredToken;
-        }
-
-        // Get the latest valid token for this user
-        var resetToken = await _passwordResetTokenRepository.GetLatestValidTokenForUserAsync(user.Id, cancellationToken);
+        // The token identifies the user on its own: it is hashed deterministically,
+        // so the hash of what was submitted is looked up directly. The query also
+        // filters out used and expired tokens.
+        var tokenHash = _tokenKeyService.ComputeTokenHash(request.Token);
+        var resetToken = await _passwordResetTokenRepository.GetByTokenHashAsync(tokenHash, cancellationToken);
 
         if (resetToken == null)
         {
-            _logger.LogWarning("No valid password reset token found for user {UserId}", user.Id);
+            _logger.LogWarning("Invalid, used or expired password reset token submitted");
             return PasswordResetErrors.InvalidOrExpiredToken;
         }
 
-        // Verify the submitted token against the stored hash using VerifyPassword
-        // (same pattern as password verification during login)
-        if (!_passwordHasher.VerifyPassword(request.Token, resetToken.TokenHash))
-        {
-            _logger.LogWarning(
-                "Invalid password reset token submitted for user {UserId}",
-                user.Id);
-            return PasswordResetErrors.InvalidOrExpiredToken;
-        }
+        var user = await _userRepository.GetByIdAsync(resetToken.UserId, cancellationToken);
 
-        // Additional validation (should already be filtered by repository query)
-        if (!resetToken.IsValid)
+        if (user == null)
         {
             _logger.LogWarning(
-                "Attempted to use invalid reset token for user {UserId}",
-                resetToken.UserId);
+                "Password reset token {TokenId} resolved to a missing user {UserId}",
+                resetToken.Id, resetToken.UserId);
             return PasswordResetErrors.InvalidOrExpiredToken;
         }
 

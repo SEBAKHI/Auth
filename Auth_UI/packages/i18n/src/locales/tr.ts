@@ -129,12 +129,21 @@ export const tr: TranslationResources = {
     forgotPassword: "Parolanızı mı unuttunuz?",
     forgotTitle: "Parolanızı sıfırlayın",
     forgotSubtitle:
-      "E-postanızı girin, size bir sıfırlama kodu gönderelim.",
-    sendResetLink: "Sıfırlama kodu gönder",
+      "E-postanızı girin, size bir sıfırlama bağlantısı gönderelim.",
+    sendResetLink: "Sıfırlama bağlantısı gönder",
     backToSignIn: "Oturum açmaya dön",
+    resetLinkSentTitle: "E-postanızı kontrol edin",
+    resetLinkSentDescription:
+      "{{email}} için bir hesap varsa, parolanızı sıfırlamanız için bir bağlantı gönderdik.",
+    resetLinkExpiresIn: "Bağlantının süresi {{time}} içinde doluyor",
+    resetLinkExpired: "Bağlantının süresi doldu. Yenisini isteyin.",
+    resendResetLink: "Ulaşmadı mı? Tekrar gönder",
+    resetLinkInvalidTitle: "Bu bağlantı artık geçerli değil",
+    resetLinkInvalidDescription:
+      "Parola sıfırlama bağlantıları yalnızca bir kez kullanılabilir ve bir süre sonra geçerliliğini yitirir.",
+    requestNewResetLink: "Yeni bağlantı iste",
     resetTitle: "Yeni parola belirleyin",
-    resetSubtitle: "Aldığınız kodu girin ve yeni bir parola seçin.",
-    resetCode: "Sıfırlama kodu",
+    resetSubtitle: "Hesabınız için yeni bir parola seçin.",
     newPassword: "Yeni parola",
     confirmPassword: "Parolayı doğrula",
     resetPassword: "Parolayı sıfırla",
@@ -159,7 +168,6 @@ export const tr: TranslationResources = {
     recoveryCode: "Kurtarma kodu",
     twoFactorChallengeExpired:
       "Oturum açma denemenizin süresi doldu. Lütfen tekrar oturum açın.",
-    forgotSent: "Bu e-posta kayıtlıysa bir sıfırlama kodu gönderildi.",
     signedOut: "Oturumunuz kapatıldı.",
     sessionExpired: "Oturumunuzun süresi doldu. Lütfen tekrar oturum açın.",
     welcomeBack: "Tekrar hoş geldiniz",

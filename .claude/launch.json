@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "Auth/Auth_API/Auth_API.csproj",
+        "--launch-profile",
+        "http"
+      ],
+      "port": 5100
+    },
+    {
+      "name": "accounts",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "Auth_UI", "run", "dev:accounts"],
+      "port": 5174
+    },
+    {
+      "name": "console",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["-C", "Auth_UI", "run", "dev"],
+      "port": 5173
+    }
+  ]
+}

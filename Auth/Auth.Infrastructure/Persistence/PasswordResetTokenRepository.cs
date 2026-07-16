@@ -92,24 +92,6 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
             WHERE [ExpiresAt] < DATEADD(DAY, -7, GETUTCDATE())");
     }
 
-    /// <inheritdoc />
-    public async Task<PasswordResetToken?> GetLatestValidTokenForUserAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        var dto = await connection.QueryFirstOrDefaultAsync<PasswordResetTokenDto>(@"
-            SELECT TOP 1
-                [Id], [UserId], [TokenHash], [ExpiresAt], [UsedAt], [CreatedAt]
-            FROM [dbo].[PasswordResetTokens]
-            WHERE [UserId] = @UserId
-              AND [UsedAt] IS NULL
-              AND [ExpiresAt] > GETUTCDATE()
-            ORDER BY [CreatedAt] DESC",
-            new { UserId = userId });
-
-        return dto?.ToEntity();
-    }
-
     // Internal DTO for mapping from database
     private record PasswordResetTokenDto
     {
