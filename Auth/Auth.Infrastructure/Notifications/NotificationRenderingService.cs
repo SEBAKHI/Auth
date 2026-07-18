@@ -249,16 +249,27 @@ public class NotificationRenderingService : INotificationRenderer
             ["Year"] = DateTime.UtcNow.Year
         };
 
-        // Context objects always available to templates: {{ Platform.Name }} and,
-        // when the send is scoped to an application, {{ Application.Name }} /
-        // {{ Application.Code }} / {{ Application.BaseUrl }}. This lets admin-authored
-        // variables reference real linked-app and platform data without the calling
-        // flow having to pass it. Recipient/flow-specific values still come from the
-        // caller's Variables (which are merged last and win).
+        // Context objects always available to templates: {{ Platform.Name }},
+        // {{ Application.Name }} / {{ Application.Code }} / {{ Application.BaseUrl }}.
+        // This lets admin-authored variables reference real linked-app and platform
+        // data without the calling flow having to pass it. Recipient/flow-specific
+        // values still come from the caller's Variables (merged last, they win).
         var platform = await _platformSettingsRepository.GetAsync(cancellationToken);
+        var platformName = platform?.PlatformName ?? _emailSettings.SenderName;
         model["Platform"] = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["Name"] = platform?.PlatformName ?? _emailSettings.SenderName
+            ["Name"] = platformName
+        };
+
+        // Application must ALWAYS be present (the variable catalog promises it):
+        // global templates — and the publish gate, which validates them without an
+        // application scope — fall back to platform identity instead of leaving
+        // the key unresolved, which would block publishing and render blanks.
+        var applicationModel = new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["Name"] = platformName,
+            ["Code"] = string.Empty,
+            ["BaseUrl"] = _emailSettings.FrontendBaseUrl
         };
 
         if (applicationId is { } appId)
@@ -266,14 +277,13 @@ public class NotificationRenderingService : INotificationRenderer
             var application = await _applicationRepository.GetByIdAsync(appId, cancellationToken);
             if (application is not null)
             {
-                model["Application"] = new Dictionary<string, object?>(StringComparer.Ordinal)
-                {
-                    ["Name"] = application.Name,
-                    ["Code"] = application.Code,
-                    ["BaseUrl"] = application.BaseUrl
-                };
+                applicationModel["Name"] = application.Name;
+                applicationModel["Code"] = application.Code;
+                applicationModel["BaseUrl"] = application.BaseUrl;
             }
         }
+
+        model["Application"] = applicationModel;
 
         foreach (var (key, value) in variables)
         {

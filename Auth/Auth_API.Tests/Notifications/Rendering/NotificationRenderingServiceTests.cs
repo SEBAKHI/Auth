@@ -362,4 +362,56 @@ public class NotificationRenderingServiceTests
         result.IsError.Should().BeFalse();
         result.Value.BodyHtml.Should().Be("<custom dir=\"ltr\"><p>body</p></custom>");
     }
+
+    [Fact]
+    public async Task RenderContentAsync_ApplicationContextWithoutScope_PassesValidationWithPlatformFallback()
+    {
+        // The catalog promises {{ Application.* }} is ALWAYS available. A global
+        // template (no application scope) — which is exactly what the publish
+        // gate validates — must therefore pass validation and render the
+        // platform identity, not fail with UnknownVariables.
+        _platformRepoMock
+            .Setup(r => r.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Auth.Domain.Entities.PlatformSettings(
+                Auth.Domain.Entities.PlatformSettings.SingletonId,
+                "Acme Platform", null, null, null, null, null));
+
+        var result = await _service.RenderContentAsync(
+            new NotificationContentRenderRequest
+            {
+                LanguageCode = "en",
+                Subject = "Reset for {{ Application.Name }}",
+                BodyHtml = "<p>Your <strong>{{ Application.Name }}</strong> account.</p>",
+                ApplicationId = null,
+                FailOnUnknownVariables = true
+            },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Subject.Should().Be("Reset for Acme Platform");
+        result.Value.BodyHtml.Should().Contain("<strong>Acme Platform</strong>");
+    }
+
+    [Fact]
+    public async Task RenderAsync_GlobalTemplateUsingApplicationName_RendersPlatformFallbackAtSendTime()
+    {
+        _platformRepoMock
+            .Setup(r => r.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Auth.Domain.Entities.PlatformSettings(
+                Auth.Domain.Entities.PlatformSettings.SingletonId,
+                "Acme Platform", null, null, null, null, null));
+        SetupGlobalTemplate(TemplateSource(
+            ("en", "Reset", "<p>Password for {{ Application.Name }}</p>")));
+
+        var result = await _service.RenderAsync(
+            new NotificationRequest
+            {
+                TypeCode = NotificationTypeCodes.PasswordReset,
+                RecipientAddress = "user@example.com"
+            },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.BodyHtml.Should().Contain("Password for Acme Platform");
+    }
 }
