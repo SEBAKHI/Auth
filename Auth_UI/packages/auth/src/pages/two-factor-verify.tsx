@@ -47,6 +47,18 @@ export function TwoFactorVerifyPage() {
   const [code, setCode] = React.useState("")
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
   const [submitting, setSubmitting] = React.useState(false)
+  const [refocusRequest, setRefocusRequest] = React.useState(0)
+  const codeInputRef = React.useRef<HTMLInputElement>(null)
+
+  // Submitting disables the input, and disabling drops browser focus. After a
+  // failed attempt the field is re-enabled but focus does not come back on its
+  // own (autoFocus only fires on mount) — restore it so the user can retype
+  // immediately instead of having to click back into the control.
+  React.useEffect(() => {
+    if (refocusRequest > 0 && !submitting) {
+      codeInputRef.current?.focus()
+    }
+  }, [refocusRequest, submitting])
 
   if (!challengeToken) {
     return <Navigate to="/login" replace />
@@ -77,6 +89,7 @@ export function TwoFactorVerifyPage() {
       }
       toast.error(getErrorMessage(error))
       setCode("")
+      setRefocusRequest((n) => n + 1)
     } finally {
       setSubmitting(false)
     }
@@ -98,6 +111,7 @@ export function TwoFactorVerifyPage() {
             <Label htmlFor="recovery-code">{t("auth.recoveryCode")}</Label>
             <Input
               id="recovery-code"
+              ref={codeInputRef}
               value={code}
               onChange={(e) => setCode(e.target.value)}
               autoComplete="one-time-code"
@@ -108,6 +122,7 @@ export function TwoFactorVerifyPage() {
           </div>
         ) : (
           <InputOTP
+            ref={codeInputRef}
             dir="ltr"
             maxLength={CODE_LENGTH}
             pattern={REGEXP_ONLY_DIGITS}
