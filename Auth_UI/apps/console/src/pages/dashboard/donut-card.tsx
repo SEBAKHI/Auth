@@ -74,7 +74,11 @@ export function DonutCard({
                 data={chartData}
                 dataKey="value"
                 nameKey="name"
-                innerRadius={55}
+                // Percentage, not pixels: a wrapping legend shrinks the plot
+                // area, and a fixed inner radius can then exceed the default
+                // outer radius (80% of the plot) — recharts silently draws
+                // nothing. Proportional radii keep the donut valid at any size.
+                innerRadius="55%"
                 strokeWidth={4}
               >
                 {chartData.map((entry) => (
