@@ -547,4 +547,93 @@
   <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
     <value>سسٹم ترتیب کی خرابی: تنظیم کے مالک کا کردار نہیں ملا۔</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Notification.TypeNotFound" xml:space="preserve">
+    <value>شناخت '{0}' والی اطلاع کی قسم نہیں ملی۔</value>
+  </data>
+  <data name="Notification.TypeNotFoundByCode" xml:space="preserve">
+    <value>کوڈ '{0}' والی اطلاع کی قسم نہیں ملی۔</value>
+  </data>
+  <data name="Notification.TemplateNotFound" xml:space="preserve">
+    <value>شناخت '{0}' والا اطلاعی سانچہ نہیں ملا۔</value>
+  </data>
+  <data name="Notification.TemplateNotPublished" xml:space="preserve">
+    <value>قسم '{0}' کے لیے کوئی شائع شدہ اطلاعی سانچہ موجود نہیں۔</value>
+  </data>
+  <data name="Notification.DuplicateTemplate" xml:space="preserve">
+    <value>اس قسم، ایپلیکیشن اور چینل کے لیے سانچہ پہلے سے موجود ہے۔</value>
+  </data>
+  <data name="Notification.VersionNotFound" xml:space="preserve">
+    <value>شناخت '{0}' والا سانچے کا ورژن نہیں ملا۔</value>
+  </data>
+  <data name="Notification.TranslationNotFound" xml:space="preserve">
+    <value>زبان '{0}' کے لیے کوئی ترجمہ موجود نہیں۔</value>
+  </data>
+  <data name="Notification.UnsupportedLanguage" xml:space="preserve">
+    <value>زبان '{0}' معاون نہیں ہے۔</value>
+  </data>
+  <data name="Notification.NoDraftToPublish" xml:space="preserve">
+    <value>سانچے کے پاس شائع کرنے کے لیے کوئی زیر التوا مسودہ نہیں۔</value>
+  </data>
+  <data name="Notification.DraftAlreadyExists" xml:space="preserve">
+    <value>سانچے کے پاس پہلے ہی ایک زیر التوا مسودہ موجود ہے۔ دوسرا ورژن بحال کرنے سے پہلے اسے محفوظ کریں یا مسترد کریں۔</value>
+  </data>
+  <data name="Notification.NoDraftToDiscard" xml:space="preserve">
+    <value>سانچے کے پاس مسترد کرنے کے لیے کوئی زیر التوا مسودہ نہیں۔</value>
+  </data>
+  <data name="Notification.DefaultLanguageTranslationRequired" xml:space="preserve">
+    <value>مسودے میں سانچے کی طے شدہ زبان '{0}' کا ترجمہ شامل ہونا ضروری ہے۔</value>
+  </data>
+  <data name="Notification.CannotRemoveDefaultLanguageTranslation" xml:space="preserve">
+    <value>طے شدہ زبان کا ترجمہ '{0}' ہٹایا نہیں جا سکتا۔</value>
+  </data>
+  <data name="Notification.NotPublished" xml:space="preserve">
+    <value>سانچہ اس وقت شائع شدہ نہیں ہے۔</value>
+  </data>
+  <data name="Notification.CannotUnpublishSystemTemplate" xml:space="preserve">
+    <value>نظامی اطلاع کی قسم کا عالمی سانچہ غیر شائع نہیں کیا جا سکتا؛ اہم عوامل اس پر منحصر ہیں۔</value>
+  </data>
+  <data name="Notification.CannotDeleteSystemGlobalTemplate" xml:space="preserve">
+    <value>نظامی اطلاع کی قسم کا عالمی سانچہ حذف نہیں کیا جا سکتا؛ اہم عوامل اس پر منحصر ہیں۔</value>
+  </data>
+  <data name="Notification.ConcurrencyConflict" xml:space="preserve">
+    <value>سانچے میں کسی اور نے ترمیم کی ہے۔ تازہ ترین مسودہ دوبارہ لوڈ کریں اور اپنی تبدیلیاں دوبارہ لاگو کریں۔</value>
+  </data>
+  <data name="Notification.LayoutNotFound" xml:space="preserve">
+    <value>شناخت '{0}' والا اطلاعی لے آؤٹ نہیں ملا۔</value>
+  </data>
+  <data name="Notification.LayoutNotPublished" xml:space="preserve">
+    <value>اس دائرہ کار کے لیے کوئی شائع شدہ اطلاعی لے آؤٹ موجود نہیں۔</value>
+  </data>
+  <data name="Notification.DuplicateLayout" xml:space="preserve">
+    <value>اس ایپلیکیشن اور چینل کے لیے لے آؤٹ پہلے سے موجود ہے۔</value>
+  </data>
+  <data name="Notification.LayoutContentRequired" xml:space="preserve">
+    <value>لے آؤٹ کا مواد خالی نہیں ہو سکتا۔</value>
+  </data>
+  <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
+    <value>لے آؤٹ پیغام کا متن نہیں دکھاتا: اس میں مواد کا مقام شامل ہونا لازمی ہے، ورنہ تمام پیغامات خالی پہنچیں گے۔</value>
+  </data>
+  <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
+    <value>سانچے میں غلط ساخت موجود ہے: {0}</value>
+  </data>
+  <data name="Notification.UnknownVariables" xml:space="preserve">
+    <value>سانچہ ایسے متغیرات کا حوالہ دیتا ہے جو قسم کے کیٹلاگ میں نہیں ہیں: {0}</value>
+  </data>
+  <data name="Notification.RenderFailed" xml:space="preserve">
+    <value>اطلاع کی تیاری ناکام ہو گئی: {0}</value>
+  </data>
+  <data name="Notification.ChannelNotSupported" xml:space="preserve">
+    <value>ترسیل کے چینل '{0}' کے لیے کوئی رجسٹرڈ عمل درآمد موجود نہیں۔</value>
+  </data>
+  <data name="Notification.SendFailed" xml:space="preserve">
+    <value>اطلاع کی ترسیل ممکن نہیں ہو سکی۔</value>
+  </data>
+  <data name="Notification.OutboxMessageNotFound" xml:space="preserve">
+    <value>شناخت '{0}' والا ترسیلی ریکارڈ نہیں ملا۔</value>
+  </data>
+  <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
+    <value>صرف ناکام (دوبارہ کوشش یا مردہ) پیغامات دوبارہ قطار میں لگائے جا سکتے ہیں۔</value>
+  </data>
 </root>

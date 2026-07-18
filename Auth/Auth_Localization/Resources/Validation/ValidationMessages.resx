@@ -300,4 +300,69 @@
   <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
     <value>The RSA private key is required.</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Validation.NotificationTypeId.Required" xml:space="preserve">
+    <value>Notification type is required.</value>
+  </data>
+  <data name="Validation.NotificationChannel.Invalid" xml:space="preserve">
+    <value>The notification channel is invalid.</value>
+  </data>
+  <data name="Validation.NotificationLanguage.Required" xml:space="preserve">
+    <value>Language is required.</value>
+  </data>
+  <data name="Validation.NotificationLanguage.NotSupported" xml:space="preserve">
+    <value>This language is not supported.</value>
+  </data>
+  <data name="Validation.NotificationSubject.Required" xml:space="preserve">
+    <value>Subject is required.</value>
+  </data>
+  <data name="Validation.NotificationSubject.MaxLength" xml:space="preserve">
+    <value>Subject must not exceed 500 characters.</value>
+  </data>
+  <data name="Validation.NotificationBody.Required" xml:space="preserve">
+    <value>Body is required.</value>
+  </data>
+  <data name="Validation.NotificationBody.MaxLength" xml:space="preserve">
+    <value>Body is too large.</value>
+  </data>
+  <data name="Validation.NotificationChangeNote.MaxLength" xml:space="preserve">
+    <value>Change note must not exceed 500 characters.</value>
+  </data>
+  <data name="Validation.NotificationRecipientEmail.Required" xml:space="preserve">
+    <value>Recipient email is required.</value>
+  </data>
+  <data name="Validation.NotificationRecipientEmail.InvalidFormat" xml:space="preserve">
+    <value>Recipient email format is invalid.</value>
+  </data>
+  <data name="Validation.NotificationLayoutName.Required" xml:space="preserve">
+    <value>Layout name is required.</value>
+  </data>
+  <data name="Validation.NotificationLayoutName.MaxLength" xml:space="preserve">
+    <value>Layout name must not exceed 200 characters.</value>
+  </data>
+  <data name="Validation.NotificationLayoutContent.Required" xml:space="preserve">
+    <value>Layout content is required.</value>
+  </data>
+  <data name="Validation.NotificationLayoutContent.MaxLength" xml:space="preserve">
+    <value>Layout content is too large.</value>
+  </data>
+  <data name="Validation.NotificationLayoutStrings.InvalidJson" xml:space="preserve">
+    <value>Layout strings must be a valid JSON object.</value>
+  </data>
+  <data name="Validation.NotificationTypeName.Required" xml:space="preserve">
+    <value>Type name is required.</value>
+  </data>
+  <data name="Validation.NotificationTypeName.MaxLength" xml:space="preserve">
+    <value>Type name must not exceed 200 characters.</value>
+  </data>
+  <data name="Validation.NotificationTypeDescription.MaxLength" xml:space="preserve">
+    <value>Type description must not exceed 500 characters.</value>
+  </data>
+  <data name="Validation.NotificationSampleData.InvalidJson" xml:space="preserve">
+    <value>Sample data must be a valid JSON object.</value>
+  </data>
+  <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
+    <value>The variable catalog must be a valid JSON array.</value>
+  </data>
 </root>

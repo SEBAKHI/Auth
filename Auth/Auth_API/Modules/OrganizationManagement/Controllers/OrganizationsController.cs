@@ -320,7 +320,11 @@ public class OrganizationsController : ApiController
     public async Task<IActionResult> InviteMember(Guid id, [FromBody] InviteMemberRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
-        var command = new InviteMemberCommand(id, request.Email, request.RoleId) { InvitedBy = userId };
+        var command = new InviteMemberCommand(id, request.Email, request.RoleId)
+        {
+            InvitedBy = userId,
+            LanguageCode = request.LanguageCode
+        };
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match(

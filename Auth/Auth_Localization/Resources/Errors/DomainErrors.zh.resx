@@ -547,4 +547,93 @@
   <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
     <value>系统配置错误：未找到组织所有者角色。</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Notification.TypeNotFound" xml:space="preserve">
+    <value>未找到 ID 为“{0}”的通知类型。</value>
+  </data>
+  <data name="Notification.TypeNotFoundByCode" xml:space="preserve">
+    <value>未找到代码为“{0}”的通知类型。</value>
+  </data>
+  <data name="Notification.TemplateNotFound" xml:space="preserve">
+    <value>未找到 ID 为“{0}”的通知模板。</value>
+  </data>
+  <data name="Notification.TemplateNotPublished" xml:space="preserve">
+    <value>类型“{0}”没有已发布的通知模板。</value>
+  </data>
+  <data name="Notification.DuplicateTemplate" xml:space="preserve">
+    <value>该类型、应用程序和渠道的模板已存在。</value>
+  </data>
+  <data name="Notification.VersionNotFound" xml:space="preserve">
+    <value>未找到 ID 为“{0}”的模板版本。</value>
+  </data>
+  <data name="Notification.TranslationNotFound" xml:space="preserve">
+    <value>语言“{0}”没有对应的翻译。</value>
+  </data>
+  <data name="Notification.UnsupportedLanguage" xml:space="preserve">
+    <value>不支持语言“{0}”。</value>
+  </data>
+  <data name="Notification.NoDraftToPublish" xml:space="preserve">
+    <value>该模板没有可发布的待定草稿。</value>
+  </data>
+  <data name="Notification.DraftAlreadyExists" xml:space="preserve">
+    <value>该模板已有待定草稿。请先保存或放弃该草稿，再恢复其他版本。</value>
+  </data>
+  <data name="Notification.NoDraftToDiscard" xml:space="preserve">
+    <value>该模板没有可放弃的待定草稿。</value>
+  </data>
+  <data name="Notification.DefaultLanguageTranslationRequired" xml:space="preserve">
+    <value>草稿必须包含模板默认语言“{0}”的翻译。</value>
+  </data>
+  <data name="Notification.CannotRemoveDefaultLanguageTranslation" xml:space="preserve">
+    <value>无法移除默认语言“{0}”的翻译。</value>
+  </data>
+  <data name="Notification.NotPublished" xml:space="preserve">
+    <value>该模板当前未发布。</value>
+  </data>
+  <data name="Notification.CannotUnpublishSystemTemplate" xml:space="preserve">
+    <value>系统通知类型的全局模板不能取消发布；关键流程依赖于它。</value>
+  </data>
+  <data name="Notification.CannotDeleteSystemGlobalTemplate" xml:space="preserve">
+    <value>系统通知类型的全局模板不能删除；关键流程依赖于它。</value>
+  </data>
+  <data name="Notification.ConcurrencyConflict" xml:space="preserve">
+    <value>该模板已被其他人修改。请重新加载最新草稿并重新应用您的更改。</value>
+  </data>
+  <data name="Notification.LayoutNotFound" xml:space="preserve">
+    <value>未找到 ID 为“{0}”的通知布局。</value>
+  </data>
+  <data name="Notification.LayoutNotPublished" xml:space="preserve">
+    <value>该范围没有已发布的通知布局。</value>
+  </data>
+  <data name="Notification.DuplicateLayout" xml:space="preserve">
+    <value>该应用程序和渠道的布局已存在。</value>
+  </data>
+  <data name="Notification.LayoutContentRequired" xml:space="preserve">
+    <value>布局内容不能为空。</value>
+  </data>
+  <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
+    <value>该布局未渲染消息正文：必须包含内容占位符，否则所有消息都将为空。</value>
+  </data>
+  <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
+    <value>模板包含无效语法：{0}</value>
+  </data>
+  <data name="Notification.UnknownVariables" xml:space="preserve">
+    <value>模板引用了类型目录中不存在的变量：{0}</value>
+  </data>
+  <data name="Notification.RenderFailed" xml:space="preserve">
+    <value>通知渲染失败：{0}</value>
+  </data>
+  <data name="Notification.ChannelNotSupported" xml:space="preserve">
+    <value>未注册“{0}”投递渠道的实现。</value>
+  </data>
+  <data name="Notification.SendFailed" xml:space="preserve">
+    <value>通知无法送达。</value>
+  </data>
+  <data name="Notification.OutboxMessageNotFound" xml:space="preserve">
+    <value>未找到 ID 为“{0}”的投递记录。</value>
+  </data>
+  <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
+    <value>只有失败（重试或死信）的消息才能重新排队。</value>
+  </data>
 </root>

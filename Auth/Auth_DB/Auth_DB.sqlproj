@@ -63,6 +63,7 @@
     <Folder Include="dbo\Tables\Security" />
     <Folder Include="dbo\Tables\Organizations" />
     <Folder Include="dbo\Tables\System" />
+    <Folder Include="dbo\Tables\Notifications" />
     <Folder Include="dbo\StoredProcedures" />
     <Folder Include="dbo\StoredProcedures\Users" />
     <Folder Include="dbo\StoredProcedures\Authentication" />
@@ -114,6 +115,12 @@
     <Build Include="dbo\Tables\Organizations\OrganizationUserPermissions.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationInvitations.sql" />
     <Build Include="dbo\Tables\System\PlatformSettings.sql" />
+    <Build Include="dbo\Tables\Notifications\NotificationTypes.sql" />
+    <Build Include="dbo\Tables\Notifications\NotificationLayouts.sql" />
+    <Build Include="dbo\Tables\Notifications\NotificationTemplates.sql" />
+    <Build Include="dbo\Tables\Notifications\NotificationTemplateVersions.sql" />
+    <Build Include="dbo\Tables\Notifications\NotificationTemplateTranslations.sql" />
+    <Build Include="dbo\Tables\Notifications\NotificationOutbox.sql" />
     <Build Include="dbo\StoredProcedures\Users\sp_GetUserById.sql" />
     <Build Include="dbo\StoredProcedures\Users\sp_GetUserByEmail.sql" />
     <Build Include="dbo\StoredProcedures\Authentication\sp_ValidateCredentials.sql" />
@@ -134,6 +141,10 @@
     <None Include="dbo\Scripts\SeedData\07_OrganizationRolesPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\08_AdditionalPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\09_ExternalAuthProviders.sql" />
+    <None Include="dbo\Scripts\SeedData\10_NotificationTypes.sql" />
+    <None Include="dbo\Scripts\SeedData\11_NotificationLayouts.sql" />
+    <None Include="dbo\Scripts\SeedData\12_NotificationTemplates.sql" />
+    <None Include="dbo\Scripts\SeedData\13_NotificationPermissions.sql" />
     <None Include="dbo\Scripts\ALTER_Users_PasswordHash_Nullable.sql" />
     <None Include="dbo\Scripts\RECONCILE_prod_constraint_names.sql" />
     <None Include="PublishLocations\Astoom_Auth.publish.xml" />

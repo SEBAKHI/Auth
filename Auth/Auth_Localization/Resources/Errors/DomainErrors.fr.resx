@@ -547,4 +547,93 @@
   <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
     <value>Erreur de configuration système : le rôle de propriétaire d'organisation est introuvable.</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Notification.TypeNotFound" xml:space="preserve">
+    <value>Le type de notification avec l'ID '{0}' est introuvable.</value>
+  </data>
+  <data name="Notification.TypeNotFoundByCode" xml:space="preserve">
+    <value>Le type de notification avec le code '{0}' est introuvable.</value>
+  </data>
+  <data name="Notification.TemplateNotFound" xml:space="preserve">
+    <value>Le modèle de notification avec l'ID '{0}' est introuvable.</value>
+  </data>
+  <data name="Notification.TemplateNotPublished" xml:space="preserve">
+    <value>Aucun modèle de notification publié n'existe pour le type '{0}'.</value>
+  </data>
+  <data name="Notification.DuplicateTemplate" xml:space="preserve">
+    <value>Un modèle existe déjà pour ce type, cette application et ce canal.</value>
+  </data>
+  <data name="Notification.VersionNotFound" xml:space="preserve">
+    <value>La version de modèle avec l'ID '{0}' est introuvable.</value>
+  </data>
+  <data name="Notification.TranslationNotFound" xml:space="preserve">
+    <value>Aucune traduction n'existe pour la langue '{0}'.</value>
+  </data>
+  <data name="Notification.UnsupportedLanguage" xml:space="preserve">
+    <value>La langue '{0}' n'est pas prise en charge.</value>
+  </data>
+  <data name="Notification.NoDraftToPublish" xml:space="preserve">
+    <value>Le modèle n'a aucun brouillon en attente à publier.</value>
+  </data>
+  <data name="Notification.DraftAlreadyExists" xml:space="preserve">
+    <value>Le modèle a déjà un brouillon en attente. Enregistrez-le ou supprimez-le avant de restaurer une autre version.</value>
+  </data>
+  <data name="Notification.NoDraftToDiscard" xml:space="preserve">
+    <value>Le modèle n'a aucun brouillon en attente à supprimer.</value>
+  </data>
+  <data name="Notification.DefaultLanguageTranslationRequired" xml:space="preserve">
+    <value>Le brouillon doit contenir une traduction pour la langue par défaut du modèle '{0}'.</value>
+  </data>
+  <data name="Notification.CannotRemoveDefaultLanguageTranslation" xml:space="preserve">
+    <value>La traduction de la langue par défaut '{0}' ne peut pas être supprimée.</value>
+  </data>
+  <data name="Notification.NotPublished" xml:space="preserve">
+    <value>Le modèle n'est pas publié actuellement.</value>
+  </data>
+  <data name="Notification.CannotUnpublishSystemTemplate" xml:space="preserve">
+    <value>Le modèle global d'un type de notification système ne peut pas être dépublié ; des flux critiques en dépendent.</value>
+  </data>
+  <data name="Notification.CannotDeleteSystemGlobalTemplate" xml:space="preserve">
+    <value>Le modèle global d'un type de notification système ne peut pas être supprimé ; des flux critiques en dépendent.</value>
+  </data>
+  <data name="Notification.ConcurrencyConflict" xml:space="preserve">
+    <value>Le modèle a été modifié par quelqu'un d'autre. Rechargez le dernier brouillon et réappliquez vos modifications.</value>
+  </data>
+  <data name="Notification.LayoutNotFound" xml:space="preserve">
+    <value>La mise en page de notification avec l'ID '{0}' est introuvable.</value>
+  </data>
+  <data name="Notification.LayoutNotPublished" xml:space="preserve">
+    <value>Aucune mise en page de notification publiée n'existe pour cette portée.</value>
+  </data>
+  <data name="Notification.DuplicateLayout" xml:space="preserve">
+    <value>Une mise en page existe déjà pour cette application et ce canal.</value>
+  </data>
+  <data name="Notification.LayoutContentRequired" xml:space="preserve">
+    <value>Le contenu de la mise en page ne peut pas être vide.</value>
+  </data>
+  <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
+    <value>La mise en page n'affiche pas le corps du message : elle doit inclure l'emplacement de contenu, sinon tous les messages arriveraient vides.</value>
+  </data>
+  <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
+    <value>Le modèle contient une syntaxe non valide : {0}</value>
+  </data>
+  <data name="Notification.UnknownVariables" xml:space="preserve">
+    <value>Le modèle référence des variables absentes du catalogue du type : {0}</value>
+  </data>
+  <data name="Notification.RenderFailed" xml:space="preserve">
+    <value>Le rendu de la notification a échoué : {0}</value>
+  </data>
+  <data name="Notification.ChannelNotSupported" xml:space="preserve">
+    <value>Aucune implémentation de canal de livraison n'est enregistrée pour '{0}'.</value>
+  </data>
+  <data name="Notification.SendFailed" xml:space="preserve">
+    <value>La notification n'a pas pu être livrée.</value>
+  </data>
+  <data name="Notification.OutboxMessageNotFound" xml:space="preserve">
+    <value>L'entrée du journal de livraison avec l'ID '{0}' est introuvable.</value>
+  </data>
+  <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
+    <value>Seuls les messages en échec (Réessai ou Mort) peuvent être remis en file.</value>
+  </data>
 </root>

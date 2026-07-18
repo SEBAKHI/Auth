@@ -1,5 +1,7 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Application.Notifications;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -17,7 +19,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
     private readonly IRefreshTokenKeyService _tokenKeyService;
-    private readonly IEmailService _emailService;
+    private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<ForgotPasswordCommandHandler> _logger;
 
@@ -26,7 +28,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         IPasswordResetTokenRepository passwordResetTokenRepository,
         ISecureTokenGenerator tokenGenerator,
         IRefreshTokenKeyService tokenKeyService,
-        IEmailService emailService,
+        INotificationService notificationService,
         IOptions<EmailSettings> emailSettings,
         ILogger<ForgotPasswordCommandHandler> logger)
     {
@@ -34,7 +36,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         _passwordResetTokenRepository = passwordResetTokenRepository;
         _tokenGenerator = tokenGenerator;
         _tokenKeyService = tokenKeyService;
-        _emailService = emailService;
+        _notificationService = notificationService;
         _emailSettings = emailSettings.Value;
         _logger = logger;
     }
@@ -89,21 +91,32 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
                 MaskEmail(user.Email), _emailSettings.BuildPasswordResetUrl(token), expirationMinutes);
         }
 
+        // Send from the database-managed template; language follows the user's
+        // stored PreferredLanguage. Link building stays a config concern here.
         var recipientName = user.DisplayName ?? user.FirstName ?? "User";
-        var emailSent = await _emailService.SendPasswordResetAsync(
-            user.Email,
-            recipientName,
-            token,
-            expirationMinutes,
+        var sendResult = await _notificationService.SendAsync(
+            new NotificationRequest
+            {
+                TypeCode = NotificationTypeCodes.PasswordReset,
+                RecipientAddress = user.Email,
+                RecipientName = recipientName,
+                RecipientUserId = user.Id,
+                Variables = new Dictionary<string, object?>
+                {
+                    ["UserName"] = recipientName,
+                    ["ResetLink"] = _emailSettings.BuildPasswordResetUrl(token),
+                    ["ExpirationMinutes"] = expirationMinutes
+                }
+            },
             cancellationToken);
 
         // Anti-enumeration: the response stays a generic success even when the email
         // could not be delivered; the plaintext token is never returned to the caller.
-        if (!emailSent)
+        if (sendResult.IsError)
         {
             _logger.LogError(
-                "Failed to send password reset email to user {UserId}",
-                user.Id);
+                "Failed to send password reset email to user {UserId}: {Error}",
+                user.Id, sendResult.FirstError.Description);
         }
 
         _logger.LogInformation(

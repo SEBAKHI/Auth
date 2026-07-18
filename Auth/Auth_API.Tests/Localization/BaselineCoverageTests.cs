@@ -29,7 +29,8 @@ public class BaselineCoverageTests
         ["DomainErrors"] = "Auth_Localization/Resources/Errors/DomainErrors",
         ["ValidationMessages"] = "Auth_Localization/Resources/Validation/ValidationMessages",
         ["MiddlewareMessages"] = "Auth_Localization/Resources/Middleware/MiddlewareMessages",
-        ["EmailTemplates"] = "Auth_Localization/Resources/Email/EmailTemplates",
+        // Email content is no longer resx-based: notification templates and their
+        // translations live in the database (NotificationTemplates feature).
     };
 
     /// <summary>

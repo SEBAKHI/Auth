@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   KeySquare,
   Lock,
+  Mail,
   ScrollText,
   Settings2,
   ShieldCheck,
@@ -71,6 +72,14 @@ export const PERMISSIONS = {
   platformSettings: {
     manage: "platform-settings:manage",
   },
+  notificationTemplates: {
+    read: "notification-templates:read",
+    manage: "notification-templates:manage",
+    publish: "notification-templates:publish",
+  },
+  notificationLayouts: {
+    manage: "notification-layouts:manage",
+  },
   // Platform-wide administration over ALL organizations — distinct from the
   // membership-scoped org:* permissions used by self-service.
   organizations: {
@@ -135,6 +144,12 @@ export const NAV_ITEMS: NavItem[] = [
     url: "/audit-logs",
     icon: ScrollText,
     permission: PERMISSIONS.auditLogs.read,
+  },
+  {
+    titleKey: "notifications",
+    url: "/notification-templates",
+    icon: Mail,
+    permission: PERMISSIONS.notificationTemplates.read,
   },
   {
     titleKey: "secrets",

@@ -1,7 +1,10 @@
 using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.ForgotPassword;
 using Auth.Application.Interfaces;
+using Auth.Application.Notifications;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
@@ -21,7 +24,7 @@ public class ForgotPasswordCommandHandlerTests
     private readonly Mock<IPasswordResetTokenRepository> _passwordResetTokenRepositoryMock;
     private readonly Mock<ISecureTokenGenerator> _tokenGeneratorMock;
     private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock;
-    private readonly Mock<IEmailService> _emailServiceMock;
+    private readonly Mock<INotificationService> _notificationServiceMock;
     private readonly Mock<ILogger<ForgotPasswordCommandHandler>> _loggerMock;
     private readonly EmailSettings _emailSettings;
     private readonly ForgotPasswordCommandHandler _handler;
@@ -32,21 +35,16 @@ public class ForgotPasswordCommandHandlerTests
         _passwordResetTokenRepositoryMock = new Mock<IPasswordResetTokenRepository>();
         _tokenGeneratorMock = new Mock<ISecureTokenGenerator>();
         _tokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
-        _emailServiceMock = new Mock<IEmailService>();
+        _notificationServiceMock = new Mock<INotificationService>();
         _loggerMock = new Mock<ILogger<ForgotPasswordCommandHandler>>();
 
         _tokenGeneratorMock.Setup(g => g.Generate()).Returns(GeneratedToken);
         _tokenKeyServiceMock.Setup(k => k.ComputeTokenHash(It.IsAny<string>()))
             .Returns((string token) => $"hmac({token})");
 
-        _emailServiceMock
-            .Setup(e => e.SendPasswordResetAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        _notificationServiceMock
+            .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
 
         _emailSettings = new EmailSettings
         {
@@ -61,7 +59,7 @@ public class ForgotPasswordCommandHandlerTests
             _passwordResetTokenRepositoryMock.Object,
             _tokenGeneratorMock.Object,
             _tokenKeyServiceMock.Object,
-            _emailServiceMock.Object,
+            _notificationServiceMock.Object,
             TestHelpers.CreateOptions(_emailSettings),
             _loggerMock.Object);
     }
@@ -143,8 +141,11 @@ public class ForgotPasswordCommandHandlerTests
         _passwordResetTokenRepositoryMock.Verify(r => r.CreateAsync(
             It.Is<PasswordResetToken>(t => t.TokenHash == $"hmac({GeneratedToken})"),
             It.IsAny<CancellationToken>()), Times.Once);
-        _emailServiceMock.Verify(e => e.SendPasswordResetAsync(
-            user.Email, It.IsAny<string>(), GeneratedToken, It.IsAny<int>(),
+        _notificationServiceMock.Verify(s => s.SendAsync(
+            It.Is<NotificationRequest>(r =>
+                r.TypeCode == NotificationTypeCodes.PasswordReset &&
+                r.RecipientAddress == user.Email.Value &&
+                ((string?)r.Variables["ResetLink"])!.Contains(GeneratedToken)),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -162,8 +163,8 @@ public class ForgotPasswordCommandHandlerTests
 
         // Assert
         result.Value.ExpiresAt.Should().BeCloseTo(DateTime.UtcNow.AddMinutes(45), TimeSpan.FromMinutes(1));
-        _emailServiceMock.Verify(e => e.SendPasswordResetAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), 45,
+        _notificationServiceMock.Verify(s => s.SendAsync(
+            It.Is<NotificationRequest>(r => Equals(r.Variables["ExpirationMinutes"], 45)),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -226,11 +227,10 @@ public class ForgotPasswordCommandHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        _emailServiceMock.Verify(e => e.SendPasswordResetAsync(
-            "john@example.com",
-            It.IsAny<string>(),
-            It.Is<string>(token => !string.IsNullOrEmpty(token)),
-            It.IsAny<int>(),
+        _notificationServiceMock.Verify(s => s.SendAsync(
+            It.Is<NotificationRequest>(r =>
+                r.RecipientAddress == "john@example.com" &&
+                !string.IsNullOrEmpty((string?)r.Variables["ResetLink"])),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -245,12 +245,9 @@ public class ForgotPasswordCommandHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        _emailServiceMock.Verify(e => e.SendPasswordResetAsync(
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<string>(),
-            It.IsAny<int>(),
-            It.IsAny<CancellationToken>()), Times.Never);
+        _notificationServiceMock.Verify(
+            s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -261,14 +258,9 @@ public class ForgotPasswordCommandHandlerTests
         ArrangeExistingUser(user);
         var command = new ForgotPasswordCommand("john@example.com");
 
-        _emailServiceMock
-            .Setup(e => e.SendPasswordResetAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<int>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        _notificationServiceMock
+            .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ErrorOr<Success>)NotificationErrors.SendFailed);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);

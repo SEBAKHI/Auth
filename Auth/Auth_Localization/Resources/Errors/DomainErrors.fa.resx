@@ -547,4 +547,93 @@
   <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
     <value>خطای پیکربندی سیستم: نقش مالک سازمان یافت نشد.</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Notification.TypeNotFound" xml:space="preserve">
+    <value>نوع اعلان با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Notification.TypeNotFoundByCode" xml:space="preserve">
+    <value>نوع اعلان با کد '{0}' یافت نشد.</value>
+  </data>
+  <data name="Notification.TemplateNotFound" xml:space="preserve">
+    <value>قالب اعلان با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Notification.TemplateNotPublished" xml:space="preserve">
+    <value>هیچ قالب اعلان منتشرشده‌ای برای نوع '{0}' وجود ندارد.</value>
+  </data>
+  <data name="Notification.DuplicateTemplate" xml:space="preserve">
+    <value>قالبی برای این نوع، برنامه و کانال از قبل وجود دارد.</value>
+  </data>
+  <data name="Notification.VersionNotFound" xml:space="preserve">
+    <value>نسخه قالب با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Notification.TranslationNotFound" xml:space="preserve">
+    <value>هیچ ترجمه‌ای برای زبان '{0}' وجود ندارد.</value>
+  </data>
+  <data name="Notification.UnsupportedLanguage" xml:space="preserve">
+    <value>زبان '{0}' پشتیبانی نمی‌شود.</value>
+  </data>
+  <data name="Notification.NoDraftToPublish" xml:space="preserve">
+    <value>قالب هیچ پیش‌نویس در انتظاری برای انتشار ندارد.</value>
+  </data>
+  <data name="Notification.DraftAlreadyExists" xml:space="preserve">
+    <value>قالب از قبل یک پیش‌نویس در انتظار دارد. پیش از بازیابی نسخه دیگر، آن را ذخیره یا حذف کنید.</value>
+  </data>
+  <data name="Notification.NoDraftToDiscard" xml:space="preserve">
+    <value>قالب هیچ پیش‌نویس در انتظاری برای حذف ندارد.</value>
+  </data>
+  <data name="Notification.DefaultLanguageTranslationRequired" xml:space="preserve">
+    <value>پیش‌نویس باید ترجمه‌ای برای زبان پیش‌فرض قالب '{0}' داشته باشد.</value>
+  </data>
+  <data name="Notification.CannotRemoveDefaultLanguageTranslation" xml:space="preserve">
+    <value>ترجمه زبان پیش‌فرض '{0}' قابل حذف نیست.</value>
+  </data>
+  <data name="Notification.NotPublished" xml:space="preserve">
+    <value>قالب در حال حاضر منتشر نشده است.</value>
+  </data>
+  <data name="Notification.CannotUnpublishSystemTemplate" xml:space="preserve">
+    <value>قالب سراسری یک نوع اعلان سیستمی را نمی‌توان از انتشار خارج کرد؛ فرایندهای حیاتی به آن وابسته‌اند.</value>
+  </data>
+  <data name="Notification.CannotDeleteSystemGlobalTemplate" xml:space="preserve">
+    <value>قالب سراسری یک نوع اعلان سیستمی را نمی‌توان حذف کرد؛ فرایندهای حیاتی به آن وابسته‌اند.</value>
+  </data>
+  <data name="Notification.ConcurrencyConflict" xml:space="preserve">
+    <value>قالب توسط شخص دیگری تغییر کرده است. آخرین پیش‌نویس را دوباره بارگیری کرده و تغییرات خود را دوباره اعمال کنید.</value>
+  </data>
+  <data name="Notification.LayoutNotFound" xml:space="preserve">
+    <value>چیدمان اعلان با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Notification.LayoutNotPublished" xml:space="preserve">
+    <value>هیچ چیدمان اعلان منتشرشده‌ای برای این محدوده وجود ندارد.</value>
+  </data>
+  <data name="Notification.DuplicateLayout" xml:space="preserve">
+    <value>چیدمانی برای این برنامه و کانال از قبل وجود دارد.</value>
+  </data>
+  <data name="Notification.LayoutContentRequired" xml:space="preserve">
+    <value>محتوای چیدمان نمی‌تواند خالی باشد.</value>
+  </data>
+  <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
+    <value>چیدمان متن پیام را نمایش نمی‌دهد: باید جایگاه محتوا را داشته باشد، وگرنه همه پیام‌ها خالی می‌رسند.</value>
+  </data>
+  <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
+    <value>قالب دارای نحو نامعتبر است: {0}</value>
+  </data>
+  <data name="Notification.UnknownVariables" xml:space="preserve">
+    <value>قالب به متغیرهایی ارجاع می‌دهد که در کاتالوگ نوع نیستند: {0}</value>
+  </data>
+  <data name="Notification.RenderFailed" xml:space="preserve">
+    <value>پردازش اعلان ناموفق بود: {0}</value>
+  </data>
+  <data name="Notification.ChannelNotSupported" xml:space="preserve">
+    <value>هیچ پیاده‌سازی ثبت‌شده‌ای برای کانال تحویل '{0}' وجود ندارد.</value>
+  </data>
+  <data name="Notification.SendFailed" xml:space="preserve">
+    <value>اعلان تحویل داده نشد.</value>
+  </data>
+  <data name="Notification.OutboxMessageNotFound" xml:space="preserve">
+    <value>رکورد تحویل با شناسه '{0}' یافت نشد.</value>
+  </data>
+  <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
+    <value>فقط پیام‌های ناموفق (تلاش مجدد یا مرده) قابل بازگردانی به صف هستند.</value>
+  </data>
 </root>

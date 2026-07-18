@@ -1,7 +1,9 @@
+using System.Globalization;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Application.Validators;
 using Auth.Application.Features.Authentication.SendEmailVerification;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -78,7 +80,12 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
             createdBy: Guid.Empty,
             displayName: request.DisplayName,
             phoneNumber: request.PhoneNumber,
-            preferredLanguage: request.PreferredLanguage ?? "en",
+            // Site language becomes the durable preference: explicit choice from
+            // the client, else the request culture (X-Language/Accept-Language) —
+            // verification and later notifications follow this language.
+            preferredLanguage: Languages.Normalize(request.PreferredLanguage)
+                ?? Languages.Normalize(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName)
+                ?? Languages.Default,
             timeZone: request.TimeZone ?? "UTC");
 
         await _userRepository.CreateAsync(user, cancellationToken);

@@ -602,6 +602,42 @@ END
 GO
 
 -- ============================================
+-- STEP 9: NOTIFICATION TYPES
+-- ============================================
+PRINT '';
+PRINT 'Step 9: Creating notification types...';
+
+:r ..\Scripts\SeedData\10_NotificationTypes.sql
+GO
+
+-- ============================================
+-- STEP 10: NOTIFICATION LAYOUTS
+-- ============================================
+PRINT '';
+PRINT 'Step 10: Creating notification layouts...';
+
+:r ..\Scripts\SeedData\11_NotificationLayouts.sql
+GO
+
+-- ============================================
+-- STEP 11: NOTIFICATION TEMPLATES
+-- ============================================
+PRINT '';
+PRINT 'Step 11: Creating notification templates...';
+
+:r ..\Scripts\SeedData\12_NotificationTemplates.sql
+GO
+
+-- ============================================
+-- STEP 12: NOTIFICATION PERMISSIONS
+-- ============================================
+PRINT '';
+PRINT 'Step 12: Creating notification permissions...';
+
+:r ..\Scripts\SeedData\13_NotificationPermissions.sql
+GO
+
+-- ============================================
 -- COMPLETION
 -- ============================================
 PRINT '';

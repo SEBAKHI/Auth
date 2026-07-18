@@ -375,6 +375,42 @@ public static class SortFields
             [Name, Code, IsActive, Relationship];
     }
 
+    public static class NotificationTemplates
+    {
+        public const string TypeName = "typeName";
+        public const string TypeCode = "typeCode";
+        public const string ApplicationName = "applicationName";
+        public const string Channel = "channel";
+        public const string DefaultLanguage = "defaultLanguage";
+        public const string PublishedVersionNumber = "publishedVersionNumber";
+        public const string CreatedAt = "createdAt";
+        public const string ModifiedAt = "modifiedAt";
+
+        public static readonly IReadOnlyList<string> Allowed =
+        [
+            TypeName, TypeCode, ApplicationName, Channel, DefaultLanguage,
+            PublishedVersionNumber, CreatedAt, ModifiedAt
+        ];
+    }
+
+    public static class NotificationOutbox
+    {
+        public const string TypeCode = "typeCode";
+        public const string Recipient = "recipient";
+        public const string LanguageCode = "languageCode";
+        public const string Status = "status";
+        public const string AttemptCount = "attemptCount";
+        public const string NextAttemptAt = "nextAttemptAt";
+        public const string SentAt = "sentAt";
+        public const string CreatedAt = "createdAt";
+
+        public static readonly IReadOnlyList<string> Allowed =
+        [
+            TypeCode, Recipient, LanguageCode, Status, AttemptCount,
+            NextAttemptAt, SentAt, CreatedAt
+        ];
+    }
+
     public static class PermissionUsers
     {
         public const string Email = "email";

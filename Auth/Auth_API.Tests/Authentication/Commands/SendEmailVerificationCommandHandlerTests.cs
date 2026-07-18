@@ -1,6 +1,8 @@
 using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.SendEmailVerification;
 using Auth.Application.Interfaces;
+using Auth.Application.Notifications;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -18,7 +20,7 @@ public class SendEmailVerificationCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IEmailVerificationTokenRepository> _tokenRepositoryMock;
-    private readonly Mock<IEmailService> _emailServiceMock;
+    private readonly Mock<INotificationService> _notificationServiceMock;
     private readonly Mock<IOtpGenerator> _otpGeneratorMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<ILogger<SendEmailVerificationCommandHandler>> _loggerMock;
@@ -29,7 +31,7 @@ public class SendEmailVerificationCommandHandlerTests
     {
         _userRepositoryMock = new Mock<IUserRepository>();
         _tokenRepositoryMock = new Mock<IEmailVerificationTokenRepository>();
-        _emailServiceMock = new Mock<IEmailService>();
+        _notificationServiceMock = new Mock<INotificationService>();
         _otpGeneratorMock = new Mock<IOtpGenerator>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _loggerMock = new Mock<ILogger<SendEmailVerificationCommandHandler>>();
@@ -45,7 +47,7 @@ public class SendEmailVerificationCommandHandlerTests
         _handler = new SendEmailVerificationCommandHandler(
             _userRepositoryMock.Object,
             _tokenRepositoryMock.Object,
-            _emailServiceMock.Object,
+            _notificationServiceMock.Object,
             _otpGeneratorMock.Object,
             _passwordHasherMock.Object,
             TestHelpers.CreateOptions(_emailSettings),
@@ -69,6 +71,14 @@ public class SendEmailVerificationCommandHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.ExpiresAt.Should().BeAfter(DateTime.UtcNow);
         result.Value.MaskedEmail.Should().NotBeNullOrEmpty();
+
+        _notificationServiceMock.Verify(s => s.SendAsync(
+            It.Is<NotificationRequest>(r =>
+                r.TypeCode == NotificationTypeCodes.EmailVerification &&
+                r.RecipientUserId == userId &&
+                Equals(r.Variables["OtpCode"], "123456") &&
+                Equals(r.Variables["ExpirationMinutes"], _emailSettings.OtpExpirationMinutes)),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -195,10 +205,9 @@ public class SendEmailVerificationCommandHandlerTests
             .Setup(h => h.HashPassword("123456"))
             .Returns("HashedOtp");
 
-        _emailServiceMock
-            .Setup(e => e.SendVerificationOtpAsync(
-                user.Email, It.IsAny<string>(), "123456", _emailSettings.OtpExpirationMinutes, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        _notificationServiceMock
+            .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ErrorOr<Success>)NotificationErrors.SendFailed);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -226,9 +235,8 @@ public class SendEmailVerificationCommandHandlerTests
             .Setup(h => h.HashPassword("123456"))
             .Returns("HashedOtp");
 
-        _emailServiceMock
-            .Setup(e => e.SendVerificationOtpAsync(
-                user.Email, It.IsAny<string>(), "123456", _emailSettings.OtpExpirationMinutes, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        _notificationServiceMock
+            .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
     }
 }

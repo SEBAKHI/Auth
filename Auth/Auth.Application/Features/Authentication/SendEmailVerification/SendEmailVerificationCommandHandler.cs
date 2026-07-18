@@ -1,5 +1,7 @@
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
+using Auth.Application.Notifications;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -17,7 +19,7 @@ public class SendEmailVerificationCommandHandler
 {
     private readonly IUserRepository _userRepository;
     private readonly IEmailVerificationTokenRepository _tokenRepository;
-    private readonly IEmailService _emailService;
+    private readonly INotificationService _notificationService;
     private readonly IOtpGenerator _otpGenerator;
     private readonly IPasswordHasher _passwordHasher;
     private readonly EmailSettings _emailSettings;
@@ -26,7 +28,7 @@ public class SendEmailVerificationCommandHandler
     public SendEmailVerificationCommandHandler(
         IUserRepository userRepository,
         IEmailVerificationTokenRepository tokenRepository,
-        IEmailService emailService,
+        INotificationService notificationService,
         IOtpGenerator otpGenerator,
         IPasswordHasher passwordHasher,
         IOptions<EmailSettings> emailSettings,
@@ -34,7 +36,7 @@ public class SendEmailVerificationCommandHandler
     {
         _userRepository = userRepository;
         _tokenRepository = tokenRepository;
-        _emailService = emailService;
+        _notificationService = notificationService;
         _otpGenerator = otpGenerator;
         _passwordHasher = passwordHasher;
         _emailSettings = emailSettings.Value;
@@ -96,18 +98,31 @@ public class SendEmailVerificationCommandHandler
 
         await _tokenRepository.CreateAsync(token, cancellationToken);
 
-        // Send email
+        // Send email from the database-managed template. RecipientUserId makes
+        // the notification language follow the user's stored PreferredLanguage
+        // (the site language chosen at registration) rather than the request culture.
         var recipientName = user.DisplayName ?? user.FirstName ?? "User";
-        var emailSent = await _emailService.SendVerificationOtpAsync(
-            user.Email,
-            recipientName,
-            otp,
-            _emailSettings.OtpExpirationMinutes,
+        var sendResult = await _notificationService.SendAsync(
+            new NotificationRequest
+            {
+                TypeCode = NotificationTypeCodes.EmailVerification,
+                RecipientAddress = user.Email,
+                RecipientName = recipientName,
+                RecipientUserId = user.Id,
+                Variables = new Dictionary<string, object?>
+                {
+                    ["UserName"] = recipientName,
+                    ["OtpCode"] = otp,
+                    ["ExpirationMinutes"] = _emailSettings.OtpExpirationMinutes
+                }
+            },
             cancellationToken);
 
-        if (!emailSent)
+        if (sendResult.IsError)
         {
-            _logger.LogError("Failed to send verification email to {UserId}", user.Id);
+            _logger.LogError(
+                "Failed to send verification email to {UserId}: {Error}",
+                user.Id, sendResult.FirstError.Description);
             return EmailVerificationErrors.EmailSendFailed;
         }
 

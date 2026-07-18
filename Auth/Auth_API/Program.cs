@@ -19,7 +19,9 @@ using Auth.Infrastructure.Authentication;
 using Auth.Infrastructure.Authorization;
 using Auth.Infrastructure.Persistence;
 using Auth.Infrastructure.Services;
-using Auth.Infrastructure.Email;
+using Auth.Infrastructure.Notifications;
+using Auth.Infrastructure.Notifications.Channels;
+using Auth.Infrastructure.Notifications.Outbox;
 using Microsoft.Extensions.FileProviders;
 using Auth.Infrastructure.Configuration;
 using Auth.Infrastructure.Security;
@@ -71,6 +73,7 @@ builder.Services.AddOptions<EmailSettings>()
         settings => !settings.Enabled || Uri.IsWellFormedUriString(settings.FrontendBaseUrl, UriKind.Absolute),
         "Email:FrontendBaseUrl must be an absolute URL when Email:Enabled is true.")
     .ValidateOnStart();
+builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSection(NotificationSettings.SectionName));
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
 builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
 
@@ -221,6 +224,10 @@ builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginReposi
 builder.Services.AddScoped<IWebhookKeyRepository, WebhookKeyRepository>();
 builder.Services.AddScoped<IDashboardStatsRepository, DashboardStatsRepository>();
 builder.Services.AddScoped<IPlatformSettingsRepository, PlatformSettingsRepository>();
+builder.Services.AddScoped<INotificationTypeRepository, NotificationTypeRepository>();
+builder.Services.AddScoped<INotificationTemplateRepository, NotificationTemplateRepository>();
+builder.Services.AddScoped<INotificationLayoutRepository, NotificationLayoutRepository>();
+builder.Services.AddScoped<INotificationOutboxRepository, NotificationOutboxRepository>();
 
 // Domain Event Dispatcher
 builder.Services.AddScoped<IDomainEventDispatcher, MediatRDomainEventDispatcher>();
@@ -311,7 +318,22 @@ builder.Services.AddSingleton<IWebhookKeyGenerator, WebhookKeyGenerator>();
 builder.Services.AddSingleton<ITotpService>(sp => new TotpService(sp.GetRequiredService<IPasswordHasher>()));
 builder.Services.AddSingleton<IOtpGenerator, OtpGenerator>();
 builder.Services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
-builder.Services.AddScoped<IEmailService, SmtpEmailService>();
+// Notification system: DB-managed templates rendered through Fluid, dispatched
+// via channel strategies. Renderer/cache/factory are singletons (thread-safe,
+// no per-request state); the service and rendering pipeline are scoped (repos).
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ITemplateRenderer, FluidTemplateRenderer>();
+builder.Services.AddSingleton<TemplateCache>();
+builder.Services.AddSingleton<ITemplateCache>(sp => sp.GetRequiredService<TemplateCache>());
+builder.Services.AddSingleton<ITemplateCacheInvalidator>(sp => sp.GetRequiredService<TemplateCache>());
+builder.Services.AddSingleton<SmtpEmailSender>();
+builder.Services.AddSingleton<INotificationChannel, EmailNotificationChannel>();
+builder.Services.AddSingleton<INotificationChannelFactory, NotificationChannelFactory>();
+builder.Services.AddScoped<INotificationRenderer, NotificationRenderingService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddSingleton<INotificationDispatchSignal, NotificationDispatchSignal>();
+builder.Services.AddHostedService<NotificationTemplateStartupCheck>();
+builder.Services.AddHostedService<NotificationOutboxDispatcher>();
 builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageService>();
 builder.Services.AddSingleton<IImageUrlComposer, ImageUrlComposer>();
 builder.Services.AddScoped<PasswordValidator>();

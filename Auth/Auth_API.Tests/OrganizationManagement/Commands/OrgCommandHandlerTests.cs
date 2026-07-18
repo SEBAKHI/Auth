@@ -8,8 +8,10 @@ using Auth.Application.Features.Organizations.DisableApplication;
 using Auth.Application.Features.Organizations.AssignAppRole;
 using Auth.Application.Features.Organizations.GrantPermission;
 using Auth.Application.Interfaces;
+using Auth.Application.Notifications;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
+using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
@@ -257,7 +259,7 @@ public class ResendInvitationCommandHandlerTests
     private readonly Mock<IRoleRepository> _roleRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<ISecureTokenGenerator> _tokenGenMock = new();
-    private readonly Mock<IEmailService> _emailServiceMock = new();
+    private readonly Mock<INotificationService> _notificationServiceMock = new();
     private readonly ResendInvitationCommandHandler _handler;
 
     private const string NewToken = "new-token-value-that-is-long-enough-for-validation";
@@ -265,17 +267,19 @@ public class ResendInvitationCommandHandlerTests
     public ResendInvitationCommandHandlerTests()
     {
         _tokenGenMock.Setup(g => g.Generate()).Returns(NewToken);
-        _emailServiceMock
-            .Setup(e => e.SendInvitationAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        _notificationServiceMock
+            .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
         _handler = new ResendInvitationCommandHandler(
             _orgRepoMock.Object,
             _roleRepoMock.Object,
             _userRepoMock.Object,
             _tokenGenMock.Object,
-            _emailServiceMock.Object,
+            _notificationServiceMock.Object,
+            TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings
+            {
+                FrontendBaseUrl = "https://accounts.example.com"
+            }),
             new Mock<ILogger<ResendInvitationCommandHandler>>().Object);
     }
 
@@ -319,9 +323,9 @@ public class ResendInvitationCommandHandlerTests
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
-        _emailServiceMock.Verify(e => e.SendInvitationAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never());
+        _notificationServiceMock.Verify(
+            s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 
     [Fact]
@@ -349,9 +353,13 @@ public class ResendInvitationCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         result.Value.Token.Should().Be(NewToken);
-        _emailServiceMock.Verify(e => e.SendInvitationAsync(
-            "invited@example.com", "Test Org", "John Doe",
-            NewToken, It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Once());
+        _notificationServiceMock.Verify(s => s.SendAsync(
+            It.Is<NotificationRequest>(r =>
+                r.RecipientAddress == "invited@example.com" &&
+                Equals(r.Variables["OrganizationName"], "Test Org") &&
+                Equals(r.Variables["InviterName"], "John Doe") &&
+                Equals(r.Variables["InvitationToken"], NewToken)),
+            It.IsAny<CancellationToken>()), Times.Once());
     }
 
     [Fact]
@@ -363,11 +371,9 @@ public class ResendInvitationCommandHandlerTests
             id: invId, organizationId: orgId, status: InvitationStatus.Pending);
 
         _orgRepoMock.Setup(r => r.GetInvitationByIdAsync(invId, It.IsAny<CancellationToken>())).ReturnsAsync(invitation);
-        _emailServiceMock
-            .Setup(e => e.SendInvitationAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        _notificationServiceMock
+            .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ErrorOr<Success>)NotificationErrors.SendFailed);
 
         var result = await _handler.Handle(
             new ResendInvitationCommand(orgId, invId) { ResentBy = Guid.NewGuid() },
@@ -394,9 +400,9 @@ public class ResendInvitationCommandHandlerTests
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Organization.InvitationNotPending");
-        _emailServiceMock.Verify(e => e.SendInvitationAsync(
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<string>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never());
+        _notificationServiceMock.Verify(
+            s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 }
 

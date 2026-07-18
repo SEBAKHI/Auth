@@ -300,4 +300,69 @@
   <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
     <value>مفتاح RSA الخاص مطلوب.</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Validation.NotificationTypeId.Required" xml:space="preserve">
+    <value>نوع الإشعار مطلوب.</value>
+  </data>
+  <data name="Validation.NotificationChannel.Invalid" xml:space="preserve">
+    <value>قناة الإشعار غير صالحة.</value>
+  </data>
+  <data name="Validation.NotificationLanguage.Required" xml:space="preserve">
+    <value>اللغة مطلوبة.</value>
+  </data>
+  <data name="Validation.NotificationLanguage.NotSupported" xml:space="preserve">
+    <value>هذه اللغة غير مدعومة.</value>
+  </data>
+  <data name="Validation.NotificationSubject.Required" xml:space="preserve">
+    <value>عنوان الرسالة مطلوب.</value>
+  </data>
+  <data name="Validation.NotificationSubject.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز عنوان الرسالة 500 حرف.</value>
+  </data>
+  <data name="Validation.NotificationBody.Required" xml:space="preserve">
+    <value>نص الرسالة مطلوب.</value>
+  </data>
+  <data name="Validation.NotificationBody.MaxLength" xml:space="preserve">
+    <value>نص الرسالة كبير جدًا.</value>
+  </data>
+  <data name="Validation.NotificationChangeNote.MaxLength" xml:space="preserve">
+    <value>يجب ألا تتجاوز ملاحظة التغيير 500 حرف.</value>
+  </data>
+  <data name="Validation.NotificationRecipientEmail.Required" xml:space="preserve">
+    <value>البريد الإلكتروني للمستلم مطلوب.</value>
+  </data>
+  <data name="Validation.NotificationRecipientEmail.InvalidFormat" xml:space="preserve">
+    <value>صيغة البريد الإلكتروني للمستلم غير صالحة.</value>
+  </data>
+  <data name="Validation.NotificationLayoutName.Required" xml:space="preserve">
+    <value>اسم التخطيط مطلوب.</value>
+  </data>
+  <data name="Validation.NotificationLayoutName.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز اسم التخطيط 200 حرف.</value>
+  </data>
+  <data name="Validation.NotificationLayoutContent.Required" xml:space="preserve">
+    <value>محتوى التخطيط مطلوب.</value>
+  </data>
+  <data name="Validation.NotificationLayoutContent.MaxLength" xml:space="preserve">
+    <value>محتوى التخطيط كبير جدًا.</value>
+  </data>
+  <data name="Validation.NotificationLayoutStrings.InvalidJson" xml:space="preserve">
+    <value>يجب أن تكون نصوص التخطيط كائن JSON صالحًا.</value>
+  </data>
+  <data name="Validation.NotificationTypeName.Required" xml:space="preserve">
+    <value>اسم النوع مطلوب.</value>
+  </data>
+  <data name="Validation.NotificationTypeName.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز اسم النوع 200 حرف.</value>
+  </data>
+  <data name="Validation.NotificationTypeDescription.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز وصف النوع 500 حرف.</value>
+  </data>
+  <data name="Validation.NotificationSampleData.InvalidJson" xml:space="preserve">
+    <value>يجب أن تكون بيانات المعاينة كائن JSON صالحًا.</value>
+  </data>
+  <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
+    <value>يجب أن يكون كتالوج المتغيرات مصفوفة JSON صالحة.</value>
+  </data>
 </root>

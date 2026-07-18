@@ -547,4 +547,93 @@
   <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
     <value>System configuration error: Organization owner role not found.</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Notification.TypeNotFound" xml:space="preserve">
+    <value>Notification type with ID '{0}' was not found.</value>
+  </data>
+  <data name="Notification.TypeNotFoundByCode" xml:space="preserve">
+    <value>Notification type with code '{0}' was not found.</value>
+  </data>
+  <data name="Notification.TemplateNotFound" xml:space="preserve">
+    <value>Notification template with ID '{0}' was not found.</value>
+  </data>
+  <data name="Notification.TemplateNotPublished" xml:space="preserve">
+    <value>No published notification template exists for type '{0}'.</value>
+  </data>
+  <data name="Notification.DuplicateTemplate" xml:space="preserve">
+    <value>A template for this type, application, and channel already exists.</value>
+  </data>
+  <data name="Notification.VersionNotFound" xml:space="preserve">
+    <value>Template version with ID '{0}' was not found.</value>
+  </data>
+  <data name="Notification.TranslationNotFound" xml:space="preserve">
+    <value>No translation exists for language '{0}'.</value>
+  </data>
+  <data name="Notification.UnsupportedLanguage" xml:space="preserve">
+    <value>Language '{0}' is not supported.</value>
+  </data>
+  <data name="Notification.NoDraftToPublish" xml:space="preserve">
+    <value>The template has no pending draft version to publish.</value>
+  </data>
+  <data name="Notification.DraftAlreadyExists" xml:space="preserve">
+    <value>The template already has a pending draft. Save or discard it before restoring another version.</value>
+  </data>
+  <data name="Notification.NoDraftToDiscard" xml:space="preserve">
+    <value>The template has no pending draft version to discard.</value>
+  </data>
+  <data name="Notification.DefaultLanguageTranslationRequired" xml:space="preserve">
+    <value>The draft must contain a translation for the template's default language '{0}'.</value>
+  </data>
+  <data name="Notification.CannotRemoveDefaultLanguageTranslation" xml:space="preserve">
+    <value>The default language translation '{0}' cannot be removed.</value>
+  </data>
+  <data name="Notification.NotPublished" xml:space="preserve">
+    <value>The template is not currently published.</value>
+  </data>
+  <data name="Notification.CannotUnpublishSystemTemplate" xml:space="preserve">
+    <value>The global template of a system notification type cannot be unpublished; critical flows depend on it.</value>
+  </data>
+  <data name="Notification.CannotDeleteSystemGlobalTemplate" xml:space="preserve">
+    <value>The global template of a system notification type cannot be deleted; critical flows depend on it.</value>
+  </data>
+  <data name="Notification.ConcurrencyConflict" xml:space="preserve">
+    <value>The template was modified by someone else. Reload the latest draft and reapply your changes.</value>
+  </data>
+  <data name="Notification.LayoutNotFound" xml:space="preserve">
+    <value>Notification layout with ID '{0}' was not found.</value>
+  </data>
+  <data name="Notification.LayoutNotPublished" xml:space="preserve">
+    <value>No published notification layout exists for this scope.</value>
+  </data>
+  <data name="Notification.DuplicateLayout" xml:space="preserve">
+    <value>A layout for this application and channel already exists.</value>
+  </data>
+  <data name="Notification.LayoutContentRequired" xml:space="preserve">
+    <value>The layout content cannot be empty.</value>
+  </data>
+  <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
+    <value>The layout does not render the message body: it must include the content slot, otherwise every message would arrive empty.</value>
+  </data>
+  <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
+    <value>The template contains invalid syntax: {0}</value>
+  </data>
+  <data name="Notification.UnknownVariables" xml:space="preserve">
+    <value>The template references variables that are not in the type's catalog: {0}</value>
+  </data>
+  <data name="Notification.RenderFailed" xml:space="preserve">
+    <value>Rendering the notification failed: {0}</value>
+  </data>
+  <data name="Notification.ChannelNotSupported" xml:space="preserve">
+    <value>No delivery channel implementation is registered for '{0}'.</value>
+  </data>
+  <data name="Notification.SendFailed" xml:space="preserve">
+    <value>The notification could not be delivered.</value>
+  </data>
+  <data name="Notification.OutboxMessageNotFound" xml:space="preserve">
+    <value>Outbox message with ID '{0}' was not found.</value>
+  </data>
+  <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
+    <value>Only failed (Retry or Dead) messages can be requeued.</value>
+  </data>
 </root>

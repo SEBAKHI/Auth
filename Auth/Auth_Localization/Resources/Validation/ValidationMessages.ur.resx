@@ -300,4 +300,69 @@
   <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
     <value>RSA نجی کلید لازمی ہے۔</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Validation.NotificationTypeId.Required" xml:space="preserve">
+    <value>اطلاع کی قسم درکار ہے۔</value>
+  </data>
+  <data name="Validation.NotificationChannel.Invalid" xml:space="preserve">
+    <value>اطلاع کا چینل غلط ہے۔</value>
+  </data>
+  <data name="Validation.NotificationLanguage.Required" xml:space="preserve">
+    <value>زبان درکار ہے۔</value>
+  </data>
+  <data name="Validation.NotificationLanguage.NotSupported" xml:space="preserve">
+    <value>یہ زبان معاون نہیں ہے۔</value>
+  </data>
+  <data name="Validation.NotificationSubject.Required" xml:space="preserve">
+    <value>عنوان درکار ہے۔</value>
+  </data>
+  <data name="Validation.NotificationSubject.MaxLength" xml:space="preserve">
+    <value>عنوان 500 حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="Validation.NotificationBody.Required" xml:space="preserve">
+    <value>متن درکار ہے۔</value>
+  </data>
+  <data name="Validation.NotificationBody.MaxLength" xml:space="preserve">
+    <value>متن بہت بڑا ہے۔</value>
+  </data>
+  <data name="Validation.NotificationChangeNote.MaxLength" xml:space="preserve">
+    <value>تبدیلی کا نوٹ 500 حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="Validation.NotificationRecipientEmail.Required" xml:space="preserve">
+    <value>وصول کنندہ کا ای میل درکار ہے۔</value>
+  </data>
+  <data name="Validation.NotificationRecipientEmail.InvalidFormat" xml:space="preserve">
+    <value>وصول کنندہ کے ای میل کی ساخت غلط ہے۔</value>
+  </data>
+  <data name="Validation.NotificationLayoutName.Required" xml:space="preserve">
+    <value>لے آؤٹ کا نام درکار ہے۔</value>
+  </data>
+  <data name="Validation.NotificationLayoutName.MaxLength" xml:space="preserve">
+    <value>لے آؤٹ کا نام 200 حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="Validation.NotificationLayoutContent.Required" xml:space="preserve">
+    <value>لے آؤٹ کا مواد درکار ہے۔</value>
+  </data>
+  <data name="Validation.NotificationLayoutContent.MaxLength" xml:space="preserve">
+    <value>لے آؤٹ کا مواد بہت بڑا ہے۔</value>
+  </data>
+  <data name="Validation.NotificationLayoutStrings.InvalidJson" xml:space="preserve">
+    <value>لے آؤٹ کے متون درست JSON آبجیکٹ ہونے چاہئیں۔</value>
+  </data>
+  <data name="Validation.NotificationTypeName.Required" xml:space="preserve">
+    <value>قسم کا نام درکار ہے۔</value>
+  </data>
+  <data name="Validation.NotificationTypeName.MaxLength" xml:space="preserve">
+    <value>قسم کا نام 200 حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="Validation.NotificationTypeDescription.MaxLength" xml:space="preserve">
+    <value>قسم کی تفصیل 500 حروف سے زیادہ نہیں ہونی چاہیے۔</value>
+  </data>
+  <data name="Validation.NotificationSampleData.InvalidJson" xml:space="preserve">
+    <value>نمونہ ڈیٹا درست JSON آبجیکٹ ہونا چاہیے۔</value>
+  </data>
+  <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
+    <value>متغیرات کیٹلاگ درست JSON آرے ہونا چاہیے۔</value>
+  </data>
 </root>

@@ -28,7 +28,8 @@ public static class TestHelpers
         UserStatus status = UserStatus.Active,
         bool emailConfirmed = true,
         Guid? createdBy = null,
-        bool twoFactorEnabled = false)
+        bool twoFactorEnabled = false,
+        string preferredLanguage = "en")
     {
         var userId = id ?? Guid.NewGuid();
         var userEmail = email ?? $"user-{userId:N}@test.com";
@@ -52,7 +53,7 @@ public static class TestHelpers
             lastLoginAt: null,
             passwordChangedAt: DateTime.UtcNow,
             mustChangePassword: false,
-            preferredLanguage: "en",
+            preferredLanguage: preferredLanguage,
             timeZone: "UTC",
             metadata: null,
             isSystemUser: false,

@@ -1,7 +1,9 @@
+using System.Globalization;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Organizations.AcceptInvitation;
 using Auth.Application.Interfaces;
 using Auth.Application.Validators;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -116,7 +118,11 @@ public class RegisterWithInvitationCommandHandler
             firstName: request.FirstName,
             lastName: request.LastName,
             createdBy: Guid.Empty,
-            preferredLanguage: request.PreferredLanguage ?? "en",
+            // Site language becomes the durable preference (explicit choice, else
+            // the request culture) — notifications follow this language.
+            preferredLanguage: Languages.Normalize(request.PreferredLanguage)
+                ?? Languages.Normalize(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName)
+                ?? Languages.Default,
             timeZone: request.TimeZone ?? "UTC");
 
         // The invitation token was delivered to this mailbox; possession proves ownership.

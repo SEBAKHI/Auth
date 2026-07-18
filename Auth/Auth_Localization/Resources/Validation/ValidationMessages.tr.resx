@@ -300,4 +300,69 @@
   <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
     <value>RSA özel anahtarı gereklidir.</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Validation.NotificationTypeId.Required" xml:space="preserve">
+    <value>Bildirim türü gereklidir.</value>
+  </data>
+  <data name="Validation.NotificationChannel.Invalid" xml:space="preserve">
+    <value>Bildirim kanalı geçersiz.</value>
+  </data>
+  <data name="Validation.NotificationLanguage.Required" xml:space="preserve">
+    <value>Dil gereklidir.</value>
+  </data>
+  <data name="Validation.NotificationLanguage.NotSupported" xml:space="preserve">
+    <value>Bu dil desteklenmiyor.</value>
+  </data>
+  <data name="Validation.NotificationSubject.Required" xml:space="preserve">
+    <value>Konu gereklidir.</value>
+  </data>
+  <data name="Validation.NotificationSubject.MaxLength" xml:space="preserve">
+    <value>Konu 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.NotificationBody.Required" xml:space="preserve">
+    <value>Gövde gereklidir.</value>
+  </data>
+  <data name="Validation.NotificationBody.MaxLength" xml:space="preserve">
+    <value>Gövde çok büyük.</value>
+  </data>
+  <data name="Validation.NotificationChangeNote.MaxLength" xml:space="preserve">
+    <value>Değişiklik notu 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.NotificationRecipientEmail.Required" xml:space="preserve">
+    <value>Alıcı e-postası gereklidir.</value>
+  </data>
+  <data name="Validation.NotificationRecipientEmail.InvalidFormat" xml:space="preserve">
+    <value>Alıcı e-posta biçimi geçersiz.</value>
+  </data>
+  <data name="Validation.NotificationLayoutName.Required" xml:space="preserve">
+    <value>Düzen adı gereklidir.</value>
+  </data>
+  <data name="Validation.NotificationLayoutName.MaxLength" xml:space="preserve">
+    <value>Düzen adı 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.NotificationLayoutContent.Required" xml:space="preserve">
+    <value>Düzen içeriği gereklidir.</value>
+  </data>
+  <data name="Validation.NotificationLayoutContent.MaxLength" xml:space="preserve">
+    <value>Düzen içeriği çok büyük.</value>
+  </data>
+  <data name="Validation.NotificationLayoutStrings.InvalidJson" xml:space="preserve">
+    <value>Düzen metinleri geçerli bir JSON nesnesi olmalıdır.</value>
+  </data>
+  <data name="Validation.NotificationTypeName.Required" xml:space="preserve">
+    <value>Tür adı gereklidir.</value>
+  </data>
+  <data name="Validation.NotificationTypeName.MaxLength" xml:space="preserve">
+    <value>Tür adı 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.NotificationTypeDescription.MaxLength" xml:space="preserve">
+    <value>Tür açıklaması 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Validation.NotificationSampleData.InvalidJson" xml:space="preserve">
+    <value>Örnek veriler geçerli bir JSON nesnesi olmalıdır.</value>
+  </data>
+  <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
+    <value>Değişken kataloğu geçerli bir JSON dizisi olmalıdır.</value>
+  </data>
 </root>

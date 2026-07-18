@@ -22,8 +22,6 @@
     <EmbeddedResource Update="Resources\Validation\ValidationMessages.*.resx" />
     <EmbeddedResource Update="Resources\Middleware\MiddlewareMessages.resx" />
     <EmbeddedResource Update="Resources\Middleware\MiddlewareMessages.*.resx" />
-    <EmbeddedResource Update="Resources\Email\EmailTemplates.resx" />
-    <EmbeddedResource Update="Resources\Email\EmailTemplates.*.resx" />
   </ItemGroup>
 
 </Project>

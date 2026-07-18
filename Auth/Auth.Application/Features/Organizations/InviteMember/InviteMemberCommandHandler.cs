@@ -1,10 +1,15 @@
+using System.Globalization;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
+using Auth.Application.Notifications;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Organizations.InviteMember;
 
@@ -19,7 +24,8 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
-    private readonly IEmailService _emailService;
+    private readonly INotificationService _notificationService;
+    private readonly EmailSettings _emailSettings;
     private readonly ILogger<InviteMemberCommandHandler> _logger;
 
     public InviteMemberCommandHandler(
@@ -27,14 +33,16 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         ISecureTokenGenerator tokenGenerator,
-        IEmailService emailService,
+        INotificationService notificationService,
+        IOptions<EmailSettings> emailSettings,
         ILogger<InviteMemberCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _tokenGenerator = tokenGenerator;
-        _emailService = emailService;
+        _notificationService = notificationService;
+        _emailSettings = emailSettings.Value;
         _logger = logger;
     }
 
@@ -124,21 +132,37 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         var inviterName = inviter != null
             ? $"{inviter.FirstName} {inviter.LastName}".Trim()
             : "An administrator";
-        var emailSent = await _emailService.SendInvitationAsync(
-            invitation.Email.Value,
-            organization.Name,
-            inviterName,
-            token,
-            invitation.ExpiresAt,
+
+        // Send from the database-managed template. Language priority: inviter's
+        // explicit choice → invitee's profile (matched by email inside the
+        // service) → the inviter's request culture as a last-resort hint.
+        var sendResult = await _notificationService.SendAsync(
+            new NotificationRequest
+            {
+                TypeCode = NotificationTypeCodes.OrganizationInvitation,
+                RecipientAddress = invitation.Email.Value,
+                TriggeredBy = request.InvitedBy,
+                LanguageCode = request.LanguageCode,
+                LanguageHint = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName,
+                Variables = new Dictionary<string, object?>
+                {
+                    ["OrganizationName"] = organization.Name,
+                    ["InviterName"] = inviterName,
+                    ["InvitationLink"] = _emailSettings.BuildFrontendUrl(
+                        $"/accept-invitation?token={Uri.EscapeDataString(token)}"),
+                    ["InvitationToken"] = token,
+                    ["ExpiresAt"] = invitation.ExpiresAt
+                }
+            },
             cancellationToken);
 
         // Email failure must not fail the command: the token stays available
         // to the admin in the response/UI and can be shared manually.
-        if (!emailSent)
+        if (sendResult.IsError)
         {
             _logger.LogWarning(
-                "Failed to send invitation email for invitation {InvitationId}; token remains available to admin",
-                invitation.Id);
+                "Failed to send invitation email for invitation {InvitationId}: {Error}; token remains available to admin",
+                invitation.Id, sendResult.FirstError.Description);
         }
 
         return new OrganizationInvitationDto

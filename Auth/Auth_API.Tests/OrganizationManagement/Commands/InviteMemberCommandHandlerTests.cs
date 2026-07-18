@@ -1,7 +1,11 @@
+using Auth.Application.Configuration;
 using Auth.Application.Features.Organizations.InviteMember;
 using Auth.Application.Interfaces;
+using Auth.Application.Notifications;
 using Auth_API.Tests.Helpers;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
+using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
 using ErrorOr;
@@ -18,7 +22,7 @@ public class InviteMemberCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
     private readonly Mock<ISecureTokenGenerator> _tokenGeneratorMock;
-    private readonly Mock<IEmailService> _emailServiceMock;
+    private readonly Mock<INotificationService> _notificationServiceMock;
     private readonly Mock<ILogger<InviteMemberCommandHandler>> _loggerMock;
     private readonly InviteMemberCommandHandler _handler;
 
@@ -28,29 +32,24 @@ public class InviteMemberCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _roleRepositoryMock = new Mock<IRoleRepository>();
         _tokenGeneratorMock = new Mock<ISecureTokenGenerator>();
-        _emailServiceMock = new Mock<IEmailService>();
+        _notificationServiceMock = new Mock<INotificationService>();
         _loggerMock = new Mock<ILogger<InviteMemberCommandHandler>>();
 
         _tokenGeneratorMock
             .Setup(g => g.Generate())
             .Returns("dGVzdC10b2tlbi1mb3ItaW52aXRhdGlvbi10aGF0LWlzLWxvbmctZW5vdWdo");
 
-        _emailServiceMock
-            .Setup(e => e.SendInvitationAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<DateTime>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
+        _notificationServiceMock
+            .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
 
         _handler = new InviteMemberCommandHandler(
             _organizationRepositoryMock.Object,
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
             _tokenGeneratorMock.Object,
-            _emailServiceMock.Object,
+            _notificationServiceMock.Object,
+            TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://accounts.example.com" }),
             _loggerMock.Object);
     }
 
@@ -494,12 +493,13 @@ public class InviteMemberCommandHandlerTests
 
         // Assert
         result.IsError.Should().BeFalse();
-        _emailServiceMock.Verify(e => e.SendInvitationAsync(
-            "newmember@example.com",
-            "Test Org",
-            "John Doe",
-            It.Is<string>(token => !string.IsNullOrEmpty(token)),
-            It.IsAny<DateTime>(),
+        _notificationServiceMock.Verify(s => s.SendAsync(
+            It.Is<NotificationRequest>(r =>
+                r.TypeCode == NotificationTypeCodes.OrganizationInvitation &&
+                r.RecipientAddress == "newmember@example.com" &&
+                Equals(r.Variables["OrganizationName"], "Test Org") &&
+                Equals(r.Variables["InviterName"], "John Doe") &&
+                !string.IsNullOrEmpty((string?)r.Variables["InvitationToken"])),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -545,15 +545,9 @@ public class InviteMemberCommandHandlerTests
             .Setup(r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OrganizationInvitation inv, CancellationToken _) => inv);
 
-        _emailServiceMock
-            .Setup(e => e.SendInvitationAsync(
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<string>(),
-                It.IsAny<DateTime>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        _notificationServiceMock
+            .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ErrorOr<Success>)NotificationErrors.SendFailed);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);

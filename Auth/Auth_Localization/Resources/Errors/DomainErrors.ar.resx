@@ -547,4 +547,93 @@
   <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
     <value>خطأ في إعدادات النظام: لم يتم العثور على دور مالك المنظمة.</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Notification.TypeNotFound" xml:space="preserve">
+    <value>لم يتم العثور على نوع الإشعار بالمعرف '{0}'.</value>
+  </data>
+  <data name="Notification.TypeNotFoundByCode" xml:space="preserve">
+    <value>لم يتم العثور على نوع الإشعار بالرمز '{0}'.</value>
+  </data>
+  <data name="Notification.TemplateNotFound" xml:space="preserve">
+    <value>لم يتم العثور على قالب الإشعار بالمعرف '{0}'.</value>
+  </data>
+  <data name="Notification.TemplateNotPublished" xml:space="preserve">
+    <value>لا يوجد قالب إشعار منشور للنوع '{0}'.</value>
+  </data>
+  <data name="Notification.DuplicateTemplate" xml:space="preserve">
+    <value>يوجد قالب بالفعل لهذا النوع والتطبيق والقناة.</value>
+  </data>
+  <data name="Notification.VersionNotFound" xml:space="preserve">
+    <value>لم يتم العثور على إصدار القالب بالمعرف '{0}'.</value>
+  </data>
+  <data name="Notification.TranslationNotFound" xml:space="preserve">
+    <value>لا توجد ترجمة للغة '{0}'.</value>
+  </data>
+  <data name="Notification.UnsupportedLanguage" xml:space="preserve">
+    <value>اللغة '{0}' غير مدعومة.</value>
+  </data>
+  <data name="Notification.NoDraftToPublish" xml:space="preserve">
+    <value>لا توجد مسودة معلقة للقالب لنشرها.</value>
+  </data>
+  <data name="Notification.DraftAlreadyExists" xml:space="preserve">
+    <value>توجد مسودة معلقة للقالب بالفعل. احفظها أو تجاهلها قبل استعادة إصدار آخر.</value>
+  </data>
+  <data name="Notification.NoDraftToDiscard" xml:space="preserve">
+    <value>لا توجد مسودة معلقة للقالب لتجاهلها.</value>
+  </data>
+  <data name="Notification.DefaultLanguageTranslationRequired" xml:space="preserve">
+    <value>يجب أن تحتوي المسودة على ترجمة للغة الافتراضية للقالب '{0}'.</value>
+  </data>
+  <data name="Notification.CannotRemoveDefaultLanguageTranslation" xml:space="preserve">
+    <value>لا يمكن إزالة ترجمة اللغة الافتراضية '{0}'.</value>
+  </data>
+  <data name="Notification.NotPublished" xml:space="preserve">
+    <value>القالب غير منشور حاليًا.</value>
+  </data>
+  <data name="Notification.CannotUnpublishSystemTemplate" xml:space="preserve">
+    <value>لا يمكن إلغاء نشر القالب العام لنوع إشعار نظامي؛ تعتمد عليه عمليات حرجة.</value>
+  </data>
+  <data name="Notification.CannotDeleteSystemGlobalTemplate" xml:space="preserve">
+    <value>لا يمكن حذف القالب العام لنوع إشعار نظامي؛ تعتمد عليه عمليات حرجة.</value>
+  </data>
+  <data name="Notification.ConcurrencyConflict" xml:space="preserve">
+    <value>تم تعديل القالب من قبل شخص آخر. أعد تحميل أحدث مسودة وطبّق تغييراتك مجددًا.</value>
+  </data>
+  <data name="Notification.LayoutNotFound" xml:space="preserve">
+    <value>لم يتم العثور على تخطيط الإشعار بالمعرف '{0}'.</value>
+  </data>
+  <data name="Notification.LayoutNotPublished" xml:space="preserve">
+    <value>لا يوجد تخطيط إشعار منشور لهذا النطاق.</value>
+  </data>
+  <data name="Notification.DuplicateLayout" xml:space="preserve">
+    <value>يوجد تخطيط بالفعل لهذا التطبيق والقناة.</value>
+  </data>
+  <data name="Notification.LayoutContentRequired" xml:space="preserve">
+    <value>لا يمكن أن يكون محتوى التخطيط فارغًا.</value>
+  </data>
+  <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
+    <value>التخطيط لا يعرض جسم الرسالة: يجب أن يحتوي على عنصر المحتوى، وإلا وصلت كل الرسائل فارغة.</value>
+  </data>
+  <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
+    <value>يحتوي القالب على صيغة غير صالحة: {0}</value>
+  </data>
+  <data name="Notification.UnknownVariables" xml:space="preserve">
+    <value>يشير القالب إلى متغيرات غير موجودة في كتالوج النوع: {0}</value>
+  </data>
+  <data name="Notification.RenderFailed" xml:space="preserve">
+    <value>فشل عرض الإشعار: {0}</value>
+  </data>
+  <data name="Notification.ChannelNotSupported" xml:space="preserve">
+    <value>لا يوجد تنفيذ مسجل لقناة التسليم '{0}'.</value>
+  </data>
+  <data name="Notification.SendFailed" xml:space="preserve">
+    <value>تعذر تسليم الإشعار.</value>
+  </data>
+  <data name="Notification.OutboxMessageNotFound" xml:space="preserve">
+    <value>لم يتم العثور على رسالة سجل التسليم بالمعرف '{0}'.</value>
+  </data>
+  <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
+    <value>لا يمكن إعادة إرسال إلا الرسائل الفاشلة (قيد الإعادة أو الميتة).</value>
+  </data>
 </root>

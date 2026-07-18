@@ -547,4 +547,93 @@
   <data name="Organization.OwnerRoleNotFound" xml:space="preserve">
     <value>Sistem yapılandırma hatası: Organizasyon sahibi rolü bulunamadı.</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Notification.TypeNotFound" xml:space="preserve">
+    <value>'{0}' kimlikli bildirim türü bulunamadı.</value>
+  </data>
+  <data name="Notification.TypeNotFoundByCode" xml:space="preserve">
+    <value>'{0}' kodlu bildirim türü bulunamadı.</value>
+  </data>
+  <data name="Notification.TemplateNotFound" xml:space="preserve">
+    <value>'{0}' kimlikli bildirim şablonu bulunamadı.</value>
+  </data>
+  <data name="Notification.TemplateNotPublished" xml:space="preserve">
+    <value>'{0}' türü için yayımlanmış bir bildirim şablonu yok.</value>
+  </data>
+  <data name="Notification.DuplicateTemplate" xml:space="preserve">
+    <value>Bu tür, uygulama ve kanal için zaten bir şablon var.</value>
+  </data>
+  <data name="Notification.VersionNotFound" xml:space="preserve">
+    <value>'{0}' kimlikli şablon sürümü bulunamadı.</value>
+  </data>
+  <data name="Notification.TranslationNotFound" xml:space="preserve">
+    <value>'{0}' dili için çeviri yok.</value>
+  </data>
+  <data name="Notification.UnsupportedLanguage" xml:space="preserve">
+    <value>'{0}' dili desteklenmiyor.</value>
+  </data>
+  <data name="Notification.NoDraftToPublish" xml:space="preserve">
+    <value>Şablonun yayımlanacak bekleyen bir taslağı yok.</value>
+  </data>
+  <data name="Notification.DraftAlreadyExists" xml:space="preserve">
+    <value>Şablonun zaten bekleyen bir taslağı var. Başka bir sürümü geri yüklemeden önce taslağı kaydedin veya silin.</value>
+  </data>
+  <data name="Notification.NoDraftToDiscard" xml:space="preserve">
+    <value>Şablonun silinecek bekleyen bir taslağı yok.</value>
+  </data>
+  <data name="Notification.DefaultLanguageTranslationRequired" xml:space="preserve">
+    <value>Taslak, şablonun varsayılan dili '{0}' için bir çeviri içermelidir.</value>
+  </data>
+  <data name="Notification.CannotRemoveDefaultLanguageTranslation" xml:space="preserve">
+    <value>Varsayılan dil çevirisi '{0}' kaldırılamaz.</value>
+  </data>
+  <data name="Notification.NotPublished" xml:space="preserve">
+    <value>Şablon şu anda yayımlanmamış.</value>
+  </data>
+  <data name="Notification.CannotUnpublishSystemTemplate" xml:space="preserve">
+    <value>Sistem bildirim türünün genel şablonu yayından kaldırılamaz; kritik akışlar buna bağlıdır.</value>
+  </data>
+  <data name="Notification.CannotDeleteSystemGlobalTemplate" xml:space="preserve">
+    <value>Sistem bildirim türünün genel şablonu silinemez; kritik akışlar buna bağlıdır.</value>
+  </data>
+  <data name="Notification.ConcurrencyConflict" xml:space="preserve">
+    <value>Şablon başka biri tarafından değiştirildi. En son taslağı yeniden yükleyip değişikliklerinizi tekrar uygulayın.</value>
+  </data>
+  <data name="Notification.LayoutNotFound" xml:space="preserve">
+    <value>'{0}' kimlikli bildirim düzeni bulunamadı.</value>
+  </data>
+  <data name="Notification.LayoutNotPublished" xml:space="preserve">
+    <value>Bu kapsam için yayımlanmış bir bildirim düzeni yok.</value>
+  </data>
+  <data name="Notification.DuplicateLayout" xml:space="preserve">
+    <value>Bu uygulama ve kanal için zaten bir düzen var.</value>
+  </data>
+  <data name="Notification.LayoutContentRequired" xml:space="preserve">
+    <value>Düzen içeriği boş olamaz.</value>
+  </data>
+  <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
+    <value>Düzen, mesaj gövdesini göstermiyor: içerik yuvasını içermelidir, aksi halde tüm mesajlar boş gider.</value>
+  </data>
+  <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
+    <value>Şablon geçersiz sözdizimi içeriyor: {0}</value>
+  </data>
+  <data name="Notification.UnknownVariables" xml:space="preserve">
+    <value>Şablon, tür kataloğunda bulunmayan değişkenlere başvuruyor: {0}</value>
+  </data>
+  <data name="Notification.RenderFailed" xml:space="preserve">
+    <value>Bildirim işlenemedi: {0}</value>
+  </data>
+  <data name="Notification.ChannelNotSupported" xml:space="preserve">
+    <value>'{0}' teslim kanalı için kayıtlı bir uygulama yok.</value>
+  </data>
+  <data name="Notification.SendFailed" xml:space="preserve">
+    <value>Bildirim teslim edilemedi.</value>
+  </data>
+  <data name="Notification.OutboxMessageNotFound" xml:space="preserve">
+    <value>'{0}' kimlikli teslim kaydı bulunamadı.</value>
+  </data>
+  <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
+    <value>Yalnızca başarısız (Yeniden Dene veya Ölü) mesajlar yeniden kuyruğa alınabilir.</value>
+  </data>
 </root>

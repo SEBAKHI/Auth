@@ -300,4 +300,69 @@
   <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
     <value>RSA私钥为必填项。</value>
   </data>
+
+  <!-- ==================== Notification Templates ==================== -->
+  <data name="Validation.NotificationTypeId.Required" xml:space="preserve">
+    <value>通知类型为必填项。</value>
+  </data>
+  <data name="Validation.NotificationChannel.Invalid" xml:space="preserve">
+    <value>通知渠道无效。</value>
+  </data>
+  <data name="Validation.NotificationLanguage.Required" xml:space="preserve">
+    <value>语言为必填项。</value>
+  </data>
+  <data name="Validation.NotificationLanguage.NotSupported" xml:space="preserve">
+    <value>不支持该语言。</value>
+  </data>
+  <data name="Validation.NotificationSubject.Required" xml:space="preserve">
+    <value>主题为必填项。</value>
+  </data>
+  <data name="Validation.NotificationSubject.MaxLength" xml:space="preserve">
+    <value>主题不得超过 500 个字符。</value>
+  </data>
+  <data name="Validation.NotificationBody.Required" xml:space="preserve">
+    <value>正文为必填项。</value>
+  </data>
+  <data name="Validation.NotificationBody.MaxLength" xml:space="preserve">
+    <value>正文过大。</value>
+  </data>
+  <data name="Validation.NotificationChangeNote.MaxLength" xml:space="preserve">
+    <value>变更备注不得超过 500 个字符。</value>
+  </data>
+  <data name="Validation.NotificationRecipientEmail.Required" xml:space="preserve">
+    <value>收件人邮箱为必填项。</value>
+  </data>
+  <data name="Validation.NotificationRecipientEmail.InvalidFormat" xml:space="preserve">
+    <value>收件人邮箱格式无效。</value>
+  </data>
+  <data name="Validation.NotificationLayoutName.Required" xml:space="preserve">
+    <value>布局名称为必填项。</value>
+  </data>
+  <data name="Validation.NotificationLayoutName.MaxLength" xml:space="preserve">
+    <value>布局名称不得超过 200 个字符。</value>
+  </data>
+  <data name="Validation.NotificationLayoutContent.Required" xml:space="preserve">
+    <value>布局内容为必填项。</value>
+  </data>
+  <data name="Validation.NotificationLayoutContent.MaxLength" xml:space="preserve">
+    <value>布局内容过大。</value>
+  </data>
+  <data name="Validation.NotificationLayoutStrings.InvalidJson" xml:space="preserve">
+    <value>布局文本必须是有效的 JSON 对象。</value>
+  </data>
+  <data name="Validation.NotificationTypeName.Required" xml:space="preserve">
+    <value>类型名称为必填项。</value>
+  </data>
+  <data name="Validation.NotificationTypeName.MaxLength" xml:space="preserve">
+    <value>类型名称不得超过 200 个字符。</value>
+  </data>
+  <data name="Validation.NotificationTypeDescription.MaxLength" xml:space="preserve">
+    <value>类型描述不得超过 500 个字符。</value>
+  </data>
+  <data name="Validation.NotificationSampleData.InvalidJson" xml:space="preserve">
+    <value>示例数据必须是有效的 JSON 对象。</value>
+  </data>
+  <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
+    <value>变量目录必须是有效的 JSON 数组。</value>
+  </data>
 </root>

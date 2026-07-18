@@ -1,9 +1,14 @@
+using System.Globalization;
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
+using Auth.Application.Notifications;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Organizations.ResendInvitation;
 
@@ -16,7 +21,8 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRepository _userRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
-    private readonly IEmailService _emailService;
+    private readonly INotificationService _notificationService;
+    private readonly EmailSettings _emailSettings;
     private readonly ILogger<ResendInvitationCommandHandler> _logger;
 
     public ResendInvitationCommandHandler(
@@ -24,14 +30,16 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         IRoleRepository roleRepository,
         IUserRepository userRepository,
         ISecureTokenGenerator tokenGenerator,
-        IEmailService emailService,
+        INotificationService notificationService,
+        IOptions<EmailSettings> emailSettings,
         ILogger<ResendInvitationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _roleRepository = roleRepository;
         _userRepository = userRepository;
         _tokenGenerator = tokenGenerator;
-        _emailService = emailService;
+        _notificationService = notificationService;
+        _emailSettings = emailSettings.Value;
         _logger = logger;
     }
 
@@ -71,21 +79,35 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         var inviterName = inviter != null
             ? $"{inviter.FirstName} {inviter.LastName}".Trim()
             : "An administrator";
-        var emailSent = await _emailService.SendInvitationAsync(
-            invitation.Email.Value,
-            organization?.Name ?? string.Empty,
-            inviterName,
-            newToken,
-            invitation.ExpiresAt,
+
+        // Send from the database-managed template; the invitee's profile language
+        // (matched by email inside the service) wins over the resender's culture.
+        var sendResult = await _notificationService.SendAsync(
+            new NotificationRequest
+            {
+                TypeCode = NotificationTypeCodes.OrganizationInvitation,
+                RecipientAddress = invitation.Email.Value,
+                TriggeredBy = request.ResentBy,
+                LanguageHint = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName,
+                Variables = new Dictionary<string, object?>
+                {
+                    ["OrganizationName"] = organization?.Name ?? string.Empty,
+                    ["InviterName"] = inviterName,
+                    ["InvitationLink"] = _emailSettings.BuildFrontendUrl(
+                        $"/accept-invitation?token={Uri.EscapeDataString(newToken)}"),
+                    ["InvitationToken"] = newToken,
+                    ["ExpiresAt"] = invitation.ExpiresAt
+                }
+            },
             cancellationToken);
 
         // Email failure must not fail the command: the regenerated token stays
         // available to the admin in the response/UI and can be shared manually.
-        if (!emailSent)
+        if (sendResult.IsError)
         {
             _logger.LogWarning(
-                "Failed to send invitation email for resent invitation {InvitationId}; token remains available to admin",
-                invitation.Id);
+                "Failed to send invitation email for resent invitation {InvitationId}: {Error}; token remains available to admin",
+                invitation.Id, sendResult.FirstError.Description);
         }
 
         return new OrganizationInvitationDto

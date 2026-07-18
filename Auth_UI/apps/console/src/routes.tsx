@@ -22,6 +22,11 @@ import { ApplicationsPage } from "@/pages/applications/applications-page"
 import { AuditLogsPage } from "@/pages/audit-logs/audit-logs-page"
 import { DashboardPage } from "@/pages/dashboard/dashboard-page"
 import { ConsoleOrganizationsPage } from "@/pages/organizations/organizations-page"
+import { NotificationLayoutDetailPage } from "@/pages/notifications/notification-layout-detail-page"
+import { NotificationLayoutsPage } from "@/pages/notifications/notification-layouts-page"
+import { NotificationOutboxPage } from "@/pages/notifications/notification-outbox-page"
+import { NotificationTemplateDetailPage } from "@/pages/notifications/notification-template-detail-page"
+import { NotificationTemplatesPage } from "@/pages/notifications/notification-templates-page"
 import { PermissionDetailPage } from "@/pages/permissions/permission-detail-page"
 import { PermissionsPage } from "@/pages/permissions/permissions-page"
 import { PlatformSettingsPage } from "@/pages/platform-settings/platform-settings-page"
@@ -199,6 +204,40 @@ export const router = createBrowserRouter([
                 path: "audit-logs",
                 element: <AuditLogsPage />,
                 handle: crumb("auditLogs", "/audit-logs"),
+              },
+            ],
+          },
+          {
+            element: (
+              <PermissionRoute
+                permission={PERMISSIONS.notificationTemplates.read}
+              />
+            ),
+            children: [
+              {
+                path: "notification-templates",
+                element: <NotificationTemplatesPage />,
+                handle: crumb("notifications", "/notification-templates"),
+              },
+              {
+                path: "notification-templates/:id",
+                element: <NotificationTemplateDetailPage />,
+                handle: crumb("notifications", "/notification-templates", true),
+              },
+              {
+                path: "notification-layouts",
+                element: <NotificationLayoutsPage />,
+                handle: crumb("notificationLayouts", "/notification-layouts"),
+              },
+              {
+                path: "notification-layouts/:id",
+                element: <NotificationLayoutDetailPage />,
+                handle: crumb("notificationLayouts", "/notification-layouts", true),
+              },
+              {
+                path: "notification-outbox",
+                element: <NotificationOutboxPage />,
+                handle: crumb("notificationOutbox", "/notification-outbox"),
               },
             ],
           },
