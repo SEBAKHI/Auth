@@ -470,6 +470,8 @@ builder.Services.AddAuthentication(options =>
         RequireExpirationTime = true,
         RequireSignedTokens = true,
         ValidateIssuerSigningKey = true,
+        // Pin RS256: never accept a token signed under a different algorithm.
+        ValidAlgorithms = ["RS256"],
         IssuerSigningKey = jwtTokenService.GetSecurityKey()
     };
 

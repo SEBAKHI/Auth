@@ -75,6 +75,10 @@ public static class ServiceCollectionExtensions
                 ValidAudience = options.Audience,
                 ValidateLifetime = true,
                 ValidateIssuerSigningKey = true,
+                // Pin the signing algorithm to RS256 so a token cannot be
+                // accepted under any other alg (defense-in-depth against
+                // algorithm-substitution; the JWKS only ever carries RSA keys).
+                ValidAlgorithms = ["RS256"],
                 ClockSkew = TimeSpan.FromSeconds(30),
                 RoleClaimType = "roles",
                 NameClaimType = "sub"
