@@ -75,6 +75,14 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             return OrganizationErrors.InvalidMembershipRole(request.RoleId);
         }
 
+        // Same escalation guard as UpdateMemberRole: an org:members:invite holder
+        // must not be able to mint an owner (org:*) by inviting a controlled
+        // account as org-owner. Ownership transfer is a separate, owner-only op.
+        if (string.Equals(role.Code, OrganizationRoleCodes.Owner, StringComparison.OrdinalIgnoreCase))
+        {
+            return OrganizationErrors.CannotAssignOwnerRole;
+        }
+
         // Get inviter info
         var inviter = await _userRepository.GetByIdAsync(request.InvitedBy, cancellationToken);
         var inviterEmail = inviter?.Email?.Value;

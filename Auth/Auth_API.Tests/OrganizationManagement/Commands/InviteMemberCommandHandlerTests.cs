@@ -54,6 +54,35 @@ public class InviteMemberCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_InvitingAsOwnerRole_ReturnsCannotAssignOwnerRole()
+    {
+        // An org:members:invite holder must not mint an owner by inviting a
+        // controlled account as org-owner (same escalation as UpdateMemberRole).
+        var orgId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var organization = TestHelpers.CreateOrganization(id: orgId, isActive: true);
+        var ownerRole = TestHelpers.CreateRole(
+            id: roleId, code: OrganizationRoleCodes.Owner, name: "Organization Owner");
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(organization);
+        _roleRepositoryMock
+            .Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ownerRole);
+
+        var result = await _handler.Handle(
+            new InviteMemberCommand(orgId, "newmember@example.com", roleId) { InvitedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Organization.CannotAssignOwnerRole");
+        _organizationRepositoryMock.Verify(
+            r => r.CreateInvitationAsync(It.IsAny<OrganizationInvitation>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
     public async Task Handle_WithValidData_CreatesInvitationSuccessfully()
     {
         // Arrange
