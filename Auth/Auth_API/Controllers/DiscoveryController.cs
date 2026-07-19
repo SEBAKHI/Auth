@@ -1,11 +1,13 @@
 using Asp.Versioning;
 using Auth_API.Common;
+using Auth.Application.Configuration;
 using Auth.Application.Features.Discovery.GetDiscoveryDocument;
 using Auth.Application.Features.Discovery.GetJwks;
 using Auth.Application.Features.Discovery.GetPublicKey;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Auth_API.Controllers;
 
@@ -19,10 +21,12 @@ namespace Auth_API.Controllers;
 public class DiscoveryController : ApiController
 {
     private readonly ISender _sender;
+    private readonly IdentityProviderSettings _idpSettings;
 
-    public DiscoveryController(ISender sender)
+    public DiscoveryController(ISender sender, IOptions<IdentityProviderSettings> idpSettings)
     {
         _sender = sender;
+        _idpSettings = idpSettings.Value;
     }
 
     /// <summary>
@@ -32,7 +36,11 @@ public class DiscoveryController : ApiController
     [ProducesResponseType(typeof(DiscoveryDocumentDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetOpenIdConfiguration(CancellationToken cancellationToken)
     {
-        var baseUrl = $"{Request.Scheme}://{Request.Host}";
+        // Build endpoint URLs from the configured public origin, not Request.Host:
+        // behind the gateway the host is the internal destination, which would
+        // publish internal URLs (authorization_endpoint, jwks_uri, ...) to every
+        // OIDC client. Falls back to the request host in proxy-less dev.
+        var baseUrl = _idpSettings.ResolvePublicBaseUrl($"{Request.Scheme}://{Request.Host}");
         var result = await _sender.Send(new GetDiscoveryDocumentQuery(baseUrl), cancellationToken);
 
         return result.Match(

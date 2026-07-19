@@ -16,6 +16,27 @@ public class IdentityProviderSettings
     public string AccountsBaseUrl { get; set; } = string.Empty;
 
     /// <summary>
+    /// Gets or sets this identity provider's own PUBLIC base URL as seen by
+    /// browsers and consuming apps (e.g. https://auth.astoom.com). Behind a
+    /// reverse proxy the request's Host header is the INTERNAL destination
+    /// (e.g. identity.astoom.com), so any public URL the server emits — the
+    /// authorize returnTo and the discovery-document endpoints — must be built
+    /// from this configured value, never from Request.Host. Leave empty only
+    /// where there is no proxy (local dev), where the request host is public.
+    /// </summary>
+    public string PublicBaseUrl { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Returns the configured <see cref="PublicBaseUrl"/> (trailing slash
+    /// trimmed), or the supplied request-derived value when none is configured
+    /// (proxy-less dev). Deterministic: it never depends on the reverse proxy's
+    /// forwarded headers or address.
+    /// </summary>
+    /// <param name="requestFallback">e.g. $"{Request.Scheme}://{Request.Host}".</param>
+    public string ResolvePublicBaseUrl(string requestFallback)
+        => string.IsNullOrWhiteSpace(PublicBaseUrl) ? requestFallback : PublicBaseUrl.TrimEnd('/');
+
+    /// <summary>
     /// Gets or sets the lifetime of one-time authorization codes in seconds.
     /// Kept short by design (OAuth 2.0 Security BCP recommends at most 60s).
     /// </summary>

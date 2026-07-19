@@ -26,7 +26,6 @@ using Auth.Domain.Enums;
 using MediatR;
 using Auth_API.Common;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -220,6 +219,14 @@ public class AuthController : ApiController
         [FromQuery(Name = "state")] string? state,
         CancellationToken cancellationToken)
     {
+        // Rebuild the authorize URL from the CONFIGURED public origin, not from
+        // Request.Host: behind the gateway the host is the internal destination
+        // (identity.astoom.com), and the accounts app rejects a returnTo whose
+        // origin is not the public auth origin — which would break cold-start
+        // SSO. Falls back to the request host only where no proxy exists (dev).
+        var publicBaseUrl = _idpSettings.ResolvePublicBaseUrl($"{Request.Scheme}://{Request.Host}");
+        var originalRequestUrl = $"{publicBaseUrl}{Request.Path}{Request.QueryString}";
+
         var command = new AuthorizeCommand(
             responseType,
             clientId,
@@ -228,7 +235,7 @@ public class AuthController : ApiController
             codeChallengeMethod,
             state,
             IdpSessionCookie.Read(Request, _idpSettings),
-            Request.GetEncodedUrl(),
+            originalRequestUrl,
             GetClientIpAddress());
 
         var result = await _sender.Send(command, cancellationToken);
