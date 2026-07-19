@@ -121,8 +121,12 @@ public class ExchangeAuthorizationCodeCommandHandler
 
         // No browser is on this call, so no IdP session cookie is minted here —
         // the user's SSO session was already established at interactive login.
+        // The token is scoped to THIS app (aud = client id) so it cannot be
+        // replayed against another Astoom app; the applicationId records that on
+        // the refresh token so refreshes keep the same audience.
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, cancellationToken, establishIdpSession: false);
+            user, request.IpAddress, request.UserAgent, cancellationToken,
+            establishIdpSession: false, audience: application.Code, applicationId: application.Id);
 
         _logger.LogInformation(
             "Authorization code exchanged for tokens: client {ClientId}, user {UserId}",

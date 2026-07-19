@@ -21,6 +21,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IOrganizationRepository _organizationRepository;
+    private readonly IApplicationRepository _applicationRepository;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IUserSessionRepository _sessionRepository;
@@ -33,6 +34,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
         IOrganizationRepository organizationRepository,
+        IApplicationRepository applicationRepository,
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserSessionRepository sessionRepository,
@@ -44,6 +46,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
         _organizationRepository = organizationRepository;
+        _applicationRepository = applicationRepository;
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _sessionRepository = sessionRepository;
@@ -115,10 +118,22 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         var organizationPermissions = await _organizationRepository
             .GetMembershipPermissionCodesAsync(user.Id, cancellationToken);
 
+        // A token issued to a specific app (OAuth flow) carries that app on the
+        // refresh token; re-mint the same per-app audience so the refreshed token
+        // stays valid only for that app. Direct first-party logins have no
+        // ApplicationId and keep the platform default audience.
+        string? audience = null;
+        if (storedToken.ApplicationId.HasValue)
+        {
+            var application = await _applicationRepository.GetByIdAsync(
+                storedToken.ApplicationId.Value, cancellationToken);
+            audience = application?.Code;
+        }
+
         // Generate new access token, carrying the stable session id forward so
         // the access token's "sid" stays constant across refreshes.
         var accessToken = _jwtTokenService.GenerateAccessToken(
-            user, permissions, roleNames, storedToken.SessionId, organizationPermissions);
+            user, permissions, roleNames, storedToken.SessionId, organizationPermissions, audience);
 
         // Keep the session's last-activity timestamp fresh (best-effort).
         if (storedToken.SessionId.HasValue)

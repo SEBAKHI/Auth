@@ -51,7 +51,8 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         IEnumerable<string> permissions,
         IEnumerable<string> roles,
         Guid? sessionId = null,
-        IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null)
+        IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null,
+        string? audience = null)
     {
         var claims = new List<Claim>
         {
@@ -117,7 +118,9 @@ public class JwtTokenService : IJwtTokenService, IDisposable
             NotBefore = DateTime.UtcNow,
             IssuedAt = DateTime.UtcNow,
             Issuer = _settings.Issuer,
-            Audience = _settings.Audience,
+            // Per-app audience for the authorization-code flow; the platform
+            // default for direct first-party logins (console/accounts).
+            Audience = string.IsNullOrEmpty(audience) ? _settings.Audience : audience,
             SigningCredentials = _signingCredentials
         };
 

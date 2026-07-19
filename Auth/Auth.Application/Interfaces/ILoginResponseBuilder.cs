@@ -22,6 +22,19 @@ public interface ILoginResponseBuilder
     /// into the session cookie). Interactive logins pass true; the OAuth token
     /// endpoint passes false — no browser is present there to receive a cookie.
     /// </param>
+    /// <param name="audience">
+    /// The access token's audience (the requesting app's client id for the OAuth
+    /// flow); null uses the platform default. Also recorded on the refresh token
+    /// (via <paramref name="applicationId"/>) so refreshes keep the same audience.
+    /// </param>
+    /// <param name="applicationId">The application the tokens are scoped to, if any.</param>
     /// <returns>The login response with tokens and user info.</returns>
-    Task<LoginResponse> BuildAsync(User user, string? ipAddress, string? deviceInfo, CancellationToken cancellationToken, bool establishIdpSession = true);
+    Task<LoginResponse> BuildAsync(
+        User user,
+        string? ipAddress,
+        string? deviceInfo,
+        CancellationToken cancellationToken,
+        bool establishIdpSession = true,
+        string? audience = null,
+        Guid? applicationId = null);
 }

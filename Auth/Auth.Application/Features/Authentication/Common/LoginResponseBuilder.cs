@@ -66,7 +66,9 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         string? ipAddress,
         string? deviceInfo,
         CancellationToken cancellationToken,
-        bool establishIdpSession = true)
+        bool establishIdpSession = true,
+        string? audience = null,
+        Guid? applicationId = null)
     {
         // Get roles and permissions
         var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
@@ -84,17 +86,19 @@ public class LoginResponseBuilder : ILoginResponseBuilder
 
         // Generate tokens
         var accessToken = _jwtTokenService.GenerateAccessToken(
-            user, permissions, roleNames, sessionId, organizationPermissions);
+            user, permissions, roleNames, sessionId, organizationPermissions, audience);
         var jwtId = _jwtTokenService.GetTokenId(accessToken) ?? Guid.NewGuid().ToString();
         var refreshToken = _jwtTokenService.GenerateRefreshToken();
         var refreshTokenHash = _refreshTokenKeyService.ComputeTokenHash(refreshToken);
 
-        // Save refresh token (only hash is stored, not plain token)
+        // Save refresh token (only hash is stored, not plain token). The
+        // ApplicationId scopes the token to the requesting app so refreshes
+        // re-mint the same per-app audience.
         var refreshTokenEntity = RefreshTokenEntity.Create(
             user.Id,
             refreshTokenHash,
             jwtId,
-            null,
+            applicationId,
             _jwtSettings.RefreshTokenLifetime,
             ipAddress,
             deviceInfo,

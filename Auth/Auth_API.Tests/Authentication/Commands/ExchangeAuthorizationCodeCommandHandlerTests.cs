@@ -263,7 +263,9 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 "127.0.0.1",
                 "TestAgent/1.0",
                 It.IsAny<CancellationToken>(),
-                false))
+                false,
+                It.IsAny<string?>(),
+                It.IsAny<Guid?>()))
             .ReturnsAsync(new LoginResponse
             {
                 Token = new TokenResponse
@@ -293,10 +295,18 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         result.Value.RefreshToken.Should().Be("refresh-token");
         result.Value.RefreshExpiresIn.Should().Be(604800);
 
-        // The token endpoint must never mint an IdP session (no browser there).
+        // The token endpoint must never mint an IdP session (no browser there),
+        // and the token must be scoped to THIS app (aud = client id) with the
+        // app recorded on the refresh token so refreshes keep the same audience.
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<CancellationToken>(), false),
+            b => b.BuildAsync(
+                It.IsAny<User>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>(),
+                false,
+                ClientId,
+                It.IsAny<Guid?>()),
             Times.Once);
     }
 }

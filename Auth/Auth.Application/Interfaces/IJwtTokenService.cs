@@ -20,13 +20,19 @@ public interface IJwtTokenService
     /// Organization-scoped permission codes from the user's membership roles,
     /// emitted as "org_perm" claims ("{organizationId}:{code}").
     /// </param>
+    /// <param name="audience">
+    /// The token's intended audience (the "aud" claim). When null, the platform
+    /// default is used. The authorization-code flow passes the requesting app's
+    /// client id so a token minted for one app is not accepted by another.
+    /// </param>
     /// <returns>The JWT access token.</returns>
     string GenerateAccessToken(
         User user,
         IEnumerable<string> permissions,
         IEnumerable<string> roles,
         Guid? sessionId = null,
-        IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null);
+        IEnumerable<(Guid OrganizationId, string Code)>? organizationPermissions = null,
+        string? audience = null);
 
     /// <summary>
     /// Generates a cryptographically secure random refresh token.
