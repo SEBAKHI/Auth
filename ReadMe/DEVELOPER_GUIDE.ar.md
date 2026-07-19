@@ -919,20 +919,21 @@ Authorization                    — التحكم بالوصول المبني ع
 ```json
 {
   "issuer": "http://localhost:5100",
-  "authorization_endpoint": "http://localhost:5100/api/v1/auth/login",
+  "jwks_uri": "http://localhost:5100/.well-known/jwks.json",
   "token_endpoint": "http://localhost:5100/api/v1/auth/login",
   "userinfo_endpoint": "http://localhost:5100/api/v1/auth/me",
-  "jwks_uri": "http://localhost:5100/.well-known/jwks.json",
+  "end_session_endpoint": "http://localhost:5100/api/v1/auth/logout",
   "revocation_endpoint": "http://localhost:5100/api/v1/auth/revoke",
   "introspection_endpoint": "http://localhost:5100/api/v1/auth/introspect",
-  "grant_types_supported": ["password", "refresh_token"],
-  "response_types_supported": ["token"],
+  "response_types_supported": [],
   "subject_types_supported": ["public"],
-  "id_token_signing_alg_values_supported": ["RS256"],
-  "token_endpoint_auth_methods_supported": ["client_secret_post"],
-  "claims_supported": ["sub", "email", "name", "given_name", "family_name", "locale", "timezone", "roles", "permissions"]
+  "token_endpoint_auth_methods_supported": ["none"],
+  "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
+  "grant_types_supported": ["password", "refresh_token"]
 }
 ```
+
+> <div dir="rtl">الوثيقة تعلن القدرات المنفَّذة فقط. ستُضاف <code>authorization_endpoint</code> وقيم <code>response_types_supported</code> و<code>scopes_supported</code> و<code>code_challenge_methods_supported</code> (PKCE) مع تنفيذ تدفق authorization-code.</div>
 
 #### GET `/.well-known/jwks.json`
 

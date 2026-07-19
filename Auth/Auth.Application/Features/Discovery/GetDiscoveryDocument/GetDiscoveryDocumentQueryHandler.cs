@@ -25,24 +25,26 @@ public class GetDiscoveryDocumentQueryHandler
         var baseUrl = request.BaseUrl;
         const string apiVersion = "v1";
 
+        // authorization_endpoint, response types, PKCE, id_token signing and scopes are
+        // intentionally NOT advertised: the authorization-code flow does not exist yet,
+        // and the document must only advertise capabilities that are actually implemented.
+        // Re-add them together with the /auth/authorize endpoint (Phase 4).
         var document = new DiscoveryDocumentDto
         {
             Issuer = _jwtSettings.Issuer,
             JwksUri = $"{baseUrl}/.well-known/jwks.json",
-            AuthorizationEndpoint = $"{baseUrl}/api/{apiVersion}/auth/authorize",
             TokenEndpoint = $"{baseUrl}/api/{apiVersion}/auth/login",
             UserinfoEndpoint = $"{baseUrl}/api/{apiVersion}/auth/me",
             EndSessionEndpoint = $"{baseUrl}/api/{apiVersion}/auth/logout",
             RevocationEndpoint = $"{baseUrl}/api/{apiVersion}/auth/revoke",
             IntrospectionEndpoint = $"{baseUrl}/api/{apiVersion}/auth/introspect",
-            ResponseTypesSupported = ["code", "token", "id_token"],
+            ResponseTypesSupported = [],
             SubjectTypesSupported = ["public"],
-            IdTokenSigningAlgValuesSupported = ["RS256"],
-            TokenEndpointAuthMethodsSupported = ["client_secret_post", "client_secret_basic"],
-            ScopesSupported = ["openid", "profile", "email", "offline_access"],
+            // Login and refresh authenticate the user, not an OAuth client; per
+            // RFC 8414 omitting this field would imply client_secret_basic.
+            TokenEndpointAuthMethodsSupported = ["none"],
             ClaimsSupported = ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
-            GrantTypesSupported = ["password", "refresh_token"],
-            CodeChallengeMethodsSupported = ["S256"]
+            GrantTypesSupported = ["password", "refresh_token"]
         };
 
         return Task.FromResult<ErrorOr<DiscoveryDocumentDto>>(document);

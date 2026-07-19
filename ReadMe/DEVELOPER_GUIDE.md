@@ -917,20 +917,21 @@ Returns the OpenID Connect discovery document.
 ```json
 {
   "issuer": "http://localhost:5100",
-  "authorization_endpoint": "http://localhost:5100/api/v1/auth/login",
+  "jwks_uri": "http://localhost:5100/.well-known/jwks.json",
   "token_endpoint": "http://localhost:5100/api/v1/auth/login",
   "userinfo_endpoint": "http://localhost:5100/api/v1/auth/me",
-  "jwks_uri": "http://localhost:5100/.well-known/jwks.json",
+  "end_session_endpoint": "http://localhost:5100/api/v1/auth/logout",
   "revocation_endpoint": "http://localhost:5100/api/v1/auth/revoke",
   "introspection_endpoint": "http://localhost:5100/api/v1/auth/introspect",
-  "grant_types_supported": ["password", "refresh_token"],
-  "response_types_supported": ["token"],
+  "response_types_supported": [],
   "subject_types_supported": ["public"],
-  "id_token_signing_alg_values_supported": ["RS256"],
-  "token_endpoint_auth_methods_supported": ["client_secret_post"],
-  "claims_supported": ["sub", "email", "name", "given_name", "family_name", "locale", "timezone", "roles", "permissions"]
+  "token_endpoint_auth_methods_supported": ["none"],
+  "claims_supported": ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
+  "grant_types_supported": ["password", "refresh_token"]
 }
 ```
+
+> The document only advertises implemented capabilities. `authorization_endpoint`, `response_types_supported` values, `scopes_supported` and `code_challenge_methods_supported` (PKCE) will be added together with the authorization-code flow.
 
 #### GET `/.well-known/jwks.json`
 
