@@ -22,6 +22,23 @@ export interface TemplateVariable {
 }
 
 /**
+ * The globals the renderer injects into EVERY template and layout render
+ * (NotificationRenderingService.BuildModelAsync). Surfaced as their own palette
+ * in both editors so authors see everything that is available instead of having
+ * to guess — the type catalog only covers flow-specific variables.
+ */
+export function getRendererGlobals(t: (key: string) => string): TemplateVariable[] {
+  return [
+    { name: "Platform.Name", description: t("notifications.globalVarPlatformName"), example: "Astoom" },
+    { name: "Application.Name", description: t("notifications.globalVarApplicationName"), example: "Astoom Console" },
+    { name: "Application.Code", description: t("notifications.globalVarApplicationCode"), example: "console" },
+    { name: "Application.BaseUrl", description: t("notifications.globalVarApplicationBaseUrl"), example: "https://accounts.astoom.com" },
+    { name: "SenderName", description: t("notifications.layoutSlotSenderName"), example: "Astoom" },
+    { name: "Year", description: t("notifications.globalVarYear"), example: "2026" },
+  ]
+}
+
+/**
  * Parses a type's VariablesJson catalog; malformed JSON degrades to an empty
  * palette rather than breaking the editor.
  */

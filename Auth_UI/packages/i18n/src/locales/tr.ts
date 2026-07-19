@@ -758,11 +758,18 @@ export const tr: TranslationResources = {
     manageVariables: "Değişkenleri yönet",
     manageVariablesTitle: "Değişken kataloğu",
     manageVariablesHint:
-      "Bu bildirim türünün şablonlarına sağladığı değişkenlerdir. Katalog, gönderen kodla sözleşmedir: bir şablon yalnızca burada listelenen değişkenlere başvurabilir.",
+      "Bunlar, bu türdeki mesajların içerebileceği dinamik bilgilerdir (değişkenler) — örneğin kullanıcının adı veya doğrulama kodu. Bir şablon yalnızca bu listedeki değişkenleri kullanabilir.",
     variablesContextHint:
-      "Her zaman kullanılabilir (eklemeye gerek yok): {{ Platform.Name }}, {{ Application.Name }}, {{ Application.Code }}, {{ SenderName }}, {{ Year }}. Alıcıya ve akışa özel değerler gönderen kod tarafından sağlanır.",
+      "Bu listeye ek olarak sistem her mesajda birkaç hazır değişkeni otomatik doldurur: platform adı, uygulama adı ve adresi, gönderen adı ve içinde bulunulan yıl. Bunları düzenleyicide «Her zaman kullanılabilir» altında bulursunuz — buraya eklemenize gerek yok.",
     customVariableWarning:
-      "Buraya eklediğiniz bir değişken yalnızca gönderen kod (veya yukarıdaki bir bağlam nesnesi) sağlarsa veri taşır; aksi halde boş görünür.",
+      "Yeni bir değişkeni yalnızca geliştirme ekibinizle koordineli olarak ekleyin. Sistem, gönderim anında değişkenin değerini bilmelidir — sistemin bilmediği bir değişkenin yeri mesajda boş kalır.",
+    globalVariables: "Her zaman kullanılabilir",
+    globalVarPlatformName: "Platform ayarlarında tanımlanan platform adı.",
+    globalVarApplicationName:
+      "Mesajın ait olduğu uygulamanın adı. Genel mesajlar platform adını kullanır.",
+    globalVarApplicationCode: "Uygulamanın kısa kodu; genel mesajlarda boştur.",
+    globalVarApplicationBaseUrl: "Uygulamanın web adresi; bağlantı oluşturmak için kullanışlıdır.",
+    globalVarYear: "İçinde bulunulan yıl — alt bilgi ve telif satırları için kullanışlıdır.",
     variableName: "Ad",
     variableDescription: "Açıklama",
     variableExample: "Örnek değer",

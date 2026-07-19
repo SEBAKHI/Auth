@@ -738,11 +738,18 @@ export const en = {
     manageVariables: "Manage variables",
     manageVariablesTitle: "Variable catalog",
     manageVariablesHint:
-      "These are the variables this notification type provides to its templates. The catalog is the contract with the sending code: a template may only reference variables listed here.",
+      "These are the pieces of dynamic information (variables) that messages of this type can include — for example the user's name or the verification code. A template can only use variables that are on this list.",
     variablesContextHint:
-      "Always available (no need to add): {{ Platform.Name }}, {{ Application.Name }}, {{ Application.Code }}, {{ SenderName }}, {{ Year }}. Recipient- and flow-specific values are supplied by the sending code.",
+      "On top of this list, the system automatically fills in a few ready-made variables in every message: the platform name, the application name and address, the sender name, and the current year. They appear in the editor under \"Always available\" — no need to add them here.",
     customVariableWarning:
-      "A variable you add here only carries data if the sending code (or a context object above) provides it; otherwise it renders empty.",
+      "Add a new variable only in coordination with your development team. The system must know its value at send time — a variable the system does not know is simply left empty in the message.",
+    globalVariables: "Always available",
+    globalVarPlatformName: "The platform name, as set in Platform settings.",
+    globalVarApplicationName:
+      "The name of the application the message belongs to. Global messages use the platform name.",
+    globalVarApplicationCode: "The application's short code. Empty for global messages.",
+    globalVarApplicationBaseUrl: "The application's website address; useful for building links.",
+    globalVarYear: "The current year — handy for footers and copyright lines.",
     variableName: "Name",
     variableDescription: "Description",
     variableExample: "Example value",

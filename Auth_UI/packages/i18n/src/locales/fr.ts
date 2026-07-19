@@ -764,11 +764,18 @@ export const fr: TranslationResources = {
     manageVariables: "Gérer les variables",
     manageVariablesTitle: "Catalogue de variables",
     manageVariablesHint:
-      "Ce sont les variables que ce type de notification fournit à ses modèles. Le catalogue est le contrat avec le code d'envoi : un modèle ne peut référencer que les variables listées ici.",
+      "Voici les informations dynamiques (variables) que les messages de ce type peuvent inclure — par exemple le nom de l'utilisateur ou le code de vérification. Un modèle ne peut utiliser que les variables de cette liste.",
     variablesContextHint:
-      "Toujours disponibles (inutile de les ajouter) : {{ Platform.Name }}, {{ Application.Name }}, {{ Application.Code }}, {{ SenderName }}, {{ Year }}. Les valeurs propres au destinataire et au flux sont fournies par le code d'envoi.",
+      "En plus de cette liste, le système remplit automatiquement quelques variables prêtes à l'emploi dans chaque message : le nom de la plateforme, le nom et l'adresse de l'application, le nom de l'expéditeur et l'année en cours. Vous les trouverez dans l'éditeur sous « Toujours disponibles » — inutile de les ajouter ici.",
     customVariableWarning:
-      "Une variable ajoutée ici ne porte des données que si le code d'envoi (ou un objet de contexte ci-dessus) la fournit ; sinon elle s'affiche vide.",
+      "N'ajoutez une nouvelle variable qu'en coordination avec votre équipe de développement. Le système doit connaître sa valeur au moment de l'envoi — une variable inconnue du système restera simplement vide dans le message.",
+    globalVariables: "Toujours disponibles",
+    globalVarPlatformName: "Le nom de la plateforme, défini dans les paramètres de la plateforme.",
+    globalVarApplicationName:
+      "Le nom de l'application à laquelle appartient le message. Les messages globaux utilisent le nom de la plateforme.",
+    globalVarApplicationCode: "Le code court de l'application ; vide pour les messages globaux.",
+    globalVarApplicationBaseUrl: "L'adresse du site de l'application ; utile pour construire des liens.",
+    globalVarYear: "L'année en cours — pratique pour les pieds de page et les mentions de copyright.",
     variableName: "Nom",
     variableDescription: "Description",
     variableExample: "Valeur d'exemple",

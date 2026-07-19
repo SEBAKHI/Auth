@@ -722,11 +722,17 @@ export const zh: TranslationResources = {
     manageVariables: "管理变量",
     manageVariablesTitle: "变量目录",
     manageVariablesHint:
-      "这些是该通知类型提供给其模板的变量。目录是与发送代码的契约：模板只能引用此处列出的变量。",
+      "这些是此类通知的消息可以包含的动态信息（变量），例如用户名或验证码。模板只能使用此列表中的变量。",
     variablesContextHint:
-      "始终可用（无需添加）：{{ Platform.Name }}、{{ Application.Name }}、{{ Application.Code }}、{{ SenderName }}、{{ Year }}。收件人和流程特定的值由发送代码提供。",
+      "除此列表外，系统还会在每封消息中自动填充一些现成变量：平台名称、应用名称及其网址、发件人名称和当前年份。它们显示在编辑器的「始终可用」下，无需在此添加。",
     customVariableWarning:
-      "在此添加的变量只有在发送代码（或上述上下文对象）提供时才携带数据；否则将渲染为空。",
+      "请仅在与开发团队协调后再添加新变量。系统必须在发送时知道它的值——系统不认识的变量在消息中将显示为空。",
+    globalVariables: "始终可用",
+    globalVarPlatformName: "平台名称，来自平台设置。",
+    globalVarApplicationName: "消息所属应用的名称。全局消息使用平台名称。",
+    globalVarApplicationCode: "应用的短代码；全局消息中为空。",
+    globalVarApplicationBaseUrl: "应用的网站地址；可用于构建链接。",
+    globalVarYear: "当前年份——适合用于页脚和版权行。",
     variableName: "名称",
     variableDescription: "说明",
     variableExample: "示例值",

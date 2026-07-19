@@ -24,7 +24,7 @@ import { PERMISSIONS } from "@/lib/constants"
 import { CodeEditor, insertAtCursor } from "./components/code-editor"
 import { PreviewPane } from "./components/preview-pane"
 import { VariablePalette } from "./components/variable-palette"
-import type { NotificationPreviewDto, TemplateVariable } from "./lib"
+import { getRendererGlobals, type NotificationPreviewDto, type TemplateVariable } from "./lib"
 
 /** Per-language chrome strings stored in the layout's StringsJson. */
 type LayoutStrings = Record<string, Record<string, string>>
@@ -80,14 +80,13 @@ export function NotificationLayoutDetailPage() {
         insertText: "{{ strings.footer | raw }}",
         description: t("notifications.layoutSlotFooter"),
       },
-      {
-        name: "SenderName",
-        insertText: "{{ SenderName }}",
-        description: t("notifications.layoutSlotSenderName"),
-      },
     ],
     [t]
   )
+
+  // Renderer globals (Platform/Application/SenderName/Year) are available to
+  // layouts exactly as they are to templates — shown so nothing stays guesswork.
+  const rendererGlobals = React.useMemo(() => getRendererGlobals(t), [t])
 
   const query = useQuery({
     queryKey: ["notification-layout", id],
@@ -293,6 +292,16 @@ export function NotificationLayoutDetailPage() {
           <VariablePalette
             title={t("notifications.layoutSlots")}
             variables={layoutSlots}
+            onInsert={(placeholder) => {
+              if (!insertAtCursor(editorRef, placeholder)) {
+                setContent((current) => current + placeholder)
+              }
+            }}
+          />
+
+          <VariablePalette
+            title={t("notifications.globalVariables")}
+            variables={rendererGlobals}
             onInsert={(placeholder) => {
               if (!insertAtCursor(editorRef, placeholder)) {
                 setContent((current) => current + placeholder)

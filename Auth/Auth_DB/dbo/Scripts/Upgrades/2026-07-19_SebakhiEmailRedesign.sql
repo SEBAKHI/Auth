@@ -1,26 +1,204 @@
-﻿-- Notification Templates Seed Data
--- The three system templates in the SEBAKHI-brand design, each with version 1
--- published and all 7 language translations. Class names match the styles defined by
--- the default email layout (11_NotificationLayouts.sql).
--- Guarded per template id so admin-created versions are never clobbered on re-publish.
--- BodyText is left NULL everywhere: the plain-text alternative is derived from BodyHtml.
+﻿-- SEBAKHI email redesign upgrade for EXISTING databases (dev/prod).
+-- Fresh databases get this design from the seed scripts; this script upgrades DBs where
+-- the guarded seeds already ran. Idempotent: guarded by the new version ids.
+--
+-- 1. Overwrites the global email layout (draft + published) with the new design.
+-- 2. Adds a new published version (max + 1) to each of the three system templates,
+--    keeping all previous versions in the history (roll back from the console if needed).
+
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+DECLARE @LayoutContent NVARCHAR(MAX) = N'<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="supported-color-schemes" content="light dark">
+<title>{{ Application.Name }}</title>
+<style>
+/* ============ RESET ============ */
+html, body { margin:0 !important; padding:0 !important; width:100% !important; background:transparent; -webkit-text-size-adjust:100%; -ms-text-size-adjust:100%; }
+table { border-spacing:0; border-collapse:collapse; }
+td { padding:0; }
+img { border:0; outline:none; text-decoration:none; display:block; -ms-interpolation-mode:bicubic; }
+a { text-decoration:none; }
+body, table, td, a, p, div, span {
+    font-family: -apple-system, BlinkMacSystemFont, ''Segoe UI'', Roboto, ''Helvetica Neue'', Arial, sans-serif !important;
+}
+
+/* ============ FRAME ============ */
+/* Everything outside the card is transparent so the email floats on the mail
+   client''s own background in both light and dark modes. */
+body { background:transparent; color:#1B1B1A; direction:{{ dir }}; text-align:{% if dir == "rtl" %}right{% else %}left{% endif %}; }
+.wrapper { background:transparent; padding:40px 16px 24px; }
+.card { background:#FFFFFF; border:1px solid #E8E8E6; border-radius:20px; overflow:hidden; }
+.top-accent { height:4px; background:#141414; font-size:0; line-height:0; }
+
+/* ============ BRAND HEADER ============ */
+/* The logo file is a fully opaque PNG with a white chip baked in: image pixels
+   are never recolored by dark modes or Gmail''s proxy, so it stays legible
+   everywhere. Corners are rounded via CSS only (keeps the file alpha-free). */
+.logo { padding:40px 48px 0; text-align:center; }
+.logo img { width:200px; max-width:70%; height:auto; margin:0 auto; border-radius:14px; }
+.application { padding:16px 48px 0; text-align:center; font-size:11px; font-weight:600; letter-spacing:2.2px; text-transform:uppercase; color:#9C9C9A; }
+.brand-rule { padding:32px 48px 0; }
+.brand-rule div { border-top:1px solid #EFEFED; font-size:0; line-height:0; }
+
+/* ============ CONTENT ============ */
+.content { padding:36px 48px 44px; }
+.header { text-align:center; margin:0 0 28px; }
+.eyebrow { margin:0 0 10px; font-size:11px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:#8C8C8A; }
+.header h1 { margin:0; color:#141414; font-size:26px; line-height:1.35; font-weight:700; letter-spacing:-0.2px; }
+.subtitle { margin:12px 0 0; color:#757573; font-size:15px; line-height:1.7; }
+.message { margin:0 0 16px; color:#3F3F3E; font-size:15px; line-height:1.8; }
+.muted { margin:0 0 16px; color:#8C8C8A; font-size:13px; line-height:1.8; }
+strong { color:#141414; }
+
+/* ============ BUTTON ============ */
+.button-container { text-align:center; margin:30px 0; }
+.button { display:inline-block; background:#141414 !important; color:#FFFFFF !important; font-size:15px; font-weight:600; line-height:1; padding:15px 34px; border-radius:12px; letter-spacing:0.2px; }
+
+/* ============ CODES ============ */
+.code-container { text-align:center; margin:30px 0; }
+.otp-code { display:inline-block; background:#F6F6F5; border:1px solid #E8E8E6; border-radius:14px; padding:20px 28px; font-family:Consolas, ''Courier New'', monospace !important; font-size:32px; font-weight:700; letter-spacing:8px; color:#141414; direction:ltr; }
+.token-code { display:inline-block; background:#F6F6F5; border:1px solid #E8E8E6; border-radius:12px; padding:14px 20px; font-family:Consolas, ''Courier New'', monospace !important; font-size:14px; font-weight:600; color:#141414; direction:ltr; word-break:break-all; }
+
+/* ============ LINK FALLBACK ============ */
+.link-fallback { margin:0 0 10px; color:#8C8C8A; font-size:13px; line-height:1.7; }
+.link-box { margin:0 0 24px; background:#F9F9F8; border:1px solid #EFEFED; border-radius:12px; padding:14px 18px; font-family:Consolas, ''Courier New'', monospace !important; font-size:12px; line-height:1.7; color:#6E6E6C; word-break:break-all; direction:ltr; text-align:left; }
+.link-box a { color:#6E6E6C !important; text-decoration:underline; }
+
+/* ============ NOTICE ============ */
+.notice, .warning { margin:32px 0 0; background:#F9F9F8; border:1px solid #E8E8E6; border-radius:14px; padding:18px 20px; color:#757573; font-size:13px; line-height:1.8; }
+.notice-title { margin:0 0 6px; color:#6E6E6C; font-size:11px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; }
+.notice-text { margin:0; color:#757573; font-size:13px; line-height:1.8; }
+
+/* ============ FOOTER ============ */
+.footer { background:#FAFAF9; border-top:1px solid #EFEFED; padding:24px 48px; text-align:center; }
+.footer p { margin:0; color:#9C9C9A; font-size:12px; line-height:1.8; }
+.subfooter { padding:22px 24px 0; text-align:center; }
+/* Mid gray: readable on the client''s own background, whatever its brightness. */
+.subfooter p { margin:0; color:#8A8A8C; font-size:12px; line-height:1.7; letter-spacing:0.3px; }
+
+/* ============ DARK MODE ============ */
+@media (prefers-color-scheme: dark) {
+    .card { background:#1A1A1C !important; border-color:#2C2C2F !important; }
+    .top-accent { background:#F4F4F2 !important; }
+    .application { color:#8F8F92 !important; }
+    .brand-rule div { border-top-color:#28282B !important; }
+    .header h1 { color:#F4F4F2 !important; }
+    .eyebrow { color:#8F8F92 !important; }
+    .subtitle, .message { color:#C9C9C7 !important; }
+    .muted, .link-fallback { color:#8F8F92 !important; }
+    strong { color:#F4F4F2 !important; }
+    .button { background:#F4F4F2 !important; color:#141414 !important; }
+    .otp-code, .token-code { background:#202023 !important; border-color:#313134 !important; color:#F4F4F2 !important; }
+    .link-box { background:#1E1E21 !important; border-color:#2C2C2F !important; color:#A5A5A3 !important; }
+    .link-box a { color:#A5A5A3 !important; }
+    .notice, .warning { background:#1E1E21 !important; border-color:#2C2C2F !important; color:#A5A5A3 !important; }
+    .notice-title { color:#B8B8B6 !important; }
+    .notice-text { color:#A5A5A3 !important; }
+    .footer { background:#17171A !important; border-top-color:#28282B !important; }
+    .footer p { color:#8F8F92 !important; }
+}
+/* Outlook.com / Outlook apps dark mode */
+[data-ogsb] .card { background:#1A1A1C !important; border-color:#2C2C2F !important; }
+[data-ogsb] .button { background:#F4F4F2 !important; }
+[data-ogsc] .button { color:#141414 !important; }
+[data-ogsb] .otp-code, [data-ogsb] .token-code, [data-ogsb] .link-box, [data-ogsb] .notice, [data-ogsb] .warning { background:#1E1E21 !important; border-color:#2C2C2F !important; }
+[data-ogsc] .header h1, [data-ogsc] strong { color:#F4F4F2 !important; }
+[data-ogsc] .message, [data-ogsc] .subtitle { color:#C9C9C7 !important; }
+[data-ogsc] .otp-code, [data-ogsc] .token-code { color:#F4F4F2 !important; }
+
+/* ============ MOBILE ============ */
+@media only screen and (max-width:640px) {
+    .wrapper { padding:16px 10px !important; }
+    .card { border-radius:16px !important; }
+    .logo { padding:30px 24px 0 !important; }
+    .logo img { width:176px !important; }
+    .application { padding:14px 24px 0 !important; }
+    .brand-rule { padding:26px 24px 0 !important; }
+    .content { padding:28px 24px 34px !important; }
+    .header h1 { font-size:22px !important; }
+    .message { font-size:14px !important; }
+    .button { display:block !important; width:100% !important; box-sizing:border-box; }
+    .otp-code { font-size:26px !important; letter-spacing:6px !important; padding:16px 20px !important; }
+    .footer { padding:20px 24px !important; }
+}
+</style>
+</head>
+<body>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="wrapper">
+<tr>
+<td align="center">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
+<tr>
+<td>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="card">
+<tr><td class="top-accent" style="height:4px;line-height:4px;font-size:2px;">&nbsp;</td></tr>
+<tr><td class="logo"><img src="https://astoom.com/branding/sebakhi-email-logo.png" width="200" alt="{{ Platform.Name }}"></td></tr>
+<tr><td class="application">{{ Application.Name }}</td></tr>
+<tr><td class="brand-rule"><div>&nbsp;</div></td></tr>
+<tr><td class="content">
+{{ content | raw }}
+</td></tr>
+<tr><td class="footer"><p>{{ strings.footer | raw }}</p></td></tr>
+</table>
+</td>
+</tr>
+<tr>
+<td class="subfooter"><p>&copy; {{ Year }} {{ Platform.Name }}</p></td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</body>
+</html>';
+
+DECLARE @LayoutStrings NVARCHAR(MAX) = N'{
+"en": {"footer": "This is an automated message from {{ SenderName }}. Please do not reply to this email."},
+"ar": {"footer": "هذه رسالة تلقائية من {{ SenderName }}. يرجى عدم الرد على هذا البريد الإلكتروني."},
+"tr": {"footer": "Bu, {{ SenderName }} tarafından gönderilen otomatik bir mesajdır. Lütfen bu e-postayı yanıtlamayın."},
+"fr": {"footer": "Ceci est un message automatique de {{ SenderName }}. Veuillez ne pas répondre à cet e-mail."},
+"zh": {"footer": "这是来自{{ SenderName }}的自动消息，请勿回复此邮件。"},
+"ur": {"footer": "یہ {{ SenderName }} کی طرف سے ایک خودکار پیغام ہے۔ براہ کرم اس ای میل کا جواب نہ دیں۔"},
+"fa": {"footer": "این یک پیام خودکار از {{ SenderName }} است. لطفاً به این ایمیل پاسخ ندهید."}
+}';
+
+UPDATE [dbo].[NotificationLayouts]
+SET [DraftContent] = @LayoutContent,
+    [DraftStringsJson] = @LayoutStrings,
+    [PublishedContent] = @LayoutContent,
+    [PublishedStringsJson] = @LayoutStrings,
+    [PublishedAt] = GETUTCDATE(),
+    [PublishedBy] = @SystemUserId,
+    [ModifiedAt] = GETUTCDATE(),
+    [ModifiedBy] = @SystemUserId
+WHERE [Id] = '41000000-0000-0000-0000-000000000001';
+
+PRINT 'Global email layout updated (draft + published)';
+GO
 
 -- ============================================================
--- Template 1: email-verification (global, Email channel)
+-- email-verification: new published version in the SEBAKHI-brand design
 -- ============================================================
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 
-IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000001')
+IF EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000001')
+AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '43000000-0000-0000-0000-000000000101')
 BEGIN
-    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
-    VALUES ('42000000-0000-0000-0000-000000000001', '40000000-0000-0000-0000-000000000001', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+    DECLARE @NextVersion INT =
+        (SELECT ISNULL(MAX([VersionNumber]), 0) + 1 FROM [dbo].[NotificationTemplateVersions] WHERE [TemplateId] = '42000000-0000-0000-0000-000000000001');
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000001', '42000000-0000-0000-0000-000000000001', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000101', '42000000-0000-0000-0000-000000000001', @NextVersion, N'SEBAKHI-brand redesign', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
-    ('44000000-0000-0000-0001-000000000001', '43000000-0000-0000-0000-000000000001', N'en', N'Verify Your Email Address',
+    (NEWID(), '43000000-0000-0000-0000-000000000101', N'en', N'Verify Your Email Address',
 N'<div class="header">
     <p class="eyebrow">Email verification</p>
     <h1>Confirm your email address</h1>
@@ -34,7 +212,7 @@ N'<div class="header">
     <p class="notice-title">Security notice</p>
     <p class="notice-text">If you did not request this code, you can safely ignore this email. Never share this code with anyone — {{ Platform.Name }} will never ask you for it.</p>
 </div>'),
-    ('44000000-0000-0000-0001-000000000002', '43000000-0000-0000-0000-000000000001', N'ar', N'تأكيد عنوان بريدك الإلكتروني',
+    (NEWID(), '43000000-0000-0000-0000-000000000101', N'ar', N'تأكيد عنوان بريدك الإلكتروني',
 N'<div class="header">
     <p class="eyebrow">التحقق من البريد الإلكتروني</p>
     <h1>تأكيد عنوان بريدك الإلكتروني</h1>
@@ -48,7 +226,7 @@ N'<div class="header">
     <p class="notice-title">تنبيه أمني</p>
     <p class="notice-text">إذا لم تطلب هذا الرمز، يمكنك تجاهل هذا البريد الإلكتروني بأمان. لا تشارك هذا الرمز مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا.</p>
 </div>'),
-    ('44000000-0000-0000-0001-000000000003', '43000000-0000-0000-0000-000000000001', N'tr', N'E-posta Adresinizi Doğrulayın',
+    (NEWID(), '43000000-0000-0000-0000-000000000101', N'tr', N'E-posta Adresinizi Doğrulayın',
 N'<div class="header">
     <p class="eyebrow">E-posta doğrulama</p>
     <h1>E-posta adresinizi onaylayın</h1>
@@ -62,7 +240,7 @@ N'<div class="header">
     <p class="notice-title">Güvenlik uyarısı</p>
     <p class="notice-text">Bu kodu siz talep etmediyseniz bu e-postayı güvenle yok sayabilirsiniz. Bu kodu asla kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden hiçbir zaman istemez.</p>
 </div>'),
-    ('44000000-0000-0000-0001-000000000004', '43000000-0000-0000-0000-000000000001', N'fr', N'Vérifiez votre adresse e-mail',
+    (NEWID(), '43000000-0000-0000-0000-000000000101', N'fr', N'Vérifiez votre adresse e-mail',
 N'<div class="header">
     <p class="eyebrow">Vérification de l''e-mail</p>
     <h1>Confirmez votre adresse e-mail</h1>
@@ -76,7 +254,7 @@ N'<div class="header">
     <p class="notice-title">Avis de sécurité</p>
     <p class="notice-text">Si vous n''avez pas demandé ce code, vous pouvez ignorer cet e-mail en toute sécurité. Ne partagez jamais ce code — {{ Platform.Name }} ne vous le demandera jamais.</p>
 </div>'),
-    ('44000000-0000-0000-0001-000000000005', '43000000-0000-0000-0000-000000000001', N'zh', N'验证您的邮箱地址',
+    (NEWID(), '43000000-0000-0000-0000-000000000101', N'zh', N'验证您的邮箱地址',
 N'<div class="header">
     <p class="eyebrow">邮箱验证</p>
     <h1>确认您的邮箱地址</h1>
@@ -90,7 +268,7 @@ N'<div class="header">
     <p class="notice-title">安全提示</p>
     <p class="notice-text">如果您并未请求此验证码，请放心忽略此邮件。请勿与任何人分享此验证码 — {{ Platform.Name }} 绝不会向您索取。</p>
 </div>'),
-    ('44000000-0000-0000-0001-000000000006', '43000000-0000-0000-0000-000000000001', N'ur', N'اپنا ای میل ایڈریس تصدیق کریں',
+    (NEWID(), '43000000-0000-0000-0000-000000000101', N'ur', N'اپنا ای میل ایڈریس تصدیق کریں',
 N'<div class="header">
     <p class="eyebrow">ای میل کی تصدیق</p>
     <h1>اپنے ای میل ایڈریس کی تصدیق کریں</h1>
@@ -104,7 +282,7 @@ N'<div class="header">
     <p class="notice-title">حفاظتی نوٹس</p>
     <p class="notice-text">اگر آپ نے یہ کوڈ نہیں مانگا تو آپ اس ای میل کو بحفاظت نظر انداز کر سکتے ہیں۔ یہ کوڈ کبھی کسی کے ساتھ شیئر نہ کریں — {{ Platform.Name }} کبھی آپ سے یہ کوڈ نہیں مانگے گا۔</p>
 </div>'),
-    ('44000000-0000-0000-0001-000000000007', '43000000-0000-0000-0000-000000000001', N'fa', N'تأیید آدرس ایمیل شما',
+    (NEWID(), '43000000-0000-0000-0000-000000000101', N'fa', N'تأیید آدرس ایمیل شما',
 N'<div class="header">
     <p class="eyebrow">تأیید ایمیل</p>
     <h1>آدرس ایمیل خود را تأیید کنید</h1>
@@ -120,33 +298,36 @@ N'<div class="header">
 </div>');
 
     UPDATE [dbo].[NotificationTemplates]
-    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000001'
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000101',
+        [ModifiedAt] = GETUTCDATE(),
+        [ModifiedBy] = @SystemUserId
     WHERE [Id] = '42000000-0000-0000-0000-000000000001';
 
-    PRINT 'Created email-verification template (v1 published, 7 translations)';
+    PRINT 'email-verification: published redesigned version';
 END
 ELSE
 BEGIN
-    PRINT 'email-verification template already exists';
+    PRINT 'email-verification: redesign version already applied (or template missing)';
 END
 GO
 
 -- ============================================================
--- Template 2: password-reset (global, Email channel)
+-- password-reset: new published version in the SEBAKHI-brand design
 -- ============================================================
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 
-IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000002')
+IF EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000002')
+AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '43000000-0000-0000-0000-000000000102')
 BEGIN
-    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
-    VALUES ('42000000-0000-0000-0000-000000000002', '40000000-0000-0000-0000-000000000002', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+    DECLARE @NextVersion INT =
+        (SELECT ISNULL(MAX([VersionNumber]), 0) + 1 FROM [dbo].[NotificationTemplateVersions] WHERE [TemplateId] = '42000000-0000-0000-0000-000000000002');
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000002', '42000000-0000-0000-0000-000000000002', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000102', '42000000-0000-0000-0000-000000000002', @NextVersion, N'SEBAKHI-brand redesign', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
-    ('44000000-0000-0000-0002-000000000001', '43000000-0000-0000-0000-000000000002', N'en', N'Reset Your Password',
+    (NEWID(), '43000000-0000-0000-0000-000000000102', N'en', N'Reset Your Password',
 N'<div class="header">
     <p class="eyebrow">Account security</p>
     <h1>Reset your password</h1>
@@ -162,7 +343,7 @@ N'<div class="header">
     <p class="notice-title">Didn''t request this?</p>
     <p class="notice-text">You can safely ignore this email — your password will stay unchanged.</p>
 </div>'),
-    ('44000000-0000-0000-0002-000000000002', '43000000-0000-0000-0000-000000000002', N'ar', N'إعادة تعيين كلمة المرور',
+    (NEWID(), '43000000-0000-0000-0000-000000000102', N'ar', N'إعادة تعيين كلمة المرور',
 N'<div class="header">
     <p class="eyebrow">أمان الحساب</p>
     <h1>إعادة تعيين كلمة المرور</h1>
@@ -178,7 +359,7 @@ N'<div class="header">
     <p class="notice-title">لم تطلب هذا؟</p>
     <p class="notice-text">يمكنك تجاهل هذا البريد الإلكتروني بأمان — ستبقى كلمة المرور الخاصة بك دون تغيير.</p>
 </div>'),
-    ('44000000-0000-0000-0002-000000000003', '43000000-0000-0000-0000-000000000002', N'tr', N'Şifrenizi Sıfırlayın',
+    (NEWID(), '43000000-0000-0000-0000-000000000102', N'tr', N'Şifrenizi Sıfırlayın',
 N'<div class="header">
     <p class="eyebrow">Hesap güvenliği</p>
     <h1>Şifrenizi sıfırlayın</h1>
@@ -194,7 +375,7 @@ N'<div class="header">
     <p class="notice-title">Bunu siz talep etmediniz mi?</p>
     <p class="notice-text">Bu e-postayı güvenle yok sayabilirsiniz — şifreniz değişmeden kalacaktır.</p>
 </div>'),
-    ('44000000-0000-0000-0002-000000000004', '43000000-0000-0000-0000-000000000002', N'fr', N'Réinitialisez votre mot de passe',
+    (NEWID(), '43000000-0000-0000-0000-000000000102', N'fr', N'Réinitialisez votre mot de passe',
 N'<div class="header">
     <p class="eyebrow">Sécurité du compte</p>
     <h1>Réinitialisez votre mot de passe</h1>
@@ -210,7 +391,7 @@ N'<div class="header">
     <p class="notice-title">Vous n''êtes pas à l''origine de cette demande ?</p>
     <p class="notice-text">Vous pouvez ignorer cet e-mail en toute sécurité — votre mot de passe restera inchangé.</p>
 </div>'),
-    ('44000000-0000-0000-0002-000000000005', '43000000-0000-0000-0000-000000000002', N'zh', N'重置您的密码',
+    (NEWID(), '43000000-0000-0000-0000-000000000102', N'zh', N'重置您的密码',
 N'<div class="header">
     <p class="eyebrow">账户安全</p>
     <h1>重置您的密码</h1>
@@ -226,7 +407,7 @@ N'<div class="header">
     <p class="notice-title">不是您本人操作？</p>
     <p class="notice-text">您可以放心忽略此邮件 — 您的密码将保持不变。</p>
 </div>'),
-    ('44000000-0000-0000-0002-000000000006', '43000000-0000-0000-0000-000000000002', N'ur', N'اپنا پاس ورڈ ری سیٹ کریں',
+    (NEWID(), '43000000-0000-0000-0000-000000000102', N'ur', N'اپنا پاس ورڈ ری سیٹ کریں',
 N'<div class="header">
     <p class="eyebrow">اکاؤنٹ سیکیورٹی</p>
     <h1>اپنا پاس ورڈ ری سیٹ کریں</h1>
@@ -242,7 +423,7 @@ N'<div class="header">
     <p class="notice-title">یہ درخواست آپ نے نہیں کی؟</p>
     <p class="notice-text">آپ اس ای میل کو بحفاظت نظر انداز کر سکتے ہیں — آپ کا پاس ورڈ تبدیل نہیں ہوگا۔</p>
 </div>'),
-    ('44000000-0000-0000-0002-000000000007', '43000000-0000-0000-0000-000000000002', N'fa', N'بازنشانی رمز عبور',
+    (NEWID(), '43000000-0000-0000-0000-000000000102', N'fa', N'بازنشانی رمز عبور',
 N'<div class="header">
     <p class="eyebrow">امنیت حساب</p>
     <h1>بازنشانی رمز عبور</h1>
@@ -260,33 +441,36 @@ N'<div class="header">
 </div>');
 
     UPDATE [dbo].[NotificationTemplates]
-    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000002'
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000102',
+        [ModifiedAt] = GETUTCDATE(),
+        [ModifiedBy] = @SystemUserId
     WHERE [Id] = '42000000-0000-0000-0000-000000000002';
 
-    PRINT 'Created password-reset template (v1 published, 7 translations)';
+    PRINT 'password-reset: published redesigned version';
 END
 ELSE
 BEGIN
-    PRINT 'password-reset template already exists';
+    PRINT 'password-reset: redesign version already applied (or template missing)';
 END
 GO
 
 -- ============================================================
--- Template 3: organization-invitation (global, Email channel)
+-- organization-invitation: new published version in the SEBAKHI-brand design
 -- ============================================================
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 
-IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000003')
+IF EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000003')
+AND NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplateVersions] WHERE [Id] = '43000000-0000-0000-0000-000000000103')
 BEGIN
-    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
-    VALUES ('42000000-0000-0000-0000-000000000003', '40000000-0000-0000-0000-000000000003', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+    DECLARE @NextVersion INT =
+        (SELECT ISNULL(MAX([VersionNumber]), 0) + 1 FROM [dbo].[NotificationTemplateVersions] WHERE [TemplateId] = '42000000-0000-0000-0000-000000000003');
 
     INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
-    VALUES ('43000000-0000-0000-0000-000000000003', '42000000-0000-0000-0000-000000000003', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+    VALUES ('43000000-0000-0000-0000-000000000103', '42000000-0000-0000-0000-000000000003', @NextVersion, N'SEBAKHI-brand redesign', GETUTCDATE(), @SystemUserId);
 
     INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
     VALUES
-    ('44000000-0000-0000-0003-000000000001', '43000000-0000-0000-0000-000000000003', N'en', N'You''re Invited to Join {{ OrganizationName }}',
+    (NEWID(), '43000000-0000-0000-0000-000000000103', N'en', N'You''re Invited to Join {{ OrganizationName }}',
 N'<div class="header">
     <p class="eyebrow">Invitation</p>
     <h1>Join {{ OrganizationName }}</h1>
@@ -307,7 +491,7 @@ N'<div class="header">
     <p class="notice-title">Security notice</p>
     <p class="notice-text">If you weren''t expecting this invitation, you can safely ignore this email.</p>
 </div>'),
-    ('44000000-0000-0000-0003-000000000002', '43000000-0000-0000-0000-000000000003', N'ar', N'أنت مدعو للانضمام إلى {{ OrganizationName }}',
+    (NEWID(), '43000000-0000-0000-0000-000000000103', N'ar', N'أنت مدعو للانضمام إلى {{ OrganizationName }}',
 N'<div class="header">
     <p class="eyebrow">دعوة</p>
     <h1>انضم إلى {{ OrganizationName }}</h1>
@@ -328,7 +512,7 @@ N'<div class="header">
     <p class="notice-title">تنبيه أمني</p>
     <p class="notice-text">إذا لم تكن تتوقع هذه الدعوة، يمكنك تجاهل هذا البريد الإلكتروني بأمان.</p>
 </div>'),
-    ('44000000-0000-0000-0003-000000000003', '43000000-0000-0000-0000-000000000003', N'tr', N'{{ OrganizationName }} organizasyonuna katılmaya davet edildiniz',
+    (NEWID(), '43000000-0000-0000-0000-000000000103', N'tr', N'{{ OrganizationName }} organizasyonuna katılmaya davet edildiniz',
 N'<div class="header">
     <p class="eyebrow">Davet</p>
     <h1>{{ OrganizationName }} ekibine katılın</h1>
@@ -349,7 +533,7 @@ N'<div class="header">
     <p class="notice-title">Güvenlik uyarısı</p>
     <p class="notice-text">Bu daveti beklemiyorduysanız bu e-postayı güvenle yok sayabilirsiniz.</p>
 </div>'),
-    ('44000000-0000-0000-0003-000000000004', '43000000-0000-0000-0000-000000000003', N'fr', N'Vous êtes invité à rejoindre {{ OrganizationName }}',
+    (NEWID(), '43000000-0000-0000-0000-000000000103', N'fr', N'Vous êtes invité à rejoindre {{ OrganizationName }}',
 N'<div class="header">
     <p class="eyebrow">Invitation</p>
     <h1>Rejoignez {{ OrganizationName }}</h1>
@@ -370,7 +554,7 @@ N'<div class="header">
     <p class="notice-title">Avis de sécurité</p>
     <p class="notice-text">Si vous n''attendiez pas cette invitation, vous pouvez ignorer cet e-mail en toute sécurité.</p>
 </div>'),
-    ('44000000-0000-0000-0003-000000000005', '43000000-0000-0000-0000-000000000003', N'zh', N'邀请您加入{{ OrganizationName }}',
+    (NEWID(), '43000000-0000-0000-0000-000000000103', N'zh', N'邀请您加入{{ OrganizationName }}',
 N'<div class="header">
     <p class="eyebrow">邀请</p>
     <h1>加入 {{ OrganizationName }}</h1>
@@ -391,7 +575,7 @@ N'<div class="header">
     <p class="notice-title">安全提示</p>
     <p class="notice-text">如果您并未预期收到此邀请，请放心忽略此邮件。</p>
 </div>'),
-    ('44000000-0000-0000-0003-000000000006', '43000000-0000-0000-0000-000000000003', N'ur', N'آپ کو {{ OrganizationName }} میں شامل ہونے کی دعوت دی گئی ہے',
+    (NEWID(), '43000000-0000-0000-0000-000000000103', N'ur', N'آپ کو {{ OrganizationName }} میں شامل ہونے کی دعوت دی گئی ہے',
 N'<div class="header">
     <p class="eyebrow">دعوت</p>
     <h1>{{ OrganizationName }} میں شامل ہوں</h1>
@@ -412,7 +596,7 @@ N'<div class="header">
     <p class="notice-title">حفاظتی نوٹس</p>
     <p class="notice-text">اگر آپ کو اس دعوت کی توقع نہیں تھی تو آپ اس ای میل کو بحفاظت نظر انداز کر سکتے ہیں۔</p>
 </div>'),
-    ('44000000-0000-0000-0003-000000000007', '43000000-0000-0000-0000-000000000003', N'fa', N'شما برای پیوستن به {{ OrganizationName }} دعوت شده‌اید',
+    (NEWID(), '43000000-0000-0000-0000-000000000103', N'fa', N'شما برای پیوستن به {{ OrganizationName }} دعوت شده‌اید',
 N'<div class="header">
     <p class="eyebrow">دعوت</p>
     <h1>به {{ OrganizationName }} بپیوندید</h1>
@@ -435,13 +619,15 @@ N'<div class="header">
 </div>');
 
     UPDATE [dbo].[NotificationTemplates]
-    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000003'
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000103',
+        [ModifiedAt] = GETUTCDATE(),
+        [ModifiedBy] = @SystemUserId
     WHERE [Id] = '42000000-0000-0000-0000-000000000003';
 
-    PRINT 'Created organization-invitation template (v1 published, 7 translations)';
+    PRINT 'organization-invitation: published redesigned version';
 END
 ELSE
 BEGIN
-    PRINT 'organization-invitation template already exists';
+    PRINT 'organization-invitation: redesign version already applied (or template missing)';
 END
 GO

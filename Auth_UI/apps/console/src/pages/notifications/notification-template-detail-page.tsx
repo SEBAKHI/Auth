@@ -36,6 +36,7 @@ import { TestSendDialog } from "./components/test-send-dialog"
 import { VariablePalette } from "./components/variable-palette"
 import { VersionHistorySheet } from "./components/version-history-sheet"
 import {
+  getRendererGlobals,
   parseVariables,
   toTranslationDrafts,
   type TranslationDraft,
@@ -102,6 +103,7 @@ export function NotificationTemplateDetailPage() {
 
   const active: TranslationDraft = drafts[activeLanguage] ?? EMPTY_DRAFT
   const variables = parseVariables(template?.typeVariablesJson)
+  const rendererGlobals = React.useMemo(() => getRendererGlobals(t), [t])
 
   const isDirty =
     JSON.stringify(drafts) !== JSON.stringify(baseline) ||
@@ -367,9 +369,18 @@ export function NotificationTemplateDetailPage() {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-4">
             <VariablePalette
               variables={variables}
+              onInsert={(placeholder) => {
+                if (!insertAtCursor(editorRef, placeholder)) {
+                  updateActive({ bodyHtml: active.bodyHtml + placeholder })
+                }
+              }}
+            />
+            <VariablePalette
+              title={t("notifications.globalVariables")}
+              variables={rendererGlobals}
               onInsert={(placeholder) => {
                 if (!insertAtCursor(editorRef, placeholder)) {
                   updateActive({ bodyHtml: active.bodyHtml + placeholder })
