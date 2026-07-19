@@ -18,6 +18,7 @@ public class DomainErrorResourceCoverageTests
 {
     private static readonly string[] HandlerInlineCodes =
     [
+        "Organization.AdminRoleNotFound",
         "Organization.OwnerRoleNotFound",
         "Role.CannotUpdateSystemRole",
         "User.RoleAlreadyAssigned",

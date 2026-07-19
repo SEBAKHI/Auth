@@ -374,4 +374,10 @@
   <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
     <value>最多允许 20 个重定向 URI。</value>
   </data>
+  <data name="Validation.NewOwnerId.Required" xml:space="preserve">
+    <value>必须指定新所有者。</value>
+  </data>
+  <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
+    <value>确认码必须为 6 位数字。</value>
+  </data>
 </root>

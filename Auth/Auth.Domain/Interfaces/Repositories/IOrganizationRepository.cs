@@ -59,6 +59,23 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Atomically transfers organization ownership: sets the new OwnerId,
+    /// promotes the new owner's membership to the owner role, and demotes the
+    /// previous owner's membership to the given role — all in one transaction.
+    /// Fails (returns false, no changes) when the organization's owner is no
+    /// longer <paramref name="previousOwnerId"/> (concurrent transfer) or the
+    /// new owner has no membership row.
+    /// </summary>
+    Task<bool> TransferOwnershipAsync(
+        Guid organizationId,
+        Guid previousOwnerId,
+        Guid newOwnerId,
+        Guid ownerRoleId,
+        Guid demotedRoleId,
+        Guid modifiedBy,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets active member counts for a set of organizations in one query.
     /// </summary>
     Task<IReadOnlyDictionary<Guid, int>> GetMemberCountsAsync(

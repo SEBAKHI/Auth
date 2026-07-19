@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
 using Auth.Application.Notifications;
@@ -86,7 +87,7 @@ public class SendEmailVerificationCommandHandler
         {
             _logger.LogWarning(
                 "Email disabled - OTP for {Email}: {Otp} (expires in {Minutes} minutes)",
-                MaskEmail(user.Email), otp, _emailSettings.OtpExpirationMinutes);
+                EmailMasking.Mask(user.Email), otp, _emailSettings.OtpExpirationMinutes);
         }
 
         // Create token
@@ -128,22 +129,8 @@ public class SendEmailVerificationCommandHandler
 
         _logger.LogInformation(
             "Verification OTP sent to user {UserId} ({Email})",
-            user.Id, MaskEmail(user.Email));
+            user.Id, EmailMasking.Mask(user.Email));
 
-        return new SendEmailVerificationResponse(token.ExpiresAt, MaskEmail(user.Email));
-    }
-
-    private static string MaskEmail(string email)
-    {
-        var atIndex = email.IndexOf('@');
-        if (atIndex <= 1) return email;
-
-        var localPart = email[..atIndex];
-        var domain = email[atIndex..];
-
-        if (localPart.Length <= 2)
-            return $"{localPart[0]}***{domain}";
-
-        return $"{localPart[0]}{new string('*', Math.Min(localPart.Length - 2, 4))}{localPart[^1]}{domain}";
+        return new SendEmailVerificationResponse(token.ExpiresAt, EmailMasking.Mask(user.Email));
     }
 }

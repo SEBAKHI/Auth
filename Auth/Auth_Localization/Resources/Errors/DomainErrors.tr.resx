@@ -666,4 +666,40 @@
   <data name="Auth.UnsupportedGrantType" xml:space="preserve">
     <value>grant_type, token uç noktası tarafından desteklenmiyor.</value>
   </data>
+  <data name="Organization.CannotTransferPersonalOrganization" xml:space="preserve">
+    <value>Kişisel (otomatik oluşturulan) bir organizasyonun sahipliği devredilemez.</value>
+  </data>
+  <data name="Organization.CannotTransferToSelf" xml:space="preserve">
+    <value>Bu üye zaten organizasyonun sahibi.</value>
+  </data>
+  <data name="Organization.TransferTargetNotEligible" xml:space="preserve">
+    <value>Sahipliği alabilmesi için seçilen üyenin e-postası doğrulanmış etkin bir hesap olması gerekir.</value>
+  </data>
+  <data name="Organization.TransferCodeRequired" xml:space="preserve">
+    <value>Devri tamamlamak için yeni sahibe gönderilen onay kodu gereklidir.</value>
+  </data>
+  <data name="Organization.InvalidOrExpiredTransferCode" xml:space="preserve">
+    <value>Onay kodu geçersiz veya süresi dolmuş. Yeni bir kod isteyip tekrar deneyin.</value>
+  </data>
+  <data name="Organization.TransferCodeTooManyAttempts" xml:space="preserve">
+    <value>Çok fazla hatalı onay denemesi yapıldı. Yeni bir kod isteyip tekrar deneyin.</value>
+  </data>
+  <data name="Organization.TooManyTransferRequests" xml:space="preserve">
+    <value>Çok fazla devir kodu istendi. Tekrar denemeden önce lütfen bekleyin.</value>
+  </data>
+  <data name="Organization.TransferCodeEmailFailed" xml:space="preserve">
+    <value>Onay kodu e-postası gönderilemedi. Lütfen tekrar deneyin.</value>
+  </data>
+  <data name="Organization.ConcurrentTransferConflict" xml:space="preserve">
+    <value>Bu devir işlenirken organizasyonun sahipliği değişti. Sayfayı yenileyip tekrar deneyin.</value>
+  </data>
+  <data name="Organization.AdminRoleNotFound" xml:space="preserve">
+    <value>Sistem yapılandırma hatası: Organizasyon yönetici rolü bulunamadı.</value>
+  </data>
+  <data name="User.CannotDeleteOrganizationOwner" xml:space="preserve">
+    <value>Bu hesap bir veya daha fazla organizasyonun sahibi. Hesabı silmeden önce sahipliklerini devredin.</value>
+  </data>
+  <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
+    <value>Bu hesabın kişisel organizasyonunda hâlâ başka üyeler var. Hesabı silmeden önce onları kaldırın.</value>
+  </data>
 </root>

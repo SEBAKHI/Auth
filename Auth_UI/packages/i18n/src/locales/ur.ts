@@ -377,7 +377,7 @@ export const ur: TranslationResources = {
     lockDurationHint: "غیر معینہ مدت کے لیے خالی چھوڑ دیں۔",
     deleteTitle: "صارف حذف کریں",
     deleteBody:
-      "یہ {{name}} کو مستقل طور پر حذف کر دے گا۔ یہ عمل واپس نہیں ہو سکتا۔",
+      "یہ {{name}} کو مستقل طور پر حذف کر دے گا۔ یہ عمل واپس نہیں ہو سکتا۔ وہ تمام تنظیمیں جن کا یہ اکیلا مالک ہے وہ بھی مستقل طور پر حذف ہو جائیں گی؛ جن تنظیموں میں دوسرے اراکین ہیں ان کی ملکیت پہلے منتقل کرنی ہوگی۔",
     assignRole: "کردار تفویض کریں",
     grantPermission: "اجازت دیں",
     noRoles: "کوئی کردار تفویض نہیں کیا گیا۔",
@@ -529,6 +529,27 @@ export const ur: TranslationResources = {
     appEnabled: "ایپلیکیشن فعال ہو گئی۔",
     appDisabled: "ایپلیکیشن غیر فعال ہو گئی۔",
     appUpdated: "ایپلیکیشن اپ ڈیٹ ہو گئی۔",
+    transferOwnership: "ملکیت منتقل کریں",
+    transferOwnershipTitle: "تنظیم کی ملکیت منتقل کریں",
+    transferSelectMember: "نیا مالک",
+    transferSelectMemberPlaceholder: "ایک رکن منتخب کریں…",
+    transferConsequencesTitle: "جاری رکھنے سے پہلے",
+    transferConsequence1:
+      "منتخب رکن اس تنظیم پر مکمل اختیار کے ساتھ واحد مالک بن جائے گا۔",
+    transferConsequence2:
+      "آپ کو تنظیم کے منتظم کے درجے پر کر دیا جائے گا اور اس کے بعد آپ اسے منتقل یا حذف نہیں کر سکیں گے۔",
+    transferConsequence3:
+      "نئے مالک کو ای میل پر تصدیقی کوڈ بھیجا جائے گا۔ منتقلی مکمل کرنے کے لیے اگلے مرحلے میں اسے درج کریں۔",
+    transferSendCode: "تصدیقی کوڈ بھیجیں",
+    transferCodeTitle: "تصدیقی کوڈ درج کریں",
+    transferCodeSent: "{{email}} پر ایک کوڈ بھیجا گیا۔ نئے مالک سے حاصل کریں۔",
+    transferCodeLabel: "تصدیقی کوڈ",
+    transferCodeExpiresIn: "کوڈ کی میعاد {{time}} میں ختم ہو جائے گی",
+    transferCodeExpired: "کوڈ کی میعاد ختم ہو گئی۔ نیا کوڈ بھیجیں۔",
+    transferResendCode: "نیا کوڈ بھیجیں",
+    transferComplete: "منتقلی مکمل کریں",
+    transferInitiated: "تصدیقی کوڈ نئے مالک کو بھیج دیا گیا۔",
+    transferSuccess: "ملکیت منتقل ہو گئی۔",
   },
   apiKeys: {
     title: "API کلیدیں",

@@ -666,4 +666,40 @@
   <data name="Auth.UnsupportedGrantType" xml:space="preserve">
     <value>The grant_type is not supported by the token endpoint.</value>
   </data>
+  <data name="Organization.CannotTransferPersonalOrganization" xml:space="preserve">
+    <value>Ownership of a personal (auto-created) organization cannot be transferred.</value>
+  </data>
+  <data name="Organization.CannotTransferToSelf" xml:space="preserve">
+    <value>This member is already the organization owner.</value>
+  </data>
+  <data name="Organization.TransferTargetNotEligible" xml:space="preserve">
+    <value>The selected member must be an active account with a confirmed email address to receive ownership.</value>
+  </data>
+  <data name="Organization.TransferCodeRequired" xml:space="preserve">
+    <value>The confirmation code sent to the new owner is required to complete the transfer.</value>
+  </data>
+  <data name="Organization.InvalidOrExpiredTransferCode" xml:space="preserve">
+    <value>The confirmation code is invalid or has expired. Request a new code and try again.</value>
+  </data>
+  <data name="Organization.TransferCodeTooManyAttempts" xml:space="preserve">
+    <value>Too many incorrect confirmation attempts. Request a new code and try again.</value>
+  </data>
+  <data name="Organization.TooManyTransferRequests" xml:space="preserve">
+    <value>Too many transfer codes were requested. Please wait before trying again.</value>
+  </data>
+  <data name="Organization.TransferCodeEmailFailed" xml:space="preserve">
+    <value>Failed to send the confirmation code email. Please try again.</value>
+  </data>
+  <data name="Organization.ConcurrentTransferConflict" xml:space="preserve">
+    <value>The organization's ownership changed while processing this transfer. Reload and try again.</value>
+  </data>
+  <data name="Organization.AdminRoleNotFound" xml:space="preserve">
+    <value>System configuration error: Organization admin role not found.</value>
+  </data>
+  <data name="User.CannotDeleteOrganizationOwner" xml:space="preserve">
+    <value>This account owns one or more organizations. Transfer their ownership before deleting the account.</value>
+  </data>
+  <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
+    <value>This account's personal organization still has other members. Remove them before deleting the account.</value>
+  </data>
 </root>

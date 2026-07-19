@@ -374,4 +374,10 @@
   <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
     <value>الحد الأقصى المسموح هو 20 عنوان إعادة توجيه.</value>
   </data>
+  <data name="Validation.NewOwnerId.Required" xml:space="preserve">
+    <value>المالك الجديد مطلوب.</value>
+  </data>
+  <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
+    <value>يجب أن يتكون رمز التأكيد من 6 أرقام.</value>
+  </data>
 </root>

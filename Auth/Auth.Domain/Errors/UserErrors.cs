@@ -83,6 +83,14 @@ public static class UserErrors
         code: "User.CannotDeleteSystemUser",
         description: "System users cannot be deleted.");
 
+    public static Error CannotDeleteOrganizationOwner => Error.Conflict(
+        code: "User.CannotDeleteOrganizationOwner",
+        description: "This account owns one or more organizations. Transfer their ownership before deleting the account.");
+
+    public static Error CannotDeletePersonalOrganizationWithMembers => Error.Conflict(
+        code: "User.CannotDeletePersonalOrganizationWithMembers",
+        description: "This account's personal organization still has other members. Remove them before deleting the account.");
+
     public static Error CannotModifySystemUser => Error.Forbidden(
         code: "User.CannotModifySystemUser",
         description: "System users cannot be modified.");

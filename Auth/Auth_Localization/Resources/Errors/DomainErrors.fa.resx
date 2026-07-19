@@ -666,4 +666,40 @@
   <data name="Auth.UnsupportedGrantType" xml:space="preserve">
     <value>این grant_type در نقطه پایانی توکن پشتیبانی نمی‌شود.</value>
   </data>
+  <data name="Organization.CannotTransferPersonalOrganization" xml:space="preserve">
+    <value>مالکیت سازمان شخصی (ایجادشده خودکار) قابل انتقال نیست.</value>
+  </data>
+  <data name="Organization.CannotTransferToSelf" xml:space="preserve">
+    <value>این عضو هم‌اکنون مالک سازمان است.</value>
+  </data>
+  <data name="Organization.TransferTargetNotEligible" xml:space="preserve">
+    <value>برای دریافت مالکیت، عضو انتخاب‌شده باید حسابی فعال با ایمیل تأییدشده باشد.</value>
+  </data>
+  <data name="Organization.TransferCodeRequired" xml:space="preserve">
+    <value>برای تکمیل انتقال، کد تأیید ارسال‌شده به مالک جدید لازم است.</value>
+  </data>
+  <data name="Organization.InvalidOrExpiredTransferCode" xml:space="preserve">
+    <value>کد تأیید نامعتبر است یا منقضی شده است. کد جدیدی درخواست کنید و دوباره تلاش کنید.</value>
+  </data>
+  <data name="Organization.TransferCodeTooManyAttempts" xml:space="preserve">
+    <value>تعداد تلاش‌های تأیید نادرست بیش از حد است. کد جدیدی درخواست کنید و دوباره تلاش کنید.</value>
+  </data>
+  <data name="Organization.TooManyTransferRequests" xml:space="preserve">
+    <value>تعداد درخواست کدهای انتقال بیش از حد است. لطفاً پیش از تلاش دوباره صبر کنید.</value>
+  </data>
+  <data name="Organization.TransferCodeEmailFailed" xml:space="preserve">
+    <value>ارسال ایمیل کد تأیید ناموفق بود. لطفاً دوباره تلاش کنید.</value>
+  </data>
+  <data name="Organization.ConcurrentTransferConflict" xml:space="preserve">
+    <value>مالکیت سازمان هنگام پردازش این انتقال تغییر کرد. صفحه را بازخوانی کنید و دوباره تلاش کنید.</value>
+  </data>
+  <data name="Organization.AdminRoleNotFound" xml:space="preserve">
+    <value>خطای پیکربندی سیستم: نقش مدیر سازمان یافت نشد.</value>
+  </data>
+  <data name="User.CannotDeleteOrganizationOwner" xml:space="preserve">
+    <value>این حساب مالک یک یا چند سازمان است. پیش از حذف حساب، مالکیت آن‌ها را منتقل کنید.</value>
+  </data>
+  <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
+    <value>سازمان شخصی این حساب هنوز اعضای دیگری دارد. پیش از حذف حساب، آن‌ها را حذف کنید.</value>
+  </data>
 </root>

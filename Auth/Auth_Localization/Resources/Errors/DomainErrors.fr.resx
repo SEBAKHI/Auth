@@ -666,4 +666,40 @@
   <data name="Auth.UnsupportedGrantType" xml:space="preserve">
     <value>Le grant_type n'est pas pris en charge par le point de terminaison de jeton.</value>
   </data>
+  <data name="Organization.CannotTransferPersonalOrganization" xml:space="preserve">
+    <value>La propriété d'une organisation personnelle (créée automatiquement) ne peut pas être transférée.</value>
+  </data>
+  <data name="Organization.CannotTransferToSelf" xml:space="preserve">
+    <value>Ce membre est déjà le propriétaire de l'organisation.</value>
+  </data>
+  <data name="Organization.TransferTargetNotEligible" xml:space="preserve">
+    <value>Le membre sélectionné doit être un compte actif avec une adresse e-mail confirmée pour recevoir la propriété.</value>
+  </data>
+  <data name="Organization.TransferCodeRequired" xml:space="preserve">
+    <value>Le code de confirmation envoyé au nouveau propriétaire est requis pour finaliser le transfert.</value>
+  </data>
+  <data name="Organization.InvalidOrExpiredTransferCode" xml:space="preserve">
+    <value>Le code de confirmation est invalide ou a expiré. Demandez un nouveau code et réessayez.</value>
+  </data>
+  <data name="Organization.TransferCodeTooManyAttempts" xml:space="preserve">
+    <value>Trop de tentatives de confirmation incorrectes. Demandez un nouveau code et réessayez.</value>
+  </data>
+  <data name="Organization.TooManyTransferRequests" xml:space="preserve">
+    <value>Trop de codes de transfert ont été demandés. Veuillez patienter avant de réessayer.</value>
+  </data>
+  <data name="Organization.TransferCodeEmailFailed" xml:space="preserve">
+    <value>L'envoi de l'e-mail contenant le code de confirmation a échoué. Veuillez réessayer.</value>
+  </data>
+  <data name="Organization.ConcurrentTransferConflict" xml:space="preserve">
+    <value>La propriété de l'organisation a changé pendant le traitement de ce transfert. Rechargez et réessayez.</value>
+  </data>
+  <data name="Organization.AdminRoleNotFound" xml:space="preserve">
+    <value>Erreur de configuration système : rôle d'administrateur d'organisation introuvable.</value>
+  </data>
+  <data name="User.CannotDeleteOrganizationOwner" xml:space="preserve">
+    <value>Ce compte possède une ou plusieurs organisations. Transférez leur propriété avant de supprimer le compte.</value>
+  </data>
+  <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
+    <value>L'organisation personnelle de ce compte compte encore d'autres membres. Retirez-les avant de supprimer le compte.</value>
+  </data>
 </root>

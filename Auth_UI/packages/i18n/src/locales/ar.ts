@@ -368,7 +368,7 @@ export const ar: TranslationResources = {
     lockDurationHint: "اتركه فارغًا للقفل إلى أجل غير مسمى.",
     deleteTitle: "حذف المستخدم",
     deleteBody:
-      "سيؤدي هذا إلى حذف {{name}} نهائيًا. لا يمكن التراجع عن هذا الإجراء.",
+      "سيؤدي هذا إلى حذف {{name}} نهائيًا. لا يمكن التراجع عن هذا الإجراء. وستُحذف نهائيًا أي منظمات يملكها وحده؛ أما المنظمات التي بها أعضاء آخرون فيجب نقل ملكيتها أولًا.",
     assignRole: "إسناد دور",
     grantPermission: "منح صلاحية",
     noRoles: "لا توجد أدوار مسندة.",
@@ -516,6 +516,27 @@ export const ar: TranslationResources = {
     appEnabled: "تم تفعيل التطبيق.",
     appDisabled: "تم تعطيل التطبيق.",
     appUpdated: "تم تحديث التطبيق.",
+    transferOwnership: "نقل الملكية",
+    transferOwnershipTitle: "نقل ملكية المنظمة",
+    transferSelectMember: "المالك الجديد",
+    transferSelectMemberPlaceholder: "اختر عضوًا…",
+    transferConsequencesTitle: "قبل المتابعة",
+    transferConsequence1:
+      "يصبح العضو المحدد المالك الوحيد بصلاحية كاملة على هذه المنظمة.",
+    transferConsequence2:
+      "ستُخفَّض رتبتك إلى مشرف المنظمة ولن تتمكن بعدها من نقلها أو حذفها.",
+    transferConsequence3:
+      "سيُرسَل رمز تأكيد إلى بريد المالك الجديد. أدخله في الخطوة التالية لإتمام النقل.",
+    transferSendCode: "إرسال رمز التأكيد",
+    transferCodeTitle: "أدخل رمز التأكيد",
+    transferCodeSent: "أُرسل رمز إلى {{email}}. اطلبه من المالك الجديد.",
+    transferCodeLabel: "رمز التأكيد",
+    transferCodeExpiresIn: "ينتهي الرمز خلال {{time}}",
+    transferCodeExpired: "انتهت صلاحية الرمز. أرسل رمزًا جديدًا.",
+    transferResendCode: "إرسال رمز جديد",
+    transferComplete: "إتمام النقل",
+    transferInitiated: "أُرسل رمز التأكيد إلى المالك الجديد.",
+    transferSuccess: "تم نقل الملكية.",
   },
   apiKeys: {
     title: "مفاتيح API",

@@ -376,7 +376,7 @@ export const tr: TranslationResources = {
     lockDurationHint: "Süresiz kilitlemek için boş bırakın.",
     deleteTitle: "Kullanıcıyı sil",
     deleteBody:
-      "Bu işlem {{name}} kullanıcısını kalıcı olarak siler. Geri alınamaz.",
+      "Bu işlem {{name}} kullanıcısını kalıcı olarak siler. Geri alınamaz. Yalnızca bu kullanıcının sahip olduğu organizasyonlar da kalıcı olarak silinir; başka üyeleri olan organizasyonların önce sahipliği devredilmelidir.",
     assignRole: "Rol ata",
     grantPermission: "İzin ver",
     noRoles: "Atanmış rol yok.",
@@ -525,6 +525,27 @@ export const tr: TranslationResources = {
     appEnabled: "Uygulama etkinleştirildi.",
     appDisabled: "Uygulama devre dışı bırakıldı.",
     appUpdated: "Uygulama güncellendi.",
+    transferOwnership: "Sahipliği devret",
+    transferOwnershipTitle: "Organizasyon sahipliğini devret",
+    transferSelectMember: "Yeni sahip",
+    transferSelectMemberPlaceholder: "Bir üye seçin…",
+    transferConsequencesTitle: "Devam etmeden önce",
+    transferConsequence1:
+      "Seçilen üye, bu organizasyonun tam yetkili tek sahibi olur.",
+    transferConsequence2:
+      "Organizasyon yöneticisine düşürülürsünüz ve artık onu devredemez veya silemezsiniz.",
+    transferConsequence3:
+      "Yeni sahibe bir onay kodu e-postayla gönderilir. Devri tamamlamak için bir sonraki adımda girin.",
+    transferSendCode: "Onay kodu gönder",
+    transferCodeTitle: "Onay kodunu girin",
+    transferCodeSent: "{{email}} adresine bir kod gönderildi. Yeni sahipten isteyin.",
+    transferCodeLabel: "Onay kodu",
+    transferCodeExpiresIn: "Kodun süresi {{time}} içinde dolacak",
+    transferCodeExpired: "Kodun süresi doldu. Yeni bir kod gönderin.",
+    transferResendCode: "Yeni kod gönder",
+    transferComplete: "Devri tamamla",
+    transferInitiated: "Onay kodu yeni sahibe gönderildi.",
+    transferSuccess: "Sahiplik devredildi.",
   },
   apiKeys: {
     title: "API Anahtarları",

@@ -153,6 +153,70 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
+    public async Task<bool> TransferOwnershipAsync(
+        Guid organizationId,
+        Guid previousOwnerId,
+        Guid newOwnerId,
+        Guid ownerRoleId,
+        Guid demotedRoleId,
+        Guid modifiedBy,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        // Conditional on the expected owner so a concurrent transfer loses
+        // cleanly instead of producing a second owner.
+        var ownerRows = await connection.ExecuteAsync(@"
+            UPDATE [dbo].[Organizations] SET
+                [OwnerId] = @NewOwnerId,
+                [ModifiedAt] = GETUTCDATE(),
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @OrganizationId
+              AND [OwnerId] = @PreviousOwnerId",
+            new { OrganizationId = organizationId, NewOwnerId = newOwnerId, PreviousOwnerId = previousOwnerId, ModifiedBy = modifiedBy },
+            transaction);
+
+        if (ownerRows == 0)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        // Promote the new owner's membership to the owner role.
+        var promotedRows = await connection.ExecuteAsync(@"
+            UPDATE [dbo].[OrganizationUsers] SET
+                [RoleId] = @OwnerRoleId,
+                [ModifiedAt] = GETUTCDATE(),
+                [ModifiedBy] = @ModifiedBy
+            WHERE [OrganizationId] = @OrganizationId
+              AND [UserId] = @NewOwnerId",
+            new { OrganizationId = organizationId, NewOwnerId = newOwnerId, OwnerRoleId = ownerRoleId, ModifiedBy = modifiedBy },
+            transaction);
+
+        if (promotedRows == 0)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        // Demote the previous owner's membership. Zero rows is tolerated: an
+        // owner without a membership row is legacy data, not a failed transfer.
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[OrganizationUsers] SET
+                [RoleId] = @DemotedRoleId,
+                [ModifiedAt] = GETUTCDATE(),
+                [ModifiedBy] = @ModifiedBy
+            WHERE [OrganizationId] = @OrganizationId
+              AND [UserId] = @PreviousOwnerId",
+            new { OrganizationId = organizationId, PreviousOwnerId = previousOwnerId, DemotedRoleId = demotedRoleId, ModifiedBy = modifiedBy },
+            transaction);
+
+        transaction.Commit();
+        return true;
+    }
+
+    /// <inheritdoc />
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

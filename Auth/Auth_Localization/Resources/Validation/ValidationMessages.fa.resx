@@ -374,4 +374,10 @@
   <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
     <value>حداکثر ۲۰ آدرس بازگشت مجاز است.</value>
   </data>
+  <data name="Validation.NewOwnerId.Required" xml:space="preserve">
+    <value>مالک جدید الزامی است.</value>
+  </data>
+  <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
+    <value>کد تأیید باید 6 رقم باشد.</value>
+  </data>
 </root>

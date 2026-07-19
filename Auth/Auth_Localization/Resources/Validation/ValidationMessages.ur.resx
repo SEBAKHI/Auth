@@ -374,4 +374,10 @@
   <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
     <value>زیادہ سے زیادہ 20 ری ڈائریکٹ URIs کی اجازت ہے۔</value>
   </data>
+  <data name="Validation.NewOwnerId.Required" xml:space="preserve">
+    <value>نیا مالک درکار ہے۔</value>
+  </data>
+  <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
+    <value>تصدیقی کوڈ 6 ہندسوں کا ہونا چاہیے۔</value>
+  </data>
 </root>

@@ -445,3 +445,234 @@ BEGIN
     PRINT 'organization-invitation template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 4: ownership-transfer-code (global, Email channel)
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000005')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000005', '40000000-0000-0000-0000-000000000005', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000005', '42000000-0000-0000-0000-000000000005', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0005-000000000001', '43000000-0000-0000-0000-000000000005', N'en', N'Ownership transfer code for {{ OrganizationName }}',
+N'<div class="header">
+    <p class="eyebrow">Ownership transfer</p>
+    <h1>Confirm the ownership transfer</h1>
+</div>
+<p class="message">Hello {{ TargetName }},</p>
+<p class="message"><strong>{{ OwnerName }}</strong> wants to transfer ownership of the organization <strong>{{ OrganizationName }}</strong> to you. Share the code below with {{ OwnerName }} to approve the transfer — entering it completes the handover. It expires in {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Security notice</p>
+    <p class="notice-text">If you do not want to become the owner of this organization, ignore this email and do not share the code with anyone. {{ Platform.Name }} will never ask you for it.</p>
+</div>'),
+    ('44000000-0000-0000-0005-000000000002', '43000000-0000-0000-0000-000000000005', N'ar', N'رمز تأكيد نقل ملكية {{ OrganizationName }}',
+N'<div class="header">
+    <p class="eyebrow">نقل الملكية</p>
+    <h1>تأكيد نقل الملكية</h1>
+</div>
+<p class="message">مرحبًا {{ TargetName }}،</p>
+<p class="message">يرغب <strong>{{ OwnerName }}</strong> في نقل ملكية منظمة <strong>{{ OrganizationName }}</strong> إليك. شارك الرمز أدناه مع {{ OwnerName }} للموافقة على النقل — إدخاله يُتمّ عملية التسليم. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">تنبيه أمني</p>
+    <p class="notice-text">إذا كنت لا ترغب في أن تصبح مالك هذه المنظمة، فتجاهل هذا البريد ولا تشارك الرمز مع أي أحد. لن يطلبه منك فريق {{ Platform.Name }} أبدًا.</p>
+</div>'),
+    ('44000000-0000-0000-0005-000000000003', '43000000-0000-0000-0000-000000000005', N'tr', N'{{ OrganizationName }} sahiplik devri onay kodu',
+N'<div class="header">
+    <p class="eyebrow">Sahiplik devri</p>
+    <h1>Sahiplik devrini onaylayın</h1>
+</div>
+<p class="message">Merhaba {{ TargetName }},</p>
+<p class="message"><strong>{{ OwnerName }}</strong>, <strong>{{ OrganizationName }}</strong> organizasyonunun sahipliğini size devretmek istiyor. Devri onaylamak için aşağıdaki kodu {{ OwnerName }} ile paylaşın — kodun girilmesi devri tamamlar. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolacaktır.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Güvenlik uyarısı</p>
+    <p class="notice-text">Bu organizasyonun sahibi olmak istemiyorsanız bu e-postayı yok sayın ve kodu kimseyle paylaşmayın. {{ Platform.Name }} bu kodu sizden hiçbir zaman istemez.</p>
+</div>'),
+    ('44000000-0000-0000-0005-000000000004', '43000000-0000-0000-0000-000000000005', N'fr', N'Code de confirmation du transfert de propriété de {{ OrganizationName }}',
+N'<div class="header">
+    <p class="eyebrow">Transfert de propriété</p>
+    <h1>Confirmez le transfert de propriété</h1>
+</div>
+<p class="message">Bonjour {{ TargetName }},</p>
+<p class="message"><strong>{{ OwnerName }}</strong> souhaite vous transférer la propriété de l''organisation <strong>{{ OrganizationName }}</strong>. Partagez le code ci-dessous avec {{ OwnerName }} pour approuver le transfert — sa saisie finalise la passation. Il expirera dans {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Avis de sécurité</p>
+    <p class="notice-text">Si vous ne souhaitez pas devenir propriétaire de cette organisation, ignorez cet e-mail et ne partagez le code avec personne. {{ Platform.Name }} ne vous le demandera jamais.</p>
+</div>'),
+    ('44000000-0000-0000-0005-000000000005', '43000000-0000-0000-0000-000000000005', N'zh', N'{{ OrganizationName }} 所有权转移确认码',
+N'<div class="header">
+    <p class="eyebrow">所有权转移</p>
+    <h1>确认所有权转移</h1>
+</div>
+<p class="message">您好 {{ TargetName }}，</p>
+<p class="message"><strong>{{ OwnerName }}</strong> 希望将组织 <strong>{{ OrganizationName }}</strong> 的所有权转移给您。请将以下确认码告知 {{ OwnerName }} 以批准此次转移 — 输入该码即可完成交接。确认码将在 {{ ExpirationMinutes }} 分钟后失效。</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">安全提示</p>
+    <p class="notice-text">如果您不想成为该组织的所有者，请忽略此邮件，并且不要向任何人透露此码。{{ Platform.Name }} 绝不会向您索取。</p>
+</div>'),
+    ('44000000-0000-0000-0005-000000000006', '43000000-0000-0000-0000-000000000005', N'ur', N'{{ OrganizationName }} کی ملکیت کی منتقلی کا تصدیقی کوڈ',
+N'<div class="header">
+    <p class="eyebrow">ملکیت کی منتقلی</p>
+    <h1>ملکیت کی منتقلی کی تصدیق کریں</h1>
+</div>
+<p class="message">السلام علیکم {{ TargetName }}،</p>
+<p class="message"><strong>{{ OwnerName }}</strong> تنظیم <strong>{{ OrganizationName }}</strong> کی ملکیت آپ کو منتقل کرنا چاہتے ہیں۔ منتقلی کی منظوری کے لیے نیچے دیا گیا کوڈ {{ OwnerName }} کے ساتھ شیئر کریں — کوڈ درج ہونے پر منتقلی مکمل ہو جائے گی۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی۔</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">حفاظتی نوٹس</p>
+    <p class="notice-text">اگر آپ اس تنظیم کے مالک نہیں بننا چاہتے تو اس ای میل کو نظر انداز کریں اور کوڈ کسی کے ساتھ شیئر نہ کریں۔ {{ Platform.Name }} کبھی آپ سے یہ کوڈ نہیں مانگے گا۔</p>
+</div>'),
+    ('44000000-0000-0000-0005-000000000007', '43000000-0000-0000-0000-000000000005', N'fa', N'کد تأیید انتقال مالکیت {{ OrganizationName }}',
+N'<div class="header">
+    <p class="eyebrow">انتقال مالکیت</p>
+    <h1>انتقال مالکیت را تأیید کنید</h1>
+</div>
+<p class="message">سلام {{ TargetName }}،</p>
+<p class="message"><strong>{{ OwnerName }}</strong> می‌خواهد مالکیت سازمان <strong>{{ OrganizationName }}</strong> را به شما منتقل کند. برای تأیید انتقال، کد زیر را با {{ OwnerName }} در میان بگذارید — با وارد شدن کد، انتقال کامل می‌شود. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">هشدار امنیتی</p>
+    <p class="notice-text">اگر نمی‌خواهید مالک این سازمان شوید، این ایمیل را نادیده بگیرید و کد را با کسی به اشتراک نگذارید. {{ Platform.Name }} هرگز آن را از شما نمی‌خواهد.</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000005'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000005';
+
+    PRINT 'Created ownership-transfer-code template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'ownership-transfer-code template already exists';
+END
+GO
+
+-- ============================================================
+-- Template 5: ownership-transferred (global, Email channel)
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000006')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000006', '40000000-0000-0000-0000-000000000006', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000006', '42000000-0000-0000-0000-000000000006', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0006-000000000001', '43000000-0000-0000-0000-000000000006', N'en', N'Ownership of {{ OrganizationName }} has been transferred',
+N'<div class="header">
+    <p class="eyebrow">Ownership transfer</p>
+    <h1>Ownership has been transferred</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">Ownership of the organization <strong>{{ OrganizationName }}</strong> has been transferred from <strong>{{ PreviousOwnerName }}</strong> to <strong>{{ NewOwnerName }}</strong>. The previous owner''s membership now has administrator access.</p>
+<div class="notice">
+    <p class="notice-title">Security notice</p>
+    <p class="notice-text">If you did not expect this change, contact your administrator or {{ Platform.Name }} support immediately.</p>
+</div>'),
+    ('44000000-0000-0000-0006-000000000002', '43000000-0000-0000-0000-000000000006', N'ar', N'تم نقل ملكية {{ OrganizationName }}',
+N'<div class="header">
+    <p class="eyebrow">نقل الملكية</p>
+    <h1>تم نقل الملكية</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">تم نقل ملكية منظمة <strong>{{ OrganizationName }}</strong> من <strong>{{ PreviousOwnerName }}</strong> إلى <strong>{{ NewOwnerName }}</strong>. أصبحت عضوية المالك السابق الآن بصلاحيات مشرف.</p>
+<div class="notice">
+    <p class="notice-title">تنبيه أمني</p>
+    <p class="notice-text">إذا لم تكن تتوقع هذا التغيير، فتواصل فورًا مع مشرفك أو مع دعم {{ Platform.Name }}.</p>
+</div>'),
+    ('44000000-0000-0000-0006-000000000003', '43000000-0000-0000-0000-000000000006', N'tr', N'{{ OrganizationName }} sahipliği devredildi',
+N'<div class="header">
+    <p class="eyebrow">Sahiplik devri</p>
+    <h1>Sahiplik devredildi</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message"><strong>{{ OrganizationName }}</strong> organizasyonunun sahipliği <strong>{{ PreviousOwnerName }}</strong> adlı kullanıcıdan <strong>{{ NewOwnerName }}</strong> adlı kullanıcıya devredildi. Önceki sahibin üyeliği artık yönetici erişimine sahiptir.</p>
+<div class="notice">
+    <p class="notice-title">Güvenlik uyarısı</p>
+    <p class="notice-text">Bu değişikliği beklemiyorsanız derhal yöneticinizle veya {{ Platform.Name }} destek ekibiyle iletişime geçin.</p>
+</div>'),
+    ('44000000-0000-0000-0006-000000000004', '43000000-0000-0000-0000-000000000006', N'fr', N'La propriété de {{ OrganizationName }} a été transférée',
+N'<div class="header">
+    <p class="eyebrow">Transfert de propriété</p>
+    <h1>La propriété a été transférée</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">La propriété de l''organisation <strong>{{ OrganizationName }}</strong> a été transférée de <strong>{{ PreviousOwnerName }}</strong> à <strong>{{ NewOwnerName }}</strong>. L''ancien propriétaire dispose désormais d''un accès administrateur.</p>
+<div class="notice">
+    <p class="notice-title">Avis de sécurité</p>
+    <p class="notice-text">Si vous n''attendiez pas ce changement, contactez immédiatement votre administrateur ou l''assistance {{ Platform.Name }}.</p>
+</div>'),
+    ('44000000-0000-0000-0006-000000000005', '43000000-0000-0000-0000-000000000006', N'zh', N'{{ OrganizationName }} 的所有权已转移',
+N'<div class="header">
+    <p class="eyebrow">所有权转移</p>
+    <h1>所有权已转移</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">组织 <strong>{{ OrganizationName }}</strong> 的所有权已从 <strong>{{ PreviousOwnerName }}</strong> 转移给 <strong>{{ NewOwnerName }}</strong>。前所有者的成员身份现为管理员权限。</p>
+<div class="notice">
+    <p class="notice-title">安全提示</p>
+    <p class="notice-text">如果您并未预期此变更，请立即联系您的管理员或 {{ Platform.Name }} 支持团队。</p>
+</div>'),
+    ('44000000-0000-0000-0006-000000000006', '43000000-0000-0000-0000-000000000006', N'ur', N'{{ OrganizationName }} کی ملکیت منتقل کر دی گئی',
+N'<div class="header">
+    <p class="eyebrow">ملکیت کی منتقلی</p>
+    <h1>ملکیت منتقل کر دی گئی</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">تنظیم <strong>{{ OrganizationName }}</strong> کی ملکیت <strong>{{ PreviousOwnerName }}</strong> سے <strong>{{ NewOwnerName }}</strong> کو منتقل کر دی گئی ہے۔ سابقہ مالک کی رکنیت اب منتظم کی رسائی رکھتی ہے۔</p>
+<div class="notice">
+    <p class="notice-title">حفاظتی نوٹس</p>
+    <p class="notice-text">اگر آپ کو اس تبدیلی کی توقع نہیں تھی تو فوری طور پر اپنے منتظم یا {{ Platform.Name }} سپورٹ سے رابطہ کریں۔</p>
+</div>'),
+    ('44000000-0000-0000-0006-000000000007', '43000000-0000-0000-0000-000000000006', N'fa', N'مالکیت {{ OrganizationName }} منتقل شد',
+N'<div class="header">
+    <p class="eyebrow">انتقال مالکیت</p>
+    <h1>مالکیت منتقل شد</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">مالکیت سازمان <strong>{{ OrganizationName }}</strong> از <strong>{{ PreviousOwnerName }}</strong> به <strong>{{ NewOwnerName }}</strong> منتقل شد. عضویت مالک قبلی اکنون دسترسی مدیر دارد.</p>
+<div class="notice">
+    <p class="notice-title">هشدار امنیتی</p>
+    <p class="notice-text">اگر انتظار این تغییر را نداشتید، بلافاصله با مدیر خود یا پشتیبانی {{ Platform.Name }} تماس بگیرید.</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000006'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000006';
+
+    PRINT 'Created ownership-transferred template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'ownership-transferred template already exists';
+END
+GO

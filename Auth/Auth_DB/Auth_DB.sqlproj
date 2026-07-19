@@ -118,6 +118,7 @@
     <Build Include="dbo\Tables\Organizations\OrganizationUserRoles.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationUserPermissions.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationInvitations.sql" />
+    <Build Include="dbo\Tables\Organizations\OwnershipTransferCodes.sql" />
     <Build Include="dbo\Tables\System\PlatformSettings.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationTypes.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationLayouts.sql" />

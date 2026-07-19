@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
 using Auth.Application.Notifications;
@@ -56,12 +57,12 @@ public class ResendEmailVerificationCommandHandler
         {
             _logger.LogWarning(
                 "Resend verification attempted for non-existent email: {Email}",
-                MaskEmail(request.Email));
+                EmailMasking.Mask(request.Email));
 
             // Return fake response to prevent enumeration
             return new ResendEmailVerificationResponse(
                 DateTime.UtcNow.AddMinutes(_emailSettings.OtpExpirationMinutes),
-                MaskEmail(request.Email));
+                EmailMasking.Mask(request.Email));
         }
 
         // Check if already verified
@@ -80,7 +81,7 @@ public class ResendEmailVerificationCommandHandler
         {
             _logger.LogWarning(
                 "Rate limit exceeded for email verification resend: {Email}",
-                MaskEmail(user.Email));
+                EmailMasking.Mask(user.Email));
             return EmailVerificationErrors.TooManyRequests;
         }
 
@@ -96,7 +97,7 @@ public class ResendEmailVerificationCommandHandler
         {
             _logger.LogWarning(
                 "Email disabled - OTP for {Email}: {Otp} (expires in {Minutes} minutes)",
-                MaskEmail(user.Email), otp, _emailSettings.OtpExpirationMinutes);
+                EmailMasking.Mask(user.Email), otp, _emailSettings.OtpExpirationMinutes);
         }
 
         // Create token
@@ -137,22 +138,8 @@ public class ResendEmailVerificationCommandHandler
 
         _logger.LogInformation(
             "Verification OTP resent to user {UserId} ({Email})",
-            user.Id, MaskEmail(user.Email));
+            user.Id, EmailMasking.Mask(user.Email));
 
-        return new ResendEmailVerificationResponse(token.ExpiresAt, MaskEmail(user.Email));
-    }
-
-    private static string MaskEmail(string email)
-    {
-        var atIndex = email.IndexOf('@');
-        if (atIndex <= 1) return email;
-
-        var localPart = email[..atIndex];
-        var domain = email[atIndex..];
-
-        if (localPart.Length <= 2)
-            return $"{localPart[0]}***{domain}";
-
-        return $"{localPart[0]}{new string('*', Math.Min(localPart.Length - 2, 4))}{localPart[^1]}{domain}";
+        return new ResendEmailVerificationResponse(token.ExpiresAt, EmailMasking.Mask(user.Email));
     }
 }

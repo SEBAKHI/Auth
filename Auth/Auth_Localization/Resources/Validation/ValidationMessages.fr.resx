@@ -374,4 +374,10 @@
   <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
     <value>Au maximum 20 URI de redirection sont autorisées.</value>
   </data>
+  <data name="Validation.NewOwnerId.Required" xml:space="preserve">
+    <value>Le nouveau propriétaire est requis.</value>
+  </data>
+  <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
+    <value>Le code de confirmation doit comporter 6 chiffres.</value>
+  </data>
 </root>

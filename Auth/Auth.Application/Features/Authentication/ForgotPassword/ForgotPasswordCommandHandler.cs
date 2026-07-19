@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
 using Auth.Application.Notifications;
@@ -56,12 +57,12 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         {
             _logger.LogInformation(
                 "Password reset requested for non-existent email: {Email}",
-                MaskEmail(request.Email));
+                EmailMasking.Mask(request.Email));
 
             // Return fake response to prevent enumeration
             return new ForgotPasswordResponse(
                 DateTime.UtcNow.AddMinutes(expirationMinutes),
-                MaskEmail(request.Email));
+                EmailMasking.Mask(request.Email));
         }
 
         // Invalidate any existing reset tokens for this user
@@ -88,7 +89,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         {
             _logger.LogWarning(
                 "Email disabled - Password reset link for {Email}: {ResetUrl} (expires in {Minutes} minutes)",
-                MaskEmail(user.Email), _emailSettings.BuildPasswordResetUrl(token), expirationMinutes);
+                EmailMasking.Mask(user.Email), _emailSettings.BuildPasswordResetUrl(token), expirationMinutes);
         }
 
         // Send from the database-managed template; language follows the user's
@@ -123,23 +124,6 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
             "Password reset token generated for user {UserId}",
             user.Id);
 
-        return new ForgotPasswordResponse(resetToken.ExpiresAt, MaskEmail(user.Email));
-    }
-
-    /// <summary>
-    /// Masks an email address for safe display (e.g., a****n@example.com).
-    /// </summary>
-    private static string MaskEmail(string email)
-    {
-        var atIndex = email.IndexOf('@');
-        if (atIndex <= 1) return email;
-
-        var localPart = email[..atIndex];
-        var domain = email[atIndex..];
-
-        if (localPart.Length <= 2)
-            return $"{localPart[0]}***{domain}";
-
-        return $"{localPart[0]}{new string('*', Math.Min(localPart.Length - 2, 4))}{localPart[^1]}{domain}";
+        return new ForgotPasswordResponse(resetToken.ExpiresAt, EmailMasking.Mask(user.Email));
     }
 }

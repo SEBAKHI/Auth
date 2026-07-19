@@ -374,4 +374,10 @@
   <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
     <value>En fazla 20 yönlendirme URI'sine izin verilir.</value>
   </data>
+  <data name="Validation.NewOwnerId.Required" xml:space="preserve">
+    <value>Yeni sahip gereklidir.</value>
+  </data>
+  <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
+    <value>Onay kodu 6 haneli olmalıdır.</value>
+  </data>
 </root>

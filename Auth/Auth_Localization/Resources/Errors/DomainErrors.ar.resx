@@ -666,4 +666,40 @@
   <data name="Auth.UnsupportedGrantType" xml:space="preserve">
     <value>نوع المنحة (grant_type) غير مدعوم في نقطة التوكن.</value>
   </data>
+  <data name="Organization.CannotTransferPersonalOrganization" xml:space="preserve">
+    <value>لا يمكن نقل ملكية منظمة شخصية (منشأة تلقائيًا).</value>
+  </data>
+  <data name="Organization.CannotTransferToSelf" xml:space="preserve">
+    <value>هذا العضو هو مالك المنظمة بالفعل.</value>
+  </data>
+  <data name="Organization.TransferTargetNotEligible" xml:space="preserve">
+    <value>يجب أن يكون العضو المحدد حسابًا نشطًا ببريد إلكتروني مؤكد لاستلام الملكية.</value>
+  </data>
+  <data name="Organization.TransferCodeRequired" xml:space="preserve">
+    <value>رمز التأكيد المُرسل إلى المالك الجديد مطلوب لإتمام النقل.</value>
+  </data>
+  <data name="Organization.InvalidOrExpiredTransferCode" xml:space="preserve">
+    <value>رمز التأكيد غير صالح أو انتهت صلاحيته. اطلب رمزًا جديدًا وحاول مرة أخرى.</value>
+  </data>
+  <data name="Organization.TransferCodeTooManyAttempts" xml:space="preserve">
+    <value>عدد كبير جدًا من محاولات التأكيد الخاطئة. اطلب رمزًا جديدًا وحاول مرة أخرى.</value>
+  </data>
+  <data name="Organization.TooManyTransferRequests" xml:space="preserve">
+    <value>طُلبت رموز نقل كثيرة جدًا. يرجى الانتظار قبل المحاولة مرة أخرى.</value>
+  </data>
+  <data name="Organization.TransferCodeEmailFailed" xml:space="preserve">
+    <value>تعذر إرسال بريد رمز التأكيد. يرجى المحاولة مرة أخرى.</value>
+  </data>
+  <data name="Organization.ConcurrentTransferConflict" xml:space="preserve">
+    <value>تغيّرت ملكية المنظمة أثناء معالجة هذا النقل. أعد التحميل وحاول مرة أخرى.</value>
+  </data>
+  <data name="Organization.AdminRoleNotFound" xml:space="preserve">
+    <value>خطأ في إعدادات النظام: دور مشرف المنظمة غير موجود.</value>
+  </data>
+  <data name="User.CannotDeleteOrganizationOwner" xml:space="preserve">
+    <value>يملك هذا الحساب منظمة واحدة أو أكثر. انقل ملكيتها قبل حذف الحساب.</value>
+  </data>
+  <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
+    <value>ما تزال المنظمة الشخصية لهذا الحساب تضم أعضاء آخرين. قم بإزالتهم قبل حذف الحساب.</value>
+  </data>
 </root>

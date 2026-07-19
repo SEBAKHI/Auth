@@ -68,4 +68,36 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created welcome-email notification type';
 END
+
+-- ownership-transfer-code (OTP sent to the prospective new owner)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000005')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000005',
+        N'ownership-transfer-code',
+        N'Ownership Transfer Code',
+        N'One-time code emailed to the prospective new owner to confirm an organization ownership transfer',
+        1,
+        N'[{"name":"TargetName","description":"Prospective new owner display name (recipient)","example":"Jane Doe","required":true},{"name":"OwnerName","description":"Current owner display name (initiator)","example":"John Smith","required":true},{"name":"OrganizationName","description":"Name of the organization being transferred","example":"Acme Inc","required":true},{"name":"OtpCode","description":"6-digit confirmation code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"15","required":true}]',
+        N'{"TargetName":"Jane Doe","OwnerName":"John Smith","OrganizationName":"Acme Inc","OtpCode":"123456","ExpirationMinutes":15}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created ownership-transfer-code notification type';
+END
+
+-- ownership-transferred (post-transfer notice to both previous and new owner)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000006')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000006',
+        N'ownership-transferred',
+        N'Ownership Transferred',
+        N'Notice sent to both the previous and the new owner after an organization ownership transfer completes',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OrganizationName","description":"Name of the transferred organization","example":"Acme Inc","required":true},{"name":"PreviousOwnerName","description":"Display name of the previous owner","example":"John Smith","required":true},{"name":"NewOwnerName","description":"Display name of the new owner","example":"Jane Doe","required":true}]',
+        N'{"UserName":"Jane Doe","OrganizationName":"Acme Inc","PreviousOwnerName":"John Smith","NewOwnerName":"Jane Doe"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created ownership-transferred notification type';
+END
 GO

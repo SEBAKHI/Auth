@@ -15,10 +15,12 @@ using Auth.Application.Features.Organizations.GetOrganizationMembers;
 using Auth.Application.Features.Organizations.GetPendingInvitations;
 using Auth.Application.Features.Organizations.GetUserOrganizations;
 using Auth.Application.Features.Organizations.GrantPermission;
+using Auth.Application.Features.Organizations.InitiateOwnershipTransfer;
 using Auth.Application.Features.Organizations.InviteMember;
 using Auth.Application.Features.Organizations.RemoveAppRole;
 using Auth.Application.Features.Organizations.ResendInvitation;
 using Auth.Application.Features.Organizations.RemoveMember;
+using Auth.Application.Features.Organizations.TransferOwnership;
 using Auth.Application.Features.Organizations.UpdateMemberRole;
 using Auth.Application.Features.Organizations.UpdateOrganization;
 using Auth.Application.Features.Organizations.UpdateOrganizationApplication;
@@ -197,6 +199,65 @@ public class OrganizationsController : ApiController
             _ => NoContent(),
             errors => Problem(errors));
     }
+
+    #region Ownership
+
+    /// <summary>
+    /// Initiate an ownership transfer. Owner-only: emails a one-time
+    /// confirmation code to the prospective new owner (who must already be an
+    /// active member).
+    /// </summary>
+    [HttpPost("{orgId:guid}/ownership/initiate")]
+    [ProducesResponseType(typeof(InitiateOwnershipTransferResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> InitiateOwnershipTransfer(
+        Guid orgId,
+        [FromBody] InitiateOwnershipTransferRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        var command = new InitiateOwnershipTransferCommand(orgId, request.NewOwnerId)
+        {
+            RequestedBy = userId
+        };
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Complete an ownership transfer. The owner supplies the confirmation
+    /// code emailed to the new owner; platform administrators
+    /// (organizations:manage) may transfer without a code as the recovery path.
+    /// </summary>
+    [HttpPost("{orgId:guid}/ownership")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> TransferOwnership(
+        Guid orgId,
+        [FromBody] TransferOwnershipRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        var command = new TransferOwnershipCommand(orgId, request.NewOwnerId, request.Code)
+        {
+            RequestedBy = userId,
+            PlatformScope = HasPermissionClaim("organizations:manage")
+        };
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    #endregion
 
     #region Members
 

@@ -378,7 +378,7 @@ export const fa: TranslationResources = {
     lockDurationHint: "برای قفل نامحدود خالی بگذارید.",
     deleteTitle: "حذف کاربر",
     deleteBody:
-      "این کار {{name}} را برای همیشه حذف می‌کند. این عمل قابل بازگشت نیست.",
+      "این کار {{name}} را برای همیشه حذف می‌کند. این عمل قابل بازگشت نیست. هر سازمانی که او تنها مالک آن است نیز برای همیشه حذف می‌شود؛ سازمان‌هایی که اعضای دیگری دارند باید ابتدا مالکیتشان منتقل شود.",
     assignRole: "تخصیص نقش",
     grantPermission: "اعطای مجوز",
     noRoles: "نقشی تخصیص داده نشده است.",
@@ -530,6 +530,27 @@ export const fa: TranslationResources = {
     appEnabled: "برنامه فعال شد.",
     appDisabled: "برنامه غیرفعال شد.",
     appUpdated: "برنامه به‌روزرسانی شد.",
+    transferOwnership: "انتقال مالکیت",
+    transferOwnershipTitle: "انتقال مالکیت سازمان",
+    transferSelectMember: "مالک جدید",
+    transferSelectMemberPlaceholder: "یک عضو را انتخاب کنید…",
+    transferConsequencesTitle: "پیش از ادامه",
+    transferConsequence1:
+      "عضو انتخاب‌شده با کنترل کامل، تنها مالک این سازمان می‌شود.",
+    transferConsequence2:
+      "شما به مدیر سازمان تنزل می‌یابید و دیگر نمی‌توانید آن را منتقل یا حذف کنید.",
+    transferConsequence3:
+      "کد تأیید به ایمیل مالک جدید ارسال می‌شود. برای تکمیل انتقال، آن را در مرحله بعد وارد کنید.",
+    transferSendCode: "ارسال کد تأیید",
+    transferCodeTitle: "کد تأیید را وارد کنید",
+    transferCodeSent: "کدی به {{email}} ارسال شد. آن را از مالک جدید بخواهید.",
+    transferCodeLabel: "کد تأیید",
+    transferCodeExpiresIn: "کد تا {{time}} دیگر منقضی می‌شود",
+    transferCodeExpired: "کد منقضی شده است. کد جدیدی ارسال کنید.",
+    transferResendCode: "ارسال کد جدید",
+    transferComplete: "تکمیل انتقال",
+    transferInitiated: "کد تأیید به مالک جدید ارسال شد.",
+    transferSuccess: "مالکیت منتقل شد.",
   },
   apiKeys: {
     title: "کلیدهای API",

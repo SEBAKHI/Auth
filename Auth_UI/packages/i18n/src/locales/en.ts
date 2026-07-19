@@ -362,7 +362,7 @@ export const en = {
     lockDurationHint: "Leave empty to lock indefinitely.",
     deleteTitle: "Delete user",
     deleteBody:
-      "This permanently deletes {{name}}. This action cannot be undone.",
+      "This permanently deletes {{name}}. This action cannot be undone. Any organizations they solely own will be permanently deleted too; organizations with other members must have their ownership transferred first.",
     assignRole: "Assign role",
     grantPermission: "Grant permission",
     noRoles: "No roles assigned.",
@@ -509,6 +509,27 @@ export const en = {
     appEnabled: "Application enabled.",
     appDisabled: "Application disabled.",
     appUpdated: "Application updated.",
+    transferOwnership: "Transfer ownership",
+    transferOwnershipTitle: "Transfer organization ownership",
+    transferSelectMember: "New owner",
+    transferSelectMemberPlaceholder: "Select a member…",
+    transferConsequencesTitle: "Before you continue",
+    transferConsequence1:
+      "The selected member becomes the sole owner with full control of this organization.",
+    transferConsequence2:
+      "You will be demoted to organization administrator and can no longer transfer or delete it.",
+    transferConsequence3:
+      "A confirmation code will be emailed to the new owner. Enter it on the next step to complete the transfer.",
+    transferSendCode: "Send confirmation code",
+    transferCodeTitle: "Enter the confirmation code",
+    transferCodeSent: "A code was sent to {{email}}. Ask the new owner for it.",
+    transferCodeLabel: "Confirmation code",
+    transferCodeExpiresIn: "Code expires in {{time}}",
+    transferCodeExpired: "The code has expired. Send a new one.",
+    transferResendCode: "Send a new code",
+    transferComplete: "Complete transfer",
+    transferInitiated: "Confirmation code sent to the new owner.",
+    transferSuccess: "Ownership transferred.",
   },
   apiKeys: {
     title: "API Keys",

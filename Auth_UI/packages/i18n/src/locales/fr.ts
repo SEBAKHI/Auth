@@ -381,7 +381,7 @@ export const fr: TranslationResources = {
     lockDurationHint: "Laissez vide pour verrouiller indéfiniment.",
     deleteTitle: "Supprimer l'utilisateur",
     deleteBody:
-      "Ceci supprime définitivement {{name}}. Cette action est irréversible.",
+      "Ceci supprime définitivement {{name}}. Cette action est irréversible. Toute organisation dont il est l'unique propriétaire sera également supprimée définitivement ; les organisations comptant d'autres membres doivent d'abord voir leur propriété transférée.",
     assignRole: "Attribuer un rôle",
     grantPermission: "Accorder une permission",
     noRoles: "Aucun rôle attribué.",
@@ -532,6 +532,27 @@ export const fr: TranslationResources = {
     appEnabled: "Application activée.",
     appDisabled: "Application désactivée.",
     appUpdated: "Application mise à jour.",
+    transferOwnership: "Transférer la propriété",
+    transferOwnershipTitle: "Transférer la propriété de l'organisation",
+    transferSelectMember: "Nouveau propriétaire",
+    transferSelectMemberPlaceholder: "Sélectionnez un membre…",
+    transferConsequencesTitle: "Avant de continuer",
+    transferConsequence1:
+      "Le membre sélectionné devient l'unique propriétaire avec le contrôle total de cette organisation.",
+    transferConsequence2:
+      "Vous serez rétrogradé au rang d'administrateur et ne pourrez plus la transférer ni la supprimer.",
+    transferConsequence3:
+      "Un code de confirmation sera envoyé au nouveau propriétaire. Saisissez-le à l'étape suivante pour finaliser le transfert.",
+    transferSendCode: "Envoyer le code de confirmation",
+    transferCodeTitle: "Saisissez le code de confirmation",
+    transferCodeSent: "Un code a été envoyé à {{email}}. Demandez-le au nouveau propriétaire.",
+    transferCodeLabel: "Code de confirmation",
+    transferCodeExpiresIn: "Le code expire dans {{time}}",
+    transferCodeExpired: "Le code a expiré. Envoyez-en un nouveau.",
+    transferResendCode: "Envoyer un nouveau code",
+    transferComplete: "Finaliser le transfert",
+    transferInitiated: "Code de confirmation envoyé au nouveau propriétaire.",
+    transferSuccess: "Propriété transférée.",
   },
   apiKeys: {
     title: "Clés API",

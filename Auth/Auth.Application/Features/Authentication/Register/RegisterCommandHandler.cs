@@ -1,4 +1,5 @@
 using System.Globalization;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Application.Validators;
@@ -102,7 +103,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
             new SendEmailVerificationCommand(user.Id),
             cancellationToken);
 
-        var maskedEmail = MaskEmail(user.Email);
+        var maskedEmail = EmailMasking.Mask(user.Email);
 
         DateTime? verificationCodeExpiresAt = null;
         if (verificationResult.IsError)
@@ -126,19 +127,5 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
             "Registration successful. Please verify your email to sign in.",
             organizationCreated,
             verificationCodeExpiresAt);
-    }
-
-    private static string MaskEmail(string email)
-    {
-        var atIndex = email.IndexOf('@');
-        if (atIndex <= 1) return email;
-
-        var localPart = email[..atIndex];
-        var domain = email[atIndex..];
-
-        if (localPart.Length <= 2)
-            return $"{localPart[0]}***{domain}";
-
-        return $"{localPart[0]}{new string('*', Math.Min(localPart.Length - 2, 4))}{localPart[^1]}{domain}";
     }
 }

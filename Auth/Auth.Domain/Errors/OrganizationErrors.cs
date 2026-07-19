@@ -40,6 +40,42 @@ public static class OrganizationErrors
         code: "Organization.CannotTransferOwnership",
         description: "Cannot transfer ownership to a non-member of the organization.");
 
+    public static Error CannotTransferPersonalOrganization => Error.Forbidden(
+        code: "Organization.CannotTransferPersonalOrganization",
+        description: "Ownership of a personal (auto-created) organization cannot be transferred.");
+
+    public static Error CannotTransferToSelf => Error.Validation(
+        code: "Organization.CannotTransferToSelf",
+        description: "This member is already the organization owner.");
+
+    public static Error TransferTargetNotEligible => Error.Validation(
+        code: "Organization.TransferTargetNotEligible",
+        description: "The selected member must be an active account with a confirmed email address to receive ownership.");
+
+    public static Error TransferCodeRequired => Error.Validation(
+        code: "Organization.TransferCodeRequired",
+        description: "The confirmation code sent to the new owner is required to complete the transfer.");
+
+    public static Error InvalidOrExpiredTransferCode => Error.Forbidden(
+        code: "Organization.InvalidOrExpiredTransferCode",
+        description: "The confirmation code is invalid or has expired. Request a new code and try again.");
+
+    public static Error TransferCodeTooManyAttempts => Error.Forbidden(
+        code: "Organization.TransferCodeTooManyAttempts",
+        description: "Too many incorrect confirmation attempts. Request a new code and try again.");
+
+    public static Error TooManyTransferRequests => Error.Forbidden(
+        code: "Organization.TooManyTransferRequests",
+        description: "Too many transfer codes were requested. Please wait before trying again.");
+
+    public static Error TransferCodeEmailFailed => Error.Failure(
+        code: "Organization.TransferCodeEmailFailed",
+        description: "Failed to send the confirmation code email. Please try again.");
+
+    public static Error ConcurrentTransferConflict => Error.Conflict(
+        code: "Organization.ConcurrentTransferConflict",
+        description: "The organization's ownership changed while processing this transfer. Reload and try again.");
+
     #endregion
 
     #region Membership Errors

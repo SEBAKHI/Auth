@@ -43,6 +43,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
 import { useDirtyClose } from "@astoom/ui/hooks/use-dirty-close"
 import { api } from "@astoom/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@astoom/api/helpers"
+import { decodeJwt } from "@astoom/api/jwt"
+import { getAccessToken } from "@astoom/api/token-store"
 import { usePageBreadcrumb } from "@astoom/ui/crumbs"
 import { DEFAULT_PAGE_SIZE } from "@astoom/api/constants"
 import { getErrorMessage } from "@astoom/api/errors"
@@ -50,6 +52,7 @@ import { formatDateTime, fullName } from "@astoom/ui/format"
 import type { Schemas } from "@astoom/api/types"
 import { MemberAppRolesDialog } from "./member-app-roles-dialog"
 import { OrganizationFormDialog } from "./organization-form-dialog"
+import { TransferOwnershipDialog } from "./transfer-ownership-dialog"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -971,6 +974,7 @@ export function OrganizationDetailPage({
   const orgId = id as string
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = React.useState(false)
+  const [transferOpen, setTransferOpen] = React.useState(false)
 
   const detailQuery = useQuery({
     queryKey: ["organizations", orgId],
@@ -985,6 +989,17 @@ export function OrganizationDetailPage({
 
   const org = detailQuery.data
   usePageBreadcrumb(org?.name)
+
+  // Ownership transfer is a self-service, owner-only action: surface it only
+  // when the viewer is the organization's actual owner (from the access token's
+  // subject). Platform-admin recovery transfers go through the API directly.
+  const currentUserId = React.useMemo(() => {
+    const token = getAccessToken()
+    return token ? decodeJwt(token)?.sub : undefined
+  }, [])
+  const isOwner = Boolean(
+    org?.ownerId && currentUserId && org.ownerId === currentUserId
+  )
 
   return (
     <div className="space-y-6">
@@ -1029,9 +1044,19 @@ export function OrganizationDetailPage({
               />
             }
             actions={
-              <Button variant="outline" onClick={() => setEditOpen(true)}>
-                {t("common.edit")}
-              </Button>
+              <div className="flex items-center gap-2">
+                {isOwner ? (
+                  <Button
+                    variant="outline"
+                    onClick={() => setTransferOpen(true)}
+                  >
+                    {t("organizations.transferOwnership")}
+                  </Button>
+                ) : null}
+                <Button variant="outline" onClick={() => setEditOpen(true)}>
+                  {t("common.edit")}
+                </Button>
+              </div>
             }
           />
           <DetailList
@@ -1110,6 +1135,20 @@ export function OrganizationDetailPage({
           open={editOpen}
           onOpenChange={setEditOpen}
           organization={org}
+        />
+      ) : null}
+      {isOwner ? (
+        <TransferOwnershipDialog
+          orgId={orgId}
+          ownerId={org?.ownerId}
+          open={transferOpen}
+          onOpenChange={setTransferOpen}
+          onTransferred={() => {
+            void queryClient.invalidateQueries({
+              queryKey: ["organizations", orgId],
+            })
+            void queryClient.invalidateQueries({ queryKey: ["organizations"] })
+          }}
         />
       ) : null}
     </div>

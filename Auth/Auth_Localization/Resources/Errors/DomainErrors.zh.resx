@@ -666,4 +666,40 @@
   <data name="Auth.UnsupportedGrantType" xml:space="preserve">
     <value>令牌端点不支持该 grant_type。</value>
   </data>
+  <data name="Organization.CannotTransferPersonalOrganization" xml:space="preserve">
+    <value>个人（自动创建）组织的所有权无法转移。</value>
+  </data>
+  <data name="Organization.CannotTransferToSelf" xml:space="preserve">
+    <value>该成员已是组织所有者。</value>
+  </data>
+  <data name="Organization.TransferTargetNotEligible" xml:space="preserve">
+    <value>所选成员必须是已确认邮箱的有效帐户才能接收所有权。</value>
+  </data>
+  <data name="Organization.TransferCodeRequired" xml:space="preserve">
+    <value>完成转移需要发送给新所有者的确认码。</value>
+  </data>
+  <data name="Organization.InvalidOrExpiredTransferCode" xml:space="preserve">
+    <value>确认码无效或已过期。请重新获取确认码后再试。</value>
+  </data>
+  <data name="Organization.TransferCodeTooManyAttempts" xml:space="preserve">
+    <value>错误的确认尝试次数过多。请重新获取确认码后再试。</value>
+  </data>
+  <data name="Organization.TooManyTransferRequests" xml:space="preserve">
+    <value>请求的转移确认码过多。请稍候再试。</value>
+  </data>
+  <data name="Organization.TransferCodeEmailFailed" xml:space="preserve">
+    <value>确认码邮件发送失败。请重试。</value>
+  </data>
+  <data name="Organization.ConcurrentTransferConflict" xml:space="preserve">
+    <value>处理此转移时组织的所有权已发生变化。请刷新后重试。</value>
+  </data>
+  <data name="Organization.AdminRoleNotFound" xml:space="preserve">
+    <value>系统配置错误：未找到组织管理员角色。</value>
+  </data>
+  <data name="User.CannotDeleteOrganizationOwner" xml:space="preserve">
+    <value>该帐户拥有一个或多个组织。请先转移其所有权，再删除帐户。</value>
+  </data>
+  <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
+    <value>该帐户的个人组织中仍有其他成员。请先将其移除，再删除帐户。</value>
+  </data>
 </root>

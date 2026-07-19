@@ -666,4 +666,40 @@
   <data name="Auth.UnsupportedGrantType" xml:space="preserve">
     <value>ٹوکن اینڈ پوائنٹ اس grant_type کی حمایت نہیں کرتا۔</value>
   </data>
+  <data name="Organization.CannotTransferPersonalOrganization" xml:space="preserve">
+    <value>ذاتی (خودکار طور پر بنائی گئی) تنظیم کی ملکیت منتقل نہیں کی جا سکتی۔</value>
+  </data>
+  <data name="Organization.CannotTransferToSelf" xml:space="preserve">
+    <value>یہ رکن پہلے ہی تنظیم کا مالک ہے۔</value>
+  </data>
+  <data name="Organization.TransferTargetNotEligible" xml:space="preserve">
+    <value>ملکیت حاصل کرنے کے لیے منتخب رکن کا فعال اکاؤنٹ اور تصدیق شدہ ای میل ہونا ضروری ہے۔</value>
+  </data>
+  <data name="Organization.TransferCodeRequired" xml:space="preserve">
+    <value>منتقلی مکمل کرنے کے لیے نئے مالک کو بھیجا گیا تصدیقی کوڈ درکار ہے۔</value>
+  </data>
+  <data name="Organization.InvalidOrExpiredTransferCode" xml:space="preserve">
+    <value>تصدیقی کوڈ غلط ہے یا اس کی میعاد ختم ہو گئی ہے۔ نیا کوڈ حاصل کر کے دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="Organization.TransferCodeTooManyAttempts" xml:space="preserve">
+    <value>بہت زیادہ غلط تصدیقی کوششیں ہو چکی ہیں۔ نیا کوڈ حاصل کر کے دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="Organization.TooManyTransferRequests" xml:space="preserve">
+    <value>بہت زیادہ منتقلی کوڈ طلب کیے جا چکے ہیں۔ دوبارہ کوشش سے پہلے براہ کرم انتظار کریں۔</value>
+  </data>
+  <data name="Organization.TransferCodeEmailFailed" xml:space="preserve">
+    <value>تصدیقی کوڈ کی ای میل نہیں بھیجی جا سکی۔ براہ کرم دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="Organization.ConcurrentTransferConflict" xml:space="preserve">
+    <value>اس منتقلی کے دوران تنظیم کی ملکیت تبدیل ہو گئی۔ صفحہ دوبارہ لوڈ کر کے کوشش کریں۔</value>
+  </data>
+  <data name="Organization.AdminRoleNotFound" xml:space="preserve">
+    <value>سسٹم کنفیگریشن کی خرابی: تنظیم کے منتظم کا کردار نہیں ملا۔</value>
+  </data>
+  <data name="User.CannotDeleteOrganizationOwner" xml:space="preserve">
+    <value>یہ اکاؤنٹ ایک یا زیادہ تنظیموں کا مالک ہے۔ اکاؤنٹ حذف کرنے سے پہلے ان کی ملکیت منتقل کریں۔</value>
+  </data>
+  <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
+    <value>اس اکاؤنٹ کی ذاتی تنظیم میں اب بھی دوسرے اراکین موجود ہیں۔ اکاؤنٹ حذف کرنے سے پہلے انہیں ہٹا دیں۔</value>
+  </data>
 </root>

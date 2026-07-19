@@ -10,11 +10,13 @@ public static class NotificationTypeCodes
     public const string PasswordReset = "password-reset";
     public const string OrganizationInvitation = "organization-invitation";
     public const string WelcomeEmail = "welcome-email";
+    public const string OwnershipTransferCode = "ownership-transfer-code";
+    public const string OwnershipTransferred = "ownership-transferred";
 
     /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
     public static readonly IReadOnlyList<string> SystemCodes =
-        [EmailVerification, PasswordReset, OrganizationInvitation];
+        [EmailVerification, PasswordReset, OrganizationInvitation, OwnershipTransferCode, OwnershipTransferred];
 }
