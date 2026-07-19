@@ -6245,6 +6245,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Auth/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    response_type?: string;
+                    client_id?: string;
+                    redirect_uri?: string;
+                    code_challenge?: string;
+                    code_challenge_method?: string;
+                    state?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Found */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/x-www-form-urlencoded": {
+                        grant_type?: string;
+                        code?: string;
+                        redirect_uri?: string;
+                        client_id?: string;
+                        code_verifier?: string;
+                        refresh_token?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OAuthTokenResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Auth/logout": {
         parameters: {
             query?: never;
@@ -7677,6 +7792,56 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Applications/{clientId}/public-branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    clientId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PublicBrandingDto"];
+                        "application/json": components["schemas"]["PublicBrandingDto"];
+                        "text/json": components["schemas"]["PublicBrandingDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -9438,6 +9603,7 @@ export interface components {
             sessionTimeoutMinutes?: number | string;
             /** Format: int32 */
             maxConcurrentSessions?: number | string;
+            redirectUris?: string[];
             /** Format: date-time */
             createdAt?: string;
             /** Format: uuid */
@@ -9699,21 +9865,21 @@ export interface components {
         };
         DiscoveryDocumentDto: {
             issuer: string;
-            jwksUri: string;
-            authorizationEndpoint?: null | string;
-            tokenEndpoint: string;
-            userinfoEndpoint?: null | string;
-            endSessionEndpoint?: null | string;
-            revocationEndpoint?: null | string;
-            introspectionEndpoint?: null | string;
-            responseTypesSupported?: string[];
-            subjectTypesSupported?: string[];
-            idTokenSigningAlgValuesSupported?: string[];
-            tokenEndpointAuthMethodsSupported?: string[];
-            scopesSupported?: string[];
-            claimsSupported?: string[];
-            grantTypesSupported?: string[];
-            codeChallengeMethodsSupported?: string[];
+            jwks_uri: string;
+            authorization_endpoint?: null | string;
+            token_endpoint: string;
+            userinfo_endpoint?: null | string;
+            end_session_endpoint?: null | string;
+            revocation_endpoint?: null | string;
+            introspection_endpoint?: null | string;
+            response_types_supported?: string[];
+            subject_types_supported?: string[];
+            id_token_signing_alg_values_supported?: null | string[];
+            token_endpoint_auth_methods_supported?: string[];
+            scopes_supported?: null | string[];
+            claims_supported?: string[];
+            grant_types_supported?: string[];
+            code_challenge_methods_supported?: null | string[];
         };
         DraftTranslationRequest: {
             languageCode: string;
@@ -10089,6 +10255,15 @@ export interface components {
             variablesJson?: string;
             sampleDataJson?: string;
             isActive?: boolean;
+        };
+        OAuthTokenResponse: {
+            access_token: string;
+            token_type?: string;
+            /** Format: int32 */
+            expires_in: number | string;
+            refresh_token: string;
+            /** Format: int32 */
+            refresh_expires_in: number | string;
         };
         OrganizationApplicationDto: {
             /** Format: uuid */
@@ -10536,6 +10711,10 @@ export interface components {
             detail?: null | string;
             instance?: null | string;
         };
+        PublicBrandingDto: {
+            name: string;
+            logoUrl?: null | string;
+        };
         ReasonCountDto: {
             reason?: string;
             /** Format: int32 */
@@ -10827,6 +11006,7 @@ export interface components {
              * @default 5
              */
             maxConcurrentSessions: number | string;
+            redirectUris?: null | string[];
         };
         UpdateMemberRoleRequest: {
             /** Format: uuid */

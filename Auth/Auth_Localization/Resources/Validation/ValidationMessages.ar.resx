@@ -365,4 +365,10 @@
   <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
     <value>يجب أن يكون كتالوج المتغيرات مصفوفة JSON صالحة.</value>
   </data>
+  <data name="Validation.RedirectUri.Invalid" xml:space="preserve">
+    <value>يجب أن يكون كل عنوان إعادة توجيه رابط https مطلقاً (يُسمح بـ http لـ localhost فقط) بدون جزء fragment وبحد أقصى 500 حرف.</value>
+  </data>
+  <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
+    <value>الحد الأقصى المسموح هو 20 عنوان إعادة توجيه.</value>
+  </data>
 </root>

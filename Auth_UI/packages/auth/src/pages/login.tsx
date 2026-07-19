@@ -21,6 +21,10 @@ import { Input } from "@astoom/ui/input"
 import { useAuth } from "@astoom/auth/auth-context"
 import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
 import { AuthLayout } from "@astoom/ui/auth-layout"
+import { useBranding } from "@astoom/ui/branding"
+
+import { getReturnToClientId, getValidReturnTo } from "../return-to"
+import { useAppBranding } from "../use-app-branding"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -51,6 +55,12 @@ export function LoginPage({
     : "/"
   const presetEmail = state?.email ?? ""
 
+  // Pending OAuth authorize request (hosted-login flow): strictly validated —
+  // only the auth origin's authorize endpoint is ever a legal destination.
+  const returnTo = getValidReturnTo(location.search)
+  const appBranding = useAppBranding(getReturnToClientId(returnTo))
+  const { name: platformName } = useBranding()
+
   const schema = z.object({
     email: z
       .string()
@@ -70,13 +80,17 @@ export function LoginPage({
       if (result.status === "twoFactorRequired") {
         navigate("/two-factor", {
           replace: true,
-          state: { challengeToken: result.challengeToken, from },
+          state: { challengeToken: result.challengeToken, from, returnTo },
         })
         return
       }
       toast.success(t("auth.welcomeBack"))
       if (result.requiresPasswordChange) {
         navigate("/force-password-change", { replace: true })
+      } else if (returnTo) {
+        // Resume the pending authorize request: a top-level navigation so the
+        // freshly set IdP session cookie rides along and the code is issued.
+        window.location.assign(returnTo)
       } else {
         navigate(from, { replace: true })
       }
@@ -97,8 +111,15 @@ export function LoginPage({
   return (
     <AuthLayout
       title={t("auth.signInTitle")}
-      subtitle={subtitle ?? t("auth.signInSubtitle")}
+      subtitle={
+        appBranding
+          ? t("auth.continueToApp", { name: appBranding.name })
+          : (subtitle ?? t("auth.signInSubtitle"))
+      }
       footer={footer}
+      appName={appBranding?.name}
+      appLogoUrl={appBranding?.logoUrl}
+      securedBy={t("auth.securedBy", { name: platformName })}
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>

@@ -202,6 +202,8 @@ export const fa: TranslationResources = {
       "شما با {{current}} وارد شده‌اید، اما این دعوت برای {{invited}} است. خارج شوید و از حساب دعوت‌شده استفاده کنید.",
     invitationSignOut: "خروج",
     signInSubtitleAccounts: "به حساب خود وارد شوید.",
+    continueToApp: "برای ادامه به {{name}}.",
+    securedBy: "محافظت‌شده توسط {{name}}",
     orContinueWith: "یا ادامه با",
     registerTitle: "حساب خود را بسازید",
     registerSubtitle: "با نشانی ایمیل خود ثبت‌نام کنید.",
@@ -458,6 +460,9 @@ export const fa: TranslationResources = {
     editTitle: "ویرایش برنامه",
     baseUrl: "نشانی پایه",
     logoUrl: "نشانی لوگو",
+    redirectUris: "آدرس‌های بازگشت (Redirect URIs)",
+    redirectUrisHint:
+      "هر آدرس در یک خط. تطبیق دقیق — https الزامی است (http فقط برای localhost).",
     contactEmail: "ایمیل تماس",
     allowSelfRegistration: "اجازه ثبت‌نام خودکار",
     requireTwoFactor: "الزام احراز دومرحله‌ای",

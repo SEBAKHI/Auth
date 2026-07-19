@@ -201,6 +201,8 @@ export const ur: TranslationResources = {
       "آپ {{current}} کے طور پر سائن ان ہیں، لیکن یہ دعوت {{invited}} کے لیے ہے۔ سائن آؤٹ کریں اور مدعو اکاؤنٹ استعمال کریں۔",
     invitationSignOut: "سائن آؤٹ",
     signInSubtitleAccounts: "اپنے اکاؤنٹ میں سائن ان کریں۔",
+    continueToApp: "{{name}} پر جاری رکھنے کے لیے۔",
+    securedBy: "{{name}} کے ذریعے محفوظ",
     orContinueWith: "یا اس کے ذریعے جاری رکھیں",
     registerTitle: "اپنا اکاؤنٹ بنائیں",
     registerSubtitle: "اپنے ای میل پتے کے ساتھ رجسٹر کریں۔",
@@ -457,6 +459,9 @@ export const ur: TranslationResources = {
     editTitle: "ایپلیکیشن میں ترمیم کریں",
     baseUrl: "بنیادی URL",
     logoUrl: "لوگو URL",
+    redirectUris: "ری ڈائریکٹ URIs",
+    redirectUrisHint:
+      "ہر سطر میں ایک URI۔ درست مطابقت — https لازمی (http صرف localhost کے لیے)۔",
     contactEmail: "رابطہ ای میل",
     allowSelfRegistration: "خود رجسٹریشن کی اجازت دیں",
     requireTwoFactor: "دو مرحلہ توثیق لازمی",

@@ -25,6 +25,8 @@ const CODE_LENGTH = 6
 interface LocationState {
   challengeToken?: string
   from?: string
+  /** Validated pending authorize URL carried over from the login page. */
+  returnTo?: string | null
 }
 
 /**
@@ -43,6 +45,7 @@ export function TwoFactorVerifyPage() {
   const challengeToken =
     state?.challengeToken ?? getPendingTwoFactorChallenge()
   const from = state?.from ?? "/"
+  const returnTo = state?.returnTo ?? null
 
   const [code, setCode] = React.useState("")
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
@@ -76,6 +79,10 @@ export function TwoFactorVerifyPage() {
       toast.success(t("auth.welcomeBack"))
       if (result.requiresPasswordChange) {
         navigate("/force-password-change", { replace: true })
+      } else if (returnTo) {
+        // Resume the pending authorize request (top-level navigation so the
+        // IdP session cookie set by the verify response rides along).
+        window.location.assign(returnTo)
       } else {
         navigate(from, { replace: true })
       }

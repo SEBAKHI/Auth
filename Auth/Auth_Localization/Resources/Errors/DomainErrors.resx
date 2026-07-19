@@ -636,4 +636,28 @@
   <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
     <value>Only failed (Retry or Dead) messages can be requeued.</value>
   </data>
+  <data name="Auth.InvalidClient" xml:space="preserve">
+    <value>The client_id is unknown or the application is inactive.</value>
+  </data>
+  <data name="Auth.UnsupportedResponseType" xml:space="preserve">
+    <value>Only the 'code' response type is supported.</value>
+  </data>
+  <data name="Auth.InvalidRedirectUri" xml:space="preserve">
+    <value>The redirect_uri is not registered for this application.</value>
+  </data>
+  <data name="Auth.MissingCodeChallenge" xml:space="preserve">
+    <value>PKCE is required: a code_challenge must be provided.</value>
+  </data>
+  <data name="Auth.UnsupportedCodeChallengeMethod" xml:space="preserve">
+    <value>Only the 'S256' code challenge method is supported.</value>
+  </data>
+  <data name="Auth.AuthorizationCodeInvalid" xml:space="preserve">
+    <value>The authorization code is invalid, expired, or already used.</value>
+  </data>
+  <data name="Auth.PkceVerificationFailed" xml:space="preserve">
+    <value>The code_verifier does not match the code_challenge.</value>
+  </data>
+  <data name="Auth.UnsupportedGrantType" xml:space="preserve">
+    <value>The grant_type is not supported by the token endpoint.</value>
+  </data>
 </root>

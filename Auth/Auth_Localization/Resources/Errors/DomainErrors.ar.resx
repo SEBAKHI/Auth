@@ -636,4 +636,28 @@
   <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
     <value>لا يمكن إعادة إرسال إلا الرسائل الفاشلة (قيد الإعادة أو الميتة).</value>
   </data>
+  <data name="Auth.InvalidClient" xml:space="preserve">
+    <value>معرّف العميل (client_id) غير معروف أو التطبيق غير نشط.</value>
+  </data>
+  <data name="Auth.UnsupportedResponseType" xml:space="preserve">
+    <value>نوع الاستجابة المدعوم هو 'code' فقط.</value>
+  </data>
+  <data name="Auth.InvalidRedirectUri" xml:space="preserve">
+    <value>عنوان إعادة التوجيه (redirect_uri) غير مسجّل لهذا التطبيق.</value>
+  </data>
+  <data name="Auth.MissingCodeChallenge" xml:space="preserve">
+    <value>‏PKCE إلزامي: يجب توفير code_challenge.</value>
+  </data>
+  <data name="Auth.UnsupportedCodeChallengeMethod" xml:space="preserve">
+    <value>طريقة تحدي الرمز المدعومة هي 'S256' فقط.</value>
+  </data>
+  <data name="Auth.AuthorizationCodeInvalid" xml:space="preserve">
+    <value>رمز التفويض غير صالح أو منتهي الصلاحية أو سبق استخدامه.</value>
+  </data>
+  <data name="Auth.PkceVerificationFailed" xml:space="preserve">
+    <value>قيمة code_verifier لا تطابق code_challenge.</value>
+  </data>
+  <data name="Auth.UnsupportedGrantType" xml:space="preserve">
+    <value>نوع المنحة (grant_type) غير مدعوم في نقطة التوكن.</value>
+  </data>
 </root>

@@ -87,6 +87,7 @@
   </ItemGroup>
   <ItemGroup>
     <Build Include="dbo\Tables\Core\Applications.sql" />
+    <Build Include="dbo\Tables\Core\ApplicationRedirectUris.sql" />
     <Build Include="dbo\Tables\Core\Users.sql" />
     <Build Include="dbo\Tables\Core\Roles.sql" />
     <Build Include="dbo\Tables\Core\Permissions.sql" />
@@ -96,6 +97,7 @@
     <Build Include="dbo\Tables\Core\PermissionImplications.sql" />
     <Build Include="dbo\Tables\Authentication\RefreshTokens.sql" />
     <Build Include="dbo\Tables\Authentication\UserSessions.sql" />
+    <Build Include="dbo\Tables\Authentication\IdpSessions.sql" />
     <Build Include="dbo\Tables\Authentication\LoginAttempts.sql" />
     <Build Include="dbo\Tables\Authentication\ExternalAuthProviders.sql" />
     <Build Include="dbo\Tables\Authentication\UserExternalLogins.sql" />
@@ -103,6 +105,7 @@
     <Build Include="dbo\Tables\Security\PasswordHistory.sql" />
     <Build Include="dbo\Tables\Security\EmailVerificationTokens.sql" />
     <Build Include="dbo\Tables\Security\PasswordResetTokens.sql" />
+    <Build Include="dbo\Tables\Security\AuthorizationCodes.sql" />
     <Build Include="dbo\Tables\Security\TwoFactorAuth.sql" />
     <Build Include="dbo\Tables\Security\TwoFactorChallenges.sql" />
     <Build Include="dbo\Tables\Security\ApiKeys.sql" />

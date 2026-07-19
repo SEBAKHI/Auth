@@ -193,6 +193,8 @@ export const zh: TranslationResources = {
       "您当前以 {{current}} 登录，但此邀请属于 {{invited}}。请退出并使用受邀账户。",
     invitationSignOut: "退出登录",
     signInSubtitleAccounts: "登录您的账户。",
+    continueToApp: "继续前往 {{name}}。",
+    securedBy: "由 {{name}} 保障安全",
     orContinueWith: "或通过以下方式继续",
     registerTitle: "创建您的账户",
     registerSubtitle: "使用您的电子邮箱注册。",
@@ -434,6 +436,9 @@ export const zh: TranslationResources = {
     editTitle: "编辑应用",
     baseUrl: "基础 URL",
     logoUrl: "Logo URL",
+    redirectUris: "重定向 URI",
+    redirectUrisHint:
+      "每行一个 URI。精确匹配——必须使用 https（仅 localhost 允许 http）。",
     contactEmail: "联系邮箱",
     allowSelfRegistration: "允许自助注册",
     requireTwoFactor: "强制双重认证",

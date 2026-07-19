@@ -365,4 +365,10 @@
   <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
     <value>变量目录必须是有效的 JSON 数组。</value>
   </data>
+  <data name="Validation.RedirectUri.Invalid" xml:space="preserve">
+    <value>每个重定向 URI 必须是绝对的 https 地址（仅 localhost 允许 http），不含片段（fragment），最多 500 个字符。</value>
+  </data>
+  <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
+    <value>最多允许 20 个重定向 URI。</value>
+  </data>
 </root>

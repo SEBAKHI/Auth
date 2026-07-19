@@ -636,4 +636,28 @@
   <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
     <value>فقط پیام‌های ناموفق (تلاش مجدد یا مرده) قابل بازگردانی به صف هستند.</value>
   </data>
+  <data name="Auth.InvalidClient" xml:space="preserve">
+    <value>client_id ناشناخته است یا برنامه غیرفعال است.</value>
+  </data>
+  <data name="Auth.UnsupportedResponseType" xml:space="preserve">
+    <value>فقط نوع پاسخ 'code' پشتیبانی می‌شود.</value>
+  </data>
+  <data name="Auth.InvalidRedirectUri" xml:space="preserve">
+    <value>redirect_uri برای این برنامه ثبت نشده است.</value>
+  </data>
+  <data name="Auth.MissingCodeChallenge" xml:space="preserve">
+    <value>‏PKCE الزامی است: باید code_challenge ارائه شود.</value>
+  </data>
+  <data name="Auth.UnsupportedCodeChallengeMethod" xml:space="preserve">
+    <value>فقط روش چالش 'S256' پشتیبانی می‌شود.</value>
+  </data>
+  <data name="Auth.AuthorizationCodeInvalid" xml:space="preserve">
+    <value>کد مجوز نامعتبر، منقضی یا قبلاً استفاده شده است.</value>
+  </data>
+  <data name="Auth.PkceVerificationFailed" xml:space="preserve">
+    <value>مقدار code_verifier با code_challenge مطابقت ندارد.</value>
+  </data>
+  <data name="Auth.UnsupportedGrantType" xml:space="preserve">
+    <value>این grant_type در نقطه پایانی توکن پشتیبانی نمی‌شود.</value>
+  </data>
 </root>

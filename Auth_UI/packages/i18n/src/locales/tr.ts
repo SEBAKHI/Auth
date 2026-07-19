@@ -200,6 +200,8 @@ export const tr: TranslationResources = {
       "{{current}} olarak oturum açtınız, ancak bu davet {{invited}} için. Oturumu kapatın ve davet edilen hesabı kullanın.",
     invitationSignOut: "Oturumu kapat",
     signInSubtitleAccounts: "Hesabınıza giriş yapın.",
+    continueToApp: "{{name}} uygulamasına devam edin.",
+    securedBy: "{{name}} güvencesiyle",
     orContinueWith: "veya şununla devam edin",
     registerTitle: "Hesabınızı oluşturun",
     registerSubtitle: "E-posta adresinizle kaydolun.",
@@ -454,6 +456,9 @@ export const tr: TranslationResources = {
     editTitle: "Uygulamayı düzenle",
     baseUrl: "Temel URL",
     logoUrl: "Logo URL'si",
+    redirectUris: "Yönlendirme URI'leri",
+    redirectUrisHint:
+      "Her satıra bir URI. Birebir eşleşme — https zorunlu (http yalnızca localhost için).",
     contactEmail: "İletişim e-postası",
     allowSelfRegistration: "Kendi kendine kayda izin ver",
     requireTwoFactor: "İki adımlı doğrulama zorunlu",

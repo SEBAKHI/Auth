@@ -25,26 +25,28 @@ public class GetDiscoveryDocumentQueryHandler
         var baseUrl = request.BaseUrl;
         const string apiVersion = "v1";
 
-        // authorization_endpoint, response types, PKCE, id_token signing and scopes are
-        // intentionally NOT advertised: the authorization-code flow does not exist yet,
-        // and the document must only advertise capabilities that are actually implemented.
-        // Re-add them together with the /auth/authorize endpoint (Phase 4).
+        // The document advertises exactly what is implemented: the
+        // authorization-code + PKCE flow on /auth/authorize + /auth/token.
+        // id_token signing and scopes stay absent until OIDC id_tokens exist.
         var document = new DiscoveryDocumentDto
         {
             Issuer = _jwtSettings.Issuer,
             JwksUri = $"{baseUrl}/.well-known/jwks.json",
-            TokenEndpoint = $"{baseUrl}/api/{apiVersion}/auth/login",
+            AuthorizationEndpoint = $"{baseUrl}/api/{apiVersion}/auth/authorize",
+            TokenEndpoint = $"{baseUrl}/api/{apiVersion}/auth/token",
             UserinfoEndpoint = $"{baseUrl}/api/{apiVersion}/auth/me",
             EndSessionEndpoint = $"{baseUrl}/api/{apiVersion}/auth/logout",
             RevocationEndpoint = $"{baseUrl}/api/{apiVersion}/auth/revoke",
             IntrospectionEndpoint = $"{baseUrl}/api/{apiVersion}/auth/introspect",
-            ResponseTypesSupported = [],
+            ResponseTypesSupported = ["code"],
             SubjectTypesSupported = ["public"],
-            // Login and refresh authenticate the user, not an OAuth client; per
-            // RFC 8414 omitting this field would imply client_secret_basic.
+            // Public clients with mandatory PKCE — no client authentication at
+            // the token endpoint; per RFC 8414 omitting this field would imply
+            // client_secret_basic.
             TokenEndpointAuthMethodsSupported = ["none"],
             ClaimsSupported = ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
-            GrantTypesSupported = ["password", "refresh_token"]
+            GrantTypesSupported = ["authorization_code", "refresh_token"],
+            CodeChallengeMethodsSupported = ["S256"]
         };
 
         return Task.FromResult<ErrorOr<DiscoveryDocumentDto>>(document);

@@ -197,6 +197,8 @@ export const ar: TranslationResources = {
       "أنت مسجّل الدخول باسم {{current}}، لكن هذه الدعوة موجهة إلى {{invited}}. سجّل الخروج واستخدم الحساب المدعو.",
     invitationSignOut: "تسجيل الخروج",
     signInSubtitleAccounts: "سجّل الدخول إلى حسابك.",
+    continueToApp: "للمتابعة إلى {{name}}.",
+    securedBy: "محمي بواسطة {{name}}",
     orContinueWith: "أو تابع باستخدام",
     registerTitle: "أنشئ حسابك",
     registerSubtitle: "سجّل باستخدام بريدك الإلكتروني.",
@@ -446,6 +448,9 @@ export const ar: TranslationResources = {
     editTitle: "تعديل تطبيق",
     baseUrl: "الرابط الأساسي",
     logoUrl: "رابط الشعار",
+    redirectUris: "عناوين إعادة التوجيه (Redirect URIs)",
+    redirectUrisHint:
+      "عنوان واحد في كل سطر. مطابقة حرفية — https إلزامي (http لـ localhost فقط).",
     contactEmail: "بريد التواصل",
     allowSelfRegistration: "السماح بالتسجيل الذاتي",
     requireTwoFactor: "اشتراط المصادقة الثنائية",

@@ -18,6 +18,13 @@ public class ApplicationDto
     public bool RequireEmailVerification { get; set; }
     public int SessionTimeoutMinutes { get; set; }
     public int MaxConcurrentSessions { get; set; }
+
+    /// <summary>
+    /// Exact-match allowlist of OAuth redirect URIs (authorization-code flow).
+    /// Populated on single-application reads; empty in paged lists.
+    /// </summary>
+    public List<string> RedirectUris { get; set; } = [];
+
     public DateTime CreatedAt { get; set; }
     public Guid CreatedBy { get; set; }
 

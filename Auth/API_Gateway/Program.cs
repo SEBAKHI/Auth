@@ -249,6 +249,14 @@ builder.Services.AddCors(options =>
         else
         {
             policy.WithOrigins(origins);
+
+            // The IdP session cookie rides on credentialed requests from the
+            // accounts SPA. AllowCredentials is only legal with explicit
+            // origins, never with AllowAnyOrigin.
+            if (builder.Configuration.GetValue("Cors:AllowCredentials", false))
+            {
+                policy.AllowCredentials();
+            }
         }
 
         policy.AllowAnyMethod()

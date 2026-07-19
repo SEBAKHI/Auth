@@ -1,3 +1,4 @@
+using System.Data;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -35,7 +36,13 @@ public class ApplicationRepository : IApplicationRepository
             WHERE [Id] = @Id",
             new { Id = id });
 
-        return dto?.ToEntity();
+        var entity = dto?.ToEntity();
+        if (entity is not null)
+        {
+            await LoadRedirectUrisAsync(connection, entity);
+        }
+
+        return entity;
     }
 
     /// <inheritdoc />
@@ -53,7 +60,25 @@ public class ApplicationRepository : IApplicationRepository
             WHERE [Code] = @Code",
             new { Code = code.ToUpperInvariant() });
 
-        return dto?.ToEntity();
+        var entity = dto?.ToEntity();
+        if (entity is not null)
+        {
+            await LoadRedirectUrisAsync(connection, entity);
+        }
+
+        return entity;
+    }
+
+    private static async Task LoadRedirectUrisAsync(IDbConnection connection, AppEntity application)
+    {
+        var uris = await connection.QueryAsync<string>(@"
+            SELECT [Uri]
+            FROM [dbo].[ApplicationRedirectUris]
+            WHERE [ApplicationId] = @ApplicationId
+            ORDER BY [CreatedAt]",
+            new { ApplicationId = application.Id });
+
+        application.LoadRedirectUris(uris);
     }
 
     /// <inheritdoc />
@@ -183,6 +208,26 @@ public class ApplicationRepository : IApplicationRepository
                 application.ModifiedAt,
                 application.ModifiedBy
             });
+
+        // Sync the redirect-URI allowlist (delete + reinsert; the list is
+        // capped at 20 entries so this stays trivial).
+        await connection.ExecuteAsync(@"
+            DELETE FROM [dbo].[ApplicationRedirectUris]
+            WHERE [ApplicationId] = @ApplicationId",
+            new { ApplicationId = application.Id });
+
+        if (application.RedirectUris.Count > 0)
+        {
+            await connection.ExecuteAsync(@"
+                INSERT INTO [dbo].[ApplicationRedirectUris] ([ApplicationId], [Uri], [CreatedBy])
+                VALUES (@ApplicationId, @Uri, @CreatedBy)",
+                application.RedirectUris.Select(uri => new
+                {
+                    ApplicationId = application.Id,
+                    Uri = uri,
+                    CreatedBy = application.ModifiedBy ?? application.CreatedBy
+                }));
+        }
     }
 
     /// <inheritdoc />

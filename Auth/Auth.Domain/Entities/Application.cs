@@ -68,6 +68,15 @@ public class Application : AggregateRoot
     /// </summary>
     public int MaxConcurrentSessions { get; private set; }
 
+    private readonly List<string> _redirectUris = [];
+
+    /// <summary>
+    /// Gets the exact-match allowlist of OAuth redirect URIs for the
+    /// authorization-code flow. The authorize endpoint only ever redirects to
+    /// one of these values.
+    /// </summary>
+    public IReadOnlyList<string> RedirectUris => _redirectUris.AsReadOnly();
+
     private Application() : base()
     {
     }
@@ -157,6 +166,46 @@ public class Application : AggregateRoot
         SessionTimeoutMinutes = sessionTimeoutMinutes;
         MaxConcurrentSessions = maxConcurrentSessions;
         SetModified(modifiedBy);
+    }
+
+    /// <summary>
+    /// Hydrates the redirect URI allowlist from persistence without touching
+    /// audit fields. For repository use only.
+    /// </summary>
+    public void LoadRedirectUris(IEnumerable<string> uris)
+    {
+        _redirectUris.Clear();
+        _redirectUris.AddRange(NormalizeRedirectUris(uris));
+    }
+
+    /// <summary>
+    /// Replaces the redirect URI allowlist (trimmed, de-duplicated).
+    /// URI format rules are enforced by command validation; the entity only
+    /// guarantees a clean, duplicate-free list.
+    /// </summary>
+    public void SetRedirectUris(IEnumerable<string> uris, Guid modifiedBy)
+    {
+        _redirectUris.Clear();
+        _redirectUris.AddRange(NormalizeRedirectUris(uris));
+        SetModified(modifiedBy);
+    }
+
+    /// <summary>
+    /// Checks whether the given redirect URI is on the allowlist. Comparison is
+    /// exact (ordinal) per OAuth 2.0 security best practice — no wildcard or
+    /// prefix matching, ever.
+    /// </summary>
+    public bool IsRedirectUriAllowed(string redirectUri)
+    {
+        return _redirectUris.Contains(redirectUri, StringComparer.Ordinal);
+    }
+
+    private static IEnumerable<string> NormalizeRedirectUris(IEnumerable<string> uris)
+    {
+        return uris
+            .Select(u => u?.Trim() ?? string.Empty)
+            .Where(u => u.Length > 0)
+            .Distinct(StringComparer.Ordinal);
     }
 
     public void Activate(Guid modifiedBy)

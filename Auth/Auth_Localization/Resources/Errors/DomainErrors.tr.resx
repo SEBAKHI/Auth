@@ -636,4 +636,28 @@
   <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
     <value>Yalnızca başarısız (Yeniden Dene veya Ölü) mesajlar yeniden kuyruğa alınabilir.</value>
   </data>
+  <data name="Auth.InvalidClient" xml:space="preserve">
+    <value>client_id bilinmiyor veya uygulama etkin değil.</value>
+  </data>
+  <data name="Auth.UnsupportedResponseType" xml:space="preserve">
+    <value>Yalnızca 'code' yanıt türü desteklenmektedir.</value>
+  </data>
+  <data name="Auth.InvalidRedirectUri" xml:space="preserve">
+    <value>redirect_uri bu uygulama için kayıtlı değil.</value>
+  </data>
+  <data name="Auth.MissingCodeChallenge" xml:space="preserve">
+    <value>PKCE zorunludur: bir code_challenge sağlanmalıdır.</value>
+  </data>
+  <data name="Auth.UnsupportedCodeChallengeMethod" xml:space="preserve">
+    <value>Yalnızca 'S256' kod doğrulama yöntemi desteklenmektedir.</value>
+  </data>
+  <data name="Auth.AuthorizationCodeInvalid" xml:space="preserve">
+    <value>Yetkilendirme kodu geçersiz, süresi dolmuş veya daha önce kullanılmış.</value>
+  </data>
+  <data name="Auth.PkceVerificationFailed" xml:space="preserve">
+    <value>code_verifier, code_challenge ile eşleşmiyor.</value>
+  </data>
+  <data name="Auth.UnsupportedGrantType" xml:space="preserve">
+    <value>grant_type, token uç noktası tarafından desteklenmiyor.</value>
+  </data>
 </root>

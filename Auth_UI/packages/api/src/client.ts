@@ -38,6 +38,7 @@ export async function refreshAccessToken(): Promise<boolean> {
         "Content-Type": "application/json",
         "Accept-Language": i18n.language,
       },
+      credentials: "include",
       body: JSON.stringify({ refreshToken }),
     })
     if (!res.ok) return false
@@ -125,6 +126,13 @@ const authMiddleware: Middleware = {
   },
 }
 
-/** The single, fully typed API client used across the app. */
-export const api = createClient<paths>({ baseUrl: API_BASE_URL })
+/**
+ * The single, fully typed API client used across the app. Credentials are
+ * included so the HttpOnly IdP session cookie is set at login and cleared at
+ * logout (CORS restricts this to the explicitly allowed origins).
+ */
+export const api = createClient<paths>({
+  baseUrl: API_BASE_URL,
+  credentials: "include",
+})
 api.use(authMiddleware)

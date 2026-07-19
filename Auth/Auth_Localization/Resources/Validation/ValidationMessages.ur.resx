@@ -365,4 +365,10 @@
   <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
     <value>متغیرات کیٹلاگ درست JSON آرے ہونا چاہیے۔</value>
   </data>
+  <data name="Validation.RedirectUri.Invalid" xml:space="preserve">
+    <value>ہر ری ڈائریکٹ URI ایک مکمل https URL ہونا چاہیے (http صرف localhost کے لیے)، بغیر fragment کے، زیادہ سے زیادہ 500 حروف۔</value>
+  </data>
+  <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
+    <value>زیادہ سے زیادہ 20 ری ڈائریکٹ URIs کی اجازت ہے۔</value>
+  </data>
 </root>

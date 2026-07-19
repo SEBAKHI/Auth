@@ -1,0 +1,125 @@
+using Auth.Domain.Entities;
+using Auth.Domain.Interfaces.Repositories;
+using Dapper;
+
+namespace Auth.Infrastructure.Persistence;
+
+/// <summary>
+/// Dapper implementation of the OAuth authorization code repository.
+/// </summary>
+public class AuthorizationCodeRepository : IAuthorizationCodeRepository
+{
+    private readonly IDbConnectionFactory _connectionFactory;
+
+    public AuthorizationCodeRepository(IDbConnectionFactory connectionFactory)
+    {
+        _connectionFactory = connectionFactory;
+    }
+
+    /// <inheritdoc />
+    public async Task<AuthorizationCode> CreateAsync(AuthorizationCode code, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            INSERT INTO [dbo].[AuthorizationCodes] (
+                [Id], [ApplicationId], [UserId], [CodeHash], [RedirectUri],
+                [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress]
+            ) VALUES (
+                @Id, @ApplicationId, @UserId, @CodeHash, @RedirectUri,
+                @CodeChallenge, @ExpiresAt, @ConsumedAt, @CreatedAt, @IpAddress
+            )",
+            new
+            {
+                code.Id,
+                code.ApplicationId,
+                code.UserId,
+                code.CodeHash,
+                code.RedirectUri,
+                code.CodeChallenge,
+                code.ExpiresAt,
+                code.ConsumedAt,
+                code.CreatedAt,
+                code.IpAddress
+            });
+
+        return code;
+    }
+
+    /// <inheritdoc />
+    public async Task<AuthorizationCode?> ConsumeByCodeHashAsync(string codeHash, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Single atomic statement: only the caller that flips ConsumedAt gets
+        // the row back, so a code can never be redeemed twice even under
+        // concurrent requests.
+        var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationCodeDto>(@"
+            UPDATE [dbo].[AuthorizationCodes] SET
+                [ConsumedAt] = GETUTCDATE()
+            OUTPUT
+                INSERTED.[Id], INSERTED.[ApplicationId], INSERTED.[UserId],
+                INSERTED.[CodeHash], INSERTED.[RedirectUri], INSERTED.[CodeChallenge],
+                INSERTED.[ExpiresAt], INSERTED.[ConsumedAt], INSERTED.[CreatedAt],
+                INSERTED.[IpAddress]
+            WHERE [CodeHash] = @CodeHash
+              AND [ConsumedAt] IS NULL",
+            new { CodeHash = codeHash });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<AuthorizationCode?> GetByCodeHashAsync(string codeHash, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationCodeDto>(@"
+            SELECT
+                [Id], [ApplicationId], [UserId], [CodeHash], [RedirectUri],
+                [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress]
+            FROM [dbo].[AuthorizationCodes]
+            WHERE [CodeHash] = @CodeHash",
+            new { CodeHash = codeHash });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task CleanupExpiredAsync(DateTime olderThan, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            DELETE FROM [dbo].[AuthorizationCodes]
+            WHERE [ExpiresAt] < @OlderThan",
+            new { OlderThan = olderThan });
+    }
+
+    // Internal DTO for mapping from database
+    private record AuthorizationCodeDto
+    {
+        public Guid Id { get; init; }
+        public Guid ApplicationId { get; init; }
+        public Guid UserId { get; init; }
+        public string CodeHash { get; init; } = string.Empty;
+        public string RedirectUri { get; init; } = string.Empty;
+        public string CodeChallenge { get; init; } = string.Empty;
+        public DateTime ExpiresAt { get; init; }
+        public DateTime? ConsumedAt { get; init; }
+        public DateTime CreatedAt { get; init; }
+        public string? IpAddress { get; init; }
+
+        public AuthorizationCode ToEntity() => new(
+            Id,
+            ApplicationId,
+            UserId,
+            CodeHash,
+            RedirectUri,
+            CodeChallenge,
+            CreatedAt,
+            ExpiresAt,
+            ConsumedAt,
+            IpAddress);
+    }
+}

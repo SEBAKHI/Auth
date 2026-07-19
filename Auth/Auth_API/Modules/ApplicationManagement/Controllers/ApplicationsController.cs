@@ -10,6 +10,7 @@ using Auth.Application.Features.Applications.GetApplicationPermissions;
 using Auth.Application.Features.Applications.GetApplicationRoles;
 using Auth.Application.Features.Applications.GetApplications;
 using Auth.Application.Features.Applications.GetApplicationUsers;
+using Auth.Application.Features.Applications.GetPublicBranding;
 using Auth.Application.Features.Applications.UpdateApplication;
 using Auth.Application.DTOs;
 using Auth.Domain.Enums;
@@ -57,6 +58,25 @@ public class ApplicationsController : ApiController
 
         return result.Match(
             applications => Ok(applications),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Public branding for the hosted login page: display name and logo only.
+    /// Anonymous by design — the accounts app calls it during an authorize
+    /// flow; unknown and inactive applications are both 404.
+    /// </summary>
+    [HttpGet("{clientId}/public-branding")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(PublicBrandingDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPublicBranding(string clientId, CancellationToken cancellationToken)
+    {
+        var query = new GetPublicBrandingQuery(clientId);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            branding => Ok(branding),
             errors => Problem(errors));
     }
 
@@ -236,7 +256,8 @@ public class ApplicationsController : ApiController
             request.RequireTwoFactor,
             request.RequireEmailVerification,
             request.SessionTimeoutMinutes,
-            request.MaxConcurrentSessions)
+            request.MaxConcurrentSessions,
+            request.RedirectUris)
         {
             ModifiedBy = userId
         };

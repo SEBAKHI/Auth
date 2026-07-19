@@ -18,6 +18,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IUserSessionRepository _sessionRepository;
+    private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<LogoutCommandHandler> _logger;
@@ -28,6 +29,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         IRefreshTokenKeyService refreshTokenKeyService,
         IJwtTokenService jwtTokenService,
         IUserSessionRepository sessionRepository,
+        IIdpSessionRepository idpSessionRepository,
         IPublisher publisher,
         IOptions<JwtSettings> jwtSettings,
         ILogger<LogoutCommandHandler> logger)
@@ -37,6 +39,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         _refreshTokenKeyService = refreshTokenKeyService;
         _jwtTokenService = jwtTokenService;
         _sessionRepository = sessionRepository;
+        _idpSessionRepository = idpSessionRepository;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
@@ -97,6 +100,31 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         {
             _logger.LogWarning(ex,
                 "Failed to terminate session(s) on logout for user {UserId}", request.UserId);
+        }
+
+        // End the IdP SSO session so future authorize requests require a fresh
+        // interactive login. Best-effort: never fail logout.
+        try
+        {
+            if (request.LogoutAllDevices)
+            {
+                await _idpSessionRepository.RevokeAllForUserAsync(request.UserId, cancellationToken);
+            }
+            else if (!string.IsNullOrEmpty(request.IdpSessionToken))
+            {
+                var idpTokenHash = _refreshTokenKeyService.ComputeTokenHash(request.IdpSessionToken);
+                var idpSession = await _idpSessionRepository.GetByTokenHashAsync(idpTokenHash, cancellationToken);
+                if (idpSession is { IsRevoked: false })
+                {
+                    idpSession.Revoke();
+                    await _idpSessionRepository.UpdateAsync(idpSession, cancellationToken);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Failed to revoke IdP session on logout for user {UserId}", request.UserId);
         }
 
         await _publisher.Publish(

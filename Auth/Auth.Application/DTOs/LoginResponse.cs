@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Auth.Application.DTOs;
 
 /// <summary>
@@ -32,4 +34,12 @@ public record LoginResponse
     /// endpoint (null unless <see cref="RequiresTwoFactor"/> is true).
     /// </summary>
     public string? TwoFactorChallengeToken { get; init; }
+
+    /// <summary>
+    /// Gets the plain IdP session token minted for this login. NEVER serialized:
+    /// the controller moves it into the HttpOnly IdP session cookie and the
+    /// browser is the only place it lives outside the hashed database row.
+    /// </summary>
+    [JsonIgnore]
+    public string? IdpSessionToken { get; init; }
 }

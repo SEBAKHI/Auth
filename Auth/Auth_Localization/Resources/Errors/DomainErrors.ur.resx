@@ -636,4 +636,28 @@
   <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
     <value>صرف ناکام (دوبارہ کوشش یا مردہ) پیغامات دوبارہ قطار میں لگائے جا سکتے ہیں۔</value>
   </data>
+  <data name="Auth.InvalidClient" xml:space="preserve">
+    <value>client_id نامعلوم ہے یا ایپلیکیشن غیر فعال ہے۔</value>
+  </data>
+  <data name="Auth.UnsupportedResponseType" xml:space="preserve">
+    <value>صرف 'code' رسپانس ٹائپ معاون ہے۔</value>
+  </data>
+  <data name="Auth.InvalidRedirectUri" xml:space="preserve">
+    <value>redirect_uri اس ایپلیکیشن کے لیے رجسٹرڈ نہیں ہے۔</value>
+  </data>
+  <data name="Auth.MissingCodeChallenge" xml:space="preserve">
+    <value>‏PKCE لازمی ہے: code_challenge فراہم کرنا ضروری ہے۔</value>
+  </data>
+  <data name="Auth.UnsupportedCodeChallengeMethod" xml:space="preserve">
+    <value>صرف 'S256' کوڈ چیلنج طریقہ معاون ہے۔</value>
+  </data>
+  <data name="Auth.AuthorizationCodeInvalid" xml:space="preserve">
+    <value>اجازت کوڈ غلط، زائد المیعاد یا پہلے استعمال شدہ ہے۔</value>
+  </data>
+  <data name="Auth.PkceVerificationFailed" xml:space="preserve">
+    <value>code_verifier کی قدر code_challenge سے مطابقت نہیں رکھتی۔</value>
+  </data>
+  <data name="Auth.UnsupportedGrantType" xml:space="preserve">
+    <value>ٹوکن اینڈ پوائنٹ اس grant_type کی حمایت نہیں کرتا۔</value>
+  </data>
 </root>

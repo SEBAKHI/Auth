@@ -63,6 +63,7 @@ builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSett
 builder.Services.Configure<PasswordSettings>(builder.Configuration.GetSection(PasswordSettings.SectionName));
 builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(GatewaySettings.SectionName));
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
+builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSection(IdentityProviderSettings.SectionName));
 // Password reset and email verification links are built from FrontendBaseUrl. An
 // empty value silently yields a relative URL, i.e. a dead link in every email, so
 // it is validated up front - but only when email is actually enabled, since it is
@@ -215,6 +216,8 @@ builder.Services.AddScoped<IPasswordHistoryRepository, PasswordHistoryRepository
 builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
 builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
 builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
+builder.Services.AddScoped<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
+builder.Services.AddScoped<IIdpSessionRepository, IdpSessionRepository>();
 builder.Services.AddScoped<ITwoFactorAuthRepository, TwoFactorAuthRepository>();
 builder.Services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();

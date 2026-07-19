@@ -192,6 +192,8 @@ export const en = {
       "You are signed in as {{current}}, but this invitation is for {{invited}}. Sign out and use the invited account.",
     invitationSignOut: "Sign out",
     signInSubtitleAccounts: "Sign in to your account.",
+    continueToApp: "Continue to {{name}}.",
+    securedBy: "Secured by {{name}}",
     orContinueWith: "Or continue with",
     registerTitle: "Create your account",
     registerSubtitle: "Sign up with your email address.",
@@ -439,6 +441,9 @@ export const en = {
     editTitle: "Edit application",
     baseUrl: "Base URL",
     logoUrl: "Logo URL",
+    redirectUris: "Redirect URIs",
+    redirectUrisHint:
+      "One URI per line. Exact match — https required (http only for localhost).",
     contactEmail: "Contact email",
     allowSelfRegistration: "Allow self-registration",
     requireTwoFactor: "Require two-factor",

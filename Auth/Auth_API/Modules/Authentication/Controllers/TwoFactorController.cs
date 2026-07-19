@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Asp.Versioning;
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.DisableTwoFactor;
 using Auth.Application.Features.Authentication.EnableTwoFactor;
@@ -12,6 +13,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 
 namespace Auth_API.Modules.Authentication.Controllers;
 
@@ -26,11 +28,16 @@ namespace Auth_API.Modules.Authentication.Controllers;
 public class TwoFactorController : ApiController
 {
     private readonly ISender _sender;
+    private readonly IdentityProviderSettings _idpSettings;
     private readonly ILogger<TwoFactorController> _logger;
 
-    public TwoFactorController(ISender sender, ILogger<TwoFactorController> logger)
+    public TwoFactorController(
+        ISender sender,
+        IOptions<IdentityProviderSettings> idpSettings,
+        ILogger<TwoFactorController> logger)
     {
         _sender = sender;
+        _idpSettings = idpSettings.Value;
         _logger = logger;
     }
 
@@ -109,7 +116,11 @@ public class TwoFactorController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            response => Ok(response),
+            response =>
+            {
+                IdpSessionCookie.Apply(Response, response, _idpSettings);
+                return Ok(response);
+            },
             errors => Problem(errors));
     }
 

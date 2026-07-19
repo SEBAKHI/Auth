@@ -1,11 +1,14 @@
 using System.Security.Claims;
 using Asp.Versioning;
+using Auth.Application.Configuration;
+using Auth.Application.Features.Authentication.Authorize;
 using Auth.Application.Features.Authentication.ChangePassword;
 using Auth.Application.Features.Authentication.ForgotPassword;
 using Auth.Application.Features.Authentication.IntrospectToken;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.Logout;
 using Auth.Application.Features.Authentication.ExternalLogin;
+using Auth.Application.Features.Authentication.TokenExchange;
 using Auth.Application.Features.Authentication.Register;
 using Auth.Application.Features.Authentication.RefreshToken;
 using Auth.Application.Features.Authentication.ResendEmailVerification;
@@ -23,8 +26,10 @@ using Auth.Domain.Enums;
 using MediatR;
 using Auth_API.Common;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.Extensions.Options;
 
 namespace Auth_API.Modules.Authentication.Controllers;
 
@@ -38,11 +43,16 @@ namespace Auth_API.Modules.Authentication.Controllers;
 public class AuthController : ApiController
 {
     private readonly ISender _sender;
+    private readonly IdentityProviderSettings _idpSettings;
     private readonly ILogger<AuthController> _logger;
 
-    public AuthController(ISender sender, ILogger<AuthController> logger)
+    public AuthController(
+        ISender sender,
+        IOptions<IdentityProviderSettings> idpSettings,
+        ILogger<AuthController> logger)
     {
         _sender = sender;
+        _idpSettings = idpSettings.Value;
         _logger = logger;
     }
 
@@ -71,7 +81,11 @@ public class AuthController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            response => Ok(response),
+            response =>
+            {
+                IdpSessionCookie.Apply(Response, response, _idpSettings);
+                return Ok(response);
+            },
             errors => Problem(errors));
     }
 
@@ -155,7 +169,11 @@ public class AuthController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            response => Ok(response),
+            response =>
+            {
+                IdpSessionCookie.Apply(Response, response, _idpSettings);
+                return Ok(response);
+            },
             errors => Problem(errors));
     }
 
@@ -184,6 +202,101 @@ public class AuthController : ApiController
     }
 
     /// <summary>
+    /// OAuth 2.0 authorization endpoint (authorization-code + PKCE).
+    /// With a valid IdP session, 302s back to the registered redirect_uri with
+    /// a one-time code; without one, 302s to the accounts login page. Unknown
+    /// client_id or unregistered redirect_uri returns 400 without redirecting.
+    /// </summary>
+    [HttpGet("authorize")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Authorize(
+        [FromQuery(Name = "response_type")] string? responseType,
+        [FromQuery(Name = "client_id")] string? clientId,
+        [FromQuery(Name = "redirect_uri")] string? redirectUri,
+        [FromQuery(Name = "code_challenge")] string? codeChallenge,
+        [FromQuery(Name = "code_challenge_method")] string? codeChallengeMethod,
+        [FromQuery(Name = "state")] string? state,
+        CancellationToken cancellationToken)
+    {
+        var command = new AuthorizeCommand(
+            responseType,
+            clientId,
+            redirectUri,
+            codeChallenge,
+            codeChallengeMethod,
+            state,
+            IdpSessionCookie.Read(Request, _idpSettings),
+            Request.GetEncodedUrl(),
+            GetClientIpAddress());
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Redirect(response.RedirectUrl),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// OAuth 2.0 token endpoint (RFC 6749 §3.2, form-encoded). Supports the
+    /// authorization_code grant (PKCE mandatory, public clients — no client
+    /// secret) and the refresh_token grant.
+    /// </summary>
+    [HttpPost("token")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [Consumes("application/x-www-form-urlencoded")]
+    [ProducesResponseType(typeof(OAuthTokenResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> Token([FromForm] OAuthTokenRequest request, CancellationToken cancellationToken)
+    {
+        switch (request.GrantType)
+        {
+            case "authorization_code":
+            {
+                var command = new ExchangeAuthorizationCodeCommand(
+                    request.Code,
+                    request.RedirectUri,
+                    request.ClientId,
+                    request.CodeVerifier,
+                    GetClientIpAddress(),
+                    GetUserAgent());
+
+                var result = await _sender.Send(command, cancellationToken);
+
+                return result.Match<IActionResult>(
+                    response => Ok(response),
+                    errors => Problem(errors));
+            }
+
+            case "refresh_token":
+            {
+                var command = new RefreshTokenCommand(
+                    request.RefreshToken ?? string.Empty,
+                    GetClientIpAddress(),
+                    GetUserAgent());
+
+                var result = await _sender.Send(command, cancellationToken);
+
+                return result.Match<IActionResult>(
+                    response => Ok(new OAuthTokenResponse
+                    {
+                        AccessToken = response.AccessToken,
+                        ExpiresIn = response.ExpiresIn,
+                        RefreshToken = response.RefreshToken,
+                        RefreshExpiresIn = response.RefreshExpiresIn
+                    }),
+                    errors => Problem(errors));
+            }
+
+            default:
+                return Problem([Auth.Domain.Errors.AuthErrors.UnsupportedGrantType]);
+        }
+    }
+
+    /// <summary>
     /// Logs out the current user and revokes their tokens.
     /// </summary>
     /// <param name="request">Logout options</param>
@@ -206,12 +319,17 @@ public class AuthController : ApiController
             GetAccessToken(),
             GetClientIpAddress(),
             request?.LogoutAllDevices ?? false,
-            GetCurrentSessionId());
+            GetCurrentSessionId(),
+            IdpSessionCookie.Read(Request, _idpSettings));
 
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            _ => NoContent(),
+            _ =>
+            {
+                IdpSessionCookie.Delete(Response, _idpSettings);
+                return NoContent();
+            },
             errors => Problem(errors));
     }
 
@@ -514,7 +632,16 @@ public class AuthController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            response => response.Login is not null ? Ok(response.Login) : NoContent(),
+            response =>
+            {
+                if (response.Login is null)
+                {
+                    return NoContent();
+                }
+
+                IdpSessionCookie.Apply(Response, response.Login, _idpSettings);
+                return Ok(response.Login);
+            },
             errors => Problem(errors));
     }
 

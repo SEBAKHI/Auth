@@ -34,7 +34,8 @@ public class GetDiscoveryDocumentQueryHandlerTests
 
         document.Issuer.Should().Be(Issuer);
         document.JwksUri.Should().Be($"{BaseUrl}/.well-known/jwks.json");
-        document.TokenEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/login");
+        document.AuthorizationEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/authorize");
+        document.TokenEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/token");
         document.UserinfoEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/me");
         document.EndSessionEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/logout");
         document.RevocationEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/revoke");
@@ -47,20 +48,19 @@ public class GetDiscoveryDocumentQueryHandlerTests
         // Act
         var result = await _handler.Handle(new GetDiscoveryDocumentQuery(BaseUrl), CancellationToken.None);
 
-        // Assert — no authorization-code flow exists yet, so nothing that depends
-        // on an authorization endpoint may be advertised (Phase 4 re-adds them).
+        // Assert — the authorization-code + PKCE flow exists; OIDC id_tokens
+        // and scopes still do not, so they stay unadvertised.
         result.IsError.Should().BeFalse();
         var document = result.Value;
 
-        document.AuthorizationEndpoint.Should().BeNull();
-        document.ResponseTypesSupported.Should().BeEmpty();
-        document.CodeChallengeMethodsSupported.Should().BeNull();
-        document.ScopesSupported.Should().BeNull();
-        document.IdTokenSigningAlgValuesSupported.Should().BeNull();
-
-        document.GrantTypesSupported.Should().BeEquivalentTo("password", "refresh_token");
+        document.ResponseTypesSupported.Should().BeEquivalentTo("code");
+        document.CodeChallengeMethodsSupported.Should().BeEquivalentTo("S256");
+        document.GrantTypesSupported.Should().BeEquivalentTo("authorization_code", "refresh_token");
         document.TokenEndpointAuthMethodsSupported.Should().BeEquivalentTo("none");
         document.SubjectTypesSupported.Should().BeEquivalentTo("public");
+
+        document.ScopesSupported.Should().BeNull();
+        document.IdTokenSigningAlgValuesSupported.Should().BeNull();
     }
 
     [Fact]
@@ -83,14 +83,14 @@ public class GetDiscoveryDocumentQueryHandlerTests
         // Assert
         json.Should().Contain("\"issuer\"");
         json.Should().Contain("\"jwks_uri\"");
+        json.Should().Contain("\"authorization_endpoint\"");
         json.Should().Contain("\"token_endpoint\"");
         json.Should().Contain("\"grant_types_supported\"");
+        json.Should().Contain("\"code_challenge_methods_supported\"");
         json.Should().NotContain("jwksUri");
         json.Should().NotContain("tokenEndpoint");
 
         // Unimplemented capabilities must be absent from the wire format entirely.
-        json.Should().NotContain("authorization_endpoint");
-        json.Should().NotContain("code_challenge_methods_supported");
         json.Should().NotContain("scopes_supported");
         json.Should().NotContain("id_token_signing_alg_values_supported");
     }

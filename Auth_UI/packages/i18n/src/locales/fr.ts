@@ -202,6 +202,8 @@ export const fr: TranslationResources = {
       "Vous êtes connecté en tant que {{current}}, mais cette invitation est destinée à {{invited}}. Déconnectez-vous et utilisez le compte invité.",
     invitationSignOut: "Se déconnecter",
     signInSubtitleAccounts: "Connectez-vous à votre compte.",
+    continueToApp: "Continuer vers {{name}}.",
+    securedBy: "Sécurisé par {{name}}",
     orContinueWith: "Ou continuer avec",
     registerTitle: "Créez votre compte",
     registerSubtitle: "Inscrivez-vous avec votre adresse e-mail.",
@@ -461,6 +463,9 @@ export const fr: TranslationResources = {
     editTitle: "Modifier l'application",
     baseUrl: "URL de base",
     logoUrl: "URL du logo",
+    redirectUris: "URI de redirection",
+    redirectUrisHint:
+      "Une URI par ligne. Correspondance exacte — https requis (http uniquement pour localhost).",
     contactEmail: "E-mail de contact",
     allowSelfRegistration: "Autoriser l'auto-inscription",
     requireTwoFactor: "Exiger deux facteurs",

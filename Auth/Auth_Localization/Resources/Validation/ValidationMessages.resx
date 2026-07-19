@@ -365,4 +365,10 @@
   <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
     <value>The variable catalog must be a valid JSON array.</value>
   </data>
+  <data name="Validation.RedirectUri.Invalid" xml:space="preserve">
+    <value>Each redirect URI must be an absolute https URL (http allowed for localhost only) without a fragment, up to 500 characters.</value>
+  </data>
+  <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
+    <value>At most 20 redirect URIs are allowed.</value>
+  </data>
 </root>

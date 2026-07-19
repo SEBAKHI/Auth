@@ -80,4 +80,36 @@ public static class AuthErrors
     public static Error ConcurrentLoginDetected => Error.Forbidden(
         code: "Auth.ConcurrentLoginDetected",
         description: "A new login was detected from another device. This session has been terminated.");
+
+    public static Error InvalidClient => Error.Validation(
+        code: "Auth.InvalidClient",
+        description: "The client_id is unknown or the application is inactive.");
+
+    public static Error UnsupportedResponseType => Error.Validation(
+        code: "Auth.UnsupportedResponseType",
+        description: "Only the 'code' response type is supported.");
+
+    public static Error InvalidRedirectUri => Error.Validation(
+        code: "Auth.InvalidRedirectUri",
+        description: "The redirect_uri is not registered for this application.");
+
+    public static Error MissingCodeChallenge => Error.Validation(
+        code: "Auth.MissingCodeChallenge",
+        description: "PKCE is required: a code_challenge must be provided.");
+
+    public static Error UnsupportedCodeChallengeMethod => Error.Validation(
+        code: "Auth.UnsupportedCodeChallengeMethod",
+        description: "Only the 'S256' code challenge method is supported.");
+
+    public static Error AuthorizationCodeInvalid => Error.Validation(
+        code: "Auth.AuthorizationCodeInvalid",
+        description: "The authorization code is invalid, expired, or already used.");
+
+    public static Error PkceVerificationFailed => Error.Validation(
+        code: "Auth.PkceVerificationFailed",
+        description: "The code_verifier does not match the code_challenge.");
+
+    public static Error UnsupportedGrantType => Error.Validation(
+        code: "Auth.UnsupportedGrantType",
+        description: "The grant_type is not supported by the token endpoint.");
 }

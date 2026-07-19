@@ -9,6 +9,7 @@ import { z } from "zod"
 import { FormDialog } from "@astoom/ui/common/form-dialog"
 import {
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -289,6 +290,7 @@ export function ApplicationEditDialog({
     requireEmailVerification: z.boolean(),
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
     maxConcurrentSessions: z.string().min(1, t("validation.required")),
+    redirectUris: z.string().optional(),
   })
   type Values = z.infer<typeof schema>
 
@@ -305,6 +307,7 @@ export function ApplicationEditDialog({
       requireEmailVerification: false,
       sessionTimeoutMinutes: "60",
       maxConcurrentSessions: "5",
+      redirectUris: "",
     },
   })
 
@@ -321,6 +324,7 @@ export function ApplicationEditDialog({
       requireEmailVerification: application.requireEmailVerification ?? false,
       sessionTimeoutMinutes: String(application.sessionTimeoutMinutes ?? 60),
       maxConcurrentSessions: String(application.maxConcurrentSessions ?? 5),
+      redirectUris: (application.redirectUris ?? []).join("\n"),
     })
   }, [open, application, form])
 
@@ -339,6 +343,10 @@ export function ApplicationEditDialog({
           requireEmailVerification: values.requireEmailVerification,
           sessionTimeoutMinutes: Number(values.sessionTimeoutMinutes) || 60,
           maxConcurrentSessions: Number(values.maxConcurrentSessions) || 5,
+          redirectUris: (values.redirectUris ?? "")
+            .split("\n")
+            .map((uri) => uri.trim())
+            .filter((uri) => uri.length > 0),
         },
       })
       if (error) throw error
@@ -425,6 +433,20 @@ export function ApplicationEditDialog({
             <FormControl>
               <Input type="email" {...field} />
             </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="redirectUris"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.redirectUris")}</FormLabel>
+            <FormControl>
+              <Textarea rows={3} {...field} />
+            </FormControl>
+            <FormDescription>{t("applications.redirectUrisHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}

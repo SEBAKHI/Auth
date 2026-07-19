@@ -45,6 +45,12 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             request.MaxConcurrentSessions,
             request.ModifiedBy);
 
+        // Null means "leave the allowlist untouched"; an empty list clears it.
+        if (request.RedirectUris is not null)
+        {
+            application.SetRedirectUris(request.RedirectUris, request.ModifiedBy);
+        }
+
         await _applicationRepository.UpdateAsync(application, cancellationToken);
 
         _logger.LogInformation(
@@ -66,6 +72,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             RequireEmailVerification = application.RequireEmailVerification,
             SessionTimeoutMinutes = application.SessionTimeoutMinutes,
             MaxConcurrentSessions = application.MaxConcurrentSessions,
+            RedirectUris = [.. application.RedirectUris],
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             ModifiedAt = application.ModifiedAt,

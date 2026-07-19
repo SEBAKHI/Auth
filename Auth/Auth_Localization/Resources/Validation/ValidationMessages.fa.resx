@@ -365,4 +365,10 @@
   <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
     <value>کاتالوگ متغیرها باید یک آرایه JSON معتبر باشد.</value>
   </data>
+  <data name="Validation.RedirectUri.Invalid" xml:space="preserve">
+    <value>هر آدرس بازگشت باید یک URL مطلق https باشد (http فقط برای localhost مجاز است)، بدون fragment و حداکثر ۵۰۰ نویسه.</value>
+  </data>
+  <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
+    <value>حداکثر ۲۰ آدرس بازگشت مجاز است.</value>
+  </data>
 </root>

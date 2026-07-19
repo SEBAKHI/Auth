@@ -18,7 +18,8 @@ public record UpdateApplicationCommand(
     bool RequireTwoFactor = false,
     bool RequireEmailVerification = false,
     int SessionTimeoutMinutes = 60,
-    int MaxConcurrentSessions = 5) : IRequest<ErrorOr<ApplicationDto>>
+    int MaxConcurrentSessions = 5,
+    IReadOnlyList<string>? RedirectUris = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user modifying this application (for audit).

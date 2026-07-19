@@ -365,4 +365,10 @@
   <data name="Validation.NotificationVariables.InvalidJson" xml:space="preserve">
     <value>Değişken kataloğu geçerli bir JSON dizisi olmalıdır.</value>
   </data>
+  <data name="Validation.RedirectUri.Invalid" xml:space="preserve">
+    <value>Her yönlendirme URI'si, parça (fragment) içermeyen, en fazla 500 karakterlik mutlak bir https URL'si olmalıdır (http yalnızca localhost için).</value>
+  </data>
+  <data name="Validation.RedirectUri.TooMany" xml:space="preserve">
+    <value>En fazla 20 yönlendirme URI'sine izin verilir.</value>
+  </data>
 </root>

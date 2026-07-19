@@ -636,4 +636,28 @@
   <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
     <value>Seuls les messages en échec (Réessai ou Mort) peuvent être remis en file.</value>
   </data>
+  <data name="Auth.InvalidClient" xml:space="preserve">
+    <value>Le client_id est inconnu ou l'application est inactive.</value>
+  </data>
+  <data name="Auth.UnsupportedResponseType" xml:space="preserve">
+    <value>Seul le type de réponse 'code' est pris en charge.</value>
+  </data>
+  <data name="Auth.InvalidRedirectUri" xml:space="preserve">
+    <value>Le redirect_uri n'est pas enregistré pour cette application.</value>
+  </data>
+  <data name="Auth.MissingCodeChallenge" xml:space="preserve">
+    <value>PKCE est requis : un code_challenge doit être fourni.</value>
+  </data>
+  <data name="Auth.UnsupportedCodeChallengeMethod" xml:space="preserve">
+    <value>Seule la méthode de challenge 'S256' est prise en charge.</value>
+  </data>
+  <data name="Auth.AuthorizationCodeInvalid" xml:space="preserve">
+    <value>Le code d'autorisation est invalide, expiré ou déjà utilisé.</value>
+  </data>
+  <data name="Auth.PkceVerificationFailed" xml:space="preserve">
+    <value>Le code_verifier ne correspond pas au code_challenge.</value>
+  </data>
+  <data name="Auth.UnsupportedGrantType" xml:space="preserve">
+    <value>Le grant_type n'est pas pris en charge par le point de terminaison de jeton.</value>
+  </data>
 </root>

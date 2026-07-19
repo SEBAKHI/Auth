@@ -25,7 +25,9 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private readonly IUserRepository _userRepository;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IUserSessionRepository _sessionRepository;
+    private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly JwtSettings _jwtSettings;
+    private readonly IdentityProviderSettings _idpSettings;
     private readonly ILogger<LoginResponseBuilder> _logger;
 
     public LoginResponseBuilder(
@@ -38,7 +40,9 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         IUserRepository userRepository,
         ILoginAttemptRepository loginAttemptRepository,
         IUserSessionRepository sessionRepository,
+        IIdpSessionRepository idpSessionRepository,
         IOptions<JwtSettings> jwtSettings,
+        IOptions<IdentityProviderSettings> idpSettings,
         ILogger<LoginResponseBuilder> logger)
     {
         _roleRepository = roleRepository;
@@ -50,7 +54,9 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _userRepository = userRepository;
         _loginAttemptRepository = loginAttemptRepository;
         _sessionRepository = sessionRepository;
+        _idpSessionRepository = idpSessionRepository;
         _jwtSettings = jwtSettings.Value;
+        _idpSettings = idpSettings.Value;
         _logger = logger;
     }
 
@@ -59,7 +65,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         User user,
         string? ipAddress,
         string? deviceInfo,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool establishIdpSession = true)
     {
         // Get roles and permissions
         var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
@@ -136,6 +143,31 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _logger.LogInformation("User {UserId} logged in successfully from {IpAddress}",
             user.Id, ipAddress);
 
+        // Mint the IdP SSO session (the cookie's server-side counterpart) so a
+        // later authorize request can recognize the browser. Like session-row
+        // tracking above, this must never break the login itself.
+        string? idpSessionToken = null;
+        if (establishIdpSession)
+        {
+            try
+            {
+                var plainIdpToken = _jwtTokenService.GenerateRefreshToken();
+                var idpSession = IdpSession.Create(
+                    user.Id,
+                    _refreshTokenKeyService.ComputeTokenHash(plainIdpToken),
+                    _idpSettings.IdpSessionLifetime,
+                    ipAddress,
+                    deviceInfo);
+                await _idpSessionRepository.CreateAsync(idpSession, cancellationToken);
+                idpSessionToken = plainIdpToken;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to create IdP session for user {UserId}", user.Id);
+            }
+        }
+
         // Build response
         var tokenResponse = new TokenResponse
         {
@@ -166,7 +198,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             RequiresPasswordChange = user.MustChangePassword,
             // Tokens are only issued once 2FA is satisfied (or not enabled),
             // so a built response never requires further verification.
-            RequiresTwoFactor = false
+            RequiresTwoFactor = false,
+            IdpSessionToken = idpSessionToken
         };
     }
 }

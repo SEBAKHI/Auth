@@ -636,4 +636,28 @@
   <data name="Notification.OutboxMessageNotRetryable" xml:space="preserve">
     <value>只有失败（重试或死信）的消息才能重新排队。</value>
   </data>
+  <data name="Auth.InvalidClient" xml:space="preserve">
+    <value>client_id 未知或该应用程序未激活。</value>
+  </data>
+  <data name="Auth.UnsupportedResponseType" xml:space="preserve">
+    <value>仅支持 'code' 响应类型。</value>
+  </data>
+  <data name="Auth.InvalidRedirectUri" xml:space="preserve">
+    <value>该 redirect_uri 未在此应用程序中注册。</value>
+  </data>
+  <data name="Auth.MissingCodeChallenge" xml:space="preserve">
+    <value>必须使用 PKCE：请提供 code_challenge。</value>
+  </data>
+  <data name="Auth.UnsupportedCodeChallengeMethod" xml:space="preserve">
+    <value>仅支持 'S256' 代码质询方法。</value>
+  </data>
+  <data name="Auth.AuthorizationCodeInvalid" xml:space="preserve">
+    <value>授权码无效、已过期或已被使用。</value>
+  </data>
+  <data name="Auth.PkceVerificationFailed" xml:space="preserve">
+    <value>code_verifier 与 code_challenge 不匹配。</value>
+  </data>
+  <data name="Auth.UnsupportedGrantType" xml:space="preserve">
+    <value>令牌端点不支持该 grant_type。</value>
+  </data>
 </root>
