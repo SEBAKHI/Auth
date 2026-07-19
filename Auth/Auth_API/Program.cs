@@ -513,7 +513,10 @@ builder.Services.AddRateLimiter(options =>
     // let unrelated login traffic block password resets for everyone.
     options.AddPolicy("password-reset", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            // Real client IP (X-Forwarded-For), not the connection peer: behind
+            // the gateway every request shares one internal peer address, which
+            // would collapse this per-client policy into a single global bucket.
+            partitionKey: ClientIpResolver.Resolve(httpContext) ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = builder.Configuration.GetValue("RateLimiting:PasswordResetPermitLimit", 10),

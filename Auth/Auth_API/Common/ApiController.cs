@@ -80,14 +80,7 @@ public abstract class ApiController : ControllerBase
 
     protected string? GetClientIpAddress()
     {
-        // Check for forwarded header (when behind proxy/gateway)
-        var forwardedFor = Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrEmpty(forwardedFor))
-        {
-            return forwardedFor.Split(',').FirstOrDefault()?.Trim();
-        }
-
-        return HttpContext.Connection.RemoteIpAddress?.ToString();
+        return ClientIpResolver.Resolve(HttpContext);
     }
 
     protected string? GetUserAgent()
