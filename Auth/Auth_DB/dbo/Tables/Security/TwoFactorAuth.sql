@@ -2,7 +2,7 @@ CREATE TABLE [dbo].[TwoFactorAuth]
 (
     [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_TwoFactorAuth_Id] DEFAULT NEWID(),
     [UserId] UNIQUEIDENTIFIER NOT NULL,
-    [SecretKey] NVARCHAR(200) NOT NULL,     -- TOTP secret (encrypted)
+    [SecretKey] NVARCHAR(500) NOT NULL,     -- TOTP secret, encrypted at rest via Data Protection (ITwoFactorSecretProtector)
     [RecoveryCodes] NVARCHAR(MAX) NULL,     -- JSON array of hashed recovery codes
     [IsEnabled] BIT NOT NULL CONSTRAINT [DF_TwoFactorAuth_IsEnabled] DEFAULT 0,
     [EnabledAt] DATETIME2 NULL,

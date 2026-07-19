@@ -328,6 +328,7 @@ builder.Services.AddSingleton<TokenBlacklistService>();
 builder.Services.AddSingleton<ITokenBlacklistService>(sp => sp.GetRequiredService<TokenBlacklistService>());
 builder.Services.AddHostedService<TokenRevocationBackgroundService>();
 builder.Services.AddSingleton<IRefreshTokenKeyService, RefreshTokenKeyService>();
+builder.Services.AddSingleton<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
 builder.Services.AddSingleton<IWebhookKeyHasher, WebhookKeyHasher>();
 builder.Services.AddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
 builder.Services.AddSingleton<IWebhookKeyGenerator, WebhookKeyGenerator>();

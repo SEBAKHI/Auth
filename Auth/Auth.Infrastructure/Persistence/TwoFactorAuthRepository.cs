@@ -1,3 +1,4 @@
+using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Dapper;
@@ -5,15 +6,21 @@ using Dapper;
 namespace Auth.Infrastructure.Persistence;
 
 /// <summary>
-/// Dapper implementation of the two-factor authentication repository.
+/// Dapper implementation of the two-factor authentication repository. The TOTP
+/// secret is encrypted at rest via <see cref="ITwoFactorSecretProtector"/> —
+/// callers always see the plaintext secret; only the database holds ciphertext.
 /// </summary>
 public class TwoFactorAuthRepository : ITwoFactorAuthRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
+    private readonly ITwoFactorSecretProtector _secretProtector;
 
-    public TwoFactorAuthRepository(IDbConnectionFactory connectionFactory)
+    public TwoFactorAuthRepository(
+        IDbConnectionFactory connectionFactory,
+        ITwoFactorSecretProtector secretProtector)
     {
         _connectionFactory = connectionFactory;
+        _secretProtector = secretProtector;
     }
 
     /// <inheritdoc />
@@ -31,7 +38,13 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
             WHERE [UserId] = @UserId",
             new { UserId = userId });
 
-        return dto?.ToEntity();
+        if (dto is null)
+        {
+            return null;
+        }
+
+        // Decrypt the secret so callers (setup/verify) work with plaintext.
+        return dto.ToEntity(_secretProtector.Unprotect(dto.SecretKey));
     }
 
     /// <inheritdoc />
@@ -55,7 +68,7 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
             {
                 twoFactorAuth.Id,
                 twoFactorAuth.UserId,
-                twoFactorAuth.SecretKey,
+                SecretKey = _secretProtector.Protect(twoFactorAuth.SecretKey),
                 twoFactorAuth.RecoveryCodes,
                 twoFactorAuth.IsEnabled,
                 twoFactorAuth.EnabledAt,
@@ -86,7 +99,7 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
             new
             {
                 twoFactorAuth.Id,
-                twoFactorAuth.SecretKey,
+                SecretKey = _secretProtector.Protect(twoFactorAuth.SecretKey),
                 twoFactorAuth.RecoveryCodes,
                 twoFactorAuth.IsEnabled,
                 twoFactorAuth.EnabledAt,
@@ -123,10 +136,10 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
         public DateTime CreatedAt { get; init; }
         public DateTime? ModifiedAt { get; init; }
 
-        public TwoFactorAuth ToEntity() => new(
+        public TwoFactorAuth ToEntity(string decryptedSecret) => new(
             Id,
             UserId,
-            SecretKey,
+            decryptedSecret,
             RecoveryCodes,
             IsEnabled,
             EnabledAt,
