@@ -81,6 +81,9 @@
   <data name="Validation.Days.Range" xml:space="preserve">
     <value>دنوں کی تعداد ۱ سے ۹۰ کے درمیان ہونی چاہیے۔</value>
   </data>
+  <data name="Validation.ReauthenticationMaxAge.Range" xml:space="preserve">
+    <value>دوبارہ توثیق کی زیادہ سے زیادہ مدت ۱ سے ۱۰۰۸۰ منٹ کے درمیان ہونی چاہیے۔</value>
+  </data>
   <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
     <value>اس فہرست کے لیے ترتیب دینے کی فیلڈ کی اجازت نہیں ہے۔</value>
   </data>

@@ -11,4 +11,5 @@ public record UpdateApplicationRequest(
     bool RequireEmailVerification = false,
     int SessionTimeoutMinutes = 60,
     int MaxConcurrentSessions = 5,
-    IReadOnlyList<string>? RedirectUris = null);
+    IReadOnlyList<string>? RedirectUris = null,
+    int? ReauthenticationMaxAgeMinutes = null);

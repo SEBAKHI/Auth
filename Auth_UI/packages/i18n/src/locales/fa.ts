@@ -471,6 +471,9 @@ export const fa: TranslationResources = {
     sessionTimeoutMinutes: "مهلت نشست (دقیقه)",
     maxSessions: "حداکثر نشست‌های هم‌زمان",
     maxConcurrentSessions: "حداکثر نشست‌های هم‌زمان",
+    reauthMaxAge: "حداکثر مدت احراز هویت مجدد (دقیقه)",
+    reauthMaxAgeHint:
+      "تقویت اختیاری. وقتی نشست SSO کاربر از این مقدار قدیمی‌تر باشد، ورود مجدد را الزامی می‌کند. برای غیرفعال‌سازی خالی بگذارید.",
     enabledAt: "فعال‌شده در",
     subscriptionTier: "سطح اشتراک",
     roles: "نقش‌ها",

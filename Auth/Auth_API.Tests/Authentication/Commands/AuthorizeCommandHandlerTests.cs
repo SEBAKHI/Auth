@@ -51,7 +51,9 @@ public class AuthorizeCommandHandlerTests
         string? codeChallenge = null,
         string? codeChallengeMethod = "S256",
         string? state = "xyz",
-        string? idpSessionToken = null)
+        string? idpSessionToken = null,
+        string? prompt = null,
+        string? maxAge = null)
     {
         return new AuthorizeCommand(
             responseType,
@@ -62,7 +64,9 @@ public class AuthorizeCommandHandlerTests
             state,
             idpSessionToken,
             OriginalUrl,
-            "127.0.0.1");
+            "127.0.0.1",
+            prompt,
+            maxAge);
     }
 
     private Auth.Domain.Entities.Application SetupApplication(bool isActive = true)
@@ -79,19 +83,48 @@ public class AuthorizeCommandHandlerTests
 
     private Guid SetupValidSession(string idpToken = "idp-token")
     {
+        return SetupSessionAged(TimeSpan.Zero, idpToken);
+    }
+
+    /// <summary>
+    /// Registers a valid, non-revoked IdP session whose CreatedAt is <paramref name="age"/>
+    /// in the past, so step-up policies that compare session age can be exercised.
+    /// </summary>
+    private Guid SetupSessionAged(TimeSpan age, string idpToken = "idp-token")
+    {
         var userId = Guid.NewGuid();
+        var createdAt = DateTime.UtcNow - age;
+        var session = new IdpSession(
+            Guid.NewGuid(), userId, "idp-hash", createdAt, createdAt.AddDays(7), null, null, null);
 
         _refreshTokenKeyServiceMock
             .Setup(s => s.ComputeTokenHash(idpToken))
             .Returns("idp-hash");
         _idpSessionRepositoryMock
             .Setup(r => r.GetByTokenHashAsync("idp-hash", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(IdpSession.Create(userId, "idp-hash", TimeSpan.FromDays(7), null, null));
+            .ReturnsAsync(session);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUser(id: userId));
 
         return userId;
+    }
+
+    /// <summary>Sets up the mocks needed for a successful authorization-code issuance.</summary>
+    private void SetupCodeIssuance()
+    {
+        _jwtTokenServiceMock.Setup(s => s.GenerateRefreshToken()).Returns("plain-code");
+        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuthorizationCode>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AuthorizationCode c, CancellationToken _) => c);
+    }
+
+    private void VerifyNoCodeIssued()
+    {
+        _authorizationCodeRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<AuthorizationCode>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -319,5 +352,162 @@ public class AuthorizeCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
         result.Value.RedirectUrl.Should().StartWith($"{uriWithQuery}&code=plain-code");
+    }
+
+    // --- Step-up re-authentication -----------------------------------------
+
+    [Fact]
+    public async Task Handle_PromptLogin_WithFreshValidSession_RedirectsToLoginWithoutIssuingCode()
+    {
+        // Arrange — a perfectly valid, brand-new session; prompt=login must still
+        // force a fresh interactive authentication.
+        SetupApplication();
+        SetupValidSession();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login"),
+            CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        result.Value.RedirectUrl.Should().StartWith("https://accounts.example.com/login?returnTo=");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_UnknownPromptValue_IsIgnoredAndIssuesCode()
+    {
+        // Arrange — only "login" triggers step-up; other prompt values are ignored.
+        SetupApplication();
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "consent"),
+            CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+    }
+
+    [Fact]
+    public async Task Handle_AppPolicyExceeded_RedirectsToLoginWithoutIssuingCode()
+    {
+        // Arrange — app requires re-auth within 30 minutes; the session is 60 old.
+        var application = SetupApplication();
+        application.LoadReauthenticationMaxAge(30);
+        SetupSessionAged(TimeSpan.FromMinutes(60));
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token"),
+            CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_AppPolicyNotExceeded_IssuesCode()
+    {
+        // Arrange — app policy 30 minutes; the session is only 5 minutes old.
+        var application = SetupApplication();
+        application.LoadReauthenticationMaxAge(30);
+        SetupSessionAged(TimeSpan.FromMinutes(5));
+        SetupCodeIssuance();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token"),
+            CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+    }
+
+    [Fact]
+    public async Task Handle_RequestMaxAgeExceeded_RedirectsToLoginWithoutIssuingCode()
+    {
+        // Arrange — no app policy, but the request demands a session younger than
+        // 60 seconds; the session is 5 minutes old.
+        SetupApplication();
+        SetupSessionAged(TimeSpan.FromMinutes(5));
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", maxAge: "60"),
+            CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_RequestMaxAgeSatisfied_IssuesCode()
+    {
+        // Arrange — request allows sessions up to 1 hour; the session is 5 min old.
+        SetupApplication();
+        SetupSessionAged(TimeSpan.FromMinutes(5));
+        SetupCodeIssuance();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", maxAge: "3600"),
+            CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+    }
+
+    [Fact]
+    public async Task Handle_MalformedMaxAge_IsIgnoredAndIssuesCode()
+    {
+        // Arrange — a non-numeric max_age is treated as absent, not a failure.
+        SetupApplication();
+        SetupSessionAged(TimeSpan.FromMinutes(5));
+        SetupCodeIssuance();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", maxAge: "not-a-number"),
+            CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+    }
+
+    [Fact]
+    public async Task Handle_RequestMaxAgeMoreRestrictiveThanAppPolicy_RedirectsToLogin()
+    {
+        // Arrange — app policy is a lenient 60 minutes, but the request insists on
+        // 60 seconds; the more restrictive of the two wins. Session is 5 min old.
+        var application = SetupApplication();
+        application.LoadReauthenticationMaxAge(60);
+        SetupSessionAged(TimeSpan.FromMinutes(5));
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", maxAge: "60"),
+            CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
     }
 }

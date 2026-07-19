@@ -221,7 +221,8 @@ public class ApplicationsController : ApiController
             request.RequireTwoFactor,
             request.RequireEmailVerification,
             request.SessionTimeoutMinutes,
-            request.MaxConcurrentSessions)
+            request.MaxConcurrentSessions,
+            request.ReauthenticationMaxAgeMinutes)
         {
             CreatedBy = userId
         };
@@ -257,7 +258,8 @@ public class ApplicationsController : ApiController
             request.RequireEmailVerification,
             request.SessionTimeoutMinutes,
             request.MaxConcurrentSessions,
-            request.RedirectUris)
+            request.RedirectUris,
+            request.ReauthenticationMaxAgeMinutes)
         {
             ModifiedBy = userId
         };

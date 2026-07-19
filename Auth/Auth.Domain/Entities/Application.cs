@@ -68,6 +68,14 @@ public class Application : AggregateRoot
     /// </summary>
     public int MaxConcurrentSessions { get; private set; }
 
+    /// <summary>
+    /// Step-up authentication: when set, an authorization request for this app
+    /// requires the user to have signed in within this many minutes; an older
+    /// SSO session is not accepted and the user must re-authenticate. Null (the
+    /// default) disables step-up — the SSO session is honored for its full life.
+    /// </summary>
+    public int? ReauthenticationMaxAgeMinutes { get; private set; }
+
     private readonly List<string> _redirectUris = [];
 
     /// <summary>
@@ -153,7 +161,8 @@ public class Application : AggregateRoot
         bool requireEmailVerification,
         int sessionTimeoutMinutes,
         int maxConcurrentSessions,
-        Guid modifiedBy)
+        Guid modifiedBy,
+        int? reauthenticationMaxAgeMinutes = null)
     {
         Name = name;
         Description = description;
@@ -165,7 +174,17 @@ public class Application : AggregateRoot
         RequireEmailVerification = requireEmailVerification;
         SessionTimeoutMinutes = sessionTimeoutMinutes;
         MaxConcurrentSessions = maxConcurrentSessions;
+        ReauthenticationMaxAgeMinutes = reauthenticationMaxAgeMinutes;
         SetModified(modifiedBy);
+    }
+
+    /// <summary>
+    /// Hydrates the step-up max-age from persistence without touching audit
+    /// fields. For repository use only.
+    /// </summary>
+    public void LoadReauthenticationMaxAge(int? minutes)
+    {
+        ReauthenticationMaxAgeMinutes = minutes;
     }
 
     /// <summary>

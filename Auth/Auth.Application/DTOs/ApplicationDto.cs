@@ -20,6 +20,14 @@ public class ApplicationDto
     public int MaxConcurrentSessions { get; set; }
 
     /// <summary>
+    /// Step-up re-authentication threshold in minutes. When set, an OAuth
+    /// authorize request for this app is only honored if the user signed in
+    /// within this window; an older SSO session forces a fresh login. Null
+    /// (the default) disables step-up.
+    /// </summary>
+    public int? ReauthenticationMaxAgeMinutes { get; set; }
+
+    /// <summary>
     /// Exact-match allowlist of OAuth redirect URIs (authorization-code flow).
     /// Populated on single-application reads; empty in paged lists.
     /// </summary>

@@ -30,7 +30,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [Id] = @Id",
@@ -54,7 +54,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [Code] = @Code",
@@ -188,6 +188,7 @@ public class ApplicationRepository : IApplicationRepository
                 [RequireEmailVerification] = @RequireEmailVerification,
                 [SessionTimeoutMinutes] = @SessionTimeoutMinutes,
                 [MaxConcurrentSessions] = @MaxConcurrentSessions,
+                [ReauthenticationMaxAgeMinutes] = @ReauthenticationMaxAgeMinutes,
                 [ModifiedAt] = @ModifiedAt,
                 [ModifiedBy] = @ModifiedBy
             WHERE [Id] = @Id",
@@ -205,6 +206,7 @@ public class ApplicationRepository : IApplicationRepository
                 application.RequireEmailVerification,
                 application.SessionTimeoutMinutes,
                 application.MaxConcurrentSessions,
+                application.ReauthenticationMaxAgeMinutes,
                 application.ModifiedAt,
                 application.ModifiedBy
             });
@@ -439,29 +441,35 @@ public class ApplicationRepository : IApplicationRepository
         public bool RequireEmailVerification { get; init; }
         public int SessionTimeoutMinutes { get; init; }
         public int MaxConcurrentSessions { get; init; }
+        public int? ReauthenticationMaxAgeMinutes { get; init; }
         public DateTime CreatedAt { get; init; }
         public Guid CreatedBy { get; init; }
         public DateTime? ModifiedAt { get; init; }
         public Guid? ModifiedBy { get; init; }
 
-        public AppEntity ToEntity() => new(
-            Id,
-            Code,
-            Name,
-            Description,
-            BaseUrl,
-            LogoUrl,
-            ContactEmail,
-            IsActive,
-            AllowSelfRegistration,
-            RequireTwoFactor,
-            RequireEmailVerification,
-            SessionTimeoutMinutes,
-            MaxConcurrentSessions,
-            CreatedAt,
-            CreatedBy,
-            ModifiedAt,
-            ModifiedBy);
+        public AppEntity ToEntity()
+        {
+            var entity = new AppEntity(
+                Id,
+                Code,
+                Name,
+                Description,
+                BaseUrl,
+                LogoUrl,
+                ContactEmail,
+                IsActive,
+                AllowSelfRegistration,
+                RequireTwoFactor,
+                RequireEmailVerification,
+                SessionTimeoutMinutes,
+                MaxConcurrentSessions,
+                CreatedAt,
+                CreatedBy,
+                ModifiedAt,
+                ModifiedBy);
+            entity.LoadReauthenticationMaxAge(ReauthenticationMaxAgeMinutes);
+            return entity;
+        }
     }
 
     private record RoleDto

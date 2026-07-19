@@ -11,4 +11,5 @@ public record CreateApplicationRequest(
     bool RequireTwoFactor = false,
     bool RequireEmailVerification = false,
     int SessionTimeoutMinutes = 60,
-    int MaxConcurrentSessions = 5);
+    int MaxConcurrentSessions = 5,
+    int? ReauthenticationMaxAgeMinutes = null);

@@ -470,6 +470,9 @@ export const ur: TranslationResources = {
     sessionTimeoutMinutes: "سیشن ٹائم آؤٹ (منٹ)",
     maxSessions: "زیادہ سے زیادہ بیک وقت سیشنز",
     maxConcurrentSessions: "زیادہ سے زیادہ بیک وقت سیشنز",
+    reauthMaxAge: "دوبارہ توثیق کی زیادہ سے زیادہ مدت (منٹ)",
+    reauthMaxAgeHint:
+      "اختیاری اسٹیپ اپ۔ جب صارف کا SSO سیشن اس سے پرانا ہو تو نئے سرے سے سائن اِن لازمی کرتا ہے۔ غیر فعال کرنے کے لیے خالی چھوڑ دیں۔",
     enabledAt: "فعال ہوا",
     subscriptionTier: "سبسکرپشن درجہ",
     roles: "کردار",

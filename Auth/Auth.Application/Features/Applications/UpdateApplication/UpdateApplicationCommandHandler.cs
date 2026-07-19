@@ -43,7 +43,8 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             request.RequireEmailVerification,
             request.SessionTimeoutMinutes,
             request.MaxConcurrentSessions,
-            request.ModifiedBy);
+            request.ModifiedBy,
+            request.ReauthenticationMaxAgeMinutes);
 
         // Null means "leave the allowlist untouched"; an empty list clears it.
         if (request.RedirectUris is not null)
@@ -72,6 +73,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             RequireEmailVerification = application.RequireEmailVerification,
             SessionTimeoutMinutes = application.SessionTimeoutMinutes,
             MaxConcurrentSessions = application.MaxConcurrentSessions,
+            ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,

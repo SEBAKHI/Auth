@@ -127,6 +127,25 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
             };
         }
 
+        // --- Step-up: an SSO session that is too old must re-authenticate ---
+        // A valid session exists, but the app's policy (ReauthenticationMaxAgeMinutes)
+        // or the request's prompt=login / max_age may demand a fresher authentication.
+        // We send the browser back to login; the accounts app strips prompt/max_age
+        // from returnTo after a successful login, so the freshly minted session (age ~0)
+        // is honored on the return trip and the flow cannot loop.
+        if (RequiresStepUp(request, application, session))
+        {
+            _logger.LogInformation(
+                "Step-up re-authentication required for client {ClientId} and user {UserId}",
+                request.ClientId, user.Id);
+
+            return new AuthorizeResult
+            {
+                RedirectUrl = BuildLoginRedirect(request.OriginalRequestUrl),
+                IsLoginRedirect = true
+            };
+        }
+
         // --- Issue the one-time code bound to this exact request ---
 
         var plainCode = _jwtTokenService.GenerateRefreshToken();
@@ -149,6 +168,57 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         {
             RedirectUrl = AppendQuery(request.RedirectUri, "code", plainCode, request.State)
         };
+    }
+
+    /// <summary>
+    /// Decides whether a valid SSO session must nonetheless re-authenticate.
+    /// Combines the per-app policy (ReauthenticationMaxAgeMinutes, admin-configured,
+    /// disabled by default) with the per-request OIDC parameters prompt=login and
+    /// max_age. When both a policy and a max_age apply, the more restrictive
+    /// (smaller) window wins.
+    /// </summary>
+    private static bool RequiresStepUp(AuthorizeCommand request, Auth.Domain.Entities.Application application, IdpSession session)
+    {
+        // prompt=login unconditionally forces a fresh interactive authentication.
+        if (string.Equals(request.Prompt, "login", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        int? maxAgeSeconds = null;
+
+        if (application.ReauthenticationMaxAgeMinutes is int policyMinutes)
+        {
+            maxAgeSeconds = policyMinutes * 60;
+        }
+
+        if (TryParseMaxAgeSeconds(request.MaxAge, out var requestSeconds))
+        {
+            maxAgeSeconds = maxAgeSeconds is int existing
+                ? Math.Min(existing, requestSeconds)
+                : requestSeconds;
+        }
+
+        if (maxAgeSeconds is not int thresholdSeconds)
+        {
+            return false;
+        }
+
+        var sessionAgeSeconds = (DateTime.UtcNow - session.CreatedAt).TotalSeconds;
+        return sessionAgeSeconds > thresholdSeconds;
+    }
+
+    /// <summary>
+    /// Parses the OIDC max_age parameter: a non-negative integer number of seconds.
+    /// A malformed or negative value is ignored (treated as absent) rather than
+    /// failing the request.
+    /// </summary>
+    private static bool TryParseMaxAgeSeconds(string? maxAge, out int seconds)
+    {
+        seconds = 0;
+        return !string.IsNullOrWhiteSpace(maxAge)
+            && int.TryParse(maxAge, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out seconds)
+            && seconds >= 0;
     }
 
     private async Task<IdpSession?> ResolveSessionAsync(string? idpSessionToken, CancellationToken cancellationToken)

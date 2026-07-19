@@ -474,6 +474,9 @@ export const fr: TranslationResources = {
     sessionTimeoutMinutes: "Expiration de session (minutes)",
     maxSessions: "Sessions simultanées max",
     maxConcurrentSessions: "Sessions simultanées max",
+    reauthMaxAge: "Âge maximal de réauthentification (minutes)",
+    reauthMaxAgeHint:
+      "Renforcement facultatif. Force une nouvelle connexion lorsque la session SSO de l'utilisateur dépasse cette durée. Laisser vide pour désactiver.",
     enabledAt: "Activée le",
     subscriptionTier: "Niveau d'abonnement",
     roles: "Rôles",

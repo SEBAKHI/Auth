@@ -53,7 +53,8 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             request.RequireEmailVerification,
             request.SessionTimeoutMinutes,
             request.MaxConcurrentSessions,
-            request.CreatedBy);
+            request.CreatedBy,
+            request.ReauthenticationMaxAgeMinutes);
 
         await _applicationRepository.CreateAsync(application, cancellationToken);
 
@@ -76,6 +77,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             RequireEmailVerification = application.RequireEmailVerification,
             SessionTimeoutMinutes = application.SessionTimeoutMinutes,
             MaxConcurrentSessions = application.MaxConcurrentSessions,
+            ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             ModifiedAt = application.ModifiedAt,

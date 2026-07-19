@@ -217,6 +217,8 @@ public class AuthController : ApiController
         [FromQuery(Name = "code_challenge")] string? codeChallenge,
         [FromQuery(Name = "code_challenge_method")] string? codeChallengeMethod,
         [FromQuery(Name = "state")] string? state,
+        [FromQuery(Name = "prompt")] string? prompt,
+        [FromQuery(Name = "max_age")] string? maxAge,
         CancellationToken cancellationToken)
     {
         // Rebuild the authorize URL from the CONFIGURED public origin, not from
@@ -236,7 +238,9 @@ public class AuthController : ApiController
             state,
             IdpSessionCookie.Read(Request, _idpSettings),
             originalRequestUrl,
-            GetClientIpAddress());
+            GetClientIpAddress(),
+            prompt,
+            maxAge);
 
         var result = await _sender.Send(command, cancellationToken);
 

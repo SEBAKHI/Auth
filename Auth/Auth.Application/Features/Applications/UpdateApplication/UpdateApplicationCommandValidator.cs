@@ -17,6 +17,7 @@ public class UpdateApplicationCommandValidator : AbstractValidator<UpdateApplica
         RuleFor(x => x.ContactEmail!).IsValidEmail().When(x => x.ContactEmail is not null);
         RuleFor(x => x.SessionTimeoutMinutes).GreaterThan(0);
         RuleFor(x => x.MaxConcurrentSessions).GreaterThan(0);
+        RuleFor(x => x.ReauthenticationMaxAgeMinutes).IsValidReauthenticationMaxAge();
 
         RuleFor(x => x.RedirectUris!)
             .Must(uris => uris.Count <= 20)

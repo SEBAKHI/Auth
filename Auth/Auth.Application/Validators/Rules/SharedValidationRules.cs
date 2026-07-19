@@ -96,6 +96,21 @@ public static class SharedValidationRules
     }
 
     /// <summary>
+    /// Step-up re-authentication threshold (minutes). Null disables step-up. When
+    /// set it must be at least 1 minute — a value of 0 would treat every session
+    /// as stale and, after the forced login, loop straight back to login because
+    /// a freshly minted session is still older than 0. The upper bound matches the
+    /// IdP session's 7-day absolute lifetime; beyond it the session expires first,
+    /// so step-up would never fire.
+    /// </summary>
+    public static IRuleBuilderOptions<T, int?> IsValidReauthenticationMaxAge<T>(this IRuleBuilder<T, int?> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(minutes => minutes is null || (minutes >= 1 && minutes <= 10080))
+            .WithMessage("Validation.ReauthenticationMaxAge.Range");
+    }
+
+    /// <summary>
     /// The sort field must be null (server default order) or one of the
     /// endpoint's allow-listed field names (case-insensitive). The allow-list is
     /// what keeps client input away from SQL ORDER BY clauses.

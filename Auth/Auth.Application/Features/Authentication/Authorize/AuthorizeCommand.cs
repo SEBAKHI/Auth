@@ -17,6 +17,8 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// <param name="IdpSessionToken">The plain IdP session cookie value, if present.</param>
 /// <param name="OriginalRequestUrl">The full authorize URL, used as returnTo for the login redirect.</param>
 /// <param name="IpAddress">The client's IP address.</param>
+/// <param name="Prompt">The OIDC prompt parameter; "login" forces a fresh interactive re-authentication (step-up).</param>
+/// <param name="MaxAge">The OIDC max_age parameter (seconds); an SSO session older than this must re-authenticate (step-up).</param>
 public record AuthorizeCommand(
     string? ResponseType,
     string? ClientId,
@@ -26,7 +28,9 @@ public record AuthorizeCommand(
     string? State,
     string? IdpSessionToken,
     string OriginalRequestUrl,
-    string? IpAddress) : IRequest<ErrorOr<AuthorizeResult>>;
+    string? IpAddress,
+    string? Prompt = null,
+    string? MaxAge = null) : IRequest<ErrorOr<AuthorizeResult>>;
 
 /// <summary>
 /// Where the authorize endpoint should send the browser (always a 302).

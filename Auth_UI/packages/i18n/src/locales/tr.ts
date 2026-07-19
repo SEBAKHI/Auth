@@ -467,6 +467,9 @@ export const tr: TranslationResources = {
     sessionTimeoutMinutes: "Oturum zaman aşımı (dakika)",
     maxSessions: "Azami eşzamanlı oturum",
     maxConcurrentSessions: "Azami eşzamanlı oturum",
+    reauthMaxAge: "Yeniden kimlik doğrulama azami süresi (dakika)",
+    reauthMaxAgeHint:
+      "İsteğe bağlı adım yükseltme. Kullanıcının SSO oturumu bundan eskiyse yeniden oturum açmayı zorunlu kılar. Devre dışı bırakmak için boş bırakın.",
     enabledAt: "Etkinleştirilme",
     subscriptionTier: "Abonelik katmanı",
     roles: "Roller",

@@ -61,6 +61,7 @@ public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationById
             RequireEmailVerification = application.RequireEmailVerification,
             SessionTimeoutMinutes = application.SessionTimeoutMinutes,
             MaxConcurrentSessions = application.MaxConcurrentSessions,
+            ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
             RedirectUris = [.. application.RedirectUris],
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,

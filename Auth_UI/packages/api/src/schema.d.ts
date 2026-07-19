@@ -6261,6 +6261,8 @@ export interface paths {
                     code_challenge?: string;
                     code_challenge_method?: string;
                     state?: string;
+                    prompt?: string;
+                    max_age?: string;
                 };
                 header?: never;
                 path?: never;
@@ -9603,6 +9605,8 @@ export interface components {
             sessionTimeoutMinutes?: number | string;
             /** Format: int32 */
             maxConcurrentSessions?: number | string;
+            /** Format: int32 */
+            reauthenticationMaxAgeMinutes?: null | number | string;
             redirectUris?: string[];
             /** Format: date-time */
             createdAt?: string;
@@ -9772,6 +9776,8 @@ export interface components {
              * @default 5
              */
             maxConcurrentSessions: number | string;
+            /** Format: int32 */
+            reauthenticationMaxAgeMinutes?: null | number | string;
         };
         CreateNotificationLayoutRequest: {
             /** Format: uuid */
@@ -11007,6 +11013,8 @@ export interface components {
              */
             maxConcurrentSessions: number | string;
             redirectUris?: null | string[];
+            /** Format: int32 */
+            reauthenticationMaxAgeMinutes?: null | number | string;
         };
         UpdateMemberRoleRequest: {
             /** Format: uuid */

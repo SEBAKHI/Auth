@@ -459,6 +459,9 @@ export const ar: TranslationResources = {
     sessionTimeoutMinutes: "مهلة الجلسة (دقائق)",
     maxSessions: "أقصى عدد جلسات متزامنة",
     maxConcurrentSessions: "أقصى عدد جلسات متزامنة",
+    reauthMaxAge: "الحد الأقصى لعمر إعادة المصادقة (بالدقائق)",
+    reauthMaxAgeHint:
+      "مصادقة إضافية اختيارية. تفرض تسجيل دخول جديدًا عندما يتجاوز عمر جلسة الدخول الموحّد هذه القيمة. اتركه فارغًا للتعطيل.",
     enabledAt: "مُفعّل",
     subscriptionTier: "فئة الاشتراك",
     roles: "الأدوار",

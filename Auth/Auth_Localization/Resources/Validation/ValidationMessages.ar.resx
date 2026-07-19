@@ -81,6 +81,9 @@
   <data name="Validation.Days.Range" xml:space="preserve">
     <value>يجب أن يكون عدد الأيام بين 1 و90.</value>
   </data>
+  <data name="Validation.ReauthenticationMaxAge.Range" xml:space="preserve">
+    <value>يجب أن تكون مدة إعادة المصادقة القصوى بين 1 و10080 دقيقة.</value>
+  </data>
   <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
     <value>حقل الفرز غير مسموح به لهذه القائمة.</value>
   </data>

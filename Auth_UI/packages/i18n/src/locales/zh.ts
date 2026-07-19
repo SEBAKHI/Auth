@@ -447,6 +447,9 @@ export const zh: TranslationResources = {
     sessionTimeoutMinutes: "会话超时（分钟）",
     maxSessions: "最大并发会话数",
     maxConcurrentSessions: "最大并发会话数",
+    reauthMaxAge: "重新认证的最长时限（分钟）",
+    reauthMaxAgeHint:
+      "可选的强化验证。当用户的 SSO 会话超过此时限时，强制重新登录。留空则禁用。",
     enabledAt: "启用时间",
     subscriptionTier: "订阅层级",
     roles: "角色",

@@ -28,6 +28,13 @@ function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
 }
 
+/** Empty input means "disabled" (null); otherwise a parsed integer. */
+function emptyToNullNumber(value: string | undefined): number | null {
+  if (!value || value.trim().length === 0) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 type ToggleName =
   | "allowSelfRegistration"
   | "requireTwoFactor"
@@ -72,6 +79,7 @@ export function ApplicationCreateDialog({
     requireEmailVerification: z.boolean(),
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
     maxConcurrentSessions: z.string().min(1, t("validation.required")),
+    reauthMaxAgeMinutes: z.string().optional(),
   })
   type Values = z.infer<typeof schema>
 
@@ -89,6 +97,7 @@ export function ApplicationCreateDialog({
       requireEmailVerification: false,
       sessionTimeoutMinutes: "60",
       maxConcurrentSessions: "5",
+      reauthMaxAgeMinutes: "",
     },
   })
 
@@ -111,6 +120,9 @@ export function ApplicationCreateDialog({
           requireEmailVerification: values.requireEmailVerification,
           sessionTimeoutMinutes: Number(values.sessionTimeoutMinutes) || 60,
           maxConcurrentSessions: Number(values.maxConcurrentSessions) || 5,
+          reauthenticationMaxAgeMinutes: emptyToNullNumber(
+            values.reauthMaxAgeMinutes,
+          ),
         },
       })
       if (error) throw error
@@ -240,6 +252,22 @@ export function ApplicationCreateDialog({
           </FormItem>
         )}
       />
+      <FormField
+        control={form.control}
+        name="reauthMaxAgeMinutes"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.reauthMaxAge")}</FormLabel>
+            <FormControl>
+              <Input type="number" min={1} max={10080} {...field} />
+            </FormControl>
+            <FormDescription>
+              {t("applications.reauthMaxAgeHint")}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
       {toggles.map((item) => (
         <FormField
           key={item.name}
@@ -291,6 +319,7 @@ export function ApplicationEditDialog({
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
     maxConcurrentSessions: z.string().min(1, t("validation.required")),
     redirectUris: z.string().optional(),
+    reauthMaxAgeMinutes: z.string().optional(),
   })
   type Values = z.infer<typeof schema>
 
@@ -308,6 +337,7 @@ export function ApplicationEditDialog({
       sessionTimeoutMinutes: "60",
       maxConcurrentSessions: "5",
       redirectUris: "",
+      reauthMaxAgeMinutes: "",
     },
   })
 
@@ -325,6 +355,10 @@ export function ApplicationEditDialog({
       sessionTimeoutMinutes: String(application.sessionTimeoutMinutes ?? 60),
       maxConcurrentSessions: String(application.maxConcurrentSessions ?? 5),
       redirectUris: (application.redirectUris ?? []).join("\n"),
+      reauthMaxAgeMinutes:
+        application.reauthenticationMaxAgeMinutes != null
+          ? String(application.reauthenticationMaxAgeMinutes)
+          : "",
     })
   }, [open, application, form])
 
@@ -347,6 +381,9 @@ export function ApplicationEditDialog({
             .split("\n")
             .map((uri) => uri.trim())
             .filter((uri) => uri.length > 0),
+          reauthenticationMaxAgeMinutes: emptyToNullNumber(
+            values.reauthMaxAgeMinutes,
+          ),
         },
       })
       if (error) throw error
@@ -473,6 +510,22 @@ export function ApplicationEditDialog({
             <FormControl>
               <Input type="number" min={1} {...field} />
             </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="reauthMaxAgeMinutes"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.reauthMaxAge")}</FormLabel>
+            <FormControl>
+              <Input type="number" min={1} max={10080} {...field} />
+            </FormControl>
+            <FormDescription>
+              {t("applications.reauthMaxAgeHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}

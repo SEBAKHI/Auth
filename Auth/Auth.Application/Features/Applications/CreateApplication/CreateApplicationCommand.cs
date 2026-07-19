@@ -18,7 +18,8 @@ public record CreateApplicationCommand(
     bool RequireTwoFactor = false,
     bool RequireEmailVerification = false,
     int SessionTimeoutMinutes = 60,
-    int MaxConcurrentSessions = 5) : IRequest<ErrorOr<ApplicationDto>>
+    int MaxConcurrentSessions = 5,
+    int? ReauthenticationMaxAgeMinutes = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user creating this application (for audit).

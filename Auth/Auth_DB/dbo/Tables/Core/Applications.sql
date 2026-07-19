@@ -13,6 +13,7 @@ CREATE TABLE [dbo].[Applications]
     [RequireTwoFactor] BIT NOT NULL CONSTRAINT [DF_Applications_RequireTwoFactor] DEFAULT 0,
     [SessionTimeoutMinutes] INT NOT NULL CONSTRAINT [DF_Applications_SessionTimeoutMinutes] DEFAULT 60,
     [MaxConcurrentSessions] INT NOT NULL CONSTRAINT [DF_Applications_MaxConcurrentSessions] DEFAULT 5,
+    [ReauthenticationMaxAgeMinutes] INT NULL,   -- step-up: require re-auth if the SSO session is older than this (NULL = disabled)
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_Applications_CreatedAt] DEFAULT GETUTCDATE(),
     [CreatedBy] UNIQUEIDENTIFIER NOT NULL,
     [ModifiedAt] DATETIME2 NULL,

@@ -81,6 +81,9 @@
   <data name="Validation.Days.Range" xml:space="preserve">
     <value>Days must be between 1 and 90.</value>
   </data>
+  <data name="Validation.ReauthenticationMaxAge.Range" xml:space="preserve">
+    <value>Re-authentication max age must be between 1 and 10080 minutes.</value>
+  </data>
   <data name="Validation.SortBy.NotAllowed" xml:space="preserve">
     <value>The sort field is not allowed for this list.</value>
   </data>

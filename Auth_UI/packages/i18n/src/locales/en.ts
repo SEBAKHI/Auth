@@ -452,6 +452,9 @@ export const en = {
     sessionTimeoutMinutes: "Session timeout (minutes)",
     maxSessions: "Max concurrent sessions",
     maxConcurrentSessions: "Max concurrent sessions",
+    reauthMaxAge: "Re-authentication max age (minutes)",
+    reauthMaxAgeHint:
+      "Optional step-up. Forces a fresh sign-in when the user's SSO session is older than this. Leave empty to disable.",
     enabledAt: "Enabled",
     subscriptionTier: "Subscription tier",
     roles: "Roles",
