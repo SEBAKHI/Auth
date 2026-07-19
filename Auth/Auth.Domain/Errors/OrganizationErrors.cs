@@ -64,6 +64,14 @@ public static class OrganizationErrors
         code: "Organization.CannotChangeOwnRole",
         description: "You cannot change your own organization role.");
 
+    public static Error CannotChangeOwnerRole => Error.Forbidden(
+        code: "Organization.CannotChangeOwnerRole",
+        description: "The organization owner's role cannot be changed through member management. Transfer ownership instead.");
+
+    public static Error CannotAssignOwnerRole => Error.Forbidden(
+        code: "Organization.CannotAssignOwnerRole",
+        description: "The organization owner role cannot be assigned through member management. Use ownership transfer.");
+
     public static Error MembershipExpired => Error.Forbidden(
         code: "Organization.MembershipExpired",
         description: "Your membership in this organization has expired.");

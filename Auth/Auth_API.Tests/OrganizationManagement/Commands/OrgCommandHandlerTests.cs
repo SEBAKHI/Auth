@@ -251,6 +251,51 @@ public class UpdateMemberRoleCommandHandlerTests
         result.FirstError.Code.Should().Be("Organization.InvalidMembershipRole");
         _orgRepoMock.Verify(r => r.UpdateMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()), Times.Never());
     }
+
+    [Fact]
+    public async Task Handle_TargetIsOwner_ReturnsCannotChangeOwnerRole()
+    {
+        // An org-admin must not be able to demote the owner and seize control.
+        var orgId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+        var adminId = Guid.NewGuid();
+        var newRoleId = Guid.NewGuid();
+        var org = TestHelpers.CreateOrganization(id: orgId, ownerId: ownerId, isActive: true);
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
+
+        var result = await _handler.Handle(
+            new UpdateMemberRoleCommand(orgId, ownerId, newRoleId) { ModifiedBy = adminId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Organization.CannotChangeOwnerRole");
+        _orgRepoMock.Verify(r => r.UpdateMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_AssigningOwnerRole_ReturnsCannotAssignOwnerRole()
+    {
+        // An org-admin must not be able to mint a new owner (org:*) — vertical
+        // privilege escalation.
+        var orgId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        var newRoleId = Guid.NewGuid();
+        var org = TestHelpers.CreateOrganization(id: orgId, isActive: true);
+        var ownerRole = TestHelpers.CreateRole(
+            id: newRoleId, code: Auth.Domain.Constants.OrganizationRoleCodes.Owner, name: "Organization Owner");
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
+        _roleRepoMock.Setup(r => r.GetByIdAsync(newRoleId, It.IsAny<CancellationToken>())).ReturnsAsync(ownerRole);
+
+        var result = await _handler.Handle(
+            new UpdateMemberRoleCommand(orgId, targetId, newRoleId) { ModifiedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Organization.CannotAssignOwnerRole");
+        _orgRepoMock.Verify(r => r.UpdateMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()), Times.Never());
+    }
 }
 
 public class ResendInvitationCommandHandlerTests

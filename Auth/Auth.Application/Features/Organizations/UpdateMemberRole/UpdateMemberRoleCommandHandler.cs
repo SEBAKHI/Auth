@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
@@ -45,6 +46,15 @@ public class UpdateMemberRoleCommandHandler : IRequestHandler<UpdateMemberRoleCo
             return OrganizationErrors.CannotChangeOwnRole;
         }
 
+        // The owner's role is not editable through member management: otherwise
+        // any org:members:manage holder (e.g. an org-admin) could demote the
+        // owner and seize control. Ownership changes go through a dedicated,
+        // owner-only transfer, keeping Organization.OwnerId and the role in sync.
+        if (request.UserId == organization.OwnerId)
+        {
+            return OrganizationErrors.CannotChangeOwnerRole;
+        }
+
         // Validate role exists
         var role = await _roleRepository.GetByIdAsync(request.NewRoleId, cancellationToken);
         if (role == null)
@@ -56,6 +66,15 @@ public class UpdateMemberRoleCommandHandler : IRequestHandler<UpdateMemberRoleCo
         if (role.ApplicationId != null)
         {
             return OrganizationErrors.InvalidMembershipRole(request.NewRoleId);
+        }
+
+        // The owner role (org:*) must never be minted here: an org-admin could
+        // otherwise promote an account they control to owner-level permissions —
+        // a vertical privilege escalation. Assigning it would also leave
+        // Organization.OwnerId untouched, producing a split-brain "two owners".
+        if (string.Equals(role.Code, OrganizationRoleCodes.Owner, StringComparison.OrdinalIgnoreCase))
+        {
+            return OrganizationErrors.CannotAssignOwnerRole;
         }
 
         // Get membership

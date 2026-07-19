@@ -169,6 +169,12 @@
   <data name="Organization.CannotRemoveOwner" xml:space="preserve">
     <value>The organization owner cannot be removed. Transfer ownership first.</value>
   </data>
+  <data name="Organization.CannotChangeOwnerRole" xml:space="preserve">
+    <value>The organization owner's role cannot be changed through member management. Transfer ownership instead.</value>
+  </data>
+  <data name="Organization.CannotAssignOwnerRole" xml:space="preserve">
+    <value>The organization owner role cannot be assigned through member management. Use ownership transfer.</value>
+  </data>
   <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
     <value>You cannot change your own organization role.</value>
   </data>

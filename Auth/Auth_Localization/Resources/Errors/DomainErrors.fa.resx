@@ -169,6 +169,12 @@
   <data name="Organization.CannotRemoveOwner" xml:space="preserve">
     <value>مالک سازمان قابل حذف نیست. ابتدا مالکیت را انتقال دهید.</value>
   </data>
+  <data name="Organization.CannotChangeOwnerRole" xml:space="preserve">
+    <value>نقش مالک سازمان از طریق مدیریت اعضا قابل تغییر نیست. به‌جای آن مالکیت را انتقال دهید.</value>
+  </data>
+  <data name="Organization.CannotAssignOwnerRole" xml:space="preserve">
+    <value>نقش مالک سازمان از طریق مدیریت اعضا قابل واگذاری نیست. از انتقال مالکیت استفاده کنید.</value>
+  </data>
   <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
     <value>شما نمی‌توانید نقش خود را در سازمان تغییر دهید.</value>
   </data>

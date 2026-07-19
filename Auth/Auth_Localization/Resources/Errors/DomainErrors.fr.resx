@@ -169,6 +169,12 @@
   <data name="Organization.CannotRemoveOwner" xml:space="preserve">
     <value>Le propriétaire de l'organisation ne peut pas être supprimé. Transférez d'abord la propriété.</value>
   </data>
+  <data name="Organization.CannotChangeOwnerRole" xml:space="preserve">
+    <value>Le rôle du propriétaire de l'organisation ne peut pas être modifié via la gestion des membres. Transférez plutôt la propriété.</value>
+  </data>
+  <data name="Organization.CannotAssignOwnerRole" xml:space="preserve">
+    <value>Le rôle de propriétaire de l'organisation ne peut pas être attribué via la gestion des membres. Utilisez le transfert de propriété.</value>
+  </data>
   <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
     <value>Vous ne pouvez pas changer votre propre rôle dans l'organisation.</value>
   </data>

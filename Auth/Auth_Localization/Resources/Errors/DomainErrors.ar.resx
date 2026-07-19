@@ -169,6 +169,12 @@
   <data name="Organization.CannotRemoveOwner" xml:space="preserve">
     <value>لا يمكن إزالة مالك المنظمة. قم بنقل الملكية أولًا.</value>
   </data>
+  <data name="Organization.CannotChangeOwnerRole" xml:space="preserve">
+    <value>لا يمكن تغيير دور مالك المنظمة عبر إدارة الأعضاء. انقل الملكية بدلًا من ذلك.</value>
+  </data>
+  <data name="Organization.CannotAssignOwnerRole" xml:space="preserve">
+    <value>لا يمكن تعيين دور مالك المنظمة عبر إدارة الأعضاء. استخدم نقل الملكية.</value>
+  </data>
   <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
     <value>لا يمكنك تغيير دورك في المنظمة بنفسك.</value>
   </data>

@@ -169,6 +169,12 @@
   <data name="Organization.CannotRemoveOwner" xml:space="preserve">
     <value>Kuruluş sahibi kaldırılamaz. Önce sahipliği devredin.</value>
   </data>
+  <data name="Organization.CannotChangeOwnerRole" xml:space="preserve">
+    <value>Kuruluş sahibinin rolü üye yönetimi üzerinden değiştirilemez. Bunun yerine sahipliği devredin.</value>
+  </data>
+  <data name="Organization.CannotAssignOwnerRole" xml:space="preserve">
+    <value>Kuruluş sahibi rolü üye yönetimi üzerinden atanamaz. Sahiplik devrini kullanın.</value>
+  </data>
   <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
     <value>Kendi kuruluş rolünüzü değiştiremezsiniz.</value>
   </data>

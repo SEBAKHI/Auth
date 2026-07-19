@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
@@ -13,8 +14,6 @@ namespace Auth.Application.Features.Organizations.CreateOrganization;
 /// </summary>
 public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizationCommand, ErrorOr<OrganizationDto>>
 {
-    private const string OrgOwnerRoleCode = "org-owner";
-
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRepository _userRepository;
@@ -43,10 +42,10 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
         }
 
         // Get the owner role (null applicationId for organization-level roles)
-        var ownerRole = await _roleRepository.GetByCodeAsync((Guid?)null, OrgOwnerRoleCode, cancellationToken);
+        var ownerRole = await _roleRepository.GetByCodeAsync((Guid?)null, OrganizationRoleCodes.Owner, cancellationToken);
         if (ownerRole == null)
         {
-            _logger.LogError("Organization owner role '{RoleCode}' not found in database", OrgOwnerRoleCode);
+            _logger.LogError("Organization owner role '{RoleCode}' not found in database", OrganizationRoleCodes.Owner);
             return Error.Unexpected(
                 code: "Organization.OwnerRoleNotFound",
                 description: "System configuration error: Organization owner role not found.");

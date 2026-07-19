@@ -169,6 +169,12 @@
   <data name="Organization.CannotRemoveOwner" xml:space="preserve">
     <value>无法移除组织所有者，请先转让所有权。</value>
   </data>
+  <data name="Organization.CannotChangeOwnerRole" xml:space="preserve">
+    <value>无法通过成员管理更改组织所有者的角色，请改用所有权转让。</value>
+  </data>
+  <data name="Organization.CannotAssignOwnerRole" xml:space="preserve">
+    <value>无法通过成员管理分配组织所有者角色，请使用所有权转让。</value>
+  </data>
   <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
     <value>您不能更改自己的组织角色。</value>
   </data>

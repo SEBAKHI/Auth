@@ -169,6 +169,12 @@
   <data name="Organization.CannotRemoveOwner" xml:space="preserve">
     <value>تنظیم کے مالک کو ہٹایا نہیں جا سکتا۔ پہلے ملکیت منتقل کریں۔</value>
   </data>
+  <data name="Organization.CannotChangeOwnerRole" xml:space="preserve">
+    <value>تنظیم کے مالک کا کردار ممبر مینجمنٹ کے ذریعے تبدیل نہیں کیا جا سکتا۔ اس کے بجائے ملکیت منتقل کریں۔</value>
+  </data>
+  <data name="Organization.CannotAssignOwnerRole" xml:space="preserve">
+    <value>تنظیم کے مالک کا کردار ممبر مینجمنٹ کے ذریعے تفویض نہیں کیا جا سکتا۔ ملکیت کی منتقلی استعمال کریں۔</value>
+  </data>
   <data name="Organization.CannotChangeOwnRole" xml:space="preserve">
     <value>آپ اپنا تنظیمی کردار خود تبدیل نہیں کر سکتے۔</value>
   </data>
