@@ -40,7 +40,29 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         await content.CopyToAsync(buffer, cancellationToken);
         buffer.Position = 0;
 
-        using var original = SKBitmap.Decode(buffer);
+        // Read the header ONLY and reject oversized dimensions BEFORE decoding
+        // pixels: a small, highly compressed "decompression bomb" can otherwise
+        // declare enormous dimensions and force SKBitmap.Decode to allocate
+        // width*height*4 bytes (gigabytes), crashing the worker.
+        using var imageData = SKData.CreateCopy(buffer.ToArray());
+        using (var codec = SKCodec.Create(imageData))
+        {
+            if (codec is null)
+            {
+                return Error.Validation("Image.Invalid", "The uploaded file is not a valid image.");
+            }
+
+            var megapixels = (long)codec.Info.Width * codec.Info.Height;
+            var limit = (long)_settings.MaxMegapixels * 1_000_000;
+            if (limit > 0 && megapixels > limit)
+            {
+                return Error.Validation(
+                    "Image.DimensionsTooLarge",
+                    $"Image dimensions exceed the maximum of {_settings.MaxMegapixels} megapixels.");
+            }
+        }
+
+        using var original = SKBitmap.Decode(imageData);
         if (original is null)
         {
             return Error.Validation("Image.Invalid", "The uploaded file is not a valid image.");

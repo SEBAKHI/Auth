@@ -23,8 +23,15 @@ public class ImageStorageSettings
     /// <summary>Static request path the files are served at (e.g. /uploads/images).</summary>
     public string RequestPath { get; set; } = "/uploads/images";
 
-    /// <summary>Maximum accepted upload size in bytes (default 10 MB).</summary>
-    public long MaxSizeBytes { get; set; } = 10 * 1024 * 1024;
+    /// <summary>Maximum accepted upload size in bytes (default 4 MB — profile pictures and logos are small).</summary>
+    public long MaxSizeBytes { get; set; } = 4 * 1024 * 1024;
+
+    /// <summary>
+    /// Maximum decoded image size in megapixels. Checked from the image header
+    /// BEFORE decoding pixels, so a small but huge-dimensioned "decompression
+    /// bomb" cannot force a multi-gigabyte allocation (width*height*4 bytes).
+    /// </summary>
+    public int MaxMegapixels { get; set; } = 50;
 
     /// <summary>Max width/height in pixels; larger images are resized down preserving aspect ratio.</summary>
     public int MaxEdgePx { get; set; } = 1024;

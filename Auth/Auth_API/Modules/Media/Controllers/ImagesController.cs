@@ -37,7 +37,7 @@ public class ImagesController : ControllerBase
     /// <summary>Uploads and processes an image; returns its storage key and public URL.</summary>
     [HttpPost]
     [Consumes("multipart/form-data")]
-    [RequestSizeLimit(12 * 1024 * 1024)]
+    [RequestSizeLimit(5 * 1024 * 1024)]
     [ProducesResponseType(typeof(UploadImageResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Upload(IFormFile file, CancellationToken cancellationToken)
