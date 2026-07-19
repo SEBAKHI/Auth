@@ -105,6 +105,11 @@ var dpCertificateSettings = builder.Configuration
 var dataProtectionKeyPath = AuthDataProtectionExtensions.ResolveKeyRingPath(
     builder.Configuration.GetValue<string>("DataProtection:KeyPath"));
 
+// Fail fast if the crown-jewel secrets are sitting in plaintext in a Production
+// config file. Runs BEFORE the DPAPI provider injects the decrypted key below,
+// so it inspects the appsettings/env value, not the decrypted one.
+ProductionSecretGuard.EnsureNoPlaintextSecrets(builder.Configuration, builder.Environment.IsProduction());
+
 builder.Services.AddDataProtection()
     .SetApplicationName("AuthSystem")
     .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath))
