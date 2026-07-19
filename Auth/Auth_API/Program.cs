@@ -1,8 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Channels;
 using System.Threading.RateLimiting;
 using Asp.Versioning;
+using Auth.Domain.Entities;
 using Auth_API.Authorization;
 using Auth_API.Common;
 using Auth_API.Common.Filters;
@@ -218,6 +220,7 @@ builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
 builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 builder.Services.AddScoped<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
 builder.Services.AddScoped<IIdpSessionRepository, IdpSessionRepository>();
+builder.Services.AddScoped<IRevokedTokenStore, RevokedTokenStore>();
 builder.Services.AddScoped<ITwoFactorAuthRepository, TwoFactorAuthRepository>();
 builder.Services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
@@ -313,7 +316,17 @@ var jwtTokenService = new JwtTokenService(
     jwtDataProtectionProvider);
 builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
 
-builder.Services.AddSingleton<ITokenBlacklistService, TokenBlacklistService>();
+// Token blacklist: one singleton behind both the interface and the concrete
+// type (the background service needs the concrete LoadSnapshot for rehydration),
+// with a write-behind channel and a durable-store background persister so
+// revocations survive app-pool recycles.
+builder.Services.AddSingleton(_ => Channel.CreateUnbounded<TokenRevocation>(
+    new UnboundedChannelOptions { SingleReader = true, SingleWriter = false }));
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<TokenRevocation>>().Writer);
+builder.Services.AddSingleton(sp => sp.GetRequiredService<Channel<TokenRevocation>>().Reader);
+builder.Services.AddSingleton<TokenBlacklistService>();
+builder.Services.AddSingleton<ITokenBlacklistService>(sp => sp.GetRequiredService<TokenBlacklistService>());
+builder.Services.AddHostedService<TokenRevocationBackgroundService>();
 builder.Services.AddSingleton<IRefreshTokenKeyService, RefreshTokenKeyService>();
 builder.Services.AddSingleton<IWebhookKeyHasher, WebhookKeyHasher>();
 builder.Services.AddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
