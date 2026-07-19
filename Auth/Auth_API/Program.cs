@@ -489,33 +489,45 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    // Default policy
-    options.AddFixedWindowLimiter("fixed", opt =>
-    {
-        opt.PermitLimit = builder.Configuration.GetValue("RateLimiting:PermitLimit", 100);
-        opt.Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:WindowSeconds", 60));
-        opt.QueueLimit = builder.Configuration.GetValue("RateLimiting:QueueLimit", 10);
-        opt.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-    });
+    // All policies partition per client IP via ClientIpResolver (X-Forwarded-For),
+    // never RemoteIpAddress: behind the gateway every request shares one internal
+    // peer address (hairpin), which would collapse any per-client bucket into a
+    // single global one. A global bucket on an auth path is collective punishment
+    // and a self-inflicted DoS — never do it here.
 
-    // Stricter policy for login endpoint
-    options.AddFixedWindowLimiter("login", opt =>
-    {
-        opt.PermitLimit = builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 5);
-        opt.Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:LoginWindowSeconds", 60));
-        opt.QueueLimit = 0;
-    });
+    // Default policy — per client IP.
+    options.AddPolicy("fixed", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ClientIpResolver.Resolve(httpContext) ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:PermitLimit", 100),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:WindowSeconds", 60)),
+                QueueLimit = builder.Configuration.GetValue("RateLimiting:QueueLimit", 10),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
+    // Interactive auth endpoints (login, register, external-login, verify-email,
+    // forgot/reset-password submit, 2FA, invitation accept, token exchange) — per
+    // client IP. One layer of a layered defense: per-IP throttling here plus
+    // per-account lockout in the login handler (Password:MaxFailedAttempts) — a
+    // single IP cannot brute force, a single account locks after N failures, and
+    // legitimate users never share a bucket.
+    options.AddPolicy("login", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: ClientIpResolver.Resolve(httpContext) ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 20),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:LoginWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
 
     // Redeeming a reset token cannot be brute forced (the token carries 256 bits
     // of entropy), so this is hygiene for an anonymous endpoint rather than a
-    // guessing defence. It is partitioned per client address on purpose: the
-    // "login" policy above is a single process-wide bucket, so sharing it would
-    // let unrelated login traffic block password resets for everyone.
+    // guessing defence — a stricter per-client bucket than the login policy.
     options.AddPolicy("password-reset", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            // Real client IP (X-Forwarded-For), not the connection peer: behind
-            // the gateway every request shares one internal peer address, which
-            // would collapse this per-client policy into a single global bucket.
             partitionKey: ClientIpResolver.Resolve(httpContext) ?? "unknown",
             factory: _ => new FixedWindowRateLimiterOptions
             {
