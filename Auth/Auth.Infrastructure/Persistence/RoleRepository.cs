@@ -252,8 +252,11 @@ public class RoleRepository : IRoleRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // Hard delete: UQ_UserRoles spans (UserId, RoleId, ApplicationId) without an
+        // [IsActive] filter, so a deactivated row would block re-assigning the same
+        // role later. Removals are recorded in the audit log, not in this table.
         await connection.ExecuteAsync(@"
-            UPDATE [dbo].[UserRoles] SET [IsActive] = 0
+            DELETE FROM [dbo].[UserRoles]
             WHERE [UserId] = @UserId AND [RoleId] = @RoleId",
             new { UserId = userId, RoleId = roleId });
     }

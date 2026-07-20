@@ -483,8 +483,11 @@ public class UserRepository : IUserRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // Hard delete: UQ_UserRoles spans (UserId, RoleId, ApplicationId) without an
+        // [IsActive] filter, so a deactivated row would block re-assigning the same
+        // role later. Removals are recorded in the audit log, not in this table.
         var sql = @"
-            UPDATE [dbo].[UserRoles] SET [IsActive] = 0
+            DELETE FROM [dbo].[UserRoles]
             WHERE [UserId] = @UserId AND [RoleId] = @RoleId";
 
         if (applicationId.HasValue)
@@ -586,8 +589,11 @@ public class UserRepository : IUserRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // Hard delete: UQ_UserPermissions spans (UserId, PermissionId, ApplicationId)
+        // without an [IsActive] filter, so a deactivated row would block re-granting
+        // the same permission later. Revocations are recorded in the audit log.
         var sql = @"
-            UPDATE [dbo].[UserPermissions] SET [IsActive] = 0
+            DELETE FROM [dbo].[UserPermissions]
             WHERE [UserId] = @UserId AND [PermissionId] = @PermissionId";
 
         if (applicationId.HasValue)

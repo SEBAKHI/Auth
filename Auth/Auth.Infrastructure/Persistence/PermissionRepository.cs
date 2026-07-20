@@ -356,8 +356,11 @@ public class PermissionRepository : IPermissionRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // Hard delete: UQ_UserPermissions spans (UserId, PermissionId, ApplicationId)
+        // without an [IsActive] filter, so a deactivated row would block re-granting
+        // the same permission later. Revocations are recorded in the audit log.
         await connection.ExecuteAsync(@"
-            UPDATE [dbo].[UserPermissions] SET [IsActive] = 0
+            DELETE FROM [dbo].[UserPermissions]
             WHERE [UserId] = @UserId AND [PermissionId] = @PermissionId",
             new { UserId = userId, PermissionId = permissionId });
     }
