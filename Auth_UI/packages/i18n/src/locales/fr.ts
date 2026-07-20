@@ -100,6 +100,11 @@ export const fr: TranslationResources = {
     discardTitle: "Abandonner les modifications ?",
     discardBody:
       "Vous avez des modifications non enregistrées. Si vous quittez maintenant, elles seront perdues.",
+    saveWithCount: "Enregistrer ({{count}})",
+    changesSaved: "Modifications enregistrées",
+    applyChangesTitle: "Appliquer ces modifications ?",
+    toBeAdded: "À ajouter ({{count}})",
+    toBeRemoved: "À retirer ({{count}})",
   },
   nav: {
     notifications: "Notifications",

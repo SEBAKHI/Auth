@@ -1,19 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Plus, X } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@astoom/ui/dialog"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
-import { Input } from "@astoom/ui/input"
+  AssignmentDialog,
+  AssignmentPicker,
+} from "@astoom/ui/common/assignment-dialog"
 import {
   Select,
   SelectContent,
@@ -21,15 +13,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@astoom/ui/select"
-import { Skeleton } from "@astoom/ui/skeleton"
 import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
-import { getErrorMessage } from "@astoom/api/errors"
 import type { Schemas } from "@astoom/api/types"
 
+interface AppRoleDraft {
+  applicationId: string
+  roleId: string
+  expiresAt: string | null
+}
+
 /**
- * Manages a member's app-scoped role assignments within an organization:
- * assign a role of an org-enabled application, or remove an existing one.
+ * Manages a member's app-scoped role assignments within an organization.
+ * Edits are staged and applied together — see `AssignmentDialog`.
  */
 export function MemberAppRolesDialog({
   open,
@@ -82,187 +78,129 @@ export function MemberAppRolesDialog({
       ),
   })
 
-  const assignments = assignmentsQuery.data ?? []
   const enabledApps = (appsQuery.data ?? []).filter(
     (app) => app.isActive && app.applicationId
   )
-  const assignedRoleIds = new Set(assignments.map((role) => role.roleId))
-  const availableRoles = (rolesQuery.data ?? []).filter(
-    (role) => role.id && !assignedRoleIds.has(role.id)
-  )
 
-  const invalidate = () => {
-    void queryClient.invalidateQueries({
-      queryKey: ["org-member-app-roles", orgId, userId],
-    })
-    // Assignment changes move the applications tab's assigned-user counts.
-    void queryClient.invalidateQueries({ queryKey: ["org-apps", orgId] })
-  }
-
-  const assignMutation = useMutation({
-    mutationFn: async ({
-      applicationId,
-      roleId,
-    }: {
-      applicationId: string
-      roleId: string
-    }) => {
-      const { error } = await api.POST(
-        "/api/v1/Organizations/{orgId}/members/{userId}/roles",
-        {
-          params: { path: { orgId, userId } },
-          body: {
-            applicationId,
-            roleId,
-            expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-          },
-        }
-      )
-      if (error) throw error
-    },
-    onSuccess: () => {
-      invalidate()
-      setSelectedRole(undefined)
-      setExpiresAt("")
-      toast.success(t("organizations.appRoleAssigned"))
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
-
-  const removeMutation = useMutation({
-    mutationFn: async (roleId: string) => {
-      const { error } = await api.DELETE(
-        "/api/v1/Organizations/{orgId}/members/{userId}/roles/{roleId}",
-        { params: { path: { orgId, userId, roleId } } }
-      )
-      if (error) throw error
-    },
-    onSuccess: () => {
-      invalidate()
-      toast.success(t("organizations.appRoleRemoved"))
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
+  const items = (assignmentsQuery.data ?? []).map((assignment) => ({
+    key: assignment.roleId as string,
+    label: `${assignment.applicationName} · ${assignment.roleName}`,
+  }))
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("organizations.manageAppRoles")}</DialogTitle>
-          <DialogDescription>{member.email}</DialogDescription>
-        </DialogHeader>
+    <AssignmentDialog<AppRoleDraft>
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("organizations.manageAppRoles")}
+      description={member.email}
+      items={items}
+      loading={assignmentsQuery.isLoading}
+      emptyLabel={t("organizations.noAppRoles")}
+      assignedLabel={t("organizations.manageAppRoles")}
+      picker={({ assignedKeys, add }) => {
+        const availableRoles = (rolesQuery.data ?? []).filter(
+          (role) => role.id && !assignedKeys.has(role.id)
+        )
+        const application = enabledApps.find(
+          (app) => app.applicationId === selectedApp
+        )
 
-        <div className="space-y-4">
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Select
-                value={selectedApp}
-                onValueChange={(value) => {
-                  setSelectedApp(value)
-                  setSelectedRole(undefined)
-                }}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue
-                    placeholder={t("organizations.selectApplication")}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {enabledApps.map((app) => (
-                    <SelectItem
-                      key={app.applicationId}
-                      value={app.applicationId as string}
-                    >
-                      {app.applicationName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex-1">
-              <Select
-                value={selectedRole}
-                onValueChange={setSelectedRole}
-                disabled={!selectedApp}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t("organizations.selectRole")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableRoles.map((role) => (
-                    <SelectItem key={role.id} value={role.id as string}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Input
-              type="date"
-              className="w-40"
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
-              aria-label={t("common.expiresAt")}
-            />
-            <Button
-              onClick={() =>
-                selectedApp &&
-                selectedRole &&
-                assignMutation.mutate({
+        return (
+          <AssignmentPicker
+            addLabel={t("organizations.assignAppRole")}
+            canAdd={Boolean(selectedApp && selectedRole)}
+            expiresAt={expiresAt}
+            onExpiresAtChange={setExpiresAt}
+            onAdd={() => {
+              const role = availableRoles.find(
+                (item) => item.id === selectedRole
+              )
+              if (!role?.id || !selectedApp) return
+              add({
+                key: role.id,
+                label: `${application?.applicationName} · ${role.name}`,
+                draft: {
                   applicationId: selectedApp,
-                  roleId: selectedRole,
-                })
-              }
-              disabled={!selectedApp || !selectedRole || assignMutation.isPending}
+                  roleId: role.id,
+                  expiresAt: expiresAt
+                    ? new Date(expiresAt).toISOString()
+                    : null,
+                },
+              })
+              setSelectedRole(undefined)
+              setExpiresAt("")
+            }}
+          >
+            <Select
+              value={selectedApp}
+              onValueChange={(value) => {
+                setSelectedApp(value)
+                setSelectedRole(undefined)
+              }}
             >
-              {assignMutation.isPending ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <Plus />
-              )}
-              {t("organizations.assignAppRole")}
-            </Button>
-          </div>
-
-          <div className="min-h-24 rounded-lg border p-3">
-            {assignmentsQuery.isLoading ? (
-              <div className="flex flex-wrap gap-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-6 w-24" />
-                ))}
-              </div>
-            ) : assignments.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                {t("organizations.noAppRoles")}
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {assignments.map((assignment) => (
-                  <Badge
-                    key={assignment.id}
-                    variant="secondary"
-                    className="gap-1 pe-1"
+              <SelectTrigger className="w-full">
+                <SelectValue
+                  placeholder={t("organizations.selectApplication")}
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {enabledApps.map((app) => (
+                  <SelectItem
+                    key={app.applicationId}
+                    value={app.applicationId as string}
                   >
-                    {assignment.applicationName} · {assignment.roleName}
-                    <button
-                      type="button"
-                      className="rounded-full p-0.5 hover:bg-foreground/10 disabled:opacity-50"
-                      aria-label={t("common.remove")}
-                      disabled={removeMutation.isPending}
-                      onClick={() =>
-                        assignment.roleId &&
-                        removeMutation.mutate(assignment.roleId)
-                      }
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </Badge>
+                    {app.applicationName}
+                  </SelectItem>
                 ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+              </SelectContent>
+            </Select>
+            <Select
+              value={selectedRole}
+              onValueChange={setSelectedRole}
+              disabled={!selectedApp}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("organizations.selectRole")} />
+              </SelectTrigger>
+              <SelectContent>
+                {availableRoles.map((role) => (
+                  <SelectItem key={role.id} value={role.id as string}>
+                    {role.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </AssignmentPicker>
+        )
+      }}
+      onAdd={async (draft) => {
+        const { error } = await api.POST(
+          "/api/v1/Organizations/{orgId}/members/{userId}/roles",
+          {
+            params: { path: { orgId, userId } },
+            body: {
+              applicationId: draft.applicationId,
+              roleId: draft.roleId,
+              expiresAt: draft.expiresAt,
+            },
+          }
+        )
+        if (error) throw error
+      }}
+      onRemove={async (roleId) => {
+        const { error } = await api.DELETE(
+          "/api/v1/Organizations/{orgId}/members/{userId}/roles/{roleId}",
+          { params: { path: { orgId, userId, roleId } } }
+        )
+        if (error) throw error
+      }}
+      onApplied={() => {
+        void queryClient.invalidateQueries({
+          queryKey: ["org-member-app-roles", orgId, userId],
+        })
+        // Assignment changes move the applications tab's assigned-user counts.
+        void queryClient.invalidateQueries({ queryKey: ["org-apps", orgId] })
+      }}
+    />
   )
 }

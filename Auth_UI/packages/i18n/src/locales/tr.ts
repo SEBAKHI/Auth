@@ -100,6 +100,11 @@ export const tr: TranslationResources = {
     discardTitle: "Değişiklikler silinsin mi?",
     discardBody:
       "Kaydedilmemiş değişiklikleriniz var. Şimdi çıkarsanız kaybolacaklar.",
+    saveWithCount: "Kaydet ({{count}})",
+    changesSaved: "Değişiklikler kaydedildi",
+    applyChangesTitle: "Bu değişiklikler uygulansın mı?",
+    toBeAdded: "Eklenecek ({{count}})",
+    toBeRemoved: "Kaldırılacak ({{count}})",
   },
   nav: {
     notifications: "Bildirimler",

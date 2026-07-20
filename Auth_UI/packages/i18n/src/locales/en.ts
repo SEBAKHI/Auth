@@ -95,6 +95,11 @@ export const en = {
     discardTitle: "Discard changes?",
     discardBody:
       "You have unsaved changes. If you leave now, they will be lost.",
+    saveWithCount: "Save ({{count}})",
+    changesSaved: "Changes saved",
+    applyChangesTitle: "Apply these changes?",
+    toBeAdded: "Will be added ({{count}})",
+    toBeRemoved: "Will be removed ({{count}})",
   },
   nav: {
     notifications: "Notifications",

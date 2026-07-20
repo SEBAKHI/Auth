@@ -99,6 +99,11 @@ export const zh: TranslationResources = {
     discard: "放弃",
     discardTitle: "放弃更改？",
     discardBody: "您有未保存的更改。如果现在离开，这些更改将丢失。",
+    saveWithCount: "保存（{{count}}）",
+    changesSaved: "更改已保存",
+    applyChangesTitle: "要应用这些更改吗？",
+    toBeAdded: "将添加（{{count}}）",
+    toBeRemoved: "将移除（{{count}}）",
   },
   nav: {
     notifications: "通知",

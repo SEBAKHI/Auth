@@ -100,6 +100,11 @@ export const ur: TranslationResources = {
     discardTitle: "تبدیلیاں مسترد کریں؟",
     discardBody:
       "آپ کی غیر محفوظ شدہ تبدیلیاں ہیں۔ اگر آپ ابھی نکل گئے تو وہ ضائع ہو جائیں گی۔",
+    saveWithCount: "محفوظ کریں ({{count}})",
+    changesSaved: "تبدیلیاں محفوظ ہو گئیں",
+    applyChangesTitle: "کیا یہ تبدیلیاں لاگو کی جائیں؟",
+    toBeAdded: "شامل کی جائیں گی ({{count}})",
+    toBeRemoved: "ہٹائی جائیں گی ({{count}})",
   },
   nav: {
     notifications: "اطلاعات",

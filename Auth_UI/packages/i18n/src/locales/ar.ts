@@ -99,6 +99,11 @@ export const ar: TranslationResources = {
     discard: "تجاهل",
     discardTitle: "تجاهل التغييرات؟",
     discardBody: "لديك تغييرات غير محفوظة. إذا خرجت الآن فسوف تُفقد.",
+    saveWithCount: "حفظ ({{count}})",
+    changesSaved: "تم حفظ التغييرات",
+    applyChangesTitle: "هل تريد تطبيق هذه التغييرات؟",
+    toBeAdded: "ستتم الإضافة ({{count}})",
+    toBeRemoved: "ستتم الإزالة ({{count}})",
   },
   nav: {
     notifications: "الإشعارات",

@@ -100,6 +100,11 @@ export const fa: TranslationResources = {
     discardTitle: "از تغییرات صرف‌نظر شود؟",
     discardBody:
       "تغییرات ذخیره‌نشده‌ای دارید. اگر اکنون خارج شوید، از بین می‌روند.",
+    saveWithCount: "ذخیره ({{count}})",
+    changesSaved: "تغییرات ذخیره شد",
+    applyChangesTitle: "این تغییرات اعمال شود؟",
+    toBeAdded: "افزوده می‌شود ({{count}})",
+    toBeRemoved: "حذف می‌شود ({{count}})",
   },
   nav: {
     notifications: "اعلان‌ها",

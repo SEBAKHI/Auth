@@ -1,19 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Plus, X } from "lucide-react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
 
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@astoom/ui/dialog"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
-import { Input } from "@astoom/ui/input"
+  AssignmentDialog,
+  AssignmentPicker,
+} from "@astoom/ui/common/assignment-dialog"
 import {
   Select,
   SelectContent,
@@ -21,11 +13,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@astoom/ui/select"
-import { Skeleton } from "@astoom/ui/skeleton"
 import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
-import { getErrorMessage } from "@astoom/api/errors"
 import type { Schemas } from "@astoom/api/types"
+
+interface PermissionDraft {
+  permissionId: string
+  expiresAt: string | null
+}
 
 export function UserPermissionsDialog({
   open,
@@ -60,138 +55,89 @@ export function UserPermissionsDialog({
       unwrap(api.GET("/api/v1/Permissions", { params: { query: {} } })),
   })
 
-  const grantedIds = new Set(
-    (grantedQuery.data ?? []).map((perm) => perm.permissionId)
-  )
-  const available = (allQuery.data ?? []).filter(
-    (perm) => perm.id && !grantedIds.has(perm.id)
-  )
-
-  const invalidate = () =>
-    queryClient.invalidateQueries({
-      queryKey: ["users", userId, "permissions"],
-    })
-
-  const grantMutation = useMutation({
-    mutationFn: async (permissionId: string) => {
-      const { error } = await api.POST("/api/v1/Users/{id}/permissions", {
-        params: { path: { id: userId } },
-        body: {
-          permissionId,
-          expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
-        },
-      })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      void invalidate()
-      setSelected(undefined)
-      setExpiresAt("")
-      toast.success(t("users.permissionGranted"))
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
-
-  const revokeMutation = useMutation({
-    mutationFn: async (permissionId: string) => {
-      const { error } = await api.DELETE(
-        "/api/v1/Users/{id}/permissions/{permissionId}",
-        { params: { path: { id: userId, permissionId } } }
-      )
-      if (error) throw error
-    },
-    onSuccess: () => {
-      void invalidate()
-      toast.success(t("users.permissionRevoked"))
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
-
-  const granted = grantedQuery.data ?? []
+  const items = (grantedQuery.data ?? []).map((permission) => ({
+    key: permission.permissionId as string,
+    label: permission.permissionCode as string,
+  }))
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("users.managePermissions")}</DialogTitle>
-          <DialogDescription>{user.email}</DialogDescription>
-        </DialogHeader>
+    <AssignmentDialog<PermissionDraft>
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("users.managePermissions")}
+      description={user.email}
+      items={items}
+      loading={grantedQuery.isLoading}
+      emptyLabel={t("users.noPermissions")}
+      assignedLabel={t("users.managePermissions")}
+      picker={({ assignedKeys, add }) => {
+        const available = (allQuery.data ?? []).filter(
+          (permission) => permission.id && !assignedKeys.has(permission.id)
+        )
 
-        <div className="space-y-4">
-          <div className="flex items-end gap-2">
-            <div className="flex-1">
-              <Select value={selected} onValueChange={setSelected}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t("users.grantPermission")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {available.map((perm) => (
-                    <SelectItem key={perm.id} value={perm.id as string}>
-                      {perm.code}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Input
-              type="date"
-              className="w-40"
-              value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
-              aria-label={t("common.expiresAt")}
-            />
-            <Button
-              onClick={() => selected && grantMutation.mutate(selected)}
-              disabled={!selected || grantMutation.isPending}
-            >
-              {grantMutation.isPending ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <Plus />
-              )}
-              {t("users.grantPermission")}
-            </Button>
-          </div>
-
-          <div className="min-h-24 rounded-lg border p-3">
-            {grantedQuery.isLoading ? (
-              <div className="flex flex-wrap gap-2">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <Skeleton key={i} className="h-6 w-24" />
-                ))}
-              </div>
-            ) : granted.length === 0 ? (
-              <p className="py-4 text-center text-sm text-muted-foreground">
-                {t("users.noPermissions")}
-              </p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {granted.map((perm) => (
-                  <Badge
-                    key={perm.id}
-                    variant="secondary"
-                    className="gap-1 pe-1"
+        return (
+          <AssignmentPicker
+            addLabel={t("users.grantPermission")}
+            canAdd={Boolean(selected)}
+            expiresAt={expiresAt}
+            onExpiresAtChange={setExpiresAt}
+            onAdd={() => {
+              const permission = available.find((item) => item.id === selected)
+              if (!permission?.id) return
+              add({
+                key: permission.id,
+                label: permission.code as string,
+                draft: {
+                  permissionId: permission.id,
+                  expiresAt: expiresAt
+                    ? new Date(expiresAt).toISOString()
+                    : null,
+                },
+              })
+              setSelected(undefined)
+              setExpiresAt("")
+            }}
+          >
+            <Select value={selected} onValueChange={setSelected}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder={t("users.grantPermission")} />
+              </SelectTrigger>
+              <SelectContent>
+                {available.map((permission) => (
+                  <SelectItem
+                    key={permission.id}
+                    value={permission.id as string}
                   >
-                    {perm.permissionCode}
-                    <button
-                      type="button"
-                      className="rounded-full p-0.5 hover:bg-foreground/10 disabled:opacity-50"
-                      aria-label={t("common.remove")}
-                      disabled={revokeMutation.isPending}
-                      onClick={() =>
-                        perm.permissionId &&
-                        revokeMutation.mutate(perm.permissionId)
-                      }
-                    >
-                      <X className="size-3" />
-                    </button>
-                  </Badge>
+                    {permission.code}
+                  </SelectItem>
                 ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+              </SelectContent>
+            </Select>
+          </AssignmentPicker>
+        )
+      }}
+      onAdd={async (draft) => {
+        const { error } = await api.POST("/api/v1/Users/{id}/permissions", {
+          params: { path: { id: userId } },
+          body: {
+            permissionId: draft.permissionId,
+            expiresAt: draft.expiresAt,
+          },
+        })
+        if (error) throw error
+      }}
+      onRemove={async (permissionId) => {
+        const { error } = await api.DELETE(
+          "/api/v1/Users/{id}/permissions/{permissionId}",
+          { params: { path: { id: userId, permissionId } } }
+        )
+        if (error) throw error
+      }}
+      onApplied={() =>
+        void queryClient.invalidateQueries({
+          queryKey: ["users", userId, "permissions"],
+        })
+      }
+    />
   )
 }
