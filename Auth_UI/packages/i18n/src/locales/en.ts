@@ -134,6 +134,7 @@ export const en = {
     forgotSubtitle: "Enter your email and we'll send you a reset link.",
     sendResetLink: "Send reset link",
     backToSignIn: "Back to sign in",
+    useDifferentAccount: "Use a different account",
     resetLinkSentTitle: "Check your email",
     resetLinkSentDescription:
       "If an account exists for {{email}}, we've sent a link to reset your password.",

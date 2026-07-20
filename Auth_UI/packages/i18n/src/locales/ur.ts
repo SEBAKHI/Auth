@@ -140,6 +140,7 @@ export const ur: TranslationResources = {
       "اپنی ای میل درج کریں اور ہم آپ کو ری سیٹ لنک بھیجیں گے۔",
     sendResetLink: "ری سیٹ لنک بھیجیں",
     backToSignIn: "سائن ان پر واپس جائیں",
+    useDifferentAccount: "دوسرا اکاؤنٹ استعمال کریں",
     resetLinkSentTitle: "اپنی ای میل دیکھیں",
     resetLinkSentDescription:
       "اگر {{email}} کے لیے کوئی اکاؤنٹ موجود ہے تو ہم نے پاس ورڈ ری سیٹ کرنے کا لنک بھیج دیا ہے۔",

@@ -140,6 +140,7 @@ export const fr: TranslationResources = {
       "Saisissez votre e-mail et nous vous enverrons un lien de réinitialisation.",
     sendResetLink: "Envoyer le lien de réinitialisation",
     backToSignIn: "Retour à la connexion",
+    useDifferentAccount: "Utiliser un autre compte",
     resetLinkSentTitle: "Consultez vos e-mails",
     resetLinkSentDescription:
       "Si un compte existe pour {{email}}, nous avons envoyé un lien pour réinitialiser votre mot de passe.",

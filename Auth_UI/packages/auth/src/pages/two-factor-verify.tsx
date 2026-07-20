@@ -1,7 +1,7 @@
 import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { Navigate, useLocation, useNavigate } from "react-router-dom"
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Button } from "@astoom/ui/button"
@@ -16,6 +16,7 @@ import { Label } from "@astoom/ui/label"
 import { AuthLayout } from "@astoom/ui/auth-layout"
 import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
 import {
+  clearPendingTwoFactorChallenge,
   getPendingTwoFactorChallenge,
   useAuth,
 } from "@astoom/auth/auth-context"
@@ -34,8 +35,17 @@ interface LocationState {
  * challenge instead of tokens; this page verifies a TOTP code (or a recovery
  * code) against it and completes the session. A page refresh loses the
  * challenge on purpose — the user simply signs in again.
+ *
+ * The footer always offers a way back to sign-in: someone who reached this
+ * screen with the wrong account, or without their authenticator to hand, would
+ * otherwise be stuck on a page with no navigation at all.
  */
-export function TwoFactorVerifyPage() {
+export function TwoFactorVerifyPage({
+  footer,
+}: {
+  /** Extra footer content under the "use a different account" link. */
+  footer?: React.ReactNode
+} = {}) {
   const { t } = useTranslation()
   const { completeTwoFactor } = useAuth()
   const navigate = useNavigate()
@@ -111,6 +121,19 @@ export function TwoFactorVerifyPage() {
     <AuthLayout
       title={t("auth.twoFactorTitle")}
       subtitle={t("auth.twoFactorSubtitle")}
+      footer={
+        <div className="flex flex-col gap-1">
+          <Link
+            to="/login"
+            replace
+            className="underline-offset-4 hover:underline"
+            onClick={clearPendingTwoFactorChallenge}
+          >
+            {t("auth.useDifferentAccount")}
+          </Link>
+          {footer}
+        </div>
+      }
     >
       <div className="flex flex-col items-center gap-4">
         {useRecoveryCode ? (

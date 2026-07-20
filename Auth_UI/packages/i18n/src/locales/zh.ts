@@ -138,6 +138,7 @@ export const zh: TranslationResources = {
     forgotSubtitle: "输入您的邮箱，我们将向您发送重置链接。",
     sendResetLink: "发送重置链接",
     backToSignIn: "返回登录",
+    useDifferentAccount: "使用其他账号",
     resetLinkSentTitle: "请查看您的邮箱",
     resetLinkSentDescription: "如果 {{email}} 存在对应账户，我们已发送重置密码的链接。",
     resetLinkExpiresIn: "链接将在 {{time}} 后失效",

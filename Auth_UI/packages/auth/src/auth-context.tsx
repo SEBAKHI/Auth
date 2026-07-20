@@ -34,6 +34,15 @@ export function getPendingTwoFactorChallenge(): string | null {
   return pendingTwoFactorChallenge
 }
 
+/**
+ * Drops the pending challenge when the user abandons the 2FA step to sign in as
+ * someone else. Without this the verify page would still find a challenge for
+ * the previous account and send them straight back to it.
+ */
+export function clearPendingTwoFactorChallenge(): void {
+  pendingTwoFactorChallenge = null
+}
+
 interface AuthContextValue {
   status: AuthStatus
   user: UserInfo | null

@@ -138,6 +138,7 @@ export const ar: TranslationResources = {
     forgotSubtitle: "أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين.",
     sendResetLink: "إرسال رابط إعادة التعيين",
     backToSignIn: "العودة لتسجيل الدخول",
+    useDifferentAccount: "استخدام حساب آخر",
     resetLinkSentTitle: "تفقّد بريدك الإلكتروني",
     resetLinkSentDescription:
       "إذا كان هناك حساب مرتبط بـ {{email}}، فقد أرسلنا رابطًا لإعادة تعيين كلمة المرور.",

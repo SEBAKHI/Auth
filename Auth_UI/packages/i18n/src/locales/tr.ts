@@ -140,6 +140,7 @@ export const tr: TranslationResources = {
       "E-postanızı girin, size bir sıfırlama bağlantısı gönderelim.",
     sendResetLink: "Sıfırlama bağlantısı gönder",
     backToSignIn: "Oturum açmaya dön",
+    useDifferentAccount: "Farklı bir hesap kullan",
     resetLinkSentTitle: "E-postanızı kontrol edin",
     resetLinkSentDescription:
       "{{email}} için bir hesap varsa, parolanızı sıfırlamanız için bir bağlantı gönderdik.",

@@ -5,7 +5,6 @@ import { AcceptInvitationPage } from "@astoom/auth/pages/accept-invitation"
 import { ForcePasswordChangePage } from "@astoom/auth/pages/force-password-change"
 import { ForgotPasswordPage } from "@astoom/auth/pages/forgot-password"
 import { ResetPasswordPage } from "@astoom/auth/pages/reset-password"
-import { TwoFactorVerifyPage } from "@astoom/auth/pages/two-factor-verify"
 import { VerifyEmailPage } from "@astoom/auth/pages/verify-email-page"
 import { crumb } from "@astoom/ui/crumbs"
 import { NotFoundPage } from "@astoom/ui/error-pages/not-found"
@@ -16,6 +15,7 @@ import { ProfilePage } from "@astoom/account/pages/profile/profile-page"
 import { AccountShell } from "@/components/account-shell"
 import { AccountsLoginPage } from "@/pages/auth/login"
 import { RegisterPage } from "@/pages/auth/register"
+import { AccountsTwoFactorPage } from "@/pages/auth/two-factor"
 
 export const router = createBrowserRouter([
   {
@@ -56,7 +56,7 @@ export const router = createBrowserRouter([
   },
   // Top-level on purpose: the user holds a 2FA challenge but no tokens yet,
   // so the page belongs under neither RequireAnonymous nor RequireAuth.
-  { path: "/two-factor", element: <TwoFactorVerifyPage /> },
+  { path: "/two-factor", element: <AccountsTwoFactorPage /> },
   // Top-level on purpose: reached right after registration (no session yet) and
   // from the login page for an unconfirmed email; verifying signs the user in,
   // so it belongs under neither RequireAnonymous nor RequireAuth.

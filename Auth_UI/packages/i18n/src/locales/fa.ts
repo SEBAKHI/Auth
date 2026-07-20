@@ -140,6 +140,7 @@ export const fa: TranslationResources = {
       "ایمیل خود را وارد کنید تا پیوند بازنشانی برایتان ارسال شود.",
     sendResetLink: "ارسال پیوند بازنشانی",
     backToSignIn: "بازگشت به ورود",
+    useDifferentAccount: "استفاده از حساب دیگر",
     resetLinkSentTitle: "ایمیل خود را بررسی کنید",
     resetLinkSentDescription:
       "اگر حسابی برای {{email}} وجود داشته باشد، پیوندی برای بازنشانی رمز عبور ارسال کرده‌ایم.",
