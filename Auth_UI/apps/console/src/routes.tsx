@@ -1,5 +1,5 @@
 import * as React from "react"
-import { createBrowserRouter } from "react-router-dom"
+import { createBrowserRouter, Navigate, useParams } from "react-router-dom"
 
 import { OrganizationDetailPage } from "@astoom/account/pages/organizations/organization-detail-page"
 import { ProfilePage } from "@astoom/account/pages/profile/profile-page"
@@ -25,6 +25,7 @@ import { ConsoleOrganizationsPage } from "@/pages/organizations/organizations-pa
 import { NotificationLayoutDetailPage } from "@/pages/notifications/notification-layout-detail-page"
 import { NotificationLayoutsPage } from "@/pages/notifications/notification-layouts-page"
 import { NotificationOutboxPage } from "@/pages/notifications/notification-outbox-page"
+import { NotificationsOverviewPage } from "@/pages/notifications/notifications-overview-page"
 import { NotificationTemplateDetailPage } from "@/pages/notifications/notification-template-detail-page"
 import { NotificationTemplatesPage } from "@/pages/notifications/notification-templates-page"
 import { PermissionDetailPage } from "@/pages/permissions/permission-detail-page"
@@ -62,6 +63,16 @@ function ResetPasswordRedirect() {
     )
   }, [])
   return null
+}
+
+/** Carries the record id across the old flat notification paths. */
+function LegacyNotificationRedirect({
+  section,
+}: {
+  section: "templates" | "layouts"
+}) {
+  const { id } = useParams()
+  return <Navigate to={`/notifications/${section}/${id}`} replace />
 }
 
 export const router = createBrowserRouter([
@@ -214,30 +225,76 @@ export const router = createBrowserRouter([
               />
             ),
             children: [
+              // Nested on purpose: the section owns a URL of its own (every
+              // other section has one), and the parent `handle` is what puts a
+              // clickable "Notifications" crumb ahead of each sub-section.
+              {
+                path: "notifications",
+                handle: crumb("notifications", "/notifications"),
+                children: [
+                  { index: true, element: <NotificationsOverviewPage /> },
+                  {
+                    path: "templates",
+                    element: <NotificationTemplatesPage />,
+                    handle: crumb(
+                      "notificationTemplates",
+                      "/notifications/templates"
+                    ),
+                  },
+                  {
+                    path: "templates/:id",
+                    element: <NotificationTemplateDetailPage />,
+                    handle: crumb(
+                      "notificationTemplates",
+                      "/notifications/templates",
+                      true
+                    ),
+                  },
+                  {
+                    path: "layouts",
+                    element: <NotificationLayoutsPage />,
+                    handle: crumb(
+                      "notificationLayouts",
+                      "/notifications/layouts"
+                    ),
+                  },
+                  {
+                    path: "layouts/:id",
+                    element: <NotificationLayoutDetailPage />,
+                    handle: crumb(
+                      "notificationLayouts",
+                      "/notifications/layouts",
+                      true
+                    ),
+                  },
+                  {
+                    path: "outbox",
+                    element: <NotificationOutboxPage />,
+                    handle: crumb("notificationOutbox", "/notifications/outbox"),
+                  },
+                ],
+              },
+              // The section used to live at these flat paths; keep bookmarks and
+              // any link already sent out working, ids included.
               {
                 path: "notification-templates",
-                element: <NotificationTemplatesPage />,
-                handle: crumb("notifications", "/notification-templates"),
+                element: <Navigate to="/notifications/templates" replace />,
               },
               {
                 path: "notification-templates/:id",
-                element: <NotificationTemplateDetailPage />,
-                handle: crumb("notifications", "/notification-templates", true),
+                element: <LegacyNotificationRedirect section="templates" />,
               },
               {
                 path: "notification-layouts",
-                element: <NotificationLayoutsPage />,
-                handle: crumb("notificationLayouts", "/notification-layouts"),
+                element: <Navigate to="/notifications/layouts" replace />,
               },
               {
                 path: "notification-layouts/:id",
-                element: <NotificationLayoutDetailPage />,
-                handle: crumb("notificationLayouts", "/notification-layouts", true),
+                element: <LegacyNotificationRedirect section="layouts" />,
               },
               {
                 path: "notification-outbox",
-                element: <NotificationOutboxPage />,
-                handle: crumb("notificationOutbox", "/notification-outbox"),
+                element: <Navigate to="/notifications/outbox" replace />,
               },
             ],
           },

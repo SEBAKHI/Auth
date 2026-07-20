@@ -59,7 +59,7 @@ export function NotificationLayoutsPage() {
         <button
           type="button"
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/notification-layouts/${row.original.id}`)}
+          onClick={() => navigate(`/notifications/layouts/${row.original.id}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
         </button>

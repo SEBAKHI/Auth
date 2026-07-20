@@ -147,7 +147,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     titleKey: "notifications",
-    url: "/notification-templates",
+    url: "/notifications",
     icon: Mail,
     permission: PERMISSIONS.notificationTemplates.read,
   },

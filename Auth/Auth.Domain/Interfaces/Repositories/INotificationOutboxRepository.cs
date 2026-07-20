@@ -75,6 +75,11 @@ public interface INotificationOutboxRepository
     Task<NotificationOutboxMessage?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets delivery-log counts by status for the overview screen.
+    /// </summary>
+    Task<NotificationOutboxStats> GetStatsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Requeues a failed (Retry/Dead) message for immediate dispatch. Returns
     /// false when the message is not in a retryable status.
     /// </summary>

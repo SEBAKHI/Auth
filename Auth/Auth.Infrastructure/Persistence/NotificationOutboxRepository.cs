@@ -208,6 +208,25 @@ public class NotificationOutboxRepository : INotificationOutboxRepository
     }
 
     /// <inheritdoc />
+    public async Task<NotificationOutboxStats> GetStatsAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Status values are the NotificationDeliveryStatus TINYINTs:
+        // 0 Pending, 1 Processing, 2 Sent, 3 Retry, 4 Dead. Pending and
+        // Processing are both "in flight" to an operator; Retry and Dead are
+        // both "did not go out".
+        return await connection.QuerySingleAsync<NotificationOutboxStats>(@"
+            SELECT
+                COUNT(1) AS [Total],
+                SUM(CASE WHEN [Status] IN (0, 1) THEN 1 ELSE 0 END) AS [Pending],
+                SUM(CASE WHEN [Status] = 2 THEN 1 ELSE 0 END) AS [Sent],
+                SUM(CASE WHEN [Status] IN (3, 4) THEN 1 ELSE 0 END) AS [Failed],
+                SUM(CASE WHEN [CreatedAt] >= DATEADD(HOUR, -24, GETUTCDATE()) THEN 1 ELSE 0 END) AS [Last24Hours]
+            FROM [dbo].[NotificationOutbox]");
+    }
+
+    /// <inheritdoc />
     public async Task<bool> RequeueAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

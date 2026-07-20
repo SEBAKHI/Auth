@@ -9,6 +9,7 @@ using Auth.Application.Features.Notifications.DiscardNotificationTemplateDraft;
 using Auth.Application.Features.Notifications.GetNotificationTemplateById;
 using Auth.Application.Features.Notifications.GetNotificationTemplates;
 using Auth.Application.Features.Notifications.GetNotificationTemplateVersion;
+using Auth.Application.Features.Notifications.GetNotificationsSummary;
 using Auth.Application.Features.Notifications.PreviewNotificationTemplate;
 using Auth.Application.Features.Notifications.PublishNotificationTemplate;
 using Auth.Application.Features.Notifications.RestoreNotificationTemplateVersion;
@@ -64,6 +65,25 @@ public class NotificationTemplatesController : ApiController
                 channel, isPublished, searchTerm, sortBy, sortDirection),
             cancellationToken);
 
+        return result.Match(dto => Ok(dto), Problem);
+    }
+
+    /// <summary>
+    /// Gets the notifications section overview: template, layout and delivery
+    /// counts plus what is currently published.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately hosted under this controller rather than a notifications
+    /// controller of its own: the gateway forwards an explicit per-feature
+    /// allowlist, and this path rides the existing notification-templates route.
+    /// The literal segment cannot collide with <c>{id:guid}</c>.
+    /// </remarks>
+    [HttpGet("summary")]
+    [RequirePermission("notification-templates:read")]
+    [ProducesResponseType(typeof(NotificationsSummaryDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetNotificationsSummaryQuery(), cancellationToken);
         return result.Match(dto => Ok(dto), Problem);
     }
 

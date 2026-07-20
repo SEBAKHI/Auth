@@ -83,7 +83,7 @@ export function CreateLayoutDialog({
       void queryClient.invalidateQueries({ queryKey: ["notification-layouts"] })
       onOpenChange(false)
       if (created.id) {
-        navigate(`/notification-layouts/${created.id}`)
+        navigate(`/notifications/layouts/${created.id}`)
       }
     },
     onError: (error) => toast.error(getErrorMessage(error)),

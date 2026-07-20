@@ -5164,6 +5164,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notification-templates/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["NotificationsSummaryDto"];
+                        "application/json": components["schemas"]["NotificationsSummaryDto"];
+                        "text/json": components["schemas"]["NotificationsSummaryDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notification-templates/{id}": {
         parameters: {
             query?: never;
@@ -10247,6 +10284,12 @@ export interface components {
             /** Format: date-time */
             modifiedAt?: null | string;
         };
+        NotificationLayoutsSummaryDto: {
+            /** Format: int32 */
+            total?: number | string;
+            /** Format: int32 */
+            published?: number | string;
+        };
         NotificationOutboxMessageDetailDto: {
             bodyHtml?: string;
             bodyText?: null | string;
@@ -10317,12 +10360,31 @@ export interface components {
             /** Format: uuid */
             createdBy?: null | string;
         };
+        NotificationOutboxSummaryDto: {
+            /** Format: int32 */
+            total?: number | string;
+            /** Format: int32 */
+            pending?: number | string;
+            /** Format: int32 */
+            sent?: number | string;
+            /** Format: int32 */
+            failed?: number | string;
+            /** Format: int32 */
+            last24Hours?: number | string;
+        };
         NotificationPreviewDto: {
             subject?: string;
             html?: string;
             text?: string;
             languageCode?: string;
             direction?: string;
+        };
+        NotificationsSummaryDto: {
+            templates?: components["schemas"]["NotificationTemplatesSummaryDto"];
+            layouts?: components["schemas"]["NotificationLayoutsSummaryDto"];
+            outbox?: components["schemas"]["NotificationOutboxSummaryDto"];
+            publishedTemplates?: components["schemas"]["PublishedNotificationTemplateDto"][];
+            publishedLayouts?: components["schemas"]["PublishedNotificationLayoutDto"][];
         };
         NotificationTemplateDetailDto: {
             /** Format: uuid */
@@ -10376,6 +10438,17 @@ export interface components {
             createdAt?: string;
             /** Format: date-time */
             modifiedAt?: null | string;
+        };
+        NotificationTemplatesSummaryDto: {
+            /** Format: int32 */
+            total?: number | string;
+            /** Format: int32 */
+            published?: number | string;
+            /** Format: int32 */
+            drafts?: number | string;
+            byChannel?: {
+                [key: string]: number | string;
+            };
         };
         NotificationTemplateVersionDto: {
             /** Format: uuid */
@@ -10881,6 +10954,30 @@ export interface components {
         PublicBrandingDto: {
             name: string;
             logoUrl?: null | string;
+        };
+        PublishedNotificationLayoutDto: {
+            /** Format: uuid */
+            id?: string;
+            name?: string;
+            applicationName?: null | string;
+            channel?: string;
+            isPublished?: boolean;
+            hasUnpublishedChanges?: boolean;
+            /** Format: date-time */
+            publishedAt?: null | string;
+        };
+        PublishedNotificationTemplateDto: {
+            /** Format: uuid */
+            id?: string;
+            typeCode?: string;
+            typeName?: string;
+            applicationName?: null | string;
+            channel?: string;
+            /** Format: int32 */
+            publishedVersionNumber?: null | number | string;
+            hasUnpublishedDraft?: boolean;
+            /** Format: date-time */
+            modifiedAt?: null | string;
         };
         ReasonCountDto: {
             reason?: string;

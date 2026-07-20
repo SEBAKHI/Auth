@@ -7,6 +7,7 @@ export type NotificationTranslationDto = Schemas["NotificationTranslationDto"]
 export type NotificationTypeDto = Schemas["NotificationTypeDto"]
 export type NotificationLayoutDto = Schemas["NotificationLayoutDto"]
 export type NotificationPreviewDto = Schemas["NotificationPreviewDto"]
+export type NotificationsSummaryDto = Schemas["NotificationsSummaryDto"]
 
 /** One entry of a notification type's variable catalog (VariablesJson). */
 export interface TemplateVariable {

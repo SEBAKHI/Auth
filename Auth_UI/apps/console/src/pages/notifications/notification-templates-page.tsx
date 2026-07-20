@@ -80,7 +80,7 @@ export function NotificationTemplatesPage() {
           <button
             type="button"
             className="min-w-0 text-start hover:underline"
-            onClick={() => navigate(`/notification-templates/${template.id}`)}
+            onClick={() => navigate(`/notifications/templates/${template.id}`)}
           >
             <p className="truncate font-medium">{template.typeName}</p>
             <p className="truncate text-xs text-muted-foreground" dir="ltr">

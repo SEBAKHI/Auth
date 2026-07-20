@@ -60,7 +60,7 @@ export function CreateTemplateDialog({
       void queryClient.invalidateQueries({ queryKey: ["notification-templates"] })
       onOpenChange(false)
       if (created.id) {
-        navigate(`/notification-templates/${created.id}`)
+        navigate(`/notifications/templates/${created.id}`)
       }
     },
     onError: (error) => toast.error(getErrorMessage(error)),

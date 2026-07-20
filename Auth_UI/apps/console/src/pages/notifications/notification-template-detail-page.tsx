@@ -206,7 +206,7 @@ export function NotificationTemplateDetailPage() {
     onSuccess: () => {
       toast.success(t("notifications.templateDeleted"))
       void queryClient.invalidateQueries({ queryKey: ["notification-templates"] })
-      navigate("/notification-templates")
+      navigate("/notifications/templates")
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
