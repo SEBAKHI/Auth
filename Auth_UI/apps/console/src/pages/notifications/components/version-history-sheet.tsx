@@ -78,7 +78,7 @@ export function VersionHistorySheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{t("notifications.versionHistory")}</SheetTitle>
           <SheetDescription>{t("notifications.versionHistoryHint")}</SheetDescription>

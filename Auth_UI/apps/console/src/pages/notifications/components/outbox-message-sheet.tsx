@@ -106,7 +106,7 @@ export function OutboxMessageSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+      <SheetContent size="xl" className="overflow-y-auto">
         <SheetHeader>
           <SheetTitle dir="auto">{message?.subject ?? t("notifications.outboxMessage")}</SheetTitle>
           <SheetDescription>{t("notifications.outboxMessageHint")}</SheetDescription>

@@ -35,6 +35,7 @@ export function FormDialog<T extends FieldValues>({
   onSubmit,
   submitLabel,
   pending = false,
+  size,
   contentClassName,
   children,
 }: {
@@ -47,6 +48,8 @@ export function FormDialog<T extends FieldValues>({
   onSubmit: (values: T) => void
   submitLabel: string
   pending?: boolean
+  /** Width from the shared dialog scale; defaults to the dialog default (`lg`). */
+  size?: React.ComponentProps<typeof DialogContent>["size"]
   contentClassName?: string
   children: React.ReactNode
 }) {
@@ -58,7 +61,7 @@ export function FormDialog<T extends FieldValues>({
 
   return (
     <Dialog open={open} onOpenChange={requestOpenChange}>
-      <DialogContent className={contentClassName}>
+      <DialogContent size={size} className={contentClassName}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? (

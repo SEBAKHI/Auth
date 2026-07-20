@@ -32,7 +32,7 @@ export function AuditLogDetailDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{log.action}</DialogTitle>
         </DialogHeader>

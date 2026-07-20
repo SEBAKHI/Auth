@@ -126,7 +126,8 @@ export function VerifyEmailDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent>
+      {/* A single OTP field — the default width would leave it stranded. */}
+      <DialogContent size="md">
         <DialogHeader className="items-center px-8 text-center">
           <DialogTitle>{t("auth.verifyEmailTitle")}</DialogTitle>
           <DialogDescription>

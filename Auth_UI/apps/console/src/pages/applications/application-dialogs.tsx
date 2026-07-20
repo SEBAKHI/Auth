@@ -22,8 +22,6 @@ import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
 import type { Schemas } from "@astoom/api/types"
 
-const CONTENT_CLASS = "max-h-[90svh] overflow-y-auto sm:max-w-lg"
-
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
 }
@@ -146,7 +144,6 @@ export function ApplicationCreateDialog({
       onSubmit={(values) => mutation.mutate(values)}
       submitLabel={t("common.create")}
       pending={mutation.isPending}
-      contentClassName={CONTENT_CLASS}
     >
       <FormField
         control={form.control}
@@ -407,7 +404,6 @@ export function ApplicationEditDialog({
       onSubmit={(values) => mutation.mutate(values)}
       submitLabel={t("common.save")}
       pending={mutation.isPending}
-      contentClassName={CONTENT_CLASS}
     >
       <FormField
         control={form.control}

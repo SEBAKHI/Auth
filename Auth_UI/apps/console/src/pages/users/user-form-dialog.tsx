@@ -160,7 +160,7 @@ export function UserFormDialog({
       onSubmit={(values) => mutation.mutate(values)}
       submitLabel={isEdit ? t("common.save") : t("common.create")}
       pending={mutation.isPending}
-      contentClassName="sm:max-w-2xl"
+      size="xl"
     >
       <div className="grid gap-7 sm:grid-cols-2">
         {!isEdit ? (

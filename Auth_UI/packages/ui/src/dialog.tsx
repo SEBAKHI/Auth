@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { cva, type VariantProps } from "class-variance-authority"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
 import { cn } from "@astoom/ui/utils"
@@ -64,17 +65,60 @@ function isEventFromPopper(
   )
 }
 
+/**
+ * One width scale for every dialog in both apps, so a dialog is sized by
+ * declaring what it holds rather than by a per-call-site `sm:max-w-*` string.
+ *
+ * `overflow-x-hidden` is deliberate: `overflow-y-auto` alone computes overflow-x
+ * to `auto`, so any child that outgrows the dialog produced a horizontal
+ * scrollbar instead of wrapping. Content is expected to reflow, never to pan.
+ *
+ * Centering is physical (`left-1/2` + `-translate-x-1/2`) and the small-screen
+ * cap is in `svw`, not `%`, on purpose. Centering with the logical `start-1/2`
+ * plus an `rtl:` translate override made the dialog overflow the viewport in
+ * RTL; the overflow widened the initial containing block, the percentage cap
+ * then resolved against that wider box, and each step fed the next. Viewport
+ * units and direction-agnostic centering break that loop — a centered box needs
+ * no writing direction anyway.
+ */
+const dialogContentVariants = cva(
+  "fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-full min-w-0 max-w-[calc(100svw-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 overflow-x-hidden overflow-y-auto rounded-4xl bg-popover p-6 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/5 duration-100 outline-none dark:ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+  {
+    variants: {
+      size: {
+        /** Confirmations and other single-sentence prompts. */
+        sm: "sm:max-w-sm",
+        /** A couple of short fields. */
+        md: "sm:max-w-md",
+        /** Default: a form, a picker plus a list, most editors. */
+        lg: "sm:max-w-lg",
+        /** Multi-column forms and side-by-side fields. */
+        xl: "sm:max-w-2xl",
+        /** Tables, diffs, long record detail. */
+        "2xl": "sm:max-w-4xl",
+        /** Editors that want the whole viewport minus a margin. */
+        full: "sm:max-w-[min(72rem,calc(100%-4rem))]",
+      },
+    },
+    defaultVariants: {
+      size: "lg",
+    },
+  }
+)
+
 function DialogContent({
   className,
   children,
+  size,
   showCloseButton = true,
   onPointerDownOutside,
   onInteractOutside,
   onFocusOutside,
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & {
-  showCloseButton?: boolean
-}) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> &
+  VariantProps<typeof dialogContentVariants> & {
+    showCloseButton?: boolean
+  }) {
   return (
     <DialogPortal>
       <DialogOverlay />
@@ -92,10 +136,7 @@ function DialogContent({
           if (isEventFromPopper(event)) event.preventDefault()
           onFocusOutside?.(event)
         }}
-        className={cn(
-          "fixed start-1/2 top-1/2 z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 overflow-y-auto rounded-4xl bg-popover p-6 text-sm text-popover-foreground shadow-xl ring-1 ring-foreground/5 duration-100 outline-none sm:max-w-md rtl:translate-x-1/2 dark:ring-foreground/10 data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
-        )}
+        className={cn(dialogContentVariants({ size }), className)}
         {...props}
       >
         {children}

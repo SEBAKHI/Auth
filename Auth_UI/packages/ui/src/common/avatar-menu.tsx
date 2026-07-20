@@ -93,7 +93,7 @@ export function AvatarMenu({
       />
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="p-2 sm:max-w-md">
+        <DialogContent size="md" className="p-2">
           {src ? (
             <img
               src={src}

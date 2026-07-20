@@ -133,7 +133,7 @@ export function DataTableRowDetail<TData>({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       {row ? (
-        <SheetContent side={side} className="w-full sm:max-w-md">
+        <SheetContent side={side}>
           <SheetHeader>
             <SheetTitle>{title ?? t("common.details")}</SheetTitle>
             <SheetDescription className="sr-only">
