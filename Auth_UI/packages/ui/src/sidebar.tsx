@@ -372,6 +372,9 @@ function SidebarContent({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="sidebar-content"
       data-sidebar="content"
+      // no-scrollbar is a shadcn utility (shadcn/tailwind.css, imported by each
+      // app's index.css) — not defined in this repo, so grepping *.css here
+      // finds nothing. It hides the native scrollbar; the nav still scrolls.
       className={cn(
         "no-scrollbar flex min-h-0 flex-1 flex-col gap-2 overflow-auto [--radius:var(--radius-xl)] group-data-[collapsible=icon]:overflow-hidden",
         className

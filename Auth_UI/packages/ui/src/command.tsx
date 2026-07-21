@@ -90,6 +90,9 @@ function CommandList({
   return (
     <CommandPrimitive.List
       data-slot="command-list"
+      // no-scrollbar is a shadcn utility (shadcn/tailwind.css, imported by each
+      // app's index.css) — not defined in this repo, so grepping *.css here
+      // finds nothing. It hides the native scrollbar; the list still scrolls.
       className={cn(
         "no-scrollbar max-h-72 scroll-py-1 overflow-x-hidden overflow-y-auto outline-none",
         className
