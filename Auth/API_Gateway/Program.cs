@@ -12,6 +12,11 @@ using Yarp.ReverseProxy.Transforms;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Machine-local overrides (including the PlainText-mode gateway token) live in
+// appsettings.{Environment}.local.json, which is git-ignored; the committed environment file
+// beside it carries only non-secret defaults. Must match the Auth API's layering.
+builder.Configuration.AddEnvironmentLocalJsonFile(builder.Environment.EnvironmentName);
+
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
@@ -29,11 +34,30 @@ builder.Host.UseSerilog();
 var dataProtectionPath = AuthDataProtectionExtensions.ResolveKeyRingPath(
     builder.Configuration["DataProtection:KeyPath"]);
 
-var storageMode = AuthDataProtectionExtensions.ParseStorageMode(
-    builder.Configuration["SecretManagement:StorageMode"]);
 var dpCertificateSettings = builder.Configuration
     .GetSection(DataProtectionCertificateSettings.SectionName)
     .Get<DataProtectionCertificateSettings>() ?? new DataProtectionCertificateSettings();
+
+// Certificate is the shipped default so a real deployment matches the Auth API's default. The
+// Development fallback to PlainText is the SAME rule the Auth API applies, which is what keeps
+// the two in agreement in both cases: with a certificate both run Certificate, without one both
+// run PlainText. Outside Development a missing certificate still fails fast in both apps.
+var configuredStorageMode = AuthDataProtectionExtensions.ParseStorageMode(
+    builder.Configuration["SecretManagement:StorageMode"]);
+var storageMode = AuthDataProtectionExtensions.ResolveStorageMode(
+    builder.Configuration["SecretManagement:StorageMode"],
+    builder.Environment.IsDevelopment(),
+    dpCertificateSettings);
+
+if (storageMode != configuredStorageMode)
+{
+    Log.Warning(
+        "SecretManagement:StorageMode is '{Configured}' but no DataProtection:Certificate is configured. " +
+        "Falling back to {Effective} because this is the Development environment: the gateway token is read " +
+        "from this app's own Gateway:Token setting instead of the shared encrypted secrets file. The Auth API " +
+        "applies the same fallback, so the two still match. Non-Development environments fail to start instead.",
+        configuredStorageMode, storageMode);
+}
 
 builder.Services.AddDataProtection()
     .SetApplicationName("AuthSystem")

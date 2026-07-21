@@ -23,7 +23,18 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-full p-1 text-muted-foreground group-data-horizontal/tabs:h-9 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col group-data-vertical/tabs:rounded-2xl data-[variant=line]:rounded-none",
+  // The triggers are `whitespace-nowrap` and cannot shrink, so `w-fit` resolves
+  // to their combined min-content width — wider than the viewport once a strip
+  // carries a few tabs. `max-w-full` + `overflow-x-auto` keeps the strip inside
+  // its column and scrolls the tabs instead of widening the document. The
+  // scrollbar is hidden because it would eat half of the 36px-tall pill; the
+  // `p-1` padding leaves room for the focus ring and the line-variant underline
+  // so neither is clipped by the scroll container.
+  // `justify-center-safe` rather than `justify-center`: centring an overflowing
+  // flex line splits the overflow across both sides, and the leading half can
+  // never be scrolled back into view. `safe` falls back to start alignment
+  // exactly when the tabs overflow, which is the only time it can matter here.
+  "group/tabs-list inline-flex w-fit items-center justify-center-safe rounded-full p-1 text-muted-foreground group-data-horizontal/tabs:h-9 group-data-horizontal/tabs:max-w-full group-data-horizontal/tabs:overflow-x-auto group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col group-data-vertical/tabs:rounded-2xl data-[variant=line]:rounded-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
   {
     variants: {
       variant: {

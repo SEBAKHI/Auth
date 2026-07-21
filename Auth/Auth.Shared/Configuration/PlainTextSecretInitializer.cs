@@ -37,6 +37,31 @@ public sealed class PlainTextSecretResult
 public static class PlainTextSecretInitializer
 {
     /// <summary>
+    /// Resolves the appsettings file that generated plain-text secrets are written to.
+    /// </summary>
+    /// <param name="configuredFile">The configured <c>SecretManagement:PlainTextTargetFile</c>, if any.</param>
+    /// <param name="environmentName">The current environment name (e.g. <c>Development</c>).</param>
+    /// <returns>The configured file when set, otherwise the environment's git-ignored local file.</returns>
+    /// <remarks>
+    /// Defaults to <c>appsettings.{EnvironmentName}.local.json</c>: the environment's own layer, so
+    /// the next run reads the keys back instead of regenerating them, and the git-ignored one, so
+    /// generated key material never lands in the committed <c>appsettings.{EnvironmentName}.json</c>.
+    /// <para>
+    /// The original fixed default was <c>appsettings.Production.json</c> for every environment, which
+    /// broke twice in Development: that file is not part of the Development configuration, so each run
+    /// generated fresh keys — invalidating every token issued before the restart — and it quietly
+    /// seeded the Production config with plaintext dev keys, the exact state
+    /// <c>ProductionSecretGuard</c> refuses to boot on.
+    /// </para>
+    /// </remarks>
+    public static string ResolveTargetFile(string? configuredFile, string environmentName)
+    {
+        return !string.IsNullOrWhiteSpace(configuredFile)
+            ? configuredFile
+            : LocalConfigurationExtensions.LocalFileName(environmentName);
+    }
+
+    /// <summary>
     /// Ensures the RSA signing key, HMAC key, and gateway token exist in configuration.
     /// Generates any missing values (when <paramref name="autoGenerate"/> is true) and writes
     /// them to <paramref name="targetFile"/>.

@@ -456,9 +456,13 @@ $RECYCLE.BIN/
 ##
 ## Sensitive Data - DO NOT COMMIT
 ##
+## appsettings.{Environment}.json IS committed and must stay non-secret: it is what makes a fresh
+## clone runnable (it states the Development storage mode explicitly). Every secret and every
+## machine-specific override belongs in the .local.json layer below, which is never committed and
+## is where the app writes any key material it generates.
+appsettings.*.local.json
+*.local.json
 appsettings.Production.json
-appsettings.Development.json
-*.Development.json
 *.Production.json
 secrets.json
 .env

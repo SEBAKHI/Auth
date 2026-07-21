@@ -27,9 +27,10 @@ public class SecretManagementSettings
     /// <summary>
     /// Appsettings file that generated secrets are written to when <see cref="StorageMode"/> is
     /// <c>PlainText</c>. May be absolute or relative to the application content root.
-    /// Default: <c>appsettings.Production.json</c>.
+    /// Leave empty to use the running environment's own file (<c>appsettings.{Environment}.json</c>),
+    /// resolved by <c>PlainTextSecretInitializer.ResolveTargetFile</c>.
     /// </summary>
-    public string PlainTextTargetFile { get; set; } = "appsettings.Production.json";
+    public string PlainTextTargetFile { get; set; } = string.Empty;
 
     /// <summary>
     /// Path to the encrypted secrets file (used by the <c>Certificate</c> and <c>Dpapi</c> modes).

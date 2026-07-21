@@ -22,6 +22,42 @@ public static class AuthDataProtectionExtensions
     }
 
     /// <summary>
+    /// Resolves the storage mode actually used for this run, applying the Development fallback.
+    /// </summary>
+    /// <param name="configuredValue">The configured <c>SecretManagement:StorageMode</c> value.</param>
+    /// <param name="isDevelopment">Whether the app is running in the Development environment.</param>
+    /// <param name="certificateSettings">The bound <c>DataProtection:Certificate</c> settings.</param>
+    /// <returns>The effective mode, which may differ from the configured one only in Development.</returns>
+    /// <remarks>
+    /// The shipped default is <see cref="SecretStorageMode.Certificate"/>, which needs a certificate
+    /// that only a real deployment has provisioned. Applying that verbatim to a fresh clone aborts
+    /// startup before anything runs, so Development falls back to <see cref="SecretStorageMode.PlainText"/>
+    /// when — and only when — no certificate source is configured. A developer who does configure one
+    /// keeps certificate mode and can exercise the production path locally.
+    /// <para>
+    /// The fallback is deliberately gated on Development rather than on "no certificate": outside
+    /// Development a missing certificate must still fail fast, because silently downgrading to
+    /// plaintext there would strip encryption at rest from the signing key.
+    /// </para>
+    /// </remarks>
+    public static SecretStorageMode ResolveStorageMode(
+        string? configuredValue,
+        bool isDevelopment,
+        DataProtectionCertificateSettings? certificateSettings)
+    {
+        var mode = ParseStorageMode(configuredValue);
+
+        if (isDevelopment
+            && mode == SecretStorageMode.Certificate
+            && certificateSettings?.HasSource() != true)
+        {
+            return SecretStorageMode.PlainText;
+        }
+
+        return mode;
+    }
+
+    /// <summary>
     /// Resolves the directory that holds the ASP.NET Core Data Protection key ring, shared by the
     /// Auth API and the API Gateway so both apps read and write the SAME ring.
     /// </summary>
