@@ -52,6 +52,11 @@ JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Machine-local overrides and generated secrets live in appsettings.{Environment}.local.json,
+// which is git-ignored. The committed appsettings.{Environment}.json beside it carries only
+// non-secret defaults. See LocalConfigurationExtensions for why the order matters.
+builder.Configuration.AddEnvironmentLocalJsonFile(builder.Environment.EnvironmentName);
+
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
@@ -93,11 +98,24 @@ var secretManagementSettings = builder.Configuration
     .GetSection(SecretManagementSettings.SectionName)
     .Get<SecretManagementSettings>() ?? new SecretManagementSettings();
 
-var storageMode = AuthDataProtectionExtensions.ParseStorageMode(secretManagementSettings.StorageMode);
-
 var dpCertificateSettings = builder.Configuration
     .GetSection(DataProtectionCertificateSettings.SectionName)
     .Get<DataProtectionCertificateSettings>() ?? new DataProtectionCertificateSettings();
+
+// Certificate is the shipped default so real deployments encrypt the key ring at rest, but a
+// fresh clone has no certificate and would abort here. Development falls back to PlainText in
+// that case; every other environment still fails fast. See ResolveStorageMode.
+var configuredStorageMode = AuthDataProtectionExtensions.ParseStorageMode(secretManagementSettings.StorageMode);
+var storageMode = AuthDataProtectionExtensions.ResolveStorageMode(
+    secretManagementSettings.StorageMode,
+    builder.Environment.IsDevelopment(),
+    dpCertificateSettings);
+
+// Generated plain-text secrets land in the running environment's own appsettings file unless
+// one is configured explicitly, so a developer's keys never reach another environment's config.
+var plainTextTargetFile = PlainTextSecretInitializer.ResolveTargetFile(
+    secretManagementSettings.PlainTextTargetFile,
+    builder.Environment.EnvironmentName);
 
 // Data Protection key-ring location (encrypts the secrets file in Certificate/Dpapi modes).
 // Defaults to %ProgramData%\AuthSystem\Keys; see AuthDataProtectionExtensions.ResolveKeyRingPath
@@ -117,6 +135,16 @@ builder.Services.AddDataProtection()
 
 Log.Information("Secret storage mode: {Mode}", storageMode);
 
+if (storageMode != configuredStorageMode)
+{
+    Log.Warning(
+        "SecretManagement:StorageMode is '{Configured}' but no DataProtection:Certificate is configured. " +
+        "Falling back to {Effective} because this is the Development environment: secrets will be stored as " +
+        "PLAIN TEXT in '{TargetFile}'. Configure DataProtection:Certificate (PfxPath or Thumbprint) to run " +
+        "certificate mode locally. Non-Development environments fail to start instead of falling back.",
+        configuredStorageMode, storageMode, plainTextTargetFile);
+}
+
 if (storageMode == SecretStorageMode.PlainText)
 {
     // Secrets live as plain text in an appsettings file. Generate any missing values on first run.
@@ -124,7 +152,7 @@ if (storageMode == SecretStorageMode.PlainText)
         builder.Configuration,
         builder.Environment.ContentRootPath,
         secretManagementSettings.AutoGenerateKeys,
-        secretManagementSettings.PlainTextTargetFile);
+        plainTextTargetFile);
 
     if (plainTextResult.Generated)
     {
@@ -265,7 +293,7 @@ if (builder.Configuration.GetValue<bool>("Password:Pepper:Enabled")
     {
         var pepperPersistError = Auth.Shared.Configuration.PlainTextSecretInitializer.Persist(
             builder.Environment.ContentRootPath,
-            secretManagementSettings.PlainTextTargetFile,
+            plainTextTargetFile,
             pepperConfig);
 
         if (pepperPersistError != null)

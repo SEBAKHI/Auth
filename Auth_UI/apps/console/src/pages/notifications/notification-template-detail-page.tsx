@@ -331,7 +331,9 @@ export function NotificationTemplateDetailPage() {
       <div className="grid gap-6 xl:grid-cols-2">
         <div className="space-y-4">
           <Tabs value={activeLanguage} onValueChange={setActiveLanguage}>
-            <TabsList className="flex-wrap">
+            {/* Wrapping needs the height to follow the rows; the strip's
+                default fixed height would cut off every row but the first. */}
+            <TabsList className="h-auto! flex-wrap">
               {SUPPORTED_LANGUAGES.map((language) => {
                 const draft = drafts[language.code]
                 const filled = Boolean(draft?.subject.trim() || draft?.bodyHtml.trim())
