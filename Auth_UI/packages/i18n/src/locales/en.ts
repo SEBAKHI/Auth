@@ -182,7 +182,8 @@ export const en = {
     invitationInvitedBy: "Invited by",
     invitationExpires: "Expires",
     invitationInvalid: "This invitation link is invalid.",
-    invitationExpired: "This invitation has expired. Ask your administrator to send a new one.",
+    invitationExpired:
+      "This invitation has expired. Ask your administrator to send a new one.",
     invitationUnavailable: "This invitation is no longer available.",
     invitationAlreadyAccepted: "This invitation has already been accepted.",
     invitationSignInToAccept: "Sign in to accept",
@@ -218,6 +219,7 @@ export const en = {
     totalUsers: "Users",
     totalApplications: "Applications",
     totalOrganizations: "Organizations",
+    myOrganizations: "My organizations",
     recentActivity: "Recent activity",
     recentActivitySubtitle: "Latest audit events.",
     successfulEvents: "Successful events (7d)",
@@ -246,7 +248,7 @@ export const en = {
     viewAuditLogs: "View audit logs",
     noData: "Not enough data yet.",
     subtitleWindow:
-      "Overview of your authentication system — trailing {{days}} days (UTC).",
+      "Overview of your authentication system — trailing {{days}} days ({{timeZone}}).",
     newUsersHint: "{{count}} new in window",
     activeUsersWindow: "Active users",
     successRate: "Login success rate",
@@ -261,7 +263,8 @@ export const en = {
     activeTokens: "Active refresh tokens",
     tokensHint: "{{expiring}} expiring in 7d · {{revoked}} revoked in window",
     loginOutcomes: "Login outcomes",
-    loginOutcomesSubtitle: "Successful vs failed sign-ins per UTC day.",
+    loginOutcomesSubtitle:
+      "Successful vs failed sign-ins per calendar day in {{timeZone}}.",
     success: "Successful",
     failed: "Failed",
     daily: "Daily",
@@ -271,7 +274,7 @@ export const en = {
     failedAttempts: "Failed attempts",
     dailyActiveUsers: "Daily active users",
     dailyActiveUsersSubtitle:
-      "Distinct users with a successful sign-in per UTC day.",
+      "Distinct users with a successful sign-in per calendar day in {{timeZone}}.",
     loginsByApplication: "Logins by application",
     loginsByApplicationSubtitle:
       "Attempt outcomes per application; 'Unknown' carried no application context.",
@@ -281,7 +284,7 @@ export const en = {
     unattributed: "Unattributed",
     other: "Other",
     signups: "New registrations",
-    signupsSubtitle: "Accounts created per UTC day.",
+    signupsSubtitle: "Accounts created per calendar day in {{timeZone}}.",
     signupsSeries: "Registrations",
     funnel: "Activation funnel",
     funnelSubtitle:
@@ -527,7 +530,10 @@ export const en = {
       "You will be demoted to organization administrator and can no longer transfer or delete it.",
     transferConsequence3:
       "A confirmation code will be emailed to the new owner. Enter it on the next step to complete the transfer.",
+    transferAdminConsequence:
+      "Platform recovery transfers ownership immediately without emailing a confirmation code. The action is recorded in the audit log.",
     transferSendCode: "Send confirmation code",
+    transferAdminConfirm: "Transfer immediately",
     transferCodeTitle: "Enter the confirmation code",
     transferCodeSent: "A code was sent to {{email}}. Ask the new owner for it.",
     transferCodeLabel: "Confirmation code",
@@ -655,7 +661,8 @@ export const en = {
     layoutsSubtitle:
       "The shared visual identity wrapped around every message; all languages share one layout.",
     newTemplate: "New Template",
-    newTemplateHint: "Choose the message type and scope. Content is added in the editor.",
+    newTemplateHint:
+      "Choose the message type and scope. Content is added in the editor.",
     templateCreated: "Template created",
     templateDeleted: "Template deleted",
     type: "Type",
@@ -724,13 +731,15 @@ export const en = {
     restoredAsDraft: "Version restored as draft",
     testSend: "Send test",
     testSendTitle: "Send test message",
-    testSendHint: "Renders the current draft (or published version) with sample data.",
+    testSendHint:
+      "Renders the current draft (or published version) with sample data.",
     testSent: "Test message sent",
     recipientEmail: "Recipient email",
     layoutName: "Layout name",
     layoutContent: "Layout content (Liquid HTML)",
     layoutFooter: "Footer text ({{language}})",
-    layoutFooterHint: "Per-language chrome string rendered into the layout footer.",
+    layoutFooterHint:
+      "Per-language chrome string rendered into the layout footer.",
     outboxTitle: "Delivery Log",
     outboxSubtitle:
       "Every queued message: what was sent, to whom, by which template version, and its delivery status. Failed messages can be requeued.",
@@ -748,7 +757,8 @@ export const en = {
     outboxRetried: "Message requeued for delivery",
     retryNow: "Retry now",
     outboxMessage: "Delivery log entry",
-    outboxMessageHint: "The exact rendered content and delivery lifecycle of this message.",
+    outboxMessageHint:
+      "The exact rendered content and delivery lifecycle of this message.",
     templateVersionRef: "Template version",
     tabOverview: "Overview",
     tabTemplates: "Templates",
@@ -770,20 +780,25 @@ export const en = {
     overviewViewTemplates: "View all templates",
     overviewViewLayouts: "View all layouts",
     newLayout: "New Layout",
-    newLayoutHint: "Create an application-specific layout that overrides the global one.",
-    newLayoutScopeHint: "Application-specific; the global layout stays the fallback for all others.",
-    newLayoutScopeRequired: "Choose an application — the global layout already exists.",
+    newLayoutHint:
+      "Create an application-specific layout that overrides the global one.",
+    newLayoutScopeHint:
+      "Application-specific; the global layout stays the fallback for all others.",
+    newLayoutScopeRequired:
+      "Choose an application — the global layout already exists.",
     layoutCreated: "Layout created",
     selectApplication: "Select an application",
     undo: "Undo",
     redo: "Redo",
     insertImage: "Insert image",
     insertImageTitle: "Insert an image",
-    insertImageHint: "The image is uploaded and referenced by an absolute URL so it loads in email clients.",
+    insertImageHint:
+      "The image is uploaded and referenced by an absolute URL so it loads in email clients.",
     chooseImage: "Choose image",
     uploadingImage: "Uploading...",
     imageWidth: "Width",
-    imageWidthHint: "Pixels (e.g. 320) or percent (e.g. 60%). Leave empty for the image's natural size.",
+    imageWidthHint:
+      "Pixels (e.g. 320) or percent (e.g. 60%). Leave empty for the image's natural size.",
     imageAlt: "Alt text",
     insertImageAction: "Insert",
     imageInserted: "Image inserted",
@@ -792,15 +807,17 @@ export const en = {
     manageVariablesHint:
       "These are the pieces of dynamic information (variables) that messages of this type can include — for example the user's name or the verification code. A template can only use variables that are on this list.",
     variablesContextHint:
-      "On top of this list, the system automatically fills in a few ready-made variables in every message: the platform name, the application name and address, the sender name, and the current year. They appear in the editor under \"Always available\" — no need to add them here.",
+      'On top of this list, the system automatically fills in a few ready-made variables in every message: the platform name, the application name and address, the sender name, and the current year. They appear in the editor under "Always available" — no need to add them here.',
     customVariableWarning:
       "Add a new variable only in coordination with your development team. The system must know its value at send time — a variable the system does not know is simply left empty in the message.",
     globalVariables: "Always available",
     globalVarPlatformName: "The platform name, as set in Platform settings.",
     globalVarApplicationName:
       "The name of the application the message belongs to. Global messages use the platform name.",
-    globalVarApplicationCode: "The application's short code. Empty for global messages.",
-    globalVarApplicationBaseUrl: "The application's website address; useful for building links.",
+    globalVarApplicationCode:
+      "The application's short code. Empty for global messages.",
+    globalVarApplicationBaseUrl:
+      "The application's website address; useful for building links.",
     globalVarYear: "The current year — handy for footers and copyright lines.",
     variableName: "Name",
     variableDescription: "Description",
@@ -810,13 +827,15 @@ export const en = {
     removeVariable: "Remove",
     variablesSaved: "Variables saved",
     editVariables: "Edit variables",
-    imageAltHint: "Short description read by screen readers and shown when the image cannot load.",
+    imageAltHint:
+      "Short description read by screen readers and shown when the image cannot load.",
     templatesSearchPlaceholder: "Search type, code, or application...",
     layoutsSearchPlaceholder: "Search name or application...",
     layoutSlots: "Layout placeholders",
     layoutSlotContent:
       "The rendered message body. Every layout must include this slot — without it, messages arrive empty.",
-    layoutSlotDir: "Text direction (rtl or ltr), derived from the message language.",
+    layoutSlotDir:
+      "Text direction (rtl or ltr), derived from the message language.",
     layoutSlotLang: "The message language code (en, ar, ...).",
     layoutSlotFooter: "The footer text of the message language, edited below.",
     layoutSlotSenderName: "The sender display name from the email settings.",

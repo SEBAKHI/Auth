@@ -1,30 +1,32 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  bucketDailyUtc,
+  bucketDaily,
   buildCountSeries,
   buildLoginSeries,
+  calendarDayKey,
   daysUntil,
   pctDelta,
   rollupWeeklyCounts,
   rollupWeeklyLogins,
   successRate,
   topNWithOther,
-  trailingUtcDays,
-  utcDayKey,
-  weekStartUtc,
+  trailingCalendarDays,
+  weekStartCalendar,
 } from "./helpers"
 
-describe("utcDayKey", () => {
-  it("takes the UTC calendar day from an ISO timestamp", () => {
-    expect(utcDayKey("2026-06-23T23:59:59.99Z")).toBe("2026-06-23")
-    expect(utcDayKey("2026-06-23T00:00:00")).toBe("2026-06-23")
+describe("calendarDayKey", () => {
+  it("moves an instant across midnight in the selected time zone", () => {
+    expect(calendarDayKey("2026-06-23T22:30:00Z", "Europe/Istanbul")).toBe(
+      "2026-06-24"
+    )
+    expect(calendarDayKey("2026-06-23T22:30:00Z", "Etc/UTC")).toBe("2026-06-23")
   })
 })
 
-describe("trailingUtcDays", () => {
+describe("trailingCalendarDays", () => {
   it("produces a continuous inclusive window ending at endDay", () => {
-    expect(trailingUtcDays(3, "2026-07-01")).toEqual([
+    expect(trailingCalendarDays(3, "2026-07-01")).toEqual([
       "2026-06-29",
       "2026-06-30",
       "2026-07-01",
@@ -32,7 +34,10 @@ describe("trailingUtcDays", () => {
   })
 
   it("crosses month boundaries", () => {
-    expect(trailingUtcDays(2, "2026-07-01")).toEqual(["2026-06-30", "2026-07-01"])
+    expect(trailingCalendarDays(2, "2026-07-01")).toEqual([
+      "2026-06-30",
+      "2026-07-01",
+    ])
   })
 })
 
@@ -41,6 +46,7 @@ describe("buildLoginSeries", () => {
     const series = buildLoginSeries(
       [{ date: "2026-06-30T00:00:00", successCount: 6, failureCount: 1 }],
       3,
+      "Europe/Istanbul",
       "2026-07-01"
     )
     expect(series).toEqual([
@@ -54,6 +60,7 @@ describe("buildLoginSeries", () => {
     const series = buildLoginSeries(
       [{ date: "2026-01-01T00:00:00", successCount: 99, failureCount: 9 }],
       2,
+      "Europe/Istanbul",
       "2026-07-01"
     )
     expect(series.every((p) => p.success === 0 && p.failure === 0)).toBe(true)
@@ -63,17 +70,19 @@ describe("buildLoginSeries", () => {
     const series = buildLoginSeries(
       [{ date: "2026-07-01T00:00:00", successCount: "4", failureCount: "2" }],
       1,
+      "Europe/Istanbul",
       "2026-07-01"
     )
     expect(series[0]).toEqual({ day: "2026-07-01", success: 4, failure: 2 })
   })
 })
 
-describe("buildCountSeries / bucketDailyUtc", () => {
+describe("buildCountSeries / bucketDaily", () => {
   it("zero-fills and sums per day", () => {
     const series = buildCountSeries(
       [{ date: "2026-07-01T00:00:00", count: 3 }],
       2,
+      "Europe/Istanbul",
       "2026-07-01"
     )
     expect(series).toEqual([
@@ -82,26 +91,32 @@ describe("buildCountSeries / bucketDailyUtc", () => {
     ])
   })
 
-  it("buckets raw timestamps into UTC days", () => {
-    const series = bucketDailyUtc(
-      ["2026-07-01T05:00:00Z", "2026-07-01T23:00:00Z", null, "2026-06-30T12:00:00Z"],
+  it("buckets raw timestamps into the selected local days", () => {
+    const series = bucketDaily(
+      [
+        "2026-07-01T05:00:00Z",
+        "2026-07-01T23:00:00Z",
+        null,
+        "2026-06-30T12:00:00Z",
+      ],
       2,
+      "Europe/Istanbul",
       "2026-07-01"
     )
     expect(series).toEqual([
       { day: "2026-06-30", count: 1 },
-      { day: "2026-07-01", count: 2 },
+      { day: "2026-07-01", count: 1 },
     ])
   })
 })
 
-describe("weekStartUtc", () => {
-  it("maps any day to its UTC Monday", () => {
+describe("weekStartCalendar", () => {
+  it("maps any calendar day to its Monday", () => {
     // 2026-07-01 is a Wednesday; its week starts Monday 2026-06-29.
-    expect(weekStartUtc("2026-07-01")).toBe("2026-06-29")
-    expect(weekStartUtc("2026-06-29")).toBe("2026-06-29")
+    expect(weekStartCalendar("2026-07-01")).toBe("2026-06-29")
+    expect(weekStartCalendar("2026-06-29")).toBe("2026-06-29")
     // Sunday belongs to the week started the previous Monday.
-    expect(weekStartUtc("2026-07-05")).toBe("2026-06-29")
+    expect(weekStartCalendar("2026-07-05")).toBe("2026-06-29")
   })
 })
 

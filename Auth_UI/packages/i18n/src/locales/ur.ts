@@ -137,8 +137,7 @@ export const ur: TranslationResources = {
     signingIn: "سائن ان ہو رہا ہے…",
     forgotPassword: "پاس ورڈ بھول گئے؟",
     forgotTitle: "اپنا پاس ورڈ دوبارہ ترتیب دیں",
-    forgotSubtitle:
-      "اپنی ای میل درج کریں اور ہم آپ کو ری سیٹ لنک بھیجیں گے۔",
+    forgotSubtitle: "اپنی ای میل درج کریں اور ہم آپ کو ری سیٹ لنک بھیجیں گے۔",
     sendResetLink: "ری سیٹ لنک بھیجیں",
     backToSignIn: "سائن ان پر واپس جائیں",
     useDifferentAccount: "دوسرا اکاؤنٹ استعمال کریں",
@@ -157,8 +156,7 @@ export const ur: TranslationResources = {
     newPassword: "نیا پاس ورڈ",
     confirmPassword: "پاس ورڈ کی تصدیق کریں",
     resetPassword: "پاس ورڈ ری سیٹ کریں",
-    resetSuccess:
-      "آپ کا پاس ورڈ ری سیٹ ہو گیا ہے۔ اب آپ سائن ان کر سکتے ہیں۔",
+    resetSuccess: "آپ کا پاس ورڈ ری سیٹ ہو گیا ہے۔ اب آپ سائن ان کر سکتے ہیں۔",
     forceTitle: "اپنا پاس ورڈ اپ ڈیٹ کریں",
     forceSubtitle: "جاری رکھنے سے پہلے آپ کو نیا پاس ورڈ مقرر کرنا ہوگا۔",
     currentPassword: "موجودہ پاس ورڈ",
@@ -197,8 +195,7 @@ export const ur: TranslationResources = {
     invitationAccept: "دعوت قبول کریں",
     invitationAccepting: "قبول کیا جا رہا ہے…",
     invitationAccepted: "دعوت قبول کر لی گئی۔ خوش آمدید!",
-    invitationCreateAccount:
-      "{{org}} میں شامل ہونے کے لیے اپنا اکاؤنٹ بنائیں۔",
+    invitationCreateAccount: "{{org}} میں شامل ہونے کے لیے اپنا اکاؤنٹ بنائیں۔",
     invitationFirstName: "پہلا نام",
     invitationLastName: "آخری نام",
     invitationCreateAndJoin: "اکاؤنٹ بنائیں اور شامل ہوں",
@@ -227,6 +224,7 @@ export const ur: TranslationResources = {
     totalUsers: "صارفین",
     totalApplications: "ایپلیکیشنز",
     totalOrganizations: "تنظیمیں",
+    myOrganizations: "میری تنظیمیں",
     recentActivity: "حالیہ سرگرمی",
     recentActivitySubtitle: "تازہ ترین آڈٹ واقعات۔",
     successfulEvents: "کامیاب واقعات (7 دن)",
@@ -239,8 +237,7 @@ export const ur: TranslationResources = {
     eventsOverTime: "وقت کے ساتھ واقعات",
     eventsOverTimeSubtitle: "پچھلے 14 دنوں میں ریکارڈ شدہ واقعات۔",
     eventsByEntity: "ہستی کے لحاظ سے واقعات",
-    eventsByEntitySubtitle:
-      "متاثرہ ہستی کے لحاظ سے گروہ بند آڈٹ واقعات۔",
+    eventsByEntitySubtitle: "متاثرہ ہستی کے لحاظ سے گروہ بند آڈٹ واقعات۔",
     usersByStatus: "حیثیت کے لحاظ سے صارفین",
     usersByStatusSubtitle: "صارف اکاؤنٹس کی حالتوں کی تقسیم۔",
     applicationsStatus: "ایپلیکیشنز",
@@ -256,7 +253,7 @@ export const ur: TranslationResources = {
     viewAuditLogs: "آڈٹ لاگز دیکھیں",
     noData: "ابھی کافی ڈیٹا نہیں ہے۔",
     subtitleWindow:
-      "آپ کے توثیقی نظام کا جائزہ — پچھلے {{days}} دن (UTC)۔",
+      "آپ کے توثیقی نظام کا جائزہ — {{timeZone}} کے مطابق پچھلے {{days}} دن۔",
     newUsersHint: "اس مدت میں {{count}} نئے",
     activeUsersWindow: "فعال صارفین",
     successRate: "لاگ ان کامیابی کی شرح",
@@ -273,18 +270,17 @@ export const ur: TranslationResources = {
       "{{expiring}} 7 دنوں میں ختم ہوں گے · {{revoked}} اس مدت میں منسوخ",
     loginOutcomes: "لاگ ان کے نتائج",
     loginOutcomesSubtitle:
-      "فی UTC دن کامیاب بمقابلہ ناکام سائن ان۔",
+      "{{timeZone}} کے مطابق ہر تقویمی دن کامیاب بمقابلہ ناکام سائن ان۔",
     success: "کامیاب",
     failed: "ناکام",
     daily: "روزانہ",
     weekly: "ہفتہ وار",
     failureReasons: "لاگ ان ناکامی کی وجوہات",
-    failureReasonsSubtitle:
-      "اس مدت میں ناکام کوششیں، وجہ کے لحاظ سے گروہ بند۔",
+    failureReasonsSubtitle: "اس مدت میں ناکام کوششیں، وجہ کے لحاظ سے گروہ بند۔",
     failedAttempts: "ناکام کوششیں",
     dailyActiveUsers: "روزانہ فعال صارفین",
     dailyActiveUsersSubtitle:
-      "فی UTC دن کامیاب سائن ان کرنے والے منفرد صارفین۔",
+      "{{timeZone}} کے مطابق ہر تقویمی دن کامیاب سائن ان کرنے والے منفرد صارفین۔",
     loginsByApplication: "ایپلیکیشن کے لحاظ سے لاگ ان",
     loginsByApplicationSubtitle:
       "فی ایپلیکیشن کوششوں کے نتائج؛ 'نامعلوم' میں ایپلیکیشن کا سیاق نہیں تھا۔",
@@ -294,7 +290,7 @@ export const ur: TranslationResources = {
     unattributed: "غیر منسوب",
     other: "دیگر",
     signups: "نئی رجسٹریشنز",
-    signupsSubtitle: "فی UTC دن بنائے گئے اکاؤنٹس۔",
+    signupsSubtitle: "{{timeZone}} کے مطابق ہر تقویمی دن بنائے گئے اکاؤنٹس۔",
     signupsSeries: "رجسٹریشنز",
     funnel: "فعالیت کا فنل",
     funnelSubtitle:
@@ -326,13 +322,11 @@ export const ur: TranslationResources = {
     revocationReasonsSubtitle:
       "اس مدت میں منسوخ شدہ ریفریش ٹوکن، وجہ کے لحاظ سے۔",
     topFailingIps: "سب سے زیادہ ناکام IP",
-    topFailingIpsSubtitle:
-      "اس مدت میں سب سے زیادہ ناکام کوششوں والے IP پتے۔",
+    topFailingIpsSubtitle: "اس مدت میں سب سے زیادہ ناکام کوششوں والے IP پتے۔",
     colIp: "IP پتہ",
     colFailures: "ناکامیاں",
     colUsernames: "صارف نام",
-    sampleNote:
-      "کل {{total}} واقعات میں سے تازہ ترین {{shown}} پر مبنی۔",
+    sampleNote: "کل {{total}} واقعات میں سے تازہ ترین {{shown}} پر مبنی۔",
   },
   users: {
     title: "صارفین",
@@ -423,8 +417,7 @@ export const ur: TranslationResources = {
       both: "مالک اور تفویض شدہ",
     },
     deleteTitle: "کردار حذف کریں",
-    deleteBody:
-      "یہ کردار {{name}} کو حذف کر دے گا۔ یہ عمل واپس نہیں ہو سکتا۔",
+    deleteBody: "یہ کردار {{name}} کو حذف کر دے گا۔ یہ عمل واپس نہیں ہو سکتا۔",
     created: "کردار بن گیا۔",
     updated: "کردار اپ ڈیٹ ہو گیا۔",
     deleted: "کردار حذف ہو گیا۔",
@@ -449,8 +442,7 @@ export const ur: TranslationResources = {
     },
     viaRoles: "کرداروں کے ذریعے",
     deleteTitle: "اجازت حذف کریں",
-    deleteBody:
-      "یہ {{name}} کو حذف کر دے گا۔ یہ عمل واپس نہیں ہو سکتا۔",
+    deleteBody: "یہ {{name}} کو حذف کر دے گا۔ یہ عمل واپس نہیں ہو سکتا۔",
     created: "اجازت بن گئی۔",
     updated: "اجازت اپ ڈیٹ ہو گئی۔",
     deleted: "اجازت حذف ہو گئی۔",
@@ -485,8 +477,7 @@ export const ur: TranslationResources = {
     roles: "کردار",
     permissions: "اجازتیں",
     deleteTitle: "ایپلیکیشن حذف کریں",
-    deleteBody:
-      "یہ {{name}} کو حذف کر دے گا۔ یہ عمل واپس نہیں ہو سکتا۔",
+    deleteBody: "یہ {{name}} کو حذف کر دے گا۔ یہ عمل واپس نہیں ہو سکتا۔",
     created: "ایپلیکیشن بن گئی۔",
     updated: "ایپلیکیشن اپ ڈیٹ ہو گئی۔",
     deleted: "ایپلیکیشن حذف ہو گئی۔",
@@ -524,8 +515,7 @@ export const ur: TranslationResources = {
     pending: "زیر التوا",
     accepted: "قبول شدہ",
     deleteTitle: "تنظیم حذف کریں",
-    deleteBody:
-      "یہ {{name}} کو حذف کر دے گا۔ یہ عمل واپس نہیں ہو سکتا۔",
+    deleteBody: "یہ {{name}} کو حذف کر دے گا۔ یہ عمل واپس نہیں ہو سکتا۔",
     created: "تنظیم بن گئی۔",
     updated: "تنظیم اپ ڈیٹ ہو گئی۔",
     deleted: "تنظیم حذف ہو گئی۔",
@@ -547,7 +537,10 @@ export const ur: TranslationResources = {
       "آپ کو تنظیم کے منتظم کے درجے پر کر دیا جائے گا اور اس کے بعد آپ اسے منتقل یا حذف نہیں کر سکیں گے۔",
     transferConsequence3:
       "نئے مالک کو ای میل پر تصدیقی کوڈ بھیجا جائے گا۔ منتقلی مکمل کرنے کے لیے اگلے مرحلے میں اسے درج کریں۔",
+    transferAdminConsequence:
+      "پلیٹ فارم بازیابی تصدیقی کوڈ بھیجے بغیر فوری طور پر ملکیت منتقل کرتی ہے۔ یہ عمل آڈٹ لاگ میں درج ہوتا ہے۔",
     transferSendCode: "تصدیقی کوڈ بھیجیں",
+    transferAdminConfirm: "فوری منتقل کریں",
     transferCodeTitle: "تصدیقی کوڈ درج کریں",
     transferCodeSent: "{{email}} پر ایک کوڈ بھیجا گیا۔ نئے مالک سے حاصل کریں۔",
     transferCodeLabel: "تصدیقی کوڈ",
@@ -636,8 +629,7 @@ export const ur: TranslationResources = {
   },
   secrets: {
     title: "راز",
-    subtitle:
-      "اس انسٹینس کی دستخطی کلیدوں اور گیٹ وے ٹوکنز کا انتظام کریں۔",
+    subtitle: "اس انسٹینس کی دستخطی کلیدوں اور گیٹ وے ٹوکنز کا انتظام کریں۔",
     disabledTitle: "رازوں کا انتظام غیر فعال ہے",
     disabledBody:
       "اس ماحول کے لیے ایڈمن رازوں کی API بند ہے، یا آپ کے پاس secrets.manage اجازت نہیں ہے۔",
@@ -678,7 +670,8 @@ export const ur: TranslationResources = {
     layoutsSubtitle:
       "ہر پیغام کو گھیرنے والی مشترکہ بصری شناخت؛ تمام زبانیں ایک ہی لے آؤٹ استعمال کرتی ہیں۔",
     newTemplate: "نیا سانچہ",
-    newTemplateHint: "پیغام کی قسم اور دائرہ منتخب کریں۔ مواد ایڈیٹر میں شامل ہوتا ہے۔",
+    newTemplateHint:
+      "پیغام کی قسم اور دائرہ منتخب کریں۔ مواد ایڈیٹر میں شامل ہوتا ہے۔",
     templateCreated: "سانچہ بن گیا",
     templateDeleted: "سانچہ حذف ہو گیا",
     type: "قسم",
@@ -747,7 +740,8 @@ export const ur: TranslationResources = {
     restoredAsDraft: "ورژن بطور مسودہ بحال ہو گیا",
     testSend: "آزمائشی ارسال",
     testSendTitle: "آزمائشی پیغام بھیجیں",
-    testSendHint: "موجودہ مسودے (یا شائع شدہ ورژن) کو نمونہ ڈیٹا کے ساتھ تیار کرتا ہے۔",
+    testSendHint:
+      "موجودہ مسودے (یا شائع شدہ ورژن) کو نمونہ ڈیٹا کے ساتھ تیار کرتا ہے۔",
     testSent: "آزمائشی پیغام بھیج دیا گیا",
     recipientEmail: "وصول کنندہ کا ای میل",
     layoutName: "لے آؤٹ کا نام",
@@ -794,19 +788,23 @@ export const ur: TranslationResources = {
     overviewViewLayouts: "تمام لے آؤٹس دیکھیں",
     newLayout: "نیا لے آؤٹ",
     newLayoutHint: "ایک ایپ مخصوص لے آؤٹ بنائیں جو عالمی لے آؤٹ پر فوقیت رکھے۔",
-    newLayoutScopeHint: "ایپ مخصوص؛ عالمی لے آؤٹ باقی سب کے لیے بیک اپ رہتا ہے۔",
-    newLayoutScopeRequired: "ایک ایپ منتخب کریں — عالمی لے آؤٹ پہلے سے موجود ہے۔",
+    newLayoutScopeHint:
+      "ایپ مخصوص؛ عالمی لے آؤٹ باقی سب کے لیے بیک اپ رہتا ہے۔",
+    newLayoutScopeRequired:
+      "ایک ایپ منتخب کریں — عالمی لے آؤٹ پہلے سے موجود ہے۔",
     layoutCreated: "لے آؤٹ بن گیا",
     selectApplication: "ایک ایپلیکیشن منتخب کریں",
     undo: "واپس",
     redo: "دوبارہ",
     insertImage: "تصویر داخل کریں",
     insertImageTitle: "تصویر داخل کریں",
-    insertImageHint: "تصویر اپ لوڈ ہوتی ہے اور مطلق URL سے حوالہ دی جاتی ہے تاکہ ای میل کلائنٹس میں لوڈ ہو۔",
+    insertImageHint:
+      "تصویر اپ لوڈ ہوتی ہے اور مطلق URL سے حوالہ دی جاتی ہے تاکہ ای میل کلائنٹس میں لوڈ ہو۔",
     chooseImage: "تصویر منتخب کریں",
     uploadingImage: "اپ لوڈ ہو رہا ہے...",
     imageWidth: "چوڑائی",
-    imageWidthHint: "پکسل (مثلاً 320) یا فیصد (مثلاً 60%)۔ قدرتی سائز کے لیے خالی چھوڑیں۔",
+    imageWidthHint:
+      "پکسل (مثلاً 320) یا فیصد (مثلاً 60%)۔ قدرتی سائز کے لیے خالی چھوڑیں۔",
     imageAlt: "متبادل متن",
     insertImageAction: "داخل کریں",
     imageInserted: "تصویر داخل ہو گئی",
@@ -819,11 +817,14 @@ export const ur: TranslationResources = {
     customVariableWarning:
       "نیا متغیر صرف اپنی ڈیویلپمنٹ ٹیم سے ہم آہنگی کے بعد شامل کریں۔ بھیجتے وقت نظام کو اس کی قیمت معلوم ہونی چاہیے — جس متغیر کو نظام نہیں جانتا اس کی جگہ پیغام میں خالی رہے گی۔",
     globalVariables: "ہمیشہ دستیاب",
-    globalVarPlatformName: "پلیٹ فارم کا نام، جیسا کہ پلیٹ فارم کی ترتیبات میں طے ہے۔",
+    globalVarPlatformName:
+      "پلیٹ فارم کا نام، جیسا کہ پلیٹ فارم کی ترتیبات میں طے ہے۔",
     globalVarApplicationName:
       "اس ایپلیکیشن کا نام جس سے پیغام متعلق ہے۔ عمومی پیغامات پلیٹ فارم کا نام استعمال کرتے ہیں۔",
-    globalVarApplicationCode: "ایپلیکیشن کا مختصر کوڈ؛ عمومی پیغامات میں خالی ہوتا ہے۔",
-    globalVarApplicationBaseUrl: "ایپلیکیشن کی ویب سائٹ کا پتہ؛ لنکس بنانے کے لیے مفید۔",
+    globalVarApplicationCode:
+      "ایپلیکیشن کا مختصر کوڈ؛ عمومی پیغامات میں خالی ہوتا ہے۔",
+    globalVarApplicationBaseUrl:
+      "ایپلیکیشن کی ویب سائٹ کا پتہ؛ لنکس بنانے کے لیے مفید۔",
     globalVarYear: "موجودہ سال — فوٹر اور کاپی رائٹ کی سطر کے لیے مفید۔",
     variableName: "نام",
     variableDescription: "تفصیل",
@@ -833,7 +834,8 @@ export const ur: TranslationResources = {
     removeVariable: "ہٹائیں",
     variablesSaved: "متغیرات محفوظ ہو گئے",
     editVariables: "متغیرات میں ترمیم کریں",
-    imageAltHint: "مختصر تفصیل جو اسکرین ریڈر پڑھتے ہیں اور تصویر لوڈ نہ ہونے پر دکھائی جاتی ہے۔",
+    imageAltHint:
+      "مختصر تفصیل جو اسکرین ریڈر پڑھتے ہیں اور تصویر لوڈ نہ ہونے پر دکھائی جاتی ہے۔",
     templatesSearchPlaceholder: "قسم، کوڈ یا ایپلیکیشن تلاش کریں...",
     layoutsSearchPlaceholder: "نام یا ایپلیکیشن تلاش کریں...",
     layoutSlots: "لے آؤٹ کے مقامات",

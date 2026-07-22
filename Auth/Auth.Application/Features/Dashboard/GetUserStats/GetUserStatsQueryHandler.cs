@@ -23,9 +23,17 @@ public class GetUserStatsQueryHandler : IRequestHandler<GetUserStatsQuery, Error
 
     public async Task<ErrorOr<UserStatsDto>> Handle(GetUserStatsQuery request, CancellationToken cancellationToken)
     {
-        var snapshot = await _dashboardStatsRepository.GetUserStatsAsync(request.Days, cancellationToken);
+        var timeZone = request.TimeZone ?? "UTC";
+        var snapshot = await _dashboardStatsRepository.GetUserStatsAsync(
+            request.Days,
+            timeZone,
+            cancellationToken);
 
-        _logger.LogDebug("Computed user stats over {Days} days ({TotalUsers} users)", request.Days, snapshot.TotalUsers);
+        _logger.LogDebug(
+            "Computed user stats over {Days} days in {TimeZone} ({TotalUsers} users)",
+            request.Days,
+            timeZone,
+            snapshot.TotalUsers);
 
         return new UserStatsDto
         {

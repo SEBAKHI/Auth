@@ -1,7 +1,7 @@
 namespace Auth.Domain.ReadModels.Dashboard;
 
 /// <summary>
-/// Number of occurrences on a single UTC calendar day.
+/// Number of occurrences on a single requested calendar day.
 /// </summary>
 public sealed record DailyCount(DateTime Date, int Count);
 

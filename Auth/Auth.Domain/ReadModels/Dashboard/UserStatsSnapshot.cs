@@ -16,7 +16,7 @@ public sealed record OrganizationUserCount(
 
 /// <summary>
 /// Aggregated user statistics over a trailing window of days.
-/// All counts exclude soft-deleted users; all dates are UTC calendar days.
+/// All counts exclude soft-deleted users; calendar-day buckets use the requested time zone.
 /// </summary>
 public sealed record UserStatsSnapshot
 {
@@ -35,7 +35,7 @@ public sealed record UserStatsSnapshot
     /// <summary>Users created inside the window.</summary>
     public required int NewInWindow { get; init; }
 
-    /// <summary>Users created per UTC day inside the window.</summary>
+    /// <summary>Users created per requested calendar day inside the window.</summary>
     public required IReadOnlyList<DailyCount> SignupsPerDay { get; init; }
 
     /// <summary>Window cohort: users created inside the window.</summary>

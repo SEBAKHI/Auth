@@ -4,8 +4,8 @@ namespace Auth.Domain.Interfaces.Repositories;
 
 /// <summary>
 /// Read-side repository computing dashboard aggregates directly in the database.
-/// All windows are trailing periods of whole days ending now (UTC);
-/// day bucketing uses UTC calendar days.
+/// All windows are trailing periods ending now (UTC instants); calendar-day
+/// buckets use the validated viewer time zone supplied by the application.
 /// </summary>
 public interface IDashboardStatsRepository
 {
@@ -13,13 +13,19 @@ public interface IDashboardStatsRepository
     /// Gets user totals, status mix, signups, activation funnel, dormancy and
     /// per-organization membership over the trailing window.
     /// </summary>
-    Task<UserStatsSnapshot> GetUserStatsAsync(int days, CancellationToken cancellationToken);
+    Task<UserStatsSnapshot> GetUserStatsAsync(
+        int days,
+        string timeZone,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets login attempt outcomes, active users, failure reasons, lockouts,
     /// top failing IPs and per-application/per-organization splits over the trailing window.
     /// </summary>
-    Task<AuthStatsSnapshot> GetAuthStatsAsync(int days, CancellationToken cancellationToken);
+    Task<AuthStatsSnapshot> GetAuthStatsAsync(
+        int days,
+        string timeZone,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets session and refresh-token hygiene aggregates over the trailing window.

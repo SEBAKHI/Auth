@@ -1,7 +1,7 @@
 namespace Auth.Domain.ReadModels.Dashboard;
 
 /// <summary>
-/// Successful and failed login attempts on a single UTC calendar day.
+/// Successful and failed login attempts on a single requested calendar day.
 /// </summary>
 public sealed record DailyLoginCount(DateTime Date, int SuccessCount, int FailureCount);
 
@@ -35,14 +35,14 @@ public sealed record OrganizationLoginCount(
 
 /// <summary>
 /// Aggregated authentication statistics over a trailing window of days.
-/// All dates are UTC calendar days; success/failure comes from LoginAttempts.IsSuccessful.
+/// Calendar days use the requested time zone; success/failure comes from LoginAttempts.IsSuccessful.
 /// </summary>
 public sealed record AuthStatsSnapshot
 {
-    /// <summary>Login attempts per UTC day, split by outcome.</summary>
+    /// <summary>Login attempts per requested calendar day, split by outcome.</summary>
     public required IReadOnlyList<DailyLoginCount> LoginsPerDay { get; init; }
 
-    /// <summary>Distinct users with at least one successful login per UTC day.</summary>
+    /// <summary>Distinct users with at least one successful login per requested calendar day.</summary>
     public required IReadOnlyList<DailyCount> ActiveUsersPerDay { get; init; }
 
     /// <summary>Distinct users with at least one successful login inside the window.</summary>

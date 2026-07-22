@@ -1,3 +1,4 @@
+import { OrganizationDetailPage } from "@astoom/account/pages/organizations/organization-detail-page"
 import { OrganizationsPage } from "@astoom/account/pages/organizations/organizations-page"
 import { useAuth } from "@astoom/auth/auth-context"
 import { PERMISSIONS } from "@/lib/constants"
@@ -14,5 +15,21 @@ export function ConsoleOrganizationsPage() {
     <OrganizationsAdminPage />
   ) : (
     <OrganizationsPage />
+  )
+}
+
+/**
+ * Platform detail host. The shared account page stays membership-scoped unless
+ * this console explicitly grants the server-backed platform capability.
+ */
+export function ConsoleOrganizationDetailPage() {
+  const { hasPermission } = useAuth()
+
+  return (
+    <OrganizationDetailPage
+      canManagePlatform={hasPermission(PERMISSIONS.organizations.manage)}
+      userHref={(userId) => `/users/${userId}`}
+      applicationHref={(applicationId) => `/applications/${applicationId}`}
+    />
   )
 }

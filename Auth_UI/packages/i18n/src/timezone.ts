@@ -43,6 +43,26 @@ export function getActiveTimeZone(): string {
   return activeTimeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone
 }
 
+/** Current UTC offset of a zone, including daylight-saving changes. */
+export function getTimeZoneOffsetLabel(
+  timeZone: string,
+  instant = new Date()
+): string {
+  try {
+    const part = new Intl.DateTimeFormat("en", {
+      timeZone,
+      timeZoneName: "longOffset",
+    })
+      .formatToParts(instant)
+      .find((candidate) => candidate.type === "timeZoneName")?.value
+
+    if (!part) return ""
+    return part === "GMT" ? "UTC+00:00" : part.replace("GMT", "UTC")
+  } catch {
+    return ""
+  }
+}
+
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
   return () => listeners.delete(listener)

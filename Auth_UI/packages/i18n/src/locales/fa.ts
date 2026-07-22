@@ -157,11 +157,9 @@ export const fa: TranslationResources = {
     newPassword: "رمز عبور جدید",
     confirmPassword: "تأیید رمز عبور",
     resetPassword: "بازنشانی رمز عبور",
-    resetSuccess:
-      "رمز عبور شما بازنشانی شد. اکنون می‌توانید وارد شوید.",
+    resetSuccess: "رمز عبور شما بازنشانی شد. اکنون می‌توانید وارد شوید.",
     forceTitle: "به‌روزرسانی رمز عبور",
-    forceSubtitle:
-      "پیش از ادامه باید رمز عبور جدیدی تعیین کنید.",
+    forceSubtitle: "پیش از ادامه باید رمز عبور جدیدی تعیین کنید.",
     currentPassword: "رمز عبور فعلی",
     changePassword: "تغییر رمز عبور",
     twoFactorTitle: "احراز هویت دومرحله‌ای",
@@ -198,8 +196,7 @@ export const fa: TranslationResources = {
     invitationAccept: "پذیرش دعوت",
     invitationAccepting: "در حال پذیرش…",
     invitationAccepted: "دعوت پذیرفته شد. خوش آمدید!",
-    invitationCreateAccount:
-      "برای پیوستن به {{org}} حساب خود را بسازید.",
+    invitationCreateAccount: "برای پیوستن به {{org}} حساب خود را بسازید.",
     invitationFirstName: "نام",
     invitationLastName: "نام خانوادگی",
     invitationCreateAndJoin: "ساخت حساب و پیوستن",
@@ -228,6 +225,7 @@ export const fa: TranslationResources = {
     totalUsers: "کاربران",
     totalApplications: "برنامه‌ها",
     totalOrganizations: "سازمان‌ها",
+    myOrganizations: "سازمان‌های من",
     recentActivity: "فعالیت اخیر",
     recentActivitySubtitle: "آخرین رویدادهای ممیزی.",
     successfulEvents: "رویدادهای موفق (۷ روز)",
@@ -257,7 +255,7 @@ export const fa: TranslationResources = {
     viewAuditLogs: "مشاهده گزارش‌های ممیزی",
     noData: "هنوز داده کافی وجود ندارد.",
     subtitleWindow:
-      "نمای کلی سامانه احراز هویت شما — {{days}} روز اخیر (UTC).",
+      "نمای کلی سامانه احراز هویت شما — {{days}} روز اخیر بر اساس {{timeZone}}.",
     newUsersHint: "{{count}} مورد جدید در این بازه",
     activeUsersWindow: "کاربران فعال",
     successRate: "نرخ موفقیت ورود",
@@ -274,7 +272,7 @@ export const fa: TranslationResources = {
       "{{expiring}} تا ۷ روز دیگر منقضی می‌شوند · {{revoked}} در این بازه باطل شدند",
     loginOutcomes: "نتایج ورود",
     loginOutcomesSubtitle:
-      "ورودهای موفق در برابر ناموفق به ازای هر روز UTC.",
+      "ورودهای موفق در برابر ناموفق به ازای هر روز تقویمی بر اساس {{timeZone}}.",
     success: "موفق",
     failed: "ناموفق",
     daily: "روزانه",
@@ -285,7 +283,7 @@ export const fa: TranslationResources = {
     failedAttempts: "تلاش‌های ناموفق",
     dailyActiveUsers: "کاربران فعال روزانه",
     dailyActiveUsersSubtitle:
-      "کاربران یکتا با ورود موفق به ازای هر روز UTC.",
+      "کاربران یکتا با ورود موفق به ازای هر روز تقویمی بر اساس {{timeZone}}.",
     loginsByApplication: "ورودها بر اساس برنامه",
     loginsByApplicationSubtitle:
       "نتایج تلاش‌ها به ازای هر برنامه؛ «نامشخص» یعنی بدون زمینه برنامه.",
@@ -295,11 +293,11 @@ export const fa: TranslationResources = {
     unattributed: "نسبت‌داده‌نشده",
     other: "سایر",
     signups: "ثبت‌نام‌های جدید",
-    signupsSubtitle: "حساب‌های ایجادشده به ازای هر روز UTC.",
+    signupsSubtitle:
+      "حساب‌های ایجادشده به ازای هر روز تقویمی بر اساس {{timeZone}}.",
     signupsSeries: "ثبت‌نام‌ها",
     funnel: "قیف فعال‌سازی",
-    funnelSubtitle:
-      "کاربران ایجادشده در این بازه: ایجاد → تأیید ایمیل → ورود.",
+    funnelSubtitle: "کاربران ایجادشده در این بازه: ایجاد → تأیید ایمیل → ورود.",
     funnelCreated: "ایجادشده",
     funnelConfirmed: "ایمیل تأییدشده",
     funnelLoggedIn: "واردشده",
@@ -327,13 +325,11 @@ export const fa: TranslationResources = {
     revocationReasonsSubtitle:
       "توکن‌های تازه‌سازی باطل‌شده در این بازه، بر اساس دلیل.",
     topFailingIps: "IPهای با بیشترین شکست",
-    topFailingIpsSubtitle:
-      "نشانی‌های IP با بیشترین تلاش ناموفق در این بازه.",
+    topFailingIpsSubtitle: "نشانی‌های IP با بیشترین تلاش ناموفق در این بازه.",
     colIp: "نشانی IP",
     colFailures: "شکست‌ها",
     colUsernames: "نام‌های کاربری",
-    sampleNote:
-      "بر اساس {{shown}} رویداد اخیر از مجموع {{total}} رویداد.",
+    sampleNote: "بر اساس {{shown}} رویداد اخیر از مجموع {{total}} رویداد.",
   },
   users: {
     title: "کاربران",
@@ -424,8 +420,7 @@ export const fa: TranslationResources = {
       both: "مالک و تخصیص‌یافته",
     },
     deleteTitle: "حذف نقش",
-    deleteBody:
-      "این کار نقش {{name}} را حذف می‌کند. این عمل قابل بازگشت نیست.",
+    deleteBody: "این کار نقش {{name}} را حذف می‌کند. این عمل قابل بازگشت نیست.",
     created: "نقش ایجاد شد.",
     updated: "نقش به‌روزرسانی شد.",
     deleted: "نقش حذف شد.",
@@ -450,8 +445,7 @@ export const fa: TranslationResources = {
     },
     viaRoles: "از طریق نقش‌ها",
     deleteTitle: "حذف مجوز",
-    deleteBody:
-      "این کار {{name}} را حذف می‌کند. این عمل قابل بازگشت نیست.",
+    deleteBody: "این کار {{name}} را حذف می‌کند. این عمل قابل بازگشت نیست.",
     created: "مجوز ایجاد شد.",
     updated: "مجوز به‌روزرسانی شد.",
     deleted: "مجوز حذف شد.",
@@ -486,8 +480,7 @@ export const fa: TranslationResources = {
     roles: "نقش‌ها",
     permissions: "مجوزها",
     deleteTitle: "حذف برنامه",
-    deleteBody:
-      "این کار {{name}} را حذف می‌کند. این عمل قابل بازگشت نیست.",
+    deleteBody: "این کار {{name}} را حذف می‌کند. این عمل قابل بازگشت نیست.",
     created: "برنامه ایجاد شد.",
     updated: "برنامه به‌روزرسانی شد.",
     deleted: "برنامه حذف شد.",
@@ -525,8 +518,7 @@ export const fa: TranslationResources = {
     pending: "در انتظار",
     accepted: "پذیرفته‌شده",
     deleteTitle: "حذف سازمان",
-    deleteBody:
-      "این کار {{name}} را حذف می‌کند. این عمل قابل بازگشت نیست.",
+    deleteBody: "این کار {{name}} را حذف می‌کند. این عمل قابل بازگشت نیست.",
     created: "سازمان ایجاد شد.",
     updated: "سازمان به‌روزرسانی شد.",
     deleted: "سازمان حذف شد.",
@@ -548,7 +540,10 @@ export const fa: TranslationResources = {
       "شما به مدیر سازمان تنزل می‌یابید و دیگر نمی‌توانید آن را منتقل یا حذف کنید.",
     transferConsequence3:
       "کد تأیید به ایمیل مالک جدید ارسال می‌شود. برای تکمیل انتقال، آن را در مرحله بعد وارد کنید.",
+    transferAdminConsequence:
+      "بازیابی پلتفرم مالکیت را فوراً و بدون ارسال کد تأیید منتقل می‌کند. این اقدام در گزارش ممیزی ثبت می‌شود.",
     transferSendCode: "ارسال کد تأیید",
+    transferAdminConfirm: "انتقال فوری",
     transferCodeTitle: "کد تأیید را وارد کنید",
     transferCodeSent: "کدی به {{email}} ارسال شد. آن را از مالک جدید بخواهید.",
     transferCodeLabel: "کد تأیید",
@@ -637,8 +632,7 @@ export const fa: TranslationResources = {
   },
   secrets: {
     title: "اسرار",
-    subtitle:
-      "مدیریت کلیدهای امضا و توکن‌های درگاه برای این نمونه.",
+    subtitle: "مدیریت کلیدهای امضا و توکن‌های درگاه برای این نمونه.",
     disabledTitle: "مدیریت اسرار غیرفعال است",
     disabledBody:
       "API مدیریت اسرار برای این محیط خاموش است، یا مجوز secrets.manage را ندارید.",
@@ -679,7 +673,8 @@ export const fa: TranslationResources = {
     layoutsSubtitle:
       "هویت بصری مشترکی که هر پیام را در بر می‌گیرد؛ همه زبان‌ها یک چیدمان مشترک دارند.",
     newTemplate: "قالب جدید",
-    newTemplateHint: "نوع پیام و محدوده را انتخاب کنید. محتوا در ویرایشگر افزوده می‌شود.",
+    newTemplateHint:
+      "نوع پیام و محدوده را انتخاب کنید. محتوا در ویرایشگر افزوده می‌شود.",
     templateCreated: "قالب ایجاد شد",
     templateDeleted: "قالب حذف شد",
     type: "نوع",
@@ -748,13 +743,15 @@ export const fa: TranslationResources = {
     restoredAsDraft: "نسخه به‌عنوان پیش‌نویس بازیابی شد",
     testSend: "ارسال آزمایشی",
     testSendTitle: "ارسال پیام آزمایشی",
-    testSendHint: "پیش‌نویس فعلی (یا نسخه منتشرشده) را با داده‌های نمونه پردازش می‌کند.",
+    testSendHint:
+      "پیش‌نویس فعلی (یا نسخه منتشرشده) را با داده‌های نمونه پردازش می‌کند.",
     testSent: "پیام آزمایشی ارسال شد",
     recipientEmail: "ایمیل گیرنده",
     layoutName: "نام چیدمان",
     layoutContent: "محتوای چیدمان (Liquid HTML)",
     layoutFooter: "متن پاورقی ({{language}})",
-    layoutFooterHint: "متن مخصوص هر زبان که در پاورقی چیدمان نمایش داده می‌شود.",
+    layoutFooterHint:
+      "متن مخصوص هر زبان که در پاورقی چیدمان نمایش داده می‌شود.",
     outboxTitle: "گزارش تحویل",
     outboxSubtitle:
       "هر پیام در صف: چه چیزی ارسال شد، به چه کسی، با کدام نسخه قالب، و وضعیت تحویل. پیام‌های ناموفق قابل بازگردانی به صف هستند.",
@@ -794,20 +791,25 @@ export const fa: TranslationResources = {
     overviewViewTemplates: "مشاهدهٔ همهٔ قالب‌ها",
     overviewViewLayouts: "مشاهدهٔ همهٔ چیدمان‌ها",
     newLayout: "چیدمان جدید",
-    newLayoutHint: "یک چیدمان مخصوص برنامه بسازید که بر چیدمان سراسری مقدم شود.",
-    newLayoutScopeHint: "مخصوص برنامه؛ چیدمان سراسری برای بقیه به‌عنوان جایگزین باقی می‌ماند.",
-    newLayoutScopeRequired: "یک برنامه انتخاب کنید — چیدمان سراسری از قبل وجود دارد.",
+    newLayoutHint:
+      "یک چیدمان مخصوص برنامه بسازید که بر چیدمان سراسری مقدم شود.",
+    newLayoutScopeHint:
+      "مخصوص برنامه؛ چیدمان سراسری برای بقیه به‌عنوان جایگزین باقی می‌ماند.",
+    newLayoutScopeRequired:
+      "یک برنامه انتخاب کنید — چیدمان سراسری از قبل وجود دارد.",
     layoutCreated: "چیدمان ایجاد شد",
     selectApplication: "یک برنامه انتخاب کنید",
     undo: "واگرد",
     redo: "ازنو",
     insertImage: "درج تصویر",
     insertImageTitle: "درج تصویر",
-    insertImageHint: "تصویر بارگذاری می‌شود و با URL مطلق ارجاع داده می‌شود تا در کلاینت‌های ایمیل بارگذاری شود.",
+    insertImageHint:
+      "تصویر بارگذاری می‌شود و با URL مطلق ارجاع داده می‌شود تا در کلاینت‌های ایمیل بارگذاری شود.",
     chooseImage: "انتخاب تصویر",
     uploadingImage: "در حال بارگذاری...",
     imageWidth: "عرض",
-    imageWidthHint: "پیکسل (مثلاً 320) یا درصد (مثلاً 60%). برای اندازه طبیعی خالی بگذارید.",
+    imageWidthHint:
+      "پیکسل (مثلاً 320) یا درصد (مثلاً 60%). برای اندازه طبیعی خالی بگذارید.",
     imageAlt: "متن جایگزین",
     insertImageAction: "درج",
     imageInserted: "تصویر درج شد",
@@ -824,7 +826,8 @@ export const fa: TranslationResources = {
     globalVarApplicationName:
       "نام برنامه‌ای که پیام به آن تعلق دارد. پیام‌های سراسری از نام پلتفرم استفاده می‌کنند.",
     globalVarApplicationCode: "کد کوتاه برنامه؛ در پیام‌های سراسری خالی است.",
-    globalVarApplicationBaseUrl: "نشانی وب‌سایت برنامه؛ برای ساختن پیوندها مفید است.",
+    globalVarApplicationBaseUrl:
+      "نشانی وب‌سایت برنامه؛ برای ساختن پیوندها مفید است.",
     globalVarYear: "سال جاری — برای پاورقی و سطر حق نشر مفید است.",
     variableName: "نام",
     variableDescription: "توضیح",
@@ -834,7 +837,8 @@ export const fa: TranslationResources = {
     removeVariable: "حذف",
     variablesSaved: "متغیرها ذخیره شدند",
     editVariables: "ویرایش متغیرها",
-    imageAltHint: "توضیح کوتاهی که صفحه‌خوان‌ها می‌خوانند و هنگام بارگذاری نشدن تصویر نمایش داده می‌شود.",
+    imageAltHint:
+      "توضیح کوتاهی که صفحه‌خوان‌ها می‌خوانند و هنگام بارگذاری نشدن تصویر نمایش داده می‌شود.",
     templatesSearchPlaceholder: "جستجوی نوع، کد یا برنامه...",
     layoutsSearchPlaceholder: "جستجوی نام یا برنامه...",
     layoutSlots: "جایگاه‌های چیدمان",

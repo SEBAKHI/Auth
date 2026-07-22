@@ -23,11 +23,18 @@ public class GetAuthStatsQueryHandler : IRequestHandler<GetAuthStatsQuery, Error
 
     public async Task<ErrorOr<AuthStatsDto>> Handle(GetAuthStatsQuery request, CancellationToken cancellationToken)
     {
-        var snapshot = await _dashboardStatsRepository.GetAuthStatsAsync(request.Days, cancellationToken);
+        var timeZone = request.TimeZone ?? "UTC";
+        var snapshot = await _dashboardStatsRepository.GetAuthStatsAsync(
+            request.Days,
+            timeZone,
+            cancellationToken);
 
         _logger.LogDebug(
-            "Computed auth stats over {Days} days ({Success} successful / {Failed} failed attempts)",
-            request.Days, snapshot.WindowSuccessCount, snapshot.WindowFailureCount);
+            "Computed auth stats over {Days} days in {TimeZone} ({Success} successful / {Failed} failed attempts)",
+            request.Days,
+            timeZone,
+            snapshot.WindowSuccessCount,
+            snapshot.WindowFailureCount);
 
         return new AuthStatsDto
         {

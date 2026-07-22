@@ -166,7 +166,8 @@ export const tr: TranslationResources = {
     twoFactorSubtitle: "Hesabınız bir doğrulama kodu gerektiriyor.",
     twoFactorCode: "Doğrulama kodu",
     verifyEmailTitle: "E-postayı doğrula",
-    verifyEmailDescription: "{{email}} adresine gönderilen 6 haneli kodu girin.",
+    verifyEmailDescription:
+      "{{email}} adresine gönderilen 6 haneli kodu girin.",
     verifyEmailCodeLabel: "Doğrulama kodu",
     codeExpiresIn: "Kodun süresi {{time}} içinde doluyor",
     codeExpired: "Kodun süresi doldu. Yeni bir kod isteyin.",
@@ -226,6 +227,7 @@ export const tr: TranslationResources = {
     totalUsers: "Kullanıcılar",
     totalApplications: "Uygulamalar",
     totalOrganizations: "Organizasyonlar",
+    myOrganizations: "Organizasyonlarım",
     recentActivity: "Son etkinlik",
     recentActivitySubtitle: "En son denetim olayları.",
     successfulEvents: "Başarılı olaylar (7g)",
@@ -255,7 +257,7 @@ export const tr: TranslationResources = {
     viewAuditLogs: "Denetim kayıtlarını görüntüle",
     noData: "Henüz yeterli veri yok.",
     subtitleWindow:
-      "Kimlik doğrulama sisteminize genel bakış — son {{days}} gün (UTC).",
+      "Kimlik doğrulama sisteminize genel bakış — {{timeZone}} saat diliminde son {{days}} gün.",
     newUsersHint: "Bu dönemde {{count}} yeni",
     activeUsersWindow: "Aktif kullanıcılar",
     successRate: "Oturum açma başarı oranı",
@@ -272,7 +274,7 @@ export const tr: TranslationResources = {
       "{{expiring}} 7 gün içinde sona eriyor · {{revoked}} bu dönemde iptal edildi",
     loginOutcomes: "Oturum açma sonuçları",
     loginOutcomesSubtitle:
-      "UTC gününe göre başarılı ve başarısız oturum açmalar.",
+      "{{timeZone}} saat diliminde takvim gününe göre başarılı ve başarısız oturum açmalar.",
     success: "Başarılı",
     failed: "Başarısız",
     daily: "Günlük",
@@ -283,7 +285,7 @@ export const tr: TranslationResources = {
     failedAttempts: "Başarısız denemeler",
     dailyActiveUsers: "Günlük aktif kullanıcılar",
     dailyActiveUsersSubtitle:
-      "UTC gününe göre başarılı oturum açan benzersiz kullanıcılar.",
+      "{{timeZone}} saat diliminde takvim gününe göre başarılı oturum açan benzersiz kullanıcılar.",
     loginsByApplication: "Uygulamaya göre oturum açmalar",
     loginsByApplicationSubtitle:
       "Uygulama başına deneme sonuçları; 'Bilinmiyor' uygulama bağlamı taşımıyordu.",
@@ -293,7 +295,8 @@ export const tr: TranslationResources = {
     unattributed: "Atfedilmemiş",
     other: "Diğer",
     signups: "Yeni kayıtlar",
-    signupsSubtitle: "UTC gününe göre oluşturulan hesaplar.",
+    signupsSubtitle:
+      "{{timeZone}} saat diliminde takvim gününe göre oluşturulan hesaplar.",
     signupsSeries: "Kayıtlar",
     funnel: "Aktivasyon hunisi",
     funnelSubtitle:
@@ -304,8 +307,7 @@ export const tr: TranslationResources = {
     funnelUsers: "Kullanıcılar",
     funnelRates: "{{confirmed}} doğrulandı · {{loggedIn}} oturum açtı",
     usersByOrganization: "Organizasyona göre kullanıcılar",
-    usersByOrganizationSubtitle:
-      "En büyük organizasyonların aktif üyelikleri.",
+    usersByOrganizationSubtitle: "En büyük organizasyonların aktif üyelikleri.",
     members: "Üyeler",
     appActivity: "Uygulama etkinliği",
     appActivitySubtitle:
@@ -320,8 +322,7 @@ export const tr: TranslationResources = {
     colOrganization: "Organizasyon",
     expiresInDays: "{{count}} gün kaldı",
     sessionEndReasons: "Oturum bitiş nedenleri",
-    sessionEndReasonsSubtitle:
-      "Bu dönemde sona eren oturumlar, nedene göre.",
+    sessionEndReasonsSubtitle: "Bu dönemde sona eren oturumlar, nedene göre.",
     revocationReasons: "Jeton iptalleri",
     revocationReasonsSubtitle:
       "Bu dönemde iptal edilen yenileme jetonları, nedene göre.",
@@ -489,8 +490,7 @@ export const tr: TranslationResources = {
   },
   organizations: {
     title: "Organizasyonlar",
-    subtitle:
-      "Organizasyonları, üyeleri, davetleri ve uygulamaları yönetin.",
+    subtitle: "Organizasyonları, üyeleri, davetleri ve uygulamaları yönetin.",
     newOrganization: "Yeni organizasyon",
     searchPlaceholder: "Ada, koda veya iletişim e-postasına göre ara…",
     createTitle: "Organizasyon oluştur",
@@ -543,9 +543,13 @@ export const tr: TranslationResources = {
       "Organizasyon yöneticisine düşürülürsünüz ve artık onu devredemez veya silemezsiniz.",
     transferConsequence3:
       "Yeni sahibe bir onay kodu e-postayla gönderilir. Devri tamamlamak için bir sonraki adımda girin.",
+    transferAdminConsequence:
+      "Platform kurtarma işlemi sahipliği onay kodu göndermeden hemen devreder. İşlem denetim günlüğüne kaydedilir.",
     transferSendCode: "Onay kodu gönder",
+    transferAdminConfirm: "Hemen devret",
     transferCodeTitle: "Onay kodunu girin",
-    transferCodeSent: "{{email}} adresine bir kod gönderildi. Yeni sahipten isteyin.",
+    transferCodeSent:
+      "{{email}} adresine bir kod gönderildi. Yeni sahipten isteyin.",
     transferCodeLabel: "Onay kodu",
     transferCodeExpiresIn: "Kodun süresi {{time}} içinde dolacak",
     transferCodeExpired: "Kodun süresi doldu. Yeni bir kod gönderin.",
@@ -569,8 +573,7 @@ export const tr: TranslationResources = {
     validate: "Doğrula",
     revokeReason: "Neden",
     revokeTitle: "API anahtarını iptal et",
-    revokeBody:
-      "Bu anahtarı kullanan uygulamalar erişimi hemen kaybedecek.",
+    revokeBody: "Bu anahtarı kullanan uygulamalar erişimi hemen kaybedecek.",
     rotateTitle: "API anahtarını yenile",
     rotateBody:
       "Yeni bir anahtar düzenlenir; eski anahtar ek süre sonunda sona erer.",
@@ -661,8 +664,7 @@ export const tr: TranslationResources = {
     customSet: "Özel gizli anahtar ayarlandı.",
     customDeleted: "Özel gizli anahtar silindi.",
     deleteCustomTitle: "Özel gizli anahtarı sil",
-    deleteCustomBody:
-      "Bu işlem '{{key}}' özel gizli anahtarını kaldırır.",
+    deleteCustomBody: "Bu işlem '{{key}}' özel gizli anahtarını kaldırır.",
     rotateWarning:
       "İmzalama anahtarlarını yeniden oluşturmak mevcut tüm jetonları geçersiz kılar. Dikkatli ilerleyin.",
   },
@@ -675,7 +677,8 @@ export const tr: TranslationResources = {
     layoutsSubtitle:
       "Her mesajı saran ortak görsel kimlik; tüm diller tek bir düzeni paylaşır.",
     newTemplate: "Yeni Şablon",
-    newTemplateHint: "Mesaj türünü ve kapsamı seçin. İçerik düzenleyicide eklenir.",
+    newTemplateHint:
+      "Mesaj türünü ve kapsamı seçin. İçerik düzenleyicide eklenir.",
     templateCreated: "Şablon oluşturuldu",
     templateDeleted: "Şablon silindi",
     type: "Tür",
@@ -744,7 +747,8 @@ export const tr: TranslationResources = {
     restoredAsDraft: "Sürüm taslak olarak geri yüklendi",
     testSend: "Test gönder",
     testSendTitle: "Test mesajı gönder",
-    testSendHint: "Geçerli taslağı (veya yayımlanan sürümü) örnek verilerle işler.",
+    testSendHint:
+      "Geçerli taslağı (veya yayımlanan sürümü) örnek verilerle işler.",
     testSent: "Test mesajı gönderildi",
     recipientEmail: "Alıcı e-postası",
     layoutName: "Düzen adı",
@@ -768,7 +772,8 @@ export const tr: TranslationResources = {
     outboxRetried: "Mesaj yeniden kuyruğa alındı",
     retryNow: "Şimdi yeniden dene",
     outboxMessage: "Teslim kaydı",
-    outboxMessageHint: "Bu mesajın gerçek işlenmiş içeriği ve teslim yaşam döngüsü.",
+    outboxMessageHint:
+      "Bu mesajın gerçek işlenmiş içeriği ve teslim yaşam döngüsü.",
     templateVersionRef: "Şablon sürümü",
     tabOverview: "Genel Bakış",
     tabTemplates: "Şablonlar",
@@ -790,8 +795,10 @@ export const tr: TranslationResources = {
     overviewViewTemplates: "Tüm şablonları gör",
     overviewViewLayouts: "Tüm düzenleri gör",
     newLayout: "Yeni Düzen",
-    newLayoutHint: "Genel düzeni geçersiz kılan, uygulamaya özel bir düzen oluşturun.",
-    newLayoutScopeHint: "Uygulamaya özel; genel düzen diğerleri için yedek olarak kalır.",
+    newLayoutHint:
+      "Genel düzeni geçersiz kılan, uygulamaya özel bir düzen oluşturun.",
+    newLayoutScopeHint:
+      "Uygulamaya özel; genel düzen diğerleri için yedek olarak kalır.",
     newLayoutScopeRequired: "Bir uygulama seçin — genel düzen zaten var.",
     layoutCreated: "Düzen oluşturuldu",
     selectApplication: "Bir uygulama seçin",
@@ -799,11 +806,13 @@ export const tr: TranslationResources = {
     redo: "Yinele",
     insertImage: "Görsel ekle",
     insertImageTitle: "Görsel ekle",
-    insertImageHint: "Görsel yüklenir ve e-posta istemcilerinde yüklenmesi için mutlak URL ile referans verilir.",
+    insertImageHint:
+      "Görsel yüklenir ve e-posta istemcilerinde yüklenmesi için mutlak URL ile referans verilir.",
     chooseImage: "Görsel seç",
     uploadingImage: "Yükleniyor...",
     imageWidth: "Genişlik",
-    imageWidthHint: "Piksel (örn. 320) veya yüzde (örn. %60). Doğal boyut için boş bırakın.",
+    imageWidthHint:
+      "Piksel (örn. 320) veya yüzde (örn. %60). Doğal boyut için boş bırakın.",
     imageAlt: "Alternatif metin",
     insertImageAction: "Ekle",
     imageInserted: "Görsel eklendi",
@@ -820,8 +829,10 @@ export const tr: TranslationResources = {
     globalVarApplicationName:
       "Mesajın ait olduğu uygulamanın adı. Genel mesajlar platform adını kullanır.",
     globalVarApplicationCode: "Uygulamanın kısa kodu; genel mesajlarda boştur.",
-    globalVarApplicationBaseUrl: "Uygulamanın web adresi; bağlantı oluşturmak için kullanışlıdır.",
-    globalVarYear: "İçinde bulunulan yıl — alt bilgi ve telif satırları için kullanışlıdır.",
+    globalVarApplicationBaseUrl:
+      "Uygulamanın web adresi; bağlantı oluşturmak için kullanışlıdır.",
+    globalVarYear:
+      "İçinde bulunulan yıl — alt bilgi ve telif satırları için kullanışlıdır.",
     variableName: "Ad",
     variableDescription: "Açıklama",
     variableExample: "Örnek değer",
@@ -830,7 +841,8 @@ export const tr: TranslationResources = {
     removeVariable: "Kaldır",
     variablesSaved: "Değişkenler kaydedildi",
     editVariables: "Değişkenleri düzenle",
-    imageAltHint: "Ekran okuyucuların okuduğu ve görsel yüklenemediğinde gösterilen kısa açıklama.",
+    imageAltHint:
+      "Ekran okuyucuların okuduğu ve görsel yüklenemediğinde gösterilen kısa açıklama.",
     templatesSearchPlaceholder: "Tür, kod veya uygulama arayın...",
     layoutsSearchPlaceholder: "Ad veya uygulama arayın...",
     layoutSlots: "Düzen yer tutucuları",

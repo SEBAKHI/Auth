@@ -19,9 +19,13 @@ public class DashboardStatsRepository : IDashboardStatsRepository
     }
 
     /// <inheritdoc />
-    public async Task<UserStatsSnapshot> GetUserStatsAsync(int days, CancellationToken cancellationToken)
+    public async Task<UserStatsSnapshot> GetUserStatsAsync(
+        int days,
+        string timeZone,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var sqlTimeZone = ToSqlServerTimeZone(timeZone);
 
         using var grid = await connection.QueryMultipleAsync(@"
             DECLARE @Now DATETIME2 = GETUTCDATE();
@@ -48,11 +52,12 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             WHERE [IsDeleted] = 0
             GROUP BY [Status];
 
-            -- Signups per UTC day inside the window
-            SELECT CAST([CreatedAt] AS DATE) AS [Date], COUNT(*) AS [Count]
+            -- Signups per viewer-local calendar day inside the UTC instant window
+            SELECT CAST(([CreatedAt] AT TIME ZONE 'UTC') AT TIME ZONE @TimeZone AS DATE) AS [Date],
+                   COUNT(*) AS [Count]
             FROM [dbo].[Users]
             WHERE [IsDeleted] = 0 AND [CreatedAt] >= @From
-            GROUP BY CAST([CreatedAt] AS DATE)
+            GROUP BY CAST(([CreatedAt] AT TIME ZONE 'UTC') AT TIME ZONE @TimeZone AS DATE)
             ORDER BY [Date];
 
             -- Ten largest organizations by active membership
@@ -73,7 +78,7 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             FROM [dbo].[OrganizationUsers] ou
             JOIN [dbo].[Organizations] o ON o.[Id] = ou.[OrganizationId] AND o.[IsActive] = 1
             WHERE ou.[IsActive] = 1;",
-            new { Days = days });
+            new { Days = days, TimeZone = sqlTimeZone });
 
         var totals = await grid.ReadSingleAsync<UserTotalsRow>();
         var byStatus = (await grid.ReadAsync<UserStatusCount>()).ToList();
@@ -102,29 +107,34 @@ public class DashboardStatsRepository : IDashboardStatsRepository
     }
 
     /// <inheritdoc />
-    public async Task<AuthStatsSnapshot> GetAuthStatsAsync(int days, CancellationToken cancellationToken)
+    public async Task<AuthStatsSnapshot> GetAuthStatsAsync(
+        int days,
+        string timeZone,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var sqlTimeZone = ToSqlServerTimeZone(timeZone);
 
         using var grid = await connection.QueryMultipleAsync(@"
             DECLARE @Now DATETIME2 = GETUTCDATE();
             DECLARE @From DATETIME2 = DATEADD(DAY, -@Days, @Now);
             DECLARE @PrevFrom DATETIME2 = DATEADD(DAY, -@Days, @From);
 
-            -- Attempts per UTC day, split by outcome
-            SELECT CAST([AttemptedAt] AS DATE) AS [Date],
+            -- Attempts per viewer-local calendar day, split by outcome
+            SELECT CAST(([AttemptedAt] AT TIME ZONE 'UTC') AT TIME ZONE @TimeZone AS DATE) AS [Date],
                    SUM(CASE WHEN [IsSuccessful] = 1 THEN 1 ELSE 0 END) AS SuccessCount,
                    SUM(CASE WHEN [IsSuccessful] = 0 THEN 1 ELSE 0 END) AS FailureCount
             FROM [dbo].[LoginAttempts]
             WHERE [AttemptedAt] >= @From
-            GROUP BY CAST([AttemptedAt] AS DATE)
+            GROUP BY CAST(([AttemptedAt] AT TIME ZONE 'UTC') AT TIME ZONE @TimeZone AS DATE)
             ORDER BY [Date];
 
             -- Daily active users (distinct users with a successful login)
-            SELECT CAST([AttemptedAt] AS DATE) AS [Date], COUNT(DISTINCT [UserId]) AS [Count]
+            SELECT CAST(([AttemptedAt] AT TIME ZONE 'UTC') AT TIME ZONE @TimeZone AS DATE) AS [Date],
+                   COUNT(DISTINCT [UserId]) AS [Count]
             FROM [dbo].[LoginAttempts]
             WHERE [AttemptedAt] >= @From AND [IsSuccessful] = 1 AND [UserId] IS NOT NULL
-            GROUP BY CAST([AttemptedAt] AS DATE)
+            GROUP BY CAST(([AttemptedAt] AT TIME ZONE 'UTC') AT TIME ZONE @TimeZone AS DATE)
             ORDER BY [Date];
 
             -- Distinct active users across the whole window
@@ -204,7 +214,7 @@ public class DashboardStatsRepository : IDashboardStatsRepository
               AND NOT EXISTS (
                   SELECT 1 FROM [dbo].[OrganizationUsers] ou
                   WHERE ou.[UserId] = la.[UserId] AND ou.[IsActive] = 1);",
-            new { Days = days });
+            new { Days = days, TimeZone = sqlTimeZone });
 
         var loginsPerDay = (await grid.ReadAsync<DailyLoginCount>()).ToList();
         var activeUsersPerDay = (await grid.ReadAsync<DailyCount>()).ToList();
@@ -435,5 +445,26 @@ public class DashboardStatsRepository : IDashboardStatsRepository
     {
         public int SuccessfulLogins { get; init; }
         public int DistinctUsers { get; init; }
+    }
+
+    /// <summary>
+    /// SQL Server uses Windows time-zone identifiers even though API clients
+    /// and stored user preferences use portable IANA identifiers.
+    /// </summary>
+    private static string ToSqlServerTimeZone(string timeZone)
+    {
+        if (string.Equals(timeZone, "UTC", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(timeZone, "Etc/UTC", StringComparison.OrdinalIgnoreCase))
+        {
+            return "UTC";
+        }
+
+        if (TimeZoneInfo.TryConvertIanaIdToWindowsId(timeZone, out var windowsId))
+        {
+            return windowsId;
+        }
+
+        throw new InvalidOperationException(
+            $"The validated IANA time zone '{timeZone}' cannot be mapped for SQL Server.");
     }
 }

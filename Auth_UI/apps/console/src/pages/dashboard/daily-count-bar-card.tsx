@@ -24,7 +24,7 @@ import { ChartEmpty } from "./chart-empty"
 import { rollupWeeklyCounts } from "./helpers"
 import type { CountPoint } from "./helpers"
 
-/** Single-measure bars per UTC day with a weekly rollup toggle (sums are valid). */
+/** Single-measure bars per viewer-local day with a weekly rollup toggle. */
 export function DailyCountBarCard({
   title,
   description,
@@ -95,7 +95,11 @@ export function DailyCountBarCard({
                     : day
                 }
               />
-              <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} />
+              <Bar
+                dataKey="count"
+                fill="var(--color-count)"
+                radius={[4, 4, 0, 0]}
+              />
             </BarChart>
           </ChartContainer>
         ) : (

@@ -40,6 +40,10 @@ import { api } from "@astoom/api/client"
 import { toNumber, unwrap } from "@astoom/api/helpers"
 import type { Schemas } from "@astoom/api/types"
 import { useAuth } from "@astoom/auth/auth-context"
+import {
+  getTimeZoneOffsetLabel,
+  useActiveTimeZone,
+} from "@astoom/i18n/timezone"
 import { PERMISSIONS } from "@/lib/constants"
 import { formatRelative, userStatusMeta } from "@astoom/ui/format"
 
@@ -53,7 +57,7 @@ import type { Slice } from "./donut-card"
 import { EnablementMatrixCard } from "./enablement-matrix-card"
 import { FunnelCard } from "./funnel-card"
 import {
-  bucketDailyUtc,
+  bucketDaily,
   buildCountSeries,
   buildLoginSeries,
   pctDelta,
@@ -115,31 +119,35 @@ function buildEntityBreakdown(
 export function DashboardPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
+  const timeZone = useActiveTimeZone()
+  const timeZoneOffset = getTimeZoneOffsetLabel(timeZone)
+  const timeZoneLabel = `\u2066${timeZoneOffset ? `${timeZone} (${timeZoneOffset})` : timeZone}\u2069`
 
   const canUsers = hasPermission(PERMISSIONS.users.read)
   const canApps = hasPermission(PERMISSIONS.applications.read)
   const canRoles = hasPermission(PERMISSIONS.roles.read)
   const canAudit = hasPermission(PERMISSIONS.auditLogs.read)
+  const canReadAllOrganizations = hasPermission(PERMISSIONS.organizations.read)
 
   // ─── Server-side aggregates (full-table SQL, never a page) ────────────────
   const userStatsQuery = useQuery({
-    queryKey: ["dashboard", "user-stats", WINDOW_DAYS],
+    queryKey: ["dashboard", "user-stats", WINDOW_DAYS, timeZone],
     enabled: canUsers,
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/dashboard/user-stats", {
-          params: { query: { days: WINDOW_DAYS } },
+          params: { query: { days: WINDOW_DAYS, timeZone } },
         })
       ),
   })
 
   const authStatsQuery = useQuery({
-    queryKey: ["dashboard", "auth-stats", WINDOW_DAYS],
+    queryKey: ["dashboard", "auth-stats", WINDOW_DAYS, timeZone],
     enabled: canAudit,
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/dashboard/auth-stats", {
-          params: { query: { days: WINDOW_DAYS } },
+          params: { query: { days: WINDOW_DAYS, timeZone } },
         })
       ),
   })
@@ -166,9 +174,21 @@ export function DashboardPage() {
       ),
   })
 
-  const orgsQuery = useQuery({
-    queryKey: ["dashboard", "orgs"],
+  const memberOrgsQuery = useQuery({
+    queryKey: ["dashboard", "orgs", "membership"],
+    enabled: !canReadAllOrganizations,
     queryFn: () => unwrap(api.GET("/api/v1/Organizations")),
+  })
+
+  const allOrgsQuery = useQuery({
+    queryKey: ["dashboard", "orgs", "all"],
+    enabled: canReadAllOrganizations,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/Organizations/all", {
+          params: { query: { pageNumber: 1, pageSize: 1 } },
+        })
+      ),
   })
 
   // ─── Audit-event cards (accurate totals; series page-limited and flagged) ──
@@ -217,7 +237,9 @@ export function DashboardPage() {
             query: {
               pageNumber: 1,
               pageSize: 100,
-              fromDate: new Date(Date.now() - AUDIT_DAYS * DAY_MS).toISOString(),
+              fromDate: new Date(
+                Date.now() - AUDIT_DAYS * DAY_MS
+              ).toISOString(),
             },
           },
         })
@@ -243,15 +265,18 @@ export function DashboardPage() {
   // ─── Derived series and breakdowns ─────────────────────────────────────────
   const loginSeries = buildLoginSeries(
     authStats?.loginsPerDay ?? [],
-    WINDOW_DAYS
+    WINDOW_DAYS,
+    timeZone
   )
   const dauSeries = buildCountSeries(
     authStats?.activeUsersPerDay ?? [],
-    WINDOW_DAYS
+    WINDOW_DAYS,
+    timeZone
   )
   const signupSeries = buildCountSeries(
     userStats?.signupsPerDay ?? [],
-    WINDOW_DAYS
+    WINDOW_DAYS,
+    timeZone
   )
 
   const windowSuccess = toNumber(authStats?.windowSuccessCount)
@@ -310,7 +335,8 @@ export function DashboardPage() {
     value: toNumber(row.count),
   }))
   const listedMembers = orgMembers.reduce((total, r) => total + r.value, 0)
-  const memberRemainder = toNumber(userStats?.totalActiveMemberships) - listedMembers
+  const memberRemainder =
+    toNumber(userStats?.totalActiveMemberships) - listedMembers
   const usersByOrgRows =
     memberRemainder > 0
       ? [...orgMembers, { label: t("dashboard.other"), value: memberRemainder }]
@@ -337,9 +363,10 @@ export function DashboardPage() {
   const seriesLogs = seriesQuery.data?.logs ?? []
   const seriesTotal = toNumber(seriesQuery.data?.totalCount)
   const seriesTruncated = seriesTotal > seriesLogs.length
-  const timeseries = bucketDailyUtc(
+  const timeseries = bucketDaily(
     seriesLogs.map((log) => log.timestamp),
-    AUDIT_DAYS
+    AUDIT_DAYS,
+    timeZone
   )
   const actions = buildActions(seriesLogs)
   const entityBreakdown = buildEntityBreakdown(
@@ -372,7 +399,10 @@ export function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title={t("dashboard.title")}
-        description={t("dashboard.subtitleWindow", { days: WINDOW_DAYS })}
+        description={t("dashboard.subtitleWindow", {
+          days: WINDOW_DAYS,
+          timeZone: timeZoneLabel,
+        })}
       />
 
       {/* ─── Headline numbers ─────────────────────────────────────────────── */}
@@ -464,10 +494,22 @@ export function DashboardPage() {
           />
         ) : null}
         <StatCard
-          title={t("dashboard.totalOrganizations")}
-          value={orgsQuery.data?.length}
+          title={t(
+            canReadAllOrganizations
+              ? "dashboard.totalOrganizations"
+              : "dashboard.myOrganizations"
+          )}
+          value={
+            canReadAllOrganizations
+              ? toNumber(allOrgsQuery.data?.totalCount)
+              : memberOrgsQuery.data?.length
+          }
           icon={Building2}
-          loading={orgsQuery.isLoading}
+          loading={
+            canReadAllOrganizations
+              ? allOrgsQuery.isLoading
+              : memberOrgsQuery.isLoading
+          }
         />
         {canAudit ? (
           <StatCard
@@ -487,6 +529,9 @@ export function DashboardPage() {
             <DailyLoginsCard
               data={loginSeries}
               loading={authStatsQuery.isLoading}
+              description={t("dashboard.loginOutcomesSubtitle", {
+                timeZone: timeZoneLabel,
+              })}
             />
           </div>
           <RankedBarCard
@@ -504,7 +549,9 @@ export function DashboardPage() {
           <div className="lg:col-span-2">
             <TrendAreaCard
               title={t("dashboard.dailyActiveUsers")}
-              description={t("dashboard.dailyActiveUsersSubtitle")}
+              description={t("dashboard.dailyActiveUsersSubtitle", {
+                timeZone: timeZoneLabel,
+              })}
               seriesLabel={t("dashboard.activeUsersWindow")}
               data={dauSeries}
               loading={authStatsQuery.isLoading}
@@ -550,7 +597,9 @@ export function DashboardPage() {
           />
           <DailyCountBarCard
             title={t("dashboard.signups")}
-            description={t("dashboard.signupsSubtitle")}
+            description={t("dashboard.signupsSubtitle", {
+              timeZone: timeZoneLabel,
+            })}
             seriesLabel={t("dashboard.signupsSeries")}
             data={signupSeries}
             loading={userStatsQuery.isLoading}
@@ -634,7 +683,8 @@ export function DashboardPage() {
                       hide
                       domain={[
                         0,
-                        (dataMax: number) => Math.max(1, Math.ceil(dataMax * 1.25)),
+                        (dataMax: number) =>
+                          Math.max(1, Math.ceil(dataMax * 1.25)),
                       ]}
                     />
                     <XAxis

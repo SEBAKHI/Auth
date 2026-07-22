@@ -11,5 +11,6 @@ public class GetAuthStatsQueryValidator : AbstractValidator<GetAuthStatsQuery>
     public GetAuthStatsQueryValidator()
     {
         RuleFor(x => x.Days).IsValidTrailingWindowDays();
+        RuleFor(x => x.TimeZone).NotEmpty().IsValidTimeZone();
     }
 }

@@ -153,8 +153,7 @@ export const fr: TranslationResources = {
       "Les liens de réinitialisation ne servent qu'une fois et expirent au bout d'un moment.",
     requestNewResetLink: "Demander un nouveau lien",
     resetTitle: "Définir un nouveau mot de passe",
-    resetSubtitle:
-      "Choisissez un nouveau mot de passe pour votre compte.",
+    resetSubtitle: "Choisissez un nouveau mot de passe pour votre compte.",
     newPassword: "Nouveau mot de passe",
     confirmPassword: "Confirmer le mot de passe",
     resetPassword: "Réinitialiser le mot de passe",
@@ -169,7 +168,8 @@ export const fr: TranslationResources = {
     twoFactorSubtitle: "Votre compte requiert un code de vérification.",
     twoFactorCode: "Code de vérification",
     verifyEmailTitle: "Confirmer l'e-mail",
-    verifyEmailDescription: "Saisissez le code à 6 chiffres envoyé à {{email}}.",
+    verifyEmailDescription:
+      "Saisissez le code à 6 chiffres envoyé à {{email}}.",
     verifyEmailCodeLabel: "Code de vérification",
     codeExpiresIn: "Le code expire dans {{time}}",
     codeExpired: "Le code a expiré. Demandez-en un nouveau.",
@@ -228,6 +228,7 @@ export const fr: TranslationResources = {
     totalUsers: "Utilisateurs",
     totalApplications: "Applications",
     totalOrganizations: "Organisations",
+    myOrganizations: "Mes organisations",
     recentActivity: "Activité récente",
     recentActivitySubtitle: "Derniers événements d'audit.",
     successfulEvents: "Événements réussis (7 j)",
@@ -258,7 +259,7 @@ export const fr: TranslationResources = {
     viewAuditLogs: "Voir les journaux d'audit",
     noData: "Pas encore assez de données.",
     subtitleWindow:
-      "Vue d'ensemble de votre système d'authentification — {{days}} derniers jours (UTC).",
+      "Vue d'ensemble de votre système d'authentification — {{days}} derniers jours selon {{timeZone}}.",
     newUsersHint: "{{count}} nouveaux sur la période",
     activeUsersWindow: "Utilisateurs actifs",
     successRate: "Taux de réussite de connexion",
@@ -275,7 +276,7 @@ export const fr: TranslationResources = {
       "{{expiring}} expirent sous 7 j · {{revoked}} révoqués sur la période",
     loginOutcomes: "Résultats de connexion",
     loginOutcomesSubtitle:
-      "Connexions réussies vs échouées par jour UTC.",
+      "Connexions réussies vs échouées par jour calendaire selon {{timeZone}}.",
     success: "Réussies",
     failed: "Échouées",
     daily: "Quotidien",
@@ -286,7 +287,7 @@ export const fr: TranslationResources = {
     failedAttempts: "Tentatives échouées",
     dailyActiveUsers: "Utilisateurs actifs quotidiens",
     dailyActiveUsersSubtitle:
-      "Utilisateurs distincts avec une connexion réussie par jour UTC.",
+      "Utilisateurs distincts avec une connexion réussie par jour calendaire selon {{timeZone}}.",
     loginsByApplication: "Connexions par application",
     loginsByApplicationSubtitle:
       "Résultats des tentatives par application ; « Inconnu » signifie sans contexte d'application.",
@@ -296,7 +297,7 @@ export const fr: TranslationResources = {
     unattributed: "Non attribuées",
     other: "Autre",
     signups: "Nouvelles inscriptions",
-    signupsSubtitle: "Comptes créés par jour UTC.",
+    signupsSubtitle: "Comptes créés par jour calendaire selon {{timeZone}}.",
     signupsSeries: "Inscriptions",
     funnel: "Entonnoir d'activation",
     funnelSubtitle:
@@ -323,8 +324,7 @@ export const fr: TranslationResources = {
     colOrganization: "Organisation",
     expiresInDays: "{{count}} j restants",
     sessionEndReasons: "Causes de fin de session",
-    sessionEndReasonsSubtitle:
-      "Sessions terminées sur la période, par cause.",
+    sessionEndReasonsSubtitle: "Sessions terminées sur la période, par cause.",
     revocationReasons: "Révocations de jetons",
     revocationReasonsSubtitle:
       "Jetons de rafraîchissement révoqués sur la période, par cause.",
@@ -339,8 +339,7 @@ export const fr: TranslationResources = {
   },
   users: {
     title: "Utilisateurs",
-    subtitle:
-      "Gérez les comptes utilisateurs, les rôles et les permissions.",
+    subtitle: "Gérez les comptes utilisateurs, les rôles et les permissions.",
     newUser: "Nouvel utilisateur",
     createTitle: "Créer un utilisateur",
     editTitle: "Modifier l'utilisateur",
@@ -550,9 +549,13 @@ export const fr: TranslationResources = {
       "Vous serez rétrogradé au rang d'administrateur et ne pourrez plus la transférer ni la supprimer.",
     transferConsequence3:
       "Un code de confirmation sera envoyé au nouveau propriétaire. Saisissez-le à l'étape suivante pour finaliser le transfert.",
+    transferAdminConsequence:
+      "La récupération de plateforme transfère immédiatement la propriété sans envoyer de code. L'action est consignée dans le journal d'audit.",
     transferSendCode: "Envoyer le code de confirmation",
+    transferAdminConfirm: "Transférer immédiatement",
     transferCodeTitle: "Saisissez le code de confirmation",
-    transferCodeSent: "Un code a été envoyé à {{email}}. Demandez-le au nouveau propriétaire.",
+    transferCodeSent:
+      "Un code a été envoyé à {{email}}. Demandez-le au nouveau propriétaire.",
     transferCodeLabel: "Code de confirmation",
     transferCodeExpiresIn: "Le code expire dans {{time}}",
     transferCodeExpired: "Le code a expiré. Envoyez-en un nouveau.",
@@ -681,7 +684,8 @@ export const fr: TranslationResources = {
     layoutsSubtitle:
       "L'identité visuelle partagée qui enveloppe chaque message ; toutes les langues partagent une même mise en page.",
     newTemplate: "Nouveau modèle",
-    newTemplateHint: "Choisissez le type de message et la portée. Le contenu s'ajoute dans l'éditeur.",
+    newTemplateHint:
+      "Choisissez le type de message et la portée. Le contenu s'ajoute dans l'éditeur.",
     templateCreated: "Modèle créé",
     templateDeleted: "Modèle supprimé",
     type: "Type",
@@ -727,7 +731,8 @@ export const fr: TranslationResources = {
     draftSaved: "Brouillon enregistré",
     discardDraft: "Abandonner le brouillon",
     discardDraftTitle: "Abandonner le brouillon ?",
-    discardDraftBody: "Les modifications non publiées de toutes les langues seront perdues.",
+    discardDraftBody:
+      "Les modifications non publiées de toutes les langues seront perdues.",
     draftDiscarded: "Brouillon abandonné",
     publish: "Publier",
     publishedToast: "Publié",
@@ -736,7 +741,8 @@ export const fr: TranslationResources = {
     unsavedChanges: "Modifications non enregistrées",
     unpublishedChanges: "Modifications non publiées",
     deleteTitle: "Supprimer le modèle ?",
-    deleteBody: "Le modèle et tout son historique de versions seront supprimés.",
+    deleteBody:
+      "Le modèle et tout son historique de versions seront supprimés.",
     versionHistory: "Historique des versions",
     versionHistoryHint:
       "Chaque version porte toutes ses traductions ; un retour arrière les restaure ensemble.",
@@ -744,19 +750,22 @@ export const fr: TranslationResources = {
     translationCount: "{{count}} traductions",
     rollback: "Revenir",
     rollbackTitle: "Revenir à la version {{version}} ?",
-    rollbackBody: "Toutes les traductions de cette version repassent en ligne ensemble.",
+    rollbackBody:
+      "Toutes les traductions de cette version repassent en ligne ensemble.",
     rolledBack: "Version restaurée",
     restoreAsDraft: "Restaurer comme brouillon",
     restoredAsDraft: "Version restaurée comme brouillon",
     testSend: "Envoyer un test",
     testSendTitle: "Envoyer un message de test",
-    testSendHint: "Rend le brouillon actuel (ou la version publiée) avec des données d'exemple.",
+    testSendHint:
+      "Rend le brouillon actuel (ou la version publiée) avec des données d'exemple.",
     testSent: "Message de test envoyé",
     recipientEmail: "E-mail du destinataire",
     layoutName: "Nom de la mise en page",
     layoutContent: "Contenu de la mise en page (Liquid HTML)",
     layoutFooter: "Texte de pied de page ({{language}})",
-    layoutFooterHint: "Texte propre à la langue affiché dans le pied de page de la mise en page.",
+    layoutFooterHint:
+      "Texte propre à la langue affiché dans le pied de page de la mise en page.",
     outboxTitle: "Journal de livraison",
     outboxSubtitle:
       "Chaque message mis en file : ce qui a été envoyé, à qui, avec quelle version de modèle, et son statut de livraison. Les messages en échec peuvent être remis en file.",
@@ -774,7 +783,8 @@ export const fr: TranslationResources = {
     outboxRetried: "Message remis en file pour livraison",
     retryNow: "Réessayer maintenant",
     outboxMessage: "Entrée du journal",
-    outboxMessageHint: "Le contenu exact rendu de ce message et son cycle de livraison.",
+    outboxMessageHint:
+      "Le contenu exact rendu de ce message et son cycle de livraison.",
     templateVersionRef: "Version du modèle",
     tabOverview: "Vue d'ensemble",
     tabTemplates: "Modèles",
@@ -796,20 +806,25 @@ export const fr: TranslationResources = {
     overviewViewTemplates: "Voir tous les modèles",
     overviewViewLayouts: "Voir toutes les mises en page",
     newLayout: "Nouvelle mise en page",
-    newLayoutHint: "Créez une mise en page propre à une application qui remplace la mise en page globale.",
-    newLayoutScopeHint: "Propre à l'application ; la mise en page globale reste le repli pour les autres.",
-    newLayoutScopeRequired: "Choisissez une application — la mise en page globale existe déjà.",
+    newLayoutHint:
+      "Créez une mise en page propre à une application qui remplace la mise en page globale.",
+    newLayoutScopeHint:
+      "Propre à l'application ; la mise en page globale reste le repli pour les autres.",
+    newLayoutScopeRequired:
+      "Choisissez une application — la mise en page globale existe déjà.",
     layoutCreated: "Mise en page créée",
     selectApplication: "Sélectionnez une application",
     undo: "Annuler",
     redo: "Rétablir",
     insertImage: "Insérer une image",
     insertImageTitle: "Insérer une image",
-    insertImageHint: "L'image est téléversée et référencée par une URL absolue pour se charger dans les clients de messagerie.",
+    insertImageHint:
+      "L'image est téléversée et référencée par une URL absolue pour se charger dans les clients de messagerie.",
     chooseImage: "Choisir une image",
     uploadingImage: "Téléversement...",
     imageWidth: "Largeur",
-    imageWidthHint: "Pixels (ex. 320) ou pourcentage (ex. 60%). Laissez vide pour la taille naturelle.",
+    imageWidthHint:
+      "Pixels (ex. 320) ou pourcentage (ex. 60%). Laissez vide pour la taille naturelle.",
     imageAlt: "Texte alternatif",
     insertImageAction: "Insérer",
     imageInserted: "Image insérée",
@@ -822,12 +837,16 @@ export const fr: TranslationResources = {
     customVariableWarning:
       "N'ajoutez une nouvelle variable qu'en coordination avec votre équipe de développement. Le système doit connaître sa valeur au moment de l'envoi — une variable inconnue du système restera simplement vide dans le message.",
     globalVariables: "Toujours disponibles",
-    globalVarPlatformName: "Le nom de la plateforme, défini dans les paramètres de la plateforme.",
+    globalVarPlatformName:
+      "Le nom de la plateforme, défini dans les paramètres de la plateforme.",
     globalVarApplicationName:
       "Le nom de l'application à laquelle appartient le message. Les messages globaux utilisent le nom de la plateforme.",
-    globalVarApplicationCode: "Le code court de l'application ; vide pour les messages globaux.",
-    globalVarApplicationBaseUrl: "L'adresse du site de l'application ; utile pour construire des liens.",
-    globalVarYear: "L'année en cours — pratique pour les pieds de page et les mentions de copyright.",
+    globalVarApplicationCode:
+      "Le code court de l'application ; vide pour les messages globaux.",
+    globalVarApplicationBaseUrl:
+      "L'adresse du site de l'application ; utile pour construire des liens.",
+    globalVarYear:
+      "L'année en cours — pratique pour les pieds de page et les mentions de copyright.",
     variableName: "Nom",
     variableDescription: "Description",
     variableExample: "Valeur d'exemple",
@@ -836,16 +855,20 @@ export const fr: TranslationResources = {
     removeVariable: "Supprimer",
     variablesSaved: "Variables enregistrées",
     editVariables: "Modifier les variables",
-    imageAltHint: "Brève description lue par les lecteurs d'écran et affichée si l'image ne se charge pas.",
+    imageAltHint:
+      "Brève description lue par les lecteurs d'écran et affichée si l'image ne se charge pas.",
     templatesSearchPlaceholder: "Rechercher type, code ou application...",
     layoutsSearchPlaceholder: "Rechercher nom ou application...",
     layoutSlots: "Emplacements de la mise en page",
     layoutSlotContent:
       "Le corps rendu du message. Chaque mise en page doit inclure cet emplacement — sans lui, les messages arrivent vides.",
-    layoutSlotDir: "La direction du texte (rtl ou ltr), dérivée de la langue du message.",
+    layoutSlotDir:
+      "La direction du texte (rtl ou ltr), dérivée de la langue du message.",
     layoutSlotLang: "Le code de langue du message (en, ar, ...).",
-    layoutSlotFooter: "Le texte de pied de page de la langue du message, modifié ci-dessous.",
-    layoutSlotSenderName: "Le nom de l'expéditeur défini dans les paramètres e-mail.",
+    layoutSlotFooter:
+      "Le texte de pied de page de la langue du message, modifié ci-dessous.",
+    layoutSlotSenderName:
+      "Le nom de l'expéditeur défini dans les paramètres e-mail.",
   },
   platformSettings: {
     title: "Paramètres de la plateforme",
@@ -866,8 +889,7 @@ export const fr: TranslationResources = {
     subtitle: "Gérez votre compte, vos sessions et votre sécurité.",
     account: "Compte",
     accountDetails: "Informations du compte",
-    accountDetailsSubtitle:
-      "Mettez à jour votre nom et vos coordonnées.",
+    accountDetailsSubtitle: "Mettez à jour votre nom et vos coordonnées.",
     sessions: "Sessions",
     security: "Sécurité",
     updateProfile: "Mettre à jour le profil",

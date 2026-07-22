@@ -7,4 +7,6 @@ namespace Auth.Application.Features.Dashboard.GetUserStats;
 /// <summary>
 /// Query to get aggregated dashboard user statistics over a trailing window of days.
 /// </summary>
-public record GetUserStatsQuery(int Days = 30) : IRequest<ErrorOr<UserStatsDto>>;
+public record GetUserStatsQuery(
+    int Days = 30,
+    string? TimeZone = "UTC") : IRequest<ErrorOr<UserStatsDto>>;

@@ -1,7 +1,6 @@
 import * as React from "react"
 import { createBrowserRouter, Navigate, useParams } from "react-router-dom"
 
-import { OrganizationDetailPage } from "@astoom/account/pages/organizations/organization-detail-page"
 import { ProfilePage } from "@astoom/account/pages/profile/profile-page"
 import { ACCOUNTS_URL } from "@astoom/api/env"
 import { RequireAnonymous, RequireAuth } from "@astoom/auth/require-auth"
@@ -21,7 +20,10 @@ import { ApplicationDetailPage } from "@/pages/applications/application-detail-p
 import { ApplicationsPage } from "@/pages/applications/applications-page"
 import { AuditLogsPage } from "@/pages/audit-logs/audit-logs-page"
 import { DashboardPage } from "@/pages/dashboard/dashboard-page"
-import { ConsoleOrganizationsPage } from "@/pages/organizations/organizations-page"
+import {
+  ConsoleOrganizationDetailPage,
+  ConsoleOrganizationsPage,
+} from "@/pages/organizations/organizations-page"
 import { NotificationLayoutDetailPage } from "@/pages/notifications/notification-layout-detail-page"
 import { NotificationLayoutsPage } from "@/pages/notifications/notification-layouts-page"
 import { NotificationOutboxPage } from "@/pages/notifications/notification-outbox-page"
@@ -169,14 +171,7 @@ export const router = createBrowserRouter([
           },
           {
             path: "organizations/:id",
-            element: (
-              <OrganizationDetailPage
-                userHref={(userId) => `/users/${userId}`}
-                applicationHref={(applicationId) =>
-                  `/applications/${applicationId}`
-                }
-              />
-            ),
+            element: <ConsoleOrganizationDetailPage />,
             handle: crumb("organizations", "/organizations", true),
           },
           {
@@ -270,7 +265,10 @@ export const router = createBrowserRouter([
                   {
                     path: "outbox",
                     element: <NotificationOutboxPage />,
-                    handle: crumb("notificationOutbox", "/notifications/outbox"),
+                    handle: crumb(
+                      "notificationOutbox",
+                      "/notifications/outbox"
+                    ),
                   },
                 ],
               },

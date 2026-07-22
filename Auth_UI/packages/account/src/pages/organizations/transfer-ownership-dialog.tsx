@@ -25,15 +25,20 @@ import {
   REGEXP_ONLY_DIGITS,
 } from "@astoom/ui/input-otp"
 import { Label } from "@astoom/ui/label"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@astoom/ui/select"
+import { NativeSelect } from "@astoom/ui/native-select"
 
 const CODE_LENGTH = 6
+
+interface TransferOwnershipDialogProps {
+  orgId: string
+  /** Current owner's user id, excluded from the candidate list. */
+  ownerId?: string
+  /** Administrative recovery path; the server still enforces organizations:manage. */
+  platformScope?: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onTransferred: () => void
+}
 
 /**
  * Two-step, owner-only ownership transfer. Step one selects an eligible member
@@ -44,17 +49,33 @@ const CODE_LENGTH = 6
 export function TransferOwnershipDialog({
   orgId,
   ownerId,
+  platformScope = false,
   open,
   onOpenChange,
   onTransferred,
-}: {
-  orgId: string
-  /** Current owner's user id, excluded from the candidate list. */
-  ownerId?: string
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onTransferred: () => void
-}) {
+}: TransferOwnershipDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {open ? (
+        <TransferOwnershipSession
+          orgId={orgId}
+          ownerId={ownerId}
+          platformScope={platformScope}
+          onOpenChange={onOpenChange}
+          onTransferred={onTransferred}
+        />
+      ) : null}
+    </Dialog>
+  )
+}
+
+function TransferOwnershipSession({
+  orgId,
+  ownerId,
+  platformScope = false,
+  onOpenChange,
+  onTransferred,
+}: Omit<TransferOwnershipDialogProps, "open">) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [step, setStep] = React.useState<"select" | "verify">("select")
@@ -62,21 +83,10 @@ export function TransferOwnershipDialog({
   const [code, setCode] = React.useState("")
   const [expiresAt, setExpiresAt] = React.useState<Date | null>(null)
   const [targetEmail, setTargetEmail] = React.useState<string>()
-
-  // Reset everything whenever the dialog is (re)opened.
-  React.useEffect(() => {
-    if (open) {
-      setStep("select")
-      setMemberId(undefined)
-      setCode("")
-      setExpiresAt(null)
-      setTargetEmail(undefined)
-    }
-  }, [open])
+  const memberSelectId = React.useId()
 
   const membersQuery = useQuery({
     queryKey: ["org-members", orgId, "all"],
-    enabled: open,
     queryFn: () =>
       collectAllPages<Schemas["OrganizationMemberDto"]>(
         async (pageNumber, size) => {
@@ -122,12 +132,12 @@ export function TransferOwnershipDialog({
   })
 
   const transferMutation = useMutation({
-    mutationFn: async (submittedCode: string) => {
+    mutationFn: async (submittedCode?: string) => {
       const { error } = await api.POST(
         "/api/v1/Organizations/{orgId}/ownership",
         {
           params: { path: { orgId } },
-          body: { newOwnerId: memberId ?? "", code: submittedCode },
+          body: { newOwnerId: memberId ?? "", code: submittedCode ?? null },
         }
       )
       if (error) throw error
@@ -135,6 +145,7 @@ export function TransferOwnershipDialog({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["org-members", orgId] })
       void queryClient.invalidateQueries({ queryKey: ["organizations", orgId] })
+      void queryClient.invalidateQueries({ queryKey: ["organizations-all"] })
       toast.success(t("organizations.transferSuccess"))
       onTransferred()
       onOpenChange(false)
@@ -146,135 +157,151 @@ export function TransferOwnershipDialog({
     !expiresAt || countdown.expired || transferMutation.isPending
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t("organizations.transferOwnershipTitle")}</DialogTitle>
-        </DialogHeader>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>{t("organizations.transferOwnershipTitle")}</DialogTitle>
+      </DialogHeader>
 
-        {step === "select" ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>{t("organizations.transferSelectMember")}</Label>
-              <Select value={memberId} onValueChange={setMemberId}>
-                <SelectTrigger className="w-full">
-                  <SelectValue
-                    placeholder={t(
-                      "organizations.transferSelectMemberPlaceholder"
+      {step === "select" ? (
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor={memberSelectId}>
+              {t("organizations.transferSelectMember")}
+            </Label>
+            <NativeSelect
+              id={memberSelectId}
+              value={memberId ?? ""}
+              onChange={(event) => setMemberId(event.target.value || undefined)}
+            >
+              <option value="" disabled>
+                {t("organizations.transferSelectMemberPlaceholder")}
+              </option>
+              {candidates.map((member) => (
+                <option key={member.userId} value={member.userId as string}>
+                  {member.fullName ||
+                    fullName(
+                      member.firstName,
+                      member.lastName,
+                      member.email ?? ""
                     )}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {candidates.map((member) => (
-                    <SelectItem
-                      key={member.userId}
-                      value={member.userId as string}
-                    >
-                      {member.fullName ||
-                        fullName(
-                          member.firstName,
-                          member.lastName,
-                          member.email ?? ""
-                        )}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="rounded-md border p-3">
-              <p className="text-sm font-medium">
-                {t("organizations.transferConsequencesTitle")}
-              </p>
-              <ul className="mt-2 list-disc space-y-1 ps-5 text-sm text-muted-foreground">
-                <li>{t("organizations.transferConsequence1")}</li>
-                <li>{t("organizations.transferConsequence2")}</li>
-                <li>{t("organizations.transferConsequence3")}</li>
-              </ul>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {t("common.cancel")}
-              </Button>
-              <Button
-                onClick={() => memberId && initiateMutation.mutate(memberId)}
-                disabled={!memberId || initiateMutation.isPending}
-              >
-                {initiateMutation.isPending ? (
-                  <Loader2 className="animate-spin" />
-                ) : null}
-                {t("organizations.transferSendCode")}
-              </Button>
-            </DialogFooter>
+                </option>
+              ))}
+            </NativeSelect>
           </div>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {t("organizations.transferCodeSent", { email: targetEmail })}
+
+          <div className="rounded-md border p-3">
+            <p className="text-sm font-medium">
+              {t("organizations.transferConsequencesTitle")}
             </p>
-
-            <div className="flex flex-col items-center gap-3">
-              <InputOTP
-                dir="ltr"
-                maxLength={CODE_LENGTH}
-                pattern={REGEXP_ONLY_DIGITS}
-                value={code}
-                onChange={setCode}
-                onComplete={(value: string) => transferMutation.mutate(value)}
-                disabled={codeInputDisabled}
-                autoFocus
-                aria-label={t("organizations.transferCodeLabel")}
-              >
-                <InputOTPGroup>
-                  {Array.from({ length: CODE_LENGTH }).map((_, index) => (
-                    <InputOTPSlot key={index} index={index} />
-                  ))}
-                </InputOTPGroup>
-              </InputOTP>
-
-              {expiresAt && !countdown.expired ? (
-                <p className="text-sm tabular-nums text-muted-foreground">
-                  {t("organizations.transferCodeExpiresIn", {
-                    time: countdown.label,
-                  })}
-                </p>
-              ) : (
-                <p className="text-sm text-destructive">
-                  {t("organizations.transferCodeExpired")}
-                </p>
-              )}
-
-              <Button
-                variant="link"
-                size="sm"
-                disabled={!memberId || initiateMutation.isPending}
-                onClick={() => memberId && initiateMutation.mutate(memberId)}
-              >
-                {initiateMutation.isPending ? (
-                  <Loader2 className="animate-spin" />
-                ) : null}
-                {t("organizations.transferResendCode")}
-              </Button>
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                {t("common.cancel")}
-              </Button>
-              <Button
-                onClick={() => transferMutation.mutate(code)}
-                disabled={code.length < CODE_LENGTH || codeInputDisabled}
-              >
-                {transferMutation.isPending ? (
-                  <Loader2 className="animate-spin" />
-                ) : null}
-                {t("organizations.transferComplete")}
-              </Button>
-            </DialogFooter>
+            <ul className="mt-2 list-disc space-y-1 ps-5 text-sm text-muted-foreground">
+              <li>{t("organizations.transferConsequence1")}</li>
+              <li>{t("organizations.transferConsequence2")}</li>
+              <li>
+                {t(
+                  platformScope
+                    ? "organizations.transferAdminConsequence"
+                    : "organizations.transferConsequence3"
+                )}
+              </li>
+            </ul>
           </div>
-        )}
-      </DialogContent>
-    </Dialog>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={() => {
+                if (!memberId) return
+                if (platformScope) {
+                  transferMutation.mutate(undefined)
+                } else {
+                  initiateMutation.mutate(memberId)
+                }
+              }}
+              disabled={
+                !memberId ||
+                initiateMutation.isPending ||
+                transferMutation.isPending
+              }
+            >
+              {initiateMutation.isPending || transferMutation.isPending ? (
+                <Loader2 className="animate-spin" />
+              ) : null}
+              {t(
+                platformScope
+                  ? "organizations.transferAdminConfirm"
+                  : "organizations.transferSendCode"
+              )}
+            </Button>
+          </DialogFooter>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            {t("organizations.transferCodeSent", { email: targetEmail })}
+          </p>
+
+          <div className="flex flex-col items-center gap-3">
+            <InputOTP
+              dir="ltr"
+              maxLength={CODE_LENGTH}
+              pattern={REGEXP_ONLY_DIGITS}
+              value={code}
+              onChange={setCode}
+              onComplete={(value: string) => transferMutation.mutate(value)}
+              disabled={codeInputDisabled}
+              autoFocus
+              aria-label={t("organizations.transferCodeLabel")}
+            >
+              <InputOTPGroup>
+                {Array.from({ length: CODE_LENGTH }).map((_, index) => (
+                  <InputOTPSlot key={index} index={index} />
+                ))}
+              </InputOTPGroup>
+            </InputOTP>
+
+            {expiresAt && !countdown.expired ? (
+              <p className="text-sm text-muted-foreground tabular-nums">
+                {t("organizations.transferCodeExpiresIn", {
+                  time: countdown.label,
+                })}
+              </p>
+            ) : (
+              <p className="text-sm text-destructive">
+                {t("organizations.transferCodeExpired")}
+              </p>
+            )}
+
+            <Button
+              variant="link"
+              size="sm"
+              disabled={!memberId || initiateMutation.isPending}
+              onClick={() => memberId && initiateMutation.mutate(memberId)}
+            >
+              {initiateMutation.isPending ? (
+                <Loader2 className="animate-spin" />
+              ) : null}
+              {t("organizations.transferResendCode")}
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={() => transferMutation.mutate(code)}
+              disabled={code.length < CODE_LENGTH || codeInputDisabled}
+            >
+              {transferMutation.isPending ? (
+                <Loader2 className="animate-spin" />
+              ) : null}
+              {t("organizations.transferComplete")}
+            </Button>
+          </DialogFooter>
+        </div>
+      )}
+    </DialogContent>
   )
 }

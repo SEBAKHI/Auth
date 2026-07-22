@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "e2e:production": "pnpm build && playwright test --config playwright.production.config.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10",

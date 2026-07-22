@@ -164,7 +164,8 @@ export const ar: TranslationResources = {
     twoFactorSubtitle: "يتطلب حسابك رمز تحقق.",
     twoFactorCode: "رمز التحقق",
     verifyEmailTitle: "تأكيد البريد الإلكتروني",
-    verifyEmailDescription: "أدخل رمز التحقق المكوّن من 6 أرقام المرسل إلى {{email}}.",
+    verifyEmailDescription:
+      "أدخل رمز التحقق المكوّن من 6 أرقام المرسل إلى {{email}}.",
     verifyEmailCodeLabel: "رمز التحقق",
     codeExpiresIn: "تنتهي صلاحية الرمز خلال {{time}}",
     codeExpired: "انتهت صلاحية الرمز. اطلب رمزًا جديدًا.",
@@ -223,6 +224,7 @@ export const ar: TranslationResources = {
     totalUsers: "المستخدمون",
     totalApplications: "التطبيقات",
     totalOrganizations: "المنظمات",
+    myOrganizations: "منظماتي",
     recentActivity: "النشاط الأخير",
     recentActivitySubtitle: "أحدث أحداث التدقيق.",
     successfulEvents: "الأحداث الناجحة (7 أيام)",
@@ -251,7 +253,7 @@ export const ar: TranslationResources = {
     viewAuditLogs: "عرض سجلات التدقيق",
     noData: "لا توجد بيانات كافية بعد.",
     subtitleWindow:
-      "نظرة عامة على نظام المصادقة — آخر {{days}} يومًا (بالتوقيت العالمي UTC).",
+      "نظرة عامة على نظام المصادقة — آخر {{days}} يومًا حسب {{timeZone}}.",
     newUsersHint: "{{count}} جديد خلال الفترة",
     activeUsersWindow: "المستخدمون النشطون",
     successRate: "معدل نجاح تسجيل الدخول",
@@ -268,7 +270,7 @@ export const ar: TranslationResources = {
       "{{expiring}} تنتهي خلال 7 أيام · {{revoked}} أُلغيت خلال الفترة",
     loginOutcomes: "نتائج تسجيل الدخول",
     loginOutcomesSubtitle:
-      "محاولات الدخول الناجحة مقابل الفاشلة لكل يوم (UTC).",
+      "محاولات الدخول الناجحة مقابل الفاشلة لكل يوم تقويمي حسب {{timeZone}}.",
     success: "ناجحة",
     failed: "فاشلة",
     daily: "يومي",
@@ -278,7 +280,7 @@ export const ar: TranslationResources = {
     failedAttempts: "المحاولات الفاشلة",
     dailyActiveUsers: "المستخدمون النشطون يوميًا",
     dailyActiveUsersSubtitle:
-      "عدد المستخدمين الفريدين بدخول ناجح لكل يوم (UTC).",
+      "عدد المستخدمين الفريدين بدخول ناجح لكل يوم تقويمي حسب {{timeZone}}.",
     loginsByApplication: "تسجيلات الدخول حسب التطبيق",
     loginsByApplicationSubtitle:
       "نتائج المحاولات لكل تطبيق؛ «غير معروف» تعني محاولات دون سياق تطبيق.",
@@ -288,7 +290,7 @@ export const ar: TranslationResources = {
     unattributed: "غير منسوبة",
     other: "أخرى",
     signups: "التسجيلات الجديدة",
-    signupsSubtitle: "الحسابات المُنشأة لكل يوم (UTC).",
+    signupsSubtitle: "الحسابات المُنشأة لكل يوم تقويمي حسب {{timeZone}}.",
     signupsSeries: "التسجيلات",
     funnel: "قمع التفعيل",
     funnelSubtitle:
@@ -534,7 +536,10 @@ export const ar: TranslationResources = {
       "ستُخفَّض رتبتك إلى مشرف المنظمة ولن تتمكن بعدها من نقلها أو حذفها.",
     transferConsequence3:
       "سيُرسَل رمز تأكيد إلى بريد المالك الجديد. أدخله في الخطوة التالية لإتمام النقل.",
+    transferAdminConsequence:
+      "مسار الاستعادة الإداري ينقل الملكية فورًا دون إرسال رمز تأكيد، ويُسجَّل الإجراء في سجل التدقيق.",
     transferSendCode: "إرسال رمز التأكيد",
+    transferAdminConfirm: "نقل الملكية فورًا",
     transferCodeTitle: "أدخل رمز التأكيد",
     transferCodeSent: "أُرسل رمز إلى {{email}}. اطلبه من المالك الجديد.",
     transferCodeLabel: "رمز التأكيد",
@@ -777,7 +782,8 @@ export const ar: TranslationResources = {
     overviewViewLayouts: "عرض كل التخطيطات",
     newLayout: "تخطيط جديد",
     newLayoutHint: "أنشئ تخطيطًا خاصًا بتطبيق يتقدم على التخطيط العام.",
-    newLayoutScopeHint: "خاص بالتطبيق؛ يبقى التخطيط العام هو الاحتياطي لبقية التطبيقات.",
+    newLayoutScopeHint:
+      "خاص بالتطبيق؛ يبقى التخطيط العام هو الاحتياطي لبقية التطبيقات.",
     newLayoutScopeRequired: "اختر تطبيقًا — التخطيط العام موجود بالفعل.",
     layoutCreated: "تم إنشاء التخطيط",
     selectApplication: "اختر تطبيقًا",
@@ -785,11 +791,13 @@ export const ar: TranslationResources = {
     redo: "إعادة",
     insertImage: "إدراج صورة",
     insertImageTitle: "إدراج صورة",
-    insertImageHint: "تُرفع الصورة ويُشار إليها برابط مطلق لتظهر في عملاء البريد.",
+    insertImageHint:
+      "تُرفع الصورة ويُشار إليها برابط مطلق لتظهر في عملاء البريد.",
     chooseImage: "اختر صورة",
     uploadingImage: "جارٍ الرفع...",
     imageWidth: "العرض",
-    imageWidthHint: "بالبكسل (مثل 320) أو بالنسبة (مثل 60%). اتركه فارغًا للحجم الطبيعي.",
+    imageWidthHint:
+      "بالبكسل (مثل 320) أو بالنسبة (مثل 60%). اتركه فارغًا للحجم الطبيعي.",
     imageAlt: "نص بديل",
     insertImageAction: "إدراج",
     imageInserted: "تم إدراج الصورة",
@@ -805,7 +813,8 @@ export const ar: TranslationResources = {
     globalVarPlatformName: "اسم المنصة كما هو محدد في إعدادات المنصة.",
     globalVarApplicationName:
       "اسم التطبيق الذي تخصه الرسالة. الرسائل العامة تستخدم اسم المنصة.",
-    globalVarApplicationCode: "الرمز المختصر للتطبيق، ويكون فارغًا في الرسائل العامة.",
+    globalVarApplicationCode:
+      "الرمز المختصر للتطبيق، ويكون فارغًا في الرسائل العامة.",
     globalVarApplicationBaseUrl: "عنوان موقع التطبيق؛ مفيد لبناء الروابط.",
     globalVarYear: "السنة الحالية — مفيدة للتذييل وسطر الحقوق.",
     variableName: "الاسم",
@@ -879,8 +888,7 @@ export const ar: TranslationResources = {
     enableTwoFactor: "تفعيل المصادقة الثنائية",
     disableTwoFactor: "تعطيل المصادقة الثنائية",
     setupTwoFactorTitle: "إعداد المصادقة الثنائية",
-    setupTwoFactorBody:
-      "امسح رمز QR بتطبيق المصادقة لديك، ثم أدخل رمزًا.",
+    setupTwoFactorBody: "امسح رمز QR بتطبيق المصادقة لديك، ثم أدخل رمزًا.",
     manualEntry: "مفتاح الإدخال اليدوي",
     recoveryCodesTitle: "احفظ رموز الاسترداد",
     recoveryCodesBody: "خزّنها في مكان آمن. كل رمز يُستخدم مرة واحدة.",

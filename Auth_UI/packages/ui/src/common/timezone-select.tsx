@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { getTimeZoneOffsetLabel } from "@astoom/i18n/timezone"
 
 import { Button } from "@astoom/ui/button"
 import {
@@ -11,11 +12,7 @@ import {
   CommandItem,
   CommandList,
 } from "@astoom/ui/command"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@astoom/ui/popover"
+import { Popover, PopoverContent, PopoverTrigger } from "@astoom/ui/popover"
 import { ScrollArea } from "@astoom/ui/scroll-area"
 import { cn } from "@astoom/ui/utils"
 
@@ -30,22 +27,6 @@ interface ZoneOption {
   /** e.g. "UTC+03:00" — current offset, so DST is reflected. */
   offsetLabel: string
   offsetMinutes: number
-}
-
-/** Current UTC offset of a zone, e.g. "UTC+03:00" (empty when unresolvable). */
-function zoneOffsetLabel(timeZone: string): string {
-  try {
-    const part = new Intl.DateTimeFormat("en", {
-      timeZone,
-      timeZoneName: "longOffset",
-    })
-      .formatToParts(new Date())
-      .find((p) => p.type === "timeZoneName")?.value
-    if (!part) return ""
-    return part === "GMT" ? "UTC+00:00" : part.replace("GMT", "UTC")
-  } catch {
-    return ""
-  }
 }
 
 function offsetToMinutes(offsetLabel: string): number {
@@ -66,7 +47,7 @@ function buildZoneOptions(): ZoneOption[] {
 
   return zones
     .map((zone) => {
-      const offsetLabel = zoneOffsetLabel(zone)
+      const offsetLabel = getTimeZoneOffsetLabel(zone)
       return { zone, offsetLabel, offsetMinutes: offsetToMinutes(offsetLabel) }
     })
     .sort(
@@ -97,7 +78,7 @@ export function TimeZoneSelect({
   const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone
   const isAuto = !value || value === AUTO_VALUE
 
-  const browserOffset = zoneOffsetLabel(browserZone)
+  const browserOffset = getTimeZoneOffsetLabel(browserZone)
   // ⁦…⁩ (LRI…PDI) isolates the LTR "(UTC+03:00) Zone" chunk so it
   // doesn't get bidi-mangled inside the Arabic "تلقائي — …" sentence.
   const autoLabel = t("users.timeZoneAuto", {
@@ -179,7 +160,7 @@ export function TimeZoneSelect({
                     {option.offsetLabel ? (
                       <span
                         dir="ltr"
-                        className="shrink-0 tabular-nums text-muted-foreground"
+                        className="shrink-0 text-muted-foreground tabular-nums"
                       >
                         ({option.offsetLabel})
                       </span>

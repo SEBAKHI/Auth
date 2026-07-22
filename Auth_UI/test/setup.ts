@@ -10,3 +10,26 @@ if (!("ResizeObserver" in globalThis)) {
   globalThis.ResizeObserver =
     ResizeObserver as unknown as typeof globalThis.ResizeObserver
 }
+
+// jsdom does not implement the pointer-capture and scrolling APIs used by
+// Radix Select. No-op shims keep interaction tests aligned with browser APIs.
+if (typeof Element.prototype.hasPointerCapture !== "function") {
+  Object.defineProperty(Element.prototype, "hasPointerCapture", {
+    value: () => false,
+  })
+}
+if (typeof Element.prototype.setPointerCapture !== "function") {
+  Object.defineProperty(Element.prototype, "setPointerCapture", {
+    value: () => undefined,
+  })
+}
+if (typeof Element.prototype.releasePointerCapture !== "function") {
+  Object.defineProperty(Element.prototype, "releasePointerCapture", {
+    value: () => undefined,
+  })
+}
+if (typeof Element.prototype.scrollIntoView !== "function") {
+  Object.defineProperty(Element.prototype, "scrollIntoView", {
+    value: () => undefined,
+  })
+}

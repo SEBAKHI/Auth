@@ -4,6 +4,10 @@ This script runs after the database schema is deployed.
 It creates all seed data in the correct order.
 */
 
+-- Reconcile historical rows before seed/assignment logic runs. The included
+-- script is idempotent and is intentionally part of every database publish.
+:r ..\Scripts\Upgrades\2026-07-20_PurgeInactiveUserAssignments.sql
+
 PRINT 'Starting post-deployment seed data...';
 PRINT '======================================';
 

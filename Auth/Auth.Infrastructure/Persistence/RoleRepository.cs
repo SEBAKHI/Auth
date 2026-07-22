@@ -228,12 +228,43 @@ public class RoleRepository : IRoleRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            INSERT INTO [dbo].[UserRoles] (
-                [Id], [UserId], [RoleId], [ApplicationId], [AssignedAt], [AssignedBy], [ExpiresAt], [IsActive]
-            ) VALUES (
-                @Id, @UserId, @RoleId, @ApplicationId, @AssignedAt, @AssignedBy, @ExpiresAt, @IsActive
-            )",
+        // Historical versions deactivated assignments instead of deleting them.
+        // The unique key does not include IsActive, so an INSERT cannot restore
+        // one of those rows. A serializable update-or-insert atomically restores
+        // the exact assignment and protects the key from concurrent inserts.
+        var command = new CommandDefinition(@"
+            SET XACT_ABORT ON;
+            SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+            BEGIN TRANSACTION;
+
+            BEGIN TRY
+                UPDATE [dbo].[UserRoles] WITH (UPDLOCK, HOLDLOCK)
+                SET [AssignedAt] = @AssignedAt,
+                    [AssignedBy] = @AssignedBy,
+                    [ExpiresAt] = @ExpiresAt,
+                    [IsActive] = @IsActive
+                WHERE [UserId] = @UserId
+                  AND [RoleId] = @RoleId
+                  AND ([ApplicationId] = @ApplicationId
+                       OR ([ApplicationId] IS NULL AND @ApplicationId IS NULL));
+
+                IF @@ROWCOUNT = 0
+                BEGIN
+                    INSERT INTO [dbo].[UserRoles] (
+                        [Id], [UserId], [RoleId], [ApplicationId],
+                        [AssignedAt], [AssignedBy], [ExpiresAt], [IsActive]
+                    ) VALUES (
+                        @Id, @UserId, @RoleId, @ApplicationId,
+                        @AssignedAt, @AssignedBy, @ExpiresAt, @IsActive
+                    );
+                END;
+
+                COMMIT TRANSACTION;
+            END TRY
+            BEGIN CATCH
+                IF XACT_STATE() <> 0 ROLLBACK TRANSACTION;
+                THROW;
+            END CATCH;",
             new
             {
                 userRole.Id,
@@ -244,7 +275,10 @@ public class RoleRepository : IRoleRepository
                 userRole.AssignedBy,
                 userRole.ExpiresAt,
                 userRole.IsActive
-            });
+            },
+            cancellationToken: cancellationToken);
+
+        await connection.ExecuteAsync(command);
     }
 
     /// <inheritdoc />

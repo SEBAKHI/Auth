@@ -22,7 +22,7 @@ public class OrganizationUserCountDto
 
 /// <summary>
 /// Dashboard user statistics over a trailing window of days.
-/// All counts exclude soft-deleted users; day buckets are UTC calendar days.
+/// All counts exclude soft-deleted users; day buckets use the requested time zone.
 /// </summary>
 public class UserStatsDto
 {

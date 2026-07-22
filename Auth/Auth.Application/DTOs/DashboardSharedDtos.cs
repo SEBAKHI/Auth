@@ -1,7 +1,7 @@
 namespace Auth.Application.DTOs;
 
 /// <summary>
-/// Count of occurrences on a single UTC calendar day.
+/// Count of occurrences on a single requested calendar day.
 /// </summary>
 public class DailyCountDto
 {

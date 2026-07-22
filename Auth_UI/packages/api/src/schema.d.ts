@@ -5838,6 +5838,7 @@ export interface paths {
             parameters: {
                 query?: {
                     days?: number | string;
+                    timeZone?: string;
                 };
                 header?: never;
                 path?: never;
@@ -5910,6 +5911,7 @@ export interface paths {
             parameters: {
                 query?: {
                     days?: number | string;
+                    timeZone?: string;
                 };
                 header?: never;
                 path?: never;

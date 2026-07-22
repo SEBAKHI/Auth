@@ -1,7 +1,7 @@
 namespace Auth.Application.DTOs;
 
 /// <summary>
-/// Login attempts on a single UTC calendar day, split by outcome.
+/// Login attempts on a single requested calendar day, split by outcome.
 /// </summary>
 public class DailyLoginCountDto
 {
@@ -48,7 +48,7 @@ public class OrganizationLoginCountDto
 
 /// <summary>
 /// Dashboard authentication statistics over a trailing window of days.
-/// Success/failure comes from login attempts; day buckets are UTC calendar days.
+/// Success/failure comes from login attempts; day buckets use the requested time zone.
 /// </summary>
 public class AuthStatsDto
 {

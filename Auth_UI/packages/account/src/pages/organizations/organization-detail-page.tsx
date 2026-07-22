@@ -42,7 +42,12 @@ import { Switch } from "@astoom/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
 import { useDirtyClose } from "@astoom/ui/hooks/use-dirty-close"
 import { api } from "@astoom/api/client"
-import { collectAllPages, toSortParams, unwrap, toNumber } from "@astoom/api/helpers"
+import {
+  collectAllPages,
+  toSortParams,
+  unwrap,
+  toNumber,
+} from "@astoom/api/helpers"
 import { decodeJwt } from "@astoom/api/jwt"
 import { getAccessToken } from "@astoom/api/token-store"
 import { usePageBreadcrumb } from "@astoom/ui/crumbs"
@@ -782,11 +787,13 @@ function ApplicationsTab({
       setExpiresAt("")
     }
   }, [])
-  const { requestOpenChange: requestEnableClose, discardDialog: enableDiscard } =
-    useDirtyClose({
-      isDirty: Boolean(appId) || Boolean(tier) || Boolean(expiresAt),
-      onOpenChange: closeEnable,
-    })
+  const {
+    requestOpenChange: requestEnableClose,
+    discardDialog: enableDiscard,
+  } = useDirtyClose({
+    isDirty: Boolean(appId) || Boolean(tier) || Boolean(expiresAt),
+    onOpenChange: closeEnable,
+  })
 
   return (
     <div className="space-y-4">
@@ -820,10 +827,7 @@ function ApplicationsTab({
             />
             <div className="space-y-2">
               <Label>{t("applications.subscriptionTier")}</Label>
-              <Input
-                value={tier}
-                onChange={(e) => setTier(e.target.value)}
-              />
+              <Input value={tier} onChange={(e) => setTier(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>{t("common.expiresAt")}</Label>
@@ -963,11 +967,14 @@ function EditOrgAppDialog({
 export function OrganizationDetailPage({
   userHref,
   applicationHref,
+  canManagePlatform = false,
 }: {
   /** Builds the member drill-down route; omit where the host app has none. */
   userHref?: (userId: string) => string
   /** Builds the application drill-down route; omit where the host app has none. */
   applicationHref?: (applicationId: string) => string
+  /** Platform recovery capability supplied only by the administrative host. */
+  canManagePlatform?: boolean
 } = {}) {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
@@ -1000,6 +1007,7 @@ export function OrganizationDetailPage({
   const isOwner = Boolean(
     org?.ownerId && currentUserId && org.ownerId === currentUserId
   )
+  const canTransferOwnership = isOwner || canManagePlatform
 
   return (
     <div className="space-y-6">
@@ -1045,7 +1053,7 @@ export function OrganizationDetailPage({
             }
             actions={
               <div className="flex items-center gap-2">
-                {isOwner ? (
+                {canTransferOwnership ? (
                   <Button
                     variant="outline"
                     onClick={() => setTransferOpen(true)}
@@ -1137,10 +1145,11 @@ export function OrganizationDetailPage({
           organization={org}
         />
       ) : null}
-      {isOwner ? (
+      {canTransferOwnership ? (
         <TransferOwnershipDialog
           orgId={orgId}
           ownerId={org?.ownerId}
+          platformScope={!isOwner && canManagePlatform}
           open={transferOpen}
           onOpenChange={setTransferOpen}
           onTransferred={() => {

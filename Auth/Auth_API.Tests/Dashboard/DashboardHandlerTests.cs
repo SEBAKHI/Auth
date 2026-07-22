@@ -43,7 +43,7 @@ public class GetUserStatsQueryHandlerTests
     public async Task Handle_MapsSnapshotToDto()
     {
         _repoMock
-            .Setup(r => r.GetUserStatsAsync(30, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetUserStatsAsync(30, "UTC", It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateSnapshot());
 
         var result = await _handler.Handle(new GetUserStatsQuery(), CancellationToken.None);
@@ -70,14 +70,18 @@ public class GetUserStatsQueryHandlerTests
     public async Task Handle_PassesRequestedDaysToRepository()
     {
         _repoMock
-            .Setup(r => r.GetUserStatsAsync(7, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetUserStatsAsync(7, "Europe/Istanbul", It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateSnapshot());
 
-        var result = await _handler.Handle(new GetUserStatsQuery(7), CancellationToken.None);
+        var result = await _handler.Handle(
+            new GetUserStatsQuery(7, "Europe/Istanbul"),
+            CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         result.Value.Days.Should().Be(7);
-        _repoMock.Verify(r => r.GetUserStatsAsync(7, It.IsAny<CancellationToken>()), Times.Once());
+        _repoMock.Verify(
+            r => r.GetUserStatsAsync(7, "Europe/Istanbul", It.IsAny<CancellationToken>()),
+            Times.Once());
     }
 }
 
@@ -120,7 +124,7 @@ public class GetAuthStatsQueryHandlerTests
         var appId = Guid.NewGuid();
         var orgId = Guid.NewGuid();
         _repoMock
-            .Setup(r => r.GetAuthStatsAsync(30, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetAuthStatsAsync(30, "UTC", It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateSnapshot(appId, orgId));
 
         var result = await _handler.Handle(new GetAuthStatsQuery(), CancellationToken.None);
@@ -145,7 +149,7 @@ public class GetAuthStatsQueryHandlerTests
     public async Task Handle_KeepsUnattributedOrganizationBucket()
     {
         _repoMock
-            .Setup(r => r.GetAuthStatsAsync(30, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetAuthStatsAsync(30, "UTC", It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateSnapshot(Guid.NewGuid(), Guid.NewGuid()));
 
         var result = await _handler.Handle(new GetAuthStatsQuery(), CancellationToken.None);
@@ -295,5 +299,23 @@ public class DashboardQueryValidatorTests
         new GetAuthStatsQueryValidator().Validate(new GetAuthStatsQuery(days)).IsValid.Should().BeFalse();
         new GetSessionStatsQueryValidator().Validate(new GetSessionStatsQuery(days)).IsValid.Should().BeFalse();
         new GetAppActivityStatsQueryValidator().Validate(new GetAppActivityStatsQuery(days)).IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void TimeZoneAwareValidators_AcceptIanaAndRejectWindowsIds()
+    {
+        new GetUserStatsQueryValidator()
+            .Validate(new GetUserStatsQuery(30, "Europe/Istanbul"))
+            .IsValid.Should().BeTrue();
+        new GetAuthStatsQueryValidator()
+            .Validate(new GetAuthStatsQuery(30, "Europe/Istanbul"))
+            .IsValid.Should().BeTrue();
+
+        new GetUserStatsQueryValidator()
+            .Validate(new GetUserStatsQuery(30, "Turkey Standard Time"))
+            .IsValid.Should().BeFalse();
+        new GetAuthStatsQueryValidator()
+            .Validate(new GetAuthStatsQuery(30, ""))
+            .IsValid.Should().BeFalse();
     }
 }

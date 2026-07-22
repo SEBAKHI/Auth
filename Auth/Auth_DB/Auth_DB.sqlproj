@@ -82,6 +82,7 @@
     <Folder Include="dbo\Types" />
     <Folder Include="dbo\Scripts" />
     <Folder Include="dbo\Scripts\SeedData" />
+    <Folder Include="dbo\Scripts\Upgrades" />
     <Folder Include="dbo\PostDeployment" />
     <Folder Include="PublishLocations\" />
   </ItemGroup>
@@ -150,6 +151,7 @@
     <None Include="dbo\Scripts\SeedData\11_NotificationLayouts.sql" />
     <None Include="dbo\Scripts\SeedData\12_NotificationTemplates.sql" />
     <None Include="dbo\Scripts\SeedData\13_NotificationPermissions.sql" />
+    <None Include="dbo\Scripts\Upgrades\2026-07-20_PurgeInactiveUserAssignments.sql" />
     <None Include="dbo\Scripts\ALTER_Users_PasswordHash_Nullable.sql" />
     <None Include="dbo\Scripts\RECONCILE_prod_constraint_names.sql" />
     <None Include="PublishLocations\Astoom_Auth.publish.xml" />

@@ -14,7 +14,8 @@ namespace Auth_API.Modules.Dashboard.Controllers;
 
 /// <summary>
 /// Controller exposing server-side dashboard aggregates. Every metric is computed
-/// in the database over the full tables; day buckets are UTC calendar days.
+/// in the database over the full tables; day buckets use the validated viewer
+/// time zone while stored instants remain UTC.
 /// </summary>
 [ApiController]
 [ApiVersion("1.0")]
@@ -41,9 +42,10 @@ public class DashboardController : ApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetUserStats(
         [FromQuery] int days = 30,
+        [FromQuery] string timeZone = "UTC",
         CancellationToken cancellationToken = default)
     {
-        var result = await _sender.Send(new GetUserStatsQuery(days), cancellationToken);
+        var result = await _sender.Send(new GetUserStatsQuery(days, timeZone), cancellationToken);
 
         return result.Match(
             stats => Ok(stats),
@@ -62,9 +64,10 @@ public class DashboardController : ApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAuthStats(
         [FromQuery] int days = 30,
+        [FromQuery] string timeZone = "UTC",
         CancellationToken cancellationToken = default)
     {
-        var result = await _sender.Send(new GetAuthStatsQuery(days), cancellationToken);
+        var result = await _sender.Send(new GetAuthStatsQuery(days, timeZone), cancellationToken);
 
         return result.Match(
             stats => Ok(stats),

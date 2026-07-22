@@ -6,30 +6,44 @@ import { MinusIcon } from "lucide-react"
 
 import { cn } from "@astoom/ui/utils"
 
+type OtpDirection = "ltr" | "rtl"
+
+const InputOtpDirectionContext = React.createContext<OtpDirection>("ltr")
+
 function InputOTP({
   className,
   containerClassName,
+  dir = "ltr",
   ...props
 }: React.ComponentProps<typeof OTPInput> & {
   containerClassName?: string
 }) {
+  const direction: OtpDirection = dir === "rtl" ? "rtl" : "ltr"
+
   return (
-    <OTPInput
-      data-slot="input-otp"
-      containerClassName={cn(
-        "flex items-center gap-2 has-disabled:opacity-50",
-        containerClassName
-      )}
-      className={cn("disabled:cursor-not-allowed", className)}
-      {...props}
-    />
+    <InputOtpDirectionContext.Provider value={direction}>
+      <OTPInput
+        data-slot="input-otp"
+        dir={direction}
+        containerClassName={cn(
+          "flex items-center gap-2 has-disabled:opacity-50",
+          direction === "ltr" ? "[direction:ltr]" : "[direction:rtl]",
+          containerClassName
+        )}
+        className={cn("disabled:cursor-not-allowed", className)}
+        {...props}
+      />
+    </InputOtpDirectionContext.Provider>
   )
 }
 
 function InputOTPGroup({ className, ...props }: React.ComponentProps<"div">) {
+  const direction = React.useContext(InputOtpDirectionContext)
+
   return (
     <div
       data-slot="input-otp-group"
+      dir={direction}
       className={cn("flex items-center gap-2", className)}
       {...props}
     />
@@ -51,7 +65,7 @@ function InputOTPSlot({
       data-slot="input-otp-slot"
       data-active={isActive}
       className={cn(
-        "relative flex size-10 items-center justify-center rounded-2xl border border-transparent bg-input/50 text-base transition-[color,box-shadow,background-color] outline-none data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-3 data-[active=true]:ring-ring/30 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
+        "relative flex size-10 items-center justify-center rounded-2xl border border-transparent bg-input/50 text-base transition-[color,box-shadow,background-color] outline-none aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-3 data-[active=true]:ring-ring/30 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40",
         className
       )}
       {...props}

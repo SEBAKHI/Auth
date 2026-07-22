@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { MoreHorizontal, Search } from "lucide-react"
+import { MoreHorizontal, Plus, Search } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -33,6 +33,7 @@ import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { formatDateTime } from "@astoom/ui/format"
 import { useDebouncedValue } from "@astoom/ui/hooks/use-debounced-value"
 import type { Schemas } from "@astoom/api/types"
+import { OrganizationFormDialog } from "@astoom/account/pages/organizations/organization-form-dialog"
 
 type OrganizationDto = Schemas["OrganizationDto"]
 
@@ -54,6 +55,7 @@ export function OrganizationsAdminPage() {
   const { sortBy, sortDirection } = toSortParams(sorting)
 
   const [deleting, setDeleting] = React.useState<OrganizationDto | undefined>()
+  const [createOpen, setCreateOpen] = React.useState(false)
   const canManage = hasPermission(PERMISSIONS.organizations.manage)
 
   const query = useQuery({
@@ -249,6 +251,14 @@ export function OrganizationsAdminPage() {
       <PageHeader
         title={t("organizations.title")}
         description={t("organizations.subtitle")}
+        actions={
+          canManage ? (
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus />
+              {t("organizations.newOrganization")}
+            </Button>
+          ) : undefined
+        }
       />
 
       <div className="relative max-w-sm">
@@ -290,6 +300,8 @@ export function OrganizationsAdminPage() {
           },
         }}
       />
+
+      <OrganizationFormDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       <ConfirmDialog
         open={Boolean(deleting)}

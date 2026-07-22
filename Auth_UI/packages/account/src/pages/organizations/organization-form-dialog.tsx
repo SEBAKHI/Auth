@@ -111,6 +111,7 @@ export function OrganizationFormDialog({
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["organizations"] })
+      void queryClient.invalidateQueries({ queryKey: ["organizations-all"] })
       toast.success(
         isEdit ? t("organizations.updated") : t("organizations.created")
       )
@@ -218,8 +219,13 @@ export function OrganizationFormDialog({
           control={form.control}
           name="isActive"
           render={({ field }) => (
-            <FormItem orientation="horizontal" className="rounded-lg border p-3">
-              <FormLabel className="font-normal">{t("common.active")}</FormLabel>
+            <FormItem
+              orientation="horizontal"
+              className="rounded-lg border p-3"
+            >
+              <FormLabel className="font-normal">
+                {t("common.active")}
+              </FormLabel>
               <FormControl>
                 <Switch
                   checked={field.value}

@@ -27,15 +27,17 @@ import { rollupWeeklyLogins } from "./helpers"
 import type { LoginPoint } from "./helpers"
 
 /**
- * Stacked success/failure login bars per UTC day, with a weekly rollup toggle
+ * Stacked success/failure login bars per viewer-local day, with a weekly rollup toggle
  * (weekly sums are valid for attempt counts).
  */
 export function DailyLoginsCard({
   data,
   loading,
+  description,
 }: {
   data: LoginPoint[]
   loading: boolean
+  description: string
 }) {
   const { t } = useTranslation()
   const [grain, setGrain] = useState<"daily" | "weekly">("daily")
@@ -56,9 +58,7 @@ export function DailyLoginsCard({
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <div className="space-y-1.5">
           <CardTitle>{t("dashboard.loginOutcomes")}</CardTitle>
-          <CardDescription>
-            {t("dashboard.loginOutcomesSubtitle")}
-          </CardDescription>
+          <CardDescription>{description}</CardDescription>
         </div>
         <Tabs
           value={grain}
