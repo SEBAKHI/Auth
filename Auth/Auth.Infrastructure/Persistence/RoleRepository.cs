@@ -444,6 +444,7 @@ public class RoleRepository : IRoleRepository
                   AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE())
             ) src
             INNER JOIN [dbo].[Applications] a ON src.[ApplicationId] = a.[Id]
+            WHERE a.[IsDeleted] = 0
             GROUP BY a.[Id], a.[Code], a.[Name], a.[LogoUrl], a.[IsActive]",
             new { RoleId = roleId });
 

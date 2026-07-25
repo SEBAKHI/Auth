@@ -30,31 +30,20 @@ public class DeleteApplicationCommandHandler : IRequestHandler<DeleteApplication
             return ApplicationErrors.NotFound(request.Id);
         }
 
-        // Check if application is a system application (AUTH application cannot be deleted)
-        if (application.Code == "AUTH")
-        {
-            return ApplicationErrors.CannotDeleteSystemApplication;
-        }
-
-        // Check if application has active API keys
-        if (await _applicationRepository.HasActiveApiKeysAsync(request.Id, cancellationToken))
-        {
-            return ApplicationErrors.HasActiveApiKeys;
-        }
-
-        // Check if application has active user assignments
+        // People and tenants must be detached deliberately before deletion;
+        // credentials (API/webhook keys) are owned by the application and are
+        // revoked with it inside the soft-delete transaction.
         if (await _applicationRepository.HasActiveUserAssignmentsAsync(request.Id, cancellationToken))
         {
             return ApplicationErrors.HasActiveUsers;
         }
 
-        // Check if application has active organizations
         if (await _applicationRepository.HasActiveOrganizationsAsync(request.Id, cancellationToken))
         {
             return ApplicationErrors.HasActiveOrganizations;
         }
 
-        await _applicationRepository.DeleteAsync(request.Id, cancellationToken);
+        await _applicationRepository.DeleteAsync(request.Id, request.DeletedBy, cancellationToken);
 
         _logger.LogInformation(
             "Application deleted: {ApplicationId} ({ApplicationCode}) by {DeletedBy}",

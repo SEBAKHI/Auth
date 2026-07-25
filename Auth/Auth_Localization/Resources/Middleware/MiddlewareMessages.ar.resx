@@ -87,4 +87,10 @@
   <data name="Middleware.InvalidArgument.Detail" xml:space="preserve">
     <value>واحد أو أكثر من المعطيات غير صالح.</value>
   </data>
+  <data name="Middleware.Conflict.Title" xml:space="preserve">
+    <value>تعارض</value>
+  </data>
+  <data name="Middleware.Conflict.Detail" xml:space="preserve">
+    <value>تعذر إتمام العملية لوجود سجلات مرتبطة تشير إلى هذا المورد.</value>
+  </data>
 </root>

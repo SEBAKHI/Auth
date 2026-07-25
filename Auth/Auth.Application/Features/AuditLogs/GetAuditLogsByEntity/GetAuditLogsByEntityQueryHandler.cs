@@ -73,7 +73,7 @@ public class GetAuditLogsByEntityQueryHandler : IRequestHandler<GetAuditLogsByEn
             // Get application name if available
             if (log.ApplicationId.HasValue)
             {
-                var app = await _applicationRepository.GetByIdAsync(log.ApplicationId.Value, cancellationToken);
+                var app = await _applicationRepository.GetByIdIncludingDeletedAsync(log.ApplicationId.Value, cancellationToken);
                 if (app != null)
                 {
                     dto.ApplicationName = app.Name;

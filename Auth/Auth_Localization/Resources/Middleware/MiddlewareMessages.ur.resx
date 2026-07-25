@@ -87,4 +87,10 @@
   <data name="Middleware.InvalidArgument.Detail" xml:space="preserve">
     <value>ایک یا زیادہ پیرامیٹر درست نہیں تھے۔</value>
   </data>
+  <data name="Middleware.Conflict.Title" xml:space="preserve">
+    <value>تصادم</value>
+  </data>
+  <data name="Middleware.Conflict.Detail" xml:space="preserve">
+    <value>آپریشن مکمل نہیں ہو سکا کیونکہ متعلقہ ریکارڈ اس وسیلے کا حوالہ دیتے ہیں۔</value>
+  </data>
 </root>

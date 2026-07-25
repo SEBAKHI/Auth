@@ -257,7 +257,7 @@ public class GetWebhookKeysQueryHandlerTests
             .ReturnsAsync(keys);
 
         _applicationRepositoryMock
-            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdIncludingDeletedAsync(appId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateApplication(id: appId, name: "Hooked App"));
 
         var result = await _handler.Handle(new GetWebhookKeysQuery(appId), CancellationToken.None);

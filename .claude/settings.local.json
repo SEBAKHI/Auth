@@ -28,7 +28,14 @@
       "Bash(for:*)",
       "Bash(do:*)",
       "Bash(done:*)",
-      "Bash(if:*)"
+      "Bash(if:*)",
+      "Bash(git -C /home/user/Auth status --short --branch)",
+      "Bash(git -C /home/user/Auth log --oneline -5)",
+      "Bash(git -C /home/user/Auth ls-files)",
+      "Bash(git -C /home/user/Auth log --oneline -5 -- Auth/Auth_DB/dbo/Scripts/RECONCILE_prod_constraint_names.sql)",
+      "Bash(sed -n '/public static.*CreateApplication/,/^    }/p' /home/user/Auth/Auth/Auth_API.Tests/Helpers/TestHelpers.cs | head -30; echo \"=== UI guard ===\"; grep -rni \"cannot.*delete.*system\\\\|000000000001\\\\|systemApp\" /home/user/Auth/Auth_UI/src 2>/dev/null | head -15; echo \"=== DeleteAsync ===\"; sed -n '/public async Task DeleteAsync/,/^    }/p' /home/user/Auth/Auth/Auth.Infrastructure/Persistence/ApplicationRepository.cs | head -30)",
+      "Bash(sed -n '/HasActiveApiKeysAsync/,/^    }/p;/HasActiveUserAssignmentsAsync/,/^    }/p;/HasActiveOrganizationsAsync/,/^    }/p' /home/user/Auth/Auth/Auth.Infrastructure/Persistence/ApplicationRepository.cs | head -60)",
+      "Bash(xargs ls)"
     ]
   }
 }

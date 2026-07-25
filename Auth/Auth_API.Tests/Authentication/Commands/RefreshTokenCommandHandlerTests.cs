@@ -119,6 +119,181 @@ public class RefreshTokenCommandHandlerTests
         result.Value.RefreshToken.Should().Be("new-refresh-token");
     }
 
+    // Privilege-escalation regressions: an app-scoped refresh token whose
+    // application is soft-deleted (repository returns null) or inactive must be
+    // rejected outright. Falling back to the platform audience would upgrade an
+    // app-scoped token into one the platform API itself accepts.
+
+    [Fact]
+    public async Task Handle_AppScopedToken_DeletedApplication_RejectsWithoutMintingToken()
+    {
+        // Arrange
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var applicationId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            applicationId: applicationId,
+            expiresAt: DateTime.UtcNow.AddDays(7));
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _roleRepositoryMock
+            .Setup(r => r.GetUserRolesAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Role>());
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+
+        // Soft-deleted applications are invisible to GetByIdAsync.
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Auth.Domain.Entities.Application?)null);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Application.Inactive");
+
+        _jwtTokenServiceMock.Verify(
+            s => s.GenerateAccessToken(
+                It.IsAny<User>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_AppScopedToken_InactiveApplication_RejectsWithoutMintingToken()
+    {
+        // Arrange
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var applicationId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        var application = TestHelpers.CreateApplication(id: applicationId, code: "CRM", isActive: false);
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            applicationId: applicationId,
+            expiresAt: DateTime.UtcNow.AddDays(7));
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _roleRepositoryMock
+            .Setup(r => r.GetUserRolesAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Role>());
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Application.Inactive");
+
+        _jwtTokenServiceMock.Verify(
+            s => s.GenerateAccessToken(
+                It.IsAny<User>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid, string)>?>(),
+                It.IsAny<string?>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_AppScopedToken_ActiveApplication_MintsAppAudience()
+    {
+        // Arrange
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var applicationId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        var application = TestHelpers.CreateApplication(id: applicationId, code: "CRM", isActive: true);
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            applicationId: applicationId,
+            expiresAt: DateTime.UtcNow.AddDays(7));
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _roleRepositoryMock
+            .Setup(r => r.GetUserRolesAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Role>());
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+        _jwtTokenServiceMock
+            .Setup(s => s.GenerateAccessToken(
+                user,
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid, string)>?>(),
+                "CRM"))
+            .Returns("new-access-token");
+        _jwtTokenServiceMock
+            .Setup(s => s.GenerateRefreshToken())
+            .Returns("new-refresh-token");
+        _jwtTokenServiceMock
+            .Setup(s => s.GetTokenId("new-access-token"))
+            .Returns("new-jti");
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash("new-refresh-token"))
+            .Returns("new-hashed-token");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert: the refreshed token keeps the app's own audience.
+        result.IsError.Should().BeFalse();
+        _jwtTokenServiceMock.Verify(
+            s => s.GenerateAccessToken(
+                user,
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<Guid?>(),
+                It.IsAny<IEnumerable<(Guid, string)>?>(),
+                "CRM"),
+            Times.Once);
+    }
+
     [Fact]
     public async Task Handle_TokenNotFound_ReturnsError()
     {

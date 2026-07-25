@@ -35,9 +35,14 @@ public class ApiKeyRepository : IApiKeyRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // A key only validates while its owning application is alive: joining
+        // Applications closes the hole where keys of inactive or soft-deleted
+        // applications kept authenticating.
         var dto = await connection.QueryFirstOrDefaultAsync<ApiKeyDto>(@"
-            SELECT * FROM [dbo].[ApiKeys]
-            WHERE [KeyHash] = @KeyHash AND [RevokedAt] IS NULL",
+            SELECT k.* FROM [dbo].[ApiKeys] k
+            INNER JOIN [dbo].[Applications] a ON a.[Id] = k.[ApplicationId]
+            WHERE k.[KeyHash] = @KeyHash AND k.[RevokedAt] IS NULL
+              AND a.[IsActive] = 1 AND a.[IsDeleted] = 0",
             new { KeyHash = keyHash });
 
         return dto?.ToEntity();
@@ -215,11 +220,15 @@ public class ApiKeyRepository : IApiKeyRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // Validation candidates: only keys of live (active, not soft-deleted)
+        // applications may authenticate.
         var dtos = await connection.QueryAsync<ApiKeyDto>(@"
-            SELECT * FROM [dbo].[ApiKeys]
-            WHERE [KeyPrefix] = @Prefix
-              AND [RevokedAt] IS NULL
-              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
+            SELECT k.* FROM [dbo].[ApiKeys] k
+            INNER JOIN [dbo].[Applications] a ON a.[Id] = k.[ApplicationId]
+            WHERE k.[KeyPrefix] = @Prefix
+              AND k.[RevokedAt] IS NULL
+              AND (k.[ExpiresAt] IS NULL OR k.[ExpiresAt] > GETUTCDATE())
+              AND a.[IsActive] = 1 AND a.[IsDeleted] = 0",
             new { Prefix = prefix });
 
         return dtos.Select(dto => dto.ToEntity()).ToList();

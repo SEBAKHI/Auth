@@ -9,7 +9,7 @@ namespace Auth.Domain.Entities;
 public class Application : AggregateRoot
 {
     /// <summary>
-    /// Gets the unique application code (e.g., "AUTH", "CRM", "ERP").
+    /// Gets the unique application code (e.g., "CRM", "ERP").
     /// </summary>
     public string Code { get; private set; } = string.Empty;
 
@@ -75,6 +75,22 @@ public class Application : AggregateRoot
     /// default) disables step-up — the SSO session is honored for its full life.
     /// </summary>
     public int? ReauthenticationMaxAgeMinutes { get; private set; }
+
+    /// <summary>
+    /// Gets whether the application has been soft-deleted. Deleted applications
+    /// are excluded from operational queries and their credentials are rejected.
+    /// </summary>
+    public bool IsDeleted { get; private set; }
+
+    /// <summary>
+    /// Gets when the application was soft-deleted.
+    /// </summary>
+    public DateTime? DeletedAt { get; private set; }
+
+    /// <summary>
+    /// Gets the user who soft-deleted the application.
+    /// </summary>
+    public Guid? DeletedBy { get; private set; }
 
     private readonly List<string> _redirectUris = [];
 
@@ -237,5 +253,30 @@ public class Application : AggregateRoot
     {
         IsActive = false;
         SetModified(modifiedBy);
+    }
+
+    /// <summary>
+    /// Soft-deletes the application: the record is kept for referential
+    /// integrity and history, but it is deactivated, excluded from operational
+    /// queries, and its credentials stop validating.
+    /// </summary>
+    public void Delete(Guid deletedBy)
+    {
+        IsDeleted = true;
+        DeletedAt = DateTime.UtcNow;
+        DeletedBy = deletedBy;
+        IsActive = false;
+        SetModified(deletedBy);
+    }
+
+    /// <summary>
+    /// Hydrates the deletion state from persistence without touching audit
+    /// fields. For repository use only.
+    /// </summary>
+    public void LoadDeletionState(bool isDeleted, DateTime? deletedAt, Guid? deletedBy)
+    {
+        IsDeleted = isDeleted;
+        DeletedAt = deletedAt;
+        DeletedBy = deletedBy;
     }
 }

@@ -88,7 +88,7 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
             // Get application name if available
             if (log.ApplicationId.HasValue)
             {
-                var app = await _applicationRepository.GetByIdAsync(log.ApplicationId.Value, cancellationToken);
+                var app = await _applicationRepository.GetByIdIncludingDeletedAsync(log.ApplicationId.Value, cancellationToken);
                 row.ApplicationName = app?.Name;
             }
 

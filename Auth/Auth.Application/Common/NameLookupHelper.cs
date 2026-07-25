@@ -60,7 +60,9 @@ public static class NameLookupHelper
         var names = new Dictionary<Guid, string>();
         foreach (var id in ids)
         {
-            var application = await applicationRepository.GetByIdAsync(id, cancellationToken);
+            // Including soft-deleted apps: historical rows must keep resolving
+            // the application name after the application is deleted.
+            var application = await applicationRepository.GetByIdIncludingDeletedAsync(id, cancellationToken);
             if (application != null)
             {
                 names[id] = application.Name;

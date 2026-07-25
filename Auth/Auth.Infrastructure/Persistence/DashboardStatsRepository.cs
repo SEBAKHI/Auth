@@ -346,6 +346,7 @@ public class DashboardStatsRepository : IDashboardStatsRepository
                 WHERE [EndedAt] IS NULL AND [ExpiresAt] > @Now
                 GROUP BY [ApplicationId]
             ) us ON us.[ApplicationId] = a.[Id]
+            WHERE a.[IsDeleted] = 0
             ORDER BY ISNULL(la.SuccessfulLogins, 0) DESC, a.[Name];
 
             -- Activity carrying no application context
