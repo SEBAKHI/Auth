@@ -18,6 +18,9 @@ CREATE TABLE [dbo].[Applications]
     [CreatedBy] UNIQUEIDENTIFIER NOT NULL,
     [ModifiedAt] DATETIME2 NULL,
     [ModifiedBy] UNIQUEIDENTIFIER NULL,
+    [IsDeleted] BIT NOT NULL CONSTRAINT [DF_Applications_IsDeleted] DEFAULT 0,
+    [DeletedAt] DATETIME2 NULL,
+    [DeletedBy] UNIQUEIDENTIFIER NULL,
 
     CONSTRAINT [PK_Applications] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_Applications_Code] UNIQUE ([Code])
@@ -27,7 +30,7 @@ GO
 -- Indexes
 CREATE NONCLUSTERED INDEX [IX_Applications_Code]
 ON [dbo].[Applications] ([Code])
-WHERE [IsActive] = 1;
+WHERE [IsDeleted] = 0;
 GO
 
 CREATE NONCLUSTERED INDEX [IX_Applications_IsActive]

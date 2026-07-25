@@ -138,7 +138,6 @@
     <Build Include="dbo\StoredProcedures\Authentication\sp_RevokeAllUserTokens.sql" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="dbo\Scripts\SeedData\01_DefaultApplications.sql" />
     <None Include="dbo\Scripts\SeedData\02_DefaultRoles.sql" />
     <None Include="dbo\Scripts\SeedData\03_DefaultPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\04_PermissionImplications.sql" />
@@ -152,6 +151,7 @@
     <None Include="dbo\Scripts\SeedData\12_NotificationTemplates.sql" />
     <None Include="dbo\Scripts\SeedData\13_NotificationPermissions.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-07-20_PurgeInactiveUserAssignments.sql" />
+    <None Include="dbo\Scripts\Upgrades\2026-07-26_RetirePlatformApplication.sql" />
     <None Include="dbo\Scripts\ALTER_Users_PasswordHash_Nullable.sql" />
     <None Include="dbo\Scripts\RECONCILE_prod_constraint_names.sql" />
     <None Include="PublishLocations\Astoom_Auth.publish.xml" />
