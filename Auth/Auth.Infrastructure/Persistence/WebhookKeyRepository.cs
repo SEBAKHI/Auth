@@ -35,11 +35,16 @@ public class WebhookKeyRepository : IWebhookKeyRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // A key only validates while its owning application is alive: joining
+        // Applications closes the hole where keys of inactive or soft-deleted
+        // applications kept authenticating.
         var dto = await connection.QueryFirstOrDefaultAsync<WebhookKeyDto>(@"
-            SELECT * FROM [dbo].[WebhookKeys]
-            WHERE [KeyHash] = @KeyHash
-              AND [RevokedAt] IS NULL
-              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
+            SELECT k.* FROM [dbo].[WebhookKeys] k
+            INNER JOIN [dbo].[Applications] a ON a.[Id] = k.[ApplicationId]
+            WHERE k.[KeyHash] = @KeyHash
+              AND k.[RevokedAt] IS NULL
+              AND (k.[ExpiresAt] IS NULL OR k.[ExpiresAt] > GETUTCDATE())
+              AND a.[IsActive] = 1 AND a.[IsDeleted] = 0",
             new { KeyHash = keyHash });
 
         return dto?.ToEntity();

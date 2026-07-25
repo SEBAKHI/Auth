@@ -218,7 +218,7 @@ public class DeleteApplicationCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ValidApplication_DeletesSuccessfully()
+    public async Task Handle_ValidApplication_SoftDeletesWithActingUser()
     {
         // Arrange
         var appId = Guid.NewGuid();
@@ -232,10 +232,6 @@ public class DeleteApplicationCommandHandlerTests
             .ReturnsAsync(application);
 
         _applicationRepositoryMock
-            .Setup(r => r.HasActiveApiKeysAsync(appId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        _applicationRepositoryMock
             .Setup(r => r.HasActiveUserAssignmentsAsync(appId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
@@ -244,7 +240,7 @@ public class DeleteApplicationCommandHandlerTests
             .ReturnsAsync(false);
 
         _applicationRepositoryMock
-            .Setup(r => r.DeleteAsync(appId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.DeleteAsync(appId, deletedBy, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
         // Act
@@ -254,8 +250,36 @@ public class DeleteApplicationCommandHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Should().BeTrue();
 
+        // The acting user (not the application id) must be recorded as DeletedBy.
         _applicationRepositoryMock.Verify(
-            r => r.DeleteAsync(appId, It.IsAny<CancellationToken>()),
+            r => r.DeleteAsync(appId, deletedBy, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AnyCodeIncludingAuth_DeletesSuccessfully()
+    {
+        // Regression for the retired "system application" guard: deletion is
+        // decided by Id and dependency state only — never by name or code.
+        // Uses the exact lowercase code the old case-sensitive guard missed.
+        var appId = Guid.NewGuid();
+        var deletedBy = Guid.NewGuid();
+        var application = TestHelpers.CreateApplication(id: appId, code: "auth", name: "Auth System");
+
+        var command = new DeleteApplicationCommand(Id: appId) { DeletedBy = deletedBy };
+
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+
+        _applicationRepositoryMock.Verify(
+            r => r.DeleteAsync(appId, deletedBy, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -279,33 +303,69 @@ public class DeleteApplicationCommandHandlerTests
         result.FirstError.Code.Should().Be("Application.NotFound");
 
         _applicationRepositoryMock.Verify(
-            r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
     [Fact]
-    public async Task Handle_SystemApplication_ReturnsForbidden()
+    public async Task Handle_ActiveUserAssignments_ReturnsConflict()
     {
         // Arrange
         var appId = Guid.NewGuid();
-        var application = TestHelpers.CreateApplication(id: appId, code: "AUTH", name: "Auth System");
-
+        var application = TestHelpers.CreateApplication(id: appId, code: "CRM", name: "CRM App");
         var command = new DeleteApplicationCommand(Id: appId) { DeletedBy = Guid.NewGuid() };
 
         _applicationRepositoryMock
             .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
 
+        _applicationRepositoryMock
+            .Setup(r => r.HasActiveUserAssignmentsAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
         // Assert
         result.IsError.Should().BeTrue();
-        result.FirstError.Type.Should().Be(ErrorType.Forbidden);
-        result.FirstError.Code.Should().Be("Application.CannotDeleteSystem");
+        result.FirstError.Type.Should().Be(ErrorType.Conflict);
+        result.FirstError.Code.Should().Be("Application.HasActiveUsers");
 
         _applicationRepositoryMock.Verify(
-            r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ActiveOrganizations_ReturnsConflict()
+    {
+        // Arrange
+        var appId = Guid.NewGuid();
+        var application = TestHelpers.CreateApplication(id: appId, code: "CRM", name: "CRM App");
+        var command = new DeleteApplicationCommand(Id: appId) { DeletedBy = Guid.NewGuid() };
+
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(application);
+
+        _applicationRepositoryMock
+            .Setup(r => r.HasActiveUserAssignmentsAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        _applicationRepositoryMock
+            .Setup(r => r.HasActiveOrganizationsAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Type.Should().Be(ErrorType.Conflict);
+        result.FirstError.Code.Should().Be("Application.HasActiveOrganizations");
+
+        _applicationRepositoryMock.Verify(
+            r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 }

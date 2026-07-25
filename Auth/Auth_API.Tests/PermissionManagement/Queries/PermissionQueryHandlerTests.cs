@@ -55,8 +55,10 @@ public class GetPermissionByIdQueryHandlerTests
             .Setup(r => r.GetByIdAsync(permissionId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(permission);
 
+        // Name enrichment resolves through the deleted-inclusive lookup so
+        // historical rows keep their application name.
         _applicationRepositoryMock
-            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdIncludingDeletedAsync(applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "Orders App"));
 
         // Act
@@ -135,7 +137,7 @@ public class GetPermissionsQueryHandlerTests
             .ReturnsAsync(permissions);
 
         _applicationRepositoryMock
-            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdIncludingDeletedAsync(applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "Orders App"));
 
         // Act
@@ -149,7 +151,7 @@ public class GetPermissionsQueryHandlerTests
 
         // Distinct application ids resolve once, not per permission.
         _applicationRepositoryMock.Verify(
-            r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()),
+            r => r.GetByIdIncludingDeletedAsync(applicationId, It.IsAny<CancellationToken>()),
             Times.Once);
 
         _permissionRepositoryMock.Verify(

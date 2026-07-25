@@ -8,9 +8,16 @@ namespace Auth.Domain.Interfaces.Repositories;
 public interface IApplicationRepository
 {
     /// <summary>
-    /// Gets an application by its ID.
+    /// Gets an application by its ID. Soft-deleted applications are excluded.
     /// </summary>
     Task<AppEntity?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets an application by its ID including soft-deleted records. For
+    /// historical name resolution (e.g. audit views) only — never for
+    /// operational or credential paths.
+    /// </summary>
+    Task<AppEntity?> GetByIdIncludingDeletedAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets an application by its code.
@@ -28,7 +35,8 @@ public interface IApplicationRepository
     Task<IReadOnlyList<AppEntity>> GetActiveAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Checks if an application code exists.
+    /// Checks if an application code exists, including soft-deleted records —
+    /// a deleted application's code stays reserved.
     /// </summary>
     Task<bool> ExistsByCodeAsync(string code, CancellationToken cancellationToken);
 
@@ -43,9 +51,10 @@ public interface IApplicationRepository
     Task UpdateAsync(AppEntity application, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Deletes an application.
+    /// Soft-deletes an application and revokes its API and webhook keys in the
+    /// same transaction. <paramref name="deletedBy"/> is the acting user.
     /// </summary>
-    Task DeleteAsync(Guid id, CancellationToken cancellationToken);
+    Task DeleteAsync(Guid id, Guid deletedBy, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets applications with pagination and optional filtering.
@@ -60,11 +69,6 @@ public interface IApplicationRepository
         string? sortBy,
         Enums.SortDirection sortDirection,
         CancellationToken cancellationToken);
-
-    /// <summary>
-    /// Checks if an application has active API keys.
-    /// </summary>
-    Task<bool> HasActiveApiKeysAsync(Guid applicationId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if an application has active user role assignments.

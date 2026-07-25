@@ -65,7 +65,7 @@ public class GetRoleByIdQueryHandlerTests
             .ReturnsAsync(permissions);
 
         _applicationRepositoryMock
-            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdIncludingDeletedAsync(applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "CRM App"));
 
         // Act
@@ -158,7 +158,7 @@ public class GetRolesQueryHandlerTests
             .ReturnsAsync(new List<Permission>());
 
         _applicationRepositoryMock
-            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdIncludingDeletedAsync(applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "CRM App"));
 
         // Act
@@ -173,7 +173,7 @@ public class GetRolesQueryHandlerTests
 
         // Distinct application ids resolve once, not per role.
         _applicationRepositoryMock.Verify(
-            r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()),
+            r => r.GetByIdIncludingDeletedAsync(applicationId, It.IsAny<CancellationToken>()),
             Times.Once);
 
         _roleRepositoryMock.Verify(

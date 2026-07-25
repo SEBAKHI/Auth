@@ -33,7 +33,7 @@ public class ApplicationRepository : IApplicationRepository
                 [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
-            WHERE [Id] = @Id",
+            WHERE [Id] = @Id AND [IsDeleted] = 0",
             new { Id = id });
 
         var entity = dto?.ToEntity();
@@ -43,6 +43,27 @@ public class ApplicationRepository : IApplicationRepository
         }
 
         return entity;
+    }
+
+    /// <inheritdoc />
+    public async Task<AppEntity?> GetByIdIncludingDeletedAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Historical name resolution only (audit views). No redirect-URI
+        // hydration and no IsDeleted filter.
+        var dto = await connection.QueryFirstOrDefaultAsync<ApplicationDto>(@"
+            SELECT
+                [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
+                [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
+                [IsDeleted], [DeletedAt], [DeletedBy]
+            FROM [dbo].[Applications]
+            WHERE [Id] = @Id",
+            new { Id = id });
+
+        return dto?.ToEntity();
     }
 
     /// <inheritdoc />
@@ -57,7 +78,7 @@ public class ApplicationRepository : IApplicationRepository
                 [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
-            WHERE [Code] = @Code",
+            WHERE [Code] = @Code AND [IsDeleted] = 0",
             new { Code = code.ToUpperInvariant() });
 
         var entity = dto?.ToEntity();
@@ -93,6 +114,7 @@ public class ApplicationRepository : IApplicationRepository
                 [SessionTimeoutMinutes], [MaxConcurrentSessions],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
+            WHERE [IsDeleted] = 0
             ORDER BY [Code]");
 
         return dtos.Select(dto => dto.ToEntity()).ToList().AsReadOnly();
@@ -110,7 +132,7 @@ public class ApplicationRepository : IApplicationRepository
                 [SessionTimeoutMinutes], [MaxConcurrentSessions],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
-            WHERE [IsActive] = 1
+            WHERE [IsActive] = 1 AND [IsDeleted] = 0
             ORDER BY [Code]");
 
         return dtos.Select(dto => dto.ToEntity()).ToList().AsReadOnly();
@@ -121,6 +143,8 @@ public class ApplicationRepository : IApplicationRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // Deliberately includes soft-deleted rows: a deleted application's
+        // code stays reserved and can never be claimed by a new application.
         var count = await connection.ExecuteScalarAsync<int>(@"
             SELECT COUNT(1) FROM [dbo].[Applications]
             WHERE [Code] = @Code",
@@ -233,15 +257,44 @@ public class ApplicationRepository : IApplicationRepository
     }
 
     /// <inheritdoc />
-    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    public async Task DeleteAsync(Guid id, Guid deletedBy, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
 
-        // Hard delete for applications (could be changed to soft delete if needed)
+        // Soft delete: the row stays (child FKs keep their history) but the
+        // application is deactivated and its credentials die with it, atomically.
         await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[Applications]
-            WHERE [Id] = @Id",
-            new { Id = id });
+            UPDATE [dbo].[Applications]
+            SET [IsDeleted] = 1,
+                [DeletedAt] = GETUTCDATE(),
+                [DeletedBy] = @DeletedBy,
+                [IsActive] = 0,
+                [ModifiedAt] = GETUTCDATE(),
+                [ModifiedBy] = @DeletedBy
+            WHERE [Id] = @Id AND [IsDeleted] = 0",
+            new { Id = id, DeletedBy = deletedBy },
+            transaction);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[ApiKeys]
+            SET [RevokedAt] = GETUTCDATE(),
+                [RevokedBy] = @DeletedBy,
+                [RevokeReason] = N'Application deleted'
+            WHERE [ApplicationId] = @Id AND [RevokedAt] IS NULL",
+            new { Id = id, DeletedBy = deletedBy },
+            transaction);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[WebhookKeys]
+            SET [RevokedAt] = GETUTCDATE(),
+                [RevokedBy] = @DeletedBy,
+                [RevokeReason] = N'Application deleted'
+            WHERE [ApplicationId] = @Id AND [RevokedAt] IS NULL",
+            new { Id = id, DeletedBy = deletedBy },
+            transaction);
+
+        transaction.Commit();
     }
 
     private static readonly IReadOnlyDictionary<string, string[]> PagedSortColumns = SortSql.Map(
@@ -272,7 +325,7 @@ public class ApplicationRepository : IApplicationRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var whereClause = "WHERE 1=1";
+        var whereClause = "WHERE [IsDeleted] = 0";
         if (!string.IsNullOrWhiteSpace(search))
         {
             whereClause += " AND ([Code] LIKE @Search OR [Name] LIKE @Search OR [Description] LIKE @Search)";
@@ -313,21 +366,6 @@ public class ApplicationRepository : IApplicationRepository
 
         var applications = dtos.Select(dto => dto.ToEntity()).ToList().AsReadOnly();
         return (applications, totalCount);
-    }
-
-    /// <inheritdoc />
-    public async Task<bool> HasActiveApiKeysAsync(Guid applicationId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        var count = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM [dbo].[ApiKeys]
-            WHERE [ApplicationId] = @ApplicationId
-              AND [RevokedAt] IS NULL
-              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
-            new { ApplicationId = applicationId });
-
-        return count > 0;
     }
 
     /// <inheritdoc />
@@ -446,6 +484,9 @@ public class ApplicationRepository : IApplicationRepository
         public Guid CreatedBy { get; init; }
         public DateTime? ModifiedAt { get; init; }
         public Guid? ModifiedBy { get; init; }
+        public bool IsDeleted { get; init; }
+        public DateTime? DeletedAt { get; init; }
+        public Guid? DeletedBy { get; init; }
 
         public AppEntity ToEntity()
         {
@@ -468,6 +509,7 @@ public class ApplicationRepository : IApplicationRepository
                 ModifiedAt,
                 ModifiedBy);
             entity.LoadReauthenticationMaxAge(ReauthenticationMaxAgeMinutes);
+            entity.LoadDeletionState(IsDeleted, DeletedAt, DeletedBy);
             return entity;
         }
     }

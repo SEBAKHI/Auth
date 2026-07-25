@@ -744,6 +744,7 @@ public class UserRepository : IUserRepository
                   AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
             ) src
             INNER JOIN [dbo].[Applications] a ON src.[ApplicationId] = a.[Id]
+            WHERE a.[IsDeleted] = 0
             GROUP BY a.[Id], a.[Code], a.[Name], a.[LogoUrl], a.[IsActive]",
             new { UserId = userId });
 

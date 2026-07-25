@@ -22,18 +22,6 @@ public static class ApplicationErrors
         description: $"An application with code '{code}' already exists.",
         metadata: new() { ["args"] = new object[] { code } });
 
-    public static Error CannotDeleteSystemApplication => Error.Forbidden(
-        code: "Application.CannotDeleteSystem",
-        description: "System applications cannot be deleted.");
-
-    public static Error CannotModifySystemApplication => Error.Forbidden(
-        code: "Application.CannotModifySystem",
-        description: "System applications cannot be modified.");
-
-    public static Error HasActiveApiKeys => Error.Conflict(
-        code: "Application.HasActiveApiKeys",
-        description: "Cannot delete application with active API keys. Revoke all API keys first.");
-
     public static Error HasActiveUsers => Error.Conflict(
         code: "Application.HasActiveUsers",
         description: "Cannot delete application with active user assignments.");

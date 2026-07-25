@@ -499,7 +499,7 @@ public class GetApiKeysQueryHandlerTests
             .ReturnsAsync(new List<ApiKey> { apiKey1, apiKey2 });
 
         _applicationRepositoryMock
-            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByIdIncludingDeletedAsync(applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "Keyed App"));
 
         _apiKeyRepositoryMock

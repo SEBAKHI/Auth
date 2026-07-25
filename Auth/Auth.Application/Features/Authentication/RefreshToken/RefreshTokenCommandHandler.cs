@@ -122,12 +122,23 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         // refresh token; re-mint the same per-app audience so the refreshed token
         // stays valid only for that app. Direct first-party logins have no
         // ApplicationId and keep the platform default audience.
+        // A missing (soft-deleted) or inactive app must NOT fall back to the
+        // platform audience: that would silently escalate an app-scoped token
+        // into one the platform API itself accepts.
         string? audience = null;
         if (storedToken.ApplicationId.HasValue)
         {
             var application = await _applicationRepository.GetByIdAsync(
                 storedToken.ApplicationId.Value, cancellationToken);
-            audience = application?.Code;
+            if (application is null || !application.IsActive)
+            {
+                _logger.LogWarning(
+                    "Refresh rejected: application {ApplicationId} is deleted or inactive",
+                    storedToken.ApplicationId);
+                return ApplicationErrors.ApplicationInactive;
+            }
+
+            audience = application.Code;
         }
 
         // Generate new access token, carrying the stable session id forward so
