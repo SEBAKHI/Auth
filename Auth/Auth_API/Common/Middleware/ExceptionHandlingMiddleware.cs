@@ -4,6 +4,7 @@ using Auth_Localization.Resources.Middleware;
 using ErrorOr;
 using FluentValidation;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Localization;
 
 namespace Auth_API.Common.Middleware;
@@ -79,6 +80,18 @@ public class ExceptionHandlingMiddleware
                 _environment.IsDevelopment()
                     ? argEx.Message
                     : Localize(localizer, "Middleware.InvalidArgument.Detail", "One or more arguments were invalid."),
+                (object?)null
+            ),
+            // SQL error 547 = FK constraint violation. Defense-in-depth for the
+            // hard-delete paths still in the codebase (Roles, Permissions,
+            // NotificationTemplates, ...): a referenced row is a conflict, not an
+            // internal error. Application deletion itself no longer hits this
+            // (soft delete), but any remaining DELETE gets a 409 instead of a 500.
+            SqlException { Number: 547 } => (
+                HttpStatusCode.Conflict,
+                Localize(localizer, "Middleware.Conflict.Title", "Conflict"),
+                Localize(localizer, "Middleware.Conflict.Detail",
+                    "The operation could not be completed because related records reference this resource."),
                 (object?)null
             ),
             _ => (

@@ -87,4 +87,10 @@
   <data name="Middleware.InvalidArgument.Detail" xml:space="preserve">
     <value>一个或多个参数无效。</value>
   </data>
+  <data name="Middleware.Conflict.Title" xml:space="preserve">
+    <value>冲突</value>
+  </data>
+  <data name="Middleware.Conflict.Detail" xml:space="preserve">
+    <value>操作无法完成，因为存在引用此资源的关联记录。</value>
+  </data>
 </root>

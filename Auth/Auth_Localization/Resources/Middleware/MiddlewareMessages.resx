@@ -87,4 +87,10 @@
   <data name="Middleware.InvalidArgument.Detail" xml:space="preserve">
     <value>One or more arguments were invalid.</value>
   </data>
+  <data name="Middleware.Conflict.Title" xml:space="preserve">
+    <value>Conflict</value>
+  </data>
+  <data name="Middleware.Conflict.Detail" xml:space="preserve">
+    <value>The operation could not be completed because related records reference this resource.</value>
+  </data>
 </root>

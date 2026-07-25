@@ -87,4 +87,10 @@
   <data name="Middleware.InvalidArgument.Detail" xml:space="preserve">
     <value>Bir veya daha fazla bağımsız değişken geçersizdi.</value>
   </data>
+  <data name="Middleware.Conflict.Title" xml:space="preserve">
+    <value>Çakışma</value>
+  </data>
+  <data name="Middleware.Conflict.Detail" xml:space="preserve">
+    <value>İlişkili kayıtlar bu kaynağa başvurduğu için işlem tamamlanamadı.</value>
+  </data>
 </root>
