@@ -118,4 +118,17 @@ public static class UserErrors
     public static Error TwoFactorNotEnabled => Error.Validation(
         code: "User.TwoFactorNotEnabled",
         description: "Two-factor authentication is not enabled for this account.");
+
+    public static Error DeletionAlreadyRequested => Error.Conflict(
+        code: "User.DeletionAlreadyRequested",
+        description: "An account deletion request is already pending for this account.");
+
+    public static Error AccountPendingDeletion(DateTime graceEndsAtUtc) => Error.Forbidden(
+        code: "User.AccountPendingDeletion",
+        description: $"This account is deactivated and scheduled for deletion on {graceEndsAtUtc:u}. It can be restored until then.",
+        metadata: new() { ["args"] = new object[] { graceEndsAtUtc.ToString("u") } });
+
+    public static Error RecoveryWindowExpired => Error.Forbidden(
+        code: "User.RecoveryWindowExpired",
+        description: "The recovery period for this account has ended. Deletion is being finalized.");
 }

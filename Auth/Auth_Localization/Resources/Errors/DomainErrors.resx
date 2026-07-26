@@ -708,4 +708,30 @@
   <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
     <value>This account's personal organization still has other members. Remove them before deleting the account.</value>
   </data>
+
+  <!-- ==================== Account Deletion Errors ==================== -->
+  <data name="User.DeletionAlreadyRequested" xml:space="preserve">
+    <value>An account deletion request is already pending for this account.</value>
+  </data>
+  <data name="User.AccountPendingDeletion" xml:space="preserve">
+    <value>This account is deactivated and scheduled for deletion on {0}. It can be restored until then.</value>
+  </data>
+  <data name="User.RecoveryWindowExpired" xml:space="preserve">
+    <value>The recovery period for this account has ended. Deletion is being finalized.</value>
+  </data>
+  <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
+    <value>The verification code is invalid or has expired.</value>
+  </data>
+  <data name="AccountDeletion.TooManyRequests" xml:space="preserve">
+    <value>Too many verification codes requested. Please try again later.</value>
+  </data>
+  <data name="AccountDeletion.NotPendingGrace" xml:space="preserve">
+    <value>The deletion request is not pending.</value>
+  </data>
+  <data name="AccountDeletion.GraceNotElapsed" xml:space="preserve">
+    <value>The grace period has not ended yet.</value>
+  </data>
+  <data name="AccountDeletion.NotProcessing" xml:space="preserve">
+    <value>The deletion request is not being processed.</value>
+  </data>
 </root>

@@ -708,4 +708,30 @@
   <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
     <value>该帐户的个人组织中仍有其他成员。请先将其移除，再删除帐户。</value>
   </data>
+
+  <!-- ==================== Account Deletion Errors ==================== -->
+  <data name="User.DeletionAlreadyRequested" xml:space="preserve">
+    <value>该账户已有待处理的删除请求。</value>
+  </data>
+  <data name="User.AccountPendingDeletion" xml:space="preserve">
+    <value>该账户已停用，并计划于 {0} 删除。在此之前可以恢复。</value>
+  </data>
+  <data name="User.RecoveryWindowExpired" xml:space="preserve">
+    <value>该账户的恢复期已结束，删除正在完成中。</value>
+  </data>
+  <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
+    <value>验证码无效或已过期。</value>
+  </data>
+  <data name="AccountDeletion.TooManyRequests" xml:space="preserve">
+    <value>请求的验证码次数过多，请稍后再试。</value>
+  </data>
+  <data name="AccountDeletion.NotPendingGrace" xml:space="preserve">
+    <value>删除请求不处于等待状态。</value>
+  </data>
+  <data name="AccountDeletion.GraceNotElapsed" xml:space="preserve">
+    <value>宽限期尚未结束。</value>
+  </data>
+  <data name="AccountDeletion.NotProcessing" xml:space="preserve">
+    <value>删除请求不在处理中。</value>
+  </data>
 </root>
