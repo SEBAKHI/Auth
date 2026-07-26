@@ -18,7 +18,8 @@ public static class SortFields
         public const string FirstName = "firstName";
         public const string LastName = "lastName";
         public const string Email = "email";
-        public const string PhoneNumber = "phoneNumber";
+        // phoneNumber was deliberately de-listed: the column holds per-user
+        // ciphertext (AES-256-GCM), so server-side ordering is meaningless.
         public const string Status = "status";
         public const string EmailConfirmed = "emailConfirmed";
         public const string PhoneConfirmed = "phoneConfirmed";
@@ -31,7 +32,7 @@ public static class SortFields
 
         public static readonly IReadOnlyList<string> Allowed =
         [
-            Name, DisplayName, FirstName, LastName, Email, PhoneNumber, Status,
+            Name, DisplayName, FirstName, LastName, Email, Status,
             EmailConfirmed, PhoneConfirmed, TwoFactorEnabled, PreferredLanguage,
             TimeZone, CreatedAt, ModifiedAt, LastLoginAt
         ];

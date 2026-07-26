@@ -46,6 +46,14 @@ public class AccountDeletionSettings
     public string PolicyVersion { get; set; } = "2026.07";
 
     /// <summary>
+    /// When true, the one-time encryption migration runs at startup: TOTP
+    /// secrets and phone numbers are re-encrypted under per-user DEKs.
+    /// Idempotent (only rows without the v2: prefix are touched). Enable for
+    /// one deployment, verify the logged report, then disable.
+    /// </summary>
+    public bool RunEncryptionMigration { get; set; } = false;
+
+    /// <summary>
     /// Base64 HMAC-SHA256 key (>= 32 bytes) for identifier hashing in the
     /// tombstone registry. Provisioned via SecretManagement (auto-generated in
     /// PlainText mode; encrypted secrets file otherwise) — never committed.

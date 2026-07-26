@@ -107,6 +107,7 @@ public class SortFieldValidationTests
 
     [Theory]
     [InlineData("passwordHash")] // real column, deliberately not allow-listed
+    [InlineData("phoneNumber")] // encrypted at rest (per-user AES-256-GCM), deliberately de-listed
     [InlineData("1; DROP TABLE Users--")]
     [InlineData("[CreatedAt]")]
     public void Validate_DisallowedSortField_Fails(string sortBy)
@@ -123,7 +124,7 @@ public class SortFieldValidationTests
         SortFields.Users.Allowed.Should().BeEquivalentTo(
         [
             "name", "displayName", "firstName", "lastName", "email",
-            "phoneNumber", "status", "emailConfirmed", "phoneConfirmed",
+            "status", "emailConfirmed", "phoneConfirmed",
             "twoFactorEnabled", "preferredLanguage", "timeZone",
             "createdAt", "modifiedAt", "lastLoginAt"
         ]);

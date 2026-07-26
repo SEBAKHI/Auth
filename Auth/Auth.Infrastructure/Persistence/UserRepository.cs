@@ -20,17 +20,37 @@ public class UserRepository : IUserRepository
     private readonly PasswordSettings _passwordSettings;
     private readonly IIdentifierHasher _identifierHasher;
     private readonly AccountDeletionSettings _accountDeletionSettings;
+    private readonly IPerUserCryptoService _perUserCrypto;
 
     public UserRepository(
         IDbConnectionFactory connectionFactory,
         IOptions<PasswordSettings> passwordSettings,
         IIdentifierHasher identifierHasher,
-        IOptions<AccountDeletionSettings> accountDeletionSettings)
+        IOptions<AccountDeletionSettings> accountDeletionSettings,
+        IPerUserCryptoService perUserCrypto)
     {
         _connectionFactory = connectionFactory;
         _passwordSettings = passwordSettings.Value;
         _identifierHasher = identifierHasher;
         _accountDeletionSettings = accountDeletionSettings.Value;
+        _perUserCrypto = perUserCrypto;
+    }
+
+    /// <summary>
+    /// Dual-read at the repository boundary: PhoneNumber is stored as v2
+    /// per-user ciphertext (crypto-shredded with the account); rows not yet
+    /// touched by the one-time migration still hold plaintext and pass
+    /// through unchanged. Callers always see the plaintext value.
+    /// </summary>
+    private async Task<UserDto?> WithDecryptedPhoneAsync(UserDto? dto, CancellationToken cancellationToken)
+    {
+        if (dto?.PhoneNumber is not null && _perUserCrypto.IsEncrypted(dto.PhoneNumber))
+        {
+            dto.PhoneNumber = await _perUserCrypto.DecryptAsync(
+                dto.Id, dto.PhoneNumber, EncryptedFieldPurpose.UserPhoneNumber, cancellationToken);
+        }
+
+        return dto;
     }
 
     /// <inheritdoc />
@@ -42,7 +62,7 @@ public class UserRepository : IUserRepository
             "EXEC [dbo].[sp_GetUserById] @UserId",
             new { UserId = id });
 
-        return result?.ToUser();
+        return (await WithDecryptedPhoneAsync(result, cancellationToken))?.ToUser();
     }
 
     /// <inheritdoc />
@@ -70,7 +90,7 @@ public class UserRepository : IUserRepository
             WHERE [Id] = @Id",
             new { Id = id });
 
-        return result?.ToUser();
+        return (await WithDecryptedPhoneAsync(result, cancellationToken))?.ToUser();
     }
 
     /// <inheritdoc />
@@ -103,7 +123,13 @@ public class UserRepository : IUserRepository
             WHERE [Id] IN @Ids",
             new { Ids = ids });
 
-        return results.Select(dto => dto.ToUser()).ToList();
+        var dtos = results.ToList();
+        foreach (var dto in dtos)
+        {
+            await WithDecryptedPhoneAsync(dto, cancellationToken);
+        }
+
+        return dtos.Select(dto => dto.ToUser()).ToList();
     }
 
     /// <inheritdoc />
@@ -115,7 +141,7 @@ public class UserRepository : IUserRepository
             "EXEC [dbo].[sp_GetUserByEmail] @Email",
             new { Email = email.ToUpperInvariant() });
 
-        return result?.ToUser();
+        return (await WithDecryptedPhoneAsync(result, cancellationToken))?.ToUser();
     }
 
     /// <inheritdoc />
@@ -160,7 +186,7 @@ public class UserRepository : IUserRepository
                 user.PasswordHash,
                 user.FirstName,
                 user.LastName,
-                PhoneNumber = user.PhoneNumber?.Value,
+                PhoneNumber = (string?)null,
                 user.PreferredLanguage,
                 user.TimeZone,
                 user.Theme,
@@ -180,12 +206,29 @@ public class UserRepository : IUserRepository
                 user.ModifiedBy
             });
 
+        // The per-user DEK row has an FK to Users, so the phone can only be
+        // encrypted after the account row exists: insert without it, then
+        // write the ciphertext.
+        if (!string.IsNullOrEmpty(user.PhoneNumber?.Value))
+        {
+            var encryptedPhone = await _perUserCrypto.EncryptAsync(
+                user.Id, user.PhoneNumber.Value, EncryptedFieldPurpose.UserPhoneNumber, cancellationToken);
+            await connection.ExecuteAsync(
+                "UPDATE [dbo].[Users] SET [PhoneNumber] = @PhoneNumber WHERE [Id] = @Id",
+                new { user.Id, PhoneNumber = encryptedPhone });
+        }
+
         return user;
     }
 
     /// <inheritdoc />
     public async Task UpdateAsync(User user, CancellationToken cancellationToken)
     {
+        var encryptedPhone = string.IsNullOrEmpty(user.PhoneNumber?.Value)
+            ? null
+            : await _perUserCrypto.EncryptAsync(
+                user.Id, user.PhoneNumber.Value, EncryptedFieldPurpose.UserPhoneNumber, cancellationToken);
+
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         await connection.ExecuteAsync(@"
@@ -222,7 +265,7 @@ public class UserRepository : IUserRepository
                 user.PasswordHash,
                 user.FirstName,
                 user.LastName,
-                PhoneNumber = user.PhoneNumber?.Value,
+                PhoneNumber = encryptedPhone,
                 Status = (int)user.Status,
                 IsEmailConfirmed = user.EmailConfirmed,
                 IsPhoneConfirmed = user.PhoneConfirmed,
@@ -381,7 +424,6 @@ public class UserRepository : IUserRepository
         (SortFields.Users.FirstName, ["[FirstName]"]),
         (SortFields.Users.LastName, ["[LastName]"]),
         (SortFields.Users.Email, ["[Email]"]),
-        (SortFields.Users.PhoneNumber, ["[PhoneNumber]"]),
         (SortFields.Users.Status, ["[Status]"]),
         (SortFields.Users.EmailConfirmed, ["[IsEmailConfirmed]"]),
         (SortFields.Users.PhoneConfirmed, ["[IsPhoneConfirmed]"]),
@@ -450,7 +492,13 @@ public class UserRepository : IUserRepository
         });
 
         var totalCount = await multi.ReadSingleAsync<int>();
-        var users = (await multi.ReadAsync<UserDto>()).Select(dto => dto.ToUser()).ToList();
+        var dtos = (await multi.ReadAsync<UserDto>()).ToList();
+        foreach (var dto in dtos)
+        {
+            await WithDecryptedPhoneAsync(dto, cancellationToken);
+        }
+
+        var users = dtos.Select(dto => dto.ToUser()).ToList();
 
         return (users, totalCount);
     }
@@ -790,7 +838,9 @@ public class UserRepository : IUserRepository
         public string FirstName { get; init; } = string.Empty;
         public string LastName { get; init; } = string.Empty;
         public string? DisplayName { get; init; }
-        public string? PhoneNumber { get; init; }
+        // Settable: WithDecryptedPhoneAsync replaces the stored ciphertext
+        // with plaintext before the DTO is mapped to the entity.
+        public string? PhoneNumber { get; set; }
         public int Status { get; init; }
         public bool EmailConfirmed { get; init; }
         public bool PhoneConfirmed { get; init; }

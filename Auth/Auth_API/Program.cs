@@ -242,6 +242,7 @@ builder.Services.AddSingleton<IDbConnectionFactory>(_ => new SqlConnectionFactor
 
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserEncryptionKeyRepository, UserEncryptionKeyRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
@@ -364,7 +365,9 @@ builder.Services.AddSingleton<ITokenBlacklistService>(sp => sp.GetRequiredServic
 builder.Services.AddHostedService<TokenRevocationBackgroundService>();
 builder.Services.AddSingleton<IRefreshTokenKeyService, RefreshTokenKeyService>();
 builder.Services.AddSingleton<IIdentifierHasher, IdentifierHasher>();
-builder.Services.AddSingleton<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
+// Scoped: the protector now rides the per-user crypto service (scoped DEK repo).
+builder.Services.AddScoped<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
+builder.Services.AddScoped<IPerUserCryptoService, PerUserCryptoService>();
 builder.Services.AddSingleton<IWebhookKeyHasher, WebhookKeyHasher>();
 builder.Services.AddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
 builder.Services.AddSingleton<IWebhookKeyGenerator, WebhookKeyGenerator>();
@@ -395,6 +398,9 @@ builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
 // owned-organization rule used by every deletion flow.
 builder.Services.AddScoped<ICredentialRevocationService, CredentialRevocationService>();
 builder.Services.AddScoped<Auth.Application.Features.Users.Common.OwnedOrganizationDeletionGuard>();
+// One-shot, config-gated (AccountDeletion:RunEncryptionMigration) re-encryption
+// of TOTP secrets and phone numbers under per-user DEKs.
+builder.Services.AddHostedService<EncryptionMigrationService>();
 
 // Breached-password policy. Request-scoped warning sink + evaluator are always registered (cheap);
 // the actual checker is HIBP only when enabled, otherwise a no-op with NO HttpClient registered.
