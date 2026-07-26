@@ -15,6 +15,20 @@
       "autoPort": false
     },
     {
+      "name": "api-https",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "Auth/Auth_API/Auth_API.csproj",
+        "--launch-profile",
+        "https"
+      ],
+      "port": 5101,
+      "url": "https://localhost:5101",
+      "autoPort": false
+    },
+    {
       "name": "accounts",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["-C", "Auth_UI", "run", "dev:accounts"],

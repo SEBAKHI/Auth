@@ -61,10 +61,12 @@ export function useUserActions(options?: {
         }
       }
     },
+    // Convention: close UI state first, then invalidate — the dialog close
+    // must never be gated behind cache work.
     onSuccess: (successKey) => {
+      options?.onStatusChanged?.()
       void invalidateUsers()
       toast.success(t(successKey))
-      options?.onStatusChanged?.()
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -77,9 +79,9 @@ export function useUserActions(options?: {
       if (error) throw error
     },
     onSuccess: () => {
+      options?.onDeleted?.()
       void invalidateUsers()
       toast.success(t("users.deleted"))
-      options?.onDeleted?.()
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -92,9 +94,9 @@ export function useUserActions(options?: {
       if (error) throw error
     },
     onSuccess: () => {
+      options?.onHardDeleted?.()
       void invalidateUsers()
       toast.success(t("users.permanentlyDeleted"))
-      options?.onHardDeleted?.()
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })

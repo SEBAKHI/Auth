@@ -36,7 +36,12 @@ function AlertDialogOverlay({
     <AlertDialogPrimitive.Overlay
       data-slot="alert-dialog-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/30 duration-100 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        // No exit animation on purpose: Radix Presence unmounts synchronously
+        // when the closed element has no animation, but waits (with no timeout)
+        // for animationend otherwise — a same-batch re-render can swallow that
+        // event and strand an invisible click-blocking overlay. The `!` on
+        // pointer-events beats Radix's inline `pointer-events: auto`.
+        "fixed inset-0 z-50 bg-black/30 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:pointer-events-none!",
         className
       )}
       {...props}

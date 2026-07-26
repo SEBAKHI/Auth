@@ -36,7 +36,10 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/30 duration-100 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        // No exit animation on purpose — see AlertDialogOverlay: an exit
+        // animation lets Radix Presence strand a click-blocking overlay when
+        // animationend is lost mid-re-render.
+        "fixed inset-0 z-50 bg-black/30 duration-100 data-open:animate-in data-open:fade-in-0 data-closed:pointer-events-none!",
         className
       )}
       {...props}
