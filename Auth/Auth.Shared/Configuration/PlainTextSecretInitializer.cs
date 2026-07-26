@@ -79,13 +79,15 @@ public static class PlainTextSecretInitializer
         var existingPrivateKey = configuration["Jwt:PrivateKeyPem"];
         var existingHmac = configuration["Jwt:RefreshTokenHmacKeyPlain"];
         var existingGateway = configuration["Gateway:ExpectedToken"] ?? configuration["Gateway:Token"];
+        var existingIdentifierHmac = configuration["AccountDeletion:IdentifierHmacKeyPlain"];
 
         var needsPrivateKey = string.IsNullOrWhiteSpace(existingPrivateKey);
         var needsHmac = string.IsNullOrWhiteSpace(existingHmac);
         var needsGateway = string.IsNullOrWhiteSpace(existingGateway);
+        var needsIdentifierHmac = string.IsNullOrWhiteSpace(existingIdentifierHmac);
 
         // Everything already present, or generation disabled: nothing to do.
-        if ((!needsPrivateKey && !needsHmac && !needsGateway) || !autoGenerate)
+        if ((!needsPrivateKey && !needsHmac && !needsGateway && !needsIdentifierHmac) || !autoGenerate)
         {
             return new PlainTextSecretResult { Generated = false };
         }
@@ -115,6 +117,14 @@ public static class PlainTextSecretInitializer
             configValues["Gateway:ExpectedToken"] = token;
             configValues["Gateway:Token"] = token;
             generatedKeys.Add("Gateway:ExpectedToken");
+        }
+
+        if (needsIdentifierHmac)
+        {
+            // Account-deletion identifier hashing (tombstone reservations).
+            // PERMANENT once generated: reservations depend on stable hashes.
+            configValues["AccountDeletion:IdentifierHmacKeyPlain"] = KeyMaterialGenerator.GenerateHmacKeyBase64();
+            generatedKeys.Add("AccountDeletion:IdentifierHmacKeyPlain");
         }
 
         var persistError = PersistToFile(contentRootPath, targetFile, configValues);

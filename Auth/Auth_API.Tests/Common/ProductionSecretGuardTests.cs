@@ -37,6 +37,16 @@ public class ProductionSecretGuardTests
     }
 
     [Fact]
+    public void Production_WithPlaintextIdentifierHmacKey_Throws()
+    {
+        var config = BuildConfig(("AccountDeletion:IdentifierHmacKeyPlain", "somebase64key=="));
+
+        var act = () => ProductionSecretGuard.EnsureNoPlaintextSecrets(config, isProduction: true);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*AccountDeletion:IdentifierHmacKeyPlain*");
+    }
+
+    [Fact]
     public void Production_WithNoPlaintextSecrets_DoesNotThrow()
     {
         // Encrypted values (PrivateKeyEncrypted) are allowed; only plaintext is forbidden.

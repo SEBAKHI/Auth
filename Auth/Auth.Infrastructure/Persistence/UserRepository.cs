@@ -1,5 +1,6 @@
 using System.Data;
 using Auth.Application.Configuration;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -17,13 +18,19 @@ public class UserRepository : IUserRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly PasswordSettings _passwordSettings;
+    private readonly IIdentifierHasher _identifierHasher;
+    private readonly AccountDeletionSettings _accountDeletionSettings;
 
     public UserRepository(
         IDbConnectionFactory connectionFactory,
-        IOptions<PasswordSettings> passwordSettings)
+        IOptions<PasswordSettings> passwordSettings,
+        IIdentifierHasher identifierHasher,
+        IOptions<AccountDeletionSettings> accountDeletionSettings)
     {
         _connectionFactory = connectionFactory;
         _passwordSettings = passwordSettings.Value;
+        _identifierHasher = identifierHasher;
+        _accountDeletionSettings = accountDeletionSettings.Value;
     }
 
     /// <inheritdoc />
@@ -257,29 +264,48 @@ public class UserRepository : IUserRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
 
-        // Re-verify eligibility inside the transaction: UPDLOCK/HOLDLOCK
+        // Re-verify eligibility inside the transaction and snapshot the
+        // identifiers for the tombstone in the same statement: UPDLOCK/HOLDLOCK
         // serializes with any concurrent write on the row, so a live account
-        // can never race past the soft-deleted check and get purged.
-        var eligible = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM [dbo].[Users] WITH (UPDLOCK, HOLDLOCK)
+        // can never race past the soft-deleted check and get purged, and the
+        // hashes are computed from the row being destroyed, never a stale
+        // caller-side snapshot.
+        var identifiers = await connection.QuerySingleOrDefaultAsync<(string NormalizedEmail, string Username)>(@"
+            SELECT [NormalizedEmail], [Username] FROM [dbo].[Users] WITH (UPDLOCK, HOLDLOCK)
             WHERE [Id] = @Id AND [IsDeleted] = 1",
             new { Id = id },
             transaction);
 
-        if (eligible == 0)
+        // Both columns are NOT NULL, so a null field means "no eligible row".
+        if (identifiers.NormalizedEmail is null)
         {
             transaction.Rollback();
             return false;
         }
 
-        // Every table below either references Users through a non-cascading
-        // foreign key or carries a loose user reference (AuditLogs,
-        // NotificationOutbox, RevokedTokens). Rows the user owns are deleted;
-        // actor references on records that belong to other entities are
+        var emailHash = _identifierHasher.HashEmail(identifiers.NormalizedEmail);
+        var usernameHash = _identifierHasher.HashUsername(identifiers.Username);
+
+        // Staged destruction. Every table below either references Users
+        // through a non-cascading foreign key or carries a loose user
+        // reference (AuditLogs, NotificationOutbox, RevokedTokens). Rows the
+        // user owns are deleted; the audit/login history is anonymized in
+        // place; actor references on records that belong to other entities are
         // reattributed to the system account so those rows keep resolving.
-        // UserHardDeleteSqlTests guards this list against schema drift.
+        // AccountDeletionRequests rows are retained untouched as destruction
+        // evidence. UserHardDeleteSqlTests guards this list against schema drift.
         await connection.ExecuteAsync(@"
-            -- Crypto-shred first: destroying the per-user DEK renders every
+            -- Permanent zero-PII tombstone (idempotent MERGE): the identifier
+            -- reservation and the restore re-apply anchor. Written before
+            -- anything is destroyed so a mid-purge failure never loses it.
+            MERGE [dbo].[AccountDeletionTombstones] WITH (HOLDLOCK) AS [target]
+            USING (SELECT @EmailHash AS [EmailHash]) AS [source]
+            ON [target].[EmailHash] = [source].[EmailHash]
+            WHEN NOT MATCHED THEN
+                INSERT ([EmailHash], [UsernameHash], [DeletedAtUtc], [PolicyVersion])
+                VALUES (@EmailHash, @UsernameHash, GETUTCDATE(), @PolicyVersion);
+
+            -- Crypto-shred: destroying the per-user DEK renders every
             -- ciphertext under it (phone number, TOTP secret, provider refresh
             -- token) unrecoverable, in this database and in every backup.
             DELETE FROM [dbo].[UserEncryptionKeys] WHERE [UserId] = @Id;
@@ -289,10 +315,10 @@ public class UserRepository : IUserRepository
             DELETE FROM [dbo].[UserSessions] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[IdpSessions] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[AuthorizationCodes] WHERE [UserId] = @Id;
-            DELETE FROM [dbo].[LoginAttempts] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[UserExternalLogins] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[EmailVerificationTokens] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[PasswordResetTokens] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[AccountDeletionVerifications] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[PasswordHistory] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[TwoFactorChallenges] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[TwoFactorAuth] WHERE [UserId] = @Id;
@@ -312,8 +338,19 @@ public class UserRepository : IUserRepository
             -- Notifications addressed to the user
             DELETE FROM [dbo].[NotificationOutbox] WHERE [RecipientUserId] = @Id;
 
-            -- The user's audit trail: rows about them and rows they performed
-            DELETE FROM [dbo].[AuditLogs] WHERE [UserId] = @Id OR [PerformedBy] = @Id;
+            -- Class B/C: the audit and login-attempt history is anonymized,
+            -- never deleted — the security record survives with identity and
+            -- PII payloads stripped.
+            UPDATE [dbo].[AuditLogs]
+            SET [UserId] = NULL, [OldValues] = NULL, [NewValues] = NULL,
+                [Details] = NULL, [IpAddress] = NULL, [UserAgent] = NULL
+            WHERE [UserId] = @Id;
+            UPDATE [dbo].[AuditLogs]
+            SET [PerformedBy] = @SystemUserId, [IpAddress] = NULL, [UserAgent] = NULL
+            WHERE [PerformedBy] = @Id;
+            UPDATE [dbo].[LoginAttempts]
+            SET [UserId] = NULL, [Username] = N'[deleted]'
+            WHERE [UserId] = @Id;
 
             -- Actor references on surviving records of other entities
             UPDATE [dbo].[OrganizationApplications] SET [EnabledBy] = @SystemUserId WHERE [EnabledBy] = @Id;
@@ -324,7 +361,14 @@ public class UserRepository : IUserRepository
 
             -- The account row last; IsDeleted = 1 is the final in-database guard
             DELETE FROM [dbo].[Users] WHERE [Id] = @Id AND [IsDeleted] = 1;",
-            new { Id = id, SystemUserId = WellKnownUserIds.System },
+            new
+            {
+                Id = id,
+                SystemUserId = WellKnownUserIds.System,
+                EmailHash = emailHash,
+                UsernameHash = usernameHash,
+                PolicyVersion = _accountDeletionSettings.PolicyVersion
+            },
             transaction);
 
         transaction.Commit();

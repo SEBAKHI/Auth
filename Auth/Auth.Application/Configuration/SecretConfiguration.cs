@@ -44,6 +44,14 @@ public class SecretConfiguration
     public string? RefreshTokenHmacKey { get; set; }
 
     /// <summary>
+    /// HMAC-SHA256 key (base64, >= 32 bytes) for account-deletion identifier
+    /// hashing (tombstone reservations). PERMANENT: never rotate — identifier
+    /// reservations and restore re-application depend on stable hashes.
+    /// Mapped to configuration as <c>AccountDeletion:IdentifierHmacKeyPlain</c>.
+    /// </summary>
+    public string? AccountDeletionIdentifierHmacKey { get; set; }
+
+    /// <summary>
     /// SMTP password for email service.
     /// </summary>
     public string? SmtpPassword { get; set; }

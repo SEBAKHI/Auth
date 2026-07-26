@@ -87,10 +87,12 @@ public interface IUserRepository
     /// user with the given id exists (nothing was changed).
     /// </returns>
     /// <remarks>
-    /// This intentionally releases the email reservation that
-    /// <see cref="ExistsByEmailAsync"/> enforces for soft-deleted accounts —
-    /// permanent deletion exists to clean experimental accounts out of the
-    /// database entirely.
+    /// Staged destruction: writes the zero-PII tombstone (a PERMANENT
+    /// identifier reservation — deleted emails/usernames are never recycled),
+    /// crypto-shreds the per-user encryption key, anonymizes the audit and
+    /// login-attempt history in place, cascades every owned row and finally
+    /// removes the account row. Terminal AccountDeletionRequests rows are
+    /// retained untouched as destruction evidence.
     /// </remarks>
     Task<bool> HardDeleteAsync(Guid id, CancellationToken cancellationToken);
 

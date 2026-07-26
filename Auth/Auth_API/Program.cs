@@ -83,6 +83,7 @@ builder.Services.AddOptions<EmailSettings>()
     .ValidateOnStart();
 builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSection(NotificationSettings.SectionName));
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
+builder.Services.Configure<AccountDeletionSettings>(builder.Configuration.GetSection(AccountDeletionSettings.SectionName));
 builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -362,6 +363,7 @@ builder.Services.AddSingleton<TokenBlacklistService>();
 builder.Services.AddSingleton<ITokenBlacklistService>(sp => sp.GetRequiredService<TokenBlacklistService>());
 builder.Services.AddHostedService<TokenRevocationBackgroundService>();
 builder.Services.AddSingleton<IRefreshTokenKeyService, RefreshTokenKeyService>();
+builder.Services.AddSingleton<IIdentifierHasher, IdentifierHasher>();
 builder.Services.AddSingleton<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
 builder.Services.AddSingleton<IWebhookKeyHasher, WebhookKeyHasher>();
 builder.Services.AddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
@@ -389,6 +391,10 @@ builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageServic
 builder.Services.AddSingleton<IImageUrlComposer, ImageUrlComposer>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
+// Account deletion: the shared credential-kill primitive and the shared
+// owned-organization rule used by every deletion flow.
+builder.Services.AddScoped<ICredentialRevocationService, CredentialRevocationService>();
+builder.Services.AddScoped<Auth.Application.Features.Users.Common.OwnedOrganizationDeletionGuard>();
 
 // Breached-password policy. Request-scoped warning sink + evaluator are always registered (cheap);
 // the actual checker is HIBP only when enabled, otherwise a no-op with NO HttpClient registered.

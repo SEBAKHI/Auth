@@ -19,7 +19,8 @@ public static class ProductionSecretGuard
     private static readonly string[] PlaintextSecretKeys =
     [
         "Jwt:PrivateKeyPem",
-        "Jwt:RefreshTokenHmacKeyPlain"
+        "Jwt:RefreshTokenHmacKeyPlain",
+        "AccountDeletion:IdentifierHmacKeyPlain"
     ];
 
     public static void EnsureNoPlaintextSecrets(IConfiguration configuration, bool isProduction)

@@ -1,4 +1,6 @@
+using Auth.Application.Features.Users.Common;
 using Auth.Application.Features.Users.HardDeleteUser;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -15,6 +17,7 @@ public class HardDeleteUserCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IOrganizationRepository> _organizationRepositoryMock;
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
     private readonly Mock<IPublisher> _publisherMock;
     private readonly HardDeleteUserCommandHandler _handler;
 
@@ -22,6 +25,7 @@ public class HardDeleteUserCommandHandlerTests
     {
         _userRepositoryMock = new Mock<IUserRepository>();
         _organizationRepositoryMock = new Mock<IOrganizationRepository>();
+        _credentialRevocationMock = new Mock<ICredentialRevocationService>();
         _publisherMock = new Mock<IPublisher>();
 
         // Default: the user owns no organizations and the purge succeeds
@@ -34,7 +38,10 @@ public class HardDeleteUserCommandHandlerTests
 
         _handler = new HardDeleteUserCommandHandler(
             _userRepositoryMock.Object,
-            _organizationRepositoryMock.Object,
+            new OwnedOrganizationDeletionGuard(
+                _organizationRepositoryMock.Object,
+                new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),
+            _credentialRevocationMock.Object,
             _publisherMock.Object,
             new Mock<ILogger<HardDeleteUserCommandHandler>>().Object);
     }
@@ -54,6 +61,9 @@ public class HardDeleteUserCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _userRepositoryMock.Verify(r => r.HardDeleteAsync(userId, It.IsAny<CancellationToken>()), Times.Once());
+        _credentialRevocationMock.Verify(
+            s => s.RevokeAllCredentialsAsync(userId, command.DeletedBy, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once());
         _publisherMock.Verify(p => p.Publish(It.IsAny<UserHardDeletedEvent>(), It.IsAny<CancellationToken>()), Times.Once());
     }
 
@@ -99,7 +109,10 @@ public class HardDeleteUserCommandHandlerTests
         var organizationRepository = new Mock<IOrganizationRepository>();
         var softDeleteHandler = new Auth.Application.Features.Users.DeleteUser.DeleteUserCommandHandler(
             _userRepositoryMock.Object,
-            organizationRepository.Object,
+            new OwnedOrganizationDeletionGuard(
+                organizationRepository.Object,
+                new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),
+            new Mock<ICredentialRevocationService>().Object,
             _publisherMock.Object,
             new Mock<ILogger<Auth.Application.Features.Users.DeleteUser.DeleteUserCommandHandler>>().Object);
 

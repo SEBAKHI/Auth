@@ -63,30 +63,71 @@ public class UserHardDeleteSqlTests
     }
 
     [Fact]
-    public void OrganizationsOwnership_IsResolvedByTheCommandHandler()
+    public void OrganizationsOwnership_IsResolvedByTheSharedGuard()
     {
-        var handler = File.ReadAllText(Path.Combine(
+        var guard = File.ReadAllText(Path.Combine(
             SolutionDirectory(), "Auth.Application", "Features", "Users",
-            "HardDeleteUser", "HardDeleteUserCommandHandler.cs"));
+            "Common", "OwnedOrganizationDeletionGuard.cs"));
 
-        handler.Should().Contain("GetByOwnerAsync",
-            "the handler must resolve owned organizations before the purge; " +
+        guard.Should().Contain("GetByOwnerAsync",
+            "the shared guard must resolve owned organizations before any purge; " +
             "Organizations.OwnerId is exempted from the purge SQL on that basis");
-        handler.Should().Contain("GetMemberCountsAsync",
+        guard.Should().Contain("GetMemberCountsAsync",
             "owned organizations with other members must block the purge");
+
+        foreach (var handlerPath in new[]
+        {
+            Path.Combine("DeleteUser", "DeleteUserCommandHandler.cs"),
+            Path.Combine("HardDeleteUser", "HardDeleteUserCommandHandler.cs")
+        })
+        {
+            var handler = File.ReadAllText(Path.Combine(
+                SolutionDirectory(), "Auth.Application", "Features", "Users", handlerPath));
+            handler.Should().Contain("OwnedOrganizationDeletionGuard",
+                $"{handlerPath} must apply the owned-organization rule through the shared guard");
+        }
     }
 
     [Theory]
-    [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[AuditLogs\]\s+WHERE\s+\[UserId\]\s*=\s*@Id\s+OR\s+\[PerformedBy\]\s*=\s*@Id",
-        "the user's audit trail (rows about them and rows they performed) must be purged")]
+    [InlineData(@"UPDATE\s+\[dbo\]\.\[AuditLogs\]\s+SET\s+\[UserId\]\s*=\s*NULL,\s*\[OldValues\]\s*=\s*NULL,\s*\[NewValues\]\s*=\s*NULL,\s*\[Details\]\s*=\s*NULL,\s*\[IpAddress\]\s*=\s*NULL,\s*\[UserAgent\]\s*=\s*NULL\s+WHERE\s+\[UserId\]\s*=\s*@Id",
+        "audit rows about the user must be anonymized in place (identity and PII payloads stripped), never deleted")]
+    [InlineData(@"UPDATE\s+\[dbo\]\.\[AuditLogs\]\s+SET\s+\[PerformedBy\]\s*=\s*@SystemUserId,\s*\[IpAddress\]\s*=\s*NULL,\s*\[UserAgent\]\s*=\s*NULL\s+WHERE\s+\[PerformedBy\]\s*=\s*@Id",
+        "audit rows the user performed must be reattributed to the system account with their IP/agent stripped")]
+    [InlineData(@"UPDATE\s+\[dbo\]\.\[LoginAttempts\]\s+SET\s+\[UserId\]\s*=\s*NULL,\s*\[Username\]\s*=\s*N'\[deleted\]'\s+WHERE\s+\[UserId\]\s*=\s*@Id",
+        "login attempts must be anonymized (fraud signal retained within retention, identity stripped)")]
     [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[NotificationOutbox\]\s+WHERE\s+\[RecipientUserId\]\s*=\s*@Id",
         "queued notifications addressed to the user must be purged")]
     [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[RevokedTokens\]\s+WHERE\s+\[RevocationKey\]",
         "denylist entries keyed by the user id must be purged")]
+    [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[AccountDeletionVerifications\]\s+WHERE\s+\[UserId\]\s*=\s*@Id",
+        "deletion re-auth OTP rows are Class A and must be purged with the account")]
     public void LooseUserReferences_AreCoveredByThePurge(string pattern, string because)
     {
         new Regex(pattern, RegexOptions.IgnoreCase).IsMatch(HardDeleteSql())
             .Should().BeTrue(because);
+    }
+
+    [Fact]
+    public void Purge_WritesTheTombstoneWithReservationHashes()
+    {
+        var purgeSql = HardDeleteSql();
+
+        new Regex(@"MERGE\s+\[dbo\]\.\[AccountDeletionTombstones\]", RegexOptions.IgnoreCase)
+            .IsMatch(purgeSql).Should().BeTrue(
+                "destruction must write the zero-PII tombstone idempotently before anything is removed");
+        purgeSql.Should().ContainAll("@EmailHash", "@UsernameHash", "@PolicyVersion");
+    }
+
+    [Fact]
+    public void Purge_NeverDeletesLogsOrDestructionEvidence()
+    {
+        var purgeSql = HardDeleteSql();
+
+        new Regex(@"DELETE\s+FROM\s+\[dbo\]\.\[(AuditLogs|LoginAttempts|AccountDeletionRequests|AccountDeletionTombstones)\]",
+                RegexOptions.IgnoreCase)
+            .IsMatch(purgeSql).Should().BeFalse(
+                "the audit/login history is anonymized (Class B/C), and deletion requests and " +
+                "tombstones are destruction evidence retained >= 3 years — none may ever be deleted");
     }
 
     [Fact]

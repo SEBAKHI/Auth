@@ -1,142 +1,71 @@
-﻿using Auth.Application.Features.Authentication.TerminateAllSessions;
+using Auth.Application.Features.Authentication.TerminateAllSessions;
 using Auth.Application.Interfaces;
-using Auth.Domain.Interfaces.Repositories;
-using Auth.Domain.Enums;
-using Auth_API.Tests.Helpers;
-using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.Authentication.Commands;
 
 /// <summary>
-/// Unit tests for TerminateAllSessionsCommandHandler.
+/// Unit tests for TerminateAllSessionsCommandHandler. The session mechanics
+/// live in CredentialRevocationService (tested separately); the handler's job
+/// is correct delegation and reason selection.
 /// </summary>
 public class TerminateAllSessionsCommandHandlerTests
 {
-    private readonly Mock<IUserSessionRepository> _sessionRepositoryMock;
-    private readonly Mock<ILogger<TerminateAllSessionsCommandHandler>> _loggerMock;
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly TerminateAllSessionsCommandHandler _handler;
 
     public TerminateAllSessionsCommandHandlerTests()
     {
-        _sessionRepositoryMock = new Mock<IUserSessionRepository>();
-        _loggerMock = new Mock<ILogger<TerminateAllSessionsCommandHandler>>();
-
-        _handler = new TerminateAllSessionsCommandHandler(
-            _sessionRepositoryMock.Object,
-            new Mock<IRefreshTokenRepository>().Object,
-            new Mock<ITokenBlacklistService>().Object,
-            _loggerMock.Object);
+        _handler = new TerminateAllSessionsCommandHandler(_credentialRevocationMock.Object);
     }
 
     [Fact]
-    public async Task Handle_NoExceptSessionId_TerminatesAllSessionsAndReturnsCount()
+    public async Task Handle_NoExceptSessionId_DelegatesWithAllSessionsReasonAndReturnsCount()
     {
-        // Arrange
         var userId = Guid.NewGuid();
         var command = new TerminateAllSessionsCommand(userId);
-        var sessions = new List<Auth.Domain.Entities.UserSession>
-        {
-            TestHelpers.CreateUserSession(userId: userId, isActive: true),
-            TestHelpers.CreateUserSession(userId: userId, isActive: true),
-            TestHelpers.CreateUserSession(userId: userId, isActive: true)
-        };
+        _credentialRevocationMock
+            .Setup(s => s.TerminateSessionsAsync(userId, null, userId, "User terminated all sessions", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(3);
 
-        _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sessions);
-
-        // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         result.IsError.Should().BeFalse();
         result.Value.Should().Be(3);
-
-        _sessionRepositoryMock.Verify(
-            r => r.TerminateAllForUserAsync(userId, "User terminated all sessions", It.IsAny<CancellationToken>()),
+        _credentialRevocationMock.Verify(
+            s => s.TerminateSessionsAsync(userId, null, userId, "User terminated all sessions", It.IsAny<CancellationToken>()),
             Times.Once);
-        _sessionRepositoryMock.Verify(
-            r => r.TerminateOtherSessionsAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
     }
 
     [Fact]
-    public async Task Handle_WithExceptSessionId_TerminatesOtherSessionsAndReturnsCount()
+    public async Task Handle_WithExceptSessionId_DelegatesWithOtherSessionsReasonAndReturnsCount()
     {
-        // Arrange
         var userId = Guid.NewGuid();
         var currentSessionId = Guid.NewGuid();
         var command = new TerminateAllSessionsCommand(userId, currentSessionId);
-        var sessions = new List<Auth.Domain.Entities.UserSession>
-        {
-            TestHelpers.CreateUserSession(id: currentSessionId, userId: userId, isActive: true),
-            TestHelpers.CreateUserSession(userId: userId, isActive: true),
-            TestHelpers.CreateUserSession(userId: userId, isActive: true)
-        };
+        _credentialRevocationMock
+            .Setup(s => s.TerminateSessionsAsync(userId, currentSessionId, userId, "User terminated all other sessions", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(2);
 
-        _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sessions);
-
-        // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
         result.IsError.Should().BeFalse();
         result.Value.Should().Be(2);
-
-        _sessionRepositoryMock.Verify(
-            r => r.TerminateOtherSessionsAsync(
-                userId,
-                currentSessionId,
-                "User terminated all other sessions",
-                It.IsAny<CancellationToken>()),
+        _credentialRevocationMock.Verify(
+            s => s.TerminateSessionsAsync(userId, currentSessionId, userId, "User terminated all other sessions", It.IsAny<CancellationToken>()),
             Times.Once);
-        _sessionRepositoryMock.Verify(
-            r => r.TerminateAllForUserAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
     }
 
     [Fact]
     public async Task Handle_NoActiveSessions_ReturnsZero()
     {
-        // Arrange
         var userId = Guid.NewGuid();
         var command = new TerminateAllSessionsCommand(userId);
-        var sessions = new List<Auth.Domain.Entities.UserSession>();
+        _credentialRevocationMock
+            .Setup(s => s.TerminateSessionsAsync(userId, null, userId, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
 
-        _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sessions);
-
-        // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
-        result.IsError.Should().BeFalse();
-        result.Value.Should().Be(0);
-    }
-
-    [Fact]
-    public async Task Handle_WithExceptSessionIdAndOnlyCurrentSession_ReturnsZero()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var currentSessionId = Guid.NewGuid();
-        var command = new TerminateAllSessionsCommand(userId, currentSessionId);
-        var sessions = new List<Auth.Domain.Entities.UserSession>
-        {
-            TestHelpers.CreateUserSession(id: currentSessionId, userId: userId, isActive: true)
-        };
-
-        _sessionRepositoryMock
-            .Setup(r => r.GetActiveSessionsForUserAsync(userId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(sessions);
-
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
-
-        // Assert
         result.IsError.Should().BeFalse();
         result.Value.Should().Be(0);
     }

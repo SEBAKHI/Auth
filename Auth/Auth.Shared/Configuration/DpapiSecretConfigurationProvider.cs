@@ -103,6 +103,12 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
             Data["Jwt:RefreshTokenHmacKeyPlain"] = secrets.RefreshTokenHmacKey;
         }
 
+        // Account-deletion identifier HMAC key (permanent; never rotated) for IdentifierHasher
+        if (!string.IsNullOrEmpty(secrets.AccountDeletionIdentifierHmacKey))
+        {
+            Data["AccountDeletion:IdentifierHmacKeyPlain"] = secrets.AccountDeletionIdentifierHmacKey;
+        }
+
         // Email settings - SMTP password
         if (!string.IsNullOrEmpty(secrets.SmtpPassword))
         {
