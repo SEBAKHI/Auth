@@ -113,6 +113,10 @@
     <Build Include="dbo\Tables\Security\ApiKeys.sql" />
     <Build Include="dbo\Tables\Security\ApiKeyScopes.sql" />
     <Build Include="dbo\Tables\Security\WebhookKeys.sql" />
+    <Build Include="dbo\Tables\Security\AccountDeletionRequests.sql" />
+    <Build Include="dbo\Tables\Security\AccountDeletionTombstones.sql" />
+    <Build Include="dbo\Tables\Security\AccountDeletionVerifications.sql" />
+    <Build Include="dbo\Tables\Security\UserEncryptionKeys.sql" />
     <Build Include="dbo\Tables\Organizations\Organizations.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationUsers.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationApplications.sql" />

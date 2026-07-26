@@ -279,6 +279,11 @@ public class UserRepository : IUserRepository
         // reattributed to the system account so those rows keep resolving.
         // UserHardDeleteSqlTests guards this list against schema drift.
         await connection.ExecuteAsync(@"
+            -- Crypto-shred first: destroying the per-user DEK renders every
+            -- ciphertext under it (phone number, TOTP secret, provider refresh
+            -- token) unrecoverable, in this database and in every backup.
+            DELETE FROM [dbo].[UserEncryptionKeys] WHERE [UserId] = @Id;
+
             -- Credentials, sessions and security artifacts owned by the user
             DELETE FROM [dbo].[RefreshTokens] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[UserSessions] WHERE [UserId] = @Id;
