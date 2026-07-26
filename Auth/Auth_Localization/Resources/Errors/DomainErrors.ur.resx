@@ -122,6 +122,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>سسٹم صارفین میں ترمیم نہیں کی جا سکتی۔</value>
   </data>
+  <data name="User.NotSoftDeleted" xml:space="preserve">
+    <value>صرف حذف شدہ اکاؤنٹس کو مستقل طور پر ہٹایا جا سکتا ہے۔ پہلے اکاؤنٹ حذف کریں۔</value>
+  </data>
+  <data name="User.DeletedUsersViewNotAllowed" xml:space="preserve">
+    <value>حذف شدہ اکاؤنٹس دیکھنے کے لیے صارف نظم و نسق کی اجازت درکار ہے۔</value>
+  </data>
   <data name="User.TwoFactorRequired" xml:space="preserve">
     <value>اس اکاؤنٹ کے لیے دو مرحلہ تصدیق لازمی ہے۔</value>
   </data>

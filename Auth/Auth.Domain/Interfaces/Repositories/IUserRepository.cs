@@ -8,9 +8,16 @@ namespace Auth.Domain.Interfaces.Repositories;
 public interface IUserRepository
 {
     /// <summary>
-    /// Gets a user by their unique identifier.
+    /// Gets a user by their unique identifier. Soft-deleted users are excluded.
     /// </summary>
     Task<User?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets a user by their unique identifier, including soft-deleted users.
+    /// Intended for administrative flows that operate on deleted accounts
+    /// (permanent deletion); operational reads must use <see cref="GetByIdAsync"/>.
+    /// </summary>
+    Task<User?> GetByIdIncludeDeletedAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets the users matching the given identifiers in a single round-trip.
@@ -63,14 +70,36 @@ public interface IUserRepository
     Task UpdateAsync(User user, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Deletes a user by their identifier.
+    /// Soft-deletes a user by their identifier (sets IsDeleted; the row and its
+    /// history remain, and the email stays reserved).
     /// </summary>
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Permanently removes a soft-deleted user and every dependent record
+    /// (sessions, tokens, role/permission assignments, organization
+    /// memberships, notifications, and the user's audit trail) in a single
+    /// transaction. Actor references on records that belong to other entities
+    /// are reattributed to the system account so no orphaned references remain.
+    /// </summary>
+    /// <returns>
+    /// <c>true</c> when the user was purged; <c>false</c> when no soft-deleted
+    /// user with the given id exists (nothing was changed).
+    /// </returns>
+    /// <remarks>
+    /// This intentionally releases the email reservation that
+    /// <see cref="ExistsByEmailAsync"/> enforces for soft-deleted accounts —
+    /// permanent deletion exists to clean experimental accounts out of the
+    /// database entirely.
+    /// </remarks>
+    Task<bool> HardDeleteAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets users with pagination. <paramref name="sortBy"/> accepts the
     /// allow-listed field names in <see cref="Constants.SortFields.Users"/>;
-    /// null keeps the default order.
+    /// null keeps the default order. <paramref name="includeDeleted"/> widens
+    /// the result to soft-deleted users; callers must gate it behind user
+    /// management permission.
     /// </summary>
     Task<(IReadOnlyList<User> Users, int TotalCount)> GetPagedAsync(
         int pageNumber,
@@ -78,6 +107,7 @@ public interface IUserRepository
         string? searchTerm,
         string? sortBy,
         Enums.SortDirection sortDirection,
+        bool includeDeleted,
         CancellationToken cancellationToken);
 
     /// <summary>

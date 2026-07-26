@@ -122,6 +122,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>لا يمكن تعديل مستخدمي النظام.</value>
   </data>
+  <data name="User.NotSoftDeleted" xml:space="preserve">
+    <value>لا يمكن الحذف النهائي إلا للحسابات المحذوفة. احذف الحساب أولًا.</value>
+  </data>
+  <data name="User.DeletedUsersViewNotAllowed" xml:space="preserve">
+    <value>يتطلب عرض الحسابات المحذوفة صلاحية إدارة المستخدمين.</value>
+  </data>
   <data name="User.TwoFactorRequired" xml:space="preserve">
     <value>المصادقة الثنائية مطلوبة لهذا الحساب.</value>
   </data>

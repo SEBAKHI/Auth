@@ -122,6 +122,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>Sistem kullanıcıları değiştirilemez.</value>
   </data>
+  <data name="User.NotSoftDeleted" xml:space="preserve">
+    <value>Yalnızca silinmiş hesaplar kalıcı olarak kaldırılabilir. Önce hesabı silin.</value>
+  </data>
+  <data name="User.DeletedUsersViewNotAllowed" xml:space="preserve">
+    <value>Silinmiş hesapları görüntülemek kullanıcı yönetimi izni gerektirir.</value>
+  </data>
   <data name="User.TwoFactorRequired" xml:space="preserve">
     <value>Bu hesap için iki faktörlü kimlik doğrulama gereklidir.</value>
   </data>

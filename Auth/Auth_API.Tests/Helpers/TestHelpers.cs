@@ -29,7 +29,10 @@ public static class TestHelpers
         bool emailConfirmed = true,
         Guid? createdBy = null,
         bool twoFactorEnabled = false,
-        string preferredLanguage = "en")
+        string preferredLanguage = "en",
+        bool isSystemUser = false,
+        bool isDeleted = false,
+        DateTime? deletedAt = null)
     {
         var userId = id ?? Guid.NewGuid();
         var userEmail = email ?? $"user-{userId:N}@test.com";
@@ -56,11 +59,13 @@ public static class TestHelpers
             preferredLanguage: preferredLanguage,
             timeZone: "UTC",
             metadata: null,
-            isSystemUser: false,
+            isSystemUser: isSystemUser,
             createdAt: DateTime.UtcNow,
             createdBy: createdBy ?? SystemUserId,
             modifiedAt: null,
-            modifiedBy: null);
+            modifiedBy: null,
+            isDeleted: isDeleted,
+            deletedAt: deletedAt);
     }
 
     /// <summary>

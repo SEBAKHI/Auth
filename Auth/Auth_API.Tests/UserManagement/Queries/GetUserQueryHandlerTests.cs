@@ -74,7 +74,7 @@ public class GetUsersQueryHandlerTests
     {
         var user = TestHelpers.CreateUser();
         _userRepositoryMock
-            .Setup(r => r.GetPagedAsync(1, 20, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(1, 20, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), false, It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<User> { user } as IReadOnlyList<User>, 1));
         _roleRepositoryMock
             .Setup(r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -88,6 +88,30 @@ public class GetUsersQueryHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Users.Should().HaveCount(1);
         result.Value.TotalCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Handle_IncludeDeleted_PassesFlagThroughAndMapsDeletionState()
+    {
+        var deletedAt = DateTime.UtcNow.AddDays(-1);
+        var user = TestHelpers.CreateUser(isDeleted: true, deletedAt: deletedAt);
+        _userRepositoryMock
+            .Setup(r => r.GetPagedAsync(1, 20, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), true, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<User> { user } as IReadOnlyList<User>, 1));
+        _roleRepositoryMock
+            .Setup(r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Role>());
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string>());
+
+        var result = await _handler.Handle(
+            new GetUsersQuery(IncludeDeleted: true), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Users.Should().HaveCount(1);
+        result.Value.Users[0].IsDeleted.Should().BeTrue();
+        result.Value.Users[0].DeletedAt.Should().Be(deletedAt);
     }
 }
 

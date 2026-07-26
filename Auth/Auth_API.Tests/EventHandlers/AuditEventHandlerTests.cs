@@ -190,6 +190,38 @@ public class UserDeletedAuditEventHandlerTests
     }
 }
 
+public class UserHardDeletedAuditEventHandlerTests
+{
+    private readonly Mock<IAuditLogRepository> _repoMock = new();
+    private readonly UserHardDeletedAuditEventHandler _handler;
+
+    public UserHardDeletedAuditEventHandlerTests()
+    {
+        _handler = new UserHardDeletedAuditEventHandler(
+            _repoMock.Object,
+            new Mock<ILogger<UserHardDeletedAuditEventHandler>>().Object);
+    }
+
+    [Fact]
+    public async Task Handle_CreatesTombstoneAttributedToAdministrator()
+    {
+        var purgedUserId = Guid.NewGuid();
+        var adminId = Guid.NewGuid();
+        var evt = new UserHardDeletedEvent(purgedUserId, "purged@example.com", adminId);
+
+        await _handler.Handle(evt, CancellationToken.None);
+
+        // The purge removed the account's own audit rows, so the tombstone must
+        // reference only the administrator — never the deleted user id in UserId.
+        _repoMock.Verify(r => r.CreateAsync(
+            It.Is<AuditLog>(log =>
+                log.Action == "user.harddeleted" &&
+                log.UserId == adminId &&
+                log.EntityId == purgedUserId),
+            It.IsAny<CancellationToken>()), Times.Once());
+    }
+}
+
 public class TwoFactorEnabledAuditEventHandlerTests
 {
     private readonly Mock<IAuditLogRepository> _repoMock = new();

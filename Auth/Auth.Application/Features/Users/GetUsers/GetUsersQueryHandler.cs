@@ -37,6 +37,7 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
             request.SearchTerm,
             request.SortBy,
             request.SortDirection,
+            request.IncludeDeleted,
             cancellationToken);
 
         var userNames = await NameLookupHelper.UserNamesAsync(
@@ -80,6 +81,8 @@ public class GetUsersQueryHandler : IRequestHandler<GetUsersQuery, ErrorOr<Paged
                 ModifiedByName = user.ModifiedBy.HasValue
                     ? userNames.GetValueOrDefault(user.ModifiedBy.Value)
                     : null,
+                IsDeleted = user.IsDeleted,
+                DeletedAt = user.DeletedAt,
                 Roles = roles.Select(r => r.Code).ToList(),
                 Permissions = permissions.ToList()
             });

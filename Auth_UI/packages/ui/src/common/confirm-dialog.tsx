@@ -26,6 +26,7 @@ export function ConfirmDialog({
   confirmLabel,
   destructive = false,
   loading = false,
+  confirmDisabled = false,
   onConfirm,
   children,
 }: {
@@ -36,6 +37,8 @@ export function ConfirmDialog({
   confirmLabel?: string
   destructive?: boolean
   loading?: boolean
+  /** Keeps the confirm button disabled, e.g. until a type-to-confirm check passes. */
+  confirmDisabled?: boolean
   onConfirm: () => void
   children?: React.ReactNode
 }) {
@@ -58,7 +61,7 @@ export function ConfirmDialog({
           <Button
             variant={destructive ? "destructive" : "default"}
             onClick={onConfirm}
-            disabled={loading}
+            disabled={loading || confirmDisabled}
           >
             {loading ? <Loader2 className="animate-spin" /> : null}
             {confirmLabel ?? t("common.confirm")}

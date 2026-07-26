@@ -136,6 +136,18 @@ public class User : AggregateRoot
     /// </summary>
     public DateTime? PasswordExpiresUtc { get; private set; }
 
+    /// <summary>
+    /// Gets whether the account has been soft-deleted. Soft-deleted accounts are
+    /// hidden from operational reads and keep their email reserved; they are the
+    /// only accounts eligible for permanent (hard) deletion.
+    /// </summary>
+    public bool IsDeleted { get; private set; }
+
+    /// <summary>
+    /// Gets the UTC timestamp when the account was soft-deleted; null while the account is live.
+    /// </summary>
+    public DateTime? DeletedAt { get; private set; }
+
     private User() : base()
     {
     }
@@ -170,7 +182,9 @@ public class User : AggregateRoot
         string? profileImageUrl = null,
         string? lastLoginIp = null,
         DateTime? passwordExpiresUtc = null,
-        string? theme = "system") : base(id)
+        string? theme = "system",
+        bool isDeleted = false,
+        DateTime? deletedAt = null) : base(id)
     {
         Email = Email.From(email);
         NormalizedEmail = normalizedEmail;
@@ -201,6 +215,8 @@ public class User : AggregateRoot
         LastLoginIp = lastLoginIp;
         PasswordExpiresUtc = passwordExpiresUtc;
         Theme = theme;
+        IsDeleted = isDeleted;
+        DeletedAt = deletedAt;
     }
 
     public static User Create(

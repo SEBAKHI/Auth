@@ -122,6 +122,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>System users cannot be modified.</value>
   </data>
+  <data name="User.NotSoftDeleted" xml:space="preserve">
+    <value>Only deleted accounts can be permanently removed. Delete the account first.</value>
+  </data>
+  <data name="User.DeletedUsersViewNotAllowed" xml:space="preserve">
+    <value>Viewing deleted accounts requires user management permission.</value>
+  </data>
   <data name="User.TwoFactorRequired" xml:space="preserve">
     <value>Two-factor authentication is required for this account.</value>
   </data>

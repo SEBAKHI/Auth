@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -36,8 +37,10 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, Error
             return UserErrors.NotFound(request.Id);
         }
 
-        // Cannot delete system users
-        if (user.IsSystemUser)
+        // Cannot delete system users. The well-known id check is the effective
+        // guard: no query populates IsSystemUser (the Users table has no such
+        // column), so the flag alone would wave the system account through.
+        if (user.IsSystemUser || request.Id == WellKnownUserIds.System)
         {
             return UserErrors.CannotDeleteSystemUser;
         }

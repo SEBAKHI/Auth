@@ -373,6 +373,14 @@ export const en = {
     deleteTitle: "Delete user",
     deleteBody:
       "This permanently deletes {{name}}. This action cannot be undone. Any organizations they solely own will be permanently deleted too; organizations with other members must have their ownership transferred first.",
+    showDeleted: "Show deleted",
+    deletedStatus: "Deleted",
+    hardDelete: "Delete permanently",
+    hardDeleteTitle: "Permanently delete user",
+    hardDeleteBody:
+      "This permanently erases {{name}} and every associated record — sessions, tokens, roles, organization memberships, notifications, and audit history. This cannot be undone.",
+    hardDeleteConfirmHint: "Type {{email}} to confirm.",
+    permanentlyDeleted: "User permanently deleted.",
     assignRole: "Assign role",
     grantPermission: "Grant permission",
     noRoles: "No roles assigned.",

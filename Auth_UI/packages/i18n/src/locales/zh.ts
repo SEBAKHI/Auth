@@ -368,6 +368,14 @@ export const zh: TranslationResources = {
     deleteTitle: "删除用户",
     deleteBody:
       "这将永久删除 {{name}}。此操作无法撤销。其唯一拥有的组织也将被永久删除；含有其他成员的组织必须先转移所有权。",
+    showDeleted: "显示已删除",
+    deletedStatus: "已删除",
+    hardDelete: "永久删除",
+    hardDeleteTitle: "永久删除用户",
+    hardDeleteBody:
+      "这将永久抹除 {{name}} 及其所有关联记录——会话、令牌、角色、组织成员资格、通知和审计历史。此操作无法撤销。",
+    hardDeleteConfirmHint: "输入 {{email}} 以确认。",
+    permanentlyDeleted: "用户已永久删除。",
     assignRole: "分配角色",
     grantPermission: "授予权限",
     noRoles: "未分配角色。",

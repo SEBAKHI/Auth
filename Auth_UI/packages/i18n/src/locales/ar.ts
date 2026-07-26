@@ -378,6 +378,14 @@ export const ar: TranslationResources = {
     deleteTitle: "حذف المستخدم",
     deleteBody:
       "سيؤدي هذا إلى حذف {{name}} نهائيًا. لا يمكن التراجع عن هذا الإجراء. وستُحذف نهائيًا أي منظمات يملكها وحده؛ أما المنظمات التي بها أعضاء آخرون فيجب نقل ملكيتها أولًا.",
+    showDeleted: "عرض المحذوفين",
+    deletedStatus: "محذوف",
+    hardDelete: "حذف نهائي",
+    hardDeleteTitle: "حذف المستخدم نهائيًا",
+    hardDeleteBody:
+      "سيؤدي هذا إلى محو {{name}} نهائيًا مع كل السجلات المرتبطة — الجلسات والرموز والأدوار وعضويات المنظمات والإشعارات وسجل التدقيق. لا يمكن التراجع عن هذا الإجراء.",
+    hardDeleteConfirmHint: "اكتب {{email}} للتأكيد.",
+    permanentlyDeleted: "تم حذف المستخدم نهائيًا.",
     assignRole: "إسناد دور",
     grantPermission: "منح صلاحية",
     noRoles: "لا توجد أدوار مسندة.",

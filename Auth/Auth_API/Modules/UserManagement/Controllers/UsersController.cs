@@ -14,6 +14,7 @@ using Auth.Application.Features.Users.GetUserPermissions;
 using Auth.Application.Features.Users.GetUserRoles;
 using Auth.Application.Features.Users.GetUsers;
 using Auth.Application.Features.Users.GrantUserPermission;
+using Auth.Application.Features.Users.HardDeleteUser;
 using Auth.Application.Features.Users.LockAccount;
 using Auth.Application.Features.Users.RemoveProfileImage;
 using Auth.Application.Features.Users.RemoveUserRole;
@@ -47,7 +48,9 @@ public class UsersController : ApiController
     }
 
     /// <summary>
-    /// Get all users with pagination.
+    /// Get all users with pagination. <paramref name="includeDeleted"/> widens
+    /// the result to soft-deleted accounts and requires platform user
+    /// management permission on top of read access.
     /// </summary>
     [HttpGet]
     [RequirePermission("users:read")]
@@ -60,9 +63,15 @@ public class UsersController : ApiController
         [FromQuery] string? searchTerm = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
+        [FromQuery] bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetUsersQuery(pageNumber, pageSize, searchTerm, sortBy, sortDirection);
+        if (includeDeleted && !HasPermissionClaim("users:manage"))
+        {
+            return Problem([Auth.Domain.Errors.UserErrors.DeletedUsersViewNotAllowed]);
+        }
+
+        var query = new GetUsersQuery(pageNumber, pageSize, searchTerm, sortBy, sortDirection, includeDeleted);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -168,6 +177,30 @@ public class UsersController : ApiController
     {
         var userId = GetCurrentUserId();
         var command = new DeleteUserCommand(id) { DeletedBy = userId };
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Permanently delete a soft-deleted user and every dependent record
+    /// (sessions, tokens, assignments, memberships, notifications and audit
+    /// trail). Irreversible; requires platform user management permission and
+    /// only applies to accounts that were already deleted.
+    /// </summary>
+    [HttpDelete("{id:guid}/permanent")]
+    [RequirePermission("users:manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> HardDeleteUser(Guid id, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        var command = new HardDeleteUserCommand(id) { DeletedBy = userId };
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(

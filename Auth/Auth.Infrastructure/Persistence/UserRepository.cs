@@ -39,6 +39,34 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<User?> GetByIdIncludeDeletedAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var result = await connection.QueryFirstOrDefaultAsync<UserDto>(@"
+            SELECT
+                [Id], [Username], [Email], [NormalizedEmail], [PasswordHash],
+                [FirstName], [LastName], [FullName] AS [DisplayName], [PhoneNumber],
+                [PreferredLanguage], [TimeZone], [Theme],
+                [IsEmailConfirmed] AS [EmailConfirmed],
+                [IsPhoneConfirmed] AS [PhoneConfirmed],
+                [IsTwoFactorEnabled] AS [TwoFactorEnabled],
+                [Status], [FailedLoginAttempts],
+                [LockoutEndUtc] AS [LockoutEnd],
+                [LastLoginUtc] AS [LastLoginAt],
+                [LastPasswordChangeUtc] AS [PasswordChangedAt],
+                [MustChangePassword],
+                [ProfileImageUrl], [LastLoginIp], [PasswordExpiresUtc],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
+                [IsDeleted], [DeletedAt]
+            FROM [dbo].[Users]
+            WHERE [Id] = @Id",
+            new { Id = id });
+
+        return result?.ToUser();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<User>> GetByIdsAsync(
         IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken)
     {
@@ -223,6 +251,81 @@ public class UserRepository : IUserRepository
             new { Id = id });
     }
 
+    /// <inheritdoc />
+    public async Task<bool> HardDeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        // Re-verify eligibility inside the transaction: UPDLOCK/HOLDLOCK
+        // serializes with any concurrent write on the row, so a live account
+        // can never race past the soft-deleted check and get purged.
+        var eligible = await connection.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(1) FROM [dbo].[Users] WITH (UPDLOCK, HOLDLOCK)
+            WHERE [Id] = @Id AND [IsDeleted] = 1",
+            new { Id = id },
+            transaction);
+
+        if (eligible == 0)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        // Every table below either references Users through a non-cascading
+        // foreign key or carries a loose user reference (AuditLogs,
+        // NotificationOutbox, RevokedTokens). Rows the user owns are deleted;
+        // actor references on records that belong to other entities are
+        // reattributed to the system account so those rows keep resolving.
+        // UserHardDeleteSqlTests guards this list against schema drift.
+        await connection.ExecuteAsync(@"
+            -- Credentials, sessions and security artifacts owned by the user
+            DELETE FROM [dbo].[RefreshTokens] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[UserSessions] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[IdpSessions] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[AuthorizationCodes] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[LoginAttempts] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[UserExternalLogins] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[EmailVerificationTokens] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[PasswordResetTokens] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[PasswordHistory] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[TwoFactorChallenges] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[TwoFactorAuth] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[RevokedTokens] WHERE [RevocationKey] = CONVERT(NVARCHAR(200), @Id);
+
+            -- Platform-level assignments
+            DELETE FROM [dbo].[UserRoles] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[UserPermissions] WHERE [UserId] = @Id;
+
+            -- Organization memberships and artifacts the user authored
+            DELETE FROM [dbo].[OrganizationUserRoles] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[OrganizationUserPermissions] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[OrganizationUsers] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[OrganizationInvitations] WHERE [InvitedBy] = @Id;
+            DELETE FROM [dbo].[OwnershipTransferCodes] WHERE [TargetUserId] = @Id OR [InitiatedBy] = @Id;
+
+            -- Notifications addressed to the user
+            DELETE FROM [dbo].[NotificationOutbox] WHERE [RecipientUserId] = @Id;
+
+            -- The user's audit trail: rows about them and rows they performed
+            DELETE FROM [dbo].[AuditLogs] WHERE [UserId] = @Id OR [PerformedBy] = @Id;
+
+            -- Actor references on surviving records of other entities
+            UPDATE [dbo].[OrganizationApplications] SET [EnabledBy] = @SystemUserId WHERE [EnabledBy] = @Id;
+            UPDATE [dbo].[OrganizationUsers] SET [InvitedBy] = @SystemUserId WHERE [InvitedBy] = @Id;
+            UPDATE [dbo].[OrganizationUserRoles] SET [AssignedBy] = @SystemUserId WHERE [AssignedBy] = @Id;
+            UPDATE [dbo].[OrganizationUserPermissions] SET [GrantedBy] = @SystemUserId WHERE [GrantedBy] = @Id;
+            UPDATE [dbo].[OrganizationInvitations] SET [AcceptedByUserId] = NULL WHERE [AcceptedByUserId] = @Id;
+
+            -- The account row last; IsDeleted = 1 is the final in-database guard
+            DELETE FROM [dbo].[Users] WHERE [Id] = @Id AND [IsDeleted] = 1;",
+            new { Id = id, SystemUserId = WellKnownUserIds.System },
+            transaction);
+
+        transaction.Commit();
+        return true;
+    }
+
     private static readonly IReadOnlyDictionary<string, string[]> PagedSortColumns = SortSql.Map(
         (SortFields.Users.Name, ["[FullName]"]),
         (SortFields.Users.DisplayName, ["[FullName]"]),
@@ -247,6 +350,7 @@ public class UserRepository : IUserRepository
         string? searchTerm,
         string? sortBy,
         SortDirection sortDirection,
+        bool includeDeleted,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -258,7 +362,7 @@ public class UserRepository : IUserRepository
 
         var sql = $@"
             SELECT COUNT(1) FROM [dbo].[Users]
-            WHERE [IsDeleted] = 0
+            WHERE (@IncludeDeleted = 1 OR [IsDeleted] = 0)
               AND (@SearchPattern IS NULL OR
                    [Email] LIKE @SearchPattern OR
                    [FirstName] LIKE @SearchPattern OR
@@ -277,9 +381,10 @@ public class UserRepository : IUserRepository
                 [LastPasswordChangeUtc] AS [PasswordChangedAt],
                 [MustChangePassword],
                 [ProfileImageUrl], [LastLoginIp], [PasswordExpiresUtc],
-                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
+                [IsDeleted], [DeletedAt]
             FROM [dbo].[Users]
-            WHERE [IsDeleted] = 0
+            WHERE (@IncludeDeleted = 1 OR [IsDeleted] = 0)
               AND (@SearchPattern IS NULL OR
                    [Email] LIKE @SearchPattern OR
                    [FirstName] LIKE @SearchPattern OR
@@ -289,6 +394,7 @@ public class UserRepository : IUserRepository
 
         using var multi = await connection.QueryMultipleAsync(sql, new
         {
+            IncludeDeleted = includeDeleted,
             SearchPattern = searchPattern,
             Offset = offset,
             PageSize = pageSize
@@ -658,6 +764,8 @@ public class UserRepository : IUserRepository
         public string? ProfileImageUrl { get; init; }
         public string? LastLoginIp { get; init; }
         public DateTime? PasswordExpiresUtc { get; init; }
+        public bool IsDeleted { get; init; }
+        public DateTime? DeletedAt { get; init; }
 
         public User ToUser() => new(
             Id,
@@ -689,7 +797,9 @@ public class UserRepository : IUserRepository
             ProfileImageUrl,
             LastLoginIp,
             PasswordExpiresUtc,
-            Theme ?? "system");
+            Theme ?? "system",
+            IsDeleted,
+            DeletedAt);
     }
 
     /// <inheritdoc />

@@ -385,6 +385,14 @@ export const tr: TranslationResources = {
     deleteTitle: "Kullanıcıyı sil",
     deleteBody:
       "Bu işlem {{name}} kullanıcısını kalıcı olarak siler. Geri alınamaz. Yalnızca bu kullanıcının sahip olduğu organizasyonlar da kalıcı olarak silinir; başka üyeleri olan organizasyonların önce sahipliği devredilmelidir.",
+    showDeleted: "Silinenleri göster",
+    deletedStatus: "Silindi",
+    hardDelete: "Kalıcı olarak sil",
+    hardDeleteTitle: "Kullanıcıyı kalıcı olarak sil",
+    hardDeleteBody:
+      "Bu işlem {{name}} kullanıcısını ve ilişkili tüm kayıtları — oturumlar, belirteçler, roller, organizasyon üyelikleri, bildirimler ve denetim geçmişi — kalıcı olarak siler. Geri alınamaz.",
+    hardDeleteConfirmHint: "Onaylamak için {{email}} yazın.",
+    permanentlyDeleted: "Kullanıcı kalıcı olarak silindi.",
     assignRole: "Rol ata",
     grantPermission: "İzin ver",
     noRoles: "Atanmış rol yok.",

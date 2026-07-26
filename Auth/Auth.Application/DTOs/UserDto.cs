@@ -46,6 +46,12 @@ public class UserDto
     /// <summary>Display name of the last modifying user; null when unresolved.</summary>
     public string? ModifiedByName { get; set; }
 
+    /// <summary>Whether the account is soft-deleted. Only surfaced to callers who requested deleted accounts.</summary>
+    public bool IsDeleted { get; set; }
+
+    /// <summary>UTC timestamp of the soft deletion; null while the account is live.</summary>
+    public DateTime? DeletedAt { get; set; }
+
     public IReadOnlyList<string> Roles { get; set; } = [];
     public IReadOnlyList<string> Permissions { get; set; } = [];
 }

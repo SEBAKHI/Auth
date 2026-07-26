@@ -122,6 +122,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>系统用户不能被修改。</value>
   </data>
+  <data name="User.NotSoftDeleted" xml:space="preserve">
+    <value>只有已删除的账户才能被永久移除。请先删除该账户。</value>
+  </data>
+  <data name="User.DeletedUsersViewNotAllowed" xml:space="preserve">
+    <value>查看已删除账户需要用户管理权限。</value>
+  </data>
   <data name="User.TwoFactorRequired" xml:space="preserve">
     <value>此账户需要双因素身份验证。</value>
   </data>

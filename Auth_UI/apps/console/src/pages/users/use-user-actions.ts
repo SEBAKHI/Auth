@@ -14,6 +14,7 @@ export type UserStatusAction = "lock" | "unlock" | "activate" | "deactivate"
 export function useUserActions(options?: {
   onStatusChanged?: () => void
   onDeleted?: () => void
+  onHardDeleted?: () => void
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -83,5 +84,20 @@ export function useUserActions(options?: {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
-  return { statusAction, deleteMutation }
+  const hardDeleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await api.DELETE("/api/v1/Users/{id}/permanent", {
+        params: { path: { id } },
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void invalidateUsers()
+      toast.success(t("users.permanentlyDeleted"))
+      options?.onHardDeleted?.()
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  return { statusAction, deleteMutation, hardDeleteMutation }
 }

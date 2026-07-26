@@ -122,6 +122,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>کاربران سیستمی قابل ویرایش نیستند.</value>
   </data>
+  <data name="User.NotSoftDeleted" xml:space="preserve">
+    <value>فقط حساب‌های حذف‌شده را می‌توان برای همیشه حذف کرد. ابتدا حساب را حذف کنید.</value>
+  </data>
+  <data name="User.DeletedUsersViewNotAllowed" xml:space="preserve">
+    <value>مشاهده حساب‌های حذف‌شده به مجوز مدیریت کاربران نیاز دارد.</value>
+  </data>
   <data name="User.TwoFactorRequired" xml:space="preserve">
     <value>احراز هویت دو مرحله‌ای برای این حساب الزامی است.</value>
   </data>

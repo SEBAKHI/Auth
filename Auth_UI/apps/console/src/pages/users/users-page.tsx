@@ -20,6 +20,7 @@ import {
 } from "@astoom/ui/dropdown-menu"
 import { Input } from "@astoom/ui/input"
 import { Label } from "@astoom/ui/label"
+import { Switch } from "@astoom/ui/switch"
 import { api } from "@astoom/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
@@ -56,6 +57,9 @@ export function UsersPage() {
   const [lockUser, setLockUser] = React.useState<UserDto | undefined>()
   const [lockReason, setLockReason] = React.useState("")
   const [deleteUser, setDeleteUser] = React.useState<UserDto | undefined>()
+  const [showDeleted, setShowDeleted] = React.useState(false)
+  const [hardDeleteUser, setHardDeleteUser] = React.useState<UserDto | undefined>()
+  const [hardDeleteConfirm, setHardDeleteConfirm] = React.useState("")
 
   const canCreate = hasPermission(PERMISSIONS.users.create)
   const canUpdate = hasPermission(PERMISSIONS.users.update)
@@ -64,8 +68,15 @@ export function UsersPage() {
   const canManagePerms = hasPermission(PERMISSIONS.users.managePermissions)
   const canManage = hasPermission(PERMISSIONS.users.manage)
 
+  // Only users:manage callers may request deleted accounts; the API rejects
+  // the flag for anyone else, so it is simply never sent in that case.
+  const includeDeleted = (canManage && showDeleted) || undefined
+
   const query = useQuery({
-    queryKey: ["users", { page, pageSize, search, sortBy, sortDirection }],
+    queryKey: [
+      "users",
+      { page, pageSize, search, sortBy, sortDirection, includeDeleted },
+    ],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/Users", {
@@ -76,6 +87,7 @@ export function UsersPage() {
               searchTerm: search || undefined,
               sortBy,
               sortDirection,
+              includeDeleted,
             },
           },
         })
@@ -94,6 +106,7 @@ export function UsersPage() {
                 searchTerm: search || undefined,
                 sortBy,
                 sortDirection,
+                includeDeleted,
               },
             },
           })
@@ -103,15 +116,19 @@ export function UsersPage() {
           totalCount: toNumber(result.totalCount),
         }
       }),
-    [search, sortBy, sortDirection]
+    [search, sortBy, sortDirection, includeDeleted]
   )
 
-  const { statusAction, deleteMutation } = useUserActions({
+  const { statusAction, deleteMutation, hardDeleteMutation } = useUserActions({
     onStatusChanged: () => {
       setLockUser(undefined)
       setLockReason("")
     },
     onDeleted: () => setDeleteUser(undefined),
+    onHardDeleted: () => {
+      setHardDeleteUser(undefined)
+      setHardDeleteConfirm("")
+    },
   })
 
   const columns: ColumnDef<UserDto, unknown>[] = [
@@ -129,16 +146,23 @@ export function UsersPage() {
       meta: { label: t("common.name") },
       cell: ({ row }) => {
         const user = row.original
+        const name =
+          user.displayName ||
+          fullName(user.firstName, user.lastName, user.email ?? "")
+        // Deleted accounts have no detail page (operational reads exclude
+        // them), so their name is plain text instead of a link.
+        if (user.isDeleted) {
+          return (
+            <p className="truncate font-medium text-muted-foreground">{name}</p>
+          )
+        }
         return (
           <button
             type="button"
             className="min-w-0 text-start hover:underline"
             onClick={() => navigate(`/users/${user.id}`)}
           >
-            <p className="truncate font-medium">
-              {user.displayName ||
-                fullName(user.firstName, user.lastName, user.email ?? "")}
-            </p>
+            <p className="truncate font-medium">{name}</p>
           </button>
         )
       },
@@ -150,7 +174,8 @@ export function UsersPage() {
     },
     {
       id: "status",
-      accessorFn: (row) => userStatusMeta(row.status).key,
+      accessorFn: (row) =>
+        row.isDeleted ? "deleted" : userStatusMeta(row.status).key,
       filterFn: "faceted",
       header: t("common.status"),
       meta: {
@@ -161,9 +186,17 @@ export function UsersPage() {
           { value: "inactive", label: t("common.inactive") },
           { value: "locked", label: t("common.locked") },
           { value: "pending", label: t("common.pending") },
+          ...(showDeleted
+            ? [{ value: "deleted", label: t("users.deletedStatus") }]
+            : []),
         ],
       },
       cell: ({ row }) => {
+        if (row.original.isDeleted) {
+          return (
+            <Badge variant="destructive">{t("users.deletedStatus")}</Badge>
+          )
+        }
         const meta = userStatusMeta(row.original.status)
         return <Badge variant={meta.variant}>{t(`common.${meta.key}`)}</Badge>
       },
@@ -215,6 +248,37 @@ export function UsersPage() {
             cell: ({ row }) => {
               const user = row.original
               const isLocked = userStatusMeta(user.status).key === "locked"
+              // A deleted account supports exactly one action: permanent
+              // removal, offered only to user managers.
+              if (user.isDeleted) {
+                if (!canManage) return null
+                return (
+                  <div className="text-end">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={t("common.actions")}
+                        >
+                          <MoreHorizontal />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => {
+                            setHardDeleteConfirm("")
+                            setHardDeleteUser(user)
+                          }}
+                        >
+                          {t("users.hardDelete")}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )
+              }
               return (
                 <div className="text-end">
                   <DropdownMenu>
@@ -337,17 +401,32 @@ export function UsersPage() {
         }
       />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
-        <Input
-          value={searchInput}
-          onChange={(e) => {
-            setSearchInput(e.target.value)
-            setPage(0)
-          }}
-          placeholder={t("users.searchPlaceholder")}
-          className="ps-8"
-        />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
+          <Input
+            value={searchInput}
+            onChange={(e) => {
+              setSearchInput(e.target.value)
+              setPage(0)
+            }}
+            placeholder={t("users.searchPlaceholder")}
+            className="ps-8"
+          />
+        </div>
+        {canManage ? (
+          <div className="flex items-center gap-2">
+            <Switch
+              id="show-deleted-users"
+              checked={showDeleted}
+              onCheckedChange={(checked) => {
+                setShowDeleted(checked)
+                setPage(0)
+              }}
+            />
+            <Label htmlFor="show-deleted-users">{t("users.showDeleted")}</Label>
+          </div>
+        ) : null}
       </div>
 
       <DataTable
@@ -446,6 +525,51 @@ export function UsersPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteUser?.id && deleteMutation.mutate(deleteUser.id)}
       />
+
+      <ConfirmDialog
+        open={Boolean(hardDeleteUser)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setHardDeleteUser(undefined)
+            setHardDeleteConfirm("")
+          }
+        }}
+        title={t("users.hardDeleteTitle")}
+        description={t("users.hardDeleteBody", {
+          name:
+            hardDeleteUser?.displayName ||
+            fullName(
+              hardDeleteUser?.firstName,
+              hardDeleteUser?.lastName,
+              hardDeleteUser?.email ?? ""
+            ),
+        })}
+        confirmLabel={t("users.hardDelete")}
+        destructive
+        loading={hardDeleteMutation.isPending}
+        confirmDisabled={
+          hardDeleteConfirm.trim().toLowerCase() !==
+          (hardDeleteUser?.email ?? "").toLowerCase()
+        }
+        onConfirm={() =>
+          hardDeleteUser?.id && hardDeleteMutation.mutate(hardDeleteUser.id)
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="hard-delete-confirm">
+            {t("users.hardDeleteConfirmHint", {
+              email: hardDeleteUser?.email ?? "",
+            })}
+          </Label>
+          <Input
+            id="hard-delete-confirm"
+            value={hardDeleteConfirm}
+            onChange={(e) => setHardDeleteConfirm(e.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+          />
+        </div>
+      </ConfirmDialog>
     </div>
   )
 }

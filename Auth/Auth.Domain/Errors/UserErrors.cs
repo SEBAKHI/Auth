@@ -95,6 +95,14 @@ public static class UserErrors
         code: "User.CannotModifySystemUser",
         description: "System users cannot be modified.");
 
+    public static Error NotSoftDeleted => Error.Conflict(
+        code: "User.NotSoftDeleted",
+        description: "Only deleted accounts can be permanently removed. Delete the account first.");
+
+    public static Error DeletedUsersViewNotAllowed => Error.Forbidden(
+        code: "User.DeletedUsersViewNotAllowed",
+        description: "Viewing deleted accounts requires user management permission.");
+
     public static Error TwoFactorRequired => Error.Forbidden(
         code: "User.TwoFactorRequired",
         description: "Two-factor authentication is required for this account.");

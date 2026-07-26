@@ -388,6 +388,14 @@ export const fr: TranslationResources = {
     deleteTitle: "Supprimer l'utilisateur",
     deleteBody:
       "Ceci supprime définitivement {{name}}. Cette action est irréversible. Toute organisation dont il est l'unique propriétaire sera également supprimée définitivement ; les organisations comptant d'autres membres doivent d'abord voir leur propriété transférée.",
+    showDeleted: "Afficher les supprimés",
+    deletedStatus: "Supprimé",
+    hardDelete: "Supprimer définitivement",
+    hardDeleteTitle: "Supprimer définitivement l'utilisateur",
+    hardDeleteBody:
+      "Ceci efface définitivement {{name}} ainsi que tous les enregistrements associés — sessions, jetons, rôles, adhésions aux organisations, notifications et historique d'audit. Cette action est irréversible.",
+    hardDeleteConfirmHint: "Saisissez {{email}} pour confirmer.",
+    permanentlyDeleted: "Utilisateur supprimé définitivement.",
     assignRole: "Attribuer un rôle",
     grantPermission: "Accorder une permission",
     noRoles: "Aucun rôle attribué.",

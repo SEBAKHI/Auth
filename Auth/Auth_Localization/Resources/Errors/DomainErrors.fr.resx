@@ -122,6 +122,12 @@
   <data name="User.CannotModifySystemUser" xml:space="preserve">
     <value>Les utilisateurs système ne peuvent pas être modifiés.</value>
   </data>
+  <data name="User.NotSoftDeleted" xml:space="preserve">
+    <value>Seuls les comptes supprimés peuvent être définitivement retirés. Supprimez d'abord le compte.</value>
+  </data>
+  <data name="User.DeletedUsersViewNotAllowed" xml:space="preserve">
+    <value>L'affichage des comptes supprimés nécessite l'autorisation de gestion des utilisateurs.</value>
+  </data>
   <data name="User.TwoFactorRequired" xml:space="preserve">
     <value>L'authentification à deux facteurs est requise pour ce compte.</value>
   </data>
