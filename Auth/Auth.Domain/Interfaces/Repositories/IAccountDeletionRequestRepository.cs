@@ -53,4 +53,22 @@ public interface IAccountDeletionRequestRepository
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>True when the row was updated; false when the race was lost.</returns>
     Task<bool> UpdateAsync(AccountDeletionRequest request, AccountDeletionStatus expectedStatus, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Returns every Processing row to the grace queue. Called only at worker
+    /// startup: with a single worker process, a Processing row at startup can
+    /// only be an orphan of a crashed/recycled execution.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of reclaimed requests.</returns>
+    Task<int> ReclaimProcessingAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets Completed requests whose user row exists again — the signature of
+    /// a backup restore that resurrected destroyed data. The retention sweep
+    /// re-applies destruction for each.
+    /// </summary>
+    /// <param name="batchSize">Maximum number of requests to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<IReadOnlyList<AccountDeletionRequest>> GetCompletedWithLiveUserAsync(int batchSize, CancellationToken cancellationToken);
 }

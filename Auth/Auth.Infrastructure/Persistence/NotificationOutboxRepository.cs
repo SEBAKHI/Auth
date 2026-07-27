@@ -132,6 +132,18 @@ public class NotificationOutboxRepository : INotificationOutboxRepository
     }
 
     /// <inheritdoc />
+    public async Task<int> DeleteSentOlderThanAsync(DateTime cutoffUtc, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Status 2 = Sent.
+        return await connection.ExecuteAsync(@"
+            DELETE FROM [dbo].[NotificationOutbox]
+            WHERE [Status] = 2 AND [SentAt] < @CutoffUtc",
+            new { CutoffUtc = cutoffUtc });
+    }
+
+    /// <inheritdoc />
     public async Task<bool> HasDueWorkAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

@@ -49,6 +49,15 @@ public interface INotificationOutboxRepository
     Task<int> ReclaimStaleAsync(DateTime claimedBefore, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Deletes Sent rows older than the cutoff (retention sweep): delivered
+    /// mail contains rendered recipient PII and must not outlive its retention.
+    /// </summary>
+    /// <param name="cutoffUtc">Rows sent before this instant are deleted.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of deleted rows.</returns>
+    Task<int> DeleteSentOlderThanAsync(DateTime cutoffUtc, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Whether any due Pending/Retry work exists (startup catch-up probe).
     /// </summary>
     Task<bool> HasDueWorkAsync(CancellationToken cancellationToken);

@@ -130,6 +130,42 @@ public class AccountDeletionRequestRepository : IAccountDeletionRequestRepositor
         return affected == 1;
     }
 
+    /// <inheritdoc />
+    public async Task<int> ReclaimProcessingAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        return await connection.ExecuteAsync(@"
+            UPDATE [dbo].[AccountDeletionRequests]
+            SET [Status] = @PendingGrace
+            WHERE [Status] = @Processing",
+            new
+            {
+                PendingGrace = (int)AccountDeletionStatus.PendingGrace,
+                Processing = (int)AccountDeletionStatus.Processing
+            });
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<AccountDeletionRequest>> GetCompletedWithLiveUserAsync(
+        int batchSize, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var results = await connection.QueryAsync<AccountDeletionRequest>($@"
+            SELECT TOP (@BatchSize) {SelectColumns("r")}
+            FROM [dbo].[AccountDeletionRequests] r
+            INNER JOIN [dbo].[Users] u ON u.[Id] = r.[UserId]
+            WHERE r.[Status] = @Completed
+            ORDER BY r.[CompletedAtUtc]",
+            new { BatchSize = batchSize, Completed = (int)AccountDeletionStatus.Completed });
+
+        return results.ToList();
+    }
+
+    private static string SelectColumns(string alias) =>
+        string.Join(", ", Columns.Split(", ").Select(c => $"{alias}.{c}"));
+
     private static object ToParameters(AccountDeletionRequest request) => new
     {
         request.Id,

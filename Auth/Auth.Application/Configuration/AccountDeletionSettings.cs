@@ -20,6 +20,11 @@ public class AccountDeletionSettings
     public int WorkerPollMinutes { get; set; } = 15;
 
     /// <summary>
+    /// Maximum due requests executed per worker cycle.
+    /// </summary>
+    public int WorkerBatchSize { get; set; } = 25;
+
+    /// <summary>
     /// Execution attempts before a deletion request dead-letters as Failed.
     /// </summary>
     public int MaxExecutionAttempts { get; set; } = 5;

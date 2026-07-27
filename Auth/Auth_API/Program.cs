@@ -409,6 +409,8 @@ builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.Dele
 // One-shot, config-gated (AccountDeletion:RunEncryptionMigration) re-encryption
 // of TOTP secrets and phone numbers under per-user DEKs.
 builder.Services.AddHostedService<EncryptionMigrationService>();
+// Grace-period executor + daily retention/destruction sweep.
+builder.Services.AddHostedService<Auth.Infrastructure.AccountDeletion.AccountDeletionWorker>();
 
 // Breached-password policy. Request-scoped warning sink + evaluator are always registered (cheap);
 // the actual checker is HIBP only when enabled, otherwise a no-op with NO HttpClient registered.
