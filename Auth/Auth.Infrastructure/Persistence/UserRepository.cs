@@ -875,7 +875,10 @@ public class UserRepository : IUserRepository
         public Guid Id { get; init; }
         public string Email { get; init; } = string.Empty;
         public string NormalizedEmail { get; init; } = string.Empty;
-        public string PasswordHash { get; init; } = string.Empty;
+        // Nullable with NO default: DB NULL means an external-only account,
+        // and Dapper leaves a property default in place on NULL — an empty
+        // string here would make every "has no password" guard dead code.
+        public string? PasswordHash { get; init; }
         public string FirstName { get; init; } = string.Empty;
         public string LastName { get; init; } = string.Empty;
         public string? DisplayName { get; init; }

@@ -919,8 +919,8 @@ export const en = {
     reauthTitle: "Confirm it's you",
     reauthSubtitle: "For your security, confirm your identity to continue.",
     reauthPasswordLabel: "Current password",
-    noPasswordHint: "No password? We can email you a verification code instead.",
-    usePasswordHint: "Have a password? Confirm with it instead.",
+    noPasswordHint:
+      "Your account has no password — we'll email you a verification code instead.",
     sendCode: "Email me a code",
     codeSent: "Verification code sent. Check your inbox.",
     verificationCode: "Verification code",

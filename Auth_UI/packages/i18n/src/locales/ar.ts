@@ -913,8 +913,8 @@ export const ar: TranslationResources = {
     reauthTitle: "تأكيد هويتك",
     reauthSubtitle: "من أجل أمانك، أكد هويتك للمتابعة.",
     reauthPasswordLabel: "كلمة المرور الحالية",
-    noPasswordHint: "لا تملك كلمة مرور؟ يمكننا إرسال رمز تحقق إلى بريدك بدلًا من ذلك.",
-    usePasswordHint: "لديك كلمة مرور؟ أكد بها بدلًا من ذلك.",
+    noPasswordHint:
+      "لا يحتوي حسابك على كلمة مرور — سنرسل رمز تحقق إلى بريدك الإلكتروني بدلًا من ذلك.",
     sendCode: "أرسل لي رمزًا",
     codeSent: "تم إرسال رمز التحقق. تفقد بريدك الوارد.",
     verificationCode: "رمز التحقق",

@@ -34,6 +34,9 @@ public class UserDto
     public DateTime? PasswordExpiresUtc { get; set; }
     public bool MustChangePassword { get; set; }
 
+    /// <summary>Whether a local password is set. External-only accounts have none, which switches sensitive re-authentication to the emailed-code path.</summary>
+    public bool HasPassword { get; set; }
+
     public DateTime CreatedAt { get; set; }
     public Guid CreatedBy { get; set; }
 

@@ -11907,6 +11907,7 @@ export interface components {
             /** Format: date-time */
             passwordExpiresUtc?: null | string;
             mustChangePassword?: boolean;
+            hasPassword?: boolean;
             /** Format: date-time */
             createdAt?: string;
             /** Format: uuid */

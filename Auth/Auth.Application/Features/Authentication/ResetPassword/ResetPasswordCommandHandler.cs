@@ -108,8 +108,10 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
             }
         }
 
-        // Also check against current password
-        if (_passwordHasher.VerifyPassword(request.NewPassword, user.PasswordHash))
+        // Also check against the current password — absent when an
+        // external-only account uses the reset link to set its first one.
+        if (user.PasswordHash is not null
+            && _passwordHasher.VerifyPassword(request.NewPassword, user.PasswordHash))
         {
             return UserErrors.PasswordRecentlyUsed;
         }
@@ -118,13 +120,16 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         var newPasswordHash = _passwordHasher.HashPassword(request.NewPassword);
 
         // Add current password to history
-        var passwordHistory = new PasswordHistory(
-            Guid.NewGuid(),
-            user.Id,
-            user.PasswordHash,
-            DateTime.UtcNow);
+        if (user.PasswordHash is not null)
+        {
+            var passwordHistory = new PasswordHistory(
+                Guid.NewGuid(),
+                user.Id,
+                user.PasswordHash,
+                DateTime.UtcNow);
 
-        await _passwordHistoryRepository.AddAsync(passwordHistory, cancellationToken);
+            await _passwordHistoryRepository.AddAsync(passwordHistory, cancellationToken);
+        }
 
         // Update the password
         await _userRepository.UpdatePasswordAsync(

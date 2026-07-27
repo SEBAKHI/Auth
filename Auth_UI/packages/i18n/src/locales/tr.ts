@@ -933,8 +933,7 @@ export const tr: TranslationResources = {
     reauthSubtitle: "Güvenliğiniz için devam etmeden önce kimliğinizi doğrulayın.",
     reauthPasswordLabel: "Mevcut parola",
     noPasswordHint:
-      "Parolanız yok mu? Bunun yerine e-postayla doğrulama kodu gönderebiliriz.",
-    usePasswordHint: "Parolanız var mı? Bunun yerine onunla doğrulayın.",
+      "Hesabınızın parolası yok — bunun yerine e-postayla bir doğrulama kodu göndereceğiz.",
     sendCode: "Bana kod gönder",
     codeSent: "Doğrulama kodu gönderildi. Gelen kutunuzu kontrol edin.",
     verificationCode: "Doğrulama kodu",

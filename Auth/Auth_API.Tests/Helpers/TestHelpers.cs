@@ -32,7 +32,8 @@ public static class TestHelpers
         string preferredLanguage = "en",
         bool isSystemUser = false,
         bool isDeleted = false,
-        DateTime? deletedAt = null)
+        DateTime? deletedAt = null,
+        string? passwordHash = "TestPasswordHash")
     {
         var userId = id ?? Guid.NewGuid();
         var userEmail = email ?? $"user-{userId:N}@test.com";
@@ -41,7 +42,7 @@ public static class TestHelpers
             id: userId,
             email: userEmail,
             normalizedEmail: userEmail.ToUpperInvariant(),
-            passwordHash: "TestPasswordHash",
+            passwordHash: passwordHash,
             firstName: firstName ?? "Test",
             lastName: lastName ?? "User",
             displayName: null,

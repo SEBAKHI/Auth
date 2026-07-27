@@ -40,25 +40,29 @@ const CODE_LENGTH = 6
 const GRACE_DAYS = 30
 
 /**
- * Self-service account deletion: re-authentication (password, or an emailed
- * code for external-only accounts) followed by a type-your-email confirmation.
- * On success the server revokes every credential, so the flow clears local
- * state and lands on the signed-out "deletion scheduled" screen.
+ * Self-service account deletion: re-authentication followed by a
+ * type-your-email confirmation. The re-auth factor is dictated by the server
+ * (password when one is set; the emailed code ONLY for external-only accounts
+ * without one — offering both would be a dead end, the API rejects the weaker
+ * factor). On success the server revokes every credential, so the flow clears
+ * local state and lands on the signed-out "deletion scheduled" screen.
  */
 export function ProfileDangerZone({ me }: { me: Schemas["UserDto"] }) {
   const { t } = useTranslation()
   const { logout } = useAuth()
   const navigate = useNavigate()
 
+  const hasPassword = me.hasPassword ?? true
+
   const [reauthOpen, setReauthOpen] = React.useState(false)
-  const [mode, setMode] = React.useState<"password" | "otp">("password")
+  const [codeSent, setCodeSent] = React.useState(false)
   const [password, setPassword] = React.useState("")
   const [otpCode, setOtpCode] = React.useState("")
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [confirmEmail, setConfirmEmail] = React.useState("")
 
   const resetFlow = React.useCallback(() => {
-    setMode("password")
+    setCodeSent(false)
     setPassword("")
     setOtpCode("")
     setConfirmEmail("")
@@ -70,7 +74,8 @@ export function ProfileDangerZone({ me }: { me: Schemas["UserDto"] }) {
       if (error) throw error
     },
     onSuccess: () => {
-      setMode("otp")
+      setCodeSent(true)
+      setOtpCode("")
       toast.success(t("accountDeletion.codeSent"))
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -79,26 +84,30 @@ export function ProfileDangerZone({ me }: { me: Schemas["UserDto"] }) {
   const deleteMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await api.POST("/api/v1/Users/me/deletion", {
-        body: mode === "password" ? { password } : { otpCode },
+        body: hasPassword ? { password } : { otpCode },
       })
       if (error || !data) throw error ?? new Error("Request failed")
       return data
     },
     onSuccess: async (data) => {
       setConfirmOpen(false)
-      // Navigate before clearing auth state so the RequireAuth guard around the
-      // profile never gets a chance to bounce us to /login first.
+      // flushSync commits the route swap BEFORE logout flips auth state —
+      // otherwise the still-mounted RequireAuth guard around the profile can
+      // observe "unauthenticated" first and win the race with a /login
+      // redirect, losing the grace deadline carried in navigation state.
       navigate("/deletion-scheduled", {
         replace: true,
         state: { graceEndsAtUtc: data.graceEndsAtUtc },
+        flushSync: true,
       })
       await logout()
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
-  const reauthComplete =
-    mode === "password" ? password.length > 0 : otpCode.length === CODE_LENGTH
+  const reauthComplete = hasPassword
+    ? password.length > 0
+    : otpCode.length === CODE_LENGTH
 
   return (
     <>
@@ -139,7 +148,7 @@ export function ProfileDangerZone({ me }: { me: Schemas["UserDto"] }) {
               {t("accountDeletion.reauthSubtitle")}
             </DialogDescription>
           </DialogHeader>
-          {mode === "password" ? (
+          {hasPassword ? (
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="deletion-password">
@@ -154,44 +163,55 @@ export function ProfileDangerZone({ me }: { me: Schemas["UserDto"] }) {
                   onChange={(event) => setPassword(event.target.value)}
                 />
               </Field>
-              <Button
-                type="button"
-                variant="link"
-                className="w-fit px-0 text-muted-foreground"
-                disabled={sendCodeMutation.isPending}
-                onClick={() => sendCodeMutation.mutate()}
-              >
-                {sendCodeMutation.isPending ? (
-                  <Loader2 className="animate-spin" />
-                ) : null}
-                {t("accountDeletion.noPasswordHint")}
-              </Button>
             </FieldGroup>
           ) : (
-            <div className="flex flex-col items-center gap-3">
-              <InputOTP
-                dir="ltr"
-                maxLength={CODE_LENGTH}
-                pattern={REGEXP_ONLY_DIGITS}
-                value={otpCode}
-                onChange={setOtpCode}
-                autoFocus
-                aria-label={t("accountDeletion.verificationCode")}
-              >
-                <InputOTPGroup>
-                  {Array.from({ length: CODE_LENGTH }).map((_, index) => (
-                    <InputOTPSlot key={index} index={index} />
-                  ))}
-                </InputOTPGroup>
-              </InputOTP>
-              <Button
-                type="button"
-                variant="link"
-                className="text-muted-foreground"
-                onClick={() => setMode("password")}
-              >
-                {t("accountDeletion.usePasswordHint")}
-              </Button>
+            <div className="flex flex-col gap-4">
+              <p className="text-sm text-muted-foreground">
+                {t("accountDeletion.noPasswordHint")}
+              </p>
+              {codeSent ? (
+                <div className="flex flex-col items-center gap-3">
+                  <InputOTP
+                    dir="ltr"
+                    maxLength={CODE_LENGTH}
+                    pattern={REGEXP_ONLY_DIGITS}
+                    value={otpCode}
+                    onChange={setOtpCode}
+                    autoFocus
+                    aria-label={t("accountDeletion.verificationCode")}
+                  >
+                    <InputOTPGroup>
+                      {Array.from({ length: CODE_LENGTH }).map((_, index) => (
+                        <InputOTPSlot key={index} index={index} />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="text-muted-foreground"
+                    disabled={sendCodeMutation.isPending}
+                    onClick={() => sendCodeMutation.mutate()}
+                  >
+                    {sendCodeMutation.isPending ? (
+                      <Loader2 className="animate-spin" />
+                    ) : null}
+                    {t("accountDeletion.resendCode")}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={sendCodeMutation.isPending}
+                  onClick={() => sendCodeMutation.mutate()}
+                >
+                  {sendCodeMutation.isPending ? (
+                    <Loader2 className="animate-spin" />
+                  ) : null}
+                  {t("accountDeletion.sendCode")}
+                </Button>
+              )}
             </div>
           )}
           <DialogFooter>

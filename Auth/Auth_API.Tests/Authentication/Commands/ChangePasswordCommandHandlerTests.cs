@@ -137,6 +137,30 @@ public class ChangePasswordCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ExternalOnlyUserWithoutPassword_ReturnsInvalidCurrentPasswordError()
+    {
+        // Arrange - an external-only account has no password to change; the
+        // guard must answer cleanly instead of feeding null to the hasher.
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, passwordHash: null);
+        var command = new ChangePasswordCommand(userId, "Irrelevant1!", "NewPass1!");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.InvalidCurrentPassword");
+        _passwordHasherMock.Verify(
+            h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task Handle_WeakNewPassword_ReturnsValidationErrors()
     {
         // Arrange

@@ -952,8 +952,7 @@ export const fr: TranslationResources = {
     reauthSubtitle: "Pour votre sécurité, confirmez votre identité pour continuer.",
     reauthPasswordLabel: "Mot de passe actuel",
     noPasswordHint:
-      "Pas de mot de passe ? Nous pouvons vous envoyer un code de vérification par e-mail.",
-    usePasswordHint: "Vous avez un mot de passe ? Confirmez plutôt avec celui-ci.",
+      "Votre compte n'a pas de mot de passe — nous vous enverrons un code de vérification par e-mail.",
     sendCode: "M'envoyer un code",
     codeSent: "Code de vérification envoyé. Consultez votre boîte de réception.",
     verificationCode: "Code de vérification",
