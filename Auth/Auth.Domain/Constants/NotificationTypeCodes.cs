@@ -22,5 +22,8 @@ public static class NotificationTypeCodes
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
     public static readonly IReadOnlyList<string> SystemCodes =
-        [EmailVerification, PasswordReset, OrganizationInvitation, OwnershipTransferCode, OwnershipTransferred];
+        [
+            EmailVerification, PasswordReset, OrganizationInvitation, OwnershipTransferCode, OwnershipTransferred,
+            AccountDeletionRequested, AccountDeletionVerification, AccountDeletionCancelled, AccountDeletionCompleted
+        ];
 }
