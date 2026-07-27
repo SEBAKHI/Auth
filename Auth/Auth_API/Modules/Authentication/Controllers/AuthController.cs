@@ -167,7 +167,10 @@ public class AuthController : ApiController
             request.Nonce,
             request.CreateOrganization,
             GetClientIpAddress(),
-            GetUserAgent());
+            GetUserAgent(),
+            AuthorizationCode: request.AuthorizationCode,
+            GivenName: request.GivenName,
+            FamilyName: request.FamilyName);
 
         var result = await _sender.Send(command, cancellationToken);
 

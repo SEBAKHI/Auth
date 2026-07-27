@@ -31,4 +31,26 @@ public record ExternalLoginRequest
     /// Defaults to false.
     /// </summary>
     public bool CreateOrganization { get; init; } = false;
+
+    /// <summary>
+    /// Gets the single-use authorization code from the sign-in (Apple),
+    /// exchanged server-side for the revocable refresh token that is stored
+    /// (encrypted) for deletion-time revocation.
+    /// </summary>
+    [StringLength(2000)]
+    public string? AuthorizationCode { get; init; }
+
+    /// <summary>
+    /// Gets the client-supplied first name. Apple sends the user's name only
+    /// on the first authorization and never inside the ID token; the value is
+    /// used solely at first registration.
+    /// </summary>
+    [StringLength(100)]
+    public string? GivenName { get; init; }
+
+    /// <summary>
+    /// Gets the client-supplied last name (see <see cref="GivenName"/>).
+    /// </summary>
+    [StringLength(100)]
+    public string? FamilyName { get; init; }
 }

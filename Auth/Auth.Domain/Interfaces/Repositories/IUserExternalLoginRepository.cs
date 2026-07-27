@@ -26,4 +26,13 @@ public interface IUserExternalLoginRepository
     /// Updates an existing external login record.
     /// </summary>
     Task UpdateAsync(UserExternalLogin login, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Sets or clears the encrypted provider refresh token on a login row
+    /// (targeted column update — never part of the cached-info update).
+    /// </summary>
+    /// <param name="loginId">The external login row ID.</param>
+    /// <param name="encryptedToken">The per-user-encrypted token, or null to clear after revocation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task UpdateProviderRefreshTokenAsync(Guid loginId, string? encryptedToken, CancellationToken cancellationToken);
 }

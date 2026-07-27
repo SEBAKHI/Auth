@@ -437,6 +437,14 @@ else
 
 // External Authentication
 builder.Services.AddSingleton<IExternalAuthProvider, GoogleAuthProvider>();
+// Apple: id-token validation (JWKS over HTTP) + the token lifecycle used for
+// deletion-time revocation. Registered once and forwarded into the strategy
+// collections so the factory resolves them with no type switches.
+builder.Services.AddHttpClient<AppleAuthProvider>();
+builder.Services.AddSingleton<IExternalAuthProvider>(sp => sp.GetRequiredService<AppleAuthProvider>());
+builder.Services.AddSingleton<AppleClientSecretGenerator>();
+builder.Services.AddHttpClient<AppleTokenRevocationService>();
+builder.Services.AddSingleton<IExternalTokenLifecycle>(sp => sp.GetRequiredService<AppleTokenRevocationService>());
 builder.Services.AddSingleton<IExternalAuthProviderFactory, ExternalAuthProviderFactory>();
 
 // Integration Events

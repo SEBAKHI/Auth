@@ -706,6 +706,7 @@ public static class TestHelpers
         string? email = null,
         string? name = null,
         string? pictureUrl = null,
+        string? providerRefreshTokenEnc = null,
         DateTime? createdAt = null,
         DateTime? modifiedAt = null)
     {
@@ -717,6 +718,7 @@ public static class TestHelpers
             email: email ?? "external@test.com",
             name: name ?? "External User",
             pictureUrl: pictureUrl,
+            providerRefreshTokenEnc: providerRefreshTokenEnc,
             createdAt: createdAt ?? DateTime.UtcNow,
             modifiedAt: modifiedAt);
     }

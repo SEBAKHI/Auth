@@ -39,6 +39,13 @@ public class UserExternalLogin : EntityBase
     public string? PictureUrl { get; private set; }
 
     /// <summary>
+    /// Gets the provider's refresh token (Apple), AES-256-GCM ciphertext under
+    /// the user's per-user DEK. Stored solely for deletion-time revocation and
+    /// crypto-shredded with the account.
+    /// </summary>
+    public string? ProviderRefreshTokenEnc { get; private set; }
+
+    /// <summary>
     /// Gets the UTC timestamp when this record was created.
     /// </summary>
     public DateTime CreatedAt { get; private set; }
@@ -63,6 +70,7 @@ public class UserExternalLogin : EntityBase
         string? email,
         string? name,
         string? pictureUrl,
+        string? providerRefreshTokenEnc,
         DateTime createdAt,
         DateTime? modifiedAt) : base(id)
     {
@@ -72,6 +80,7 @@ public class UserExternalLogin : EntityBase
         Email = email;
         Name = name;
         PictureUrl = pictureUrl;
+        ProviderRefreshTokenEnc = providerRefreshTokenEnc;
         CreatedAt = createdAt;
         ModifiedAt = modifiedAt;
     }

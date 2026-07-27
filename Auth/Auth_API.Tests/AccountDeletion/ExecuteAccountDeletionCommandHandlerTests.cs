@@ -22,6 +22,9 @@ public class ExecuteAccountDeletionCommandHandlerTests
 {
     private readonly Mock<IAccountDeletionRequestRepository> _requestRepositoryMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
+    private readonly Mock<IUserExternalLoginRepository> _externalLoginRepositoryMock = new();
+    private readonly Mock<IExternalTokenLifecycle> _tokenLifecycleMock = new();
+    private readonly Mock<IPerUserCryptoService> _perUserCryptoMock = new();
     private readonly Mock<IImageStorageService> _imageStorageMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
     private readonly ExecuteAccountDeletionCommandHandler _handler;
@@ -31,10 +34,17 @@ public class ExecuteAccountDeletionCommandHandlerTests
         _requestRepositoryMock
             .Setup(r => r.UpdateAsync(It.IsAny<AccountDeletionRequest>(), It.IsAny<AccountDeletionStatus>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByUserIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<UserExternalLogin>());
+        _tokenLifecycleMock.SetupGet(l => l.ProviderName).Returns("apple");
 
         _handler = new ExecuteAccountDeletionCommandHandler(
             _requestRepositoryMock.Object,
             _userRepositoryMock.Object,
+            _externalLoginRepositoryMock.Object,
+            [_tokenLifecycleMock.Object],
+            _perUserCryptoMock.Object,
             _imageStorageMock.Object,
             _publisherMock.Object,
             Options.Create(new AccountDeletionSettings()),
@@ -151,6 +161,98 @@ public class ExecuteAccountDeletionCommandHandlerTests
         request.Status.Should().Be(AccountDeletionStatus.PendingGrace);
         request.AttemptCount.Should().Be(1);
         request.LastError.Should().Contain("db down");
+    }
+
+    [Fact]
+    public async Task Handle_StoredProviderToken_RevokesItAndClearsTheRow()
+    {
+        var request = SetupDueRequest();
+        var user = TestHelpers.CreateUser(id: request.UserId, isDeleted: true, deletedAt: DateTime.UtcNow.AddDays(-31));
+        _userRepositoryMock
+            .Setup(r => r.GetByIdIncludeDeletedAsync(request.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _userRepositoryMock
+            .Setup(r => r.HardDeleteAsync(request.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var login = TestHelpers.CreateUserExternalLogin(
+            userId: request.UserId, provider: "apple", providerRefreshTokenEnc: "v2:enc");
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByUserIdAsync(request.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<UserExternalLogin> { login });
+        _perUserCryptoMock
+            .Setup(c => c.DecryptAsync(request.UserId, "v2:enc", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("rt-plain");
+        _tokenLifecycleMock
+            .Setup(l => l.RevokeAsync("rt-plain", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await _handler.Handle(new ExecuteAccountDeletionCommand(request.Id), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _tokenLifecycleMock.Verify(l => l.RevokeAsync("rt-plain", It.IsAny<CancellationToken>()), Times.Once);
+        _externalLoginRepositoryMock.Verify(
+            r => r.UpdateProviderRefreshTokenAsync(login.Id, null, It.IsAny<CancellationToken>()), Times.Once);
+        _publisherMock.Verify(
+            p => p.Publish(
+                It.Is<AccountDeletionCompletedEvent>(e => !e.ExternalRevocationFailed),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_RevocationFailsBelowTheAttemptCeiling_RetriesInsteadOfPurging()
+    {
+        var request = SetupDueRequest(attemptCount: 0);
+        var user = TestHelpers.CreateUser(id: request.UserId, isDeleted: true, deletedAt: DateTime.UtcNow.AddDays(-31));
+        _userRepositoryMock
+            .Setup(r => r.GetByIdIncludeDeletedAsync(request.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        SetupFailingRevocation(request.UserId);
+
+        var result = await _handler.Handle(new ExecuteAccountDeletionCommand(request.Id), CancellationToken.None);
+
+        result.FirstError.Should().Be(AccountDeletionErrors.ExecutionFailed);
+        request.Status.Should().Be(AccountDeletionStatus.PendingGrace);
+        _userRepositoryMock.Verify(r => r.HardDeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_RevocationFailsAtTheAttemptCeiling_ProceedsWithTheFailureFlagged()
+    {
+        var request = SetupDueRequest(attemptCount: 4);
+        var user = TestHelpers.CreateUser(id: request.UserId, isDeleted: true, deletedAt: DateTime.UtcNow.AddDays(-31));
+        _userRepositoryMock
+            .Setup(r => r.GetByIdIncludeDeletedAsync(request.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _userRepositoryMock
+            .Setup(r => r.HardDeleteAsync(request.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        SetupFailingRevocation(request.UserId);
+
+        var result = await _handler.Handle(new ExecuteAccountDeletionCommand(request.Id), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("a third party must never hold a deletion hostage");
+        request.Status.Should().Be(AccountDeletionStatus.Completed);
+        _publisherMock.Verify(
+            p => p.Publish(
+                It.Is<AccountDeletionCompletedEvent>(e => e.ExternalRevocationFailed),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    private void SetupFailingRevocation(Guid userId)
+    {
+        var login = TestHelpers.CreateUserExternalLogin(
+            userId: userId, provider: "apple", providerRefreshTokenEnc: "v2:enc");
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<UserExternalLogin> { login });
+        _perUserCryptoMock
+            .Setup(c => c.DecryptAsync(userId, "v2:enc", It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("rt-plain");
+        _tokenLifecycleMock
+            .Setup(l => l.RevokeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
     }
 
     [Fact]

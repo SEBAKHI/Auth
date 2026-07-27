@@ -23,6 +23,9 @@ public class ExecuteAccountDeletionCommandHandler
 {
     private readonly IAccountDeletionRequestRepository _requestRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IUserExternalLoginRepository _externalLoginRepository;
+    private readonly IEnumerable<IExternalTokenLifecycle> _tokenLifecycles;
+    private readonly IPerUserCryptoService _perUserCrypto;
     private readonly IImageStorageService _imageStorage;
     private readonly IPublisher _publisher;
     private readonly AccountDeletionSettings _settings;
@@ -31,6 +34,9 @@ public class ExecuteAccountDeletionCommandHandler
     public ExecuteAccountDeletionCommandHandler(
         IAccountDeletionRequestRepository requestRepository,
         IUserRepository userRepository,
+        IUserExternalLoginRepository externalLoginRepository,
+        IEnumerable<IExternalTokenLifecycle> tokenLifecycles,
+        IPerUserCryptoService perUserCrypto,
         IImageStorageService imageStorage,
         IPublisher publisher,
         IOptions<AccountDeletionSettings> settings,
@@ -38,6 +44,9 @@ public class ExecuteAccountDeletionCommandHandler
     {
         _requestRepository = requestRepository;
         _userRepository = userRepository;
+        _externalLoginRepository = externalLoginRepository;
+        _tokenLifecycles = tokenLifecycles;
+        _perUserCrypto = perUserCrypto;
         _imageStorage = imageStorage;
         _publisher = publisher;
         _settings = settings.Value;
@@ -86,6 +95,18 @@ public class ExecuteAccountDeletionCommandHandler
 
         try
         {
+            // Stage (d): revoke tokens at external identity providers (Apple)
+            // while the stored refresh tokens and the DEK that unlocks them
+            // still exist. Failures ride the request's retry budget; on the
+            // final attempt the deletion proceeds regardless (provider tokens
+            // expire on their own) with the outcome flagged in the audit.
+            var externalRevocationOk = await RevokeExternalTokensAsync(user.Id, cancellationToken);
+            if (!externalRevocationOk && request.AttemptCount < _settings.MaxExecutionAttempts - 1)
+            {
+                throw new InvalidOperationException(
+                    "External provider token revocation failed; the deletion will retry.");
+            }
+
             var purged = await _userRepository.HardDeleteAsync(user.Id, cancellationToken);
             if (!purged)
             {
@@ -123,7 +144,7 @@ public class ExecuteAccountDeletionCommandHandler
             await _publisher.Publish(
                 new AccountDeletionCompletedEvent(
                     request.UserId, email, displayName, request.PolicyVersion,
-                    ExternalRevocationFailed: false),
+                    ExternalRevocationFailed: !externalRevocationOk),
                 cancellationToken);
 
             return Result.Success;
@@ -141,5 +162,51 @@ public class ExecuteAccountDeletionCommandHandler
 
             return AccountDeletionErrors.ExecutionFailed;
         }
+    }
+
+    /// <summary>
+    /// Revokes every stored external-provider refresh token for the user.
+    /// Successfully revoked tokens are cleared so a retried execution never
+    /// re-revokes; providers without a lifecycle strategy are skipped.
+    /// </summary>
+    private async Task<bool> RevokeExternalTokensAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var logins = await _externalLoginRepository.GetByUserIdAsync(userId, cancellationToken);
+        var allRevoked = true;
+
+        foreach (var login in logins.Where(l => !string.IsNullOrEmpty(l.ProviderRefreshTokenEnc)))
+        {
+            var lifecycle = _tokenLifecycles.FirstOrDefault(
+                l => string.Equals(l.ProviderName, login.Provider, StringComparison.OrdinalIgnoreCase));
+            if (lifecycle is null)
+            {
+                continue;
+            }
+
+            try
+            {
+                var refreshToken = await _perUserCrypto.DecryptAsync(
+                    userId, login.ProviderRefreshTokenEnc!,
+                    EncryptedFieldPurpose.ExternalProviderRefreshToken, cancellationToken);
+
+                if (await lifecycle.RevokeAsync(refreshToken, cancellationToken))
+                {
+                    await _externalLoginRepository.UpdateProviderRefreshTokenAsync(
+                        login.Id, null, cancellationToken);
+                }
+                else
+                {
+                    allRevoked = false;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to revoke {Provider} token for user {UserId}", login.Provider, userId);
+                allRevoked = false;
+            }
+        }
+
+        return allRevoked;
     }
 }

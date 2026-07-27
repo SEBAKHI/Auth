@@ -17,6 +17,8 @@ public class ExternalLoginCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IAccountDeletionRequestRepository> _accountDeletionRequestRepositoryMock;
     private readonly Mock<IAccountDeletionTombstoneRepository> _tombstoneRepositoryMock;
+    private readonly List<IExternalTokenLifecycle> _tokenLifecycles = [];
+    private readonly Mock<IPerUserCryptoService> _perUserCryptoMock = new();
     private readonly Mock<IPersonalOrganizationCreator> _personalOrgCreatorMock;
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock;
     private readonly Mock<ITwoFactorChallengeService> _twoFactorChallengeServiceMock;
@@ -46,6 +48,8 @@ public class ExternalLoginCommandHandlerTests
             _accountDeletionRequestRepositoryMock.Object,
             new Auth.Application.Features.Users.Common.IdentifierReservationGuard(
                 _tombstoneRepositoryMock.Object, new Mock<IIdentifierHasher>().Object),
+            _tokenLifecycles,
+            _perUserCryptoMock.Object,
             _personalOrgCreatorMock.Object,
             _loginResponseBuilderMock.Object,
             _twoFactorChallengeServiceMock.Object,

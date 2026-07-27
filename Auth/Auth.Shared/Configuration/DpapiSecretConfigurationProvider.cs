@@ -109,6 +109,12 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
             Data["AccountDeletion:IdentifierHmacKeyPlain"] = secrets.AccountDeletionIdentifierHmacKey;
         }
 
+        // Apple .p8 signing key for the Sign in with Apple client secrets
+        if (!string.IsNullOrEmpty(secrets.AppleSigningKeyPem))
+        {
+            Data["ExternalAuth:Apple:PrivateKeyPem"] = secrets.AppleSigningKeyPem;
+        }
+
         // Email settings - SMTP password
         if (!string.IsNullOrEmpty(secrets.SmtpPassword))
         {
