@@ -984,7 +984,6 @@ export const fr: TranslationResources = {
     confirmDeletion: "Confirmer la suppression",
     resendCode: "Renvoyer le code",
     resendIn: "Renvoyer dans {{seconds}} s",
-    deleteAccountLink: "Supprimer votre compte",
   },
   validation: {
     required: "Ce champ est obligatoire.",

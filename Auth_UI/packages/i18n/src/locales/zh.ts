@@ -918,7 +918,6 @@ export const zh: TranslationResources = {
     confirmDeletion: "确认删除",
     resendCode: "重新发送验证码",
     resendIn: "{{seconds}} 秒后可重新发送",
-    deleteAccountLink: "删除您的账户",
   },
   validation: {
     required: "此字段为必填项。",

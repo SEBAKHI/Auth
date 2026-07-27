@@ -952,7 +952,6 @@ export const en = {
     confirmDeletion: "Confirm deletion",
     resendCode: "Resend code",
     resendIn: "Resend in {{seconds}}s",
-    deleteAccountLink: "Delete your account",
   },
   validation: {
     required: "This field is required.",

@@ -959,7 +959,6 @@ export const ur: TranslationResources = {
     confirmDeletion: "حذف کی تصدیق کریں",
     resendCode: "کوڈ دوبارہ بھیجیں",
     resendIn: "{{seconds}} سیکنڈ میں دوبارہ بھیجیں",
-    deleteAccountLink: "اپنا اکاؤنٹ حذف کریں",
   },
   validation: {
     required: "یہ خانہ لازمی ہے۔",

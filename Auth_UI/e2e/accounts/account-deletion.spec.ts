@@ -333,11 +333,20 @@ test.describe("account deletion", () => {
     test.setTimeout(120_000)
     const email = await createConfirmedUser(api, "j3")
 
-    // Reached from the login footer — the compliance surface must be
-    // discoverable without any authenticated context.
+    // The compliance surface is reachable by URL with no authenticated
+    // context — and deliberately NOT advertised on the sign-in screen, where
+    // the dominant intent is a forgotten password, not erasure. External
+    // entry points are the privacy-policy disclosure and the store listing's
+    // data-deletion URL field (plan rollout step 10).
     await page.goto("/login")
-    await page.getByRole("link", { name: "Delete your account" }).click()
-    await expect(page).toHaveURL(/\/delete-account/)
+    await expect(
+      page.getByRole("link", { name: /delete/i })
+    ).toHaveCount(0)
+
+    await page.goto("/delete-account")
+    await expect(
+      page.getByRole("heading", { name: "Delete your account" })
+    ).toBeVisible()
 
     const since = logOffset()
     await page.getByLabel("Email").fill(email)

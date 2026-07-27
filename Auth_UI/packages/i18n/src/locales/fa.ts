@@ -961,7 +961,6 @@ export const fa: TranslationResources = {
     confirmDeletion: "تأیید حذف",
     resendCode: "ارسال دوباره کد",
     resendIn: "ارسال دوباره تا {{seconds}} ثانیه",
-    deleteAccountLink: "حذف حساب شما",
   },
   validation: {
     required: "این فیلد الزامی است.",

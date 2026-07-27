@@ -965,7 +965,6 @@ export const tr: TranslationResources = {
     confirmDeletion: "Silmeyi onayla",
     resendCode: "Kodu yeniden gönder",
     resendIn: "{{seconds}} sn içinde yeniden gönder",
-    deleteAccountLink: "Hesabınızı silin",
   },
   validation: {
     required: "Bu alan zorunludur.",

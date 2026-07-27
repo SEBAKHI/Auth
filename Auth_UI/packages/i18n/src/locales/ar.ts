@@ -946,7 +946,6 @@ export const ar: TranslationResources = {
     confirmDeletion: "تأكيد الحذف",
     resendCode: "إعادة إرسال الرمز",
     resendIn: "إعادة الإرسال خلال {{seconds}} ث",
-    deleteAccountLink: "حذف حسابك",
   },
   validation: {
     required: "هذا الحقل مطلوب.",
