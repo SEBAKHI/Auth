@@ -129,6 +129,7 @@ export const tr: TranslationResources = {
     account: "Hesap",
   },
   auth: {
+    continueWithApple: "Apple ile devam et",
     signInTitle: "Oturum aç",
     signInSubtitle: "Kimlik yönetim konsoluna erişin.",
     email: "E-posta",
@@ -921,6 +922,51 @@ export const tr: TranslationResources = {
       "Bunları güvenli bir yerde saklayın. Her kod bir kez kullanılabilir.",
     twoFactorEnabledToast: "İki adımlı doğrulama etkinleştirildi.",
     twoFactorDisabledToast: "İki adımlı doğrulama devre dışı bırakıldı.",
+  },
+  accountDeletion: {
+    dangerZone: "Tehlikeli bölge",
+    dangerZoneSubtitle: "Bu hesabı ve kişisel verilerini kalıcı olarak silin.",
+    deleteAccount: "Hesabı sil",
+    deleteWarning:
+      "Hesabınız hemen devre dışı bırakılacak ve {{days}} gün sonra kalıcı olarak silinecektir. Bu süre içinde giriş yaparak geri yükleyebilirsiniz.",
+    reauthTitle: "Kimliğinizi doğrulayın",
+    reauthSubtitle: "Güvenliğiniz için devam etmeden önce kimliğinizi doğrulayın.",
+    reauthPasswordLabel: "Mevcut parola",
+    noPasswordHint:
+      "Parolanız yok mu? Bunun yerine e-postayla doğrulama kodu gönderebiliriz.",
+    usePasswordHint: "Parolanız var mı? Bunun yerine onunla doğrulayın.",
+    sendCode: "Bana kod gönder",
+    codeSent: "Doğrulama kodu gönderildi. Gelen kutunuzu kontrol edin.",
+    verificationCode: "Doğrulama kodu",
+    continue: "Devam",
+    confirmTitle: "Bu hesap silinsin mi?",
+    confirmBody:
+      "Bu, hesabınızın ve kişisel verilerinizin kalıcı olarak silinmesini planlar. Onaylamak için e-posta adresinizi yazın.",
+    confirmMismatch: "E-posta adresi eşleşmiyor.",
+    scheduleDeletion: "Silmeyi planla",
+    scheduledTitle: "Hesap devre dışı bırakıldı",
+    scheduledBody:
+      "Hesabınız devre dışı bırakıldı ve tüm cihazlardan çıkış yapıldı. {{date}} tarihinde kalıcı olarak silinecektir. Ayrıntıları ve kurtarma talimatlarını e-postayla gönderdik.",
+    daysToRecover: "Kurtarmak için {{days}} gün",
+    recoveryTitle: "Hesabınızı geri yükleyin",
+    recoveryFallback:
+      "Bu hesabın silinmesi planlandı. Silmeyi iptal etmek ve hesabı geri yüklemek için aşağıda kimlik bilgilerinizi doğrulayın.",
+    restoreAccount: "Hesabımı geri yükle",
+    restored: "Hesabınız geri yüklendi. Tekrar hoş geldiniz!",
+    twoFactorCode: "İki adımlı doğrulama kodu",
+    publicTitle: "Hesabınızı silin",
+    publicSubtitle: "Giriş yapmadan hesabınızın silinmesini talep edin.",
+    publicEmailBody:
+      "Silinmesini istediğiniz hesabın e-posta adresini girin. Hesap varsa adrese bir doğrulama kodu göndereceğiz.",
+    publicCodeBody: "{{email}} adresine gönderdiğimiz 6 haneli kodu girin.",
+    publicDoneTitle: "Talep alındı",
+    publicDoneBody:
+      "{{email}} için bir hesap varsa silinmesi planlandı. Onay ve kurtarma talimatları için gelen kutusunu kontrol edin.",
+    requestCode: "Doğrulama kodu gönder",
+    confirmDeletion: "Silmeyi onayla",
+    resendCode: "Kodu yeniden gönder",
+    resendIn: "{{seconds}} sn içinde yeniden gönder",
+    deleteAccountLink: "Hesabınızı silin",
   },
   validation: {
     required: "Bu alan zorunludur.",

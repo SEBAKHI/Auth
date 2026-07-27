@@ -129,6 +129,7 @@ export const fr: TranslationResources = {
     account: "Compte",
   },
   auth: {
+    continueWithApple: "Continuer avec Apple",
     signInTitle: "Connexion",
     signInSubtitle: "Accédez à la console d'administration Auth.",
     email: "E-mail",
@@ -939,6 +940,52 @@ export const fr: TranslationResources = {
       "Conservez-les en lieu sûr. Chaque code est utilisable une seule fois.",
     twoFactorEnabledToast: "Double authentification activée.",
     twoFactorDisabledToast: "Double authentification désactivée.",
+  },
+  accountDeletion: {
+    dangerZone: "Zone de danger",
+    dangerZoneSubtitle:
+      "Supprimer définitivement ce compte et ses données personnelles.",
+    deleteAccount: "Supprimer le compte",
+    deleteWarning:
+      "Votre compte sera immédiatement désactivé puis définitivement supprimé après {{days}} jours. Pendant cette période, vous pouvez le restaurer en vous connectant.",
+    reauthTitle: "Confirmez votre identité",
+    reauthSubtitle: "Pour votre sécurité, confirmez votre identité pour continuer.",
+    reauthPasswordLabel: "Mot de passe actuel",
+    noPasswordHint:
+      "Pas de mot de passe ? Nous pouvons vous envoyer un code de vérification par e-mail.",
+    usePasswordHint: "Vous avez un mot de passe ? Confirmez plutôt avec celui-ci.",
+    sendCode: "M'envoyer un code",
+    codeSent: "Code de vérification envoyé. Consultez votre boîte de réception.",
+    verificationCode: "Code de vérification",
+    continue: "Continuer",
+    confirmTitle: "Supprimer ce compte ?",
+    confirmBody:
+      "Cette action programme la suppression définitive de votre compte et de vos données personnelles. Saisissez votre adresse e-mail pour confirmer.",
+    confirmMismatch: "L'adresse e-mail ne correspond pas.",
+    scheduleDeletion: "Programmer la suppression",
+    scheduledTitle: "Compte désactivé",
+    scheduledBody:
+      "Votre compte a été désactivé et déconnecté partout. Il sera définitivement supprimé le {{date}}. Nous vous avons envoyé les détails et les instructions de récupération par e-mail.",
+    daysToRecover: "{{days}} jours pour récupérer",
+    recoveryTitle: "Restaurer votre compte",
+    recoveryFallback:
+      "La suppression de ce compte est programmée. Confirmez vos identifiants ci-dessous pour annuler la suppression et le restaurer.",
+    restoreAccount: "Restaurer mon compte",
+    restored: "Votre compte a été restauré. Bon retour !",
+    twoFactorCode: "Code de double authentification",
+    publicTitle: "Supprimer votre compte",
+    publicSubtitle: "Demandez la suppression de votre compte sans vous connecter.",
+    publicEmailBody:
+      "Saisissez l'adresse e-mail du compte à supprimer. S'il existe, nous lui enverrons un code de vérification.",
+    publicCodeBody: "Saisissez le code à 6 chiffres envoyé à {{email}}.",
+    publicDoneTitle: "Demande reçue",
+    publicDoneBody:
+      "Si un compte existe pour {{email}}, sa suppression a été programmée. Consultez la boîte de réception pour la confirmation et les instructions de récupération.",
+    requestCode: "Envoyer le code de vérification",
+    confirmDeletion: "Confirmer la suppression",
+    resendCode: "Renvoyer le code",
+    resendIn: "Renvoyer dans {{seconds}} s",
+    deleteAccountLink: "Supprimer votre compte",
   },
   validation: {
     required: "Ce champ est obligatoire.",

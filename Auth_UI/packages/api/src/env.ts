@@ -26,3 +26,10 @@ export const ACCOUNTS_URL = rawAccountsUrl.replace(/\/+$/, "")
  */
 export const GOOGLE_CLIENT_ID: string =
   import.meta.env.VITE_GOOGLE_CLIENT_ID ?? ""
+
+/**
+ * Apple Services ID for "Continue with Apple" (must match the API's Apple
+ * audience). Empty disables the button.
+ */
+export const APPLE_SERVICES_ID: string =
+  import.meta.env.VITE_APPLE_SERVICES_ID ?? ""

@@ -128,6 +128,7 @@ export const ar: TranslationResources = {
     account: "الحساب",
   },
   auth: {
+    continueWithApple: "المتابعة باستخدام Apple",
     signInTitle: "تسجيل الدخول",
     signInSubtitle: "الدخول إلى لوحة إدارة المصادقة.",
     email: "البريد الإلكتروني",
@@ -902,6 +903,50 @@ export const ar: TranslationResources = {
     recoveryCodesBody: "خزّنها في مكان آمن. كل رمز يُستخدم مرة واحدة.",
     twoFactorEnabledToast: "تم تفعيل المصادقة الثنائية.",
     twoFactorDisabledToast: "تم تعطيل المصادقة الثنائية.",
+  },
+  accountDeletion: {
+    dangerZone: "منطقة الخطر",
+    dangerZoneSubtitle: "حذف هذا الحساب وبياناته الشخصية نهائيًا.",
+    deleteAccount: "حذف الحساب",
+    deleteWarning:
+      "سيتم تعطيل حسابك فورًا وحذفه نهائيًا بعد {{days}} يومًا. يمكنك خلال هذه الفترة استعادته عبر تسجيل الدخول.",
+    reauthTitle: "تأكيد هويتك",
+    reauthSubtitle: "من أجل أمانك، أكد هويتك للمتابعة.",
+    reauthPasswordLabel: "كلمة المرور الحالية",
+    noPasswordHint: "لا تملك كلمة مرور؟ يمكننا إرسال رمز تحقق إلى بريدك بدلًا من ذلك.",
+    usePasswordHint: "لديك كلمة مرور؟ أكد بها بدلًا من ذلك.",
+    sendCode: "أرسل لي رمزًا",
+    codeSent: "تم إرسال رمز التحقق. تفقد بريدك الوارد.",
+    verificationCode: "رمز التحقق",
+    continue: "متابعة",
+    confirmTitle: "حذف هذا الحساب؟",
+    confirmBody:
+      "سيؤدي هذا إلى جدولة الحذف النهائي لحسابك وبياناتك الشخصية. اكتب عنوان بريدك الإلكتروني للتأكيد.",
+    confirmMismatch: "عنوان البريد الإلكتروني غير مطابق.",
+    scheduleDeletion: "جدولة الحذف",
+    scheduledTitle: "تم تعطيل الحساب",
+    scheduledBody:
+      "تم تعطيل حسابك وتسجيل الخروج من جميع الأجهزة. سيتم حذفه نهائيًا في {{date}}. أرسلنا إليك التفاصيل وتعليمات الاستعادة عبر البريد الإلكتروني.",
+    daysToRecover: "{{days}} يومًا للاستعادة",
+    recoveryTitle: "استعادة حسابك",
+    recoveryFallback:
+      "هذا الحساب مقرر حذفه. أكد بيانات اعتمادك أدناه لإلغاء الحذف واستعادته.",
+    restoreAccount: "استعادة حسابي",
+    restored: "تمت استعادة حسابك. مرحبًا بعودتك!",
+    twoFactorCode: "رمز التحقق بخطوتين",
+    publicTitle: "حذف حسابك",
+    publicSubtitle: "اطلب حذف حسابك دون تسجيل الدخول.",
+    publicEmailBody:
+      "أدخل عنوان البريد الإلكتروني للحساب الذي تريد حذفه. إذا كان الحساب موجودًا، فسنرسل رمز تحقق إليه.",
+    publicCodeBody: "أدخل الرمز المكون من 6 أرقام الذي أرسلناه إلى {{email}}.",
+    publicDoneTitle: "تم استلام الطلب",
+    publicDoneBody:
+      "إذا كان هناك حساب مرتبط بالعنوان {{email}}، فقد تمت جدولة حذفه. تفقد البريد الوارد للاطلاع على التأكيد وتعليمات الاستعادة.",
+    requestCode: "إرسال رمز التحقق",
+    confirmDeletion: "تأكيد الحذف",
+    resendCode: "إعادة إرسال الرمز",
+    resendIn: "إعادة الإرسال خلال {{seconds}} ث",
+    deleteAccountLink: "حذف حسابك",
   },
   validation: {
     required: "هذا الحقل مطلوب.",

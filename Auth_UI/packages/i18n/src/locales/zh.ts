@@ -128,6 +128,7 @@ export const zh: TranslationResources = {
     account: "账户",
   },
   auth: {
+    continueWithApple: "通过 Apple 继续",
     signInTitle: "登录",
     signInSubtitle: "访问认证管理控制台。",
     email: "邮箱",
@@ -875,6 +876,50 @@ export const zh: TranslationResources = {
     recoveryCodesBody: "请妥善保存。每个代码只能使用一次。",
     twoFactorEnabledToast: "双重认证已启用。",
     twoFactorDisabledToast: "双重认证已禁用。",
+  },
+  accountDeletion: {
+    dangerZone: "危险区域",
+    dangerZoneSubtitle: "永久删除此账户及其个人数据。",
+    deleteAccount: "删除账户",
+    deleteWarning:
+      "您的账户将立即停用，并在 {{days}} 天后被永久删除。在此期间您可以通过登录恢复账户。",
+    reauthTitle: "确认您的身份",
+    reauthSubtitle: "为了您的安全，请先确认身份再继续。",
+    reauthPasswordLabel: "当前密码",
+    noPasswordHint: "没有密码？我们可以改为向您的邮箱发送验证码。",
+    usePasswordHint: "有密码？改用密码确认。",
+    sendCode: "给我发送验证码",
+    codeSent: "验证码已发送，请查收邮箱。",
+    verificationCode: "验证码",
+    continue: "继续",
+    confirmTitle: "删除此账户？",
+    confirmBody:
+      "此操作将安排永久删除您的账户和个人数据。请输入您的邮箱地址以确认。",
+    confirmMismatch: "邮箱地址不匹配。",
+    scheduleDeletion: "安排删除",
+    scheduledTitle: "账户已停用",
+    scheduledBody:
+      "您的账户已停用并在所有设备上退出登录，将于 {{date}} 被永久删除。详情和恢复说明已发送至您的邮箱。",
+    daysToRecover: "{{days}} 天内可恢复",
+    recoveryTitle: "恢复您的账户",
+    recoveryFallback:
+      "该账户已被安排删除。请在下方确认您的凭据以取消删除并恢复账户。",
+    restoreAccount: "恢复我的账户",
+    restored: "您的账户已恢复。欢迎回来！",
+    twoFactorCode: "两步验证码",
+    publicTitle: "删除您的账户",
+    publicSubtitle: "无需登录即可请求删除您的账户。",
+    publicEmailBody:
+      "输入要删除的账户的邮箱地址。如果账户存在，我们会向该地址发送验证码。",
+    publicCodeBody: "输入我们发送到 {{email}} 的 6 位验证码。",
+    publicDoneTitle: "请求已收到",
+    publicDoneBody:
+      "如果 {{email}} 对应的账户存在，其删除已被安排。请查收邮箱获取确认和恢复说明。",
+    requestCode: "发送验证码",
+    confirmDeletion: "确认删除",
+    resendCode: "重新发送验证码",
+    resendIn: "{{seconds}} 秒后可重新发送",
+    deleteAccountLink: "删除您的账户",
   },
   validation: {
     required: "此字段为必填项。",

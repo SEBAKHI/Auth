@@ -129,6 +129,7 @@ export const fa: TranslationResources = {
     account: "حساب",
   },
   auth: {
+    continueWithApple: "ادامه با Apple",
     signInTitle: "ورود",
     signInSubtitle: "دسترسی به کنسول مدیریت احراز هویت.",
     email: "ایمیل",
@@ -917,6 +918,51 @@ export const fa: TranslationResources = {
       "آن‌ها را در جای امنی نگه دارید. هر کد فقط یک بار قابل استفاده است.",
     twoFactorEnabledToast: "احراز دومرحله‌ای فعال شد.",
     twoFactorDisabledToast: "احراز دومرحله‌ای غیرفعال شد.",
+  },
+  accountDeletion: {
+    dangerZone: "منطقه خطر",
+    dangerZoneSubtitle: "حذف دائمی این حساب و داده‌های شخصی آن.",
+    deleteAccount: "حذف حساب",
+    deleteWarning:
+      "حساب شما بلافاصله غیرفعال می‌شود و پس از {{days}} روز برای همیشه حذف خواهد شد. در این مدت می‌توانید با ورود، آن را بازیابی کنید.",
+    reauthTitle: "هویت خود را تأیید کنید",
+    reauthSubtitle: "برای امنیت شما، پیش از ادامه هویت خود را تأیید کنید.",
+    reauthPasswordLabel: "رمز عبور فعلی",
+    noPasswordHint:
+      "رمز عبور ندارید؟ می‌توانیم به جای آن یک کد تأیید به ایمیل شما بفرستیم.",
+    usePasswordHint: "رمز عبور دارید؟ به جای آن با رمز تأیید کنید.",
+    sendCode: "برایم کد بفرست",
+    codeSent: "کد تأیید ارسال شد. صندوق ورودی خود را بررسی کنید.",
+    verificationCode: "کد تأیید",
+    continue: "ادامه",
+    confirmTitle: "این حساب حذف شود؟",
+    confirmBody:
+      "این کار حذف دائمی حساب و داده‌های شخصی شما را زمان‌بندی می‌کند. برای تأیید، آدرس ایمیل خود را بنویسید.",
+    confirmMismatch: "آدرس ایمیل مطابقت ندارد.",
+    scheduleDeletion: "زمان‌بندی حذف",
+    scheduledTitle: "حساب غیرفعال شد",
+    scheduledBody:
+      "حساب شما غیرفعال و از همه دستگاه‌ها خارج شد. در تاریخ {{date}} برای همیشه حذف خواهد شد. جزئیات و راهنمای بازیابی را برایتان ایمیل کردیم.",
+    daysToRecover: "{{days}} روز برای بازیابی",
+    recoveryTitle: "بازیابی حساب شما",
+    recoveryFallback:
+      "حذف این حساب زمان‌بندی شده است. برای لغو حذف و بازیابی، اطلاعات ورود خود را در زیر تأیید کنید.",
+    restoreAccount: "بازیابی حساب من",
+    restored: "حساب شما بازیابی شد. خوش برگشتید!",
+    twoFactorCode: "کد تأیید دومرحله‌ای",
+    publicTitle: "حذف حساب شما",
+    publicSubtitle: "بدون ورود، درخواست حذف حساب خود را ثبت کنید.",
+    publicEmailBody:
+      "آدرس ایمیل حسابی را که می‌خواهید حذف شود وارد کنید. اگر حساب وجود داشته باشد، یک کد تأیید به آن می‌فرستیم.",
+    publicCodeBody: "کد ۶ رقمی ارسال‌شده به {{email}} را وارد کنید.",
+    publicDoneTitle: "درخواست دریافت شد",
+    publicDoneBody:
+      "اگر حسابی برای {{email}} وجود داشته باشد، حذف آن زمان‌بندی شده است. برای تأیید و راهنمای بازیابی، صندوق ورودی را بررسی کنید.",
+    requestCode: "ارسال کد تأیید",
+    confirmDeletion: "تأیید حذف",
+    resendCode: "ارسال دوباره کد",
+    resendIn: "ارسال دوباره تا {{seconds}} ثانیه",
+    deleteAccountLink: "حذف حساب شما",
   },
   validation: {
     required: "این فیلد الزامی است.",

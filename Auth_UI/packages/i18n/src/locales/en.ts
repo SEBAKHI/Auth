@@ -124,6 +124,7 @@ export const en = {
     account: "Account",
   },
   auth: {
+    continueWithApple: "Continue with Apple",
     signInTitle: "Sign in",
     signInSubtitle: "Access the Auth administration console.",
     email: "Email",
@@ -908,6 +909,50 @@ export const en = {
       "Store these somewhere safe. Each code can be used once.",
     twoFactorEnabledToast: "Two-factor enabled.",
     twoFactorDisabledToast: "Two-factor disabled.",
+  },
+  accountDeletion: {
+    dangerZone: "Danger zone",
+    dangerZoneSubtitle: "Permanently delete this account and its personal data.",
+    deleteAccount: "Delete account",
+    deleteWarning:
+      "Your account will be deactivated immediately and permanently deleted after {{days}} days. During that period you can restore it by signing in.",
+    reauthTitle: "Confirm it's you",
+    reauthSubtitle: "For your security, confirm your identity to continue.",
+    reauthPasswordLabel: "Current password",
+    noPasswordHint: "No password? We can email you a verification code instead.",
+    usePasswordHint: "Have a password? Confirm with it instead.",
+    sendCode: "Email me a code",
+    codeSent: "Verification code sent. Check your inbox.",
+    verificationCode: "Verification code",
+    continue: "Continue",
+    confirmTitle: "Delete this account?",
+    confirmBody:
+      "This schedules the permanent deletion of your account and personal data. Type your email address to confirm.",
+    confirmMismatch: "The email address does not match.",
+    scheduleDeletion: "Schedule deletion",
+    scheduledTitle: "Account deactivated",
+    scheduledBody:
+      "Your account has been deactivated and signed out everywhere. It will be permanently deleted on {{date}}. We've emailed you the details and recovery instructions.",
+    daysToRecover: "{{days}} days to recover",
+    recoveryTitle: "Restore your account",
+    recoveryFallback:
+      "This account is scheduled for deletion. Confirm your credentials below to cancel the deletion and restore it.",
+    restoreAccount: "Restore my account",
+    restored: "Your account has been restored. Welcome back!",
+    twoFactorCode: "Two-factor code",
+    publicTitle: "Delete your account",
+    publicSubtitle: "Request the deletion of your account without signing in.",
+    publicEmailBody:
+      "Enter the email address of the account you want deleted. If an account exists, we'll email a verification code to it.",
+    publicCodeBody: "Enter the 6-digit code we sent to {{email}}.",
+    publicDoneTitle: "Request received",
+    publicDoneBody:
+      "If an account exists for {{email}}, its deletion has been scheduled. Check the inbox for confirmation and recovery instructions.",
+    requestCode: "Send verification code",
+    confirmDeletion: "Confirm deletion",
+    resendCode: "Resend code",
+    resendIn: "Resend in {{seconds}}s",
+    deleteAccountLink: "Delete your account",
   },
   validation: {
     required: "This field is required.",

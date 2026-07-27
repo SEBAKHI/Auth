@@ -19,6 +19,17 @@ import type { UserInfo } from "@astoom/api/types"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
 
+/**
+ * Provider-specific sign-in extras: Apple sends the one-time authorization
+ * code (exchanged server-side for the revocable refresh token) and, on the
+ * FIRST authorization only, the user's name.
+ */
+export interface ExternalLoginExtras {
+  authorizationCode?: string
+  givenName?: string
+  familyName?: string
+}
+
 export type LoginResult =
   | { status: "authenticated"; requiresPasswordChange: boolean }
   | { status: "twoFactorRequired"; challengeToken: string }
@@ -54,7 +65,19 @@ interface AuthContextValue {
   loginExternal: (
     provider: string,
     idToken: string,
-    nonce?: string
+    nonce?: string,
+    extras?: ExternalLoginExtras
+  ) => Promise<LoginResult>
+  recoverAccount: (
+    email: string,
+    password: string,
+    twoFactorCode?: string
+  ) => Promise<LoginResult>
+  recoverAccountExternal: (
+    provider: string,
+    idToken: string,
+    nonce?: string,
+    twoFactorCode?: string
   ) => Promise<LoginResult>
   completeTwoFactor: (
     challengeToken: string,
@@ -198,13 +221,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (
       provider: string,
       idToken: string,
-      nonce?: string
+      nonce?: string,
+      extras?: ExternalLoginExtras
     ): Promise<LoginResult> => {
       const { data, error } = await api.POST("/api/v1/Auth/external-login", {
-        body: { provider, idToken, nonce },
+        body: {
+          provider,
+          idToken,
+          nonce,
+          authorizationCode: extras?.authorizationCode,
+          givenName: extras?.givenName,
+          familyName: extras?.familyName,
+        },
       })
       if (error || !data) {
         throw error ?? new Error("External login failed")
+      }
+
+      return adoptLoginResponse(data)
+    },
+    [adoptLoginResponse]
+  )
+
+  // Grace-period recovery: cancels a pending account deletion, restores the
+  // account and signs the user in — the response is a full login body, so it
+  // rides the same shared tail.
+  const recoverAccount = React.useCallback(
+    async (
+      email: string,
+      password: string,
+      twoFactorCode?: string
+    ): Promise<LoginResult> => {
+      const { data, error } = await api.POST("/api/v1/Auth/deletion/recover", {
+        body: { email, password, twoFactorCode },
+      })
+      if (error || !data) {
+        throw error ?? new Error("Account recovery failed")
+      }
+
+      return adoptLoginResponse(data)
+    },
+    [adoptLoginResponse]
+  )
+
+  const recoverAccountExternal = React.useCallback(
+    async (
+      provider: string,
+      idToken: string,
+      nonce?: string,
+      twoFactorCode?: string
+    ): Promise<LoginResult> => {
+      const { data, error } = await api.POST(
+        "/api/v1/Auth/deletion/recover-external",
+        {
+          body: { provider, idToken, nonce, twoFactorCode },
+        }
+      )
+      if (error || !data) {
+        throw error ?? new Error("Account recovery failed")
       }
 
       return adoptLoginResponse(data)
@@ -292,6 +366,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasAnyPermission,
       login,
       loginExternal,
+      recoverAccount,
+      recoverAccountExternal,
       completeTwoFactor,
       completeEmailVerification,
       logout,
@@ -306,6 +382,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hasAnyPermission,
       login,
       loginExternal,
+      recoverAccount,
+      recoverAccountExternal,
       completeTwoFactor,
       completeEmailVerification,
       logout,

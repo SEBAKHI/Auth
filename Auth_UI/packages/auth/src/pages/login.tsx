@@ -104,6 +104,15 @@ export function LoginPage({
         })
         return
       }
+      // Pending deletion (only surfaced on VALID credentials): route to the
+      // recovery screen instead of a dead-end error. The server's localized
+      // message carries the deletion deadline.
+      if (getErrorCodes(error).includes("User.AccountPendingDeletion")) {
+        navigate("/account-recovery", {
+          state: { email: values.email, message: getErrorMessage(error) },
+        })
+        return
+      }
       toast.error(getErrorMessage(error))
     }
   }
