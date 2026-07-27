@@ -15,6 +15,8 @@ public class ExternalLoginCommandHandlerTests
     private readonly Mock<IExternalAuthProviderFactory> _providerFactoryMock;
     private readonly Mock<IUserExternalLoginRepository> _externalLoginRepositoryMock;
     private readonly Mock<IUserRepository> _userRepositoryMock;
+    private readonly Mock<IAccountDeletionRequestRepository> _accountDeletionRequestRepositoryMock;
+    private readonly Mock<IAccountDeletionTombstoneRepository> _tombstoneRepositoryMock;
     private readonly Mock<IPersonalOrganizationCreator> _personalOrgCreatorMock;
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock;
     private readonly Mock<ITwoFactorChallengeService> _twoFactorChallengeServiceMock;
@@ -28,6 +30,8 @@ public class ExternalLoginCommandHandlerTests
         _providerFactoryMock = new Mock<IExternalAuthProviderFactory>();
         _externalLoginRepositoryMock = new Mock<IUserExternalLoginRepository>();
         _userRepositoryMock = new Mock<IUserRepository>();
+        _accountDeletionRequestRepositoryMock = new Mock<IAccountDeletionRequestRepository>();
+        _tombstoneRepositoryMock = new Mock<IAccountDeletionTombstoneRepository>();
         _personalOrgCreatorMock = new Mock<IPersonalOrganizationCreator>();
         _loginResponseBuilderMock = new Mock<ILoginResponseBuilder>();
         _twoFactorChallengeServiceMock = new Mock<ITwoFactorChallengeService>();
@@ -39,6 +43,9 @@ public class ExternalLoginCommandHandlerTests
             _providerFactoryMock.Object,
             _externalLoginRepositoryMock.Object,
             _userRepositoryMock.Object,
+            _accountDeletionRequestRepositoryMock.Object,
+            new Auth.Application.Features.Users.Common.IdentifierReservationGuard(
+                _tombstoneRepositoryMock.Object, new Mock<IIdentifierHasher>().Object),
             _personalOrgCreatorMock.Object,
             _loginResponseBuilderMock.Object,
             _twoFactorChallengeServiceMock.Object,

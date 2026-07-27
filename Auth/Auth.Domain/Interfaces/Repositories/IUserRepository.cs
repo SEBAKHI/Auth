@@ -35,6 +35,13 @@ public interface IUserRepository
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets a user by their email address, including soft-deleted users.
+    /// Intended for the deletion recovery flow and the pending-deletion login
+    /// signal; operational reads must use <see cref="GetByEmailAsync"/>.
+    /// </summary>
+    Task<User?> GetByEmailIncludeDeletedAsync(string email, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Checks if an email address is reserved (used by any user, including soft-deleted users).
     /// </summary>
     /// <remarks>
@@ -74,6 +81,12 @@ public interface IUserRepository
     /// history remain, and the email stays reserved).
     /// </summary>
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Clears the soft-delete flag (grace-period account recovery). Only the
+    /// recovery flow may call this, after the deletion request was cancelled.
+    /// </summary>
+    Task RestoreAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Permanently removes a soft-deleted user and every dependent record

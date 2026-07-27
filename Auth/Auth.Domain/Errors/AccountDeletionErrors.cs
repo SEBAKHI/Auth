@@ -31,4 +31,8 @@ public static class AccountDeletionErrors
     public static Error NotProcessing => Error.Conflict(
         code: "AccountDeletion.NotProcessing",
         description: "The deletion request is not being processed.");
+
+    public static Error ExecutionFailed => Error.Failure(
+        code: "AccountDeletion.ExecutionFailed",
+        description: "Account deletion execution failed; it will be retried.");
 }

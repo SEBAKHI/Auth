@@ -10,12 +10,21 @@ public interface IAccountDeletionRequestRepository
 {
     /// <summary>
     /// Creates a new deletion request. The filtered unique index allows at
-    /// most one active (PendingGrace/Processing) request per user; a duplicate
-    /// insert surfaces as a unique-key violation for the caller to map.
+    /// most one active (PendingGrace/Processing) request per user; losing that
+    /// race returns false so the caller can map it without touching SQL
+    /// exception types.
     /// </summary>
     /// <param name="request">The request to create.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task CreateAsync(AccountDeletionRequest request, CancellationToken cancellationToken);
+    /// <returns>True when created; false when an active request already exists.</returns>
+    Task<bool> TryCreateAsync(AccountDeletionRequest request, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets a deletion request by id.
+    /// </summary>
+    /// <param name="id">The request ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<AccountDeletionRequest?> GetByIdAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
     /// Gets the user's active (PendingGrace or Processing) request, if any.

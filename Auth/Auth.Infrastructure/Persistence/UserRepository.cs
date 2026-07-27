@@ -145,6 +145,47 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<User?> GetByEmailIncludeDeletedAsync(string email, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var result = await connection.QueryFirstOrDefaultAsync<UserDto>(@"
+            SELECT
+                [Id], [Username], [Email], [NormalizedEmail], [PasswordHash],
+                [FirstName], [LastName], [FullName] AS [DisplayName], [PhoneNumber],
+                [PreferredLanguage], [TimeZone], [Theme],
+                [IsEmailConfirmed] AS [EmailConfirmed],
+                [IsPhoneConfirmed] AS [PhoneConfirmed],
+                [IsTwoFactorEnabled] AS [TwoFactorEnabled],
+                [Status], [FailedLoginAttempts],
+                [LockoutEndUtc] AS [LockoutEnd],
+                [LastLoginUtc] AS [LastLoginAt],
+                [LastPasswordChangeUtc] AS [PasswordChangedAt],
+                [MustChangePassword],
+                [ProfileImageUrl], [LastLoginIp], [PasswordExpiresUtc],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
+                [IsDeleted], [DeletedAt]
+            FROM [dbo].[Users]
+            WHERE [NormalizedEmail] = @NormalizedEmail",
+            new { NormalizedEmail = email.ToUpperInvariant() });
+
+        return (await WithDecryptedPhoneAsync(result, cancellationToken))?.ToUser();
+    }
+
+    /// <inheritdoc />
+    public async Task RestoreAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[Users]
+            SET [IsDeleted] = 0, [DeletedAt] = NULL, [DeletedBy] = NULL,
+                [ModifiedAt] = GETUTCDATE(), [ModifiedBy] = @Id
+            WHERE [Id] = @Id AND [IsDeleted] = 1",
+            new { Id = id });
+    }
+
+    /// <inheritdoc />
     public async Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

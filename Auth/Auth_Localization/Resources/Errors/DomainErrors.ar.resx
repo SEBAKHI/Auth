@@ -734,4 +734,7 @@
   <data name="AccountDeletion.NotProcessing" xml:space="preserve">
     <value>طلب الحذف ليس قيد التنفيذ.</value>
   </data>
+  <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
+    <value>فشل تنفيذ حذف الحساب، وستُعاد المحاولة.</value>
+  </data>
 </root>

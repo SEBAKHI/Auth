@@ -12,6 +12,10 @@ public static class NotificationTypeCodes
     public const string WelcomeEmail = "welcome-email";
     public const string OwnershipTransferCode = "ownership-transfer-code";
     public const string OwnershipTransferred = "ownership-transferred";
+    public const string AccountDeletionRequested = "account-deletion-requested";
+    public const string AccountDeletionVerification = "account-deletion-verification";
+    public const string AccountDeletionCancelled = "account-deletion-cancelled";
+    public const string AccountDeletionCompleted = "account-deletion-completed";
 
     /// <summary>
     /// System types that back critical auth flows; their global templates must

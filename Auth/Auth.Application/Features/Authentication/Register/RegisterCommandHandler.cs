@@ -4,6 +4,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Application.Validators;
 using Auth.Application.Features.Authentication.SendEmailVerification;
+using Auth.Application.Features.Users.Common;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -23,6 +24,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
     private readonly IPasswordBreachEvaluator _breachEvaluator;
+    private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
     private readonly IMediator _mediator;
     private readonly ILogger<RegisterCommandHandler> _logger;
@@ -32,6 +34,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
         IPasswordBreachEvaluator breachEvaluator,
+        IdentifierReservationGuard reservationGuard,
         IPersonalOrganizationCreator personalOrganizationCreator,
         IMediator mediator,
         ILogger<RegisterCommandHandler> logger)
@@ -40,6 +43,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
         _breachEvaluator = breachEvaluator;
+        _reservationGuard = reservationGuard;
         _personalOrganizationCreator = personalOrganizationCreator;
         _mediator = mediator;
         _logger = logger;
@@ -53,6 +57,14 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         if (await _userRepository.ExistsByEmailAsync(request.Email, cancellationToken))
         {
             return UserErrors.DuplicateEmail(request.Email);
+        }
+
+        // The never-recycle policy: a permanently deleted identifier can never
+        // be registered again (same response as an ordinary duplicate).
+        var reservation = await _reservationGuard.EnsureNotReservedAsync(request.Email, cancellationToken);
+        if (reservation.IsError)
+        {
+            return reservation.Errors;
         }
 
         // Validate password

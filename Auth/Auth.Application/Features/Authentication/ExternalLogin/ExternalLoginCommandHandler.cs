@@ -1,5 +1,6 @@
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Features.Users.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -21,6 +22,8 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly IExternalAuthProviderFactory _providerFactory;
     private readonly IUserExternalLoginRepository _externalLoginRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IAccountDeletionRequestRepository _accountDeletionRequestRepository;
+    private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
@@ -31,6 +34,8 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         IExternalAuthProviderFactory providerFactory,
         IUserExternalLoginRepository externalLoginRepository,
         IUserRepository userRepository,
+        IAccountDeletionRequestRepository accountDeletionRequestRepository,
+        IdentifierReservationGuard reservationGuard,
         IPersonalOrganizationCreator personalOrganizationCreator,
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
@@ -40,6 +45,8 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         _providerFactory = providerFactory;
         _externalLoginRepository = externalLoginRepository;
         _userRepository = userRepository;
+        _accountDeletionRequestRepository = accountDeletionRequestRepository;
+        _reservationGuard = reservationGuard;
         _personalOrganizationCreator = personalOrganizationCreator;
         _loginResponseBuilder = loginResponseBuilder;
         _twoFactorChallengeService = twoFactorChallengeService;
@@ -83,7 +90,17 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
             // Returning user — fetch and validate
             user = await _userRepository.GetByIdAsync(existingExternalLogin.UserId, cancellationToken);
             if (user == null)
+            {
+                // A pending-deletion account is invisible to the normal lookup;
+                // the verified provider token proves identity, so surface the
+                // recovery path instead of a dead end.
+                var pendingSignal = await GetPendingDeletionSignalAsync(
+                    existingExternalLogin.UserId, cancellationToken);
+                if (pendingSignal is not null)
+                    return pendingSignal.Value;
+
                 return UserErrors.NotFound(existingExternalLogin.UserId);
+            }
 
             // Update cached provider info
             existingExternalLogin.UpdateFromProvider(
@@ -108,6 +125,24 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
             }
             else
             {
+                // A pending-deletion account with this email is hidden from the
+                // lookup above; creating a second account would collide on the
+                // unique email constraint, so surface the recovery path instead.
+                var deletedByEmail = await _userRepository.GetByEmailIncludeDeletedAsync(
+                    externalUser.Email, cancellationToken);
+                if (deletedByEmail is { IsDeleted: true })
+                {
+                    var pendingSignal = await GetPendingDeletionSignalAsync(deletedByEmail.Id, cancellationToken);
+                    return pendingSignal ?? UserErrors.DuplicateEmail(externalUser.Email);
+                }
+
+                // The never-recycle policy: a permanently deleted identifier can
+                // never be registered again (same response as a duplicate).
+                var reservation = await _reservationGuard.EnsureNotReservedAsync(
+                    externalUser.Email, cancellationToken);
+                if (reservation.IsError)
+                    return reservation.Errors;
+
                 // Create new user from external provider
                 user = User.CreateFromExternalProvider(
                     email: externalUser.Email,
@@ -188,4 +223,16 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         return loginResponse;
     }
 
+    /// <summary>
+    /// Returns the pending-deletion error (with the grace deadline) when the
+    /// account awaits deletion — callers have already proven identity via the
+    /// provider's verified token.
+    /// </summary>
+    private async Task<Error?> GetPendingDeletionSignalAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var active = await _accountDeletionRequestRepository.GetActiveByUserIdAsync(userId, cancellationToken);
+        return active is { Status: AccountDeletionStatus.PendingGrace }
+            ? UserErrors.AccountPendingDeletion(active.GraceEndsAtUtc)
+            : null;
+    }
 }

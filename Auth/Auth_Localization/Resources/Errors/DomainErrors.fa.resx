@@ -734,4 +734,7 @@
   <data name="AccountDeletion.NotProcessing" xml:space="preserve">
     <value>درخواست حذف در حال پردازش نیست.</value>
   </data>
+  <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
+    <value>اجرای حذف حساب ناموفق بود و دوباره تلاش خواهد شد.</value>
+  </data>
 </root>

@@ -243,6 +243,9 @@ builder.Services.AddSingleton<IDbConnectionFactory>(_ => new SqlConnectionFactor
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserEncryptionKeyRepository, UserEncryptionKeyRepository>();
+builder.Services.AddScoped<IAccountDeletionRequestRepository, AccountDeletionRequestRepository>();
+builder.Services.AddScoped<IAccountDeletionTombstoneRepository, AccountDeletionTombstoneRepository>();
+builder.Services.AddScoped<IAccountDeletionVerificationRepository, AccountDeletionVerificationRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
@@ -394,10 +397,15 @@ builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageServic
 builder.Services.AddSingleton<IImageUrlComposer, ImageUrlComposer>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
-// Account deletion: the shared credential-kill primitive and the shared
-// owned-organization rule used by every deletion flow.
+// Account deletion: the shared credential-kill primitive, the shared
+// owned-organization and identifier-reservation rules, and the request /
+// recovery / OTP pipelines used by every deletion flow.
 builder.Services.AddScoped<ICredentialRevocationService, CredentialRevocationService>();
 builder.Services.AddScoped<Auth.Application.Features.Users.Common.OwnedOrganizationDeletionGuard>();
+builder.Services.AddScoped<Auth.Application.Features.Users.Common.IdentifierReservationGuard>();
+builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRequestor>();
+builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRecoverer>();
+builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.DeletionOtpService>();
 // One-shot, config-gated (AccountDeletion:RunEncryptionMigration) re-encryption
 // of TOTP secrets and phone numbers under per-user DEKs.
 builder.Services.AddHostedService<EncryptionMigrationService>();

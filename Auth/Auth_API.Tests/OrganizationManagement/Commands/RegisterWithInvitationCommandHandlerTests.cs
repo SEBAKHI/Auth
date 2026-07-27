@@ -50,6 +50,7 @@ public class RegisterWithInvitationCommandHandlerTests
             _passwordHasherMock.Object,
             passwordValidator,
             TestHelpers.CreatePassingBreachEvaluator(),
+            TestHelpers.CreatePassingReservationGuard(),
             _mediatorMock.Object,
             new Mock<ILogger<RegisterWithInvitationCommandHandler>>().Object);
     }

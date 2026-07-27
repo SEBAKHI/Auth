@@ -380,4 +380,18 @@
   <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
     <value>The confirmation code must be 6 digits.</value>
   </data>
+
+  <!-- ==================== Account Deletion ==================== -->
+  <data name="Validation.Reauthentication.Required" xml:space="preserve">
+    <value>Confirm with your current password or a verification code.</value>
+  </data>
+  <data name="Validation.OtpCode.Required" xml:space="preserve">
+    <value>Verification code is required.</value>
+  </data>
+  <data name="Validation.OtpCode.InvalidFormat" xml:space="preserve">
+    <value>Verification code must be 6 digits.</value>
+  </data>
+  <data name="Validation.Provider.TooLong" xml:space="preserve">
+    <value>Provider name is too long.</value>
+  </data>
 </root>

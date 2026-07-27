@@ -1,6 +1,7 @@
 using System.Globalization;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Organizations.AcceptInvitation;
+using Auth.Application.Features.Users.Common;
 using Auth.Application.Interfaces;
 using Auth.Application.Validators;
 using Auth.Domain.Constants;
@@ -26,6 +27,7 @@ public class RegisterWithInvitationCommandHandler
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
     private readonly IPasswordBreachEvaluator _breachEvaluator;
+    private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IMediator _mediator;
     private readonly ILogger<RegisterWithInvitationCommandHandler> _logger;
 
@@ -35,6 +37,7 @@ public class RegisterWithInvitationCommandHandler
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
         IPasswordBreachEvaluator breachEvaluator,
+        IdentifierReservationGuard reservationGuard,
         IMediator mediator,
         ILogger<RegisterWithInvitationCommandHandler> logger)
     {
@@ -43,6 +46,7 @@ public class RegisterWithInvitationCommandHandler
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
         _breachEvaluator = breachEvaluator;
+        _reservationGuard = reservationGuard;
         _mediator = mediator;
         _logger = logger;
     }
@@ -96,6 +100,14 @@ public class RegisterWithInvitationCommandHandler
         if (await _userRepository.ExistsByEmailAsync(invitation.Email.Value, cancellationToken))
         {
             return UserErrors.DuplicateEmail(invitation.Email.Value);
+        }
+
+        // The never-recycle policy: a permanently deleted identifier can never
+        // be registered again (same response as an ordinary duplicate).
+        var reservation = await _reservationGuard.EnsureNotReservedAsync(invitation.Email.Value, cancellationToken);
+        if (reservation.IsError)
+        {
+            return reservation.Errors;
         }
 
         var passwordValidation = _passwordValidator.Validate(request.Password);

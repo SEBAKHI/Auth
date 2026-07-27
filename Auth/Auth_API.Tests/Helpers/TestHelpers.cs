@@ -764,6 +764,16 @@ public static class TestHelpers
     }
 
     /// <summary>
+    /// Creates an <see cref="Auth.Application.Features.Users.Common.IdentifierReservationGuard"/>
+    /// over empty tombstones (no identifier is reserved), for handler tests not
+    /// exercising the never-recycle policy.
+    /// </summary>
+    public static Auth.Application.Features.Users.Common.IdentifierReservationGuard CreatePassingReservationGuard()
+        => new(
+            new Mock<Auth.Domain.Interfaces.Repositories.IAccountDeletionTombstoneRepository>().Object,
+            new Mock<Auth.Application.Interfaces.IIdentifierHasher>().Object);
+
+    /// <summary>
     /// Creates test PasswordSettings with sensible defaults.
     /// </summary>
     public static PasswordSettings CreatePasswordSettings(
