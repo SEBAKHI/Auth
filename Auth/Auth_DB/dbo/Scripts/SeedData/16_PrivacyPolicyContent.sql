@@ -1,4 +1,4 @@
--- Privacy Policy Content Seed Data
+﻿-- Privacy Policy Content Seed Data
 -- The published policy document for version 2026.07, one row per language.
 -- GENERATED from Auth_UI/apps/accounts/src/pages/privacy/content/*.ts (the
 -- offline fallback bundle) — regenerate with that script if the fallback

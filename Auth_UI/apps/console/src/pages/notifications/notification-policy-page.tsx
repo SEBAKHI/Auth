@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CheckCircle2, FileText, Loader2, Megaphone, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
+import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { api } from "@astoom/api/client"
@@ -36,7 +37,6 @@ import {
 } from "@astoom/ui/table"
 import { PERMISSIONS } from "@/lib/constants"
 import { NotificationsTabs } from "./components/notifications-tabs"
-import { PolicyContentEditor } from "./components/policy-content-editor"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
 
@@ -54,6 +54,7 @@ export function NotificationPolicyPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
 
   const canManage = hasPermission(PERMISSIONS.privacyPolicy.manage)
 
@@ -62,7 +63,6 @@ export function NotificationPolicyPage() {
   const [newEffectiveDate, setNewEffectiveDate] = React.useState("")
   const [notifyTarget, setNotifyTarget] = React.useState<PolicyVersionDto | null>(null)
   const [publishTarget, setPublishTarget] = React.useState<PolicyVersionDto | null>(null)
-  const [editingVersion, setEditingVersion] = React.useState<string | null>(null)
 
   const versionsQuery = useQuery({
     queryKey: ["privacy-policy-versions"],
@@ -198,7 +198,9 @@ export function NotificationPolicyPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setEditingVersion(version.version ?? null)}
+                            onClick={() =>
+                              navigate(`/notifications/policy/${version.version}`)
+                            }
                           >
                             <FileText data-icon="inline-start" />
                             {t("notifications.policyEditContent")}
@@ -275,15 +277,6 @@ export function NotificationPolicyPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <PolicyContentEditor
-        version={editingVersion ?? ""}
-        open={editingVersion !== null}
-        onOpenChange={(open) => {
-          if (!open) setEditingVersion(null)
-        }}
-        canManage={canManage}
-      />
 
       <ConfirmDialog
         open={publishTarget !== null}
