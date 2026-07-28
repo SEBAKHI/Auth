@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@astoom/ui/alert"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@astoom/ui/card"
+import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import {
   PolicyDocument,
@@ -24,6 +25,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
 import { Skeleton } from "@astoom/ui/skeleton"
+import { useUnsavedChangesPrompt } from "@astoom/ui/hooks/use-unsaved-changes"
 import { Tabs, TabsList, TabsTrigger } from "@astoom/ui/tabs"
 import { Textarea } from "@astoom/ui/textarea"
 import { PERMISSIONS } from "@/lib/constants"
@@ -81,6 +83,7 @@ export function NotificationPolicyDetailPage() {
   const [doc, setDoc] = React.useState<PrivacyPolicyContent | null>(null)
   const [dirty, setDirty] = React.useState(false)
   const [parseError, setParseError] = React.useState<string | null>(null)
+  const [pendingLanguage, setPendingLanguage] = React.useState<string | null>(null)
 
   const contentQuery = useQuery({
     queryKey: ["privacy-policy-content", version, language],
@@ -138,6 +141,9 @@ export function NotificationPolicyDetailPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
+  // Leaving with unsaved legal text must never be silent.
+  const unsavedPrompt = useUnsavedChangesPrompt(dirty)
+
   const patch = React.useCallback((next: Partial<PrivacyPolicyContent>) => {
     setDoc((current) => (current ? { ...current, ...next } : current))
     setDirty(true)
@@ -159,6 +165,7 @@ export function NotificationPolicyDetailPage() {
 
   return (
     <div className="space-y-6">
+      {unsavedPrompt}
       <PageHeader
         title={t("notifications.policyContentTitle", { version })}
         description={t("notifications.policyContentDescription")}
@@ -182,7 +189,12 @@ export function NotificationPolicyDetailPage() {
       <Tabs
         value={language}
         onValueChange={(next: string) => {
-          setDirty(false)
+          // Switching language refetches the document, so unsaved edits in
+          // the current one would be lost without asking.
+          if (dirty) {
+            setPendingLanguage(next)
+            return
+          }
           setLanguage(next)
         }}
       >
@@ -205,6 +217,24 @@ export function NotificationPolicyDetailPage() {
           </Badge>
         ))}
       </div>
+
+      <ConfirmDialog
+        open={pendingLanguage !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingLanguage(null)
+        }}
+        title={t("common.discardTitle")}
+        description={t("common.discardBody")}
+        confirmLabel={t("common.discard")}
+        destructive
+        onConfirm={() => {
+          if (pendingLanguage) {
+            setDirty(false)
+            setLanguage(pendingLanguage)
+          }
+          setPendingLanguage(null)
+        }}
+      />
 
       {parseError ? (
         <Alert variant="destructive">
@@ -279,6 +309,7 @@ export function NotificationPolicyDetailPage() {
                     label={t("notifications.policyIntro")}
                     values={doc.intro}
                     disabled={!canManage}
+                    removeLabel={t("notifications.policyRemoveParagraph")}
                     onChange={(intro) => patch({ intro })}
                   />
                 </FieldGroup>
@@ -384,7 +415,8 @@ export function NotificationPolicyDetailPage() {
                             variant="ghost"
                             size="icon"
                             disabled={!canManage}
-                            aria-label={t("common.remove")}
+                            aria-label={t("notifications.policyRemoveRow")}
+                            title={t("notifications.policyRemoveRow")}
                             onClick={() =>
                               patch({
                                 retention: {
@@ -453,6 +485,7 @@ export function NotificationPolicyDetailPage() {
                     label={t("notifications.policyParagraphs")}
                     values={doc.deletion.paragraphs}
                     disabled={!canManage}
+                    removeLabel={t("notifications.policyRemoveParagraph")}
                     onChange={(paragraphs) =>
                       patch({ deletion: { ...doc.deletion, paragraphs } })
                     }
@@ -462,6 +495,7 @@ export function NotificationPolicyDetailPage() {
                     values={doc.deletion.bullets}
                     disabled={!canManage}
                     rows={2}
+                    removeLabel={t("notifications.policyRemoveBullet")}
                     onChange={(bullets) =>
                       patch({ deletion: { ...doc.deletion, bullets } })
                     }

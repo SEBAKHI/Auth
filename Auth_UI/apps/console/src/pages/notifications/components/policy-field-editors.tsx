@@ -1,17 +1,27 @@
 import { Plus, Trash2 } from "lucide-react"
+import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import type { PolicySection } from "@astoom/ui/common/policy-document"
 import { Button } from "@astoom/ui/button"
-import { Card, CardContent } from "@astoom/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@astoom/ui/card"
+import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { Field, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
+import { Separator } from "@astoom/ui/separator"
 import { Textarea } from "@astoom/ui/textarea"
+
+/*
+ * List items are keyed by index on purpose. The document is plain JSON with no
+ * stable ids, and immutable updates replace the object on every keystroke — an
+ * identity-based key would remount the field (and drop focus) on every letter
+ * typed. Every input here is fully controlled, so index keys render correctly.
+ */
 
 /**
  * Editor for an ordered list of prose strings (paragraphs or bullets).
  * `dir="auto"` lets each textarea follow the language being edited, so RTL
- * documents stay readable without a per-locale switch.
+ * documents stay readable while typing.
  */
 export function StringListEditor({
   label,
@@ -19,12 +29,15 @@ export function StringListEditor({
   onChange,
   disabled,
   rows = 3,
+  removeLabel,
 }: {
   label: string
   values: string[]
   onChange: (next: string[]) => void
   disabled?: boolean
   rows?: number
+  /** Accessible name for each item's remove button. */
+  removeLabel?: string
 }) {
   const { t } = useTranslation()
 
@@ -51,7 +64,8 @@ export function StringListEditor({
               variant="ghost"
               size="icon"
               disabled={disabled}
-              aria-label={t("common.remove")}
+              aria-label={removeLabel ?? t("common.remove")}
+              title={removeLabel ?? t("common.remove")}
               onClick={() => onChange(values.filter((_, i) => i !== index))}
             >
               <Trash2 />
@@ -77,6 +91,11 @@ export function StringListEditor({
 /**
  * Editor for a list of policy sections (heading + paragraphs + bullets), used
  * for the main body, the jurisdiction rights blocks and the closing blocks.
+ *
+ * Each section owns a titled card with an explicit "Remove section" button:
+ * deleting a whole block of legal text is a destructive act, so it gets a
+ * labelled control and a confirmation rather than a bare icon that reads as
+ * "clear this field".
  */
 export function SectionListEditor({
   label,
@@ -90,11 +109,27 @@ export function SectionListEditor({
   disabled?: boolean
 }) {
   const { t } = useTranslation()
+  const [pendingRemoval, setPendingRemoval] = React.useState<number | null>(null)
 
   const update = (index: number, patch: Partial<PolicySection>) => {
     const next = [...sections]
     next[index] = { ...next[index], ...patch }
     onChange(next)
+  }
+
+  const remove = (index: number) =>
+    onChange(sections.filter((_, i) => i !== index))
+
+  /** Empty sections vanish without a prompt; written ones must be confirmed. */
+  const requestRemove = (index: number) => {
+    const section = sections[index]
+    const hasContent =
+      section.heading.trim().length > 0 ||
+      section.paragraphs.some((p) => p.trim().length > 0) ||
+      (section.bullets ?? []).some((b) => b.trim().length > 0)
+
+    if (hasContent) setPendingRemoval(index)
+    else remove(index)
   }
 
   return (
@@ -117,34 +152,39 @@ export function SectionListEditor({
 
       {sections.map((section, index) => (
         <Card key={index}>
-          <CardContent className="flex flex-col gap-4 pt-6">
-            <div className="flex items-start gap-2">
-              <Field className="flex-1">
-                <FieldLabel>{t("notifications.policyHeading")}</FieldLabel>
-                <Input
-                  dir="auto"
-                  value={section.heading}
-                  disabled={disabled}
-                  onChange={(event) => update(index, { heading: event.target.value })}
-                />
-              </Field>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="mt-6"
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+            <CardTitle className="text-sm text-muted-foreground">
+              {t("notifications.policySectionNumber", { number: index + 1 })}
+            </CardTitle>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={disabled}
+              onClick={() => requestRemove(index)}
+            >
+              <Trash2 data-icon="inline-start" />
+              {t("notifications.policyRemoveSection")}
+            </Button>
+          </CardHeader>
+          <Separator />
+          <CardContent className="flex flex-col gap-4 pt-4">
+            <Field>
+              <FieldLabel>{t("notifications.policyHeading")}</FieldLabel>
+              <Input
+                dir="auto"
+                value={section.heading}
                 disabled={disabled}
-                aria-label={t("common.remove")}
-                onClick={() => onChange(sections.filter((_, i) => i !== index))}
-              >
-                <Trash2 />
-              </Button>
-            </div>
+                onChange={(event) => update(index, { heading: event.target.value })}
+              />
+            </Field>
 
             <StringListEditor
               label={t("notifications.policyParagraphs")}
               values={section.paragraphs}
               disabled={disabled}
+              removeLabel={t("notifications.policyRemoveParagraph")}
               onChange={(paragraphs) => update(index, { paragraphs })}
             />
 
@@ -153,11 +193,27 @@ export function SectionListEditor({
               values={section.bullets ?? []}
               disabled={disabled}
               rows={2}
+              removeLabel={t("notifications.policyRemoveBullet")}
               onChange={(bullets) => update(index, { bullets })}
             />
           </CardContent>
         </Card>
       ))}
+
+      <ConfirmDialog
+        open={pendingRemoval !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingRemoval(null)
+        }}
+        title={t("notifications.policyRemoveSectionTitle")}
+        description={t("notifications.policyRemoveSectionBody")}
+        confirmLabel={t("notifications.policyRemoveSection")}
+        destructive
+        onConfirm={() => {
+          if (pendingRemoval !== null) remove(pendingRemoval)
+          setPendingRemoval(null)
+        }}
+      />
     </div>
   )
 }
