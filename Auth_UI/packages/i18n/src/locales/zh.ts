@@ -129,6 +129,7 @@ export const zh: TranslationResources = {
   },
   auth: {
     continueWithApple: "通过 Apple 继续",
+    privacyPolicy: "隐私政策",
     signInTitle: "登录",
     signInSubtitle: "访问认证管理控制台。",
     email: "邮箱",

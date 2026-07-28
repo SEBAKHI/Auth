@@ -130,6 +130,7 @@ export const fa: TranslationResources = {
   },
   auth: {
     continueWithApple: "ادامه با Apple",
+    privacyPolicy: "سیاست حریم خصوصی",
     signInTitle: "ورود",
     signInSubtitle: "دسترسی به کنسول مدیریت احراز هویت.",
     email: "ایمیل",

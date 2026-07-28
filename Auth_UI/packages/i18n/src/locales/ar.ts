@@ -129,6 +129,7 @@ export const ar: TranslationResources = {
   },
   auth: {
     continueWithApple: "المتابعة باستخدام Apple",
+    privacyPolicy: "سياسة الخصوصية",
     signInTitle: "تسجيل الدخول",
     signInSubtitle: "الدخول إلى لوحة إدارة المصادقة.",
     email: "البريد الإلكتروني",

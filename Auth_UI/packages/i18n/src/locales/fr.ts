@@ -130,6 +130,7 @@ export const fr: TranslationResources = {
   },
   auth: {
     continueWithApple: "Continuer avec Apple",
+    privacyPolicy: "Politique de confidentialité",
     signInTitle: "Connexion",
     signInSubtitle: "Accédez à la console d'administration Auth.",
     email: "E-mail",

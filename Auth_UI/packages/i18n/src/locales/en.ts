@@ -125,6 +125,7 @@ export const en = {
   },
   auth: {
     continueWithApple: "Continue with Apple",
+    privacyPolicy: "Privacy policy",
     signInTitle: "Sign in",
     signInSubtitle: "Access the Auth administration console.",
     email: "Email",

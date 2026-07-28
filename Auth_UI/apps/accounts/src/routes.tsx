@@ -13,6 +13,7 @@ import { OrganizationDetailPage } from "@astoom/account/pages/organizations/orga
 import { OrganizationsPage } from "@astoom/account/pages/organizations/organizations-page"
 import { ProfilePage } from "@astoom/account/pages/profile/profile-page"
 import { AccountShell } from "@/components/account-shell"
+import { PrivacyPolicyPage } from "@/pages/privacy/privacy-policy"
 import { AccountRecoveryPage } from "@/pages/account-recovery"
 import { AccountsLoginPage } from "@/pages/auth/login"
 import { DeleteAccountPage } from "@/pages/delete-account"
@@ -76,5 +77,9 @@ export const router = createBrowserRouter([
   // Top-level on purpose: shown right after the session is revoked by a
   // deletion request; it must render while fully signed out.
   { path: "/deletion-scheduled", element: <DeletionScheduledPage /> },
+  // Top-level on purpose: the public compliance surface (KVKK Art. 10
+  // disclosure + store-listing data-deletion entry point) must be readable
+  // both signed out and signed in.
+  { path: "/privacy", element: <PrivacyPolicyPage /> },
   { path: "*", element: <NotFoundPage /> },
 ])

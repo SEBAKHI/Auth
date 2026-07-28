@@ -130,6 +130,7 @@ export const ur: TranslationResources = {
   },
   auth: {
     continueWithApple: "Apple کے ساتھ جاری رکھیں",
+    privacyPolicy: "رازداری کی پالیسی",
     signInTitle: "سائن ان",
     signInSubtitle: "توثیق کے انتظامی کنسول تک رسائی حاصل کریں۔",
     email: "ای میل",

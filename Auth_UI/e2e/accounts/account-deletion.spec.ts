@@ -333,17 +333,20 @@ test.describe("account deletion", () => {
     test.setTimeout(120_000)
     const email = await createConfirmedUser(api, "j3")
 
-    // The compliance surface is reachable by URL with no authenticated
-    // context — and deliberately NOT advertised on the sign-in screen, where
-    // the dominant intent is a forgotten password, not erasure. External
-    // entry points are the privacy-policy disclosure and the store listing's
-    // data-deletion URL field (plan rollout step 10).
+    // The discoverability chain (plan §9 entry-point decision): the sign-in
+    // screen links the privacy policy — never the wizard directly — and the
+    // policy's deletion section carries the "Delete my account" entry point
+    // required by store data-deletion policies.
     await page.goto("/login")
+    await expect(page.getByRole("link", { name: /delete/i })).toHaveCount(0)
+    await page.getByRole("link", { name: "Privacy policy" }).click()
+    await expect(page).toHaveURL(/\/privacy/)
     await expect(
-      page.getByRole("link", { name: /delete/i })
-    ).toHaveCount(0)
+      page.getByRole("heading", { name: "Privacy Policy" })
+    ).toBeVisible()
 
-    await page.goto("/delete-account")
+    await page.getByRole("button", { name: "Delete my account" }).click()
+    await expect(page).toHaveURL(/\/delete-account/)
     await expect(
       page.getByRole("heading", { name: "Delete your account" })
     ).toBeVisible()

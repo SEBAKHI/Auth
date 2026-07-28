@@ -130,6 +130,7 @@ export const tr: TranslationResources = {
   },
   auth: {
     continueWithApple: "Apple ile devam et",
+    privacyPolicy: "Gizlilik politikası",
     signInTitle: "Oturum aç",
     signInSubtitle: "Kimlik yönetim konsoluna erişin.",
     email: "E-posta",
