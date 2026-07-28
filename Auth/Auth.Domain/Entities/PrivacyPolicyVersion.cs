@@ -97,6 +97,16 @@ public class PrivacyPolicyVersion : EntityBase
         };
     }
 
+    /// <summary>
+    /// Renames the revision. Callers MUST have verified the revision is an
+    /// unannounced draft: a published or notified version's identifier is
+    /// referenced by deletion records and by users' inboxes.
+    /// </summary>
+    public void Rename(string version)
+    {
+        Version = version;
+    }
+
     /// <summary>Updates the revision's editable metadata.</summary>
     public void UpdateDetails(DateTime effectiveDateUtc, string? changeNote)
     {

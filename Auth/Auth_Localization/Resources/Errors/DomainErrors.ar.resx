@@ -752,4 +752,7 @@
   <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
     <value>هذه اللغة غير مدعومة في سياسة الخصوصية.</value>
   </data>
+  <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
+    <value>لا يمكن إعادة تسمية إصدار السياسة هذا: فهو منشور أو تم إرسال إشعار تغييره بالفعل.</value>
+  </data>
 </root>

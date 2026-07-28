@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { CheckCircle2, Loader2, Megaphone, Plus } from "lucide-react"
+import { CheckCircle2, Copy, Loader2, Megaphone, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -29,6 +29,7 @@ import { formatDate, formatDateTime } from "@astoom/ui/format"
 import { Input } from "@astoom/ui/input"
 import { Textarea } from "@astoom/ui/textarea"
 import { PERMISSIONS } from "@/lib/constants"
+import { ClonePolicyDialog } from "./components/clone-policy-dialog"
 import { NotificationsTabs } from "./components/notifications-tabs"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
@@ -57,6 +58,7 @@ export function NotificationPolicyPage() {
   const [newChangeNote, setNewChangeNote] = React.useState("")
   const [notifyTarget, setNotifyTarget] = React.useState<PolicyVersionDto | null>(null)
   const [publishTarget, setPublishTarget] = React.useState<PolicyVersionDto | null>(null)
+  const [cloneSource, setCloneSource] = React.useState<PolicyVersionDto | null>(null)
 
   const versionsQuery = useQuery({
     queryKey: ["privacy-policy-versions"],
@@ -219,6 +221,14 @@ export function NotificationPolicyPage() {
             enableHiding: false,
             cell: ({ row }) => (
               <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCloneSource(row.original)}
+                >
+                  <Copy data-icon="inline-start" />
+                  {t("notifications.policyClone")}
+                </Button>
                 {row.original.isPublished ? null : (
                   <Button
                     variant="outline"
@@ -331,6 +341,13 @@ export function NotificationPolicyPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ClonePolicyDialog
+        source={cloneSource}
+        onOpenChange={(open) => {
+          if (!open) setCloneSource(null)
+        }}
+      />
 
       <ConfirmDialog
         open={publishTarget !== null}

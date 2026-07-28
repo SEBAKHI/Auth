@@ -752,4 +752,7 @@
   <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
     <value>隐私政策不支持该语言。</value>
   </data>
+  <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
+    <value>此政策版本无法重命名：它已发布，或其变更通知已发送。</value>
+  </data>
 </root>

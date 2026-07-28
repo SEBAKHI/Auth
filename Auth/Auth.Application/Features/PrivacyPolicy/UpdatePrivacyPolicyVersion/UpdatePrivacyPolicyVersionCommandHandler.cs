@@ -7,9 +7,12 @@ using MediatR;
 namespace Auth.Application.Features.PrivacyPolicy.UpdatePrivacyPolicyVersion;
 
 /// <summary>
-/// Handler updating a revision's effective date and change note. The version
-/// identifier itself is immutable — it stamps tombstones and deletion records,
-/// so renaming it would break the audit trail.
+/// Handler updating a revision's identifier, effective date and change note.
+///
+/// Renaming is allowed ONLY while the revision is an unannounced draft. Once a
+/// version is published it stamps deletion requests and tombstones, and once
+/// its change notice is sent the number is in users' inboxes — renaming then
+/// would silently invalidate the audit trail or contradict what was announced.
 /// </summary>
 public class UpdatePrivacyPolicyVersionCommandHandler
     : IRequestHandler<UpdatePrivacyPolicyVersionCommand, ErrorOr<PrivacyPolicyVersionDto>>
@@ -28,6 +31,26 @@ public class UpdatePrivacyPolicyVersionCommandHandler
         if (version is null)
         {
             return PrivacyPolicyErrors.NotFound(request.Version);
+        }
+
+        var rename =
+            !string.IsNullOrWhiteSpace(request.NewVersion) &&
+            !string.Equals(request.NewVersion, version.Version, StringComparison.Ordinal);
+
+        if (rename)
+        {
+            if (version.IsPublished || version.NotifiedAtUtc is not null)
+            {
+                return PrivacyPolicyErrors.VersionLocked(version.Version);
+            }
+
+            var clash = await _repository.GetByVersionAsync(request.NewVersion!, cancellationToken);
+            if (clash is not null)
+            {
+                return PrivacyPolicyErrors.DuplicateVersion(request.NewVersion!);
+            }
+
+            version.Rename(request.NewVersion!);
         }
 
         version.UpdateDetails(request.EffectiveDateUtc, request.ChangeNote);

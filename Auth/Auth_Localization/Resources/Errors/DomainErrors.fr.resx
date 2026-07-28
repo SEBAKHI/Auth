@@ -752,4 +752,7 @@
   <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
     <value>Cette langue n'est pas prise en charge pour la politique de confidentialité.</value>
   </data>
+  <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
+    <value>Cette version ne peut pas être renommée : elle est publiée ou son avis de modification a déjà été envoyé.</value>
+  </data>
 </root>

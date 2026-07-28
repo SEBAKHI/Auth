@@ -23,6 +23,12 @@ public record UpdatePrivacyPolicyVersionRequest
     /// <summary>The revision identifier in "YYYY.MM" format.</summary>
     public string Version { get; init; } = string.Empty;
 
+    /// <summary>
+    /// New identifier. Omit to keep the current one; only an unannounced
+    /// draft may be renamed.
+    /// </summary>
+    public string? NewVersion { get; init; }
+
     /// <summary>UTC instant the revision takes effect.</summary>
     public DateTime EffectiveDateUtc { get; init; }
 

@@ -15,6 +15,11 @@ public static class PrivacyPolicyErrors
         code: "PrivacyPolicy.DuplicateVersion",
         description: $"Privacy policy version '{version}' is already recorded.");
 
+    public static Error VersionLocked(string version) => Error.Conflict(
+        code: "PrivacyPolicy.VersionLocked",
+        description:
+            $"Version '{version}' cannot be renamed: it is published or its change notice was already sent.");
+
     public static Error NoPublishedVersion => Error.NotFound(
         code: "PrivacyPolicy.NoPublishedVersion",
         description: "No privacy policy version has been published yet.");

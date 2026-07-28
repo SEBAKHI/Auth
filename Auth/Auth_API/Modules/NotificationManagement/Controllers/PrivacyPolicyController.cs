@@ -103,6 +103,7 @@ public class PrivacyPolicyController : ApiController
         var command = new UpdatePrivacyPolicyVersionCommand(
             request.Version, request.EffectiveDateUtc, request.ChangeNote)
         {
+            NewVersion = request.NewVersion,
             RequestedBy = GetCurrentUserId()
         };
 

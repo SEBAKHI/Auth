@@ -111,9 +111,11 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
 
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[PrivacyPolicyVersions]
-            SET [EffectiveDateUtc] = @EffectiveDateUtc, [ChangeNote] = @ChangeNote
+            SET [Version] = @Version,
+                [EffectiveDateUtc] = @EffectiveDateUtc,
+                [ChangeNote] = @ChangeNote
             WHERE [Id] = @Id",
-            new { version.Id, version.EffectiveDateUtc, version.ChangeNote });
+            new { version.Id, version.Version, version.EffectiveDateUtc, version.ChangeNote });
     }
 
     /// <inheritdoc />

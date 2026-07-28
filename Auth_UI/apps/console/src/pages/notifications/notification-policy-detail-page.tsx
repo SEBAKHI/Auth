@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Check, CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useParams } from "react-router-dom"
+import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { api } from "@astoom/api/client"
@@ -21,7 +21,7 @@ import {
   type PrivacyPolicyContent,
 } from "@astoom/ui/common/policy-document"
 import { usePageBreadcrumb } from "@astoom/ui/crumbs"
-import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
 import { Skeleton } from "@astoom/ui/skeleton"
 import { useUnsavedChangesPrompt } from "@astoom/ui/hooks/use-unsaved-changes"
@@ -88,10 +88,12 @@ export function NotificationPolicyDetailPage() {
   const [dirty, setDirty] = React.useState(false)
   const [parseError, setParseError] = React.useState<string | null>(null)
   const [pendingLanguage, setPendingLanguage] = React.useState<string | null>(null)
+  const [versionName, setVersionName] = React.useState("")
   const [effectiveDate, setEffectiveDate] = React.useState("")
   const [changeNote, setChangeNote] = React.useState("")
   const [metaDirty, setMetaDirty] = React.useState(false)
 
+  const navigate = useNavigate()
   const { onFocusCapture, insert } = useFocusedField()
   usePageBreadcrumb(version || undefined)
 
@@ -103,6 +105,7 @@ export function NotificationPolicyDetailPage() {
 
   React.useEffect(() => {
     if (!versionRow || metaDirty) return
+    setVersionName(versionRow.version ?? "")
     setEffectiveDate((versionRow.effectiveDateUtc ?? "").slice(0, 10))
     setChangeNote(versionRow.changeNote ?? "")
   }, [versionRow, metaDirty])
@@ -169,15 +172,20 @@ export function NotificationPolicyDetailPage() {
         api.PUT("/api/v1/privacy-policy/versions", {
           body: {
             version,
+            newVersion: versionName.trim() || null,
             effectiveDateUtc: effectiveDate + "T00:00:00Z",
             changeNote: changeNote.trim() || null,
           },
         })
       ),
-    onSuccess: () => {
+    onSuccess: (saved) => {
       setMetaDirty(false)
       void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
       toast.success(t("notifications.policyVersionSaved"))
+      // A rename changes the route key; follow it so the page stays valid.
+      if (saved?.version && saved.version !== version) {
+        navigate("/notifications/policy/" + saved.version, { replace: true })
+      }
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -211,6 +219,10 @@ export function NotificationPolicyDetailPage() {
     ),
     policyVersion: publishedQuery.data?.disclosure?.policyVersion ?? version,
   }
+
+  // A published or already-announced revision's identifier is referenced by
+  // deletion records and by users' inboxes, so it can no longer move.
+  const versionLocked = Boolean(versionRow?.isPublished || versionRow?.notifiedAtUtc)
 
   const dir = directionForLanguage(language)
 
@@ -341,6 +353,26 @@ export function NotificationPolicyDetailPage() {
               </CardHeader>
               <CardContent>
                 <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="meta-version">
+                      {t("notifications.policyVersion")}
+                    </FieldLabel>
+                    <Input
+                      id="meta-version"
+                      dir="ltr"
+                      value={versionName}
+                      disabled={!canManage || versionLocked}
+                      onChange={(e) => {
+                        setVersionName(e.target.value)
+                        setMetaDirty(true)
+                      }}
+                    />
+                    <FieldDescription>
+                      {versionLocked
+                        ? t("notifications.policyVersionLockedHint")
+                        : t("notifications.policyVersionRenameHint")}
+                    </FieldDescription>
+                  </Field>
                   <Field>
                     <FieldLabel htmlFor="meta-effective">
                       {t("notifications.policyEffective")}
