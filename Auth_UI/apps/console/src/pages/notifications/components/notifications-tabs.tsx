@@ -8,6 +8,7 @@ const TABS = [
   { value: "templates", path: "/notifications/templates", labelKey: "notifications.tabTemplates" },
   { value: "layouts", path: "/notifications/layouts", labelKey: "notifications.tabLayouts" },
   { value: "outbox", path: "/notifications/outbox", labelKey: "notifications.tabDeliveryLog" },
+  { value: "policy", path: "/notifications/policy", labelKey: "notifications.tabPolicy" },
 ] as const
 
 /**

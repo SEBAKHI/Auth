@@ -1,4 +1,5 @@
 import { ShieldCheck, TriangleAlert } from "lucide-react"
+import type * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 
@@ -22,7 +23,39 @@ import {
 
 import { PRIVACY_CONTENT } from "./content"
 import { CONTROLLER, hasUnfilledDetails } from "./content/details"
-import { POLICY_VERSION, type PolicySection } from "./content/types"
+import { LAW_LINKS, POLICY_VERSION, type PolicySection } from "./content/types"
+
+const LAW_PATTERN = new RegExp(
+  `(${LAW_LINKS.map((law) => law.term.replace("/", "\\/")).join("|")})`,
+  "g"
+)
+
+/**
+ * Turns every reference to a named law (KVKK, GDPR/RGPD, CCPA/CPRA) into a
+ * link to the official text — the acronyms are Latin in all 7 locales, so
+ * one pattern serves every language.
+ */
+function withLawLinks(text: string): React.ReactNode {
+  const parts = text.split(LAW_PATTERN)
+  if (parts.length === 1) return text
+  return parts.map((part, index) => {
+    const law = LAW_LINKS.find((candidate) => candidate.term === part)
+    return law ? (
+      // eslint-disable-next-line react/no-array-index-key
+      <a
+        key={index}
+        href={law.url}
+        target="_blank"
+        rel="noreferrer noopener"
+        className="underline underline-offset-4 hover:text-foreground"
+      >
+        {part}
+      </a>
+    ) : (
+      part
+    )
+  })
+}
 
 function Section({ section }: { section: PolicySection }) {
   return (
@@ -35,13 +68,13 @@ function Section({ section }: { section: PolicySection }) {
           key={paragraph.slice(0, 40)}
           className="text-sm leading-relaxed text-muted-foreground"
         >
-          {paragraph}
+          {withLawLinks(paragraph)}
         </p>
       ))}
       {section.bullets ? (
         <ul className="list-disc ps-5 text-sm leading-relaxed text-muted-foreground [&>li+li]:mt-2">
           {section.bullets.map((bullet) => (
-            <li key={bullet.slice(0, 40)}>{bullet}</li>
+            <li key={bullet.slice(0, 40)}>{withLawLinks(bullet)}</li>
           ))}
         </ul>
       ) : null}
@@ -118,7 +151,7 @@ export function PrivacyPolicyPage() {
               key={paragraph.slice(0, 40)}
               className="text-sm leading-relaxed text-muted-foreground"
             >
-              {paragraph}
+              {withLawLinks(paragraph)}
             </p>
           ))}
         </div>
@@ -179,12 +212,12 @@ export function PrivacyPolicyPage() {
               key={paragraph.slice(0, 40)}
               className="text-sm leading-relaxed text-muted-foreground"
             >
-              {paragraph}
+              {withLawLinks(paragraph)}
             </p>
           ))}
           <ul className="list-disc ps-5 text-sm leading-relaxed text-muted-foreground [&>li+li]:mt-2">
             {content.deletion.bullets.map((bullet) => (
-              <li key={bullet.slice(0, 40)}>{bullet}</li>
+              <li key={bullet.slice(0, 40)}>{withLawLinks(bullet)}</li>
             ))}
           </ul>
           <div className="flex flex-col items-start gap-2 pt-2">

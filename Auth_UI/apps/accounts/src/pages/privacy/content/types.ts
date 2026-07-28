@@ -14,6 +14,33 @@
 /** Mirrors `AccountDeletionSettings.PolicyVersion` — bump both together. */
 export const POLICY_VERSION = "2026.07"
 
+/**
+ * Official sources for every law the policy references. The page renderer
+ * links each occurrence of a term to the official text — the acronyms are
+ * Latin in every locale, so one registry serves all 7 languages. Longest
+ * terms first so "CCPA/CPRA" wins over "CCPA".
+ */
+export const LAW_LINKS: ReadonlyArray<{ term: string; url: string }> = [
+  {
+    term: "CCPA/CPRA",
+    url: "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?division=3.&part=4.&lawCode=CIV&title=1.81.5",
+  },
+  { term: "RGPD", url: "https://eur-lex.europa.eu/eli/reg/2016/679/oj" },
+  { term: "GDPR", url: "https://eur-lex.europa.eu/eli/reg/2016/679/oj" },
+  {
+    term: "KVKK",
+    url: "https://www.mevzuat.gov.tr/mevzuat?MevzuatNo=6698&MevzuatTur=1&MevzuatTertip=5",
+  },
+  {
+    term: "CPRA",
+    url: "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?division=3.&part=4.&lawCode=CIV&title=1.81.5",
+  },
+  {
+    term: "CCPA",
+    url: "https://leginfo.legislature.ca.gov/faces/codes_displayText.xhtml?division=3.&part=4.&lawCode=CIV&title=1.81.5",
+  },
+]
+
 export interface PolicySection {
   heading: string
   paragraphs: string[]

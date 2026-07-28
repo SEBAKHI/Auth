@@ -12,6 +12,7 @@ export function AuthLayout({
   subtitle,
   children,
   footer,
+  pageFooter,
   appName,
   appLogoUrl,
   securedBy,
@@ -20,6 +21,12 @@ export function AuthLayout({
   subtitle?: string
   children: React.ReactNode
   footer?: React.ReactNode
+  /**
+   * Page-level footer pinned to the bottom of the viewport, visually
+   * detached from the auth card — for ambient links (privacy policy) that
+   * must not compete with the card's own actions.
+   */
+  pageFooter?: React.ReactNode
   /**
    * Display name of the application behind a pending authorize request.
    * When set, the header shows that app's branding (hosted-login continuity)
@@ -87,6 +94,12 @@ export function AuthLayout({
           </div>
         ) : null}
       </div>
+
+      {pageFooter ? (
+        <div className="absolute inset-x-0 bottom-4 text-center text-xs text-muted-foreground">
+          {pageFooter}
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -111,6 +111,7 @@ export const fr: TranslationResources = {
     notificationTemplates: "Modèles",
     notificationLayouts: "Mises en page",
     notificationOutbox: "Journal de livraison",
+    notificationPolicy: "Politique de confidentialité",
     dashboard: "Tableau de bord",
     users: "Utilisateurs",
     roles: "Rôles",
@@ -131,6 +132,9 @@ export const fr: TranslationResources = {
   auth: {
     continueWithApple: "Continuer avec Apple",
     privacyPolicy: "Politique de confidentialité",
+    policyUpdatedNotice: "Notre politique de confidentialité a été mise à jour.",
+    policyUpdatedView: "Voir la politique",
+    policyUpdatedDismiss: "Ignorer",
     signInTitle: "Connexion",
     signInSubtitle: "Accédez à la console d'administration Auth.",
     email: "E-mail",
@@ -800,6 +804,25 @@ export const fr: TranslationResources = {
     tabTemplates: "Modèles",
     tabLayouts: "Mises en page",
     tabDeliveryLog: "Journal de livraison",
+    tabPolicy: "Politique de confidentialité",
+    policyTitle: "Versions de la politique de confidentialité",
+    policySubtitle:
+      "Suivez les révisions de la politique et notifiez les utilisateurs des changements substantiels.",
+    policyVersion: "Version",
+    policyEffective: "Date d'effet",
+    policyNotifiedAt: "Notifiée le",
+    policyRecipients: "Destinataires",
+    policyNotNotified: "Pas encore envoyée",
+    policyAdd: "Enregistrer une version",
+    policyAddTitle: "Enregistrer une version de la politique",
+    policyAddDescription:
+      "Enregistrez une nouvelle révision après avoir mis à jour le contenu publié. Format : YYYY.MM.",
+    policyNotify: "Notifier les utilisateurs",
+    policyNotifyTitle: "Notifier tous les utilisateurs actifs ?",
+    policyNotifyBody:
+      "Envoie l'e-mail de changement de politique à chaque compte actif et confirmé, dans sa langue préférée.",
+    policyNotifiedToast: "Notification envoyée à {{count}} destinataires.",
+    policyCreatedToast: "Version de la politique enregistrée.",
     overviewTitle: "Notifications",
     overviewSubtitle:
       "Chaque message envoyé par la plateforme : son contenu, la mise en page qui l'entoure et le registre des envois.",

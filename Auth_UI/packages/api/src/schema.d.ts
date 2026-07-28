@@ -5984,6 +5984,135 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/privacy-policy/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyVersionDto"][];
+                        "application/json": components["schemas"]["PrivacyPolicyVersionDto"][];
+                        "text/json": components["schemas"]["PrivacyPolicyVersionDto"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreatePrivacyPolicyVersionRequest"];
+                    "text/json": components["schemas"]["CreatePrivacyPolicyVersionRequest"];
+                    "application/*+json": components["schemas"]["CreatePrivacyPolicyVersionRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyVersionDto"];
+                        "application/json": components["schemas"]["PrivacyPolicyVersionDto"];
+                        "text/json": components["schemas"]["PrivacyPolicyVersionDto"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/privacy-policy/versions/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["NotifyPrivacyPolicyVersionRequest"];
+                    "text/json": components["schemas"]["NotifyPrivacyPolicyVersionRequest"];
+                    "application/*+json": components["schemas"]["NotifyPrivacyPolicyVersionRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyNotifyResultDto"];
+                        "application/json": components["schemas"]["PrivacyPolicyNotifyResultDto"];
+                        "text/json": components["schemas"]["PrivacyPolicyNotifyResultDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Images": {
         parameters: {
             query?: never;
@@ -10498,6 +10627,11 @@ export interface components {
             /** Format: uuid */
             parentId?: null | string;
         };
+        CreatePrivacyPolicyVersionRequest: {
+            version?: string;
+            /** Format: date-time */
+            effectiveDateUtc?: string;
+        };
         CreateRoleRequest: {
             /** Format: uuid */
             applicationId: string;
@@ -10994,6 +11128,9 @@ export interface components {
             sampleDataJson?: string;
             isActive?: boolean;
         };
+        NotifyPrivacyPolicyVersionRequest: {
+            version?: string;
+        };
         OAuthTokenResponse: {
             access_token: string;
             token_type?: string;
@@ -11440,6 +11577,23 @@ export interface components {
             applicationId?: null | string;
             channel?: components["schemas"]["NotificationChannelType"];
             sampleOverridesJson?: null | string;
+        };
+        PrivacyPolicyNotifyResultDto: {
+            /** Format: int32 */
+            recipientCount?: number | string;
+        };
+        PrivacyPolicyVersionDto: {
+            /** Format: uuid */
+            id?: string;
+            version?: string;
+            /** Format: date-time */
+            effectiveDateUtc?: string;
+            /** Format: date-time */
+            notifiedAtUtc?: null | string;
+            /** Format: int32 */
+            notifiedCount?: null | number | string;
+            /** Format: date-time */
+            createdAt?: string;
         };
         ProblemDetails: {
             type?: null | string;

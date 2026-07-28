@@ -1159,3 +1159,115 @@ BEGIN
     PRINT 'account-deletion-completed template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 11: privacy-policy-updated (global, Email channel)
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000011')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000011', '40000000-0000-0000-0000-000000000011', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000011', '42000000-0000-0000-0000-000000000011', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0011-000000000001', '43000000-0000-0000-0000-000000000011', N'en', N'Our Privacy Policy Is Changing',
+N'<div class="header">
+    <p class="eyebrow">Privacy policy</p>
+    <h1>Our privacy policy is changing</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">We have updated our privacy policy to version <strong>{{ PolicyVersion }}</strong>, effective <strong>{{ EffectiveDate }}</strong>. Please review what changed — it explains what data we hold about you, how long we keep it, and how you can delete your account.</p>
+<div class="button-container">
+    <a class="button" href="{{ PolicyLink }}">Read the updated policy</a>
+</div>
+<p class="link-fallback">If the button does not work, copy and paste this link into your browser:</p>
+<div class="link-box"><a href="{{ PolicyLink }}">{{ PolicyLink }}</a></div>'),
+    ('44000000-0000-0000-0011-000000000002', '43000000-0000-0000-0000-000000000011', N'ar', N'سياسة الخصوصية لدينا تتغير',
+N'<div class="header">
+    <p class="eyebrow">سياسة الخصوصية</p>
+    <h1>سياسة الخصوصية لدينا تتغير</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">لقد حدّثنا سياسة الخصوصية لدينا إلى الإصدار <strong>{{ PolicyVersion }}</strong>، وتسري اعتبارًا من <strong>{{ EffectiveDate }}</strong>. يرجى الاطلاع على ما تغيّر — فهي توضح ما نحتفظ به من بيانات عنك، ومدة الاحتفاظ بها، وكيف يمكنك حذف حسابك.</p>
+<div class="button-container">
+    <a class="button" href="{{ PolicyLink }}">قراءة السياسة المحدّثة</a>
+</div>
+<p class="link-fallback">إذا لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ PolicyLink }}">{{ PolicyLink }}</a></div>'),
+    ('44000000-0000-0000-0011-000000000003', '43000000-0000-0000-0000-000000000011', N'tr', N'Gizlilik Politikamız Değişiyor',
+N'<div class="header">
+    <p class="eyebrow">Gizlilik politikası</p>
+    <h1>Gizlilik politikamız değişiyor</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">Gizlilik politikamızı <strong>{{ PolicyVersion }}</strong> sürümüne güncelledik; <strong>{{ EffectiveDate }}</strong> tarihinde yürürlüğe girecek. Lütfen nelerin değiştiğini inceleyin — politika, hakkınızda hangi verileri tuttuğumuzu, ne kadar süreyle sakladığımızı ve hesabınızı nasıl silebileceğinizi açıklar.</p>
+<div class="button-container">
+    <a class="button" href="{{ PolicyLink }}">Güncellenen politikayı okuyun</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı kopyalayıp tarayıcınıza yapıştırın:</p>
+<div class="link-box"><a href="{{ PolicyLink }}">{{ PolicyLink }}</a></div>'),
+    ('44000000-0000-0000-0011-000000000004', '43000000-0000-0000-0000-000000000011', N'fr', N'Notre politique de confidentialité évolue',
+N'<div class="header">
+    <p class="eyebrow">Politique de confidentialité</p>
+    <h1>Notre politique de confidentialité évolue</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Nous avons mis à jour notre politique de confidentialité vers la version <strong>{{ PolicyVersion }}</strong>, applicable à compter du <strong>{{ EffectiveDate }}</strong>. Veuillez consulter les changements — elle explique quelles données nous détenons à votre sujet, combien de temps nous les conservons et comment supprimer votre compte.</p>
+<div class="button-container">
+    <a class="button" href="{{ PolicyLink }}">Lire la politique mise à jour</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez-collez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ PolicyLink }}">{{ PolicyLink }}</a></div>'),
+    ('44000000-0000-0000-0011-000000000005', '43000000-0000-0000-0000-000000000011', N'zh', N'我们的隐私政策即将变更',
+N'<div class="header">
+    <p class="eyebrow">隐私政策</p>
+    <h1>我们的隐私政策即将变更</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">我们已将隐私政策更新至 <strong>{{ PolicyVersion }}</strong> 版，自 <strong>{{ EffectiveDate }}</strong> 起生效。请查看变更内容——它说明了我们持有您的哪些数据、保存多长时间，以及如何删除您的账户。</p>
+<div class="button-container">
+    <a class="button" href="{{ PolicyLink }}">阅读更新后的政策</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请将此链接复制并粘贴到浏览器中：</p>
+<div class="link-box"><a href="{{ PolicyLink }}">{{ PolicyLink }}</a></div>'),
+    ('44000000-0000-0000-0011-000000000006', '43000000-0000-0000-0000-000000000011', N'ur', N'ہماری رازداری کی پالیسی تبدیل ہو رہی ہے',
+N'<div class="header">
+    <p class="eyebrow">رازداری کی پالیسی</p>
+    <h1>ہماری رازداری کی پالیسی تبدیل ہو رہی ہے</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">ہم نے اپنی رازداری کی پالیسی کو ورژن <strong>{{ PolicyVersion }}</strong> پر اپ ڈیٹ کر دیا ہے، جو <strong>{{ EffectiveDate }}</strong> سے نافذ ہو گی۔ براہِ کرم دیکھیں کہ کیا تبدیل ہوا — اس میں بتایا گیا ہے کہ ہم آپ کے بارے میں کون سا ڈیٹا رکھتے ہیں، کتنے عرصے رکھتے ہیں، اور آپ اپنا اکاؤنٹ کیسے حذف کر سکتے ہیں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ PolicyLink }}">اپ ڈیٹ شدہ پالیسی پڑھیں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک کاپی کر کے اپنے براؤزر میں چسپاں کریں:</p>
+<div class="link-box"><a href="{{ PolicyLink }}">{{ PolicyLink }}</a></div>'),
+    ('44000000-0000-0000-0011-000000000007', '43000000-0000-0000-0000-000000000011', N'fa', N'سیاست حریم خصوصی ما در حال تغییر است',
+N'<div class="header">
+    <p class="eyebrow">سیاست حریم خصوصی</p>
+    <h1>سیاست حریم خصوصی ما در حال تغییر است</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">ما سیاست حریم خصوصی خود را به نسخه <strong>{{ PolicyVersion }}</strong> به‌روزرسانی کرده‌ایم که از <strong>{{ EffectiveDate }}</strong> اجرا می‌شود. لطفاً تغییرات را بررسی کنید — این سند توضیح می‌دهد چه داده‌هایی از شما نگه می‌داریم، چه مدت نگه می‌داریم و چگونه می‌توانید حساب خود را حذف کنید.</p>
+<div class="button-container">
+    <a class="button" href="{{ PolicyLink }}">خواندن سیاست به‌روزشده</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را کپی کرده و در مرورگر خود جای‌گذاری کنید:</p>
+<div class="link-box"><a href="{{ PolicyLink }}">{{ PolicyLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000011'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000011';
+
+    PRINT 'Created privacy-policy-updated template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'privacy-policy-updated template already exists';
+END
+GO

@@ -106,6 +106,7 @@ export const en = {
     notificationTemplates: "Templates",
     notificationLayouts: "Layouts",
     notificationOutbox: "Delivery Log",
+    notificationPolicy: "Privacy Policy",
     dashboard: "Dashboard",
     users: "Users",
     roles: "Roles",
@@ -126,6 +127,9 @@ export const en = {
   auth: {
     continueWithApple: "Continue with Apple",
     privacyPolicy: "Privacy policy",
+    policyUpdatedNotice: "Our privacy policy has been updated.",
+    policyUpdatedView: "View the policy",
+    policyUpdatedDismiss: "Dismiss",
     signInTitle: "Sign in",
     signInSubtitle: "Access the Auth administration console.",
     email: "Email",
@@ -774,6 +778,25 @@ export const en = {
     tabTemplates: "Templates",
     tabLayouts: "Layouts",
     tabDeliveryLog: "Delivery Log",
+    tabPolicy: "Privacy Policy",
+    policyTitle: "Privacy policy versions",
+    policySubtitle:
+      "Track policy revisions and notify users of material changes.",
+    policyVersion: "Version",
+    policyEffective: "Effective date",
+    policyNotifiedAt: "Notified",
+    policyRecipients: "Recipients",
+    policyNotNotified: "Not sent yet",
+    policyAdd: "Record version",
+    policyAddTitle: "Record a policy version",
+    policyAddDescription:
+      "Register a new revision after updating the published policy content. Format: YYYY.MM.",
+    policyNotify: "Notify users",
+    policyNotifyTitle: "Notify all active users?",
+    policyNotifyBody:
+      "Sends the policy-change email to every active, confirmed account in its preferred language.",
+    policyNotifiedToast: "Notification sent to {{count}} recipients.",
+    policyCreatedToast: "Policy version recorded.",
     overviewTitle: "Notifications",
     overviewSubtitle:
       "Every message the platform sends: its content, the layout wrapped around it, and the record of what went out.",

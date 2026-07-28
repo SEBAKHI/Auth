@@ -25,9 +25,12 @@ public interface INotificationOutboxRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Marks a claimed message as sent.
+    /// Marks a claimed message as sent. When <paramref name="redactBody"/> is
+    /// true the rendered bodies are replaced with a placeholder — used for
+    /// types whose content carries live one-time secrets, so they never rest
+    /// in the delivery log after the send that needed them.
     /// </summary>
-    Task MarkSentAsync(Guid id, CancellationToken cancellationToken);
+    Task MarkSentAsync(Guid id, bool redactBody, CancellationToken cancellationToken);
 
     /// <summary>
     /// Records a failed attempt: increments the attempt count and schedules the

@@ -27,6 +27,7 @@ import {
 import { NotificationLayoutDetailPage } from "@/pages/notifications/notification-layout-detail-page"
 import { NotificationLayoutsPage } from "@/pages/notifications/notification-layouts-page"
 import { NotificationOutboxPage } from "@/pages/notifications/notification-outbox-page"
+import { NotificationPolicyPage } from "@/pages/notifications/notification-policy-page"
 import { NotificationsOverviewPage } from "@/pages/notifications/notifications-overview-page"
 import { NotificationTemplateDetailPage } from "@/pages/notifications/notification-template-detail-page"
 import { NotificationTemplatesPage } from "@/pages/notifications/notification-templates-page"
@@ -268,6 +269,14 @@ export const router = createBrowserRouter([
                     handle: crumb(
                       "notificationOutbox",
                       "/notifications/outbox"
+                    ),
+                  },
+                  {
+                    path: "policy",
+                    element: <NotificationPolicyPage />,
+                    handle: crumb(
+                      "notificationPolicy",
+                      "/notifications/policy"
                     ),
                   },
                 ],

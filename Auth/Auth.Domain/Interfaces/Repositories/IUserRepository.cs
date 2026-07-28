@@ -30,6 +30,15 @@ public interface IUserRepository
     Task<IReadOnlyList<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the minimal recipient projection of every account eligible for a
+    /// platform-wide notice: active, not soft-deleted, email confirmed.
+    /// Intentionally a projection — bulk sends must not hydrate full entities
+    /// (or decrypt phone numbers) for the whole user base.
+    /// </summary>
+    Task<IReadOnlyList<(Guid Id, string Email, string? DisplayName, string? FirstName, string? PreferredLanguage)>>
+        GetActiveNotificationRecipientsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets a user by their email address.
     /// </summary>
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken);

@@ -246,6 +246,7 @@ builder.Services.AddScoped<IUserEncryptionKeyRepository, UserEncryptionKeyReposi
 builder.Services.AddScoped<IAccountDeletionRequestRepository, AccountDeletionRequestRepository>();
 builder.Services.AddScoped<IAccountDeletionTombstoneRepository, AccountDeletionTombstoneRepository>();
 builder.Services.AddScoped<IAccountDeletionVerificationRepository, AccountDeletionVerificationRepository>();
+builder.Services.AddScoped<IPrivacyPolicyVersionRepository, PrivacyPolicyVersionRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();

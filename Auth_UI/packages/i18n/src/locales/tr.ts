@@ -111,6 +111,7 @@ export const tr: TranslationResources = {
     notificationTemplates: "Şablonlar",
     notificationLayouts: "Düzenler",
     notificationOutbox: "Teslim Günlüğü",
+    notificationPolicy: "Gizlilik Politikası",
     dashboard: "Kontrol Paneli",
     users: "Kullanıcılar",
     roles: "Roller",
@@ -131,6 +132,9 @@ export const tr: TranslationResources = {
   auth: {
     continueWithApple: "Apple ile devam et",
     privacyPolicy: "Gizlilik politikası",
+    policyUpdatedNotice: "Gizlilik politikamız güncellendi.",
+    policyUpdatedView: "Politikayı görüntüle",
+    policyUpdatedDismiss: "Kapat",
     signInTitle: "Oturum aç",
     signInSubtitle: "Kimlik yönetim konsoluna erişin.",
     email: "E-posta",
@@ -789,6 +793,25 @@ export const tr: TranslationResources = {
     tabTemplates: "Şablonlar",
     tabLayouts: "Düzenler",
     tabDeliveryLog: "Teslim Günlüğü",
+    tabPolicy: "Gizlilik Politikası",
+    policyTitle: "Gizlilik politikası sürümleri",
+    policySubtitle:
+      "Politika revizyonlarını izleyin ve önemli değişiklikleri kullanıcılara bildirin.",
+    policyVersion: "Sürüm",
+    policyEffective: "Yürürlük tarihi",
+    policyNotifiedAt: "Bildirim tarihi",
+    policyRecipients: "Alıcılar",
+    policyNotNotified: "Henüz gönderilmedi",
+    policyAdd: "Sürüm kaydet",
+    policyAddTitle: "Politika sürümü kaydet",
+    policyAddDescription:
+      "Yayımlanan politika içeriğini güncelledikten sonra yeni bir revizyon kaydedin. Biçim: YYYY.MM.",
+    policyNotify: "Kullanıcıları bilgilendir",
+    policyNotifyTitle: "Tüm etkin kullanıcılar bilgilendirilsin mi?",
+    policyNotifyBody:
+      "Politika değişikliği e-postasını her etkin ve doğrulanmış hesaba kendi tercih ettiği dilde gönderir.",
+    policyNotifiedToast: "Bildirim {{count}} alıcıya gönderildi.",
+    policyCreatedToast: "Politika sürümü kaydedildi.",
     overviewTitle: "Bildirimler",
     overviewSubtitle:
       "Platformun gönderdiği her mesaj: içeriği, onu saran düzen ve gönderilenlerin kaydı.",

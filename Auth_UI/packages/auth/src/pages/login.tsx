@@ -36,12 +36,15 @@ interface LocationState {
 export function LoginPage({
   providers,
   footer,
+  pageFooter,
   subtitle,
 }: {
   /** External sign-in options rendered under the credentials form. */
   providers?: React.ReactNode
   /** Extra content under the card (e.g. a create-account link). */
   footer?: React.ReactNode
+  /** Ambient links pinned to the bottom of the page (e.g. privacy policy). */
+  pageFooter?: React.ReactNode
   /** Overrides the console-flavored default subtitle. */
   subtitle?: string
 } = {}) {
@@ -126,6 +129,7 @@ export function LoginPage({
           : (subtitle ?? t("auth.signInSubtitle"))
       }
       footer={footer}
+      pageFooter={pageFooter}
       appName={appBranding?.name}
       appLogoUrl={appBranding?.logoUrl}
       securedBy={t("auth.securedBy", { name: platformName })}

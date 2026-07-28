@@ -12,7 +12,7 @@ export const fr: PrivacyPolicyContent = {
   contactKepLabel: "Courriel enregistré (KEP)",
   intro: [
     `Cette politique explique quelles données personnelles le service de comptes de ${CONTROLLER.legalName} collecte, pourquoi nous les collectons, combien de temps nous les conservons et les droits dont vous disposez — y compris la manière de supprimer votre compte et tout ce qui s'y rattache.`,
-    "Elle vaut également information au titre de l'article 10 de la loi turque n° 6698 sur la protection des données personnelles (KVKK) — notre cadre de conformité principal — et est rédigée pour satisfaire au Règlement général sur la protection des données de l'UE/EEE (RGPD) ainsi qu'au California Consumer Privacy Act tel que modifié (CCPA/CPRA). Où que vous viviez, nous vous offrons les mêmes contrôles.",
+    "Elle vaut également information au titre de l'article 10 de la loi turque n° 6698 sur la protection des données personnelles (KVKK) — notre cadre de conformité principal — et est rédigée pour satisfaire au Règlement général sur la protection des données de l'UE/EEE (RGPD) ainsi qu'au California Consumer Privacy Act tel que modifié (CCPA/CPRA). Les contrôles décrits dans cette politique sont offerts à chaque utilisateur, quel que soit son lieu de résidence.",
   ],
   sections: [
     {
@@ -25,7 +25,7 @@ export const fr: PrivacyPolicyContent = {
         "Identifiants et paramètres de sécurité : votre mot de passe (stocké uniquement sous forme d'empreinte Argon2id à sens unique — nous ne pouvons pas le lire), le secret d'authentification à deux facteurs et les codes de récupération facultatifs (stockés chiffrés), et l'historique des changements de mot de passe (empreintes uniquement, pour empêcher la réutilisation).",
         "Connexion avec Google ou Apple : votre identifiant, votre e-mail et votre nom tels que partagés par le fournisseur. Pour Apple, un jeton de révocation est stocké chiffré dans le seul but de révoquer l'autorisation de connexion Apple lorsque vous supprimez votre compte.",
         "Journaux de sécurité et d'utilisation : tentatives de connexion (heure, adresse IP, identifiant du navigateur, résultat), sessions et jetons actifs, et un journal d'audit des actions liées au compte.",
-        "Communications : une trace des e-mails de service que nous vous envoyons (codes de vérification, avis de sécurité, confirmations de suppression).",
+        "Communications : une trace des e-mails de service que nous vous envoyons (codes de vérification, avis de sécurité, confirmations de suppression). Le contenu des messages porteurs de codes à usage unique ou de liens de connexion est retiré de cette trace dès la remise de l'e-mail — même nos administrateurs ne peuvent pas le lire.",
       ],
     },
     {
@@ -125,9 +125,9 @@ export const fr: PrivacyPolicyContent = {
       },
       {
         category: "Codes de vérification de suppression",
-        retention: "15 minutes",
+        retention: "15 minutes (validité du code)",
         detail:
-          "Stockés uniquement sous forme d'empreintes ; les codes expirés sont purgés.",
+          "Stockés uniquement sous forme d'empreintes ; les entrées expirées sont supprimées par le nettoyage quotidien.",
       },
       {
         category: "Trace de suppression (identifiants hachés)",
@@ -139,7 +139,7 @@ export const fr: PrivacyPolicyContent = {
         category: "Sauvegardes",
         retention: "6 mois au plus",
         detail:
-          "À la suppression du compte, la clé de chiffrement de vos champs chiffrés est détruite, rendant ces données définitivement illisibles, même dans les sauvegardes existantes.",
+          "La rotation des sauvegardes est appliquée par la configuration de rétention de la plateforme d'hébergement. Indépendamment de cela, la suppression du compte détruit la clé de chiffrement de vos champs chiffrés, rendant ces données définitivement illisibles, même dans les sauvegardes existantes.",
       },
     ],
   },

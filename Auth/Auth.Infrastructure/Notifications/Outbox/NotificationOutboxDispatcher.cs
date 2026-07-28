@@ -1,6 +1,7 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
+using Auth.Domain.Constants;
 using Auth.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -147,7 +148,11 @@ public class NotificationOutboxDispatcher : BackgroundService
             }
             else
             {
-                await repository.MarkSentAsync(message.Id, cancellationToken);
+                await repository.MarkSentAsync(
+                    message.Id,
+                    redactBody: NotificationTypeCodes.SensitiveContentCodes.Contains(
+                        message.NotificationTypeCode),
+                    cancellationToken);
             }
         }
 

@@ -111,6 +111,7 @@ export const ur: TranslationResources = {
     notificationTemplates: "سانچے",
     notificationLayouts: "لے آؤٹس",
     notificationOutbox: "ترسیلی ریکارڈ",
+    notificationPolicy: "رازداری کی پالیسی",
     dashboard: "ڈیش بورڈ",
     users: "صارفین",
     roles: "کردار",
@@ -131,6 +132,9 @@ export const ur: TranslationResources = {
   auth: {
     continueWithApple: "Apple کے ساتھ جاری رکھیں",
     privacyPolicy: "رازداری کی پالیسی",
+    policyUpdatedNotice: "ہماری رازداری کی پالیسی اپ ڈیٹ ہو گئی ہے۔",
+    policyUpdatedView: "پالیسی دیکھیں",
+    policyUpdatedDismiss: "بند کریں",
     signInTitle: "سائن ان",
     signInSubtitle: "توثیق کے انتظامی کنسول تک رسائی حاصل کریں۔",
     email: "ای میل",
@@ -781,6 +785,25 @@ export const ur: TranslationResources = {
     tabTemplates: "سانچے",
     tabLayouts: "لے آؤٹس",
     tabDeliveryLog: "ترسیلی ریکارڈ",
+    tabPolicy: "رازداری کی پالیسی",
+    policyTitle: "رازداری کی پالیسی کے ورژن",
+    policySubtitle:
+      "پالیسی کی ترامیم پر نظر رکھیں اور اہم تبدیلیوں کی اطلاع صارفین کو دیں۔",
+    policyVersion: "ورژن",
+    policyEffective: "نفاذ کی تاریخ",
+    policyNotifiedAt: "اطلاع کی تاریخ",
+    policyRecipients: "وصول کنندگان",
+    policyNotNotified: "ابھی نہیں بھیجی گئی",
+    policyAdd: "ورژن درج کریں",
+    policyAddTitle: "پالیسی ورژن درج کریں",
+    policyAddDescription:
+      "شائع شدہ پالیسی مواد کی تازہ کاری کے بعد نئی ترمیم درج کریں۔ فارمیٹ: YYYY.MM۔",
+    policyNotify: "صارفین کو اطلاع دیں",
+    policyNotifyTitle: "تمام فعال صارفین کو اطلاع دی جائے؟",
+    policyNotifyBody:
+      "پالیسی تبدیلی کی ای میل ہر فعال اور تصدیق شدہ اکاؤنٹ کو اس کی ترجیحی زبان میں بھیجتی ہے۔",
+    policyNotifiedToast: "{{count}} وصول کنندگان کو اطلاع بھیج دی گئی۔",
+    policyCreatedToast: "پالیسی ورژن درج کر دیا گیا۔",
     overviewTitle: "اطلاعات",
     overviewSubtitle:
       "پلیٹ فارم کا بھیجا گیا ہر پیغام: اس کا مواد، اسے لپیٹنے والا لے آؤٹ، اور جو کچھ بھیجا گیا اس کا ریکارڈ۔",

@@ -164,4 +164,20 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created account-deletion-completed notification type';
 END
+
+-- privacy-policy-updated (material-change notice; sent from the console's policy-versions page)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000011')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000011',
+        N'privacy-policy-updated',
+        N'Privacy Policy Updated',
+        N'Notice that the privacy policy changed, sent to every active user before the change takes effect',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"PolicyVersion","description":"New policy version (YYYY.MM)","example":"2026.07","required":true},{"name":"EffectiveDate","description":"Date the new version takes effect (yyyy-MM-dd)","example":"2026-07-28","required":true},{"name":"PolicyLink","description":"Absolute URL of the privacy-policy page","example":"https://example.com/privacy","required":true}]',
+        N'{"UserName":"Jane Doe","PolicyVersion":"2026.07","EffectiveDate":"2026-07-28","PolicyLink":"https://example.com/privacy"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created privacy-policy-updated notification type';
+END
 GO

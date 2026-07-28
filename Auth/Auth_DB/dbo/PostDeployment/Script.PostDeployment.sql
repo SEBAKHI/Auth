@@ -594,6 +594,7 @@ PRINT '';
 PRINT 'Step 12: Creating notification permissions...';
 
 :r ..\Scripts\SeedData\13_NotificationPermissions.sql
+:r ..\Scripts\SeedData\14_PrivacyPolicyVersions.sql
 GO
 
 -- ============================================

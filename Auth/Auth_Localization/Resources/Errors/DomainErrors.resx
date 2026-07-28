@@ -737,4 +737,10 @@
   <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
     <value>Account deletion execution failed; it will be retried.</value>
   </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>Privacy policy version was not found.</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>This privacy policy version is already recorded.</value>
+  </data>
 </root>

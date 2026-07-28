@@ -12,7 +12,7 @@ export const tr: PrivacyPolicyContent = {
   contactKepLabel: "Kayıtlı elektronik posta (KEP)",
   intro: [
     `Bu metin, ${CONTROLLER.legalName} hesap hizmetinin hangi kişisel verileri topladığını, bunları neden işlediğini, ne kadar süreyle sakladığını ve verileriniz üzerindeki haklarınızı — hesabınızı ve hesabınıza bağlı her şeyi nasıl sileceğiniz dahil — açıklar.`,
-    "Bu metin, birincil uyum çerçevemiz olan 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun (KVKK) 10. maddesi uyarınca veri sorumlusunun aydınlatma yükümlülüğünü yerine getirmek üzere hazırlanmış olup ayrıca AB/AEA Genel Veri Koruma Tüzüğü (GDPR) ve değişik haliyle Kaliforniya Tüketici Gizliliği Yasası (CCPA/CPRA) gerekliliklerini karşılayacak şekilde kaleme alınmıştır. Nerede yaşarsanız yaşayın size aynı kontrolleri sunarız.",
+    "Bu metin, birincil uyum çerçevemiz olan 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun (KVKK) 10. maddesi uyarınca veri sorumlusunun aydınlatma yükümlülüğünü yerine getirmek üzere hazırlanmış olup ayrıca AB/AEA Genel Veri Koruma Tüzüğü (GDPR) ve değişik haliyle Kaliforniya Tüketici Gizliliği Yasası (CCPA/CPRA) gerekliliklerini karşılayacak şekilde kaleme alınmıştır. Bu metinde açıklanan kontroller, konumdan bağımsız olarak her kullanıcıya sunulur.",
   ],
   sections: [
     {
@@ -25,7 +25,7 @@ export const tr: PrivacyPolicyContent = {
         "Kimlik bilgileri ve güvenlik ayarları: parolanız (yalnızca tek yönlü Argon2id özeti olarak saklanır — parolanızı okuyamayız), isteğe bağlı iki adımlı doğrulama anahtarı ve kurtarma kodları (şifrelenmiş olarak saklanır) ile parola değişiklik geçmişi (yeniden kullanımı önlemek için, yalnızca özet olarak).",
         "Google veya Apple ile oturum açma: sağlayıcının paylaştığı kimlik tanımlayıcınız, e-posta adresiniz ve adınız. Apple için, yalnızca hesabınızı sildiğinizde Apple'ın oturum açma iznini iptal edebilmemiz amacıyla şifrelenmiş bir iptal belirteci saklanır.",
         "Güvenlik ve kullanım kayıtları: oturum açma denemeleri (zaman, IP adresi, tarayıcı tanımlayıcısı, sonuç), etkin oturumlar ve belirteçler ile hesapla ilgili işlemlerin denetim günlüğü.",
-        "İletişim: size gönderdiğimiz hizmet e-postalarının kaydı (doğrulama kodları, güvenlik bildirimleri, silme onayları).",
+        "İletişim: size gönderdiğimiz hizmet e-postalarının kaydı (doğrulama kodları, güvenlik bildirimleri, silme onayları). Tek kullanımlık kod veya oturum açma bağlantısı içeren ileti içeriği, e-posta teslim edilir edilmez bu kayıttan silinir — yöneticilerimiz dahi okuyamaz.",
       ],
     },
     {
@@ -123,9 +123,9 @@ export const tr: PrivacyPolicyContent = {
       },
       {
         category: "Silme doğrulama kodları",
-        retention: "15 dakika",
+        retention: "15 dakika (kod geçerliliği)",
         detail:
-          "Yalnızca özet olarak saklanır; süresi dolan kodlar silinir.",
+          "Yalnızca özet olarak saklanır; süresi dolan kayıtlar günlük temizlik işiyle silinir.",
       },
       {
         category: "Silme kaydı (özetlenmiş tanımlayıcılar)",
@@ -137,7 +137,7 @@ export const tr: PrivacyPolicyContent = {
         category: "Yedekler",
         retention: "En fazla 6 ay",
         detail:
-          "Hesabınız silindiğinde, şifrelenmiş alanlarınızın şifreleme anahtarı yok edilir; bu sayede söz konusu veriler mevcut yedeklerin içinde bile kalıcı olarak okunamaz hâle gelir.",
+          "Yedek döngüsü, barındırma platformunun saklama yapılandırmasıyla uygulanır. Bundan bağımsız olarak, hesabınız silindiğinde şifrelenmiş alanlarınızın şifreleme anahtarı yok edilir; bu sayede söz konusu veriler mevcut yedeklerin içinde bile kalıcı olarak okunamaz hâle gelir.",
       },
     ],
   },

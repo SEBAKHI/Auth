@@ -737,4 +737,10 @@
   <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
     <value>فشل تنفيذ حذف الحساب، وستُعاد المحاولة.</value>
   </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على إصدار سياسة الخصوصية.</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>إصدار سياسة الخصوصية هذا مسجل بالفعل.</value>
+  </data>
 </root>

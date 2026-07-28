@@ -737,4 +737,10 @@
   <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
     <value>Hesap silme işlemi başarısız oldu; yeniden denenecek.</value>
   </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>Gizlilik politikası sürümü bulunamadı.</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>Bu gizlilik politikası sürümü zaten kayıtlı.</value>
+  </data>
 </root>

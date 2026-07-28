@@ -12,7 +12,7 @@ export const en: PrivacyPolicyContent = {
   contactKepLabel: "Registered e-mail (KEP)",
   intro: [
     `This policy explains what personal data the ${CONTROLLER.legalName} account service collects, why we collect it, how long we keep it, and the rights you have over it — including how to delete your account and everything attached to it.`,
-    "It also serves as the disclosure required by Article 10 of Türkiye's Personal Data Protection Law No. 6698 (KVKK) — our primary compliance framework — and is written to meet the EU/EEA General Data Protection Regulation (GDPR) and the California Consumer Privacy Act as amended (CCPA/CPRA). Wherever you live, we give you the same controls.",
+    "It also serves as the disclosure required by Article 10 of Türkiye's Personal Data Protection Law No. 6698 (KVKK) — our primary compliance framework — and is written to meet the EU/EEA General Data Protection Regulation (GDPR) and the California Consumer Privacy Act as amended (CCPA/CPRA). The controls described in this policy are available to every user, regardless of location.",
   ],
   sections: [
     {
@@ -25,7 +25,7 @@ export const en: PrivacyPolicyContent = {
         "Credentials and security settings: your password (stored only as a one-way Argon2id hash — we cannot read it), optional two-factor authentication secret and recovery codes (stored encrypted), and password-change history (hashes only, to prevent reuse).",
         "Sign-in with Google or Apple: your provider identifier, email and name as shared by the provider. For Apple, a revocation token is stored encrypted solely so we can revoke Apple's sign-in permission when you delete your account.",
         "Security and usage records: sign-in attempts (time, IP address, browser identifier, outcome), active sessions and tokens, and an audit log of account-related actions.",
-        "Communications: a record of the service emails we send you (verification codes, security notices, deletion confirmations).",
+        "Communications: a record of the service emails we send you (verification codes, security notices, deletion confirmations). Message content that carries one-time codes or sign-in links is removed from this record as soon as the email is delivered — not even our administrators can read it.",
       ],
     },
     {
@@ -122,8 +122,9 @@ export const en: PrivacyPolicyContent = {
       },
       {
         category: "Deletion verification codes",
-        retention: "15 minutes",
-        detail: "Stored only as hashes; expired codes are purged.",
+        retention: "15 minutes (code validity)",
+        detail:
+          "Stored only as hashes; expired entries are removed by the daily cleanup job.",
       },
       {
         category: "Deletion record (hashed identifiers)",
@@ -135,7 +136,7 @@ export const en: PrivacyPolicyContent = {
         category: "Backups",
         retention: "6 months at most",
         detail:
-          "When your account is deleted, the encryption key for your encrypted fields is destroyed, making that data permanently unreadable even inside existing backups.",
+          "Backup rotation is enforced by the hosting platform's retention configuration. Independently of it, deleting your account destroys the encryption key for your encrypted fields, making that data permanently unreadable even inside existing backups.",
       },
     ],
   },

@@ -133,6 +133,24 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<(Guid Id, string Email, string? DisplayName, string? FirstName, string? PreferredLanguage)>>
+        GetActiveNotificationRecipientsAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Deliberately a minimal projection: a platform-wide send must not
+        // hydrate full entities or decrypt phone numbers for every user.
+        var rows = await connection.QueryAsync<(Guid, string, string?, string?, string?)>(@"
+            SELECT [Id], [Email], [FullName], [FirstName], [PreferredLanguage]
+            FROM [dbo].[Users]
+            WHERE [Status] = @Active AND [IsDeleted] = 0 AND [IsEmailConfirmed] = 1
+            ORDER BY [CreatedAt]",
+            new { Active = (int)UserStatus.Active });
+
+        return rows.ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

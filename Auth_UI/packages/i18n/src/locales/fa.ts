@@ -111,6 +111,7 @@ export const fa: TranslationResources = {
     notificationTemplates: "قالب‌ها",
     notificationLayouts: "چیدمان‌ها",
     notificationOutbox: "گزارش تحویل",
+    notificationPolicy: "سیاست حریم خصوصی",
     dashboard: "داشبورد",
     users: "کاربران",
     roles: "نقش‌ها",
@@ -131,6 +132,9 @@ export const fa: TranslationResources = {
   auth: {
     continueWithApple: "ادامه با Apple",
     privacyPolicy: "سیاست حریم خصوصی",
+    policyUpdatedNotice: "سیاست حریم خصوصی ما به‌روزرسانی شد.",
+    policyUpdatedView: "مشاهده سیاست",
+    policyUpdatedDismiss: "بستن",
     signInTitle: "ورود",
     signInSubtitle: "دسترسی به کنسول مدیریت احراز هویت.",
     email: "ایمیل",
@@ -785,6 +789,25 @@ export const fa: TranslationResources = {
     tabTemplates: "قالب‌ها",
     tabLayouts: "چیدمان‌ها",
     tabDeliveryLog: "گزارش تحویل",
+    tabPolicy: "سیاست حریم خصوصی",
+    policyTitle: "نسخه‌های سیاست حریم خصوصی",
+    policySubtitle:
+      "بازنگری‌های سیاست را دنبال کنید و تغییرات اساسی را به کاربران اطلاع دهید.",
+    policyVersion: "نسخه",
+    policyEffective: "تاریخ اجرا",
+    policyNotifiedAt: "تاریخ اطلاع‌رسانی",
+    policyRecipients: "گیرندگان",
+    policyNotNotified: "هنوز ارسال نشده",
+    policyAdd: "ثبت نسخه",
+    policyAddTitle: "ثبت نسخه سیاست",
+    policyAddDescription:
+      "پس از به‌روزرسانی محتوای منتشرشده، بازنگری جدید را ثبت کنید. قالب: YYYY.MM.",
+    policyNotify: "اطلاع‌رسانی به کاربران",
+    policyNotifyTitle: "به همه کاربران فعال اطلاع داده شود؟",
+    policyNotifyBody:
+      "ایمیل تغییر سیاست را برای هر حساب فعال و تأییدشده به زبان ترجیحی‌اش می‌فرستد.",
+    policyNotifiedToast: "اطلاع‌رسانی برای {{count}} گیرنده ارسال شد.",
+    policyCreatedToast: "نسخه سیاست ثبت شد.",
     overviewTitle: "اعلان‌ها",
     overviewSubtitle:
       "هر پیامی که سامانه می‌فرستد: محتوای آن، چیدمانی که آن را در بر می‌گیرد و سابقهٔ آنچه ارسال شده است.",

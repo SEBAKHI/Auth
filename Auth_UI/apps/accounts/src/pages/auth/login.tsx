@@ -22,20 +22,17 @@ export function AccountsLoginPage() {
       subtitle={t("auth.signInSubtitleAccounts")}
       providers={<ExternalProviders />}
       footer={
-        <div className="flex flex-col items-center gap-1">
-          <span>
-            {t("auth.noAccount")}{" "}
-            <Link to="/register" className="underline-offset-4 hover:underline">
-              {t("auth.signUp")}
-            </Link>
-          </span>
-          <Link
-            to="/privacy"
-            className="text-xs underline-offset-4 hover:underline"
-          >
-            {t("auth.privacyPolicy")}
+        <span>
+          {t("auth.noAccount")}{" "}
+          <Link to="/register" className="underline-offset-4 hover:underline">
+            {t("auth.signUp")}
           </Link>
-        </div>
+        </span>
+      }
+      pageFooter={
+        <Link to="/privacy" className="underline-offset-4 hover:underline">
+          {t("auth.privacyPolicy")}
+        </Link>
       }
     />
   )

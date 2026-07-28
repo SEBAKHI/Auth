@@ -394,4 +394,10 @@
   <data name="Validation.Provider.TooLong" xml:space="preserve">
     <value>Le nom du fournisseur est trop long.</value>
   </data>
+  <data name="Validation.PolicyVersion.Required" xml:space="preserve">
+    <value>La version de la politique est requise.</value>
+  </data>
+  <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
+    <value>La version de la politique doit suivre le format YYYY.MM.</value>
+  </data>
 </root>

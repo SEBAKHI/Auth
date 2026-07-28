@@ -737,4 +737,10 @@
   <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
     <value>L'exécution de la suppression du compte a échoué ; elle sera réessayée.</value>
   </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>La version de la politique de confidentialité est introuvable.</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>Cette version de la politique de confidentialité est déjà enregistrée.</value>
+  </data>
 </root>

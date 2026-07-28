@@ -737,4 +737,10 @@
   <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
     <value>اکاؤنٹ حذف کرنے کا عمل ناکام ہو گیا؛ دوبارہ کوشش کی جائے گی۔</value>
   </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>رازداری کی پالیسی کا ورژن نہیں ملا۔</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>رازداری کی پالیسی کا یہ ورژن پہلے سے درج ہے۔</value>
+  </data>
 </root>

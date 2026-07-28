@@ -394,4 +394,10 @@
   <data name="Validation.Provider.TooLong" xml:space="preserve">
     <value>فراہم کنندہ کا نام بہت لمبا ہے۔</value>
   </data>
+  <data name="Validation.PolicyVersion.Required" xml:space="preserve">
+    <value>پالیسی ورژن درکار ہے۔</value>
+  </data>
+  <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
+    <value>پالیسی ورژن کا فارمیٹ YYYY.MM ہونا چاہیے۔</value>
+  </data>
 </root>

@@ -737,4 +737,10 @@
   <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
     <value>اجرای حذف حساب ناموفق بود و دوباره تلاش خواهد شد.</value>
   </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>نسخه سیاست حریم خصوصی یافت نشد.</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>این نسخه سیاست حریم خصوصی قبلاً ثبت شده است.</value>
+  </data>
 </root>
