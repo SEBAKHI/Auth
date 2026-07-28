@@ -11,8 +11,8 @@ namespace Auth.Infrastructure.Persistence;
 public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
 {
     private const string VersionColumns = @"
-        [Id], [Version], [EffectiveDateUtc], [IsPublished], [NotifiedAtUtc], [NotifiedCount],
-        [CreatedAt], [CreatedBy]";
+        [Id], [Version], [EffectiveDateUtc], [IsPublished], [ChangeNote], [NotifiedAtUtc],
+        [NotifiedCount], [CreatedAt], [CreatedBy]";
 
     private readonly IDbConnectionFactory _connectionFactory;
 
@@ -73,8 +73,8 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
         // without surfacing a duplicate-key exception.
         var inserted = await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[PrivacyPolicyVersions]
-                ([Id], [Version], [EffectiveDateUtc], [IsPublished], [NotifiedAtUtc], [NotifiedCount], [CreatedAt], [CreatedBy])
-            SELECT @Id, @Version, @EffectiveDateUtc, 0, NULL, NULL, @CreatedAt, @CreatedBy
+                ([Id], [Version], [EffectiveDateUtc], [IsPublished], [ChangeNote], [NotifiedAtUtc], [NotifiedCount], [CreatedAt], [CreatedBy])
+            SELECT @Id, @Version, @EffectiveDateUtc, 0, @ChangeNote, NULL, NULL, @CreatedAt, @CreatedBy
             WHERE NOT EXISTS (
                 SELECT 1 FROM [dbo].[PrivacyPolicyVersions] WHERE [Version] = @Version)",
             new
@@ -82,6 +82,7 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
                 version.Id,
                 version.Version,
                 version.EffectiveDateUtc,
+                version.ChangeNote,
                 version.CreatedAt,
                 version.CreatedBy
             });
@@ -100,6 +101,19 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
             SET [NotifiedAtUtc] = @NotifiedAtUtc, [NotifiedCount] = @NotifiedCount
             WHERE [Id] = @Id",
             new { version.Id, version.NotifiedAtUtc, version.NotifiedCount });
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateDetailsAsync(
+        PrivacyPolicyVersion version, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[PrivacyPolicyVersions]
+            SET [EffectiveDateUtc] = @EffectiveDateUtc, [ChangeNote] = @ChangeNote
+            WHERE [Id] = @Id",
+            new { version.Id, version.EffectiveDateUtc, version.ChangeNote });
     }
 
     /// <inheritdoc />
@@ -187,14 +201,15 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
         public string Version { get; init; } = string.Empty;
         public DateTime EffectiveDateUtc { get; init; }
         public bool IsPublished { get; init; }
+        public string? ChangeNote { get; init; }
         public DateTime? NotifiedAtUtc { get; init; }
         public int? NotifiedCount { get; init; }
         public DateTime CreatedAt { get; init; }
         public Guid CreatedBy { get; init; }
 
         public PrivacyPolicyVersion ToEntity() => new(
-            Id, Version, EffectiveDateUtc, IsPublished, NotifiedAtUtc, NotifiedCount,
-            CreatedAt, CreatedBy);
+            Id, Version, EffectiveDateUtc, IsPublished, ChangeNote, NotifiedAtUtc,
+            NotifiedCount, CreatedAt, CreatedBy);
     }
 
     private record TranslationDto

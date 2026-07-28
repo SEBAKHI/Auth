@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CheckCircle2, FileText, Loader2, Megaphone, Plus } from "lucide-react"
+import type { ColumnDef } from "@tanstack/react-table"
+import { CheckCircle2, Loader2, Megaphone, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -12,9 +13,9 @@ import { useAuth } from "@astoom/auth/auth-context"
 import type { Schemas } from "@astoom/api/types"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
-import { Card, CardContent } from "@astoom/ui/card"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { PageHeader } from "@astoom/ui/common/page-header"
+import { DataTable } from "@astoom/ui/data-table/data-table"
 import {
   Dialog,
   DialogContent,
@@ -26,15 +27,7 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { formatDate, formatDateTime } from "@astoom/ui/format"
 import { Input } from "@astoom/ui/input"
-import { Skeleton } from "@astoom/ui/skeleton"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@astoom/ui/table"
+import { Textarea } from "@astoom/ui/textarea"
 import { PERMISSIONS } from "@/lib/constants"
 import { NotificationsTabs } from "./components/notifications-tabs"
 
@@ -43,12 +36,12 @@ type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
 const VERSION_RE = /^\d{4}\.\d{2}$/
 
 /**
- * The privacy-policy revision registry: which versions exist, when each took
- * effect, and when (and to how many users) the change notice went out. The
- * notify action is the compliance record behind the published policy's "we
- * notify you of material changes" promise — it emails every active,
- * confirmed account from the privacy-policy-updated template, each user in
- * their preferred language.
+ * The privacy-policy revision registry: which versions exist, which one is
+ * live, how complete each one's translations are, and when (and to how many
+ * users) the change notice went out.
+ *
+ * Mirrors the notification-templates list — searchable, faceted-filterable,
+ * sortable, with the version itself as the link into the editor.
  */
 export function NotificationPolicyPage() {
   const { t } = useTranslation()
@@ -61,6 +54,7 @@ export function NotificationPolicyPage() {
   const [addOpen, setAddOpen] = React.useState(false)
   const [newVersion, setNewVersion] = React.useState("")
   const [newEffectiveDate, setNewEffectiveDate] = React.useState("")
+  const [newChangeNote, setNewChangeNote] = React.useState("")
   const [notifyTarget, setNotifyTarget] = React.useState<PolicyVersionDto | null>(null)
   const [publishTarget, setPublishTarget] = React.useState<PolicyVersionDto | null>(null)
 
@@ -69,6 +63,9 @@ export function NotificationPolicyPage() {
     queryFn: () => unwrap(api.GET("/api/v1/privacy-policy/versions")),
   })
 
+  const invalidate = () =>
+    void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
+
   const createMutation = useMutation({
     mutationFn: () =>
       unwrap(
@@ -76,28 +73,28 @@ export function NotificationPolicyPage() {
           body: {
             version: newVersion.trim(),
             effectiveDateUtc: `${newEffectiveDate}T00:00:00Z`,
+            changeNote: newChangeNote.trim() || null,
           },
         })
       ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
+    onSuccess: (created) => {
+      invalidate()
       setAddOpen(false)
       setNewVersion("")
       setNewEffectiveDate("")
+      setNewChangeNote("")
       toast.success(t("notifications.policyCreatedToast"))
+      // Straight into the editor: a version without content is not useful.
+      if (created?.version) navigate(`/notifications/policy/${created.version}`)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
   const notifyMutation = useMutation({
     mutationFn: (version: string) =>
-      unwrap(
-        api.POST("/api/v1/privacy-policy/versions/notify", {
-          body: { version },
-        })
-      ),
+      unwrap(api.POST("/api/v1/privacy-policy/versions/notify", { body: { version } })),
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
+      invalidate()
       setNotifyTarget(null)
       toast.success(
         t("notifications.policyNotifiedToast", { count: result.recipientCount ?? 0 })
@@ -108,21 +105,144 @@ export function NotificationPolicyPage() {
 
   const publishMutation = useMutation({
     mutationFn: (version: string) =>
-      unwrap(
-        api.POST("/api/v1/privacy-policy/versions/publish", {
-          body: { version },
-        })
-      ),
+      unwrap(api.POST("/api/v1/privacy-policy/versions/publish", { body: { version } })),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
+      invalidate()
       setPublishTarget(null)
       toast.success(t("notifications.policyPublishedToast"))
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
-  const createValid =
-    VERSION_RE.test(newVersion.trim()) && newEffectiveDate.length > 0
+  const createValid = VERSION_RE.test(newVersion.trim()) && newEffectiveDate.length > 0
+
+  const columns: ColumnDef<PolicyVersionDto, unknown>[] = [
+    {
+      id: "version",
+      accessorFn: (row) => row.version ?? "",
+      header: t("notifications.policyVersion"),
+      meta: { label: t("notifications.policyVersion") },
+      cell: ({ row }) => (
+        <button
+          type="button"
+          className="min-w-0 text-start hover:underline"
+          onClick={() => navigate(`/notifications/policy/${row.original.version}`)}
+        >
+          <p className="truncate font-medium" dir="ltr">
+            {row.original.version}
+          </p>
+          <p className="truncate text-xs text-muted-foreground" dir="auto">
+            {row.original.changeNote || t("notifications.policyNoChangeNote")}
+          </p>
+        </button>
+      ),
+    },
+    {
+      id: "status",
+      accessorFn: (row) => (row.isPublished ? "published" : "draft"),
+      filterFn: "faceted",
+      header: t("notifications.policyStatus"),
+      meta: {
+        label: t("notifications.policyStatus"),
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "published", label: t("notifications.policyPublished") },
+          { value: "draft", label: t("notifications.policyDraft") },
+        ],
+      },
+      cell: ({ row }) =>
+        row.original.isPublished ? (
+          <Badge>
+            <CheckCircle2 data-icon="inline-start" />
+            {t("notifications.policyPublished")}
+          </Badge>
+        ) : (
+          <Badge variant="outline">{t("notifications.policyDraft")}</Badge>
+        ),
+    },
+    {
+      id: "languages",
+      accessorFn: (row) => (row.languages ?? []).length,
+      header: t("notifications.policyLanguages"),
+      meta: { label: t("notifications.policyLanguages") },
+      cell: ({ row }) => {
+        const languages = row.original.languages ?? []
+        return (
+          <span className="text-sm text-muted-foreground" dir="ltr">
+            {languages.length > 0
+              ? languages.map((code) => code.toUpperCase()).join(", ")
+              : "—"}
+          </span>
+        )
+      },
+    },
+    {
+      id: "effectiveDateUtc",
+      accessorFn: (row) => row.effectiveDateUtc ?? "",
+      header: t("notifications.policyEffective"),
+      meta: { label: t("notifications.policyEffective") },
+      cell: ({ row }) => (
+        <span className="text-sm">{formatDate(row.original.effectiveDateUtc)}</span>
+      ),
+    },
+    {
+      id: "notified",
+      accessorFn: (row) => (row.notifiedAtUtc ? "sent" : "not-sent"),
+      filterFn: "faceted",
+      header: t("notifications.policyNotifiedAt"),
+      meta: {
+        label: t("notifications.policyNotifiedAt"),
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "sent", label: t("notifications.policyNotifiedFilterSent") },
+          { value: "not-sent", label: t("notifications.policyNotNotified") },
+        ],
+      },
+      cell: ({ row }) =>
+        row.original.notifiedAtUtc ? (
+          <span className="text-sm">
+            {formatDateTime(row.original.notifiedAtUtc)}
+            <span className="ms-1 text-xs text-muted-foreground">
+              ({row.original.notifiedCount ?? 0})
+            </span>
+          </span>
+        ) : (
+          <Badge variant="outline">{t("notifications.policyNotNotified")}</Badge>
+        ),
+    },
+    ...(canManage
+      ? [
+          {
+            id: "actions",
+            header: "",
+            enableSorting: false,
+            enableHiding: false,
+            cell: ({ row }) => (
+              <div className="flex items-center justify-end gap-2">
+                {row.original.isPublished ? null : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPublishTarget(row.original)}
+                  >
+                    <CheckCircle2 data-icon="inline-start" />
+                    {t("notifications.policyPublish")}
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setNotifyTarget(row.original)}
+                >
+                  <Megaphone data-icon="inline-start" />
+                  {t("notifications.policyNotify")}
+                </Button>
+              </div>
+            ),
+          } satisfies ColumnDef<PolicyVersionDto, unknown>,
+        ]
+      : []),
+  ]
 
   return (
     <div className="space-y-6">
@@ -141,98 +261,18 @@ export function NotificationPolicyPage() {
 
       <NotificationsTabs />
 
-      {versionsQuery.isLoading || !versionsQuery.data ? (
-        <Skeleton className="h-48 w-full" />
-      ) : (
-        <Card>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t("notifications.policyVersion")}</TableHead>
-                  <TableHead>{t("notifications.policyStatus")}</TableHead>
-                  <TableHead>{t("notifications.policyLanguages")}</TableHead>
-                  <TableHead>{t("notifications.policyEffective")}</TableHead>
-                  <TableHead>{t("notifications.policyNotifiedAt")}</TableHead>
-                  <TableHead>{t("notifications.policyRecipients")}</TableHead>
-                  {canManage ? <TableHead /> : null}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {versionsQuery.data.map((version) => (
-                  <TableRow key={version.id}>
-                    <TableCell className="font-medium">{version.version}</TableCell>
-                    <TableCell>
-                      {version.isPublished ? (
-                        <Badge>
-                          <CheckCircle2 data-icon="inline-start" />
-                          {t("notifications.policyPublished")}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">
-                          {t("notifications.policyDraft")}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {(version.languages ?? []).length > 0
-                        ? (version.languages ?? [])
-                            .map((code) => code.toUpperCase())
-                            .join(", ")
-                        : "—"}
-                    </TableCell>
-                    <TableCell>{formatDate(version.effectiveDateUtc)}</TableCell>
-                    <TableCell>
-                      {version.notifiedAtUtc ? (
-                        formatDateTime(version.notifiedAtUtc)
-                      ) : (
-                        <Badge variant="outline">
-                          {t("notifications.policyNotNotified")}
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>{version.notifiedCount ?? "—"}</TableCell>
-                    {canManage ? (
-                      <TableCell className="text-end">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              navigate(`/notifications/policy/${version.version}`)
-                            }
-                          >
-                            <FileText data-icon="inline-start" />
-                            {t("notifications.policyEditContent")}
-                          </Button>
-                          {version.isPublished ? null : (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setPublishTarget(version)}
-                            >
-                              <CheckCircle2 data-icon="inline-start" />
-                              {t("notifications.policyPublish")}
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setNotifyTarget(version)}
-                          >
-                            <Megaphone data-icon="inline-start" />
-                            {t("notifications.policyNotify")}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    ) : null}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      )}
+      <DataTable
+        columns={columns}
+        data={versionsQuery.data ?? []}
+        isLoading={versionsQuery.isLoading}
+        error={versionsQuery.error}
+        onRetry={() => void versionsQuery.refetch()}
+        tableId="privacy-policy-versions"
+        globalSearch
+        searchPlaceholder={t("notifications.policySearchPlaceholder")}
+        enableRowDetail={false}
+        exportFileName="privacy-policy-versions"
+      />
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
@@ -249,7 +289,8 @@ export function NotificationPolicyPage() {
               </FieldLabel>
               <Input
                 id="policy-version"
-                placeholder="2026.07"
+                dir="ltr"
+                placeholder="2026.09"
                 value={newVersion}
                 onChange={(event) => setNewVersion(event.target.value)}
               />
@@ -263,6 +304,19 @@ export function NotificationPolicyPage() {
                 type="date"
                 value={newEffectiveDate}
                 onChange={(event) => setNewEffectiveDate(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="policy-note">
+                {t("notifications.policyChangeNote")}
+              </FieldLabel>
+              <Textarea
+                id="policy-note"
+                dir="auto"
+                rows={3}
+                placeholder={t("notifications.policyChangeNoteHint")}
+                value={newChangeNote}
+                onChange={(event) => setNewChangeNote(event.target.value)}
               />
             </Field>
           </FieldGroup>

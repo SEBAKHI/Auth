@@ -6063,7 +6063,45 @@ export interface paths {
                 };
             };
         };
-        put?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdatePrivacyPolicyVersionRequest"];
+                    "text/json": components["schemas"]["UpdatePrivacyPolicyVersionRequest"];
+                    "application/*+json": components["schemas"]["UpdatePrivacyPolicyVersionRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyVersionDto"];
+                        "application/json": components["schemas"]["PrivacyPolicyVersionDto"];
+                        "text/json": components["schemas"]["PrivacyPolicyVersionDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         post: {
             parameters: {
                 query?: never;
@@ -10820,6 +10858,7 @@ export interface components {
             version?: string;
             /** Format: date-time */
             effectiveDateUtc?: string;
+            changeNote?: null | string;
         };
         CreateRoleRequest: {
             /** Format: uuid */
@@ -11793,6 +11832,7 @@ export interface components {
             /** Format: date-time */
             effectiveDateUtc?: string;
             isPublished?: boolean;
+            changeNote?: null | string;
             /** Format: date-time */
             notifiedAtUtc?: null | string;
             /** Format: int32 */
@@ -12219,6 +12259,12 @@ export interface components {
             logoUrl: null | string;
             logoUrlDark: null | string;
             faviconUrl: null | string;
+        };
+        UpdatePrivacyPolicyVersionRequest: {
+            version?: string;
+            /** Format: date-time */
+            effectiveDateUtc?: string;
+            changeNote?: null | string;
         };
         UpdateProfileRequest: {
             firstName?: null | string;

@@ -9,7 +9,8 @@ namespace Auth.Application.Features.PrivacyPolicy.CreatePrivacyPolicyVersion;
 /// </summary>
 public record CreatePrivacyPolicyVersionCommand(
     string Version,
-    DateTime EffectiveDateUtc) : IRequest<ErrorOr<PrivacyPolicyVersionDto>>
+    DateTime EffectiveDateUtc,
+    string? ChangeNote) : IRequest<ErrorOr<PrivacyPolicyVersionDto>>
 {
     /// <summary>Gets the admin recording the revision (set by the endpoint).</summary>
     public Guid RequestedBy { get; init; }

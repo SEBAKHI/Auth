@@ -9,6 +9,7 @@ CREATE TABLE [dbo].[PrivacyPolicyVersions]
     [CreatedBy] UNIQUEIDENTIFIER NOT NULL,
     -- Declared last: new columns append without a table rebuild on publish.
     [IsPublished] BIT NOT NULL CONSTRAINT [DF_PrivacyPolicyVersions_IsPublished] DEFAULT 0,
+    [ChangeNote] NVARCHAR(1000) NULL,          -- what changed in this revision (shown in the console)
 
     CONSTRAINT [PK_PrivacyPolicyVersions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_PrivacyPolicyVersions_Version] UNIQUE ([Version])

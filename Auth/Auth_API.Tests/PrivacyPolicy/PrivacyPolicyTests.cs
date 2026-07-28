@@ -37,7 +37,7 @@ public class PrivacyPolicyTests
         var handler = new CreatePrivacyPolicyVersionCommandHandler(repository.Object);
 
         var result = await handler.Handle(
-            new CreatePrivacyPolicyVersionCommand("2026.09", new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc))
+            new CreatePrivacyPolicyVersionCommand("2026.09", new DateTime(2026, 9, 1, 0, 0, 0, DateTimeKind.Utc), "Initial")
             {
                 RequestedBy = AdminId
             },
@@ -58,7 +58,7 @@ public class PrivacyPolicyTests
         var handler = new CreatePrivacyPolicyVersionCommandHandler(repository.Object);
 
         var result = await handler.Handle(
-            new CreatePrivacyPolicyVersionCommand("2026.07", DateTime.UtcNow) { RequestedBy = AdminId },
+            new CreatePrivacyPolicyVersionCommand("2026.07", DateTime.UtcNow, null) { RequestedBy = AdminId },
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
@@ -118,7 +118,7 @@ public class PrivacyPolicyTests
     public async Task Notify_SendsToEveryActiveUser_AndStampsVersion()
     {
         var version = PrivacyPolicyVersion.Create(
-            "2026.07", new DateTime(2026, 7, 28, 0, 0, 0, DateTimeKind.Utc), AdminId);
+            "2026.07", new DateTime(2026, 7, 28, 0, 0, 0, DateTimeKind.Utc), null, AdminId);
         var (handler, versions, users, notifications, audit) = CreateNotifyHandler(version);
 
         var alice = (Id: Guid.NewGuid(), Email: "alice@example.com",
@@ -159,7 +159,7 @@ public class PrivacyPolicyTests
     [Fact]
     public async Task Notify_FailedSends_AreSkippedNotCounted()
     {
-        var version = PrivacyPolicyVersion.Create("2026.07", DateTime.UtcNow, AdminId);
+        var version = PrivacyPolicyVersion.Create("2026.07", DateTime.UtcNow, null, AdminId);
         var (handler, _, users, notifications, _) = CreateNotifyHandler(version);
 
         var ok = (Id: Guid.NewGuid(), Email: "ok@example.com",
@@ -192,7 +192,7 @@ public class PrivacyPolicyTests
     {
         return new PrivacyPolicyVersion(
             Guid.NewGuid(), "2026.07", new DateTime(2026, 7, 28, 0, 0, 0, DateTimeKind.Utc),
-            isPublished: true, notifiedAtUtc: null, notifiedCount: null,
+            isPublished: true, changeNote: null, notifiedAtUtc: null, notifiedCount: null,
             createdAt: DateTime.UtcNow, createdBy: AdminId);
     }
 

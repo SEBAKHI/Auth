@@ -9,6 +9,7 @@ public class PrivacyPolicyVersionDto
     public string Version { get; set; } = string.Empty;
     public DateTime EffectiveDateUtc { get; set; }
     public bool IsPublished { get; set; }
+    public string? ChangeNote { get; set; }
     public DateTime? NotifiedAtUtc { get; set; }
     public int? NotifiedCount { get; set; }
     public DateTime CreatedAt { get; set; }

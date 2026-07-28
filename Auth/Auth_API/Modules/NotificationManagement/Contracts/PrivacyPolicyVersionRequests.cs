@@ -10,6 +10,24 @@ public record CreatePrivacyPolicyVersionRequest
 
     /// <summary>UTC instant the revision takes effect.</summary>
     public DateTime EffectiveDateUtc { get; init; }
+
+    /// <summary>Note describing what changed in this revision.</summary>
+    public string? ChangeNote { get; init; }
+}
+
+/// <summary>
+/// Request to update a revision's editable metadata.
+/// </summary>
+public record UpdatePrivacyPolicyVersionRequest
+{
+    /// <summary>The revision identifier in "YYYY.MM" format.</summary>
+    public string Version { get; init; } = string.Empty;
+
+    /// <summary>UTC instant the revision takes effect.</summary>
+    public DateTime EffectiveDateUtc { get; init; }
+
+    /// <summary>Note describing what changed in this revision.</summary>
+    public string? ChangeNote { get; init; }
 }
 
 /// <summary>

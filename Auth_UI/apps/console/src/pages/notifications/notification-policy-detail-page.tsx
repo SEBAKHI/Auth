@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Plus, Save, Trash2 } from "lucide-react"
+import { Check, CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
@@ -17,11 +17,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@astoom/ui/card"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import {
-  PolicyDocument,
-  POLICY_TOKENS,
   type PolicyDisclosure,
   type PrivacyPolicyContent,
 } from "@astoom/ui/common/policy-document"
+import { usePageBreadcrumb } from "@astoom/ui/crumbs"
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
 import { Skeleton } from "@astoom/ui/skeleton"
@@ -33,6 +32,11 @@ import {
   SectionListEditor,
   StringListEditor,
 } from "./components/policy-field-editors"
+import { PolicyPreviewPane } from "./components/policy-preview-pane"
+import {
+  PolicyTokenPalette,
+  useFocusedField,
+} from "./components/policy-token-palette"
 
 /** Shape used when starting a language that has no document yet. */
 const EMPTY_DOCUMENT: PrivacyPolicyContent = {
@@ -84,6 +88,24 @@ export function NotificationPolicyDetailPage() {
   const [dirty, setDirty] = React.useState(false)
   const [parseError, setParseError] = React.useState<string | null>(null)
   const [pendingLanguage, setPendingLanguage] = React.useState<string | null>(null)
+  const [effectiveDate, setEffectiveDate] = React.useState("")
+  const [changeNote, setChangeNote] = React.useState("")
+  const [metaDirty, setMetaDirty] = React.useState(false)
+
+  const { onFocusCapture, insert } = useFocusedField()
+  usePageBreadcrumb(version || undefined)
+
+  const versionsQuery = useQuery({
+    queryKey: ["privacy-policy-versions"],
+    queryFn: () => unwrap(api.GET("/api/v1/privacy-policy/versions")),
+  })
+  const versionRow = versionsQuery.data?.find((v) => v.version === version)
+
+  React.useEffect(() => {
+    if (!versionRow || metaDirty) return
+    setEffectiveDate((versionRow.effectiveDateUtc ?? "").slice(0, 10))
+    setChangeNote(versionRow.changeNote ?? "")
+  }, [versionRow, metaDirty])
 
   const contentQuery = useQuery({
     queryKey: ["privacy-policy-content", version, language],
@@ -141,8 +163,37 @@ export function NotificationPolicyDetailPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
+  const metaMutation = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.PUT("/api/v1/privacy-policy/versions", {
+          body: {
+            version,
+            effectiveDateUtc: effectiveDate + "T00:00:00Z",
+            changeNote: changeNote.trim() || null,
+          },
+        })
+      ),
+    onSuccess: () => {
+      setMetaDirty(false)
+      void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
+      toast.success(t("notifications.policyVersionSaved"))
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  const publishMutation = useMutation({
+    mutationFn: () =>
+      unwrap(api.POST("/api/v1/privacy-policy/versions/publish", { body: { version } })),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
+      toast.success(t("notifications.policyPublishedToast"))
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
   // Leaving with unsaved legal text must never be silent.
-  const unsavedPrompt = useUnsavedChangesPrompt(dirty)
+  const unsavedPrompt = useUnsavedChangesPrompt(dirty || metaDirty)
 
   const patch = React.useCallback((next: Partial<PrivacyPolicyContent>) => {
     setDoc((current) => (current ? { ...current, ...next } : current))
@@ -171,20 +222,55 @@ export function NotificationPolicyDetailPage() {
         description={t("notifications.policyContentDescription")}
         actions={
           canManage ? (
-            <Button
-              disabled={!dirty || !doc || saveMutation.isPending}
-              onClick={() => saveMutation.mutate()}
-            >
-              {saveMutation.isPending ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <Save data-icon="inline-start" />
-              )}
-              {t("common.save")}
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                disabled={!dirty || !doc || saveMutation.isPending}
+                onClick={() => saveMutation.mutate()}
+              >
+                {saveMutation.isPending ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <Save data-icon="inline-start" />
+                )}
+                {t("common.save")}
+              </Button>
+              {versionRow && !versionRow.isPublished ? (
+                <Button
+                  disabled={dirty || publishMutation.isPending}
+                  onClick={() => publishMutation.mutate()}
+                >
+                  <CheckCircle2 data-icon="inline-start" />
+                  {t("notifications.policyPublish")}
+                </Button>
+              ) : null}
+            </div>
           ) : undefined
         }
       />
+
+      <div className="flex flex-wrap items-center gap-2">
+        {versionRow?.isPublished ? (
+          <Badge>
+            <CheckCircle2 data-icon="inline-start" />
+            {t("notifications.policyPublished")}
+          </Badge>
+        ) : (
+          <Badge variant="outline">{t("notifications.policyDraft")}</Badge>
+        )}
+        {versionRow?.notifiedAtUtc ? (
+          <Badge variant="secondary">
+            {t("notifications.policyNotifiedBadge", {
+              count: versionRow.notifiedCount ?? 0,
+            })}
+          </Badge>
+        ) : (
+          <Badge variant="outline">{t("notifications.policyNotNotified")}</Badge>
+        )}
+        {dirty || metaDirty ? (
+          <Badge variant="outline">{t("notifications.unsavedChanges")}</Badge>
+        ) : null}
+      </div>
 
       <Tabs
         value={language}
@@ -198,25 +284,24 @@ export function NotificationPolicyDetailPage() {
           setLanguage(next)
         }}
       >
+        {/* Wrapping needs the height to follow the rows; the default fixed
+            height would cut off every row but the first. */}
         <TabsList className="h-auto! flex-wrap">
-          {SUPPORTED_LANGUAGES.map((lang) => (
-            <TabsTrigger key={lang.code} value={lang.code}>
-              {lang.label}
-            </TabsTrigger>
-          ))}
+          {SUPPORTED_LANGUAGES.map((lang) => {
+            const written = (versionRow?.languages ?? []).includes(lang.code)
+            return (
+              <TabsTrigger key={lang.code} value={lang.code} title={lang.label}>
+                <span dir="ltr" className="uppercase">
+                  {lang.code}
+                </span>
+                {written ? <Check className="size-3" /> : null}
+              </TabsTrigger>
+            )
+          })}
         </TabsList>
       </Tabs>
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-xs text-muted-foreground">
-          {t("notifications.policyTokens")}
-        </span>
-        {POLICY_TOKENS.map((token) => (
-          <Badge key={token} variant="secondary" className="font-mono">
-            {token}
-          </Badge>
-        ))}
-      </div>
+      <PolicyTokenPalette onInsert={insert} disabled={!canManage} />
 
       <ConfirmDialog
         open={pendingLanguage !== null}
@@ -249,7 +334,62 @@ export function NotificationPolicyDetailPage() {
       ) : (
         <div className="grid gap-6 xl:grid-cols-2">
           {/* Editor */}
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-6" onFocusCapture={onFocusCapture}>
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("notifications.policyVersionDetails")}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor="meta-effective">
+                      {t("notifications.policyEffective")}
+                    </FieldLabel>
+                    <Input
+                      id="meta-effective"
+                      type="date"
+                      value={effectiveDate}
+                      disabled={!canManage}
+                      onChange={(e) => {
+                        setEffectiveDate(e.target.value)
+                        setMetaDirty(true)
+                      }}
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="meta-note">
+                      {t("notifications.policyChangeNote")}
+                    </FieldLabel>
+                    <Textarea
+                      id="meta-note"
+                      dir="auto"
+                      rows={2}
+                      placeholder={t("notifications.policyChangeNoteHint")}
+                      value={changeNote}
+                      disabled={!canManage}
+                      onChange={(e) => {
+                        setChangeNote(e.target.value)
+                        setMetaDirty(true)
+                      }}
+                    />
+                  </Field>
+                  {canManage ? (
+                    <Button
+                      variant="outline"
+                      className="w-fit"
+                      disabled={!metaDirty || metaMutation.isPending}
+                      onClick={() => metaMutation.mutate()}
+                    >
+                      {metaMutation.isPending ? (
+                        <Loader2 className="animate-spin" />
+                      ) : null}
+                      {t("notifications.policySaveVersion")}
+                    </Button>
+                  ) : null}
+                </FieldGroup>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>{t("notifications.policyHeader")}</CardTitle>
@@ -581,37 +721,12 @@ export function NotificationPolicyDetailPage() {
 
           {/* Live preview — same renderer as the public page */}
           <div className="xl:sticky xl:top-6 xl:self-start">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("notifications.policyPreview")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div
-                  dir={dir}
-                  lang={language}
-                  className="flex max-h-[75vh] flex-col gap-6 overflow-y-auto"
-                >
-                  <div className="flex flex-col items-center gap-2 text-center">
-                    <h1 className="text-2xl font-semibold tracking-tight">
-                      {doc.title}
-                    </h1>
-                    <div className="flex flex-wrap items-center justify-center gap-2">
-                      <Badge variant="secondary">
-                        {doc.versionLabel} {version}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        {doc.effectiveDate}
-                      </span>
-                    </div>
-                  </div>
-                  <PolicyDocument
-                    content={doc}
-                    disclosure={disclosure}
-                    dir={dir}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <PolicyPreviewPane
+              content={doc}
+              disclosure={disclosure}
+              dir={dir}
+              version={version}
+            />
           </div>
         </div>
       )}

@@ -30,6 +30,11 @@ public interface IPrivacyPolicyVersionRepository
     Task UpdateNotifiedAsync(PrivacyPolicyVersion version, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Persists the editable metadata (effective date, change note).
+    /// </summary>
+    Task UpdateDetailsAsync(PrivacyPolicyVersion version, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets the published revision, or null when none is published yet.
     /// </summary>
     Task<PrivacyPolicyVersion?> GetPublishedAsync(CancellationToken cancellationToken);

@@ -10,6 +10,7 @@ using Auth.Application.Features.PrivacyPolicy.GetPublishedPrivacyPolicy;
 using Auth.Application.Features.PrivacyPolicy.NotifyPrivacyPolicyVersion;
 using Auth.Application.Features.PrivacyPolicy.PublishPrivacyPolicyVersion;
 using Auth.Application.Features.PrivacyPolicy.SavePrivacyPolicyContent;
+using Auth.Application.Features.PrivacyPolicy.UpdatePrivacyPolicyVersion;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -77,7 +78,8 @@ public class PrivacyPolicyController : ApiController
     public async Task<IActionResult> CreateVersion(
         [FromBody] CreatePrivacyPolicyVersionRequest request, CancellationToken cancellationToken)
     {
-        var command = new CreatePrivacyPolicyVersionCommand(request.Version, request.EffectiveDateUtc)
+        var command = new CreatePrivacyPolicyVersionCommand(
+            request.Version, request.EffectiveDateUtc, request.ChangeNote)
         {
             RequestedBy = GetCurrentUserId()
         };
@@ -86,6 +88,26 @@ public class PrivacyPolicyController : ApiController
         return result.Match(
             dto => CreatedAtAction(nameof(GetVersions), null, dto),
             Problem);
+    }
+
+    /// <summary>
+    /// Updates a revision's effective date and change note.
+    /// </summary>
+    [HttpPut("versions")]
+    [RequirePermission("privacy-policy:manage")]
+    [ProducesResponseType(typeof(PrivacyPolicyVersionDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateVersion(
+        [FromBody] UpdatePrivacyPolicyVersionRequest request, CancellationToken cancellationToken)
+    {
+        var command = new UpdatePrivacyPolicyVersionCommand(
+            request.Version, request.EffectiveDateUtc, request.ChangeNote)
+        {
+            RequestedBy = GetCurrentUserId()
+        };
+
+        var result = await _sender.Send(command, cancellationToken);
+        return result.Match(dto => Ok(dto), Problem);
     }
 
     /// <summary>

@@ -37,6 +37,7 @@ public class GetPrivacyPolicyVersionsQueryHandler
                 Version = version.Version,
                 EffectiveDateUtc = version.EffectiveDateUtc,
                 IsPublished = version.IsPublished,
+                ChangeNote = version.ChangeNote,
                 NotifiedAtUtc = version.NotifiedAtUtc,
                 NotifiedCount = version.NotifiedCount,
                 CreatedAt = version.CreatedAt,

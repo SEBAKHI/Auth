@@ -27,6 +27,11 @@ public class PrivacyPolicyVersion : EntityBase
     public bool IsPublished { get; private set; }
 
     /// <summary>
+    /// Gets the editor's note describing what changed in this revision.
+    /// </summary>
+    public string? ChangeNote { get; private set; }
+
+    /// <summary>
     /// Gets when the change notification was sent to active users; null while
     /// no notification has been sent for this revision.
     /// </summary>
@@ -57,6 +62,7 @@ public class PrivacyPolicyVersion : EntityBase
         string version,
         DateTime effectiveDateUtc,
         bool isPublished,
+        string? changeNote,
         DateTime? notifiedAtUtc,
         int? notifiedCount,
         DateTime createdAt,
@@ -65,6 +71,7 @@ public class PrivacyPolicyVersion : EntityBase
         Version = version;
         EffectiveDateUtc = effectiveDateUtc;
         IsPublished = isPublished;
+        ChangeNote = changeNote;
         NotifiedAtUtc = notifiedAtUtc;
         NotifiedCount = notifiedCount;
         CreatedAt = createdAt;
@@ -77,15 +84,24 @@ public class PrivacyPolicyVersion : EntityBase
     public static PrivacyPolicyVersion Create(
         string version,
         DateTime effectiveDateUtc,
+        string? changeNote,
         Guid createdBy)
     {
         return new PrivacyPolicyVersion
         {
             Version = version,
             EffectiveDateUtc = effectiveDateUtc,
+            ChangeNote = changeNote,
             CreatedAt = DateTime.UtcNow,
             CreatedBy = createdBy
         };
+    }
+
+    /// <summary>Updates the revision's editable metadata.</summary>
+    public void UpdateDetails(DateTime effectiveDateUtc, string? changeNote)
+    {
+        EffectiveDateUtc = effectiveDateUtc;
+        ChangeNote = changeNote;
     }
 
     /// <summary>

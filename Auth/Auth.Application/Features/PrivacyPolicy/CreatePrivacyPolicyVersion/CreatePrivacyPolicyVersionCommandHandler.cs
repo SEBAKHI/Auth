@@ -25,7 +25,7 @@ public class CreatePrivacyPolicyVersionCommandHandler
         CreatePrivacyPolicyVersionCommand request, CancellationToken cancellationToken)
     {
         var version = PrivacyPolicyVersion.Create(
-            request.Version, request.EffectiveDateUtc, request.RequestedBy);
+            request.Version, request.EffectiveDateUtc, request.ChangeNote, request.RequestedBy);
 
         if (!await _repository.TryCreateAsync(version, cancellationToken))
         {
@@ -37,6 +37,7 @@ public class CreatePrivacyPolicyVersionCommandHandler
             Id = version.Id,
             Version = version.Version,
             EffectiveDateUtc = version.EffectiveDateUtc,
+            ChangeNote = version.ChangeNote,
             NotifiedAtUtc = version.NotifiedAtUtc,
             NotifiedCount = version.NotifiedCount,
             CreatedAt = version.CreatedAt
