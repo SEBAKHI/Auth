@@ -5984,6 +5984,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/privacy-policy/published": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    language?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PublishedPrivacyPolicyDto"];
+                        "application/json": components["schemas"]["PublishedPrivacyPolicyDto"];
+                        "text/json": components["schemas"]["PublishedPrivacyPolicyDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/privacy-policy/versions": {
         parameters: {
             query?: never;
@@ -6059,6 +6109,145 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/privacy-policy/versions/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    version?: string;
+                    language?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyContentDto"];
+                        "application/json": components["schemas"]["PrivacyPolicyContentDto"];
+                        "text/json": components["schemas"]["PrivacyPolicyContentDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SavePrivacyPolicyContentRequest"];
+                    "text/json": components["schemas"]["SavePrivacyPolicyContentRequest"];
+                    "application/*+json": components["schemas"]["SavePrivacyPolicyContentRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyContentDto"];
+                        "application/json": components["schemas"]["PrivacyPolicyContentDto"];
+                        "text/json": components["schemas"]["PrivacyPolicyContentDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/privacy-policy/versions/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                    "text/json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                    "application/*+json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/privacy-policy/versions/notify": {
         parameters: {
             query?: never;
@@ -6077,9 +6266,9 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["NotifyPrivacyPolicyVersionRequest"];
-                    "text/json": components["schemas"]["NotifyPrivacyPolicyVersionRequest"];
-                    "application/*+json": components["schemas"]["NotifyPrivacyPolicyVersionRequest"];
+                    "application/json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                    "text/json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                    "application/*+json": components["schemas"]["PrivacyPolicyVersionRequest"];
                 };
             };
             responses: {
@@ -11128,9 +11317,6 @@ export interface components {
             sampleDataJson?: string;
             isActive?: boolean;
         };
-        NotifyPrivacyPolicyVersionRequest: {
-            version?: string;
-        };
         OAuthTokenResponse: {
             access_token: string;
             token_type?: string;
@@ -11578,6 +11764,24 @@ export interface components {
             channel?: components["schemas"]["NotificationChannelType"];
             sampleOverridesJson?: null | string;
         };
+        PrivacyPolicyContentDto: {
+            version?: string;
+            languageCode?: string;
+            contentJson?: string;
+            /** Format: date-time */
+            modifiedAt?: null | string;
+        };
+        PrivacyPolicyDisclosureDto: {
+            /** Format: int32 */
+            graceDays?: number | string;
+            /** Format: int32 */
+            otpValidityMinutes?: number | string;
+            /** Format: int32 */
+            loginAttemptRetentionDays?: number | string;
+            /** Format: int32 */
+            outboxRetentionDays?: number | string;
+            policyVersion?: string;
+        };
         PrivacyPolicyNotifyResultDto: {
             /** Format: int32 */
             recipientCount?: number | string;
@@ -11588,12 +11792,17 @@ export interface components {
             version?: string;
             /** Format: date-time */
             effectiveDateUtc?: string;
+            isPublished?: boolean;
             /** Format: date-time */
             notifiedAtUtc?: null | string;
             /** Format: int32 */
             notifiedCount?: null | number | string;
             /** Format: date-time */
             createdAt?: string;
+            languages?: string[];
+        };
+        PrivacyPolicyVersionRequest: {
+            version?: string;
         };
         ProblemDetails: {
             type?: null | string;
@@ -11633,6 +11842,14 @@ export interface components {
             hasUnpublishedDraft?: boolean;
             /** Format: date-time */
             modifiedAt?: null | string;
+        };
+        PublishedPrivacyPolicyDto: {
+            version?: string;
+            /** Format: date-time */
+            effectiveDateUtc?: string;
+            languageCode?: string;
+            contentJson?: string;
+            disclosure?: components["schemas"]["PrivacyPolicyDisclosureDto"];
         };
         ReasonCountDto: {
             reason?: string;
@@ -11813,6 +12030,11 @@ export interface components {
             success?: boolean;
             message?: string;
             publicKeyPem?: string;
+        };
+        SavePrivacyPolicyContentRequest: {
+            version?: string;
+            languageCode?: string;
+            contentJson?: string;
         };
         SecretStatus: number;
         SecretStatusResult: {

@@ -21,6 +21,12 @@ public class PrivacyPolicyVersion : EntityBase
     public DateTime EffectiveDateUtc { get; private set; }
 
     /// <summary>
+    /// Gets whether this revision is the one served to end users. Exactly one
+    /// version is published at a time; the others are drafts or history.
+    /// </summary>
+    public bool IsPublished { get; private set; }
+
+    /// <summary>
     /// Gets when the change notification was sent to active users; null while
     /// no notification has been sent for this revision.
     /// </summary>
@@ -50,6 +56,7 @@ public class PrivacyPolicyVersion : EntityBase
         Guid id,
         string version,
         DateTime effectiveDateUtc,
+        bool isPublished,
         DateTime? notifiedAtUtc,
         int? notifiedCount,
         DateTime createdAt,
@@ -57,6 +64,7 @@ public class PrivacyPolicyVersion : EntityBase
     {
         Version = version;
         EffectiveDateUtc = effectiveDateUtc;
+        IsPublished = isPublished;
         NotifiedAtUtc = notifiedAtUtc;
         NotifiedCount = notifiedCount;
         CreatedAt = createdAt;
@@ -88,5 +96,14 @@ public class PrivacyPolicyVersion : EntityBase
     {
         NotifiedAtUtc = DateTime.UtcNow;
         NotifiedCount = recipientCount;
+    }
+
+    /// <summary>
+    /// Marks this revision as the published one. The repository clears the
+    /// flag from every other row in the same transaction.
+    /// </summary>
+    public void Publish()
+    {
+        IsPublished = true;
     }
 }

@@ -11,8 +11,43 @@
  * description below MUST stay in sync with AccountDeletionSettings.
  */
 
-/** Mirrors `AccountDeletionSettings.PolicyVersion` — bump both together. */
+/**
+ * Fallback version stamp, used only when the API is unreachable. The live
+ * value comes from the published policy (`GET /privacy-policy/published`).
+ */
 export const POLICY_VERSION = "2026.07"
+
+/**
+ * Configuration-driven numbers the policy quotes. Served per request from
+ * `AccountDeletionSettings`, so changing appsettings changes the published
+ * text — the document stores `{{token}}` placeholders, never literals.
+ * Statutory windows (KVKK/GDPR 30 days, CCPA 45) are NOT tokens: they come
+ * from law, not configuration.
+ */
+export interface PolicyDisclosure {
+  graceDays: number
+  otpValidityMinutes: number
+  loginAttemptRetentionDays: number
+  outboxRetentionDays: number
+  policyVersion: string
+}
+
+/** Values used when the API cannot be reached (mirrors appsettings defaults). */
+export const FALLBACK_DISCLOSURE: PolicyDisclosure = {
+  graceDays: 30,
+  otpValidityMinutes: 15,
+  loginAttemptRetentionDays: 365,
+  outboxRetentionDays: 180,
+  policyVersion: POLICY_VERSION,
+}
+
+/** Substitutes `{{token}}` placeholders with the live disclosure values. */
+export function interpolate(text: string, disclosure: PolicyDisclosure): string {
+  return text.replace(/\{\{(\w+)\}\}/g, (match, token: string) => {
+    const value = (disclosure as unknown as Record<string, unknown>)[token]
+    return value === undefined ? match : String(value)
+  })
+}
 
 /**
  * Official sources for every law the policy references. The page renderer

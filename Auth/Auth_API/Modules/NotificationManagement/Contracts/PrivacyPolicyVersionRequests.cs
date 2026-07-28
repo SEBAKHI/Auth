@@ -13,12 +13,26 @@ public record CreatePrivacyPolicyVersionRequest
 }
 
 /// <summary>
-/// Request to send the policy-change notice for a recorded revision to every
-/// active user. The version travels in the body — dotted route segments
-/// ("2026.07") are unreliable under IIS static-file handling.
+/// Request naming one revision. The version travels in the body — dotted route
+/// segments ("2026.07") are unreliable under IIS static-file handling.
 /// </summary>
-public record NotifyPrivacyPolicyVersionRequest
+public record PrivacyPolicyVersionRequest
 {
     /// <summary>The revision identifier in "YYYY.MM" format.</summary>
     public string Version { get; init; } = string.Empty;
+}
+
+/// <summary>
+/// Request to save one language document of a revision.
+/// </summary>
+public record SavePrivacyPolicyContentRequest
+{
+    /// <summary>The revision identifier in "YYYY.MM" format.</summary>
+    public string Version { get; init; } = string.Empty;
+
+    /// <summary>ISO language code of the document.</summary>
+    public string LanguageCode { get; init; } = string.Empty;
+
+    /// <summary>The document JSON (validated server-side before storage).</summary>
+    public string ContentJson { get; init; } = string.Empty;
 }

@@ -7,6 +7,8 @@ CREATE TABLE [dbo].[PrivacyPolicyVersions]
     [NotifiedCount] INT NULL,                  -- how many active users the notice reached
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_PrivacyPolicyVersions_CreatedAt] DEFAULT GETUTCDATE(),
     [CreatedBy] UNIQUEIDENTIFIER NOT NULL,
+    -- Declared last: new columns append without a table rebuild on publish.
+    [IsPublished] BIT NOT NULL CONSTRAINT [DF_PrivacyPolicyVersions_IsPublished] DEFAULT 0,
 
     CONSTRAINT [PK_PrivacyPolicyVersions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_PrivacyPolicyVersions_Version] UNIQUE ([Version])

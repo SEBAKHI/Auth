@@ -743,4 +743,13 @@
   <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
     <value>该隐私政策版本已被记录。</value>
   </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>尚未发布任何隐私政策版本。</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>隐私政策文档无效。</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>隐私政策不支持该语言。</value>
+  </data>
 </root>

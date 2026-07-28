@@ -89,7 +89,7 @@ export const en: PrivacyPolicyContent = {
     rows: [
       {
         category: "Account and profile data",
-        retention: "Until you delete your account (+ 30-day recovery window)",
+        retention: "Until you delete your account (+ {{graceDays}}-day recovery window)",
         detail:
           "Permanently destroyed by the staged deletion process described below.",
       },
@@ -105,7 +105,7 @@ export const en: PrivacyPolicyContent = {
       },
       {
         category: "Sign-in attempt records (incl. IP address)",
-        retention: "365 days",
+        retention: "{{loginAttemptRetentionDays}} days",
         detail:
           "Purged automatically; de-identified immediately when the account is deleted.",
       },
@@ -117,12 +117,12 @@ export const en: PrivacyPolicyContent = {
       },
       {
         category: "Record of sent service emails",
-        retention: "180 days",
+        retention: "{{outboxRetentionDays}} days",
         detail: "Purged automatically.",
       },
       {
         category: "Deletion verification codes",
-        retention: "15 minutes (code validity)",
+        retention: "{{otpValidityMinutes}} minutes (code validity)",
         detail:
           "Stored only as hashes; expired entries are removed by the daily cleanup job.",
       },
@@ -143,12 +143,12 @@ export const en: PrivacyPolicyContent = {
   deletion: {
     heading: "Deleting your account",
     paragraphs: [
-      "You can request the permanent deletion of your account and personal data at any time, without contacting anyone. The request is acknowledged immediately and completed within 30 days:",
+      "You can request the permanent deletion of your account and personal data at any time, without contacting anyone. The request is acknowledged immediately and completed within {{graceDays}} days:",
     ],
     bullets: [
       "Your account is deactivated at once and signed out of every device; every session, token and sign-in permission is revoked immediately.",
-      "For 30 days you can change your mind — signing back in restores the account and cancels the deletion. You receive an email confirming each step.",
-      "After the 30-day window, deletion is carried out automatically and is irreversible: profile data is erased, security records are de-identified, per-account encryption keys are destroyed (crypto-shredding, covering backups), and — if you used Sign in with Apple — Apple is told to revoke the sign-in permission.",
+      "For {{graceDays}} days you can change your mind — signing back in restores the account and cancels the deletion. You receive an email confirming each step.",
+      "After the {{graceDays}}-day window, deletion is carried out automatically and is irreversible: profile data is erased, security records are de-identified, per-account encryption keys are destroyed (crypto-shredding, covering backups), and — if you used Sign in with Apple — Apple is told to revoke the sign-in permission.",
       "Your email address and username are never recycled: only one-way digests remain, so nobody else can ever register them.",
     ],
     button: "Delete my account",

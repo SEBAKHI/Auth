@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Megaphone, Plus } from "lucide-react"
+import { CheckCircle2, FileText, Loader2, Megaphone, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -36,6 +36,7 @@ import {
 } from "@astoom/ui/table"
 import { PERMISSIONS } from "@/lib/constants"
 import { NotificationsTabs } from "./components/notifications-tabs"
+import { PolicyContentEditor } from "./components/policy-content-editor"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
 
@@ -54,12 +55,14 @@ export function NotificationPolicyPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
 
-  const canManage = hasPermission(PERMISSIONS.notificationTemplates.manage)
+  const canManage = hasPermission(PERMISSIONS.privacyPolicy.manage)
 
   const [addOpen, setAddOpen] = React.useState(false)
   const [newVersion, setNewVersion] = React.useState("")
   const [newEffectiveDate, setNewEffectiveDate] = React.useState("")
   const [notifyTarget, setNotifyTarget] = React.useState<PolicyVersionDto | null>(null)
+  const [publishTarget, setPublishTarget] = React.useState<PolicyVersionDto | null>(null)
+  const [editingVersion, setEditingVersion] = React.useState<string | null>(null)
 
   const versionsQuery = useQuery({
     queryKey: ["privacy-policy-versions"],
@@ -103,6 +106,21 @@ export function NotificationPolicyPage() {
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
+  const publishMutation = useMutation({
+    mutationFn: (version: string) =>
+      unwrap(
+        api.POST("/api/v1/privacy-policy/versions/publish", {
+          body: { version },
+        })
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
+      setPublishTarget(null)
+      toast.success(t("notifications.policyPublishedToast"))
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
   const createValid =
     VERSION_RE.test(newVersion.trim()) && newEffectiveDate.length > 0
 
@@ -132,6 +150,8 @@ export function NotificationPolicyPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("notifications.policyVersion")}</TableHead>
+                  <TableHead>{t("notifications.policyStatus")}</TableHead>
+                  <TableHead>{t("notifications.policyLanguages")}</TableHead>
                   <TableHead>{t("notifications.policyEffective")}</TableHead>
                   <TableHead>{t("notifications.policyNotifiedAt")}</TableHead>
                   <TableHead>{t("notifications.policyRecipients")}</TableHead>
@@ -142,6 +162,25 @@ export function NotificationPolicyPage() {
                 {versionsQuery.data.map((version) => (
                   <TableRow key={version.id}>
                     <TableCell className="font-medium">{version.version}</TableCell>
+                    <TableCell>
+                      {version.isPublished ? (
+                        <Badge>
+                          <CheckCircle2 data-icon="inline-start" />
+                          {t("notifications.policyPublished")}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline">
+                          {t("notifications.policyDraft")}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {(version.languages ?? []).length > 0
+                        ? (version.languages ?? [])
+                            .map((code) => code.toUpperCase())
+                            .join(", ")
+                        : "—"}
+                    </TableCell>
                     <TableCell>{formatDate(version.effectiveDateUtc)}</TableCell>
                     <TableCell>
                       {version.notifiedAtUtc ? (
@@ -155,14 +194,34 @@ export function NotificationPolicyPage() {
                     <TableCell>{version.notifiedCount ?? "—"}</TableCell>
                     {canManage ? (
                       <TableCell className="text-end">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setNotifyTarget(version)}
-                        >
-                          <Megaphone data-icon="inline-start" />
-                          {t("notifications.policyNotify")}
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setEditingVersion(version.version ?? null)}
+                          >
+                            <FileText data-icon="inline-start" />
+                            {t("notifications.policyEditContent")}
+                          </Button>
+                          {version.isPublished ? null : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setPublishTarget(version)}
+                            >
+                              <CheckCircle2 data-icon="inline-start" />
+                              {t("notifications.policyPublish")}
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setNotifyTarget(version)}
+                          >
+                            <Megaphone data-icon="inline-start" />
+                            {t("notifications.policyNotify")}
+                          </Button>
+                        </div>
                       </TableCell>
                     ) : null}
                   </TableRow>
@@ -216,6 +275,29 @@ export function NotificationPolicyPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <PolicyContentEditor
+        version={editingVersion ?? ""}
+        open={editingVersion !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingVersion(null)
+        }}
+        canManage={canManage}
+      />
+
+      <ConfirmDialog
+        open={publishTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setPublishTarget(null)
+        }}
+        title={t("notifications.policyPublishTitle")}
+        description={t("notifications.policyPublishBody")}
+        confirmLabel={t("notifications.policyPublish")}
+        loading={publishMutation.isPending}
+        onConfirm={() => {
+          if (publishTarget?.version) publishMutation.mutate(publishTarget.version)
+        }}
+      />
 
       <ConfirmDialog
         open={notifyTarget !== null}

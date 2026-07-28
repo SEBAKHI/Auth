@@ -23,18 +23,27 @@ public class GetPrivacyPolicyVersionsQueryHandler
     {
         var versions = await _repository.GetAllAsync(cancellationToken);
 
-        IReadOnlyList<PrivacyPolicyVersionDto> dtos = versions
-            .Select(v => new PrivacyPolicyVersionDto
-            {
-                Id = v.Id,
-                Version = v.Version,
-                EffectiveDateUtc = v.EffectiveDateUtc,
-                NotifiedAtUtc = v.NotifiedAtUtc,
-                NotifiedCount = v.NotifiedCount,
-                CreatedAt = v.CreatedAt
-            })
-            .ToList();
+        var dtos = new List<PrivacyPolicyVersionDto>(versions.Count);
+        foreach (var version in versions)
+        {
+            // Which languages are written drives the editor's completeness
+            // indicator — a version missing translations must be visible as
+            // incomplete before it is published.
+            var translations = await _repository.GetTranslationsAsync(version.Id, cancellationToken);
 
-        return ErrorOrFactory.From(dtos);
+            dtos.Add(new PrivacyPolicyVersionDto
+            {
+                Id = version.Id,
+                Version = version.Version,
+                EffectiveDateUtc = version.EffectiveDateUtc,
+                IsPublished = version.IsPublished,
+                NotifiedAtUtc = version.NotifiedAtUtc,
+                NotifiedCount = version.NotifiedCount,
+                CreatedAt = version.CreatedAt,
+                Languages = translations.Select(t => t.LanguageCode).ToList()
+            });
+        }
+
+        return ErrorOrFactory.From<IReadOnlyList<PrivacyPolicyVersionDto>>(dtos);
     }
 }

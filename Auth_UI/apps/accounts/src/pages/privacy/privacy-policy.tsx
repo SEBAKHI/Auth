@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 
 import { useAuth } from "@astoom/auth/auth-context"
-import { directionForLanguage, type LanguageCode } from "@astoom/i18n"
+import { directionForLanguage } from "@astoom/i18n"
 import { Alert, AlertDescription } from "@astoom/ui/alert"
 import { Badge } from "@astoom/ui/badge"
 import { BrandingLogo } from "@astoom/ui/branding"
@@ -21,9 +21,14 @@ import {
   TableRow,
 } from "@astoom/ui/table"
 
-import { PRIVACY_CONTENT } from "./content"
 import { CONTROLLER, hasUnfilledDetails } from "./content/details"
-import { LAW_LINKS, POLICY_VERSION, type PolicySection } from "./content/types"
+import {
+  LAW_LINKS,
+  interpolate,
+  type PolicyDisclosure,
+  type PolicySection,
+} from "./content/types"
+import { usePrivacyPolicy } from "./use-privacy-policy"
 
 const LAW_PATTERN = new RegExp(
   `(${LAW_LINKS.map((law) => law.term.replace("/", "\\/")).join("|")})`,
@@ -57,24 +62,32 @@ function withLawLinks(text: string): React.ReactNode {
   })
 }
 
-function Section({ section }: { section: PolicySection }) {
+function Section({
+  section,
+  disclosure,
+}: {
+  section: PolicySection
+  disclosure: PolicyDisclosure
+}) {
+  const render = (text: string) => withLawLinks(interpolate(text, disclosure))
+
   return (
     <section className="flex flex-col gap-3">
       <h2 className="text-lg font-semibold tracking-tight">
-        {section.heading}
+        {render(section.heading)}
       </h2>
       {section.paragraphs.map((paragraph) => (
         <p
           key={paragraph.slice(0, 40)}
           className="text-sm leading-relaxed text-muted-foreground"
         >
-          {withLawLinks(paragraph)}
+          {render(paragraph)}
         </p>
       ))}
       {section.bullets ? (
         <ul className="list-disc ps-5 text-sm leading-relaxed text-muted-foreground [&>li+li]:mt-2">
           {section.bullets.map((bullet) => (
-            <li key={bullet.slice(0, 40)}>{withLawLinks(bullet)}</li>
+            <li key={bullet.slice(0, 40)}>{render(bullet)}</li>
           ))}
         </ul>
       ) : null}
@@ -89,18 +102,20 @@ function Section({ section }: { section: PolicySection }) {
  * to the public no-login wizard, signed-in users to the profile danger zone
  * (the wizard route is anonymous-only).
  *
- * Content is a typed document per language (see ./content); the controller
- * facts are interpolated from ./content/details, and the page shows a
- * draft warning until every required placeholder there is filled.
+ * Content is authored in the console and stored per (version, language) — the
+ * bundled document is only a fallback for when the API is unreachable. The
+ * numeric disclosures come from the running configuration, so the rendered
+ * text can never contradict the system it describes.
  */
 export function PrivacyPolicyPage() {
   const { i18n, t } = useTranslation()
   const { status } = useAuth()
   const navigate = useNavigate()
 
-  const content =
-    PRIVACY_CONTENT[i18n.language as LanguageCode] ?? PRIVACY_CONTENT.en
+  const { policy } = usePrivacyPolicy()
+  const { content, disclosure } = policy
   const dir = directionForLanguage(i18n.language)
+  const render = (text: string) => withLawLinks(interpolate(text, disclosure))
 
   const optionalContact: Array<[string, string]> = [
     [content.contactDpoLabel, CONTROLLER.dpoContact],
@@ -130,7 +145,7 @@ export function PrivacyPolicyPage() {
           </h1>
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Badge variant="secondary">
-              {content.versionLabel} {POLICY_VERSION}
+              {content.versionLabel} {policy.version}
             </Badge>
             <span className="text-sm text-muted-foreground">
               {content.effectiveDate}
@@ -151,13 +166,17 @@ export function PrivacyPolicyPage() {
               key={paragraph.slice(0, 40)}
               className="text-sm leading-relaxed text-muted-foreground"
             >
-              {withLawLinks(paragraph)}
+              {render(paragraph)}
             </p>
           ))}
         </div>
 
         {content.sections.map((section) => (
-          <Section key={section.heading} section={section} />
+          <Section
+            key={section.heading}
+            section={section}
+            disclosure={disclosure}
+          />
         ))}
 
         <section className="flex flex-col gap-3">
@@ -165,7 +184,7 @@ export function PrivacyPolicyPage() {
             {content.retention.heading}
           </h2>
           <p className="text-sm leading-relaxed text-muted-foreground">
-            {content.retention.intro}
+            {render(content.retention.intro)}
           </p>
           {/* Per-cell dir: RTL locales scramble mixed-direction table content
               when only the table element carries the direction. */}
@@ -186,16 +205,16 @@ export function PrivacyPolicyPage() {
                     dir={dir}
                     className="whitespace-normal align-top font-medium"
                   >
-                    {row.category}
+                    {render(row.category)}
                   </TableCell>
                   <TableCell dir={dir} className="whitespace-normal align-top">
-                    {row.retention}
+                    {render(row.retention)}
                   </TableCell>
                   <TableCell
                     dir={dir}
                     className="whitespace-normal align-top text-muted-foreground"
                   >
-                    {row.detail}
+                    {render(row.detail)}
                   </TableCell>
                 </TableRow>
               ))}
@@ -212,12 +231,12 @@ export function PrivacyPolicyPage() {
               key={paragraph.slice(0, 40)}
               className="text-sm leading-relaxed text-muted-foreground"
             >
-              {withLawLinks(paragraph)}
+              {render(paragraph)}
             </p>
           ))}
           <ul className="list-disc ps-5 text-sm leading-relaxed text-muted-foreground [&>li+li]:mt-2">
             {content.deletion.bullets.map((bullet) => (
-              <li key={bullet.slice(0, 40)}>{withLawLinks(bullet)}</li>
+              <li key={bullet.slice(0, 40)}>{render(bullet)}</li>
             ))}
           </ul>
           <div className="flex flex-col items-start gap-2 pt-2">
@@ -240,13 +259,21 @@ export function PrivacyPolicyPage() {
         <Separator />
 
         {content.rights.map((section) => (
-          <Section key={section.heading} section={section} />
+          <Section
+            key={section.heading}
+            section={section}
+            disclosure={disclosure}
+          />
         ))}
 
         <Separator />
 
         {content.closing.map((section) => (
-          <Section key={section.heading} section={section} />
+          <Section
+            key={section.heading}
+            section={section}
+            disclosure={disclosure}
+          />
         ))}
 
         {optionalContact.some(([, value]) => value) ? (

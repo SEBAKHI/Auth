@@ -90,7 +90,7 @@ export const fr: PrivacyPolicyContent = {
       {
         category: "Données de compte et de profil",
         retention:
-          "Jusqu'à la suppression de votre compte (+ 30 jours de rétractation)",
+          "Jusqu'à la suppression de votre compte (+ {{graceDays}} jours de rétractation)",
         detail:
           "Détruites définitivement par le processus de suppression par étapes décrit ci-dessous.",
       },
@@ -108,7 +108,7 @@ export const fr: PrivacyPolicyContent = {
       },
       {
         category: "Journaux de tentatives de connexion (adresse IP incluse)",
-        retention: "365 jours",
+        retention: "{{loginAttemptRetentionDays}} jours",
         detail:
           "Purgés automatiquement ; anonymisés immédiatement à la suppression du compte.",
       },
@@ -120,12 +120,12 @@ export const fr: PrivacyPolicyContent = {
       },
       {
         category: "Trace des e-mails de service envoyés",
-        retention: "180 jours",
+        retention: "{{outboxRetentionDays}} jours",
         detail: "Purgée automatiquement.",
       },
       {
         category: "Codes de vérification de suppression",
-        retention: "15 minutes (validité du code)",
+        retention: "{{otpValidityMinutes}} minutes (validité du code)",
         detail:
           "Stockés uniquement sous forme d'empreintes ; les entrées expirées sont supprimées par le nettoyage quotidien.",
       },
@@ -146,12 +146,12 @@ export const fr: PrivacyPolicyContent = {
   deletion: {
     heading: "Supprimer votre compte",
     paragraphs: [
-      "Vous pouvez demander à tout moment la suppression définitive de votre compte et de vos données personnelles, sans contacter personne. La demande est enregistrée immédiatement et exécutée sous 30 jours :",
+      "Vous pouvez demander à tout moment la suppression définitive de votre compte et de vos données personnelles, sans contacter personne. La demande est enregistrée immédiatement et exécutée sous {{graceDays}} jours :",
     ],
     bullets: [
       "Votre compte est désactivé sur-le-champ et déconnecté de tous les appareils ; toutes les sessions, tous les jetons et toutes les autorisations de connexion sont révoqués immédiatement.",
-      "Pendant 30 jours, vous pouvez changer d'avis — vous reconnecter restaure le compte et annule la suppression. Vous recevez un e-mail de confirmation à chaque étape.",
-      "Passé ce délai de 30 jours, la suppression s'exécute automatiquement et est irréversible : les données de profil sont effacées, les journaux de sécurité sont anonymisés, les clés de chiffrement propres au compte sont détruites (destruction cryptographique, couvrant les sauvegardes), et — si vous utilisiez la connexion avec Apple — Apple est invité à révoquer l'autorisation de connexion.",
+      "Pendant {{graceDays}} jours, vous pouvez changer d'avis — vous reconnecter restaure le compte et annule la suppression. Vous recevez un e-mail de confirmation à chaque étape.",
+      "Passé ce délai de {{graceDays}} jours, la suppression s'exécute automatiquement et est irréversible : les données de profil sont effacées, les journaux de sécurité sont anonymisés, les clés de chiffrement propres au compte sont détruites (destruction cryptographique, couvrant les sauvegardes), et — si vous utilisiez la connexion avec Apple — Apple est invité à révoquer l'autorisation de connexion.",
       "Votre adresse e-mail et votre nom d'utilisateur ne sont jamais recyclés : seuls des condensats à sens unique subsistent, si bien que personne d'autre ne pourra jamais les enregistrer.",
     ],
     button: "Supprimer mon compte",

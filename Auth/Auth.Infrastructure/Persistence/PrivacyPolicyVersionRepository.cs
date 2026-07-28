@@ -5,10 +5,15 @@ using Dapper;
 namespace Auth.Infrastructure.Persistence;
 
 /// <summary>
-/// Dapper repository for the privacy-policy revision registry.
+/// Dapper repository for the privacy-policy revision registry and its
+/// per-language documents.
 /// </summary>
 public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
 {
+    private const string VersionColumns = @"
+        [Id], [Version], [EffectiveDateUtc], [IsPublished], [NotifiedAtUtc], [NotifiedCount],
+        [CreatedAt], [CreatedBy]";
+
     private readonly IDbConnectionFactory _connectionFactory;
 
     public PrivacyPolicyVersionRepository(IDbConnectionFactory connectionFactory)
@@ -22,9 +27,8 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var rows = await connection.QueryAsync<VersionDto>(@"
-            SELECT [Id], [Version], [EffectiveDateUtc], [NotifiedAtUtc], [NotifiedCount],
-                   [CreatedAt], [CreatedBy]
+        var rows = await connection.QueryAsync<VersionDto>($@"
+            SELECT {VersionColumns}
             FROM [dbo].[PrivacyPolicyVersions]
             ORDER BY [Version] DESC");
 
@@ -37,12 +41,24 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var row = await connection.QuerySingleOrDefaultAsync<VersionDto>(@"
-            SELECT [Id], [Version], [EffectiveDateUtc], [NotifiedAtUtc], [NotifiedCount],
-                   [CreatedAt], [CreatedBy]
+        var row = await connection.QuerySingleOrDefaultAsync<VersionDto>($@"
+            SELECT {VersionColumns}
             FROM [dbo].[PrivacyPolicyVersions]
             WHERE [Version] = @Version",
             new { Version = version });
+
+        return row?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<PrivacyPolicyVersion?> GetPublishedAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<VersionDto>($@"
+            SELECT TOP 1 {VersionColumns}
+            FROM [dbo].[PrivacyPolicyVersions]
+            WHERE [IsPublished] = 1");
 
         return row?.ToEntity();
     }
@@ -57,8 +73,8 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
         // without surfacing a duplicate-key exception.
         var inserted = await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[PrivacyPolicyVersions]
-                ([Id], [Version], [EffectiveDateUtc], [NotifiedAtUtc], [NotifiedCount], [CreatedAt], [CreatedBy])
-            SELECT @Id, @Version, @EffectiveDateUtc, NULL, NULL, @CreatedAt, @CreatedBy
+                ([Id], [Version], [EffectiveDateUtc], [IsPublished], [NotifiedAtUtc], [NotifiedCount], [CreatedAt], [CreatedBy])
+            SELECT @Id, @Version, @EffectiveDateUtc, 0, NULL, NULL, @CreatedAt, @CreatedBy
             WHERE NOT EXISTS (
                 SELECT 1 FROM [dbo].[PrivacyPolicyVersions] WHERE [Version] = @Version)",
             new
@@ -86,18 +102,113 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
             new { version.Id, version.NotifiedAtUtc, version.NotifiedCount });
     }
 
-    // Internal DTO for mapping from database
+    /// <inheritdoc />
+    public async Task PublishAsync(Guid versionId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Single statement: exactly one row ends up published, with no window
+        // in which none is (the public page would 404 during that gap).
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[PrivacyPolicyVersions]
+            SET [IsPublished] = CASE WHEN [Id] = @VersionId THEN 1 ELSE 0 END
+            WHERE [IsPublished] = 1 OR [Id] = @VersionId",
+            new { VersionId = versionId });
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<PrivacyPolicyTranslation>> GetTranslationsAsync(
+        Guid versionId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<TranslationDto>(@"
+            SELECT [Id], [VersionId], [LanguageCode], [ContentJson],
+                   [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+            FROM [dbo].[PrivacyPolicyTranslations]
+            WHERE [VersionId] = @VersionId
+            ORDER BY [LanguageCode]",
+            new { VersionId = versionId });
+
+        return rows.Select(r => r.ToEntity()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<PrivacyPolicyTranslation?> GetTranslationAsync(
+        Guid versionId, string languageCode, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<TranslationDto>(@"
+            SELECT [Id], [VersionId], [LanguageCode], [ContentJson],
+                   [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+            FROM [dbo].[PrivacyPolicyTranslations]
+            WHERE [VersionId] = @VersionId AND [LanguageCode] = @LanguageCode",
+            new { VersionId = versionId, LanguageCode = languageCode });
+
+        return row?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task UpsertTranslationAsync(
+        PrivacyPolicyTranslation translation, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            MERGE [dbo].[PrivacyPolicyTranslations] WITH (HOLDLOCK) AS target
+            USING (SELECT @VersionId AS [VersionId], @LanguageCode AS [LanguageCode]) AS source
+                ON target.[VersionId] = source.[VersionId]
+               AND target.[LanguageCode] = source.[LanguageCode]
+            WHEN MATCHED THEN
+                UPDATE SET [ContentJson] = @ContentJson,
+                           [ModifiedAt] = @ModifiedAt,
+                           [ModifiedBy] = @ModifiedBy
+            WHEN NOT MATCHED THEN
+                INSERT ([Id], [VersionId], [LanguageCode], [ContentJson], [CreatedAt], [CreatedBy])
+                VALUES (@Id, @VersionId, @LanguageCode, @ContentJson, @CreatedAt, @CreatedBy);",
+            new
+            {
+                translation.Id,
+                translation.VersionId,
+                translation.LanguageCode,
+                translation.ContentJson,
+                translation.CreatedAt,
+                translation.CreatedBy,
+                translation.ModifiedAt,
+                translation.ModifiedBy
+            });
+    }
+
+    // Internal DTOs for mapping from database
     private record VersionDto
     {
         public Guid Id { get; init; }
         public string Version { get; init; } = string.Empty;
         public DateTime EffectiveDateUtc { get; init; }
+        public bool IsPublished { get; init; }
         public DateTime? NotifiedAtUtc { get; init; }
         public int? NotifiedCount { get; init; }
         public DateTime CreatedAt { get; init; }
         public Guid CreatedBy { get; init; }
 
         public PrivacyPolicyVersion ToEntity() => new(
-            Id, Version, EffectiveDateUtc, NotifiedAtUtc, NotifiedCount, CreatedAt, CreatedBy);
+            Id, Version, EffectiveDateUtc, IsPublished, NotifiedAtUtc, NotifiedCount,
+            CreatedAt, CreatedBy);
+    }
+
+    private record TranslationDto
+    {
+        public Guid Id { get; init; }
+        public Guid VersionId { get; init; }
+        public string LanguageCode { get; init; } = string.Empty;
+        public string ContentJson { get; init; } = string.Empty;
+        public DateTime CreatedAt { get; init; }
+        public Guid CreatedBy { get; init; }
+        public DateTime? ModifiedAt { get; init; }
+        public Guid? ModifiedBy { get; init; }
+
+        public PrivacyPolicyTranslation ToEntity() => new(
+            Id, VersionId, LanguageCode, ContentJson, CreatedAt, CreatedBy, ModifiedAt, ModifiedBy);
     }
 }

@@ -89,7 +89,7 @@ export const tr: PrivacyPolicyContent = {
     rows: [
       {
         category: "Hesap ve profil verileri",
-        retention: "Hesabınızı silene kadar (+ 30 günlük kurtarma süresi)",
+        retention: "Hesabınızı silene kadar (+ {{graceDays}} günlük kurtarma süresi)",
         detail:
           "Aşağıda açıklanan aşamalı silme süreciyle kalıcı olarak yok edilir.",
       },
@@ -106,7 +106,7 @@ export const tr: PrivacyPolicyContent = {
       },
       {
         category: "Oturum açma denemesi kayıtları (IP adresi dahil)",
-        retention: "365 gün",
+        retention: "{{loginAttemptRetentionDays}} gün",
         detail:
           "Otomatik olarak silinir; hesap silindiğinde derhâl kimliksizleştirilir.",
       },
@@ -118,12 +118,12 @@ export const tr: PrivacyPolicyContent = {
       },
       {
         category: "Gönderilen hizmet e-postalarının kaydı",
-        retention: "180 gün",
+        retention: "{{outboxRetentionDays}} gün",
         detail: "Otomatik olarak silinir.",
       },
       {
         category: "Silme doğrulama kodları",
-        retention: "15 dakika (kod geçerliliği)",
+        retention: "{{otpValidityMinutes}} dakika (kod geçerliliği)",
         detail:
           "Yalnızca özet olarak saklanır; süresi dolan kayıtlar günlük temizlik işiyle silinir.",
       },
@@ -144,12 +144,12 @@ export const tr: PrivacyPolicyContent = {
   deletion: {
     heading: "Hesabınızı silme",
     paragraphs: [
-      "Hesabınızın ve kişisel verilerinizin kalıcı olarak silinmesini, kimseyle iletişime geçmeden, dilediğiniz an talep edebilirsiniz. Talep derhâl kayda alınır ve en geç 30 gün içinde tamamlanır:",
+      "Hesabınızın ve kişisel verilerinizin kalıcı olarak silinmesini, kimseyle iletişime geçmeden, dilediğiniz an talep edebilirsiniz. Talep derhâl kayda alınır ve en geç {{graceDays}} gün içinde tamamlanır:",
     ],
     bullets: [
       "Hesabınız derhâl devre dışı bırakılır ve tüm cihazlarda oturumlar kapatılır; tüm oturumlar, belirteçler ve oturum açma izinleri anında iptal edilir.",
-      "30 gün boyunca fikrinizi değiştirebilirsiniz — yeniden oturum açmak hesabı geri yükler ve silmeyi iptal eder. Her adımda onay e-postası alırsınız.",
-      "30 günlük sürenin ardından silme otomatik olarak gerçekleştirilir ve geri alınamaz: profil verileri silinir, güvenlik kayıtları kimliksizleştirilir, hesaba özgü şifreleme anahtarları yok edilir (yedekleri de kapsayan kriptografik imha) ve — Apple ile oturum açtıysanız — Apple'a oturum açma iznini iptal etmesi bildirilir.",
+      "{{graceDays}} gün boyunca fikrinizi değiştirebilirsiniz — yeniden oturum açmak hesabı geri yükler ve silmeyi iptal eder. Her adımda onay e-postası alırsınız.",
+      "{{graceDays}} günlük sürenin ardından silme otomatik olarak gerçekleştirilir ve geri alınamaz: profil verileri silinir, güvenlik kayıtları kimliksizleştirilir, hesaba özgü şifreleme anahtarları yok edilir (yedekleri de kapsayan kriptografik imha) ve — Apple ile oturum açtıysanız — Apple'a oturum açma iznini iptal etmesi bildirilir.",
       "E-posta adresiniz ve kullanıcı adınız asla yeniden kullanıma açılmaz: geriye yalnızca tek yönlü özetler kalır; böylece bunları bir başkası asla kaydedemez.",
     ],
     button: "Hesabımı sil",

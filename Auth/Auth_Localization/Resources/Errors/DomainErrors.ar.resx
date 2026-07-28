@@ -743,4 +743,13 @@
   <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
     <value>إصدار سياسة الخصوصية هذا مسجل بالفعل.</value>
   </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>لم يُنشر أي إصدار من سياسة الخصوصية بعد.</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>مستند سياسة الخصوصية غير صالح.</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>هذه اللغة غير مدعومة في سياسة الخصوصية.</value>
+  </data>
 </root>

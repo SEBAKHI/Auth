@@ -743,4 +743,13 @@
   <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
     <value>Cette version de la politique de confidentialité est déjà enregistrée.</value>
   </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>Aucune version de la politique de confidentialité n'a encore été publiée.</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>Le document de politique de confidentialité est invalide.</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>Cette langue n'est pas prise en charge pour la politique de confidentialité.</value>
+  </data>
 </root>

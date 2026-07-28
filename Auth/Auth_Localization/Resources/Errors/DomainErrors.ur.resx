@@ -743,4 +743,13 @@
   <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
     <value>رازداری کی پالیسی کا یہ ورژن پہلے سے درج ہے۔</value>
   </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>ابھی تک رازداری کی پالیسی کا کوئی ورژن شائع نہیں ہوا۔</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>رازداری کی پالیسی کی دستاویز غلط ہے۔</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>یہ زبان رازداری کی پالیسی کے لیے معاون نہیں ہے۔</value>
+  </data>
 </root>

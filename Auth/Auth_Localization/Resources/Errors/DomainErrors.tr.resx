@@ -743,4 +743,13 @@
   <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
     <value>Bu gizlilik politikası sürümü zaten kayıtlı.</value>
   </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>Henüz hiçbir gizlilik politikası sürümü yayımlanmadı.</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>Gizlilik politikası belgesi geçersiz.</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>Bu dil gizlilik politikası için desteklenmiyor.</value>
+  </data>
 </root>

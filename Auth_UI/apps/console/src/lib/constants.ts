@@ -80,6 +80,12 @@ export const PERMISSIONS = {
   notificationLayouts: {
     manage: "notification-layouts:manage",
   },
+  // Publishing legal text is its own duty, separate from operating the
+  // notification system.
+  privacyPolicy: {
+    read: "privacy-policy:read",
+    manage: "privacy-policy:manage",
+  },
   // Platform-wide administration over ALL organizations — distinct from the
   // membership-scoped org:* permissions used by self-service.
   organizations: {

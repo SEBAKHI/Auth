@@ -743,4 +743,13 @@
   <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
     <value>این نسخه سیاست حریم خصوصی قبلاً ثبت شده است.</value>
   </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>هنوز هیچ نسخه‌ای از سیاست حریم خصوصی منتشر نشده است.</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>سند سیاست حریم خصوصی نامعتبر است.</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>این زبان برای سیاست حریم خصوصی پشتیبانی نمی‌شود.</value>
+  </data>
 </root>

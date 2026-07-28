@@ -89,7 +89,7 @@ export const zh: PrivacyPolicyContent = {
     rows: [
       {
         category: "账户与个人资料数据",
-        retention: "直至您删除账户（另加 30 天恢复期）",
+        retention: "直至您删除账户（另加 {{graceDays}} 天恢复期）",
         detail: "通过下文所述的分阶段删除流程永久销毁。",
       },
       {
@@ -104,7 +104,7 @@ export const zh: PrivacyPolicyContent = {
       },
       {
         category: "登录尝试记录（含 IP 地址）",
-        retention: "365 天",
+        retention: "{{loginAttemptRetentionDays}} 天",
         detail: "自动清除；账户删除时立即去标识化。",
       },
       {
@@ -115,12 +115,12 @@ export const zh: PrivacyPolicyContent = {
       },
       {
         category: "已发送服务邮件的记录",
-        retention: "180 天",
+        retention: "{{outboxRetentionDays}} 天",
         detail: "自动清除。",
       },
       {
         category: "删除验证码",
-        retention: "15 分钟（验证码有效期）",
+        retention: "{{otpValidityMinutes}} 分钟（验证码有效期）",
         detail: "仅以哈希存储；过期条目由每日清理任务删除。",
       },
       {
@@ -140,12 +140,12 @@ export const zh: PrivacyPolicyContent = {
   deletion: {
     heading: "删除您的账户",
     paragraphs: [
-      "您可以随时请求永久删除您的账户和个人数据，无需联系任何人。请求会被立即受理，并在 30 天内完成：",
+      "您可以随时请求永久删除您的账户和个人数据，无需联系任何人。请求会被立即受理，并在 {{graceDays}} 天内完成：",
     ],
     bullets: [
       "您的账户立即停用并在所有设备上退出登录；所有会话、令牌和登录授权立即撤销。",
-      "在 30 天内您可以改变主意——重新登录即可恢复账户并取消删除。每一步您都会收到确认邮件。",
-      "30 天期满后，删除将自动执行且不可逆：个人资料数据被抹除，安全记录被去标识化，账户专属加密密钥被销毁（加密销毁，覆盖备份），且——如果您使用 Apple 登录——将通知 Apple 撤销登录授权。",
+      "在 {{graceDays}} 天内您可以改变主意——重新登录即可恢复账户并取消删除。每一步您都会收到确认邮件。",
+      "{{graceDays}} 天期满后，删除将自动执行且不可逆：个人资料数据被抹除，安全记录被去标识化，账户专属加密密钥被销毁（加密销毁，覆盖备份），且——如果您使用 Apple 登录——将通知 Apple 撤销登录授权。",
       "您的邮箱地址和用户名永不回收：仅留存单向摘要，因此其他任何人都永远无法注册它们。",
     ],
     button: "删除我的账户",

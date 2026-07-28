@@ -28,4 +28,33 @@ public interface IPrivacyPolicyVersionRepository
     /// <see cref="PrivacyPolicyVersion.MarkNotified"/>.
     /// </summary>
     Task UpdateNotifiedAsync(PrivacyPolicyVersion version, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the published revision, or null when none is published yet.
+    /// </summary>
+    Task<PrivacyPolicyVersion?> GetPublishedAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Publishes <paramref name="versionId"/> and clears the flag from every
+    /// other revision in one statement (exactly one published version).
+    /// </summary>
+    Task PublishAsync(Guid versionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets every stored language document of a revision.
+    /// </summary>
+    Task<IReadOnlyList<PrivacyPolicyTranslation>> GetTranslationsAsync(
+        Guid versionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets one language document, or null when that language is unwritten.
+    /// </summary>
+    Task<PrivacyPolicyTranslation?> GetTranslationAsync(
+        Guid versionId, string languageCode, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Inserts or replaces the document for one (version, language) pair.
+    /// </summary>
+    Task UpsertTranslationAsync(
+        PrivacyPolicyTranslation translation, CancellationToken cancellationToken);
 }
