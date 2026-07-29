@@ -1,4 +1,6 @@
+using Auth.Application.Features.Users.Common;
 using Auth.Application.Features.Users.DeleteUser;
+using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
@@ -14,6 +16,7 @@ public class DeleteUserCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IOrganizationRepository> _organizationRepositoryMock;
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
     private readonly Mock<IPublisher> _publisherMock;
     private readonly Mock<ILogger<DeleteUserCommandHandler>> _loggerMock;
     private readonly DeleteUserCommandHandler _handler;
@@ -22,6 +25,7 @@ public class DeleteUserCommandHandlerTests
     {
         _userRepositoryMock = new Mock<IUserRepository>();
         _organizationRepositoryMock = new Mock<IOrganizationRepository>();
+        _credentialRevocationMock = new Mock<ICredentialRevocationService>();
         _publisherMock = new Mock<IPublisher>();
         _loggerMock = new Mock<ILogger<DeleteUserCommandHandler>>();
 
@@ -32,7 +36,10 @@ public class DeleteUserCommandHandlerTests
 
         _handler = new DeleteUserCommandHandler(
             _userRepositoryMock.Object,
-            _organizationRepositoryMock.Object,
+            new OwnedOrganizationDeletionGuard(
+                _organizationRepositoryMock.Object,
+                new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),
+            _credentialRevocationMock.Object,
             _publisherMock.Object,
             _loggerMock.Object);
     }
@@ -66,6 +73,9 @@ public class DeleteUserCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _userRepositoryMock.Verify(r => r.DeleteAsync(userId, It.IsAny<CancellationToken>()), Times.Once());
+        _credentialRevocationMock.Verify(
+            s => s.RevokeAllCredentialsAsync(userId, command.DeletedBy, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once());
         _publisherMock.Verify(p => p.Publish(It.IsAny<UserDeletedEvent>(), It.IsAny<CancellationToken>()), Times.Once());
     }
 
@@ -132,6 +142,9 @@ public class DeleteUserCommandHandlerTests
         result.FirstError.Should().Be(UserErrors.CannotDeleteOrganizationOwner);
         _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
         _organizationRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never());
+        _credentialRevocationMock.Verify(
+            s => s.RevokeAllCredentialsAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 
     [Fact]

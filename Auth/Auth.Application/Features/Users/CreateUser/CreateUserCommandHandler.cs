@@ -1,3 +1,4 @@
+using Auth.Application.Features.Users.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -20,6 +21,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
     private readonly IPasswordBreachEvaluator _breachEvaluator;
+    private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<CreateUserCommandHandler> _logger;
 
@@ -30,6 +32,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
         IPasswordBreachEvaluator breachEvaluator,
+        IdentifierReservationGuard reservationGuard,
         IDomainEventDispatcher eventDispatcher,
         ILogger<CreateUserCommandHandler> logger)
     {
@@ -39,6 +42,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
         _breachEvaluator = breachEvaluator;
+        _reservationGuard = reservationGuard;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -49,6 +53,14 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         if (await _userRepository.ExistsByEmailAsync(request.Email, cancellationToken))
         {
             return UserErrors.DuplicateEmail(request.Email);
+        }
+
+        // The never-recycle policy: a permanently deleted identifier can never
+        // be registered again (same response as an ordinary duplicate).
+        var reservation = await _reservationGuard.EnsureNotReservedAsync(request.Email, cancellationToken);
+        if (reservation.IsError)
+        {
+            return reservation.Errors;
         }
 
         // Validate password

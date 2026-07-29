@@ -19,7 +19,9 @@ public static class ProductionSecretGuard
     private static readonly string[] PlaintextSecretKeys =
     [
         "Jwt:PrivateKeyPem",
-        "Jwt:RefreshTokenHmacKeyPlain"
+        "Jwt:RefreshTokenHmacKeyPlain",
+        "AccountDeletion:IdentifierHmacKeyPlain",
+        "ExternalAuth:Apple:PrivateKeyPem"
     ];
 
     public static void EnsureNoPlaintextSecrets(IConfiguration configuration, bool isProduction)

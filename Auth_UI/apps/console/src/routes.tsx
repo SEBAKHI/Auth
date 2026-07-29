@@ -27,6 +27,8 @@ import {
 import { NotificationLayoutDetailPage } from "@/pages/notifications/notification-layout-detail-page"
 import { NotificationLayoutsPage } from "@/pages/notifications/notification-layouts-page"
 import { NotificationOutboxPage } from "@/pages/notifications/notification-outbox-page"
+import { NotificationPolicyDetailPage } from "@/pages/notifications/notification-policy-detail-page"
+import { NotificationPolicyPage } from "@/pages/notifications/notification-policy-page"
 import { NotificationsOverviewPage } from "@/pages/notifications/notifications-overview-page"
 import { NotificationTemplateDetailPage } from "@/pages/notifications/notification-template-detail-page"
 import { NotificationTemplatesPage } from "@/pages/notifications/notification-templates-page"
@@ -268,6 +270,25 @@ export const router = createBrowserRouter([
                     handle: crumb(
                       "notificationOutbox",
                       "/notifications/outbox"
+                    ),
+                  },
+                  {
+                    path: "policy",
+                    element: <NotificationPolicyPage />,
+                    handle: crumb(
+                      "notificationPolicy",
+                      "/notifications/policy"
+                    ),
+                  },
+                  {
+                    // Keyed by the revision's id, not its version string: the
+                    // string is editable, so a URL built on it dies on rename.
+                    path: "policy/:id",
+                    element: <NotificationPolicyDetailPage />,
+                    handle: crumb(
+                      "notificationPolicy",
+                      "/notifications/policy",
+                      true
                     ),
                   },
                 ],

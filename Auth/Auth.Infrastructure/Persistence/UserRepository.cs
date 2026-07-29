@@ -1,5 +1,6 @@
 using System.Data;
 using Auth.Application.Configuration;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
@@ -17,13 +18,39 @@ public class UserRepository : IUserRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
     private readonly PasswordSettings _passwordSettings;
+    private readonly IIdentifierHasher _identifierHasher;
+    private readonly AccountDeletionSettings _accountDeletionSettings;
+    private readonly IPerUserCryptoService _perUserCrypto;
 
     public UserRepository(
         IDbConnectionFactory connectionFactory,
-        IOptions<PasswordSettings> passwordSettings)
+        IOptions<PasswordSettings> passwordSettings,
+        IIdentifierHasher identifierHasher,
+        IOptions<AccountDeletionSettings> accountDeletionSettings,
+        IPerUserCryptoService perUserCrypto)
     {
         _connectionFactory = connectionFactory;
         _passwordSettings = passwordSettings.Value;
+        _identifierHasher = identifierHasher;
+        _accountDeletionSettings = accountDeletionSettings.Value;
+        _perUserCrypto = perUserCrypto;
+    }
+
+    /// <summary>
+    /// Dual-read at the repository boundary: PhoneNumber is stored as v2
+    /// per-user ciphertext (crypto-shredded with the account); rows not yet
+    /// touched by the one-time migration still hold plaintext and pass
+    /// through unchanged. Callers always see the plaintext value.
+    /// </summary>
+    private async Task<UserDto?> WithDecryptedPhoneAsync(UserDto? dto, CancellationToken cancellationToken)
+    {
+        if (dto?.PhoneNumber is not null && _perUserCrypto.IsEncrypted(dto.PhoneNumber))
+        {
+            dto.PhoneNumber = await _perUserCrypto.DecryptAsync(
+                dto.Id, dto.PhoneNumber, EncryptedFieldPurpose.UserPhoneNumber, cancellationToken);
+        }
+
+        return dto;
     }
 
     /// <inheritdoc />
@@ -35,7 +62,7 @@ public class UserRepository : IUserRepository
             "EXEC [dbo].[sp_GetUserById] @UserId",
             new { UserId = id });
 
-        return result?.ToUser();
+        return (await WithDecryptedPhoneAsync(result, cancellationToken))?.ToUser();
     }
 
     /// <inheritdoc />
@@ -63,7 +90,7 @@ public class UserRepository : IUserRepository
             WHERE [Id] = @Id",
             new { Id = id });
 
-        return result?.ToUser();
+        return (await WithDecryptedPhoneAsync(result, cancellationToken))?.ToUser();
     }
 
     /// <inheritdoc />
@@ -96,7 +123,31 @@ public class UserRepository : IUserRepository
             WHERE [Id] IN @Ids",
             new { Ids = ids });
 
-        return results.Select(dto => dto.ToUser()).ToList();
+        var dtos = results.ToList();
+        foreach (var dto in dtos)
+        {
+            await WithDecryptedPhoneAsync(dto, cancellationToken);
+        }
+
+        return dtos.Select(dto => dto.ToUser()).ToList();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<(Guid Id, string Email, string? DisplayName, string? FirstName, string? PreferredLanguage)>>
+        GetActiveNotificationRecipientsAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Deliberately a minimal projection: a platform-wide send must not
+        // hydrate full entities or decrypt phone numbers for every user.
+        var rows = await connection.QueryAsync<(Guid, string, string?, string?, string?)>(@"
+            SELECT [Id], [Email], [FullName], [FirstName], [PreferredLanguage]
+            FROM [dbo].[Users]
+            WHERE [Status] = @Active AND [IsDeleted] = 0 AND [IsEmailConfirmed] = 1
+            ORDER BY [CreatedAt]",
+            new { Active = (int)UserStatus.Active });
+
+        return rows.ToList();
     }
 
     /// <inheritdoc />
@@ -108,7 +159,48 @@ public class UserRepository : IUserRepository
             "EXEC [dbo].[sp_GetUserByEmail] @Email",
             new { Email = email.ToUpperInvariant() });
 
-        return result?.ToUser();
+        return (await WithDecryptedPhoneAsync(result, cancellationToken))?.ToUser();
+    }
+
+    /// <inheritdoc />
+    public async Task<User?> GetByEmailIncludeDeletedAsync(string email, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var result = await connection.QueryFirstOrDefaultAsync<UserDto>(@"
+            SELECT
+                [Id], [Username], [Email], [NormalizedEmail], [PasswordHash],
+                [FirstName], [LastName], [FullName] AS [DisplayName], [PhoneNumber],
+                [PreferredLanguage], [TimeZone], [Theme],
+                [IsEmailConfirmed] AS [EmailConfirmed],
+                [IsPhoneConfirmed] AS [PhoneConfirmed],
+                [IsTwoFactorEnabled] AS [TwoFactorEnabled],
+                [Status], [FailedLoginAttempts],
+                [LockoutEndUtc] AS [LockoutEnd],
+                [LastLoginUtc] AS [LastLoginAt],
+                [LastPasswordChangeUtc] AS [PasswordChangedAt],
+                [MustChangePassword],
+                [ProfileImageUrl], [LastLoginIp], [PasswordExpiresUtc],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
+                [IsDeleted], [DeletedAt]
+            FROM [dbo].[Users]
+            WHERE [NormalizedEmail] = @NormalizedEmail",
+            new { NormalizedEmail = email.ToUpperInvariant() });
+
+        return (await WithDecryptedPhoneAsync(result, cancellationToken))?.ToUser();
+    }
+
+    /// <inheritdoc />
+    public async Task RestoreAsync(Guid id, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[Users]
+            SET [IsDeleted] = 0, [DeletedAt] = NULL, [DeletedBy] = NULL,
+                [ModifiedAt] = GETUTCDATE(), [ModifiedBy] = @Id
+            WHERE [Id] = @Id AND [IsDeleted] = 1",
+            new { Id = id });
     }
 
     /// <inheritdoc />
@@ -153,7 +245,7 @@ public class UserRepository : IUserRepository
                 user.PasswordHash,
                 user.FirstName,
                 user.LastName,
-                PhoneNumber = user.PhoneNumber?.Value,
+                PhoneNumber = (string?)null,
                 user.PreferredLanguage,
                 user.TimeZone,
                 user.Theme,
@@ -173,12 +265,29 @@ public class UserRepository : IUserRepository
                 user.ModifiedBy
             });
 
+        // The per-user DEK row has an FK to Users, so the phone can only be
+        // encrypted after the account row exists: insert without it, then
+        // write the ciphertext.
+        if (!string.IsNullOrEmpty(user.PhoneNumber?.Value))
+        {
+            var encryptedPhone = await _perUserCrypto.EncryptAsync(
+                user.Id, user.PhoneNumber.Value, EncryptedFieldPurpose.UserPhoneNumber, cancellationToken);
+            await connection.ExecuteAsync(
+                "UPDATE [dbo].[Users] SET [PhoneNumber] = @PhoneNumber WHERE [Id] = @Id",
+                new { user.Id, PhoneNumber = encryptedPhone });
+        }
+
         return user;
     }
 
     /// <inheritdoc />
     public async Task UpdateAsync(User user, CancellationToken cancellationToken)
     {
+        var encryptedPhone = string.IsNullOrEmpty(user.PhoneNumber?.Value)
+            ? null
+            : await _perUserCrypto.EncryptAsync(
+                user.Id, user.PhoneNumber.Value, EncryptedFieldPurpose.UserPhoneNumber, cancellationToken);
+
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         await connection.ExecuteAsync(@"
@@ -215,7 +324,7 @@ public class UserRepository : IUserRepository
                 user.PasswordHash,
                 user.FirstName,
                 user.LastName,
-                PhoneNumber = user.PhoneNumber?.Value,
+                PhoneNumber = encryptedPhone,
                 Status = (int)user.Status,
                 IsEmailConfirmed = user.EmailConfirmed,
                 IsPhoneConfirmed = user.PhoneConfirmed,
@@ -257,37 +366,61 @@ public class UserRepository : IUserRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
         using var transaction = connection.BeginTransaction();
 
-        // Re-verify eligibility inside the transaction: UPDLOCK/HOLDLOCK
+        // Re-verify eligibility inside the transaction and snapshot the
+        // identifiers for the tombstone in the same statement: UPDLOCK/HOLDLOCK
         // serializes with any concurrent write on the row, so a live account
-        // can never race past the soft-deleted check and get purged.
-        var eligible = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM [dbo].[Users] WITH (UPDLOCK, HOLDLOCK)
+        // can never race past the soft-deleted check and get purged, and the
+        // hashes are computed from the row being destroyed, never a stale
+        // caller-side snapshot.
+        var identifiers = await connection.QuerySingleOrDefaultAsync<(string NormalizedEmail, string Username)>(@"
+            SELECT [NormalizedEmail], [Username] FROM [dbo].[Users] WITH (UPDLOCK, HOLDLOCK)
             WHERE [Id] = @Id AND [IsDeleted] = 1",
             new { Id = id },
             transaction);
 
-        if (eligible == 0)
+        // Both columns are NOT NULL, so a null field means "no eligible row".
+        if (identifiers.NormalizedEmail is null)
         {
             transaction.Rollback();
             return false;
         }
 
-        // Every table below either references Users through a non-cascading
-        // foreign key or carries a loose user reference (AuditLogs,
-        // NotificationOutbox, RevokedTokens). Rows the user owns are deleted;
-        // actor references on records that belong to other entities are
+        var emailHash = _identifierHasher.HashEmail(identifiers.NormalizedEmail);
+        var usernameHash = _identifierHasher.HashUsername(identifiers.Username);
+
+        // Staged destruction. Every table below either references Users
+        // through a non-cascading foreign key or carries a loose user
+        // reference (AuditLogs, NotificationOutbox, RevokedTokens). Rows the
+        // user owns are deleted; the audit/login history is anonymized in
+        // place; actor references on records that belong to other entities are
         // reattributed to the system account so those rows keep resolving.
-        // UserHardDeleteSqlTests guards this list against schema drift.
+        // AccountDeletionRequests rows are retained untouched as destruction
+        // evidence. UserHardDeleteSqlTests guards this list against schema drift.
         await connection.ExecuteAsync(@"
+            -- Permanent zero-PII tombstone (idempotent MERGE): the identifier
+            -- reservation and the restore re-apply anchor. Written before
+            -- anything is destroyed so a mid-purge failure never loses it.
+            MERGE [dbo].[AccountDeletionTombstones] WITH (HOLDLOCK) AS [target]
+            USING (SELECT @EmailHash AS [EmailHash]) AS [source]
+            ON [target].[EmailHash] = [source].[EmailHash]
+            WHEN NOT MATCHED THEN
+                INSERT ([EmailHash], [UsernameHash], [DeletedAtUtc], [PolicyVersion])
+                VALUES (@EmailHash, @UsernameHash, GETUTCDATE(), @PolicyVersion);
+
+            -- Crypto-shred: destroying the per-user DEK renders every
+            -- ciphertext under it (phone number, TOTP secret, provider refresh
+            -- token) unrecoverable, in this database and in every backup.
+            DELETE FROM [dbo].[UserEncryptionKeys] WHERE [UserId] = @Id;
+
             -- Credentials, sessions and security artifacts owned by the user
             DELETE FROM [dbo].[RefreshTokens] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[UserSessions] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[IdpSessions] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[AuthorizationCodes] WHERE [UserId] = @Id;
-            DELETE FROM [dbo].[LoginAttempts] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[UserExternalLogins] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[EmailVerificationTokens] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[PasswordResetTokens] WHERE [UserId] = @Id;
+            DELETE FROM [dbo].[AccountDeletionVerifications] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[PasswordHistory] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[TwoFactorChallenges] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[TwoFactorAuth] WHERE [UserId] = @Id;
@@ -307,8 +440,19 @@ public class UserRepository : IUserRepository
             -- Notifications addressed to the user
             DELETE FROM [dbo].[NotificationOutbox] WHERE [RecipientUserId] = @Id;
 
-            -- The user's audit trail: rows about them and rows they performed
-            DELETE FROM [dbo].[AuditLogs] WHERE [UserId] = @Id OR [PerformedBy] = @Id;
+            -- Class B/C: the audit and login-attempt history is anonymized,
+            -- never deleted — the security record survives with identity and
+            -- PII payloads stripped.
+            UPDATE [dbo].[AuditLogs]
+            SET [UserId] = NULL, [OldValues] = NULL, [NewValues] = NULL,
+                [Details] = NULL, [IpAddress] = NULL, [UserAgent] = NULL
+            WHERE [UserId] = @Id;
+            UPDATE [dbo].[AuditLogs]
+            SET [PerformedBy] = @SystemUserId, [IpAddress] = NULL, [UserAgent] = NULL
+            WHERE [PerformedBy] = @Id;
+            UPDATE [dbo].[LoginAttempts]
+            SET [UserId] = NULL, [Username] = N'[deleted]'
+            WHERE [UserId] = @Id;
 
             -- Actor references on surviving records of other entities
             UPDATE [dbo].[OrganizationApplications] SET [EnabledBy] = @SystemUserId WHERE [EnabledBy] = @Id;
@@ -319,7 +463,14 @@ public class UserRepository : IUserRepository
 
             -- The account row last; IsDeleted = 1 is the final in-database guard
             DELETE FROM [dbo].[Users] WHERE [Id] = @Id AND [IsDeleted] = 1;",
-            new { Id = id, SystemUserId = WellKnownUserIds.System },
+            new
+            {
+                Id = id,
+                SystemUserId = WellKnownUserIds.System,
+                EmailHash = emailHash,
+                UsernameHash = usernameHash,
+                PolicyVersion = _accountDeletionSettings.PolicyVersion
+            },
             transaction);
 
         transaction.Commit();
@@ -332,7 +483,6 @@ public class UserRepository : IUserRepository
         (SortFields.Users.FirstName, ["[FirstName]"]),
         (SortFields.Users.LastName, ["[LastName]"]),
         (SortFields.Users.Email, ["[Email]"]),
-        (SortFields.Users.PhoneNumber, ["[PhoneNumber]"]),
         (SortFields.Users.Status, ["[Status]"]),
         (SortFields.Users.EmailConfirmed, ["[IsEmailConfirmed]"]),
         (SortFields.Users.PhoneConfirmed, ["[IsPhoneConfirmed]"]),
@@ -401,7 +551,13 @@ public class UserRepository : IUserRepository
         });
 
         var totalCount = await multi.ReadSingleAsync<int>();
-        var users = (await multi.ReadAsync<UserDto>()).Select(dto => dto.ToUser()).ToList();
+        var dtos = (await multi.ReadAsync<UserDto>()).ToList();
+        foreach (var dto in dtos)
+        {
+            await WithDecryptedPhoneAsync(dto, cancellationToken);
+        }
+
+        var users = dtos.Select(dto => dto.ToUser()).ToList();
 
         return (users, totalCount);
     }
@@ -737,11 +893,16 @@ public class UserRepository : IUserRepository
         public Guid Id { get; init; }
         public string Email { get; init; } = string.Empty;
         public string NormalizedEmail { get; init; } = string.Empty;
-        public string PasswordHash { get; init; } = string.Empty;
+        // Nullable with NO default: DB NULL means an external-only account,
+        // and Dapper leaves a property default in place on NULL — an empty
+        // string here would make every "has no password" guard dead code.
+        public string? PasswordHash { get; init; }
         public string FirstName { get; init; } = string.Empty;
         public string LastName { get; init; } = string.Empty;
         public string? DisplayName { get; init; }
-        public string? PhoneNumber { get; init; }
+        // Settable: WithDecryptedPhoneAsync replaces the stored ciphertext
+        // with plaintext before the DTO is mapped to the entity.
+        public string? PhoneNumber { get; set; }
         public int Status { get; init; }
         public bool EmailConfirmed { get; init; }
         public bool PhoneConfirmed { get; init; }

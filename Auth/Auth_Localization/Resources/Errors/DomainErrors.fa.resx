@@ -708,4 +708,51 @@
   <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
     <value>سازمان شخصی این حساب هنوز اعضای دیگری دارد. پیش از حذف حساب، آن‌ها را حذف کنید.</value>
   </data>
+
+  <!-- ==================== Account Deletion Errors ==================== -->
+  <data name="User.DeletionAlreadyRequested" xml:space="preserve">
+    <value>یک درخواست حذف حساب از قبل برای این حساب در انتظار است.</value>
+  </data>
+  <data name="User.AccountPendingDeletion" xml:space="preserve">
+    <value>این حساب غیرفعال شده و حذف آن برای {0} برنامه‌ریزی شده است. تا آن زمان می‌توان آن را بازیابی کرد.</value>
+  </data>
+  <data name="User.RecoveryWindowExpired" xml:space="preserve">
+    <value>مهلت بازیابی این حساب به پایان رسیده است و حذف در حال نهایی شدن است.</value>
+  </data>
+  <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
+    <value>کد تأیید نامعتبر است یا منقضی شده است.</value>
+  </data>
+  <data name="AccountDeletion.TooManyRequests" xml:space="preserve">
+    <value>تعداد درخواست‌های کد تأیید بیش از حد است. لطفاً بعداً دوباره تلاش کنید.</value>
+  </data>
+  <data name="AccountDeletion.NotPendingGrace" xml:space="preserve">
+    <value>درخواست حذف در حالت انتظار نیست.</value>
+  </data>
+  <data name="AccountDeletion.GraceNotElapsed" xml:space="preserve">
+    <value>مهلت مقرر هنوز به پایان نرسیده است.</value>
+  </data>
+  <data name="AccountDeletion.NotProcessing" xml:space="preserve">
+    <value>درخواست حذف در حال پردازش نیست.</value>
+  </data>
+  <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
+    <value>اجرای حذف حساب ناموفق بود و دوباره تلاش خواهد شد.</value>
+  </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>نسخه سیاست حریم خصوصی یافت نشد.</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>این نسخه سیاست حریم خصوصی قبلاً ثبت شده است.</value>
+  </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>هنوز هیچ نسخه‌ای از سیاست حریم خصوصی منتشر نشده است.</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>سند سیاست حریم خصوصی نامعتبر است.</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>این زبان برای سیاست حریم خصوصی پشتیبانی نمی‌شود.</value>
+  </data>
+  <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
+    <value>نام این نسخه سیاست قابل تغییر نیست: منتشر شده یا اعلان تغییر آن ارسال شده است.</value>
+  </data>
 </root>

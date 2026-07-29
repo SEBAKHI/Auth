@@ -9,7 +9,14 @@
 
 @theme inline {
     --font-heading: var(--font-sans);
-    --font-sans: 'IBM Plex Sans Variable', sans-serif;
+    /*
+     * IBM Plex Sans carries no Arabic-script glyphs, so Arabic, Urdu and
+     * Persian previously fell back to whatever the OS offered and lost the
+     * brand identity. Listing the Arabic sibling next resolves per GLYPH,
+     * not per element: Latin still comes from Plex Sans, Arabic script from
+     * Plex Sans Arabic — no locale-conditional CSS needed.
+     */
+    --font-sans: 'IBM Plex Sans Variable', 'IBM Plex Sans Arabic', sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
     --color-sidebar-border: var(--sidebar-border);
     --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

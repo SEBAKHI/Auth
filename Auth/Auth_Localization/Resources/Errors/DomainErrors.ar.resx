@@ -708,4 +708,51 @@
   <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
     <value>ما تزال المنظمة الشخصية لهذا الحساب تضم أعضاء آخرين. قم بإزالتهم قبل حذف الحساب.</value>
   </data>
+
+  <!-- ==================== Account Deletion Errors ==================== -->
+  <data name="User.DeletionAlreadyRequested" xml:space="preserve">
+    <value>يوجد بالفعل طلب حذف معلق لهذا الحساب.</value>
+  </data>
+  <data name="User.AccountPendingDeletion" xml:space="preserve">
+    <value>هذا الحساب معطل ومقرر حذفه في {0}. يمكن استعادته حتى ذلك الحين.</value>
+  </data>
+  <data name="User.RecoveryWindowExpired" xml:space="preserve">
+    <value>انتهت مهلة استعادة هذا الحساب، وجارٍ إتمام الحذف.</value>
+  </data>
+  <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
+    <value>رمز التحقق غير صالح أو منتهي الصلاحية.</value>
+  </data>
+  <data name="AccountDeletion.TooManyRequests" xml:space="preserve">
+    <value>تم طلب عدد كبير جدًا من رموز التحقق. يرجى المحاولة لاحقًا.</value>
+  </data>
+  <data name="AccountDeletion.NotPendingGrace" xml:space="preserve">
+    <value>طلب الحذف ليس في حالة الانتظار.</value>
+  </data>
+  <data name="AccountDeletion.GraceNotElapsed" xml:space="preserve">
+    <value>لم تنتهِ فترة السماح بعد.</value>
+  </data>
+  <data name="AccountDeletion.NotProcessing" xml:space="preserve">
+    <value>طلب الحذف ليس قيد التنفيذ.</value>
+  </data>
+  <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
+    <value>فشل تنفيذ حذف الحساب، وستُعاد المحاولة.</value>
+  </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على إصدار سياسة الخصوصية.</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>إصدار سياسة الخصوصية هذا مسجل بالفعل.</value>
+  </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>لم يُنشر أي إصدار من سياسة الخصوصية بعد.</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>مستند سياسة الخصوصية غير صالح.</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>هذه اللغة غير مدعومة في سياسة الخصوصية.</value>
+  </data>
+  <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
+    <value>لا يمكن إعادة تسمية إصدار السياسة هذا: فهو منشور أو تم إرسال إشعار تغييره بالفعل.</value>
+  </data>
 </root>

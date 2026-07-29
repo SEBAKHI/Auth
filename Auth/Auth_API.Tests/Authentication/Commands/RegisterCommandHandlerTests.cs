@@ -42,6 +42,7 @@ public class RegisterCommandHandlerTests
             _passwordHasherMock.Object,
             _passwordValidator,
             TestHelpers.CreatePassingBreachEvaluator(),
+            TestHelpers.CreatePassingReservationGuard(),
             _personalOrgCreatorMock.Object,
             _mediatorMock.Object,
             _loggerMock.Object);

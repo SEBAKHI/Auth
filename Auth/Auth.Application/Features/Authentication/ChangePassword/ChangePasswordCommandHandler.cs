@@ -60,6 +60,12 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
             return UserErrors.NotFound(request.UserId);
         }
 
+        // External-only accounts have no password to change.
+        if (user.PasswordHash is null)
+        {
+            return UserErrors.InvalidCurrentPassword;
+        }
+
         // Verify current password
         if (!_passwordHasher.VerifyPassword(request.CurrentPassword, user.PasswordHash))
         {

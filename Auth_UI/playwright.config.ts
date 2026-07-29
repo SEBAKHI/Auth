@@ -13,6 +13,9 @@ export default defineConfig({
   reporter: "list",
   use: {
     trace: "on-first-retry",
+    // The local Auth API runs on the self-signed dev certificate
+    // (https://localhost:5101); browser XHR must not reject it.
+    ignoreHTTPSErrors: true,
   },
   projects: [
     {

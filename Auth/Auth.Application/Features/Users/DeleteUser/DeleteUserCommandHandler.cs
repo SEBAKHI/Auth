@@ -1,3 +1,5 @@
+using Auth.Application.Features.Users.Common;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
@@ -13,18 +15,21 @@ namespace Auth.Application.Features.Users.DeleteUser;
 public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
-    private readonly IOrganizationRepository _organizationRepository;
+    private readonly OwnedOrganizationDeletionGuard _organizationGuard;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPublisher _publisher;
     private readonly ILogger<DeleteUserCommandHandler> _logger;
 
     public DeleteUserCommandHandler(
         IUserRepository userRepository,
-        IOrganizationRepository organizationRepository,
+        OwnedOrganizationDeletionGuard organizationGuard,
+        ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
         ILogger<DeleteUserCommandHandler> logger)
     {
         _userRepository = userRepository;
-        _organizationRepository = organizationRepository;
+        _organizationGuard = organizationGuard;
+        _credentialRevocation = credentialRevocation;
         _publisher = publisher;
         _logger = logger;
     }
@@ -45,41 +50,22 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand, Error
             return UserErrors.CannotDeleteSystemUser;
         }
 
-        // Deleting an owner while other members still depend on the
-        // organization would orphan it — no one could transfer or manage it
-        // again. So block only when an owned organization still has OTHER active
-        // members: a real one must be transferred first, an (untransferable)
-        // personal one must have its members removed. Organizations the user
-        // solely owns carry no one else, so they are deleted together with the
-        // account (the caller is warned of this in the UI) rather than orphaned.
-        var ownedOrganizations = await _organizationRepository.GetByOwnerAsync(request.Id, cancellationToken);
-        if (ownedOrganizations.Count > 0)
+        // Shared owned-organization rule: block while an owned organization
+        // still has other members, delete sole-member owned ones with the account.
+        var organizationsResult = await _organizationGuard.EnsureDeletableAsync(request.Id, cancellationToken);
+        if (organizationsResult.IsError)
         {
-            var ownedOrgIds = ownedOrganizations.Select(o => o.Id).ToList();
-            var memberCounts = await _organizationRepository.GetMemberCountsAsync(ownedOrgIds, cancellationToken);
-
-            // A count > 1 means members beyond the owner's own membership.
-            var blockingOrg = ownedOrganizations
-                .FirstOrDefault(o => memberCounts.GetValueOrDefault(o.Id) > 1);
-            if (blockingOrg is not null)
-            {
-                return blockingOrg.IsAutoCreated
-                    ? UserErrors.CannotDeletePersonalOrganizationWithMembers
-                    : UserErrors.CannotDeleteOrganizationOwner;
-            }
-
-            // All owned organizations are sole-member: remove them with the
-            // account (hard delete cascades memberships, subscriptions, codes).
-            foreach (var org in ownedOrganizations)
-            {
-                await _organizationRepository.DeleteAsync(org.Id, cancellationToken);
-                _logger.LogInformation(
-                    "Organization {OrganizationId} deleted as part of owner account deletion: {UserId}",
-                    org.Id, request.Id);
-            }
+            return organizationsResult.Errors;
         }
 
         await _userRepository.DeleteAsync(request.Id, cancellationToken);
+
+        // A deleted account must be logged out everywhere immediately: the
+        // IsDeleted flag only blocks NEW logins, so without this wipe the
+        // account's existing sessions, refresh tokens and SSO cookies would
+        // keep working until they expire.
+        await _credentialRevocation.RevokeAllCredentialsAsync(
+            request.Id, request.DeletedBy, "Account deleted", cancellationToken);
 
         _logger.LogInformation(
             "User deleted: {UserId} by {DeletedBy}",

@@ -380,4 +380,24 @@
   <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
     <value>کد تأیید باید 6 رقم باشد.</value>
   </data>
+
+  <!-- ==================== Account Deletion ==================== -->
+  <data name="Validation.Reauthentication.Required" xml:space="preserve">
+    <value>با گذرواژه فعلی یا یک کد تأیید، عملیات را تأیید کنید.</value>
+  </data>
+  <data name="Validation.OtpCode.Required" xml:space="preserve">
+    <value>کد تأیید الزامی است.</value>
+  </data>
+  <data name="Validation.OtpCode.InvalidFormat" xml:space="preserve">
+    <value>کد تأیید باید ۶ رقم باشد.</value>
+  </data>
+  <data name="Validation.Provider.TooLong" xml:space="preserve">
+    <value>نام ارائه‌دهنده بیش از حد طولانی است.</value>
+  </data>
+  <data name="Validation.PolicyVersion.Required" xml:space="preserve">
+    <value>نسخه سیاست الزامی است.</value>
+  </data>
+  <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
+    <value>نسخه سیاست باید در قالب YYYY.MM باشد.</value>
+  </data>
 </root>

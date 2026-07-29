@@ -44,6 +44,21 @@ public class SecretConfiguration
     public string? RefreshTokenHmacKey { get; set; }
 
     /// <summary>
+    /// HMAC-SHA256 key (base64, >= 32 bytes) for account-deletion identifier
+    /// hashing (tombstone reservations). PERMANENT: never rotate — identifier
+    /// reservations and restore re-application depend on stable hashes.
+    /// Mapped to configuration as <c>AccountDeletion:IdentifierHmacKeyPlain</c>.
+    /// </summary>
+    public string? AccountDeletionIdentifierHmacKey { get; set; }
+
+    /// <summary>
+    /// Apple "Sign in with Apple" .p8 signing key (PKCS#8 PEM) used to mint
+    /// ES256 client secrets. Mapped to configuration as
+    /// <c>ExternalAuth:Apple:PrivateKeyPem</c>.
+    /// </summary>
+    public string? AppleSigningKeyPem { get; set; }
+
+    /// <summary>
     /// SMTP password for email service.
     /// </summary>
     public string? SmtpPassword { get; set; }

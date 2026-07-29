@@ -66,6 +66,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, ErrorOr
             PasswordChangedAt = user.PasswordChangedAt,
             PasswordExpiresUtc = user.PasswordExpiresUtc,
             MustChangePassword = user.MustChangePassword,
+            HasPassword = user.PasswordHash is not null,
             CreatedAt = user.CreatedAt,
             CreatedBy = user.CreatedBy,
             CreatedByName = userNames.GetValueOrDefault(user.CreatedBy),

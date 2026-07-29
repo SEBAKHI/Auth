@@ -32,7 +32,8 @@ public static class TestHelpers
         string preferredLanguage = "en",
         bool isSystemUser = false,
         bool isDeleted = false,
-        DateTime? deletedAt = null)
+        DateTime? deletedAt = null,
+        string? passwordHash = "TestPasswordHash")
     {
         var userId = id ?? Guid.NewGuid();
         var userEmail = email ?? $"user-{userId:N}@test.com";
@@ -41,7 +42,7 @@ public static class TestHelpers
             id: userId,
             email: userEmail,
             normalizedEmail: userEmail.ToUpperInvariant(),
-            passwordHash: "TestPasswordHash",
+            passwordHash: passwordHash,
             firstName: firstName ?? "Test",
             lastName: lastName ?? "User",
             displayName: null,
@@ -706,6 +707,7 @@ public static class TestHelpers
         string? email = null,
         string? name = null,
         string? pictureUrl = null,
+        string? providerRefreshTokenEnc = null,
         DateTime? createdAt = null,
         DateTime? modifiedAt = null)
     {
@@ -717,6 +719,7 @@ public static class TestHelpers
             email: email ?? "external@test.com",
             name: name ?? "External User",
             pictureUrl: pictureUrl,
+            providerRefreshTokenEnc: providerRefreshTokenEnc,
             createdAt: createdAt ?? DateTime.UtcNow,
             modifiedAt: modifiedAt);
     }
@@ -762,6 +765,16 @@ public static class TestHelpers
             .ReturnsAsync(Result.Success);
         return mock.Object;
     }
+
+    /// <summary>
+    /// Creates an <see cref="Auth.Application.Features.Users.Common.IdentifierReservationGuard"/>
+    /// over empty tombstones (no identifier is reserved), for handler tests not
+    /// exercising the never-recycle policy.
+    /// </summary>
+    public static Auth.Application.Features.Users.Common.IdentifierReservationGuard CreatePassingReservationGuard()
+        => new(
+            new Mock<Auth.Domain.Interfaces.Repositories.IAccountDeletionTombstoneRepository>().Object,
+            new Mock<Auth.Application.Interfaces.IIdentifierHasher>().Object);
 
     /// <summary>
     /// Creates test PasswordSettings with sensible defaults.

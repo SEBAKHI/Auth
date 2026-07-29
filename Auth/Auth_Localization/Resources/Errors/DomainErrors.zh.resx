@@ -708,4 +708,51 @@
   <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
     <value>该帐户的个人组织中仍有其他成员。请先将其移除，再删除帐户。</value>
   </data>
+
+  <!-- ==================== Account Deletion Errors ==================== -->
+  <data name="User.DeletionAlreadyRequested" xml:space="preserve">
+    <value>该账户已有待处理的删除请求。</value>
+  </data>
+  <data name="User.AccountPendingDeletion" xml:space="preserve">
+    <value>该账户已停用，并计划于 {0} 删除。在此之前可以恢复。</value>
+  </data>
+  <data name="User.RecoveryWindowExpired" xml:space="preserve">
+    <value>该账户的恢复期已结束，删除正在完成中。</value>
+  </data>
+  <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
+    <value>验证码无效或已过期。</value>
+  </data>
+  <data name="AccountDeletion.TooManyRequests" xml:space="preserve">
+    <value>请求的验证码次数过多，请稍后再试。</value>
+  </data>
+  <data name="AccountDeletion.NotPendingGrace" xml:space="preserve">
+    <value>删除请求不处于等待状态。</value>
+  </data>
+  <data name="AccountDeletion.GraceNotElapsed" xml:space="preserve">
+    <value>宽限期尚未结束。</value>
+  </data>
+  <data name="AccountDeletion.NotProcessing" xml:space="preserve">
+    <value>删除请求不在处理中。</value>
+  </data>
+  <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
+    <value>账户删除执行失败，将会重试。</value>
+  </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>未找到该隐私政策版本。</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>该隐私政策版本已被记录。</value>
+  </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>尚未发布任何隐私政策版本。</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>隐私政策文档无效。</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>隐私政策不支持该语言。</value>
+  </data>
+  <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
+    <value>此政策版本无法重命名：它已发布，或其变更通知已发送。</value>
+  </data>
 </root>

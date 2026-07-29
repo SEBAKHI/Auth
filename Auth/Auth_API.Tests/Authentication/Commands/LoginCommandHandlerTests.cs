@@ -19,6 +19,7 @@ public class LoginCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<ILoginAttemptRepository> _loginAttemptRepositoryMock;
+    private readonly Mock<IAccountDeletionRequestRepository> _accountDeletionRequestRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock;
     private readonly Mock<ITwoFactorChallengeService> _twoFactorChallengeServiceMock;
@@ -31,6 +32,7 @@ public class LoginCommandHandlerTests
     {
         _userRepositoryMock = new Mock<IUserRepository>();
         _loginAttemptRepositoryMock = new Mock<ILoginAttemptRepository>();
+        _accountDeletionRequestRepositoryMock = new Mock<IAccountDeletionRequestRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _loginResponseBuilderMock = new Mock<ILoginResponseBuilder>();
         _twoFactorChallengeServiceMock = new Mock<ITwoFactorChallengeService>();
@@ -42,6 +44,7 @@ public class LoginCommandHandlerTests
         _handler = new LoginCommandHandler(
             _userRepositoryMock.Object,
             _loginAttemptRepositoryMock.Object,
+            _accountDeletionRequestRepositoryMock.Object,
             _passwordHasherMock.Object,
             _loginResponseBuilderMock.Object,
             _twoFactorChallengeServiceMock.Object,

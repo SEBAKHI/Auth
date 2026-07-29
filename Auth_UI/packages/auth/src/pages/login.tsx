@@ -36,12 +36,15 @@ interface LocationState {
 export function LoginPage({
   providers,
   footer,
+  pageFooter,
   subtitle,
 }: {
   /** External sign-in options rendered under the credentials form. */
   providers?: React.ReactNode
   /** Extra content under the card (e.g. a create-account link). */
   footer?: React.ReactNode
+  /** Ambient links pinned to the bottom of the page (e.g. privacy policy). */
+  pageFooter?: React.ReactNode
   /** Overrides the console-flavored default subtitle. */
   subtitle?: string
 } = {}) {
@@ -104,6 +107,15 @@ export function LoginPage({
         })
         return
       }
+      // Pending deletion (only surfaced on VALID credentials): route to the
+      // recovery screen instead of a dead-end error. The server's localized
+      // message carries the deletion deadline.
+      if (getErrorCodes(error).includes("User.AccountPendingDeletion")) {
+        navigate("/account-recovery", {
+          state: { email: values.email, message: getErrorMessage(error) },
+        })
+        return
+      }
       toast.error(getErrorMessage(error))
     }
   }
@@ -117,6 +129,7 @@ export function LoginPage({
           : (subtitle ?? t("auth.signInSubtitle"))
       }
       footer={footer}
+      pageFooter={pageFooter}
       appName={appBranding?.name}
       appLogoUrl={appBranding?.logoUrl}
       securedBy={t("auth.securedBy", { name: platformName })}

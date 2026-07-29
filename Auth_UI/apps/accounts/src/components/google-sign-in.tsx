@@ -1,16 +1,14 @@
-import { useQuery } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
 import { GOOGLE_CLIENT_ID } from "@astoom/api/env"
-import { getErrorMessage } from "@astoom/api/errors"
-import { unwrap } from "@astoom/api/helpers"
+import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
 import { useAuth } from "@astoom/auth/auth-context"
-import { Separator } from "@astoom/ui/separator"
 import { useTheme } from "@astoom/ui/theme-provider"
+
+import { useExternalProviders } from "@/components/use-external-providers"
 
 /** Minimal typings for the Google Identity Services (GSI) client. */
 interface GsiIdConfiguration {
@@ -75,6 +73,7 @@ interface LocationState {
 /**
  * "Continue with Google" button (GSI ID-token flow). Renders nothing unless
  * the API lists an enabled "google" provider AND a client id is configured.
+ * The surrounding divider lives in ExternalProviders.
  *
  * A fresh nonce is generated per mount and sent BOTH to Google (echoed inside
  * the signed ID token) and to the API, which rejects the login on mismatch —
@@ -89,23 +88,12 @@ export function GoogleSignIn() {
   const location = useLocation()
   const containerRef = React.useRef<HTMLDivElement>(null)
   const nonceRef = React.useRef<string>(crypto.randomUUID())
+  const { googleEnabled } = useExternalProviders()
 
   const state = location.state as LocationState | null
   const from = state?.from?.pathname
     ? state.from.pathname + (state.from.search ?? "")
     : "/"
-
-  const providersQuery = useQuery({
-    queryKey: ["external-providers"],
-    queryFn: () => unwrap(api.GET("/api/v1/Auth/external-providers")),
-    staleTime: 5 * 60 * 1000,
-  })
-
-  const googleEnabled =
-    GOOGLE_CLIENT_ID.length > 0 &&
-    (providersQuery.data ?? []).some(
-      (p) => p.code.toLowerCase() === "google"
-    )
 
   const onCredential = React.useCallback(
     async (credential: string) => {
@@ -129,6 +117,21 @@ export function GoogleSignIn() {
           navigate(from, { replace: true })
         }
       } catch (error) {
+        // Pending deletion (the ID token itself was valid): carry the still-
+        // fresh credential to the recovery screen so restoring is one click.
+        if (getErrorCodes(error).includes("User.AccountPendingDeletion")) {
+          navigate("/account-recovery", {
+            state: {
+              message: getErrorMessage(error),
+              external: {
+                provider: "google",
+                idToken: credential,
+                nonce: nonceRef.current,
+              },
+            },
+          })
+          return
+        }
         toast.error(getErrorMessage(error))
       }
     },
@@ -168,16 +171,5 @@ export function GoogleSignIn() {
 
   if (!googleEnabled) return null
 
-  return (
-    <div className="mt-6 space-y-4">
-      <div className="flex items-center gap-3">
-        <Separator className="flex-1" />
-        <span className="text-xs text-muted-foreground">
-          {t("auth.orContinueWith")}
-        </span>
-        <Separator className="flex-1" />
-      </div>
-      <div ref={containerRef} className="flex justify-center" />
-    </div>
-  )
+  return <div ref={containerRef} className="flex justify-center" />
 }

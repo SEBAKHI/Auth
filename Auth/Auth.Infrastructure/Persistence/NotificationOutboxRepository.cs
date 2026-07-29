@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
@@ -86,15 +87,24 @@ public class NotificationOutboxRepository : INotificationOutboxRepository
     }
 
     /// <inheritdoc />
-    public async Task MarkSentAsync(Guid id, CancellationToken cancellationToken)
+    public async Task MarkSentAsync(Guid id, bool redactBody, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
+        // Sensitive bodies (one-time codes / tokenized links) are overwritten
+        // the moment delivery succeeds — the delivery log keeps the metadata,
+        // never the secret.
+        await connection.ExecuteAsync(redactBody
+            ? @"
+            UPDATE [dbo].[NotificationOutbox]
+            SET [Status] = 2, [SentAt] = GETUTCDATE(), [LastError] = NULL,
+                [BodyHtml] = @RedactedBody, [BodyText] = @RedactedBody
+            WHERE [Id] = @Id"
+            : @"
             UPDATE [dbo].[NotificationOutbox]
             SET [Status] = 2, [SentAt] = GETUTCDATE(), [LastError] = NULL
             WHERE [Id] = @Id",
-            new { Id = id });
+            new { Id = id, RedactedBody = NotificationTypeCodes.RedactedBody });
     }
 
     /// <inheritdoc />
@@ -129,6 +139,18 @@ public class NotificationOutboxRepository : INotificationOutboxRepository
             SET [Status] = 0, [ClaimedAt] = NULL, [NextAttemptAt] = GETUTCDATE()
             WHERE [Status] = 1 AND [ClaimedAt] < @ClaimedBefore",
             new { ClaimedBefore = claimedBefore });
+    }
+
+    /// <inheritdoc />
+    public async Task<int> DeleteSentOlderThanAsync(DateTime cutoffUtc, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Status 2 = Sent.
+        return await connection.ExecuteAsync(@"
+            DELETE FROM [dbo].[NotificationOutbox]
+            WHERE [Status] = 2 AND [SentAt] < @CutoffUtc",
+            new { CutoffUtc = cutoffUtc });
     }
 
     /// <inheritdoc />

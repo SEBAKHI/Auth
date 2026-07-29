@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -41,6 +42,13 @@ public class GetNotificationOutboxMessageByIdQueryHandler
             applicationName = application?.Name;
         }
 
+        // Sensitive types carry live one-time secrets (codes, tokenized
+        // links) in their rendered bodies. The delivery log never returns
+        // them in ANY status — an admin must not be able to read a
+        // still-valid verification code out of a pending or failed row.
+        var sensitive = NotificationTypeCodes.SensitiveContentCodes.Contains(
+            message.NotificationTypeCode);
+
         return new NotificationOutboxMessageDetailDto
         {
             Id = message.Id,
@@ -63,8 +71,8 @@ public class GetNotificationOutboxMessageByIdQueryHandler
             LastError = message.LastError,
             CreatedAt = message.CreatedAt,
             CreatedBy = message.CreatedBy,
-            BodyHtml = message.BodyHtml,
-            BodyText = message.BodyText,
+            BodyHtml = sensitive ? NotificationTypeCodes.RedactedBody : message.BodyHtml,
+            BodyText = sensitive ? NotificationTypeCodes.RedactedBody : message.BodyText,
             ClaimedAt = message.ClaimedAt
         };
     }

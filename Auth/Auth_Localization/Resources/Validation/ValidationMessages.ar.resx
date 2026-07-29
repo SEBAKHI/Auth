@@ -380,4 +380,24 @@
   <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
     <value>يجب أن يتكون رمز التأكيد من 6 أرقام.</value>
   </data>
+
+  <!-- ==================== Account Deletion ==================== -->
+  <data name="Validation.Reauthentication.Required" xml:space="preserve">
+    <value>أكد العملية بكلمة المرور الحالية أو برمز تحقق.</value>
+  </data>
+  <data name="Validation.OtpCode.Required" xml:space="preserve">
+    <value>رمز التحقق مطلوب.</value>
+  </data>
+  <data name="Validation.OtpCode.InvalidFormat" xml:space="preserve">
+    <value>يجب أن يتكون رمز التحقق من 6 أرقام.</value>
+  </data>
+  <data name="Validation.Provider.TooLong" xml:space="preserve">
+    <value>اسم المزود طويل جدًا.</value>
+  </data>
+  <data name="Validation.PolicyVersion.Required" xml:space="preserve">
+    <value>إصدار السياسة مطلوب.</value>
+  </data>
+  <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
+    <value>يجب أن يكون إصدار السياسة بتنسيق YYYY.MM.</value>
+  </data>
 </root>

@@ -8,7 +8,7 @@ CREATE TABLE [dbo].[Users]
     [FirstName] NVARCHAR(100) NULL,
     [LastName] NVARCHAR(100) NULL,
     [FullName] AS (ISNULL([FirstName], N'') + N' ' + ISNULL([LastName], N'')) PERSISTED NOT NULL,
-    [PhoneNumber] NVARCHAR(20) NULL,
+    [PhoneNumber] NVARCHAR(500) NULL,
     [ProfileImageUrl] NVARCHAR(500) NULL,
     [PreferredLanguage] NVARCHAR(10) NOT NULL CONSTRAINT [DF_Users_PreferredLanguage] DEFAULT N'en',
     [TimeZone] NVARCHAR(50) NOT NULL CONSTRAINT [DF_Users_TimeZone] DEFAULT N'UTC',
@@ -44,6 +44,9 @@ GO
 -- Status values: 1=Active, 2=Inactive, 3=Locked, 4=PendingVerification
 -- PreferredLanguage values: 'en', 'ar', 'tr', 'fr', 'zh', 'ur', 'fa'
 -- Theme values: 'light', 'dark', 'system'
+-- PhoneNumber holds v2-prefixed AES-256-GCM ciphertext under the per-user DEK
+-- (UserEncryptionKeys); legacy plaintext values remain readable until the
+-- one-time re-encryption migration completes. Not sortable/searchable.
 
 -- Indexes
 CREATE NONCLUSTERED INDEX [IX_Users_NormalizedEmail]

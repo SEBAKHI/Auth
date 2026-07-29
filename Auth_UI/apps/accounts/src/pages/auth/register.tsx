@@ -22,11 +22,11 @@ import {
 } from "@astoom/ui/form"
 import { Input } from "@astoom/ui/input"
 
-import { GoogleSignIn } from "@/components/google-sign-in"
+import { ExternalProviders } from "@/components/external-providers"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-/** Public email/password self-registration (plus Google as a shortcut). */
+/** Public email/password self-registration (plus external providers). */
 export function RegisterPage() {
   const { t, i18n } = useTranslation()
   const navigate = useNavigate()
@@ -199,7 +199,7 @@ export function RegisterPage() {
           </FieldGroup>
         </form>
       </Form>
-      <GoogleSignIn />
+      <ExternalProviders />
     </AuthLayout>
   )
 }

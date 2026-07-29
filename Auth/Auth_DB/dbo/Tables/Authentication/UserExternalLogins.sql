@@ -9,6 +9,9 @@ CREATE TABLE [dbo].[UserExternalLogins]
     [PictureUrl]      NVARCHAR(500)    NULL,       -- Profile picture URL
     [CreatedAt]       DATETIME2        NOT NULL CONSTRAINT [DF_UserExternalLogins_CreatedAt] DEFAULT GETUTCDATE(),
     [ModifiedAt]      DATETIME2        NULL,
+    -- Declared last on purpose: appending keeps the publish diff a plain ALTER
+    -- TABLE ADD instead of an SSDT table rebuild (data motion).
+    [ProviderRefreshTokenEnc] NVARCHAR(2000) NULL, -- Provider refresh token (Apple), AES-256-GCM under the user DEK
 
     CONSTRAINT [PK_UserExternalLogins] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_UserExternalLogins_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),

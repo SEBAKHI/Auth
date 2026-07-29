@@ -113,6 +113,10 @@
     <Build Include="dbo\Tables\Security\ApiKeys.sql" />
     <Build Include="dbo\Tables\Security\ApiKeyScopes.sql" />
     <Build Include="dbo\Tables\Security\WebhookKeys.sql" />
+    <Build Include="dbo\Tables\Security\AccountDeletionRequests.sql" />
+    <Build Include="dbo\Tables\Security\AccountDeletionTombstones.sql" />
+    <Build Include="dbo\Tables\Security\AccountDeletionVerifications.sql" />
+    <Build Include="dbo\Tables\Security\UserEncryptionKeys.sql" />
     <Build Include="dbo\Tables\Organizations\Organizations.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationUsers.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationApplications.sql" />
@@ -121,6 +125,8 @@
     <Build Include="dbo\Tables\Organizations\OrganizationInvitations.sql" />
     <Build Include="dbo\Tables\Organizations\OwnershipTransferCodes.sql" />
     <Build Include="dbo\Tables\System\PlatformSettings.sql" />
+    <Build Include="dbo\Tables\System\PrivacyPolicyVersions.sql" />
+    <Build Include="dbo\Tables\System\PrivacyPolicyTranslations.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationTypes.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationLayouts.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationTemplates.sql" />
@@ -150,6 +156,9 @@
     <None Include="dbo\Scripts\SeedData\11_NotificationLayouts.sql" />
     <None Include="dbo\Scripts\SeedData\12_NotificationTemplates.sql" />
     <None Include="dbo\Scripts\SeedData\13_NotificationPermissions.sql" />
+    <None Include="dbo\Scripts\SeedData\14_PrivacyPolicyVersions.sql" />
+    <None Include="dbo\Scripts\SeedData\15_PrivacyPolicyPermissions.sql" />
+    <None Include="dbo\Scripts\SeedData\16_PrivacyPolicyContent.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-07-20_PurgeInactiveUserAssignments.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-07-26_RetirePlatformApplication.sql" />
     <None Include="dbo\Scripts\ALTER_Users_PasswordHash_Nullable.sql" />

@@ -380,4 +380,24 @@
   <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
     <value>Le code de confirmation doit comporter 6 chiffres.</value>
   </data>
+
+  <!-- ==================== Account Deletion ==================== -->
+  <data name="Validation.Reauthentication.Required" xml:space="preserve">
+    <value>Confirmez avec votre mot de passe actuel ou un code de vérification.</value>
+  </data>
+  <data name="Validation.OtpCode.Required" xml:space="preserve">
+    <value>Le code de vérification est requis.</value>
+  </data>
+  <data name="Validation.OtpCode.InvalidFormat" xml:space="preserve">
+    <value>Le code de vérification doit comporter 6 chiffres.</value>
+  </data>
+  <data name="Validation.Provider.TooLong" xml:space="preserve">
+    <value>Le nom du fournisseur est trop long.</value>
+  </data>
+  <data name="Validation.PolicyVersion.Required" xml:space="preserve">
+    <value>La version de la politique est requise.</value>
+  </data>
+  <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
+    <value>La version de la politique doit suivre le format YYYY.MM.</value>
+  </data>
 </root>

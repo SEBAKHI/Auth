@@ -380,4 +380,24 @@
   <data name="Validation.TransferCode.InvalidFormat" xml:space="preserve">
     <value>确认码必须为 6 位数字。</value>
   </data>
+
+  <!-- ==================== Account Deletion ==================== -->
+  <data name="Validation.Reauthentication.Required" xml:space="preserve">
+    <value>请使用当前密码或验证码确认。</value>
+  </data>
+  <data name="Validation.OtpCode.Required" xml:space="preserve">
+    <value>验证码为必填项。</value>
+  </data>
+  <data name="Validation.OtpCode.InvalidFormat" xml:space="preserve">
+    <value>验证码必须为 6 位数字。</value>
+  </data>
+  <data name="Validation.Provider.TooLong" xml:space="preserve">
+    <value>提供方名称过长。</value>
+  </data>
+  <data name="Validation.PolicyVersion.Required" xml:space="preserve">
+    <value>必须提供政策版本。</value>
+  </data>
+  <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
+    <value>政策版本必须采用 YYYY.MM 格式。</value>
+  </data>
 </root>

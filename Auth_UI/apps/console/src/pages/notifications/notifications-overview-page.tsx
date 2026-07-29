@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { FileText, Layers, MailCheck, MailWarning } from "lucide-react"
+import { FileText, Layers, MailCheck, MailWarning, ShieldCheck } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 
@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@astoom/ui/card"
 import { PageHeader } from "@astoom/ui/common/page-header"
-import { formatDateTime } from "@astoom/ui/format"
+import { formatDate, formatDateTime } from "@astoom/ui/format"
 import { Skeleton } from "@astoom/ui/skeleton"
 import { StatCard } from "@/pages/dashboard/stat-card"
 import { NotificationsTabs } from "./components/notifications-tabs"
@@ -35,8 +35,15 @@ export function NotificationsOverviewPage() {
       unwrap(api.GET("/api/v1/notification-templates/summary", {})),
   })
 
+  const policyQuery = useQuery({
+    queryKey: ["privacy-policy-versions"],
+    queryFn: () => unwrap(api.GET("/api/v1/privacy-policy/versions")),
+  })
+
   const summary = query.data
   const loading = query.isLoading
+  const versions = policyQuery.data ?? []
+  const publishedPolicy = versions.find((version) => version.isPublished)
 
   return (
     <div className="space-y-6">
@@ -47,7 +54,16 @@ export function NotificationsOverviewPage() {
 
       <NotificationsTabs />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <StatCard
+          title={t("notifications.tabPolicy")}
+          value={publishedPolicy?.version ?? "—"}
+          icon={ShieldCheck}
+          loading={policyQuery.isLoading}
+          hint={t("notifications.overviewPolicyHint", {
+            count: (publishedPolicy?.languages ?? []).length,
+          })}
+        />
         <StatCard
           title={t("notifications.tabTemplates")}
           value={summary?.templates?.total}
@@ -87,6 +103,60 @@ export function NotificationsOverviewPage() {
         />
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("notifications.overviewPolicy")}</CardTitle>
+          <CardAction>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/notifications/policy")}
+            >
+              {t("notifications.overviewViewPolicy")}
+            </Button>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {policyQuery.isLoading ? (
+            <SummaryListSkeleton />
+          ) : versions.length ? (
+            versions.slice(0, 4).map((version) => (
+              <button
+                key={version.id}
+                type="button"
+                className="flex w-full items-start justify-between gap-3 rounded-lg p-2 text-start hover:bg-muted"
+                onClick={() =>
+                  navigate("/notifications/policy/" + version.id)
+                }
+              >
+                <span className="min-w-0 space-y-0.5">
+                  <span className="block truncate font-medium" dir="ltr">
+                    {version.version}
+                  </span>
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {formatDate(version.effectiveDateUtc)}
+                    {version.changeNote ? " · " + version.changeNote : ""}
+                  </span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1">
+                  <Badge variant={version.isPublished ? "secondary" : "outline"}>
+                    {version.isPublished
+                      ? t("notifications.policyPublished")
+                      : t("notifications.policyDraft")}
+                  </Badge>
+                  {version.notifiedAtUtc ? null : (
+                    <Badge variant="outline">
+                      {t("notifications.policyNotNotified")}
+                    </Badge>
+                  )}
+                </span>
+              </button>
+            ))
+          ) : (
+            <EmptyLine text={t("notifications.overviewNoPolicy")} />
+          )}
+        </CardContent>
+      </Card>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>

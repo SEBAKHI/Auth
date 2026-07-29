@@ -44,12 +44,15 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
         }
 
         // Decrypt the secret so callers (setup/verify) work with plaintext.
-        return dto.ToEntity(_secretProtector.Unprotect(dto.SecretKey));
+        return dto.ToEntity(await _secretProtector.UnprotectAsync(dto.UserId, dto.SecretKey, cancellationToken));
     }
 
     /// <inheritdoc />
     public async Task CreateAsync(TwoFactorAuth twoFactorAuth, CancellationToken cancellationToken)
     {
+        var protectedSecret = await _secretProtector.ProtectAsync(
+            twoFactorAuth.UserId, twoFactorAuth.SecretKey, cancellationToken);
+
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         await connection.ExecuteAsync(@"
@@ -68,7 +71,7 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
             {
                 twoFactorAuth.Id,
                 twoFactorAuth.UserId,
-                SecretKey = _secretProtector.Protect(twoFactorAuth.SecretKey),
+                SecretKey = protectedSecret,
                 twoFactorAuth.RecoveryCodes,
                 twoFactorAuth.IsEnabled,
                 twoFactorAuth.EnabledAt,
@@ -83,6 +86,9 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
     /// <inheritdoc />
     public async Task UpdateAsync(TwoFactorAuth twoFactorAuth, CancellationToken cancellationToken)
     {
+        var protectedSecret = await _secretProtector.ProtectAsync(
+            twoFactorAuth.UserId, twoFactorAuth.SecretKey, cancellationToken);
+
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         await connection.ExecuteAsync(@"
@@ -99,7 +105,7 @@ public class TwoFactorAuthRepository : ITwoFactorAuthRepository
             new
             {
                 twoFactorAuth.Id,
-                SecretKey = _secretProtector.Protect(twoFactorAuth.SecretKey),
+                SecretKey = protectedSecret,
                 twoFactorAuth.RecoveryCodes,
                 twoFactorAuth.IsEnabled,
                 twoFactorAuth.EnabledAt,

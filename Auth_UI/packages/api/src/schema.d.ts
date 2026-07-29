@@ -1857,6 +1857,137 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Users/me/deletion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RequestAccountDeletionRequest"];
+                    "text/json": components["schemas"]["RequestAccountDeletionRequest"];
+                    "application/*+json": components["schemas"]["RequestAccountDeletionRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AccountDeletionRequestedResult"];
+                        "application/json": components["schemas"]["AccountDeletionRequestedResult"];
+                        "text/json": components["schemas"]["AccountDeletionRequestedResult"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Users/me/deletion/send-code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Roles": {
         parameters: {
             query?: never;
@@ -5853,6 +5984,362 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/privacy-policy/published": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    language?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PublishedPrivacyPolicyDto"];
+                        "application/json": components["schemas"]["PublishedPrivacyPolicyDto"];
+                        "text/json": components["schemas"]["PublishedPrivacyPolicyDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/privacy-policy/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyVersionDto"][];
+                        "application/json": components["schemas"]["PrivacyPolicyVersionDto"][];
+                        "text/json": components["schemas"]["PrivacyPolicyVersionDto"][];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdatePrivacyPolicyVersionRequest"];
+                    "text/json": components["schemas"]["UpdatePrivacyPolicyVersionRequest"];
+                    "application/*+json": components["schemas"]["UpdatePrivacyPolicyVersionRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyVersionDto"];
+                        "application/json": components["schemas"]["PrivacyPolicyVersionDto"];
+                        "text/json": components["schemas"]["PrivacyPolicyVersionDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreatePrivacyPolicyVersionRequest"];
+                    "text/json": components["schemas"]["CreatePrivacyPolicyVersionRequest"];
+                    "application/*+json": components["schemas"]["CreatePrivacyPolicyVersionRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyVersionDto"];
+                        "application/json": components["schemas"]["PrivacyPolicyVersionDto"];
+                        "text/json": components["schemas"]["PrivacyPolicyVersionDto"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/privacy-policy/versions/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    version?: string;
+                    language?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyContentDto"];
+                        "application/json": components["schemas"]["PrivacyPolicyContentDto"];
+                        "text/json": components["schemas"]["PrivacyPolicyContentDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SavePrivacyPolicyContentRequest"];
+                    "text/json": components["schemas"]["SavePrivacyPolicyContentRequest"];
+                    "application/*+json": components["schemas"]["SavePrivacyPolicyContentRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyContentDto"];
+                        "application/json": components["schemas"]["PrivacyPolicyContentDto"];
+                        "text/json": components["schemas"]["PrivacyPolicyContentDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/privacy-policy/versions/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                    "text/json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                    "application/*+json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/privacy-policy/versions/notify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                    "text/json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                    "application/*+json": components["schemas"]["PrivacyPolicyVersionRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["PrivacyPolicyNotifyResultDto"];
+                        "application/json": components["schemas"]["PrivacyPolicyNotifyResultDto"];
+                        "text/json": components["schemas"]["PrivacyPolicyNotifyResultDto"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Images": {
         parameters: {
             query?: never;
@@ -7299,6 +7786,269 @@ export interface paths {
                 };
                 /** @description Bad Request */
                 400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/deletion/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PublicDeletionRequest"];
+                    "text/json": components["schemas"]["PublicDeletionRequest"];
+                    "application/*+json": components["schemas"]["PublicDeletionRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/deletion/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmPublicDeletionRequest"];
+                    "text/json": components["schemas"]["ConfirmPublicDeletionRequest"];
+                    "application/*+json": components["schemas"]["ConfirmPublicDeletionRequest"];
+                };
+            };
+            responses: {
+                /** @description Accepted */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/deletion/recover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecoverAccountRequest"];
+                    "text/json": components["schemas"]["RecoverAccountRequest"];
+                    "application/*+json": components["schemas"]["RecoverAccountRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LoginResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/deletion/recover-external": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RecoverAccountExternalRequest"];
+                    "text/json": components["schemas"]["RecoverAccountExternalRequest"];
+                    "application/*+json": components["schemas"]["RecoverAccountExternalRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LoginResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -9820,6 +10570,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AccountDeletionRequestedResult: {
+            /** Format: date-time */
+            graceEndsAtUtc: string;
+        };
         AddImplicationRequest: {
             /** Format: uuid */
             impliedPermissionId: string;
@@ -10011,6 +10765,10 @@ export interface components {
             confirmNewPassword: string;
             terminateSessions?: null | boolean;
         };
+        ConfirmPublicDeletionRequest: {
+            email: string;
+            otpCode: string;
+        };
         CreateApiKeyRequest: {
             /** Format: uuid */
             applicationId: string;
@@ -10095,6 +10853,12 @@ export interface components {
             description?: null | string;
             /** Format: uuid */
             parentId?: null | string;
+        };
+        CreatePrivacyPolicyVersionRequest: {
+            version?: string;
+            /** Format: date-time */
+            effectiveDateUtc?: string;
+            changeNote?: null | string;
         };
         CreateRoleRequest: {
             /** Format: uuid */
@@ -10221,6 +10985,9 @@ export interface components {
             idToken: string;
             nonce?: null | string;
             createOrganization?: boolean;
+            authorizationCode?: null | string;
+            givenName?: null | string;
+            familyName?: null | string;
         };
         FileContentResult: {
             /** Format: byte */
@@ -11036,6 +11803,47 @@ export interface components {
             channel?: components["schemas"]["NotificationChannelType"];
             sampleOverridesJson?: null | string;
         };
+        PrivacyPolicyContentDto: {
+            version?: string;
+            languageCode?: string;
+            contentJson?: string;
+            /** Format: date-time */
+            modifiedAt?: null | string;
+        };
+        PrivacyPolicyDisclosureDto: {
+            /** Format: int32 */
+            graceDays?: number | string;
+            /** Format: int32 */
+            otpValidityMinutes?: number | string;
+            /** Format: int32 */
+            loginAttemptRetentionDays?: number | string;
+            /** Format: int32 */
+            outboxRetentionDays?: number | string;
+            policyVersion?: string;
+        };
+        PrivacyPolicyNotifyResultDto: {
+            /** Format: int32 */
+            recipientCount?: number | string;
+        };
+        PrivacyPolicyVersionDto: {
+            /** Format: uuid */
+            id?: string;
+            version?: string;
+            /** Format: date-time */
+            effectiveDateUtc?: string;
+            isPublished?: boolean;
+            changeNote?: null | string;
+            /** Format: date-time */
+            notifiedAtUtc?: null | string;
+            /** Format: int32 */
+            notifiedCount?: null | number | string;
+            /** Format: date-time */
+            createdAt?: string;
+            languages?: string[];
+        };
+        PrivacyPolicyVersionRequest: {
+            version?: string;
+        };
         ProblemDetails: {
             type?: null | string;
             title?: null | string;
@@ -11047,6 +11855,9 @@ export interface components {
         PublicBrandingDto: {
             name: string;
             logoUrl?: null | string;
+        };
+        PublicDeletionRequest: {
+            email: string;
         };
         PublishedNotificationLayoutDto: {
             /** Format: uuid */
@@ -11072,10 +11883,29 @@ export interface components {
             /** Format: date-time */
             modifiedAt?: null | string;
         };
+        PublishedPrivacyPolicyDto: {
+            version?: string;
+            /** Format: date-time */
+            effectiveDateUtc?: string;
+            languageCode?: string;
+            contentJson?: string;
+            disclosure?: components["schemas"]["PrivacyPolicyDisclosureDto"];
+        };
         ReasonCountDto: {
             reason?: string;
             /** Format: int32 */
             count?: number | string;
+        };
+        RecoverAccountExternalRequest: {
+            provider: string;
+            idToken: string;
+            nonce?: null | string;
+            twoFactorCode?: null | string;
+        };
+        RecoverAccountRequest: {
+            email: string;
+            password: string;
+            twoFactorCode?: null | string;
         };
         RefreshTokenRequest: {
             refreshToken: string;
@@ -11115,6 +11945,10 @@ export interface components {
             organizationName: string;
             roleName: string;
             message: string;
+        };
+        RequestAccountDeletionRequest: {
+            password?: null | string;
+            otpCode?: null | string;
         };
         ResendEmailVerificationRequest: {
             email: string;
@@ -11236,6 +12070,11 @@ export interface components {
             success?: boolean;
             message?: string;
             publicKeyPem?: string;
+        };
+        SavePrivacyPolicyContentRequest: {
+            version?: string;
+            languageCode?: string;
+            contentJson?: string;
         };
         SecretStatus: number;
         SecretStatusResult: {
@@ -11421,6 +12260,12 @@ export interface components {
             logoUrlDark: null | string;
             faviconUrl: null | string;
         };
+        UpdatePrivacyPolicyVersionRequest: {
+            version?: string;
+            /** Format: date-time */
+            effectiveDateUtc?: string;
+            changeNote?: null | string;
+        };
         UpdateProfileRequest: {
             firstName?: null | string;
             lastName?: null | string;
@@ -11484,6 +12329,7 @@ export interface components {
             /** Format: date-time */
             passwordExpiresUtc?: null | string;
             mustChangePassword?: boolean;
+            hasPassword?: boolean;
             /** Format: date-time */
             createdAt?: string;
             /** Format: uuid */

@@ -100,4 +100,84 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created ownership-transferred notification type';
 END
+
+-- account-deletion-requested (grace acknowledgment with the recovery link)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000007')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000007',
+        N'account-deletion-requested',
+        N'Account Deletion Requested',
+        N'Acknowledgment sent when a user requests account deletion: the grace deadline and how to recover the account',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"GraceEndsAt","description":"UTC timestamp when the recovery window closes","example":"2026-08-26 12:00:00Z","required":true},{"name":"GraceDays","description":"Length of the recovery window in days","example":"30","required":true},{"name":"RecoveryLink","description":"Absolute URL of the account recovery page","example":"https://example.com/account-recovery","required":true}]',
+        N'{"UserName":"Jane Doe","GraceEndsAt":"2026-08-26 12:00:00Z","GraceDays":30,"RecoveryLink":"https://example.com/account-recovery"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created account-deletion-requested notification type';
+END
+
+-- account-deletion-verification (OTP confirming a deletion request)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000008')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000008',
+        N'account-deletion-verification',
+        N'Account Deletion Verification',
+        N'One-time code confirming an account deletion request (passwordless in-app and the public no-login flow)',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OtpCode","description":"6-digit verification code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"15","required":true}]',
+        N'{"UserName":"Jane Doe","OtpCode":"123456","ExpirationMinutes":15}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created account-deletion-verification notification type';
+END
+
+-- account-deletion-cancelled (recovery confirmation; doubles as a security signal)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000009')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000009',
+        N'account-deletion-cancelled',
+        N'Account Deletion Cancelled',
+        N'Confirmation sent when a pending account deletion is cancelled and the account is restored',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"CancelledAt","description":"UTC timestamp when the deletion was cancelled","example":"2026-08-10 09:30:00Z","required":true}]',
+        N'{"UserName":"Jane Doe","CancelledAt":"2026-08-10 09:30:00Z"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created account-deletion-cancelled notification type';
+END
+
+-- account-deletion-completed (final notice to the pre-destruction snapshot address)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000010')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000010',
+        N'account-deletion-completed',
+        N'Account Deletion Completed',
+        N'Final confirmation that the account and its personal data were permanently deleted',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name (pre-destruction snapshot)","example":"Jane Doe","required":true}]',
+        N'{"UserName":"Jane Doe"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created account-deletion-completed notification type';
+END
+
+-- privacy-policy-updated (material-change notice; sent from the console's policy-versions page)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000011')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000011',
+        N'privacy-policy-updated',
+        N'Privacy Policy Updated',
+        N'Notice that the privacy policy changed, sent to every active user before the change takes effect',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"PolicyVersion","description":"New policy version (YYYY.MM)","example":"2026.07","required":true},{"name":"EffectiveDate","description":"Date the new version takes effect (yyyy-MM-dd)","example":"2026-07-28","required":true},{"name":"PolicyLink","description":"Absolute URL of the privacy-policy page","example":"https://example.com/privacy","required":true}]',
+        N'{"UserName":"Jane Doe","PolicyVersion":"2026.07","EffectiveDate":"2026-07-28","PolicyLink":"https://example.com/privacy"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created privacy-policy-updated notification type';
+END
 GO

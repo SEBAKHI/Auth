@@ -708,4 +708,51 @@
   <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
     <value>L'organisation personnelle de ce compte compte encore d'autres membres. Retirez-les avant de supprimer le compte.</value>
   </data>
+
+  <!-- ==================== Account Deletion Errors ==================== -->
+  <data name="User.DeletionAlreadyRequested" xml:space="preserve">
+    <value>Une demande de suppression est déjà en attente pour ce compte.</value>
+  </data>
+  <data name="User.AccountPendingDeletion" xml:space="preserve">
+    <value>Ce compte est désactivé et sa suppression est prévue le {0}. Il peut être restauré jusqu'à cette date.</value>
+  </data>
+  <data name="User.RecoveryWindowExpired" xml:space="preserve">
+    <value>La période de récupération de ce compte est terminée. La suppression est en cours de finalisation.</value>
+  </data>
+  <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
+    <value>Le code de vérification est invalide ou a expiré.</value>
+  </data>
+  <data name="AccountDeletion.TooManyRequests" xml:space="preserve">
+    <value>Trop de codes de vérification demandés. Veuillez réessayer plus tard.</value>
+  </data>
+  <data name="AccountDeletion.NotPendingGrace" xml:space="preserve">
+    <value>La demande de suppression n'est pas en attente.</value>
+  </data>
+  <data name="AccountDeletion.GraceNotElapsed" xml:space="preserve">
+    <value>Le délai de grâce n'est pas encore écoulé.</value>
+  </data>
+  <data name="AccountDeletion.NotProcessing" xml:space="preserve">
+    <value>La demande de suppression n'est pas en cours de traitement.</value>
+  </data>
+  <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
+    <value>L'exécution de la suppression du compte a échoué ; elle sera réessayée.</value>
+  </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>La version de la politique de confidentialité est introuvable.</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>Cette version de la politique de confidentialité est déjà enregistrée.</value>
+  </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>Aucune version de la politique de confidentialité n'a encore été publiée.</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>Le document de politique de confidentialité est invalide.</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>Cette langue n'est pas prise en charge pour la politique de confidentialité.</value>
+  </data>
+  <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
+    <value>Cette version ne peut pas être renommée : elle est publiée ou son avis de modification a déjà été envoyé.</value>
+  </data>
 </root>

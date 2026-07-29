@@ -2,6 +2,8 @@ using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
 using Auth_API.Modules.UserManagement.Contracts;
+using Auth.Application.Features.AccountDeletion.RequestAccountDeletion;
+using Auth.Application.Features.AccountDeletion.SendDeletionReauthCode;
 using Auth.Application.Features.Users.ActivateAccount;
 using Auth.Application.Features.Users.AssignRole;
 using Auth.Application.Features.Users.CreateUser;
@@ -595,4 +597,55 @@ public class UsersController : ApiController
         return result.Match(_ => NoContent(), errors => Problem(errors));
     }
 
+    /// <summary>
+    /// Requests deletion of the current authenticated user's account (two-phase:
+    /// a 30-day recoverable grace window, then irreversible destruction).
+    /// Requires fresh re-authentication — the current password, or a
+    /// verification code for passwordless accounts. On success the account is
+    /// deactivated immediately and every session is revoked.
+    /// </summary>
+    [HttpPost("me/deletion")]
+    [ProducesResponseType(typeof(AccountDeletionRequestedResult), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RequestMyAccountDeletion(
+        [FromBody] RequestAccountDeletionRequest request, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(
+            new RequestAccountDeletionCommand(userId, request.Password, request.OtpCode), cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Accepted(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Emails a deletion verification code to the current authenticated user
+    /// (passwordless accounts confirming an in-app deletion request).
+    /// </summary>
+    [HttpPost("me/deletion/send-code")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> SendMyDeletionCode(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(new SendDeletionReauthCodeCommand(userId), cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => Accepted(),
+            errors => Problem(errors));
+    }
 }

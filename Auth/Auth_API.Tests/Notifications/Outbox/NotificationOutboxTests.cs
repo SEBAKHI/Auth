@@ -20,10 +20,11 @@ namespace Auth_API.Tests.Notifications.Outbox;
 /// </summary>
 public class NotificationOutboxTests
 {
-    private static NotificationOutboxMessage CreateMessage(int attemptCount = 0)
+    private static NotificationOutboxMessage CreateMessage(
+        int attemptCount = 0, string typeCode = "password-reset")
     {
         return new NotificationOutboxMessage(
-            Guid.NewGuid(), "password-reset", NotificationChannelType.Email,
+            Guid.NewGuid(), typeCode, NotificationChannelType.Email,
             null, "user@example.com", "Jane", Guid.NewGuid(), "en",
             Guid.NewGuid(), Guid.NewGuid(), 2, "Subject", "<p>Body</p>", "Body",
             NotificationDeliveryStatus.Processing, attemptCount,
@@ -197,16 +198,43 @@ public class NotificationOutboxTests
             .Setup(c => c.SendAsync(It.IsAny<RenderedNotification>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success);
         repoMock
-            .Setup(r => r.MarkSentAsync(message.Id, It.IsAny<CancellationToken>()))
+            .Setup(r => r.MarkSentAsync(message.Id, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask)
             .Callback(() => sent.TrySetResult());
 
         await RunOneCycleAsync(dispatcher, () => sent.Task);
 
-        repoMock.Verify(r => r.MarkSentAsync(message.Id, It.IsAny<CancellationToken>()), Times.Once);
+        // password-reset is a sensitive type: the body must be redacted at rest
+        // the moment delivery succeeds.
+        repoMock.Verify(r => r.MarkSentAsync(message.Id, true, It.IsAny<CancellationToken>()), Times.Once);
         channelMock.Verify(c => c.SendAsync(
             It.Is<RenderedNotification>(n => n.Subject == "Subject" && n.RecipientAddress == "user@example.com"),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Dispatcher_SuccessfulSend_NonSensitiveType_KeepsBody()
+    {
+        var settings = new NotificationSettings { UseOutbox = true, PollIntervalSeconds = 60 };
+        var (dispatcher, repoMock, channelMock, _) = CreateDispatcher(settings);
+
+        var message = CreateMessage(typeCode: "welcome-email");
+        var sent = new TaskCompletionSource();
+        var claims = 0;
+        repoMock
+            .Setup(r => r.ClaimBatchAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => Interlocked.Increment(ref claims) == 1 ? [message] : []);
+        channelMock
+            .Setup(c => c.SendAsync(It.IsAny<RenderedNotification>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
+        repoMock
+            .Setup(r => r.MarkSentAsync(message.Id, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask)
+            .Callback(() => sent.TrySetResult());
+
+        await RunOneCycleAsync(dispatcher, () => sent.Task);
+
+        repoMock.Verify(r => r.MarkSentAsync(message.Id, false, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -240,7 +268,9 @@ public class NotificationOutboxTests
                 next > DateTime.UtcNow.AddMinutes(3) && next < DateTime.UtcNow.AddMinutes(5)),
             settings.MaxAttempts,
             It.IsAny<CancellationToken>()), Times.Once);
-        repoMock.Verify(r => r.MarkSentAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        repoMock.Verify(
+            r => r.MarkSentAsync(It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

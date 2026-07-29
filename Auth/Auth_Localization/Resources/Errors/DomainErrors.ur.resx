@@ -708,4 +708,51 @@
   <data name="User.CannotDeletePersonalOrganizationWithMembers" xml:space="preserve">
     <value>اس اکاؤنٹ کی ذاتی تنظیم میں اب بھی دوسرے اراکین موجود ہیں۔ اکاؤنٹ حذف کرنے سے پہلے انہیں ہٹا دیں۔</value>
   </data>
+
+  <!-- ==================== Account Deletion Errors ==================== -->
+  <data name="User.DeletionAlreadyRequested" xml:space="preserve">
+    <value>اس اکاؤنٹ کے لیے پہلے ہی حذف کرنے کی ایک درخواست زیر التوا ہے۔</value>
+  </data>
+  <data name="User.AccountPendingDeletion" xml:space="preserve">
+    <value>یہ اکاؤنٹ غیر فعال ہے اور {0} کو حذف کیا جانا طے ہے۔ اس وقت تک اسے بحال کیا جا سکتا ہے۔</value>
+  </data>
+  <data name="User.RecoveryWindowExpired" xml:space="preserve">
+    <value>اس اکاؤنٹ کی بحالی کی مدت ختم ہو چکی ہے۔ حذف کرنے کا عمل مکمل کیا جا رہا ہے۔</value>
+  </data>
+  <data name="AccountDeletion.InvalidOtp" xml:space="preserve">
+    <value>تصدیقی کوڈ غلط ہے یا اس کی میعاد ختم ہو چکی ہے۔</value>
+  </data>
+  <data name="AccountDeletion.TooManyRequests" xml:space="preserve">
+    <value>بہت زیادہ تصدیقی کوڈ طلب کیے گئے ہیں۔ براہ کرم بعد میں دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="AccountDeletion.NotPendingGrace" xml:space="preserve">
+    <value>حذف کرنے کی درخواست زیر التوا نہیں ہے۔</value>
+  </data>
+  <data name="AccountDeletion.GraceNotElapsed" xml:space="preserve">
+    <value>مہلت کی مدت ابھی ختم نہیں ہوئی۔</value>
+  </data>
+  <data name="AccountDeletion.NotProcessing" xml:space="preserve">
+    <value>حذف کرنے کی درخواست زیر عمل نہیں ہے۔</value>
+  </data>
+  <data name="AccountDeletion.ExecutionFailed" xml:space="preserve">
+    <value>اکاؤنٹ حذف کرنے کا عمل ناکام ہو گیا؛ دوبارہ کوشش کی جائے گی۔</value>
+  </data>
+  <data name="PrivacyPolicy.NotFound" xml:space="preserve">
+    <value>رازداری کی پالیسی کا ورژن نہیں ملا۔</value>
+  </data>
+  <data name="PrivacyPolicy.DuplicateVersion" xml:space="preserve">
+    <value>رازداری کی پالیسی کا یہ ورژن پہلے سے درج ہے۔</value>
+  </data>
+  <data name="PrivacyPolicy.NoPublishedVersion" xml:space="preserve">
+    <value>ابھی تک رازداری کی پالیسی کا کوئی ورژن شائع نہیں ہوا۔</value>
+  </data>
+  <data name="PrivacyPolicy.InvalidContent" xml:space="preserve">
+    <value>رازداری کی پالیسی کی دستاویز غلط ہے۔</value>
+  </data>
+  <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
+    <value>یہ زبان رازداری کی پالیسی کے لیے معاون نہیں ہے۔</value>
+  </data>
+  <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
+    <value>اس پالیسی ورژن کا نام تبدیل نہیں کیا جا سکتا: یہ شائع ہو چکا ہے یا اس کی تبدیلی کی اطلاع بھیجی جا چکی ہے۔</value>
+  </data>
 </root>

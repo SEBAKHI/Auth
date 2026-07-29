@@ -50,6 +50,7 @@ import i18n, {
 } from "@astoom/i18n"
 import { setActiveTimeZone } from "@astoom/i18n/timezone"
 import type { Schemas } from "@astoom/api/types"
+import { ProfileDangerZone } from "./profile-danger-zone"
 import { ProfileSecurity } from "./profile-security"
 import { ProfileSessions } from "./profile-sessions"
 
@@ -287,7 +288,15 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
   )
 }
 
-export function ProfilePage() {
+export function ProfilePage({
+  showDangerZone = false,
+}: {
+  /**
+   * Renders the self-service account-deletion card. Only the accounts app
+   * opts in — it owns the signed-out /deletion-scheduled destination.
+   */
+  showDangerZone?: boolean
+} = {}) {
   const { t } = useTranslation()
 
   const meQuery = useQuery({
@@ -313,7 +322,10 @@ export function ProfilePage() {
           {meQuery.isLoading || !meQuery.data ? (
             <Skeleton className="h-64 w-full" />
           ) : (
-            <AccountTab me={meQuery.data} />
+            <div className="flex flex-col gap-6">
+              <AccountTab me={meQuery.data} />
+              {showDangerZone ? <ProfileDangerZone me={meQuery.data} /> : null}
+            </div>
           )}
         </TabsContent>
         <TabsContent value="sessions" className="mt-4">

@@ -83,6 +83,7 @@ builder.Services.AddOptions<EmailSettings>()
     .ValidateOnStart();
 builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSection(NotificationSettings.SectionName));
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
+builder.Services.Configure<AccountDeletionSettings>(builder.Configuration.GetSection(AccountDeletionSettings.SectionName));
 builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -241,6 +242,11 @@ builder.Services.AddSingleton<IDbConnectionFactory>(_ => new SqlConnectionFactor
 
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserEncryptionKeyRepository, UserEncryptionKeyRepository>();
+builder.Services.AddScoped<IAccountDeletionRequestRepository, AccountDeletionRequestRepository>();
+builder.Services.AddScoped<IAccountDeletionTombstoneRepository, AccountDeletionTombstoneRepository>();
+builder.Services.AddScoped<IAccountDeletionVerificationRepository, AccountDeletionVerificationRepository>();
+builder.Services.AddScoped<IPrivacyPolicyVersionRepository, PrivacyPolicyVersionRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
@@ -362,7 +368,10 @@ builder.Services.AddSingleton<TokenBlacklistService>();
 builder.Services.AddSingleton<ITokenBlacklistService>(sp => sp.GetRequiredService<TokenBlacklistService>());
 builder.Services.AddHostedService<TokenRevocationBackgroundService>();
 builder.Services.AddSingleton<IRefreshTokenKeyService, RefreshTokenKeyService>();
-builder.Services.AddSingleton<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
+builder.Services.AddSingleton<IIdentifierHasher, IdentifierHasher>();
+// Scoped: the protector now rides the per-user crypto service (scoped DEK repo).
+builder.Services.AddScoped<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
+builder.Services.AddScoped<IPerUserCryptoService, PerUserCryptoService>();
 builder.Services.AddSingleton<IWebhookKeyHasher, WebhookKeyHasher>();
 builder.Services.AddSingleton<IApiKeyGenerator, ApiKeyGenerator>();
 builder.Services.AddSingleton<IWebhookKeyGenerator, WebhookKeyGenerator>();
@@ -389,6 +398,20 @@ builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageServic
 builder.Services.AddSingleton<IImageUrlComposer, ImageUrlComposer>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
+// Account deletion: the shared credential-kill primitive, the shared
+// owned-organization and identifier-reservation rules, and the request /
+// recovery / OTP pipelines used by every deletion flow.
+builder.Services.AddScoped<ICredentialRevocationService, CredentialRevocationService>();
+builder.Services.AddScoped<Auth.Application.Features.Users.Common.OwnedOrganizationDeletionGuard>();
+builder.Services.AddScoped<Auth.Application.Features.Users.Common.IdentifierReservationGuard>();
+builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRequestor>();
+builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRecoverer>();
+builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.DeletionOtpService>();
+// One-shot, config-gated (AccountDeletion:RunEncryptionMigration) re-encryption
+// of TOTP secrets and phone numbers under per-user DEKs.
+builder.Services.AddHostedService<EncryptionMigrationService>();
+// Grace-period executor + daily retention/destruction sweep.
+builder.Services.AddHostedService<Auth.Infrastructure.AccountDeletion.AccountDeletionWorker>();
 
 // Breached-password policy. Request-scoped warning sink + evaluator are always registered (cheap);
 // the actual checker is HIBP only when enabled, otherwise a no-op with NO HttpClient registered.
@@ -415,6 +438,14 @@ else
 
 // External Authentication
 builder.Services.AddSingleton<IExternalAuthProvider, GoogleAuthProvider>();
+// Apple: id-token validation (JWKS over HTTP) + the token lifecycle used for
+// deletion-time revocation. Registered once and forwarded into the strategy
+// collections so the factory resolves them with no type switches.
+builder.Services.AddHttpClient<AppleAuthProvider>();
+builder.Services.AddSingleton<IExternalAuthProvider>(sp => sp.GetRequiredService<AppleAuthProvider>());
+builder.Services.AddSingleton<AppleClientSecretGenerator>();
+builder.Services.AddHttpClient<AppleTokenRevocationService>();
+builder.Services.AddSingleton<IExternalTokenLifecycle>(sp => sp.GetRequiredService<AppleTokenRevocationService>());
 builder.Services.AddSingleton<IExternalAuthProviderFactory, ExternalAuthProviderFactory>();
 
 // Integration Events

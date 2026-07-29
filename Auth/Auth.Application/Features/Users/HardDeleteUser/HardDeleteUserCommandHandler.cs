@@ -1,3 +1,5 @@
+using Auth.Application.Features.Users.Common;
+using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
@@ -8,23 +10,27 @@ using MediatR;
 namespace Auth.Application.Features.Users.HardDeleteUser;
 
 /// <summary>
-/// Handler for permanently deleting a soft-deleted user.
+/// Handler for permanently destroying a soft-deleted user via the staged
+/// destruction routine (tombstone, crypto-shred, log anonymization, cascade).
 /// </summary>
 public class HardDeleteUserCommandHandler : IRequestHandler<HardDeleteUserCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
-    private readonly IOrganizationRepository _organizationRepository;
+    private readonly OwnedOrganizationDeletionGuard _organizationGuard;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPublisher _publisher;
     private readonly ILogger<HardDeleteUserCommandHandler> _logger;
 
     public HardDeleteUserCommandHandler(
         IUserRepository userRepository,
-        IOrganizationRepository organizationRepository,
+        OwnedOrganizationDeletionGuard organizationGuard,
+        ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
         ILogger<HardDeleteUserCommandHandler> logger)
     {
         _userRepository = userRepository;
-        _organizationRepository = organizationRepository;
+        _organizationGuard = organizationGuard;
+        _credentialRevocation = credentialRevocation;
         _publisher = publisher;
         _logger = logger;
     }
@@ -59,32 +65,19 @@ public class HardDeleteUserCommandHandler : IRequestHandler<HardDeleteUserComman
 
         // The soft delete already removed sole-owned organizations, but the
         // ownership FK has no cascade — if an owned organization still exists
-        // (legacy data), apply the same rules as the soft delete: block when
-        // other members depend on it, remove it when the owner was its only
-        // member.
-        var ownedOrganizations = await _organizationRepository.GetByOwnerAsync(request.Id, cancellationToken);
-        if (ownedOrganizations.Count > 0)
+        // (legacy data), the shared guard applies the same rules: block when
+        // other members depend on it, remove it when the owner was its only member.
+        var organizationsResult = await _organizationGuard.EnsureDeletableAsync(request.Id, cancellationToken);
+        if (organizationsResult.IsError)
         {
-            var ownedOrgIds = ownedOrganizations.Select(o => o.Id).ToList();
-            var memberCounts = await _organizationRepository.GetMemberCountsAsync(ownedOrgIds, cancellationToken);
-
-            var blockingOrg = ownedOrganizations
-                .FirstOrDefault(o => memberCounts.GetValueOrDefault(o.Id) > 1);
-            if (blockingOrg is not null)
-            {
-                return blockingOrg.IsAutoCreated
-                    ? UserErrors.CannotDeletePersonalOrganizationWithMembers
-                    : UserErrors.CannotDeleteOrganizationOwner;
-            }
-
-            foreach (var org in ownedOrganizations)
-            {
-                await _organizationRepository.DeleteAsync(org.Id, cancellationToken);
-                _logger.LogInformation(
-                    "Organization {OrganizationId} deleted as part of permanent account deletion: {UserId}",
-                    org.Id, request.Id);
-            }
+            return organizationsResult.Errors;
         }
+
+        // Belt-and-braces for accounts soft-deleted before revocation-on-delete
+        // existed: blacklist any still-outstanding access tokens before the
+        // purge removes the session rows they would be checked against.
+        await _credentialRevocation.RevokeAllCredentialsAsync(
+            request.Id, request.DeletedBy, "Account permanently deleted", cancellationToken);
 
         var purged = await _userRepository.HardDeleteAsync(request.Id, cancellationToken);
         if (!purged)

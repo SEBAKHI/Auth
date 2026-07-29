@@ -6,45 +6,60 @@ using Microsoft.Extensions.Logging;
 namespace Auth.Infrastructure.Authentication;
 
 /// <summary>
-/// Encrypts the TOTP shared secret at rest using the application's Data
-/// Protection key ring (the same one that protects the JWT signing key). The
-/// secret must be reversible (it is needed to compute TOTP codes), so it is
-/// encrypted — not hashed like passwords or recovery codes.
+/// Encrypts the TOTP shared secret at rest under the user's per-user DEK
+/// (crypto-shredded with the account). The secret must be reversible (it is
+/// needed to compute TOTP codes), so it is encrypted — not hashed like
+/// passwords or recovery codes. Dual-read keeps every generation of stored
+/// value working: per-user <c>v2:</c> payloads, legacy app-level Data
+/// Protection payloads (v1), and pre-encryption plaintext rows; the one-time
+/// encryption migration (and any subsequent write) upgrades old rows to v2.
 /// </summary>
 public class TwoFactorSecretProtector : ITwoFactorSecretProtector
 {
-    // Versioned purpose string: rotating it (v2, ...) would invalidate old
-    // ciphertexts, so keep it stable.
-    private const string Purpose = "TwoFactorAuth.SecretKey.v1";
+    // The legacy purpose string of app-level (v1) payloads. Rotating it would
+    // make existing v1 ciphertexts undecryptable, so keep it stable until the
+    // migration has upgraded every row.
+    private const string LegacyPurpose = "TwoFactorAuth.SecretKey.v1";
 
-    private readonly IDataProtector _protector;
+    private readonly IPerUserCryptoService _perUserCrypto;
+    private readonly IDataProtector _legacyProtector;
     private readonly ILogger<TwoFactorSecretProtector> _logger;
 
     public TwoFactorSecretProtector(
+        IPerUserCryptoService perUserCrypto,
         IDataProtectionProvider dataProtectionProvider,
         ILogger<TwoFactorSecretProtector> logger)
     {
-        _protector = dataProtectionProvider.CreateProtector(Purpose);
+        _perUserCrypto = perUserCrypto;
+        _legacyProtector = dataProtectionProvider.CreateProtector(LegacyPurpose);
         _logger = logger;
     }
 
     /// <inheritdoc />
-    public string Protect(string plainSecret) => _protector.Protect(plainSecret);
+    public Task<string> ProtectAsync(Guid userId, string plainSecret, CancellationToken cancellationToken) =>
+        _perUserCrypto.EncryptAsync(userId, plainSecret, EncryptedFieldPurpose.TwoFactorSecretKey, cancellationToken);
 
     /// <inheritdoc />
-    public string Unprotect(string storedValue)
+    public async Task<string> UnprotectAsync(Guid userId, string storedValue, CancellationToken cancellationToken)
     {
+        if (_perUserCrypto.IsEncrypted(storedValue))
+        {
+            return await _perUserCrypto.DecryptAsync(
+                userId, storedValue, EncryptedFieldPurpose.TwoFactorSecretKey, cancellationToken);
+        }
+
         try
         {
-            return _protector.Unprotect(storedValue);
+            // Legacy app-level payload (v1); upgraded to v2 by the one-time
+            // migration or the next write (enable/disable/reset).
+            return _legacyProtector.Unprotect(storedValue);
         }
         catch (CryptographicException)
         {
             // Legacy row written before encryption existed (plaintext Base32).
-            // Return it as-is so the existing 2FA user is not locked out; it is
-            // re-encrypted the next time the row is written (enable/disable/reset).
+            // Return it as-is so the existing 2FA user is not locked out.
             _logger.LogWarning(
-                "TOTP secret is not Data-Protected (legacy plaintext); using it as-is. It will be encrypted on the next write.");
+                "TOTP secret is not encrypted (legacy plaintext); using it as-is. It will be encrypted on the next write.");
             return storedValue;
         }
     }

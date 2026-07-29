@@ -19,6 +19,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
 {
     private readonly IUserRepository _userRepository;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
+    private readonly IAccountDeletionRequestRepository _accountDeletionRequestRepository;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
@@ -29,6 +30,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     public LoginCommandHandler(
         IUserRepository userRepository,
         ILoginAttemptRepository loginAttemptRepository,
+        IAccountDeletionRequestRepository accountDeletionRequestRepository,
         IPasswordHasher passwordHasher,
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
@@ -38,6 +40,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
     {
         _userRepository = userRepository;
         _loginAttemptRepository = loginAttemptRepository;
+        _accountDeletionRequestRepository = accountDeletionRequestRepository;
         _passwordHasher = passwordHasher;
         _loginResponseBuilder = loginResponseBuilder;
         _twoFactorChallengeService = twoFactorChallengeService;
@@ -53,6 +56,16 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
 
         if (user == null)
         {
+            // A pending-deletion account is invisible to the normal lookup; on
+            // VALID credentials, surface the recovery path instead of a lie.
+            // Wrong or absent credentials keep the generic response.
+            var pendingDeletionSignal = await GetPendingDeletionSignalAsync(
+                request.Email, request.Password, cancellationToken);
+            if (pendingDeletionSignal is not null)
+            {
+                return pendingDeletionSignal.Value;
+            }
+
             // Record failed attempt even if user doesn't exist (prevent enumeration)
             await RecordLoginAttemptAsync(null, request.Email, false, "User not found",
                 request.IpAddress, request.UserAgent, cancellationToken);
@@ -160,6 +173,34 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         return loginResponse;
+    }
+
+    /// <summary>
+    /// Returns the pending-deletion error (with the grace deadline) when the
+    /// email belongs to an account awaiting deletion AND the password is
+    /// correct — deletion state is never revealed without valid credentials.
+    /// </summary>
+    private async Task<Error?> GetPendingDeletionSignalAsync(
+        string email, string password, CancellationToken cancellationToken)
+    {
+        var deleted = await _userRepository.GetByEmailIncludeDeletedAsync(email, cancellationToken);
+        if (deleted is not { IsDeleted: true } || deleted.PasswordHash is null)
+        {
+            return null;
+        }
+
+        var active = await _accountDeletionRequestRepository.GetActiveByUserIdAsync(deleted.Id, cancellationToken);
+        if (active is not { Status: AccountDeletionStatus.PendingGrace })
+        {
+            return null;
+        }
+
+        if (!_passwordHasher.VerifyPassword(password, deleted.PasswordHash))
+        {
+            return null;
+        }
+
+        return UserErrors.AccountPendingDeletion(active.GraceEndsAtUtc);
     }
 
     private async Task RecordLoginAttemptAsync(

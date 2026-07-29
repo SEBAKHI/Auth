@@ -25,7 +25,7 @@ public class UserExternalLoginRepository : IUserExternalLoginRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         return await connection.QueryFirstOrDefaultAsync<UserExternalLogin>(@"
-            SELECT [Id], [UserId], [Provider], [ProviderUserId], [Email], [Name], [PictureUrl], [CreatedAt], [ModifiedAt]
+            SELECT [Id], [UserId], [Provider], [ProviderUserId], [Email], [Name], [PictureUrl], [ProviderRefreshTokenEnc], [CreatedAt], [ModifiedAt]
             FROM [dbo].[UserExternalLogins]
             WHERE [Provider] = @Provider AND [ProviderUserId] = @ProviderUserId",
             new { Provider = provider, ProviderUserId = providerUserId });
@@ -39,7 +39,7 @@ public class UserExternalLoginRepository : IUserExternalLoginRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var logins = await connection.QueryAsync<UserExternalLogin>(@"
-            SELECT [Id], [UserId], [Provider], [ProviderUserId], [Email], [Name], [PictureUrl], [CreatedAt], [ModifiedAt]
+            SELECT [Id], [UserId], [Provider], [ProviderUserId], [Email], [Name], [PictureUrl], [ProviderRefreshTokenEnc], [CreatedAt], [ModifiedAt]
             FROM [dbo].[UserExternalLogins]
             WHERE [UserId] = @UserId",
             new { UserId = userId });
@@ -90,5 +90,18 @@ public class UserExternalLoginRepository : IUserExternalLoginRepository
                 login.PictureUrl,
                 login.ModifiedAt
             });
+    }
+
+    /// <inheritdoc />
+    public async Task UpdateProviderRefreshTokenAsync(
+        Guid loginId, string? encryptedToken, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[UserExternalLogins]
+            SET [ProviderRefreshTokenEnc] = @EncryptedToken, [ModifiedAt] = GETUTCDATE()
+            WHERE [Id] = @Id",
+            new { Id = loginId, EncryptedToken = encryptedToken });
     }
 }

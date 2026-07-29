@@ -3,6 +3,10 @@ using Asp.Versioning;
 using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Authorize;
 using Auth.Application.Features.Authentication.ChangePassword;
+using Auth.Application.Features.AccountDeletion.ConfirmPublicDeletion;
+using Auth.Application.Features.AccountDeletion.PublicRequestDeletion;
+using Auth.Application.Features.AccountDeletion.RecoverAccount;
+using Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
 using Auth.Application.Features.Authentication.ForgotPassword;
 using Auth.Application.Features.Authentication.IntrospectToken;
 using Auth.Application.Features.Authentication.Login;
@@ -163,7 +167,10 @@ public class AuthController : ApiController
             request.Nonce,
             request.CreateOrganization,
             GetClientIpAddress(),
-            GetUserAgent());
+            GetUserAgent(),
+            AuthorizationCode: request.AuthorizationCode,
+            GivenName: request.GivenName,
+            FamilyName: request.FamilyName);
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -671,6 +678,111 @@ public class AuthController : ApiController
     {
         var command = new ResendEmailVerificationCommand(request.Email);
         var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Step 1 of the public no-login deletion flow: request a verification
+    /// code for an account's email address. Always acknowledges generically —
+    /// whether the account exists is never revealed.
+    /// </summary>
+    [HttpPost("deletion/request")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> RequestPublicDeletion(
+        [FromBody] PublicDeletionRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new PublicRequestDeletionCommand(request.Email), cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => Accepted(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Step 2 of the public no-login deletion flow: confirm email possession
+    /// with the verification code and schedule the deletion (30-day grace,
+    /// then irreversible destruction). Confirming an already-pending deletion
+    /// succeeds idempotently.
+    /// </summary>
+    [HttpPost("deletion/confirm")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> ConfirmPublicDeletion(
+        [FromBody] ConfirmPublicDeletionRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new ConfirmPublicDeletionCommand(request.Email, request.OtpCode), cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => Accepted(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Recovers an account pending deletion during its grace window,
+    /// authenticated by password (and TOTP when 2FA is enabled). Success
+    /// cancels the deletion, restores the account and signs the user in.
+    /// </summary>
+    [HttpPost("deletion/recover")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> RecoverAccount(
+        [FromBody] RecoverAccountRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new RecoverAccountCommand(
+                request.Email,
+                request.Password,
+                request.TwoFactorCode,
+                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                Request.Headers.UserAgent.ToString()),
+            cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Recovers an account pending deletion during its grace window,
+    /// authenticated by an external identity provider's ID token (passwordless
+    /// accounts). Success cancels the deletion, restores the account and signs
+    /// the user in.
+    /// </summary>
+    [HttpPost("deletion/recover-external")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> RecoverAccountExternal(
+        [FromBody] RecoverAccountExternalRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new RecoverAccountExternalCommand(
+                request.Provider,
+                request.IdToken,
+                request.Nonce,
+                request.TwoFactorCode,
+                HttpContext.Connection.RemoteIpAddress?.ToString(),
+                Request.Headers.UserAgent.ToString()),
+            cancellationToken);
 
         return result.Match<IActionResult>(
             response => Ok(response),

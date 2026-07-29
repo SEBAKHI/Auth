@@ -105,6 +105,28 @@ public class ResetPasswordCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ExternalOnlyUserWithoutPassword_SetsFirstPasswordWithoutHistoryEntry()
+    {
+        // Arrange - an external-only account uses the reset link to set its
+        // FIRST password; there is no previous hash to compare or archive.
+        var user = TestHelpers.CreateUser(email: "external@example.com", passwordHash: null);
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+
+        SetupValidResetScenario(user, resetToken, command);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        _userRepositoryMock.Verify(r => r.UpdatePasswordAsync(
+            user.Id, "NewHashedPassword", user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _passwordHistoryRepositoryMock.Verify(r => r.AddAsync(
+            It.IsAny<PasswordHistory>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task Handle_UnknownToken_ReturnsInvalidOrExpiredTokenError()
     {
         // Arrange - GetByTokenHashAsync also filters out used and expired tokens,

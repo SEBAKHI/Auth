@@ -30,9 +30,25 @@ public interface IUserRepository
     Task<IReadOnlyList<User>> GetByIdsAsync(IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the minimal recipient projection of every account eligible for a
+    /// platform-wide notice: active, not soft-deleted, email confirmed.
+    /// Intentionally a projection — bulk sends must not hydrate full entities
+    /// (or decrypt phone numbers) for the whole user base.
+    /// </summary>
+    Task<IReadOnlyList<(Guid Id, string Email, string? DisplayName, string? FirstName, string? PreferredLanguage)>>
+        GetActiveNotificationRecipientsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets a user by their email address.
     /// </summary>
     Task<User?> GetByEmailAsync(string email, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets a user by their email address, including soft-deleted users.
+    /// Intended for the deletion recovery flow and the pending-deletion login
+    /// signal; operational reads must use <see cref="GetByEmailAsync"/>.
+    /// </summary>
+    Task<User?> GetByEmailIncludeDeletedAsync(string email, CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if an email address is reserved (used by any user, including soft-deleted users).
@@ -76,6 +92,12 @@ public interface IUserRepository
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Clears the soft-delete flag (grace-period account recovery). Only the
+    /// recovery flow may call this, after the deletion request was cancelled.
+    /// </summary>
+    Task RestoreAsync(Guid id, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Permanently removes a soft-deleted user and every dependent record
     /// (sessions, tokens, role/permission assignments, organization
     /// memberships, notifications, and the user's audit trail) in a single
@@ -87,10 +109,12 @@ public interface IUserRepository
     /// user with the given id exists (nothing was changed).
     /// </returns>
     /// <remarks>
-    /// This intentionally releases the email reservation that
-    /// <see cref="ExistsByEmailAsync"/> enforces for soft-deleted accounts —
-    /// permanent deletion exists to clean experimental accounts out of the
-    /// database entirely.
+    /// Staged destruction: writes the zero-PII tombstone (a PERMANENT
+    /// identifier reservation — deleted emails/usernames are never recycled),
+    /// crypto-shreds the per-user encryption key, anonymizes the audit and
+    /// login-attempt history in place, cascades every owned row and finally
+    /// removes the account row. Terminal AccountDeletionRequests rows are
+    /// retained untouched as destruction evidence.
     /// </remarks>
     Task<bool> HardDeleteAsync(Guid id, CancellationToken cancellationToken);
 
