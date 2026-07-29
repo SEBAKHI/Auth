@@ -126,7 +126,7 @@ export function NotificationsOverviewPage() {
                 type="button"
                 className="flex w-full items-start justify-between gap-3 rounded-lg p-2 text-start hover:bg-muted"
                 onClick={() =>
-                  navigate("/notifications/policy/" + version.version)
+                  navigate("/notifications/policy/" + version.id)
                 }
               >
                 <span className="min-w-0 space-y-0.5">

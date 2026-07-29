@@ -87,7 +87,7 @@ export function NotificationPolicyPage() {
       setNewChangeNote("")
       toast.success(t("notifications.policyCreatedToast"))
       // Straight into the editor: a version without content is not useful.
-      if (created?.version) navigate(`/notifications/policy/${created.version}`)
+      if (created?.id) navigate(`/notifications/policy/${created.id}`)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -128,7 +128,7 @@ export function NotificationPolicyPage() {
         <button
           type="button"
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/notifications/policy/${row.original.version}`)}
+          onClick={() => navigate(`/notifications/policy/${row.original.id}`)}
         >
           <p className="truncate font-medium" dir="ltr">
             {row.original.version}

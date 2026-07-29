@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Check, CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { api } from "@astoom/api/client"
@@ -79,7 +79,10 @@ export function NotificationPolicyDetailPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
-  const { version = "" } = useParams()
+  // Routed by the revision's immutable id, never by its version string:
+  // the string is editable, and a URL keyed on editable data breaks the
+  // moment it is edited (the page 404s and in-flight edits are stranded).
+  const { id = "" } = useParams()
 
   const canManage = hasPermission(PERMISSIONS.privacyPolicy.manage)
 
@@ -93,15 +96,18 @@ export function NotificationPolicyDetailPage() {
   const [changeNote, setChangeNote] = React.useState("")
   const [metaDirty, setMetaDirty] = React.useState(false)
 
-  const navigate = useNavigate()
   const { onFocusCapture, insert } = useFocusedField()
-  usePageBreadcrumb(version || undefined)
 
   const versionsQuery = useQuery({
     queryKey: ["privacy-policy-versions"],
     queryFn: () => unwrap(api.GET("/api/v1/privacy-policy/versions")),
   })
-  const versionRow = versionsQuery.data?.find((v) => v.version === version)
+  const versionRow = versionsQuery.data?.find((v) => v.id === id)
+  // The API keys content by version string, so it is resolved from the row
+  // on every render — a rename is picked up without touching the URL.
+  const version = versionRow?.version ?? ""
+
+  usePageBreadcrumb(version || undefined)
 
   React.useEffect(() => {
     if (!versionRow || metaDirty) return
@@ -111,13 +117,14 @@ export function NotificationPolicyDetailPage() {
   }, [versionRow, metaDirty])
 
   const contentQuery = useQuery({
-    queryKey: ["privacy-policy-content", version, language],
+    queryKey: ["privacy-policy-content", id, language],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/privacy-policy/versions/content", {
           params: { query: { version, language } },
         })
       ),
+    enabled: Boolean(version),
   })
 
   // The live disclosure drives the preview's numbers, exactly as on the
@@ -146,46 +153,48 @@ export function NotificationPolicyDetailPage() {
     }
   }, [contentQuery.data, dirty])
 
+  /**
+   * One Save for the whole page. Splitting it into "save content" and "save
+   * version details" made the header button look broken while the details
+   * were being edited, and let a rename land while document edits were still
+   * unsaved — stranding them under a key that no longer existed.
+   *
+   * Order matters: the document is written FIRST, under the version string
+   * still in force, and only then may the rename take effect. A failure
+   * therefore aborts before the identifier moves, never after.
+   */
   const saveMutation = useMutation({
-    mutationFn: () =>
-      unwrap(
-        api.PUT("/api/v1/privacy-policy/versions/content", {
-          body: {
-            version,
-            languageCode: language,
-            contentJson: JSON.stringify(doc),
-          },
-        })
-      ),
+    mutationFn: async () => {
+      if (dirty && doc) {
+        await unwrap(
+          api.PUT("/api/v1/privacy-policy/versions/content", {
+            body: {
+              version,
+              languageCode: language,
+              contentJson: JSON.stringify(doc),
+            },
+          })
+        )
+      }
+      if (metaDirty) {
+        await unwrap(
+          api.PUT("/api/v1/privacy-policy/versions", {
+            body: {
+              version,
+              newVersion: versionName.trim() || null,
+              effectiveDateUtc: effectiveDate + "T00:00:00Z",
+              changeNote: changeNote.trim() || null,
+            },
+          })
+        )
+      }
+    },
     onSuccess: () => {
       setDirty(false)
+      setMetaDirty(false)
       void queryClient.invalidateQueries({ queryKey: ["privacy-policy-content"] })
       void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
       toast.success(t("notifications.policyContentSaved"))
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
-
-  const metaMutation = useMutation({
-    mutationFn: () =>
-      unwrap(
-        api.PUT("/api/v1/privacy-policy/versions", {
-          body: {
-            version,
-            newVersion: versionName.trim() || null,
-            effectiveDateUtc: effectiveDate + "T00:00:00Z",
-            changeNote: changeNote.trim() || null,
-          },
-        })
-      ),
-    onSuccess: (saved) => {
-      setMetaDirty(false)
-      void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
-      toast.success(t("notifications.policyVersionSaved"))
-      // A rename changes the route key; follow it so the page stays valid.
-      if (saved?.version && saved.version !== version) {
-        navigate("/notifications/policy/" + saved.version, { replace: true })
-      }
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -226,6 +235,21 @@ export function NotificationPolicyDetailPage() {
 
   const dir = directionForLanguage(language)
 
+  // A stale bookmark or a deleted revision must say so, not spin forever.
+  if (versionsQuery.isSuccess && !versionRow) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title={t("notifications.tabPolicy")}
+          description={t("notifications.policyContentDescription")}
+        />
+        <Alert variant="destructive">
+          <AlertDescription>{t("notifications.policyNotFound")}</AlertDescription>
+        </Alert>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {unsavedPrompt}
@@ -237,7 +261,7 @@ export function NotificationPolicyDetailPage() {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
-                disabled={!dirty || !doc || saveMutation.isPending}
+                disabled={(!dirty && !metaDirty) || !doc || saveMutation.isPending}
                 onClick={() => saveMutation.mutate()}
               >
                 {saveMutation.isPending ? (
@@ -249,7 +273,7 @@ export function NotificationPolicyDetailPage() {
               </Button>
               {versionRow && !versionRow.isPublished ? (
                 <Button
-                  disabled={dirty || publishMutation.isPending}
+                  disabled={dirty || metaDirty || publishMutation.isPending}
                   onClick={() => publishMutation.mutate()}
                 >
                   <CheckCircle2 data-icon="inline-start" />
@@ -405,19 +429,6 @@ export function NotificationPolicyDetailPage() {
                       }}
                     />
                   </Field>
-                  {canManage ? (
-                    <Button
-                      variant="outline"
-                      className="w-fit"
-                      disabled={!metaDirty || metaMutation.isPending}
-                      onClick={() => metaMutation.mutate()}
-                    >
-                      {metaMutation.isPending ? (
-                        <Loader2 className="animate-spin" />
-                      ) : null}
-                      {t("notifications.policySaveVersion")}
-                    </Button>
-                  ) : null}
                 </FieldGroup>
               </CardContent>
             </Card>

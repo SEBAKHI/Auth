@@ -281,7 +281,9 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: "policy/:version",
+                    // Keyed by the revision's id, not its version string: the
+                    // string is editable, so a URL built on it dies on rename.
+                    path: "policy/:id",
                     element: <NotificationPolicyDetailPage />,
                     handle: crumb(
                       "notificationPolicy",

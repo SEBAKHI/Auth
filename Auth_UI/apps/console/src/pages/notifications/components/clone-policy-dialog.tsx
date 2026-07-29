@@ -67,7 +67,7 @@ export function ClonePolicyDialog({
     mutationFn: async () => {
       if (!source?.version) throw new Error("No source version")
 
-      await unwrap(
+      const created = await unwrap(
         api.POST("/api/v1/privacy-policy/versions", {
           body: {
             version: version.trim(),
@@ -80,6 +80,7 @@ export function ClonePolicyDialog({
       // Copy sequentially: a partial clone is recoverable (the languages that
       // landed are saved), and it keeps the progress counter honest.
       let done = 0
+      const createdId = created?.id
       for (const language of languages) {
         const content = await unwrap(
           api.GET("/api/v1/privacy-policy/versions/content", {
@@ -100,13 +101,13 @@ export function ClonePolicyDialog({
         done += 1
         setCopied(done)
       }
-      return done
+      return { done, createdId }
     },
-    onSuccess: (count) => {
+    onSuccess: ({ done, createdId }) => {
       void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
       onOpenChange(false)
-      toast.success(t("notifications.policyClonedToast", { count }))
-      navigate(`/notifications/policy/${version.trim()}`)
+      toast.success(t("notifications.policyClonedToast", { count: done }))
+      if (createdId) navigate(`/notifications/policy/${createdId}`)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
