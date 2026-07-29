@@ -105,6 +105,50 @@ These principles are **MUST-Follow**. Every piece of code produced MUST comply w
 
 ---
 
+#### **VI. FRONTEND_UI_PROTOCOL — shadcn/ui (بروتوكول واجهة المستخدم)**
+
+هذه المهارة إلزامية لأي عمل داخل `Auth_UI/`. الواجهة كلها مبنية على shadcn/ui، والمهارة موردة (vendored) داخل المستودع نفسه — لا تعتمد على الذاكرة أو على أنماط shadcn العامة، اقرأ الملف المعني قبل كتابة أي `.tsx`.
+
+**Skill root:** `.claude/skills/shadcn/` — entry point: [`.claude/skills/shadcn/SKILL.md`](./skills/shadcn/SKILL.md)
+Invoked with the `Skill` tool as `shadcn` (the skill is `user-invocable: false`, so there is no `/shadcn` slash command). Invoking the skill does **not** replace reading the specific rule file for the area you are touching.
+
+**متى تُقرأ (mandatory triggers):** adding/composing a component, fixing or debugging UI, form layout, icons, spacing, dark mode, RTL, chat surfaces, or reviewing any UI diff.
+
+| Path | Read it before |
+|------|----------------|
+| [`skills/shadcn/SKILL.md`](./skills/shadcn/SKILL.md) | Any UI task — principles, critical rules, component-selection table |
+| [`skills/shadcn/rules/styling.md`](./skills/shadcn/rules/styling.md) | Writing `className`, spacing, sizing, dark mode, `cn()`, z-index |
+| [`skills/shadcn/rules/forms.md`](./skills/shadcn/rules/forms.md) | Any form: `FieldGroup`/`Field`, `InputGroup`, `ToggleGroup`, validation states |
+| [`skills/shadcn/rules/composition.md`](./skills/shadcn/rules/composition.md) | Groups, overlays, Card, Tabs, Avatar, Alert, Empty, Separator, Skeleton, Badge |
+| [`skills/shadcn/rules/base-vs-radix.md`](./skills/shadcn/rules/base-vs-radix.md) | Custom triggers (`asChild` vs `render`), Select, Slider, Accordion APIs |
+| [`skills/shadcn/rules/icons.md`](./skills/shadcn/rules/icons.md) | Any icon usage — `data-icon`, no sizing classes |
+| [`skills/shadcn/rules/chat.md`](./skills/shadcn/rules/chat.md) | Conversation/messaging UI primitives |
+| [`skills/shadcn/cli.md`](./skills/shadcn/cli.md) | CLI commands, flags, presets, templates (read the CLI override below first) |
+| [`skills/shadcn/customization.md`](./skills/shadcn/customization.md) | Theming, CSS variables, extending a component |
+| [`skills/shadcn/registry.md`](./skills/shadcn/registry.md) | Authoring or consuming a registry |
+| [`skills/shadcn/mcp.md`](./skills/shadcn/mcp.md) | Reference only — no shadcn MCP server is configured in this repo |
+
+**Project bindings — الحقائق المثبتة لهذا المستودع** (source: [`Auth_UI/components.json`](../Auth_UI/components.json)):
+
+| Field | Value | Consequence |
+|-------|-------|-------------|
+| `style` | `radix-luma` | base = **radix** → use `asChild` (never `render`); toasts via `sonner`. Luma = **component-owned spacing** |
+| `iconLibrary` | `lucide` | import from `lucide-react` only |
+| `rtl` | `true` | logical CSS only (`ms-*`/`me-*`/`start`/`end`), never `ml-*`/`left-*` |
+| `aliases` | `@astoom/ui`, `@astoom/ui/utils`, `@astoom/ui/hooks` | `cn` from `@astoom/ui/utils`; never hardcode `@/components/ui/...` |
+| `tailwind.css` | `apps/console/src/index.css` | edit this file for CSS variables; never create a new global CSS file |
+| Preset | `b1tel7QNE` (supersedes `b1VlIzU8`) — see `README.md` › Stack | العرض بالكامل مملوك للـpreset — no custom colors, themes, or restyling. الاختيار الوحيد المسموح هو **أي control** يناسب الحالة |
+
+**CLI OVERRIDE — يعلو على تعليمات المهارة (verified 2026-07-29):** every project-aware `shadcn` command (`info`, `docs`, `add`, `apply`) **fails** at the `Auth_UI/` root with `Could not resolve the following aliases: components, ui, lib` — the workspace aliases point at `@astoom/ui`, which the CLI cannot map to a filesystem path. Therefore:
+
+1. **Never run `shadcn add` for this repo.** Add a component by hand: write the canonical upstream source into `Auth_UI/packages/ui/src/<name>.tsx`, adapted to house conventions (`cn` from `@astoom/ui/utils`, `data-slot`/`data-variant` attributes, `cva` variants) — mirror an existing sibling such as `badge.tsx` or `alert.tsx`. No `package.json` exports entry is needed; `@astoom/ui/<name>` resolves automatically.
+2. **Check `Auth_UI/packages/ui/src/` first** — it is the installed-component list; the skill's "injected project context" block is unavailable here.
+3. **Fetch docs directly** at `https://ui.shadcn.com/docs/components/radix/<component>` (base = `radix`) instead of `shadcn docs`. `npx shadcn@latest docs <component>` works only from a directory **outside** the workspace, and defaults to the wrong base.
+
+**قواعد غير قابلة للتفاوض (non-negotiable):** no custom colors/CSS/theme overrides; fix spacing at the component/primitive level (`FieldGroup` owns field gaps, `Field` owns label↔control gap) — never `space-y-*` / per-usage `gap-*` on a `<form>`; RTL-safe logical properties everywhere; `Dialog`/`Sheet`/`Drawer` always carry a Title.
+
+---
+
 ## Skills Index
 
 Detailed standards are maintained as skill files. **Invoke the relevant skill before starting any work in that domain.**
@@ -123,5 +167,7 @@ Detailed standards are maintained as skill files. **Invoke the relevant skill be
 | Domain-Driven Design | `/domain-driven-design` | Aggregates, entities, value objects, domain events, bounded contexts |
 | Event-Driven Architecture | `/event-driven-architecture` | Domain events, integration events, contracts, ordering, idempotency |
 | Final Review Checklist | `/final-review-checklist` | Before marking any implementation complete |
+| shadcn/ui (vendored) | `Skill` tool → `shadcn` (no slash command) | ANY work under `Auth_UI/`: adding, composing, fixing, styling, or reviewing components. See **Section VI** for the file map and the CLI override |
 
 > **Skills are located in `.claude/skills/<name>/SKILL.md`**
+> **Vendored third-party skills live in the same tree:** `.claude/skills/shadcn/` (see Section VI) and `.claude/skills/find-skills/`.
