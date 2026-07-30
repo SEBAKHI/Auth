@@ -91,6 +91,7 @@ function ValidateWebhookKeyDialog({
               id="validate-webhook-key"
               value={value}
               onChange={(e) => setValue(e.target.value)}
+              placeholder={t("webhookKeys.validatePlaceholder")}
               className="font-mono text-xs"
             />
           </Field>
@@ -408,6 +409,7 @@ export function WebhookKeysPage() {
             id="wh-revoke-reason"
             value={revokeReason}
             onChange={(e) => setRevokeReason(e.target.value)}
+            placeholder={t("apiKeys.revokeReasonPlaceholder")}
           />
         </Field>
       </ConfirmDialog>

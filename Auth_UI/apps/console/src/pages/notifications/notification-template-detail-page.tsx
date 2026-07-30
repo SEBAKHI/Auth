@@ -366,6 +366,7 @@ export function NotificationTemplateDetailPage() {
                 dir="auto"
                 value={active.subject}
                 onChange={(e) => updateActive({ subject: e.target.value })}
+                placeholder={t("notifications.subjectPlaceholder")}
                 disabled={!canManage}
               />
             </Field>
@@ -432,6 +433,7 @@ export function NotificationTemplateDetailPage() {
                 dir="auto"
                 value={changeNote}
                 onChange={(e) => setChangeNote(e.target.value)}
+                placeholder={t("notifications.changeNotePlaceholder")}
                 disabled={!canManage}
               />
             </Field>

@@ -114,6 +114,7 @@ export function CreateLayoutDialog({
             dir="auto"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            placeholder={t("notifications.layoutNamePlaceholder")}
           />
         </Field>
         <Field>

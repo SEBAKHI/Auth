@@ -235,7 +235,12 @@ function RegisterAndJoin({
                 <FormItem>
                   <FormLabel>{t("auth.invitationFirstName")}</FormLabel>
                   <FormControl>
-                    <Input autoComplete="given-name" autoFocus {...field} />
+                    <Input
+                      autoComplete="given-name"
+                      autoFocus
+                      placeholder="Sara"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -248,7 +253,11 @@ function RegisterAndJoin({
                 <FormItem>
                   <FormLabel>{t("auth.invitationLastName")}</FormLabel>
                   <FormControl>
-                    <Input autoComplete="family-name" {...field} />
+                    <Input
+                      autoComplete="family-name"
+                      placeholder="Al-Rashid"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

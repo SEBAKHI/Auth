@@ -232,6 +232,20 @@ export function NotificationPolicyDetailPage() {
     policyVersion: publishedQuery.data?.disclosure?.policyVersion ?? version,
   }
 
+  // The retention table's cells are rendered from index/key loops, so their
+  // placeholders are keyed the same way — each column and each cell of a row
+  // shows an example of the text that belongs in it.
+  const retentionColumnPlaceholders = [
+    t("notifications.policyColumnCategoryPlaceholder"),
+    t("notifications.policyColumnPeriodPlaceholder"),
+    t("notifications.policyColumnOutcomePlaceholder"),
+  ]
+  const retentionRowPlaceholders = {
+    category: t("notifications.policyRowCategoryPlaceholder"),
+    retention: t("notifications.policyRowPeriodPlaceholder"),
+    detail: t("notifications.policyRowDetailPlaceholder"),
+  }
+
   // A published or already-announced revision's identifier is referenced by
   // deletion records and by users' inboxes, so it can no longer move.
   const versionLocked = Boolean(versionRow?.isPublished || versionRow?.notifiedAtUtc)
@@ -451,6 +465,7 @@ export function NotificationPolicyDetailPage() {
                       dir="auto"
                       value={doc.title}
                       disabled={!canManage}
+                      placeholder={t("notifications.policyDocTitlePlaceholder")}
                       onChange={(e) => patch({ title: e.target.value })}
                     />
                   </Field>
@@ -463,6 +478,9 @@ export function NotificationPolicyDetailPage() {
                       dir="auto"
                       value={doc.effectiveDate}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyEffectiveLabelPlaceholder"
+                      )}
                       onChange={(e) => patch({ effectiveDate: e.target.value })}
                     />
                   </Field>
@@ -488,6 +506,9 @@ export function NotificationPolicyDetailPage() {
                       rows={2}
                       value={doc.unfilledWarning}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyDraftWarningPlaceholder"
+                      )}
                       onChange={(e) => patch({ unfilledWarning: e.target.value })}
                     />
                   </Field>
@@ -524,6 +545,9 @@ export function NotificationPolicyDetailPage() {
                       dir="auto"
                       value={doc.retention.heading}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyRetentionHeadingPlaceholder"
+                      )}
                       onChange={(e) =>
                         patch({
                           retention: { ...doc.retention, heading: e.target.value },
@@ -541,6 +565,9 @@ export function NotificationPolicyDetailPage() {
                       rows={3}
                       value={doc.retention.intro}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyRetentionIntroPlaceholder"
+                      )}
                       onChange={(e) =>
                         patch({
                           retention: { ...doc.retention, intro: e.target.value },
@@ -558,6 +585,7 @@ export function NotificationPolicyDetailPage() {
                           dir="auto"
                           value={column}
                           disabled={!canManage}
+                          placeholder={retentionColumnPlaceholders[index]}
                           onChange={(e) => {
                             const columns = [...doc.retention.columns] as [
                               string,
@@ -588,6 +616,7 @@ export function NotificationPolicyDetailPage() {
                                 rows={2}
                                 value={row[key]}
                                 disabled={!canManage}
+                                placeholder={retentionRowPlaceholders[key]}
                                 onChange={(e) => {
                                   const rows = [...doc.retention.rows]
                                   rows[index] = { ...rows[index], [key]: e.target.value }
@@ -660,6 +689,9 @@ export function NotificationPolicyDetailPage() {
                       dir="auto"
                       value={doc.deletion.heading}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyDeletionHeadingPlaceholder"
+                      )}
                       onChange={(e) =>
                         patch({
                           deletion: { ...doc.deletion, heading: e.target.value },
@@ -695,6 +727,9 @@ export function NotificationPolicyDetailPage() {
                       dir="auto"
                       value={doc.deletion.button}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyButtonLabelPlaceholder"
+                      )}
                       onChange={(e) =>
                         patch({
                           deletion: { ...doc.deletion, button: e.target.value },
@@ -711,6 +746,9 @@ export function NotificationPolicyDetailPage() {
                       dir="auto"
                       value={doc.deletion.signedInHint}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policySignedInHintPlaceholder"
+                      )}
                       onChange={(e) =>
                         patch({
                           deletion: { ...doc.deletion, signedInHint: e.target.value },
@@ -744,11 +782,23 @@ export function NotificationPolicyDetailPage() {
                 <FieldGroup>
                   {(
                     [
-                      ["contactDpoLabel", t("notifications.policyDpoLabel")],
-                      ["contactVerbisLabel", t("notifications.policyVerbisLabel")],
-                      ["contactKepLabel", t("notifications.policyKepLabel")],
+                      [
+                        "contactDpoLabel",
+                        t("notifications.policyDpoLabel"),
+                        t("notifications.policyDpoLabelPlaceholder"),
+                      ],
+                      [
+                        "contactVerbisLabel",
+                        t("notifications.policyVerbisLabel"),
+                        t("notifications.policyVerbisLabelPlaceholder"),
+                      ],
+                      [
+                        "contactKepLabel",
+                        t("notifications.policyKepLabel"),
+                        t("notifications.policyKepLabelPlaceholder"),
+                      ],
                     ] as const
-                  ).map(([key, label]) => (
+                  ).map(([key, label, placeholder]) => (
                     <Field key={key}>
                       <FieldLabel htmlFor={`doc-${key}`}>{label}</FieldLabel>
                       <Input
@@ -756,6 +806,7 @@ export function NotificationPolicyDetailPage() {
                         dir="auto"
                         value={doc[key]}
                         disabled={!canManage}
+                        placeholder={placeholder}
                         onChange={(e) => patch({ [key]: e.target.value })}
                       />
                     </Field>

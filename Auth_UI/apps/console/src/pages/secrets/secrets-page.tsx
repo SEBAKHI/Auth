@@ -133,6 +133,7 @@ function ImportDialog({
               rows={6}
               value={value}
               onChange={(e) => setValue(e.target.value)}
+              placeholder={t("secrets.importValuePlaceholder")}
               className="font-mono text-xs"
             />
           </Field>
@@ -204,6 +205,8 @@ function CustomSecretDialog({
               id="custom-secret-key"
               value={key}
               onChange={(e) => setKey(e.target.value)}
+              placeholder="Smtp:Password"
+              dir="ltr"
             />
           </Field>
           <Field>

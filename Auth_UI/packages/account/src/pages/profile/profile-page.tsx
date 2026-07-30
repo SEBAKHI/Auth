@@ -188,7 +188,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                     <FormItem>
                       <FormLabel>{t("users.displayName")}</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="Sara Al-Rashid" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

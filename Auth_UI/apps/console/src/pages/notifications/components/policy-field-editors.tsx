@@ -51,6 +51,7 @@ export function StringListEditor({
               dir="auto"
               rows={rows}
               className="flex-1"
+              placeholder={t("notifications.policyProsePlaceholder")}
               value={value}
               disabled={disabled}
               onChange={(event) => {
@@ -176,6 +177,7 @@ export function SectionListEditor({
                 dir="auto"
                 value={section.heading}
                 disabled={disabled}
+                placeholder={t("notifications.policySectionHeadingPlaceholder")}
                 onChange={(event) => update(index, { heading: event.target.value })}
               />
             </Field>

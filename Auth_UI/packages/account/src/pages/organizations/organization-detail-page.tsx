@@ -472,6 +472,8 @@ function InviteDialog({
               aria-invalid={emailInvalid}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              dir="ltr"
             />
             {emailInvalid ? (
               <FieldError>{t("validation.email")}</FieldError>
@@ -884,6 +886,8 @@ function ApplicationsTab({
                     id="enable-app-tier"
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
+                    placeholder="pro"
+                    dir="ltr"
                   />
                 )}
               </PresetField>
@@ -1009,6 +1013,8 @@ function EditOrgAppDialog({
                   id="edit-sub-tier"
                   value={value}
                   onChange={(event) => onChange(event.target.value)}
+                  placeholder="pro"
+                  dir="ltr"
                 />
               )}
             </PresetField>

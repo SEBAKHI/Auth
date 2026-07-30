@@ -118,6 +118,7 @@ export function ManageVariablesDialog({
                     dir="auto"
                     value={row.example ?? ""}
                     onChange={(e) => patch(index, { example: e.target.value })}
+                    placeholder="+966 50 000 0000"
                   />
                 </Field>
               </div>
@@ -130,6 +131,9 @@ export function ManageVariablesDialog({
                   dir="auto"
                   value={row.description ?? ""}
                   onChange={(e) => patch(index, { description: e.target.value })}
+                  placeholder={t(
+                    "notifications.variableDescriptionPlaceholder"
+                  )}
                 />
               </Field>
               <div className="flex items-center justify-between">

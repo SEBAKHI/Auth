@@ -514,6 +514,7 @@ export function UsersPage() {
             id="lock-reason"
             value={lockReason}
             onChange={(e) => setLockReason(e.target.value)}
+            placeholder={t("users.lockReasonPlaceholder")}
           />
         </Field>
       </ConfirmDialog>

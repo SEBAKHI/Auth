@@ -161,6 +161,8 @@ export function WebhookKeyCreateDialog({
                           <Input
                             value={value}
                             onChange={(event) => onChange(event.target.value)}
+                            placeholder="production"
+                            dir="ltr"
                           />
                         )}
                       </PresetField>

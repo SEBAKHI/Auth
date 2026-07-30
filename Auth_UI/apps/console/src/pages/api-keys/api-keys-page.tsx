@@ -409,6 +409,7 @@ export function ApiKeysPage() {
             id="revoke-reason"
             value={revokeReason}
             onChange={(e) => setRevokeReason(e.target.value)}
+            placeholder={t("apiKeys.revokeReasonPlaceholder")}
           />
         </Field>
       </ConfirmDialog>

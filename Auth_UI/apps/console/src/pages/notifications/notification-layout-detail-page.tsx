@@ -284,6 +284,7 @@ export function NotificationLayoutDetailPage() {
                 dir="auto"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                placeholder={t("notifications.layoutNamePlaceholder")}
                 disabled={!canManage}
               />
             </Field>
@@ -339,6 +340,7 @@ export function NotificationLayoutDetailPage() {
                     },
                   }))
                 }
+                placeholder={t("notifications.layoutFooterPlaceholder")}
                 disabled={!canManage}
               />
               <FieldDescription>

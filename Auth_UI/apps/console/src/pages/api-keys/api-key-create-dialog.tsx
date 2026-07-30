@@ -151,6 +151,8 @@ export function ApiKeyCreateDialog({
                   <Input
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
+                    placeholder="production"
+                    dir="ltr"
                   />
                 )}
               </PresetField>
