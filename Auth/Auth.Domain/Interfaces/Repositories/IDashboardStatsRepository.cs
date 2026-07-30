@@ -28,6 +28,15 @@ public interface IDashboardStatsRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets audit-event totals, the daily series, and the action and entity-type
+    /// breakdowns over the trailing window.
+    /// </summary>
+    Task<AuditStatsSnapshot> GetAuditStatsAsync(
+        int days,
+        string timeZone,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets session and refresh-token hygiene aggregates over the trailing window.
     /// </summary>
     Task<SessionStatsSnapshot> GetSessionStatsAsync(int days, CancellationToken cancellationToken);

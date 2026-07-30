@@ -1,28 +1,46 @@
 /**
- * Fixed color assignments for the dashboard, drawn from the preset chart
- * tokens (a cyan lightness ramp, preset `b1tel7QNE`). Colors follow the
- * entity across every chart: success is always the mid step, failure always
- * the darkest, so the two outcome series stay identifiable page-wide. Never
- * cycle these — fold extra categories into "Other" instead.
+ * Colour contract for the dashboard.
+ *
+ * The preset owns colour, and its `--chart-1..5` tokens are a **single-hue cyan
+ * lightness ramp** that is identical in light and dark. That is a *sequential*
+ * ramp: it encodes magnitude, not identity. Using it for nominal categories
+ * double-encodes bar length as hue, and because such lists are ordered by count
+ * the colours repaint whenever the data shifts — a reader who learned "the dark
+ * one is X" is then misled.
+ *
+ * So on this dashboard **colour never carries identity**. Nominal comparisons are
+ * sorted bars in one hue, where position carries the ranking; part-to-whole over
+ * *ordered* classes may use the ramp, because there the ramp's own order is the
+ * data's order. There is deliberately no categorical palette here, and no
+ * `PALETTE` export to cycle.
  */
 export const SERIES = {
-  /** Successful outcomes in every success/failure split. */
-  success: "var(--chart-2)",
-  /** Failed outcomes in every success/failure split. */
-  failure: "var(--chart-5)",
-  /** Single-measure bars and lines. */
+  /**
+   * Single-measure bars, lines and areas. The mid step: `--chart-1` is too light
+   * against the light surface and `--chart-5` too dark against the dark card, so
+   * the extremes of the ramp are avoided for the primary mark.
+   */
   primary: "var(--chart-2)",
-  /** Secondary single-measure charts shown near a primary one. */
-  secondary: "var(--chart-3)",
-  /** Recessive area fills (audit events backdrop). */
-  area: "var(--chart-1)",
+
+  /**
+   * Failed / rejected outcomes. Success-versus-failure is a **status** job, not a
+   * categorical one, so it uses the preset's own semantic `--destructive` rather
+   * than another step of the ramp — where failure previously read as merely "more
+   * of the same measure" instead of something wrong.
+   */
+  failure: "var(--destructive)",
 } as const
 
-/** Fixed categorical order for donut slices; callers cap slices at its length. */
-export const PALETTE = [
-  "var(--chart-1)",
+/**
+ * Ordered ramp for genuinely ordinal classes only — funnel stages, dormancy
+ * bands, an account-status share bar. Never for nominal categories.
+ */
+export const ORDINAL = [
   "var(--chart-2)",
   "var(--chart-3)",
   "var(--chart-4)",
   "var(--chart-5)",
 ] as const
+
+/** Muted step for the de-emphasised remainder of a share bar. */
+export const REMAINDER = "var(--muted)"

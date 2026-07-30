@@ -84,25 +84,6 @@ export function buildCountSeries(
   return [...byDay.values()]
 }
 
-/** Bucket raw ISO timestamps into viewer-local calendar days. */
-export function bucketDaily(
-  timestamps: Array<string | null | undefined>,
-  days: number,
-  timeZone: string,
-  endDay = todayInTimeZone(timeZone)
-): CountPoint[] {
-  const byDay = new Map<string, CountPoint>()
-  for (const key of trailingCalendarDays(days, endDay)) {
-    byDay.set(key, { day: key, count: 0 })
-  }
-  for (const ts of timestamps) {
-    if (!ts) continue
-    const point = byDay.get(calendarDayKey(ts, timeZone))
-    if (point) point.count += 1
-  }
-  return [...byDay.values()]
-}
-
 /** Monday ("yyyy-MM-dd") of the week containing a calendar-day key. */
 export function weekStartCalendar(day: string): string {
   const t = Date.parse(`${day}T00:00:00Z`)

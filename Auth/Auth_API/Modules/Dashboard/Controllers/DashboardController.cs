@@ -3,6 +3,7 @@ using Auth_API.Authorization;
 using Auth_API.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Dashboard.GetAppActivityStats;
+using Auth.Application.Features.Dashboard.GetAuditStats;
 using Auth.Application.Features.Dashboard.GetAuthStats;
 using Auth.Application.Features.Dashboard.GetSessionStats;
 using Auth.Application.Features.Dashboard.GetUserStats;
@@ -68,6 +69,32 @@ public class DashboardController : ApiController
         CancellationToken cancellationToken = default)
     {
         var result = await _sender.Send(new GetAuthStatsQuery(days, timeZone), cancellationToken);
+
+        return result.Match(
+            stats => Ok(stats),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get audit-event totals, the daily series, and the action and entity-type
+    /// breakdowns over the trailing window.
+    /// </summary>
+    /// <remarks>
+    /// Server-side aggregate over the whole table. Reading a page of audit logs and
+    /// bucketing it in the client cannot produce these numbers: a page is a sample.
+    /// </remarks>
+    [HttpGet("audit-stats")]
+    [RequirePermission("auditlogs:read")]
+    [ProducesResponseType(typeof(AuditStatsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAuditStats(
+        [FromQuery] int days = 30,
+        [FromQuery] string timeZone = "UTC",
+        CancellationToken cancellationToken = default)
+    {
+        var result = await _sender.Send(new GetAuditStatsQuery(days, timeZone), cancellationToken);
 
         return result.Match(
             stats => Ok(stats),

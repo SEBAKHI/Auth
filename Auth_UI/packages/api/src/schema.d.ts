@@ -6540,6 +6540,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/audit-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    days?: number | string;
+                    timeZone?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["AuditStatsDto"];
+                        "application/json": components["schemas"]["AuditStatsDto"];
+                        "text/json": components["schemas"]["AuditStatsDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboard/session-stats": {
         parameters: {
             query?: never;
@@ -10734,6 +10807,17 @@ export interface components {
             /** Format: date-time */
             timestamp?: string;
             correlationId?: null | string;
+        };
+        AuditStatsDto: {
+            /** Format: int32 */
+            days?: number | string;
+            /** Format: int32 */
+            totalInWindow?: number | string;
+            /** Format: int32 */
+            previousWindowTotal?: number | string;
+            eventsPerDay?: components["schemas"]["DailyCountDto"][];
+            topActions?: components["schemas"]["ReasonCountDto"][];
+            byEntityType?: components["schemas"]["ReasonCountDto"][];
         };
         AuthStatsDto: {
             /** Format: int32 */

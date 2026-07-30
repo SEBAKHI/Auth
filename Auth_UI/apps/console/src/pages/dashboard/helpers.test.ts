@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
 
 import {
-  bucketDaily,
   buildCountSeries,
   buildLoginSeries,
   calendarDayKey,
@@ -77,7 +76,7 @@ describe("buildLoginSeries", () => {
   })
 })
 
-describe("buildCountSeries / bucketDaily", () => {
+describe("buildCountSeries", () => {
   it("zero-fills and sums per day", () => {
     const series = buildCountSeries(
       [{ date: "2026-07-01T00:00:00", count: 3 }],
@@ -91,21 +90,20 @@ describe("buildCountSeries / bucketDaily", () => {
     ])
   })
 
-  it("buckets raw timestamps into the selected local days", () => {
-    const series = bucketDaily(
+  it("ignores server buckets that fall outside the window", () => {
+    const series = buildCountSeries(
       [
-        "2026-07-01T05:00:00Z",
-        "2026-07-01T23:00:00Z",
-        null,
-        "2026-06-30T12:00:00Z",
+        { date: "2026-07-01T00:00:00", count: 3 },
+        // Older than the two-day window: must not appear or be folded in.
+        { date: "2026-06-20T00:00:00", count: 99 },
       ],
       2,
       "Europe/Istanbul",
       "2026-07-01"
     )
     expect(series).toEqual([
-      { day: "2026-06-30", count: 1 },
-      { day: "2026-07-01", count: 1 },
+      { day: "2026-06-30", count: 0 },
+      { day: "2026-07-01", count: 3 },
     ])
   })
 })

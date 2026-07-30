@@ -17,7 +17,7 @@ import {
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { formatDate, formatDateTime } from "@astoom/ui/format"
 import { Skeleton } from "@astoom/ui/skeleton"
-import { StatCard } from "@/pages/dashboard/stat-card"
+import { StatTile } from "@/pages/dashboard/stat-tile"
 import { NotificationsTabs } from "./components/notifications-tabs"
 
 /**
@@ -55,7 +55,7 @@ export function NotificationsOverviewPage() {
       <NotificationsTabs />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard
+        <StatTile
           title={t("notifications.tabPolicy")}
           value={publishedPolicy?.version ?? "—"}
           icon={ShieldCheck}
@@ -64,7 +64,7 @@ export function NotificationsOverviewPage() {
             count: (publishedPolicy?.languages ?? []).length,
           })}
         />
-        <StatCard
+        <StatTile
           title={t("notifications.tabTemplates")}
           value={summary?.templates?.total}
           icon={FileText}
@@ -74,7 +74,7 @@ export function NotificationsOverviewPage() {
             drafts: summary?.templates?.drafts ?? 0,
           })}
         />
-        <StatCard
+        <StatTile
           title={t("notifications.tabLayouts")}
           value={summary?.layouts?.total}
           icon={Layers}
@@ -83,7 +83,7 @@ export function NotificationsOverviewPage() {
             published: summary?.layouts?.published ?? 0,
           })}
         />
-        <StatCard
+        <StatTile
           title={t("notifications.overviewSent")}
           value={summary?.outbox?.sent}
           icon={MailCheck}
@@ -92,7 +92,7 @@ export function NotificationsOverviewPage() {
             count: summary?.outbox?.last24Hours ?? 0,
           })}
         />
-        <StatCard
+        <StatTile
           title={t("notifications.overviewFailed")}
           value={summary?.outbox?.failed}
           icon={MailWarning}

@@ -19,7 +19,7 @@ import {
 } from "@astoom/ui/table"
 import type { Schemas } from "@astoom/api/types"
 
-import { ChartEmpty } from "./chart-empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
 import { daysUntil } from "./helpers"
 
 type Enablement = Schemas["OrganizationApplicationEnablementDto"]
@@ -63,7 +63,11 @@ export function EnablementMatrixCard({
         {loading ? (
           <Skeleton className="h-[180px] w-full" />
         ) : data.length === 0 ? (
-          <ChartEmpty />
+          <Empty className="py-8">
+            <EmptyHeader>
+              <EmptyTitle>{t("dashboard.noData")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <Table>

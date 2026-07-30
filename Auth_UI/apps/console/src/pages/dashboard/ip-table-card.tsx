@@ -19,7 +19,7 @@ import {
 import { toNumber } from "@astoom/api/helpers"
 import type { Schemas } from "@astoom/api/types"
 
-import { ChartEmpty } from "./chart-empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
 
 type IpFailure = Schemas["IpFailureCountDto"]
 
@@ -45,7 +45,11 @@ export function IpTableCard({
         {loading ? (
           <Skeleton className="h-[180px] w-full" />
         ) : data.length === 0 ? (
-          <ChartEmpty />
+          <Empty className="py-8">
+            <EmptyHeader>
+              <EmptyTitle>{t("dashboard.noData")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <Table>
