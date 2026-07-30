@@ -16,15 +16,18 @@ import {
   DialogTitle,
 } from "@astoom/ui/dialog"
 import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
+import { PresetField } from "@astoom/ui/common/preset-field"
 import { FieldGroup } from "@astoom/ui/field"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@astoom/ui/form"
+import { ENVIRONMENTS } from "@/lib/presets"
 import { Button } from "@astoom/ui/button"
 import { Input } from "@astoom/ui/input"
 import { api } from "@astoom/api/client"
@@ -145,8 +148,22 @@ export function WebhookKeyCreateDialog({
                   <FormItem>
                     <FormLabel>{t("webhookKeys.environment")}</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <PresetField
+                        presets={ENVIRONMENTS}
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                      >
+                        {({ value, onChange }) => (
+                          <Input
+                            value={value}
+                            onChange={(event) => onChange(event.target.value)}
+                          />
+                        )}
+                      </PresetField>
                     </FormControl>
+                    <FormDescription>
+                      {t("webhookKeys.environmentHint")}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

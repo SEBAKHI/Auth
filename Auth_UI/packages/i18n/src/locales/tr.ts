@@ -97,6 +97,11 @@ export const tr: TranslationResources = {
     clear: "Temizle",
     selectDate: "Tarih seçin",
     custom: "Özel",
+    minutesShort: "{{count}} dk",
+    hoursShort: "{{count}} sa",
+    daysShort: "{{count}} gün",
+    off: "Kapalı",
+    immediate: "Hemen",
     selectDateRange: "Tarih aralığı seçin",
     discard: "Vazgeç",
     discardTitle: "Değişiklikler silinsin mi?",
@@ -500,6 +505,26 @@ export const tr: TranslationResources = {
       "İsteğe bağlı adım yükseltme. Kullanıcının SSO oturumu bundan eskiyse yeniden oturum açmayı zorunlu kılar. Devre dışı bırakmak için boş bırakın.",
     enabledAt: "Etkinleştirilme",
     subscriptionTier: "Abonelik katmanı",
+    codeHint:
+      "Belirteçlerde ve API çağrılarında kullanılan kalıcı kimlik. Oluşturulduktan sonra değiştirilemez.",
+    nameHint: "Oturum açma ekranlarında ve konsolda kullanıcılara gösterilir.",
+    descriptionHint: "Ekibiniz için dahili not. Kullanıcılar görmez.",
+    baseUrlHint:
+      "Uygulamanın kendi adresi; ona dönen bağlantıları oluşturmak için kullanılır.",
+    logoUrlHint:
+      "Bu uygulamanın oturum açma ekranında gösterilen herkese açık görsel URL'si.",
+    contactEmailHint:
+      "Bu uygulamayla ilgili yardım için kullanıcılara gösterilen adres.",
+    sessionTimeoutHint:
+      "Oturumun herhangi bir etkinlik olmadan ne kadar geçerli kalacağı.",
+    maxSessionsHint:
+      "Bir kullanıcının aynı anda kaç cihazda oturumda kalabileceği.",
+    allowSelfRegistrationHint:
+      "Herkesin bu uygulama için kendi hesabını oluşturmasına izin ver.",
+    requireTwoFactorHint:
+      "Her kullanıcı oturum açmak için ikinci bir doğrulama adımını geçmelidir.",
+    requireEmailVerificationHint:
+      "Kullanıcılar oturum açmadan önce e-posta adreslerini onaylamalıdır.",
     roles: "Roller",
     permissions: "İzinler",
     deleteTitle: "Uygulamayı sil",
@@ -517,6 +542,17 @@ export const tr: TranslationResources = {
     editTitle: "Organizasyonu düzenle",
     contactEmail: "İletişim e-postası",
     website: "Web sitesi",
+    logoUrl: "Logo URL'si",
+    codeHint:
+      "Bu kuruluş için kalıcı kimlik. Oluşturulduktan sonra değiştirilemez.",
+    nameHint: "Kuruluşun üyelerine gösterilen görünen adı.",
+    contactEmailHint: "Bu kuruluşla ilgili bildirimler için ana adres.",
+    websiteHint: "Kuruluşun herkese açık web sitesi.",
+    logoUrlHint:
+      "Kuruluş adının yanında gösterilen herkese açık görsel URL'si.",
+    descriptionHint: "Bu kuruluş hakkında dahili not.",
+    isActiveHint:
+      "Bunu kapatmak, üyelerin bu kuruluşun uygulamalarına girmesini engeller.",
     owner: "Sahip",
     members: "Üyeler",
     invitations: "Davetler",
@@ -585,8 +621,13 @@ export const tr: TranslationResources = {
     createTitle: "API anahtarı oluştur",
     keyPrefix: "Anahtar öneki",
     environment: "Ortam",
+    environmentHint:
+      "Bu anahtarın hangi ortama ait olduğu; anahtarları ayırt etmeyi kolaylaştırır.",
     rateLimitPerMinute: "Hız sınırı / dakika",
     rateLimitPerDay: "Hız sınırı / gün",
+    rateLimitPerMinuteHint:
+      "Bu anahtarın bir dakika içinde yapabileceği istek sayısı.",
+    rateLimitPerDayHint: "Bu anahtarın bir günde yapabileceği istek sayısı.",
     scopes: "Kapsamlar",
     revoke: "İptal et",
     rotate: "Yenile",
@@ -598,6 +639,8 @@ export const tr: TranslationResources = {
     rotateBody:
       "Yeni bir anahtar düzenlenir; eski anahtar ek süre sonunda sona erer.",
     gracePeriod: "Ek süre (dakika)",
+    gracePeriodHint:
+      "Döndürmeden sonra eski anahtarın ne kadar çalışmaya devam edeceği.",
     secretOnceTitle: "API anahtarınızı şimdi kopyalayın",
     secretOnceBody:
       "Anahtarın tamamı yalnızca bu kez gösterilir. Güvenle saklayın.",
@@ -615,6 +658,8 @@ export const tr: TranslationResources = {
     targetUrl: "Hedef URL",
     keyPrefix: "Anahtar öneki",
     environment: "Ortam",
+    environmentHint:
+      "Bu anahtarın hangi ortama ait olduğu; anahtarları ayırt etmeyi kolaylaştırır.",
     revoke: "İptal et",
     rotate: "Yenile",
     validate: "Doğrula",
@@ -625,6 +670,8 @@ export const tr: TranslationResources = {
     rotateBody:
       "Yeni bir anahtar düzenlenir; eski anahtar ek süre sonunda sona erer.",
     gracePeriod: "Ek süre (dakika)",
+    gracePeriodHint:
+      "Döndürmeden sonra eski anahtarın ne kadar çalışmaya devam edeceği.",
     secretOnceTitle: "Webhook anahtarınızı şimdi kopyalayın",
     secretOnceBody:
       "Anahtarın tamamı yalnızca bu kez gösterilir. Güvenle saklayın.",
@@ -804,6 +851,8 @@ export const tr: TranslationResources = {
     policySubtitle:
       "Politika revizyonlarını izleyin ve önemli değişiklikleri kullanıcılara bildirin.",
     policyVersion: "Sürüm",
+    policyVersionYear: "Yıl",
+    policyVersionMonth: "Ay",
     policyEffective: "Yürürlük tarihi",
     policyNotifiedAt: "Bildirim tarihi",
     policyRecipients: "Alıcılar",

@@ -7,8 +7,10 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { FormDialog } from "@astoom/ui/common/form-dialog"
+import { FieldContent } from "@astoom/ui/field"
 import {
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -144,6 +146,7 @@ export function OrganizationFormDialog({
               <FormControl>
                 <Input {...field} />
               </FormControl>
+              <FormDescription>{t("organizations.codeHint")}</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -158,6 +161,7 @@ export function OrganizationFormDialog({
             <FormControl>
               <Input {...field} />
             </FormControl>
+            <FormDescription>{t("organizations.nameHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -171,6 +175,9 @@ export function OrganizationFormDialog({
             <FormControl>
               <Input type="email" {...field} />
             </FormControl>
+            <FormDescription>
+              {t("organizations.contactEmailHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -184,6 +191,7 @@ export function OrganizationFormDialog({
             <FormControl>
               <Input {...field} />
             </FormControl>
+            <FormDescription>{t("organizations.websiteHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -193,10 +201,11 @@ export function OrganizationFormDialog({
         name="logoUrl"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>{t("applications.logoUrl")}</FormLabel>
+            <FormLabel>{t("organizations.logoUrl")}</FormLabel>
             <FormControl>
               <Input {...field} />
             </FormControl>
+            <FormDescription>{t("organizations.logoUrlHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -210,6 +219,9 @@ export function OrganizationFormDialog({
             <FormControl>
               <Textarea rows={2} {...field} />
             </FormControl>
+            <FormDescription>
+              {t("organizations.descriptionHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -219,13 +231,15 @@ export function OrganizationFormDialog({
           control={form.control}
           name="isActive"
           render={({ field }) => (
-            <FormItem
-              orientation="horizontal"
-              className="rounded-lg border p-3"
-            >
-              <FormLabel className="font-normal">
-                {t("common.active")}
-              </FormLabel>
+            <FormItem orientation="horizontal">
+              <FieldContent>
+                <FormLabel className="font-normal">
+                  {t("common.active")}
+                </FormLabel>
+                <FormDescription>
+                  {t("organizations.isActiveHint")}
+                </FormDescription>
+              </FieldContent>
               <FormControl>
                 <Switch
                   checked={field.value}

@@ -26,8 +26,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { PresetField } from "@astoom/ui/common/preset-field"
+import { Field, FieldDescription, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
 import { Label } from "@astoom/ui/label"
+import { toGracePeriod, useGracePeriodPresets } from "@/lib/presets"
 import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
@@ -122,6 +125,7 @@ export function WebhookKeysPage() {
   const [revokeReason, setRevokeReason] = React.useState("")
   const [rotateKey, setRotateKey] = React.useState<WebhookKeyDto | undefined>()
   const [grace, setGrace] = React.useState("60")
+  const gracePresets = useGracePeriodPresets()
 
   const canCreate = hasPermission(PERMISSIONS.webhookKeys.create)
   const canRevoke = hasPermission(PERMISSIONS.webhookKeys.revoke)
@@ -401,20 +405,27 @@ export function WebhookKeysPage() {
           rotateKey?.id &&
           rotateMutation.mutate({
             id: rotateKey.id,
-            gracePeriodMinutes: Number(grace) || 60,
+            gracePeriodMinutes: toGracePeriod(grace),
           })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="wh-grace">{t("webhookKeys.gracePeriod")}</Label>
-          <Input
-            id="wh-grace"
-            type="number"
-            min={0}
-            value={grace}
-            onChange={(e) => setGrace(e.target.value)}
-          />
-        </div>
+        <Field>
+          <FieldLabel htmlFor="wh-grace">
+            {t("webhookKeys.gracePeriod")}
+          </FieldLabel>
+          <PresetField presets={gracePresets} value={grace} onChange={setGrace}>
+            {({ value, onChange }) => (
+              <Input
+                id="wh-grace"
+                type="number"
+                min={0}
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+              />
+            )}
+          </PresetField>
+          <FieldDescription>{t("webhookKeys.gracePeriodHint")}</FieldDescription>
+        </Field>
       </ConfirmDialog>
     </div>
   )

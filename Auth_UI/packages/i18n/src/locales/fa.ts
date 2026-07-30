@@ -97,6 +97,11 @@ export const fa: TranslationResources = {
     clear: "پاک کردن",
     selectDate: "تاریخ را انتخاب کنید",
     custom: "سفارشی",
+    minutesShort: "{{count}} دقیقه",
+    hoursShort: "{{count}} ساعت",
+    daysShort: "{{count}} روز",
+    off: "خاموش",
+    immediate: "فوری",
     selectDateRange: "بازه تاریخ را انتخاب کنید",
     discard: "صرف‌نظر",
     discardTitle: "از تغییرات صرف‌نظر شود؟",
@@ -497,6 +502,23 @@ export const fa: TranslationResources = {
       "تقویت اختیاری. وقتی نشست SSO کاربر از این مقدار قدیمی‌تر باشد، ورود مجدد را الزامی می‌کند. برای غیرفعال‌سازی خالی بگذارید.",
     enabledAt: "فعال‌شده در",
     subscriptionTier: "سطح اشتراک",
+    codeHint:
+      "شناسه دائمی که در توکن‌ها و فراخوانی‌های API استفاده می‌شود. پس از ایجاد قابل تغییر نیست.",
+    nameHint: "در صفحه‌های ورود و در کنسول به کاربران نشان داده می‌شود.",
+    descriptionHint: "یادداشت داخلی برای تیم شما. کاربران آن را نمی‌بینند.",
+    baseUrlHint:
+      "نشانی خودِ برنامه، که برای ساختن پیوندهای بازگشت به آن استفاده می‌شود.",
+    logoUrlHint:
+      "نشانی تصویر عمومی که در صفحه ورود این برنامه نشان داده می‌شود.",
+    contactEmailHint:
+      "نشانی‌ای که کاربران برای دریافت کمک درباره این برنامه به آن ارجاع می‌شوند.",
+    sessionTimeoutHint: "مدتی که نشست بدون هیچ فعالیتی معتبر می‌ماند.",
+    maxSessionsHint: "یک کاربر همزمان روی چند دستگاه می‌تواند وارد بماند.",
+    allowSelfRegistrationHint:
+      "به هر کسی اجازه دهید برای این برنامه حساب خود را بسازد.",
+    requireTwoFactorHint: "هر کاربر برای ورود باید مرحله تأیید دوم را بگذراند.",
+    requireEmailVerificationHint:
+      "کاربران باید پیش از ورود نشانی ایمیل خود را تأیید کنند.",
     roles: "نقش‌ها",
     permissions: "مجوزها",
     deleteTitle: "حذف برنامه",
@@ -514,6 +536,15 @@ export const fa: TranslationResources = {
     editTitle: "ویرایش سازمان",
     contactEmail: "ایمیل تماس",
     website: "وب‌سایت",
+    logoUrl: "نشانی نشان",
+    codeHint: "شناسه دائمی این سازمان. پس از ایجاد قابل تغییر نیست.",
+    nameHint: "نام نمایشی سازمان، که اعضای آن می‌بینند.",
+    contactEmailHint: "نشانی اصلی برای اطلاعیه‌های مربوط به این سازمان.",
+    websiteHint: "وب‌گاه عمومی سازمان.",
+    logoUrlHint: "نشانی تصویر عمومی که در کنار نام سازمان نشان داده می‌شود.",
+    descriptionHint: "یادداشت داخلی درباره این سازمان.",
+    isActiveHint:
+      "خاموش کردن آن مانع ورود اعضا به برنامه‌های این سازمان می‌شود.",
     owner: "مالک",
     members: "اعضا",
     invitations: "دعوت‌نامه‌ها",
@@ -581,8 +612,12 @@ export const fa: TranslationResources = {
     createTitle: "ایجاد کلید API",
     keyPrefix: "پیشوند کلید",
     environment: "محیط",
+    environmentHint:
+      "این کلید به کدام استقرار تعلق دارد، تا تشخیص کلیدها ساده باشد.",
     rateLimitPerMinute: "محدودیت نرخ / دقیقه",
     rateLimitPerDay: "محدودیت نرخ / روز",
+    rateLimitPerMinuteHint: "تعداد درخواست‌های این کلید در هر یک دقیقه.",
+    rateLimitPerDayHint: "تعداد درخواست‌های این کلید در یک روز.",
     scopes: "دامنه‌ها",
     revoke: "ابطال",
     rotate: "چرخش",
@@ -595,6 +630,8 @@ export const fa: TranslationResources = {
     rotateBody:
       "کلید جدیدی صادر می‌شود؛ کلید قدیمی پس از مهلت تعیین‌شده منقضی می‌گردد.",
     gracePeriod: "مهلت (دقیقه)",
+    gracePeriodHint:
+      "مدتی که کلید قدیمی پس از چرخش کار می‌کند تا فراخوانان جابه‌جا شوند.",
     secretOnceTitle: "کلید API خود را همین حالا کپی کنید",
     secretOnceBody:
       "کلید کامل فقط همین یک بار نمایش داده می‌شود. آن را در جای امن نگه دارید.",
@@ -612,6 +649,8 @@ export const fa: TranslationResources = {
     targetUrl: "نشانی هدف",
     keyPrefix: "پیشوند کلید",
     environment: "محیط",
+    environmentHint:
+      "این کلید به کدام استقرار تعلق دارد، تا تشخیص کلیدها ساده باشد.",
     revoke: "ابطال",
     rotate: "چرخش",
     validate: "اعتبارسنجی",
@@ -622,6 +661,8 @@ export const fa: TranslationResources = {
     rotateBody:
       "کلید جدیدی صادر می‌شود؛ کلید قدیمی پس از مهلت تعیین‌شده منقضی می‌گردد.",
     gracePeriod: "مهلت (دقیقه)",
+    gracePeriodHint:
+      "مدتی که کلید قدیمی پس از چرخش کار می‌کند تا فراخوانان جابه‌جا شوند.",
     secretOnceTitle: "کلید webhook خود را همین حالا کپی کنید",
     secretOnceBody:
       "کلید کامل فقط همین یک بار نمایش داده می‌شود. آن را در جای امن نگه دارید.",
@@ -800,6 +841,8 @@ export const fa: TranslationResources = {
     policySubtitle:
       "بازنگری‌های سیاست را دنبال کنید و تغییرات اساسی را به کاربران اطلاع دهید.",
     policyVersion: "نسخه",
+    policyVersionYear: "سال",
+    policyVersionMonth: "ماه",
     policyEffective: "تاریخ اجرا",
     policyNotifiedAt: "تاریخ اطلاع‌رسانی",
     policyRecipients: "گیرندگان",

@@ -27,11 +27,11 @@ import {
 import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { formatDate, formatDateTime } from "@astoom/ui/format"
-import { Input } from "@astoom/ui/input"
 import { Textarea } from "@astoom/ui/textarea"
 import { PERMISSIONS } from "@/lib/constants"
 import { ClonePolicyDialog } from "./components/clone-policy-dialog"
 import { NotificationsTabs } from "./components/notifications-tabs"
+import { PolicyVersionField } from "./components/policy-version-field"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
 
@@ -298,12 +298,10 @@ export function NotificationPolicyPage() {
               <FieldLabel htmlFor="policy-version">
                 {t("notifications.policyVersion")}
               </FieldLabel>
-              <Input
+              <PolicyVersionField
                 id="policy-version"
-                dir="ltr"
-                placeholder="2026.09"
                 value={newVersion}
-                onChange={(event) => setNewVersion(event.target.value)}
+                onChange={setNewVersion}
               />
             </Field>
             <Field>

@@ -19,8 +19,8 @@ import {
   DialogTitle,
 } from "@astoom/ui/dialog"
 import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
+import { PolicyVersionField } from "./policy-version-field"
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
 import { Textarea } from "@astoom/ui/textarea"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
@@ -137,13 +137,11 @@ export function ClonePolicyDialog({
             <FieldLabel htmlFor="clone-version">
               {t("notifications.policyVersion")}
             </FieldLabel>
-            <Input
+            <PolicyVersionField
               id="clone-version"
-              dir="ltr"
-              placeholder="2026.09"
               value={version}
               disabled={cloneMutation.isPending}
-              onChange={(event) => setVersion(event.target.value)}
+              onChange={setVersion}
             />
           </Field>
           <Field>

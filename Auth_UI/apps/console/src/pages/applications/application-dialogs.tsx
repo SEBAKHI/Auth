@@ -7,6 +7,8 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { FormDialog } from "@astoom/ui/common/form-dialog"
+import { PresetField } from "@astoom/ui/common/preset-field"
+import { FieldContent } from "@astoom/ui/field"
 import {
   FormControl,
   FormDescription,
@@ -38,19 +40,68 @@ type ToggleName =
   | "requireTwoFactor"
   | "requireEmailVerification"
 
-function useToggles(): { name: ToggleName; label: string }[] {
+function useToggles(): { name: ToggleName; label: string; hint: string }[] {
   const { t } = useTranslation()
   return [
     {
       name: "allowSelfRegistration",
       label: t("applications.allowSelfRegistration"),
+      hint: t("applications.allowSelfRegistrationHint"),
     },
-    { name: "requireTwoFactor", label: t("applications.requireTwoFactor") },
+    {
+      name: "requireTwoFactor",
+      label: t("applications.requireTwoFactor"),
+      hint: t("applications.requireTwoFactorHint"),
+    },
     {
       name: "requireEmailVerification",
       label: t("applications.requireEmailVerification"),
+      hint: t("applications.requireEmailVerificationHint"),
     },
   ]
+}
+
+/**
+ * Preset choices for the three numeric session settings, so the common cases are
+ * one click and nobody has to reason in raw minutes.
+ *
+ * Shared by the create and edit dialogs, which is the point: the two forms
+ * previously duplicated every field definition and could drift apart.
+ *
+ * Bounds mirror the server. `SessionTimeoutMinutes` and `MaxConcurrentSessions`
+ * are `GreaterThan(0)`, so neither offers an "unlimited" choice — it would be
+ * rejected. `ReauthenticationMaxAgeMinutes` is null-or-1..10080, so its "off"
+ * choice is the empty string and its largest preset is exactly the 10080 cap.
+ */
+function useSessionPresets() {
+  const { t } = useTranslation()
+  const minutes = (count: number) => t("common.minutesShort", { count })
+  const hours = (count: number) => t("common.hoursShort", { count })
+  const days = (count: number) => t("common.daysShort", { count })
+
+  return {
+    sessionTimeout: [
+      { value: "15", label: minutes(15) },
+      { value: "30", label: minutes(30) },
+      { value: "60", label: hours(1) },
+      { value: "480", label: hours(8) },
+      { value: "1440", label: hours(24) },
+    ],
+    maxSessions: [
+      { value: "1", label: "1" },
+      { value: "3", label: "3" },
+      { value: "5", label: "5" },
+      { value: "10", label: "10" },
+      { value: "25", label: "25" },
+    ],
+    reauthMaxAge: [
+      { value: "", label: t("common.off") },
+      { value: "15", label: minutes(15) },
+      { value: "60", label: hours(1) },
+      { value: "1440", label: hours(24) },
+      { value: "10080", label: days(7) },
+    ],
+  }
 }
 
 /** Create dialog — full application configuration. */
@@ -64,6 +115,7 @@ export function ApplicationCreateDialog({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const toggles = useToggles()
+  const presets = useSessionPresets()
 
   const schema = z.object({
     code: z.string().min(1, t("validation.required")),
@@ -154,6 +206,7 @@ export function ApplicationCreateDialog({
             <FormControl>
               <Input {...field} />
             </FormControl>
+            <FormDescription>{t("applications.codeHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -167,6 +220,7 @@ export function ApplicationCreateDialog({
             <FormControl>
               <Input {...field} />
             </FormControl>
+            <FormDescription>{t("applications.nameHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -180,6 +234,9 @@ export function ApplicationCreateDialog({
             <FormControl>
               <Textarea rows={2} {...field} />
             </FormControl>
+            <FormDescription>
+              {t("applications.descriptionHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -193,6 +250,7 @@ export function ApplicationCreateDialog({
             <FormControl>
               <Input {...field} />
             </FormControl>
+            <FormDescription>{t("applications.baseUrlHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -206,6 +264,7 @@ export function ApplicationCreateDialog({
             <FormControl>
               <Input {...field} />
             </FormControl>
+            <FormDescription>{t("applications.logoUrlHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -219,6 +278,9 @@ export function ApplicationCreateDialog({
             <FormControl>
               <Input type="email" {...field} />
             </FormControl>
+            <FormDescription>
+              {t("applications.contactEmailHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -230,8 +292,24 @@ export function ApplicationCreateDialog({
           <FormItem>
             <FormLabel>{t("applications.sessionTimeout")}</FormLabel>
             <FormControl>
-              <Input type="number" min={1} {...field} />
+              <PresetField
+                presets={presets.sessionTimeout}
+                value={field.value}
+                onChange={field.onChange}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                )}
+              </PresetField>
             </FormControl>
+            <FormDescription>
+              {t("applications.sessionTimeoutHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -243,8 +321,24 @@ export function ApplicationCreateDialog({
           <FormItem>
             <FormLabel>{t("applications.maxSessions")}</FormLabel>
             <FormControl>
-              <Input type="number" min={1} {...field} />
+              <PresetField
+                presets={presets.maxSessions}
+                value={field.value}
+                onChange={field.onChange}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                )}
+              </PresetField>
             </FormControl>
+            <FormDescription>
+              {t("applications.maxSessionsHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -256,7 +350,21 @@ export function ApplicationCreateDialog({
           <FormItem>
             <FormLabel>{t("applications.reauthMaxAge")}</FormLabel>
             <FormControl>
-              <Input type="number" min={1} max={10080} {...field} />
+              <PresetField
+                presets={presets.reauthMaxAge}
+                value={field.value ?? ""}
+                onChange={field.onChange}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10080}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                )}
+              </PresetField>
             </FormControl>
             <FormDescription>
               {t("applications.reauthMaxAgeHint")}
@@ -271,8 +379,11 @@ export function ApplicationCreateDialog({
           control={form.control}
           name={item.name}
           render={({ field }) => (
-            <FormItem orientation="horizontal" className="rounded-lg border p-3">
-              <FormLabel className="font-normal">{item.label}</FormLabel>
+            <FormItem orientation="horizontal">
+              <FieldContent>
+                <FormLabel className="font-normal">{item.label}</FormLabel>
+                <FormDescription>{item.hint}</FormDescription>
+              </FieldContent>
               <FormControl>
                 <Switch
                   checked={field.value}
@@ -303,6 +414,7 @@ export function ApplicationEditDialog({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const toggles = useToggles()
+  const presets = useSessionPresets()
 
   const schema = z.object({
     name: z.string().min(1, t("validation.required")),
@@ -414,6 +526,7 @@ export function ApplicationEditDialog({
             <FormControl>
               <Input {...field} />
             </FormControl>
+            <FormDescription>{t("applications.nameHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -427,6 +540,9 @@ export function ApplicationEditDialog({
             <FormControl>
               <Textarea rows={2} {...field} />
             </FormControl>
+            <FormDescription>
+              {t("applications.descriptionHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -440,6 +556,7 @@ export function ApplicationEditDialog({
             <FormControl>
               <Input {...field} />
             </FormControl>
+            <FormDescription>{t("applications.baseUrlHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -453,6 +570,7 @@ export function ApplicationEditDialog({
             <FormControl>
               <Input {...field} />
             </FormControl>
+            <FormDescription>{t("applications.logoUrlHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -466,6 +584,9 @@ export function ApplicationEditDialog({
             <FormControl>
               <Input type="email" {...field} />
             </FormControl>
+            <FormDescription>
+              {t("applications.contactEmailHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -479,7 +600,9 @@ export function ApplicationEditDialog({
             <FormControl>
               <Textarea rows={3} {...field} />
             </FormControl>
-            <FormDescription>{t("applications.redirectUrisHint")}</FormDescription>
+            <FormDescription>
+              {t("applications.redirectUrisHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -491,8 +614,24 @@ export function ApplicationEditDialog({
           <FormItem>
             <FormLabel>{t("applications.sessionTimeout")}</FormLabel>
             <FormControl>
-              <Input type="number" min={1} {...field} />
+              <PresetField
+                presets={presets.sessionTimeout}
+                value={field.value}
+                onChange={field.onChange}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                )}
+              </PresetField>
             </FormControl>
+            <FormDescription>
+              {t("applications.sessionTimeoutHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -504,8 +643,24 @@ export function ApplicationEditDialog({
           <FormItem>
             <FormLabel>{t("applications.maxSessions")}</FormLabel>
             <FormControl>
-              <Input type="number" min={1} {...field} />
+              <PresetField
+                presets={presets.maxSessions}
+                value={field.value}
+                onChange={field.onChange}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                )}
+              </PresetField>
             </FormControl>
+            <FormDescription>
+              {t("applications.maxSessionsHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -517,7 +672,21 @@ export function ApplicationEditDialog({
           <FormItem>
             <FormLabel>{t("applications.reauthMaxAge")}</FormLabel>
             <FormControl>
-              <Input type="number" min={1} max={10080} {...field} />
+              <PresetField
+                presets={presets.reauthMaxAge}
+                value={field.value ?? ""}
+                onChange={field.onChange}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    max={10080}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                )}
+              </PresetField>
             </FormControl>
             <FormDescription>
               {t("applications.reauthMaxAgeHint")}
@@ -532,8 +701,11 @@ export function ApplicationEditDialog({
           control={form.control}
           name={item.name}
           render={({ field }) => (
-            <FormItem orientation="horizontal" className="rounded-lg border p-3">
-              <FormLabel className="font-normal">{item.label}</FormLabel>
+            <FormItem orientation="horizontal">
+              <FieldContent>
+                <FormLabel className="font-normal">{item.label}</FormLabel>
+                <FormDescription>{item.hint}</FormDescription>
+              </FieldContent>
               <FormControl>
                 <Switch
                   checked={field.value}

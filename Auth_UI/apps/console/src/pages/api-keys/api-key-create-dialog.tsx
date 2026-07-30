@@ -8,8 +8,11 @@ import { z } from "zod"
 
 import { FormDialog } from "@astoom/ui/common/form-dialog"
 import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
+import { PresetField } from "@astoom/ui/common/preset-field"
+import { ENVIRONMENTS, RATE_PER_DAY, RATE_PER_MINUTE } from "@/lib/presets"
 import {
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -23,11 +26,19 @@ function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
 }
 
-function toIntOrNull(value: string | undefined): number | null {
-  if (!value || value.trim().length === 0) return null
+/**
+ * `RateLimitPerMinute`/`RateLimitPerDay` are non-nullable `int` on the server,
+ * validated `GreaterThan(0)`. Fall back to the server's own defaults rather than
+ * sending null, which is what the previous blank-by-default form did — a create
+ * with untouched rate limits was rejected.
+ */
+function toIntOr(value: string | undefined, fallback: number): number {
   const parsed = Number(value)
-  return Number.isFinite(parsed) ? parsed : null
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
+
+const DEFAULT_RATE_PER_MINUTE = 60
+const DEFAULT_RATE_PER_DAY = 10000
 
 export function ApiKeyCreateDialog({
   open,
@@ -59,8 +70,8 @@ export function ApiKeyCreateDialog({
       name: "",
       environment: "production",
       description: "",
-      rateLimitPerMinute: "",
-      rateLimitPerDay: "",
+      rateLimitPerMinute: String(DEFAULT_RATE_PER_MINUTE),
+      rateLimitPerDay: String(DEFAULT_RATE_PER_DAY),
       expiresAt: "",
     },
   })
@@ -77,8 +88,11 @@ export function ApiKeyCreateDialog({
           name: values.name,
           description: emptyToNull(values.description),
           environment: emptyToNull(values.environment),
-          rateLimitPerMinute: toIntOrNull(values.rateLimitPerMinute),
-          rateLimitPerDay: toIntOrNull(values.rateLimitPerDay),
+          rateLimitPerMinute: toIntOr(
+            values.rateLimitPerMinute,
+            DEFAULT_RATE_PER_MINUTE
+          ),
+          rateLimitPerDay: toIntOr(values.rateLimitPerDay, DEFAULT_RATE_PER_DAY),
           expiresAt: values.expiresAt
             ? new Date(values.expiresAt).toISOString()
             : null,
@@ -128,8 +142,20 @@ export function ApiKeyCreateDialog({
           <FormItem>
             <FormLabel>{t("apiKeys.environment")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <PresetField
+                presets={ENVIRONMENTS}
+                value={field.value ?? ""}
+                onChange={field.onChange}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                )}
+              </PresetField>
             </FormControl>
+            <FormDescription>{t("apiKeys.environmentHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -154,8 +180,24 @@ export function ApiKeyCreateDialog({
           <FormItem>
             <FormLabel>{t("apiKeys.rateLimitPerMinute")}</FormLabel>
             <FormControl>
-              <Input type="number" min={1} {...field} />
+              <PresetField
+                presets={RATE_PER_MINUTE}
+                value={field.value ?? ""}
+                onChange={field.onChange}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                )}
+              </PresetField>
             </FormControl>
+            <FormDescription>
+              {t("apiKeys.rateLimitPerMinuteHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -167,8 +209,22 @@ export function ApiKeyCreateDialog({
           <FormItem>
             <FormLabel>{t("apiKeys.rateLimitPerDay")}</FormLabel>
             <FormControl>
-              <Input type="number" min={1} {...field} />
+              <PresetField
+                presets={RATE_PER_DAY}
+                value={field.value ?? ""}
+                onChange={field.onChange}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    type="number"
+                    min={1}
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                )}
+              </PresetField>
             </FormControl>
+            <FormDescription>{t("apiKeys.rateLimitPerDayHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}

@@ -97,6 +97,11 @@ export const ur: TranslationResources = {
     clear: "صاف کریں",
     selectDate: "تاریخ منتخب کریں",
     custom: "حسبِ ضرورت",
+    minutesShort: "{{count}} منٹ",
+    hoursShort: "{{count}} گھنٹے",
+    daysShort: "{{count}} دن",
+    off: "بند",
+    immediate: "فوری",
     selectDateRange: "تاریخ کی حد منتخب کریں",
     discard: "مسترد کریں",
     discardTitle: "تبدیلیاں مسترد کریں؟",
@@ -494,6 +499,25 @@ export const ur: TranslationResources = {
       "اختیاری اسٹیپ اپ۔ جب صارف کا SSO سیشن اس سے پرانا ہو تو نئے سرے سے سائن اِن لازمی کرتا ہے۔ غیر فعال کرنے کے لیے خالی چھوڑ دیں۔",
     enabledAt: "فعال ہوا",
     subscriptionTier: "سبسکرپشن درجہ",
+    codeHint:
+      "ٹوکنز اور API کالز میں استعمال ہونے والا مستقل شناخت کنندہ۔ بنانے کے بعد تبدیل نہیں ہو سکتا۔",
+    nameHint: "سائن اِن اسکرینوں اور کنسول میں صارفین کو دکھایا جاتا ہے۔",
+    descriptionHint: "آپ کی ٹیم کے لیے اندرونی نوٹ۔ صارفین اسے نہیں دیکھتے۔",
+    baseUrlHint:
+      "ایپلی کیشن کا اپنا پتہ، جو اس کی طرف واپس جانے والے لنکس بنانے کے لیے استعمال ہوتا ہے۔",
+    logoUrlHint:
+      "اس ایپلی کیشن کی سائن اِن اسکرین پر دکھایا جانے والا عوامی تصویری پتہ۔",
+    contactEmailHint:
+      "وہ پتہ جس پر صارفین کو اس ایپلی کیشن سے متعلق مدد کے لیے بھیجا جاتا ہے۔",
+    sessionTimeoutHint:
+      "کسی سرگرمی کے بغیر سائن اِن سیشن کتنی دیر کارآمد رہتا ہے۔",
+    maxSessionsHint: "ایک صارف بیک وقت کتنے آلات پر سائن اِن رہ سکتا ہے۔",
+    allowSelfRegistrationHint:
+      "کسی بھی شخص کو اس ایپلی کیشن کے لیے اپنا اکاؤنٹ بنانے کی اجازت دیں۔",
+    requireTwoFactorHint:
+      "ہر صارف کو سائن اِن کے لیے دوسرا تصدیقی مرحلہ مکمل کرنا ہوگا۔",
+    requireEmailVerificationHint:
+      "صارفین کو سائن اِن سے پہلے اپنا ای میل پتہ تصدیق کرنا ہوگا۔",
     roles: "کردار",
     permissions: "اجازتیں",
     deleteTitle: "ایپلیکیشن حذف کریں",
@@ -511,6 +535,15 @@ export const ur: TranslationResources = {
     editTitle: "تنظیم میں ترمیم کریں",
     contactEmail: "رابطہ ای میل",
     website: "ویب سائٹ",
+    logoUrl: "لوگو کا پتہ",
+    codeHint: "اس تنظیم کا مستقل شناخت کنندہ۔ بنانے کے بعد تبدیل نہیں ہو سکتا۔",
+    nameHint: "تنظیم کا ظاہری نام، جو اس کے اراکین کو دکھایا جاتا ہے۔",
+    contactEmailHint: "اس تنظیم سے متعلق اطلاعات کے لیے بنیادی پتہ۔",
+    websiteHint: "تنظیم کی عوامی ویب سائٹ۔",
+    logoUrlHint: "تنظیم کے نام کے ساتھ دکھایا جانے والا عوامی تصویری پتہ۔",
+    descriptionHint: "اس تنظیم کے بارے میں اندرونی نوٹ۔",
+    isActiveHint:
+      "اسے بند کرنے سے اراکین اس تنظیم کی ایپلی کیشنز میں سائن اِن نہیں کر سکیں گے۔",
     owner: "مالک",
     members: "اراکین",
     invitations: "دعوتیں",
@@ -578,8 +611,12 @@ export const ur: TranslationResources = {
     createTitle: "API کلید بنائیں",
     keyPrefix: "کلید کا سابقہ",
     environment: "ماحول",
+    environmentHint:
+      "یہ کلید کس تعیناتی سے تعلق رکھتی ہے، تاکہ کلیدوں میں فرق آسان ہو۔",
     rateLimitPerMinute: "شرح کی حد / منٹ",
     rateLimitPerDay: "شرح کی حد / دن",
+    rateLimitPerMinuteHint: "یہ کلید ایک منٹ میں کتنی درخواستیں کر سکتی ہے۔",
+    rateLimitPerDayHint: "یہ کلید ایک دن میں کتنی درخواستیں کر سکتی ہے۔",
     scopes: "دائرہ کار",
     revoke: "منسوخ کریں",
     rotate: "گھمائیں",
@@ -592,6 +629,8 @@ export const ur: TranslationResources = {
     rotateBody:
       "نئی کلید جاری کی جاتی ہے؛ پرانی کلید مہلت کے بعد ختم ہو جاتی ہے۔",
     gracePeriod: "مہلت (منٹ)",
+    gracePeriodHint:
+      "تبدیلی کے بعد پرانی کلید کتنی دیر کام کرتی رہے گی، تاکہ کالرز منتقل ہو سکیں۔",
     secretOnceTitle: "اپنی API کلید ابھی کاپی کریں",
     secretOnceBody:
       "مکمل کلید صرف اسی بار دکھائی جاتی ہے۔ اسے محفوظ طریقے سے رکھیں۔",
@@ -609,6 +648,8 @@ export const ur: TranslationResources = {
     targetUrl: "ہدف URL",
     keyPrefix: "کلید کا سابقہ",
     environment: "ماحول",
+    environmentHint:
+      "یہ کلید کس تعیناتی سے تعلق رکھتی ہے، تاکہ کلیدوں میں فرق آسان ہو۔",
     revoke: "منسوخ کریں",
     rotate: "گھمائیں",
     validate: "توثیق کریں",
@@ -619,6 +660,8 @@ export const ur: TranslationResources = {
     rotateBody:
       "نئی کلید جاری کی جاتی ہے؛ پرانی کلید مہلت کے بعد ختم ہو جاتی ہے۔",
     gracePeriod: "مہلت (منٹ)",
+    gracePeriodHint:
+      "تبدیلی کے بعد پرانی کلید کتنی دیر کام کرتی رہے گی، تاکہ کالرز منتقل ہو سکیں۔",
     secretOnceTitle: "اپنی webhook کلید ابھی کاپی کریں",
     secretOnceBody:
       "مکمل کلید صرف اسی بار دکھائی جاتی ہے۔ اسے محفوظ طریقے سے رکھیں۔",
@@ -796,6 +839,8 @@ export const ur: TranslationResources = {
     policySubtitle:
       "پالیسی کی ترامیم پر نظر رکھیں اور اہم تبدیلیوں کی اطلاع صارفین کو دیں۔",
     policyVersion: "ورژن",
+    policyVersionYear: "سال",
+    policyVersionMonth: "مہینہ",
     policyEffective: "نفاذ کی تاریخ",
     policyNotifiedAt: "اطلاع کی تاریخ",
     policyRecipients: "وصول کنندگان",

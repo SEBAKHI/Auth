@@ -34,6 +34,7 @@ import {
   StringListEditor,
 } from "./components/policy-field-editors"
 import { PolicyPreviewPane } from "./components/policy-preview-pane"
+import { PolicyVersionField } from "./components/policy-version-field"
 import {
   PolicyTokenPalette,
   useFocusedField,
@@ -382,13 +383,12 @@ export function NotificationPolicyDetailPage() {
                     <FieldLabel htmlFor="meta-version">
                       {t("notifications.policyVersion")}
                     </FieldLabel>
-                    <Input
+                    <PolicyVersionField
                       id="meta-version"
-                      dir="ltr"
                       value={versionName}
                       disabled={!canManage || versionLocked}
-                      onChange={(e) => {
-                        setVersionName(e.target.value)
+                      onChange={(value) => {
+                        setVersionName(value)
                         setMetaDirty(true)
                       }}
                     />

@@ -97,6 +97,11 @@ export const fr: TranslationResources = {
     clear: "Effacer",
     selectDate: "Sélectionnez une date",
     custom: "Personnalisé",
+    minutesShort: "{{count}} min",
+    hoursShort: "{{count}} h",
+    daysShort: "{{count}} j",
+    off: "Désactivé",
+    immediate: "Immédiat",
     selectDateRange: "Sélectionnez une plage de dates",
     discard: "Abandonner",
     discardTitle: "Abandonner les modifications ?",
@@ -505,6 +510,28 @@ export const fr: TranslationResources = {
       "Renforcement facultatif. Force une nouvelle connexion lorsque la session SSO de l'utilisateur dépasse cette durée. Laisser vide pour désactiver.",
     enabledAt: "Activée le",
     subscriptionTier: "Niveau d'abonnement",
+    codeHint:
+      "Identifiant permanent utilisé dans les jetons et les appels API. Il ne peut pas être modifié après la création.",
+    nameHint:
+      "Affiché aux utilisateurs sur les écrans de connexion et dans la console.",
+    descriptionHint:
+      "Note interne pour votre équipe. Les utilisateurs ne la voient jamais.",
+    baseUrlHint:
+      "L'adresse de l'application, utilisée pour construire les liens qui y ramènent.",
+    logoUrlHint:
+      "URL d'image publique affichée sur l'écran de connexion de cette application.",
+    contactEmailHint:
+      "Adresse indiquée aux utilisateurs pour obtenir de l'aide.",
+    sessionTimeoutHint:
+      "Durée pendant laquelle une session reste valide sans activité.",
+    maxSessionsHint:
+      "Nombre d'appareils sur lesquels un utilisateur peut rester connecté simultanément.",
+    allowSelfRegistrationHint:
+      "Autoriser chacun à créer son propre compte pour cette application.",
+    requireTwoFactorHint:
+      "Chaque utilisateur doit franchir une deuxième étape de vérification.",
+    requireEmailVerificationHint:
+      "Les utilisateurs doivent confirmer leur adresse e-mail avant de se connecter.",
     roles: "Rôles",
     permissions: "Permissions",
     deleteTitle: "Supprimer l'application",
@@ -523,6 +550,18 @@ export const fr: TranslationResources = {
     editTitle: "Modifier l'organisation",
     contactEmail: "E-mail de contact",
     website: "Site web",
+    logoUrl: "URL du logo",
+    codeHint:
+      "Identifiant permanent de cette organisation. Il ne peut pas être modifié après la création.",
+    nameHint: "Le nom affiché de l'organisation, visible par ses membres.",
+    contactEmailHint:
+      "Adresse principale pour les avis sur cette organisation.",
+    websiteHint: "Le site web public de l'organisation.",
+    logoUrlHint:
+      "URL d'image publique affichée à côté du nom de l'organisation.",
+    descriptionHint: "Note interne sur cette organisation.",
+    isActiveHint:
+      "Désactiver empêche les membres de se connecter aux applications de cette organisation.",
     owner: "Propriétaire",
     members: "Membres",
     invitations: "Invitations",
@@ -591,8 +630,14 @@ export const fr: TranslationResources = {
     createTitle: "Créer une clé API",
     keyPrefix: "Préfixe de la clé",
     environment: "Environnement",
+    environmentHint:
+      "Le déploiement auquel appartient cette clé, pour les distinguer facilement.",
     rateLimitPerMinute: "Limite de débit / minute",
     rateLimitPerDay: "Limite de débit / jour",
+    rateLimitPerMinuteHint:
+      "Requêtes que cette clé peut effectuer en une minute.",
+    rateLimitPerDayHint:
+      "Requêtes que cette clé peut effectuer en une journée.",
     scopes: "Portées",
     revoke: "Révoquer",
     rotate: "Renouveler",
@@ -605,6 +650,8 @@ export const fr: TranslationResources = {
     rotateBody:
       "Une nouvelle clé est émise ; l'ancienne expire après le délai de grâce.",
     gracePeriod: "Délai de grâce (minutes)",
+    gracePeriodHint:
+      "Durée pendant laquelle l'ancienne clé continue de fonctionner après la rotation.",
     secretOnceTitle: "Copiez votre clé API maintenant",
     secretOnceBody:
       "C'est la seule fois où la clé complète est affichée. Conservez-la en lieu sûr.",
@@ -622,6 +669,8 @@ export const fr: TranslationResources = {
     targetUrl: "URL cible",
     keyPrefix: "Préfixe de la clé",
     environment: "Environnement",
+    environmentHint:
+      "Le déploiement auquel appartient cette clé, pour les distinguer facilement.",
     revoke: "Révoquer",
     rotate: "Renouveler",
     validate: "Valider",
@@ -632,6 +681,8 @@ export const fr: TranslationResources = {
     rotateBody:
       "Une nouvelle clé est émise ; l'ancienne expire après le délai de grâce.",
     gracePeriod: "Délai de grâce (minutes)",
+    gracePeriodHint:
+      "Durée pendant laquelle l'ancienne clé continue de fonctionner après la rotation.",
     secretOnceTitle: "Copiez votre clé webhook maintenant",
     secretOnceBody:
       "C'est la seule fois où la clé complète est affichée. Conservez-la en lieu sûr.",
@@ -815,6 +866,8 @@ export const fr: TranslationResources = {
     policySubtitle:
       "Suivez les révisions de la politique et notifiez les utilisateurs des changements substantiels.",
     policyVersion: "Version",
+    policyVersionYear: "Année",
+    policyVersionMonth: "Mois",
     policyEffective: "Date d'effet",
     policyNotifiedAt: "Notifiée le",
     policyRecipients: "Destinataires",

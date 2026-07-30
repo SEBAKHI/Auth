@@ -97,6 +97,11 @@ export const ar: TranslationResources = {
     clear: "مسح",
     selectDate: "اختر تاريخًا",
     custom: "مخصص",
+    minutesShort: "{{count}} دقيقة",
+    hoursShort: "{{count}} ساعة",
+    daysShort: "{{count}} يوم",
+    off: "معطّل",
+    immediate: "فوري",
     selectDateRange: "اختر نطاقًا زمنيًا",
     discard: "تجاهل",
     discardTitle: "تجاهل التغييرات؟",
@@ -493,6 +498,20 @@ export const ar: TranslationResources = {
       "مصادقة إضافية اختيارية. تفرض تسجيل دخول جديدًا عندما يتجاوز عمر جلسة الدخول الموحّد هذه القيمة. اتركه فارغًا للتعطيل.",
     enabledAt: "مُفعّل",
     subscriptionTier: "فئة الاشتراك",
+    codeHint:
+      "معرّف دائم يُستخدم في الرموز وطلبات الواجهة البرمجية، ولا يمكن تغييره بعد الإنشاء.",
+    nameHint: "يظهر للمستخدمين في شاشات تسجيل الدخول وفي لوحة التحكم.",
+    descriptionHint: "ملاحظة داخلية لفريقك، ولا يراها المستخدمون.",
+    baseUrlHint: "عنوان التطبيق نفسه، ويُستخدم لبناء الروابط المؤدية إليه.",
+    logoUrlHint: "عنوان صورة عام يظهر في شاشة تسجيل الدخول لهذا التطبيق.",
+    contactEmailHint: "العنوان الذي يُوجَّه إليه المستخدمون لطلب المساعدة.",
+    sessionTimeoutHint: "المدة التي تبقى فيها الجلسة صالحة دون أي نشاط.",
+    maxSessionsHint:
+      "عدد الأجهزة التي يمكن للمستخدم الواحد أن يبقى مسجّلًا فيها في الوقت نفسه.",
+    allowSelfRegistrationHint: "السماح لأي شخص بإنشاء حساب لهذا التطبيق.",
+    requireTwoFactorHint: "إلزام كل مستخدم بخطوة تحقق ثانية عند تسجيل الدخول.",
+    requireEmailVerificationHint:
+      "إلزام المستخدمين بتأكيد بريدهم الإلكتروني قبل تسجيل الدخول.",
     roles: "الأدوار",
     permissions: "الصلاحيات",
     deleteTitle: "حذف التطبيق",
@@ -510,6 +529,15 @@ export const ar: TranslationResources = {
     editTitle: "تعديل منظمة",
     contactEmail: "بريد التواصل",
     website: "الموقع الإلكتروني",
+    logoUrl: "عنوان الشعار",
+    codeHint: "معرّف دائم لهذه المنظمة، ولا يمكن تغييره بعد الإنشاء.",
+    nameHint: "الاسم الظاهر للمنظمة، ويراه أعضاؤها.",
+    contactEmailHint: "العنوان الرئيس للإشعارات المتعلقة بهذه المنظمة.",
+    websiteHint: "الموقع الإلكتروني العام للمنظمة.",
+    logoUrlHint: "عنوان صورة عام يظهر إلى جانب اسم المنظمة.",
+    descriptionHint: "ملاحظة داخلية عن هذه المنظمة.",
+    isActiveHint:
+      "إيقاف هذا الخيار يمنع الأعضاء من تسجيل الدخول إلى تطبيقات هذه المنظمة.",
     owner: "المالك",
     members: "الأعضاء",
     invitations: "الدعوات",
@@ -577,8 +605,13 @@ export const ar: TranslationResources = {
     createTitle: "إنشاء مفتاح API",
     keyPrefix: "بادئة المفتاح",
     environment: "البيئة",
+    environmentHint:
+      "البيئة التي ينتمي إليها هذا المفتاح، ليسهل التمييز بين المفاتيح.",
     rateLimitPerMinute: "حد المعدل / دقيقة",
     rateLimitPerDay: "حد المعدل / يوم",
+    rateLimitPerMinuteHint:
+      "عدد الطلبات المسموح بها لهذا المفتاح في الدقيقة الواحدة.",
+    rateLimitPerDayHint: "عدد الطلبات المسموح بها لهذا المفتاح في اليوم.",
     scopes: "النطاقات",
     revoke: "إلغاء",
     rotate: "تدوير",
@@ -589,6 +622,8 @@ export const ar: TranslationResources = {
     rotateTitle: "تدوير مفتاح API",
     rotateBody: "يُصدر مفتاح جديد؛ وينتهي المفتاح القديم بعد فترة السماح.",
     gracePeriod: "فترة السماح (دقائق)",
+    gracePeriodHint:
+      "المدة التي يظل فيها المفتاح القديم صالحًا بعد التجديد، ليتمكن المستدعون من الانتقال.",
     secretOnceTitle: "انسخ مفتاح API الآن",
     secretOnceBody:
       "هذه هي المرة الوحيدة التي يظهر فيها المفتاح كاملاً. خزّنه بأمان.",
@@ -606,6 +641,8 @@ export const ar: TranslationResources = {
     targetUrl: "الرابط المستهدف",
     keyPrefix: "بادئة المفتاح",
     environment: "البيئة",
+    environmentHint:
+      "البيئة التي ينتمي إليها هذا المفتاح، ليسهل التمييز بين المفاتيح.",
     revoke: "إلغاء",
     rotate: "تدوير",
     validate: "تحقق",
@@ -615,6 +652,8 @@ export const ar: TranslationResources = {
     rotateTitle: "تدوير مفتاح Webhook",
     rotateBody: "يُصدر مفتاح جديد؛ وينتهي المفتاح القديم بعد فترة السماح.",
     gracePeriod: "فترة السماح (دقائق)",
+    gracePeriodHint:
+      "المدة التي يظل فيها المفتاح القديم صالحًا بعد التجديد، ليتمكن المستدعون من الانتقال.",
     secretOnceTitle: "انسخ مفتاح Webhook الآن",
     secretOnceBody:
       "هذه هي المرة الوحيدة التي يظهر فيها المفتاح كاملاً. خزّنه بأمان.",
@@ -789,6 +828,8 @@ export const ar: TranslationResources = {
     policyTitle: "إصدارات سياسة الخصوصية",
     policySubtitle: "تتبّع مراجعات السياسة وإخطار المستخدمين بالتغييرات الجوهرية.",
     policyVersion: "الإصدار",
+    policyVersionYear: "السنة",
+    policyVersionMonth: "الشهر",
     policyEffective: "تاريخ السريان",
     policyNotifiedAt: "تاريخ الإخطار",
     policyRecipients: "المستلمون",

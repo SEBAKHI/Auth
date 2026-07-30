@@ -8,6 +8,7 @@ import { toast } from "sonner"
 
 import { ApplicationSelect } from "@astoom/ui/common/application-select"
 import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
+import { PresetField, type Preset } from "@astoom/ui/common/preset-field"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { DetailList } from "@astoom/ui/common/detail-list"
 import { LogoAvatar } from "@astoom/ui/common/logo-avatar"
@@ -61,6 +62,19 @@ import { OrganizationFormDialog } from "./organization-form-dialog"
 import { TransferOwnershipDialog } from "./transfer-ownership-dialog"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Subscription tiers offered when enabling an application for an organization.
+ * Free text on the wire, so the list stays open via the Custom choice — but the
+ * field used to be a bare text box, which meant every operator invented their own
+ * spelling and the dashboard's tier badges could never be grouped.
+ */
+const SUBSCRIPTION_TIERS: Preset[] = [
+  { value: "free", label: "free" },
+  { value: "standard", label: "standard" },
+  { value: "pro", label: "pro" },
+  { value: "enterprise", label: "enterprise" },
+]
 
 function MembersTab({
   orgId,
@@ -828,7 +842,18 @@ function ApplicationsTab({
             />
             <div className="space-y-2">
               <Label>{t("applications.subscriptionTier")}</Label>
-              <Input value={tier} onChange={(e) => setTier(e.target.value)} />
+              <PresetField
+                presets={SUBSCRIPTION_TIERS}
+                value={tier}
+                onChange={setTier}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                  />
+                )}
+              </PresetField>
             </div>
             <div className="space-y-2">
               <Label htmlFor="enable-app-expires">
@@ -938,7 +963,18 @@ function EditOrgAppDialog({
         <div className="space-y-3">
           <div className="space-y-2">
             <Label>{t("applications.subscriptionTier")}</Label>
-            <Input value={tier} onChange={(e) => setTier(e.target.value)} />
+            <PresetField
+              presets={SUBSCRIPTION_TIERS}
+              value={tier}
+              onChange={setTier}
+            >
+              {({ value, onChange }) => (
+                <Input
+                  value={value}
+                  onChange={(event) => onChange(event.target.value)}
+                />
+              )}
+            </PresetField>
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-sub-expires">{t("common.expiresAt")}</Label>

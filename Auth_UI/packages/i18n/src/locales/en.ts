@@ -92,6 +92,11 @@ export const en = {
     clear: "Clear",
     selectDate: "Select date",
     custom: "Custom",
+    minutesShort: "{{count}} min",
+    hoursShort: "{{count}} h",
+    daysShort: "{{count}} d",
+    off: "Off",
+    immediate: "Immediate",
     selectDateRange: "Select date range",
     discard: "Discard",
     discardTitle: "Discard changes?",
@@ -487,6 +492,25 @@ export const en = {
       "Optional step-up. Forces a fresh sign-in when the user's SSO session is older than this. Leave empty to disable.",
     enabledAt: "Enabled",
     subscriptionTier: "Subscription tier",
+    codeHint:
+      "Permanent identifier used in tokens and API calls. It cannot be changed after creation.",
+    nameHint: "Shown to users on sign-in screens and throughout the console.",
+    descriptionHint: "An internal note for your team. Users never see it.",
+    baseUrlHint:
+      "The application's own address, used to build links back to it.",
+    logoUrlHint: "Public image URL shown on this application's sign-in screen.",
+    contactEmailHint:
+      "Address users are pointed to for help with this application.",
+    sessionTimeoutHint:
+      "How long a signed-in session stays valid without activity.",
+    maxSessionsHint:
+      "How many devices one user may stay signed in on at the same time.",
+    allowSelfRegistrationHint:
+      "Let anyone create their own account for this application.",
+    requireTwoFactorHint:
+      "Every user must pass a second verification step to sign in.",
+    requireEmailVerificationHint:
+      "Users must confirm their email address before they can sign in.",
     roles: "Roles",
     permissions: "Permissions",
     deleteTitle: "Delete application",
@@ -504,6 +528,16 @@ export const en = {
     editTitle: "Edit organization",
     contactEmail: "Contact email",
     website: "Website",
+    logoUrl: "Logo URL",
+    codeHint:
+      "Permanent identifier for this organization. It cannot be changed after creation.",
+    nameHint: "The organization's display name, shown to its members.",
+    contactEmailHint: "The main address for notices about this organization.",
+    websiteHint: "The organization's public website.",
+    logoUrlHint: "Public image URL shown beside the organization's name.",
+    descriptionHint: "An internal note about this organization.",
+    isActiveHint:
+      "Turning this off stops members signing in to this organization's applications.",
     owner: "Owner",
     members: "Members",
     invitations: "Invitations",
@@ -571,8 +605,12 @@ export const en = {
     createTitle: "Create API key",
     keyPrefix: "Key prefix",
     environment: "Environment",
+    environmentHint:
+      "Which deployment this key belongs to, so keys are easy to tell apart.",
     rateLimitPerMinute: "Rate limit / minute",
     rateLimitPerDay: "Rate limit / day",
+    rateLimitPerMinuteHint: "Requests this key may make in any one minute.",
+    rateLimitPerDayHint: "Requests this key may make in a single day.",
     scopes: "Scopes",
     revoke: "Revoke",
     rotate: "Rotate",
@@ -584,6 +622,8 @@ export const en = {
     rotateBody:
       "A new key is issued; the old key expires after the grace period.",
     gracePeriod: "Grace period (minutes)",
+    gracePeriodHint:
+      "How long the old key keeps working after rotation, so callers can switch over.",
     secretOnceTitle: "Copy your API key now",
     secretOnceBody:
       "This is the only time the full key is shown. Store it securely.",
@@ -601,6 +641,8 @@ export const en = {
     targetUrl: "Target URL",
     keyPrefix: "Key prefix",
     environment: "Environment",
+    environmentHint:
+      "Which deployment this key belongs to, so keys are easy to tell apart.",
     revoke: "Revoke",
     rotate: "Rotate",
     validate: "Validate",
@@ -610,6 +652,8 @@ export const en = {
     rotateBody:
       "A new key is issued; the old key expires after the grace period.",
     gracePeriod: "Grace period (minutes)",
+    gracePeriodHint:
+      "How long the old key keeps working after rotation, so callers can switch over.",
     secretOnceTitle: "Copy your webhook key now",
     secretOnceBody:
       "This is the only time the full key is shown. Store it securely.",
@@ -789,6 +833,8 @@ export const en = {
     policySubtitle:
       "Track policy revisions and notify users of material changes.",
     policyVersion: "Version",
+    policyVersionYear: "Year",
+    policyVersionMonth: "Month",
     policyEffective: "Effective date",
     policyNotifiedAt: "Notified",
     policyRecipients: "Recipients",
