@@ -133,9 +133,20 @@ export function NotificationsOverviewPage() {
                   <span className="block truncate font-medium" dir="ltr">
                     {version.version}
                   </span>
+                  {/* Each run gets its own isolate. Concatenating a localized date
+                      with a free-text note in one text node let the bidi algorithm
+                      reorder across the join: an English note's trailing period
+                      jumped to the far edge in Arabic, rendering as
+                      ".Initial published policy". `bdi` + `dir="auto"` scopes each
+                      run to its own direction. */}
                   <span className="block truncate text-xs text-muted-foreground">
-                    {formatDate(version.effectiveDateUtc)}
-                    {version.changeNote ? " · " + version.changeNote : ""}
+                    <bdi>{formatDate(version.effectiveDateUtc)}</bdi>
+                    {version.changeNote ? (
+                      <>
+                        {" · "}
+                        <bdi dir="auto">{version.changeNote}</bdi>
+                      </>
+                    ) : null}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1">
@@ -189,11 +200,17 @@ export function NotificationsOverviewPage() {
                       {template.typeName}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {template.applicationName ?? t("notifications.global")} ·{" "}
-                      {template.channel}
-                      {template.modifiedAt
-                        ? ` · ${formatDateTime(template.modifiedAt)}`
-                        : ""}
+                      <bdi dir="auto">
+                        {template.applicationName ?? t("notifications.global")}
+                      </bdi>
+                      {" · "}
+                      <bdi>{template.channel}</bdi>
+                      {template.modifiedAt ? (
+                        <>
+                          {" · "}
+                          <bdi>{formatDateTime(template.modifiedAt)}</bdi>
+                        </>
+                      ) : null}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
@@ -245,11 +262,17 @@ export function NotificationsOverviewPage() {
                       {layout.name}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {layout.applicationName ?? t("notifications.global")} ·{" "}
-                      {layout.channel}
-                      {layout.publishedAt
-                        ? ` · ${formatDateTime(layout.publishedAt)}`
-                        : ""}
+                      <bdi dir="auto">
+                        {layout.applicationName ?? t("notifications.global")}
+                      </bdi>
+                      {" · "}
+                      <bdi>{layout.channel}</bdi>
+                      {layout.publishedAt ? (
+                        <>
+                          {" · "}
+                          <bdi>{formatDateTime(layout.publishedAt)}</bdi>
+                        </>
+                      ) : null}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-1">

@@ -6,16 +6,15 @@ import { Calendar } from "./calendar"
 /**
  * The selected day must stay legible while the pointer is on it.
  *
- * jsdom does not apply a stylesheet, so this asserts the *mechanism* instead: the
- * selected day is rendered with the Button `default` variant, whose hover only dims
- * the background and never changes the text colour. The regression this guards
- * against was the day being rendered `ghost`, where this project's
+ * jsdom applies no stylesheet, so this asserts the *mechanism*. The ghost variant's
  * `dark:hover:bg-muted/50` outranks `data-[selected]:bg-primary` — Tailwind emits
- * `dark:` variants in a later layer than `data-*` ones — leaving near-black text on
- * a dark grey background.
+ * `dark:` variants in a later layer than `data-*` ones — so on hover the background
+ * legitimately goes grey. The bug was that the text stayed `primary-foreground`,
+ * near-black in dark mode. `dark:hover:text-foreground`, which is upstream's own fix,
+ * pins the text in that same layer so it stays light.
  */
 describe("Calendar day button", () => {
-  it("renders the selected day with the primary (not ghost) treatment", () => {
+  it("keeps upstream's ghost treatment plus the dark-mode hover text pin", () => {
     render(
       <Calendar
         mode="single"
@@ -28,16 +27,17 @@ describe("Calendar day button", () => {
     const cls = selected.className
 
     expect(selected).toHaveAttribute("data-selected-single", "true")
-    // The `default` variant's own hover: dims the background, keeps the text token.
-    expect(cls).toContain("bg-primary")
-    expect(cls).toContain("text-primary-foreground")
-    expect(cls).toContain("hover:bg-primary/80")
-    // The ghost hover pair is what made the number unreadable; it must be absent.
-    expect(cls).not.toContain("dark:hover:bg-muted/50")
-    expect(cls).not.toContain("hover:text-foreground")
+    // Upstream's selected treatment, unchanged.
+    expect(cls).toContain("data-[selected-single=true]:bg-primary")
+    expect(cls).toContain("data-[selected-single=true]:text-primary-foreground")
+    // Still the ghost variant — no bespoke variant swap.
+    expect(cls).toContain("hover:bg-muted")
+    expect(cls).toContain("dark:hover:bg-muted/50")
+    // The one utility that makes the hovered selection readable in dark mode.
+    expect(cls).toContain("dark:hover:text-foreground")
   })
 
-  it("leaves an unselected day on the ghost treatment", () => {
+  it("applies the same treatment to every day, selected or not", () => {
     render(
       <Calendar
         mode="single"
@@ -46,9 +46,10 @@ describe("Calendar day button", () => {
       />
     )
 
+    // The day button is uniform: selection is expressed by data attributes, not by
+    // swapping the button's variant, so an unselected day carries the same classes.
     const other = screen.getByRole("button", { name: /May 20th, 2026/ })
+    expect(other.className).toContain("dark:hover:text-foreground")
     expect(other.className).toContain("hover:bg-muted")
-    expect(other.className).not.toContain("bg-primary")
-    expect(other.className).not.toContain("text-primary-foreground")
   })
 })

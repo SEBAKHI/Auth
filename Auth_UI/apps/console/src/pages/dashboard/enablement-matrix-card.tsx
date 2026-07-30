@@ -100,10 +100,22 @@ export function EnablementMatrixCard({
                       return (
                         <TableCell key={String(appId)}>
                           <Badge variant={expiring ? "destructive" : "secondary"}>
-                            {enablement.subscriptionTier ?? "✓"}
-                            {expiring
-                              ? ` · ${t("dashboard.expiresInDays", { count: Math.max(remaining, 0) })}`
-                              : ""}
+                            {/* Isolated: the tier is free text of unknown
+                                direction, and joining it to a localized phrase in
+                                one text node lets bidi reorder across the join. */}
+                            <bdi dir="auto">
+                              {enablement.subscriptionTier ?? "✓"}
+                            </bdi>
+                            {expiring ? (
+                              <>
+                                {" · "}
+                                <bdi>
+                                  {t("dashboard.expiresInDays", {
+                                    count: Math.max(remaining, 0),
+                                  })}
+                                </bdi>
+                              </>
+                            ) : null}
                           </Badge>
                         </TableCell>
                       )

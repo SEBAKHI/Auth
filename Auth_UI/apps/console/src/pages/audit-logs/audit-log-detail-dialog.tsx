@@ -14,7 +14,13 @@ function Row({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="grid grid-cols-3 gap-2 py-1.5 text-sm">
       <dt className="text-muted-foreground">{label}</dt>
-      <dd className="col-span-2 break-words">{value}</dd>
+      {/* Every value here is of unknown or opposite direction — entity types and
+          ids, IP addresses, user agents, application names. Isolating once in the
+          helper keeps each one intact inside an RTL page, instead of letting the
+          bidi algorithm move trailing punctuation and separators to the far edge. */}
+      <dd className="col-span-2 break-words">
+        <bdi dir="auto">{value}</bdi>
+      </dd>
     </div>
   )
 }
