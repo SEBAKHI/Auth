@@ -204,7 +204,7 @@ export function ApplicationCreateDialog({
           <FormItem>
             <FormLabel>{t("common.code")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="billing-portal" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("applications.codeHint")}</FormDescription>
             <FormMessage />
@@ -218,7 +218,7 @@ export function ApplicationCreateDialog({
           <FormItem>
             <FormLabel>{t("common.name")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder={t("applications.namePlaceholder")} {...field} />
             </FormControl>
             <FormDescription>{t("applications.nameHint")}</FormDescription>
             <FormMessage />
@@ -232,7 +232,7 @@ export function ApplicationCreateDialog({
           <FormItem>
             <FormLabel>{t("common.description")}</FormLabel>
             <FormControl>
-              <Textarea rows={2} {...field} />
+              <Textarea rows={2} placeholder={t("applications.descriptionPlaceholder")} {...field} />
             </FormControl>
             <FormDescription>
               {t("applications.descriptionHint")}
@@ -248,7 +248,7 @@ export function ApplicationCreateDialog({
           <FormItem>
             <FormLabel>{t("applications.baseUrl")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="https://app.example.com" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("applications.baseUrlHint")}</FormDescription>
             <FormMessage />
@@ -262,7 +262,7 @@ export function ApplicationCreateDialog({
           <FormItem>
             <FormLabel>{t("applications.logoUrl")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="https://cdn.example.com/logo.svg" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("applications.logoUrlHint")}</FormDescription>
             <FormMessage />
@@ -276,7 +276,7 @@ export function ApplicationCreateDialog({
           <FormItem>
             <FormLabel>{t("applications.contactEmail")}</FormLabel>
             <FormControl>
-              <Input type="email" {...field} />
+              <Input type="email" placeholder="support@example.com" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>
               {t("applications.contactEmailHint")}
@@ -524,7 +524,7 @@ export function ApplicationEditDialog({
           <FormItem>
             <FormLabel>{t("common.name")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder={t("applications.namePlaceholder")} {...field} />
             </FormControl>
             <FormDescription>{t("applications.nameHint")}</FormDescription>
             <FormMessage />
@@ -538,7 +538,7 @@ export function ApplicationEditDialog({
           <FormItem>
             <FormLabel>{t("common.description")}</FormLabel>
             <FormControl>
-              <Textarea rows={2} {...field} />
+              <Textarea rows={2} placeholder={t("applications.descriptionPlaceholder")} {...field} />
             </FormControl>
             <FormDescription>
               {t("applications.descriptionHint")}
@@ -554,7 +554,7 @@ export function ApplicationEditDialog({
           <FormItem>
             <FormLabel>{t("applications.baseUrl")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="https://app.example.com" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("applications.baseUrlHint")}</FormDescription>
             <FormMessage />
@@ -568,7 +568,7 @@ export function ApplicationEditDialog({
           <FormItem>
             <FormLabel>{t("applications.logoUrl")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="https://cdn.example.com/logo.svg" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("applications.logoUrlHint")}</FormDescription>
             <FormMessage />
@@ -582,7 +582,7 @@ export function ApplicationEditDialog({
           <FormItem>
             <FormLabel>{t("applications.contactEmail")}</FormLabel>
             <FormControl>
-              <Input type="email" {...field} />
+              <Input type="email" placeholder="support@example.com" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>
               {t("applications.contactEmailHint")}
@@ -598,7 +598,7 @@ export function ApplicationEditDialog({
           <FormItem>
             <FormLabel>{t("applications.redirectUris")}</FormLabel>
             <FormControl>
-              <Textarea rows={3} {...field} />
+              <Textarea rows={3} placeholder="https://app.example.com/callback" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>
               {t("applications.redirectUrisHint")}

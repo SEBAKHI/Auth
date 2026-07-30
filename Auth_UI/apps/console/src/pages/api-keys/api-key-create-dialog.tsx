@@ -129,7 +129,7 @@ export function ApiKeyCreateDialog({
           <FormItem>
             <FormLabel>{t("common.name")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder={t("apiKeys.namePlaceholder")} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -167,7 +167,7 @@ export function ApiKeyCreateDialog({
           <FormItem>
             <FormLabel>{t("common.description")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder={t("apiKeys.descriptionPlaceholder")} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>

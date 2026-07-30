@@ -180,10 +180,32 @@ function CalendarDayButton({
     if (modifiers.focused) ref.current?.focus()
   }, [modifiers.focused])
 
+  // An endpoint of the selection (a single pick, or either end of a range).
+  const isEndpoint =
+    (modifiers.selected && !modifiers.range_middle) ||
+    modifiers.range_start ||
+    modifiers.range_end
+
+  /*
+   * The variant is chosen, not overridden with utility classes.
+   *
+   * Upstream renders every day as `variant="ghost"` and paints the selected one
+   * with `data-[selected]:bg-primary`. That works upstream, but this project's ghost
+   * variant carries an extra `dark:hover:bg-muted/50`, and Tailwind emits `dark:`
+   * variants in a LATER layer than `data-*` ones — verified in the built stylesheet,
+   * offset 97570 versus 74463. So on hover the near-white selected background was
+   * replaced by dark grey while the text stayed `primary-foreground` (near-black),
+   * and the number went unreadable exactly when the pointer was on it. No
+   * `data-[…]:hover:` utility can win that race; adding one does nothing.
+   *
+   * `default` already is "primary background, primary-foreground text, and a hover
+   * that only dims the background" — precisely the selected-day behaviour — so
+   * selecting the variant removes the conflict instead of fighting the cascade.
+   */
   return (
     <Button
       ref={ref}
-      variant="ghost"
+      variant={isEndpoint ? "default" : "ghost"}
       size="icon"
       data-day={day.date.toLocaleDateString()}
       data-selected-single={
@@ -196,7 +218,10 @@ function CalendarDayButton({
       data-range-end={modifiers.range_end}
       data-range-middle={modifiers.range_middle}
       className={cn(
-        "flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 rounded-md font-normal leading-none data-[range-end=true]:rounded-e-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-s-md data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:bg-accent data-[range-middle=true]:text-accent-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-3 group-data-[focused=true]/day:ring-ring/30",
+        "flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 rounded-md font-normal leading-none data-[range-end=true]:rounded-e-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-s-md group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-3 group-data-[focused=true]/day:ring-ring/30",
+        // The middle of a range stays ghost-based; `accent-foreground` is light in
+        // dark mode, so it survives the ghost hover background legibly.
+        "data-[range-middle=true]:bg-accent data-[range-middle=true]:text-accent-foreground",
         defaultClassNames.day,
         className
       )}

@@ -127,6 +127,7 @@ export function InsertImageDialog({
               <Input
                 id="insert-image-alt"
                 dir="auto"
+                placeholder={t("notifications.insertImageAltPlaceholder")}
                 value={alt}
                 onChange={(e) => setAlt(e.target.value)}
               />

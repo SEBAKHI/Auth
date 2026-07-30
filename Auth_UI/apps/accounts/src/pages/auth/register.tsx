@@ -115,6 +115,8 @@ export function RegisterPage() {
                       type="email"
                       autoComplete="username"
                       autoFocus
+                      placeholder="name@example.com"
+                      dir="ltr"
                       {...field}
                     />
                   </FormControl>

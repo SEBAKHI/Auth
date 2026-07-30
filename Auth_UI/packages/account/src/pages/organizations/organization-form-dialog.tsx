@@ -144,7 +144,7 @@ export function OrganizationFormDialog({
             <FormItem>
               <FormLabel>{t("common.code")}</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input placeholder="acme-corp" dir="ltr" {...field} />
               </FormControl>
               <FormDescription>{t("organizations.codeHint")}</FormDescription>
               <FormMessage />
@@ -159,7 +159,7 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("common.name")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder={t("organizations.namePlaceholder")} {...field} />
             </FormControl>
             <FormDescription>{t("organizations.nameHint")}</FormDescription>
             <FormMessage />
@@ -173,7 +173,7 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("organizations.contactEmail")}</FormLabel>
             <FormControl>
-              <Input type="email" {...field} />
+              <Input type="email" placeholder="contact@acme.com" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>
               {t("organizations.contactEmailHint")}
@@ -189,7 +189,7 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("organizations.website")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="https://acme.com" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("organizations.websiteHint")}</FormDescription>
             <FormMessage />
@@ -203,7 +203,7 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("organizations.logoUrl")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="https://cdn.acme.com/logo.svg" dir="ltr" {...field} />
             </FormControl>
             <FormDescription>{t("organizations.logoUrlHint")}</FormDescription>
             <FormMessage />
@@ -217,7 +217,7 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("common.description")}</FormLabel>
             <FormControl>
-              <Textarea rows={2} {...field} />
+              <Textarea rows={2} placeholder={t("organizations.descriptionPlaceholder")} {...field} />
             </FormControl>
             <FormDescription>
               {t("organizations.descriptionHint")}

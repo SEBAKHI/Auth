@@ -161,7 +161,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                     <FormItem>
                       <FormLabel>{t("users.firstName")}</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="Sara" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -174,7 +174,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                     <FormItem>
                       <FormLabel>{t("users.lastName")}</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="Al-Rashid" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -200,7 +200,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                     <FormItem>
                       <FormLabel>{t("users.phoneNumber")}</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="+966 50 000 0000" dir="ltr" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

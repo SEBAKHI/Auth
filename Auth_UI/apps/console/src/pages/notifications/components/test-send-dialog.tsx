@@ -70,6 +70,8 @@ export function TestSendDialog({
           <Input
             id="test-send-email"
             type="email"
+            dir="ltr"
+            placeholder="name@example.com"
             value={recipientEmail}
             onChange={(e) => setRecipientEmail(e.target.value)}
           />

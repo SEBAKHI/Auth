@@ -186,7 +186,7 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
                   <FormItem>
                     <FormLabel>{t("platformSettings.platformName")}</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder="Acme" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

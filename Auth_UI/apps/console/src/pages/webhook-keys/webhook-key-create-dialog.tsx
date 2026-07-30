@@ -122,7 +122,7 @@ export function WebhookKeyCreateDialog({
                   <FormItem>
                     <FormLabel>{t("common.name")}</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder={t("webhookKeys.namePlaceholder")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -135,7 +135,11 @@ export function WebhookKeyCreateDialog({
                   <FormItem>
                     <FormLabel>{t("webhookKeys.targetUrl")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://" {...field} />
+                      <Input
+                        placeholder="https://acme.com/webhooks/auth"
+                        dir="ltr"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -175,7 +179,7 @@ export function WebhookKeyCreateDialog({
                   <FormItem>
                     <FormLabel>{t("common.description")}</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder={t("webhookKeys.descriptionPlaceholder")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
