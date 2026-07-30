@@ -4,6 +4,7 @@ import { Direction } from "radix-ui"
 import { useTranslation } from "react-i18next"
 
 import {
+  applyLanguage,
   directionForLanguage,
   persistLanguage,
   type LanguageCode,
@@ -36,13 +37,12 @@ export function DirectionProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.dir = dir
   }, [language, dir])
 
-  const setLanguage = React.useCallback(
-    (code: LanguageCode) => {
-      persistLanguage(code)
-      void i18n.changeLanguage(code)
-    },
-    [i18n]
-  )
+  const setLanguage = React.useCallback((code: LanguageCode) => {
+    persistLanguage(code)
+    // Locale bundles are loaded on demand, so the switch has to wait for the
+    // fetch; `applyLanguage` owns that ordering.
+    void applyLanguage(code)
+  }, [])
 
   const value = React.useMemo<LanguageContextValue>(
     () => ({ language, dir, setLanguage }),

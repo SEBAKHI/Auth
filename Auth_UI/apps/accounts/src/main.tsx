@@ -2,13 +2,22 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
 import "./index.css"
+import { initI18n } from "@astoom/i18n"
 import App from "./App.tsx"
 import { ThemeProvider } from "@astoom/ui/theme-provider.tsx"
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <ThemeProvider>
-      <App />
-    </ThemeProvider>
-  </StrictMode>
-)
+// Locale bundles load on demand, so the active language must be in place before the
+// first paint — otherwise the app renders a frame of raw translation keys.
+//
+// `finally`, not `then`: if the locale chunk fails to fetch the app must still boot.
+// English is registered synchronously and i18next falls back to it per key, so the
+// worst case is an English UI rather than a blank page.
+void initI18n().finally(() => {
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    </StrictMode>
+  )
+})

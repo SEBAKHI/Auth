@@ -1,46 +1,28 @@
 import * as React from "react"
 import { createBrowserRouter, Navigate, useParams } from "react-router-dom"
 
-import { ProfilePage } from "@astoom/account/pages/profile/profile-page"
 import { ACCOUNTS_URL } from "@astoom/api/env"
 import { RequireAnonymous, RequireAuth } from "@astoom/auth/require-auth"
 import { PermissionRoute } from "@astoom/auth/require-permission"
-import { ForcePasswordChangePage } from "@astoom/auth/pages/force-password-change"
-import { ForgotPasswordPage } from "@astoom/auth/pages/forgot-password"
 import { LoginPage } from "@astoom/auth/pages/login"
-import { TwoFactorVerifyPage } from "@astoom/auth/pages/two-factor-verify"
-import { VerifyEmailPage } from "@astoom/auth/pages/verify-email-page"
 import { crumb } from "@astoom/ui/crumbs"
 import { ForbiddenPage } from "@astoom/ui/error-pages/forbidden"
 import { NotFoundPage } from "@astoom/ui/error-pages/not-found"
+import { lazyRoute, RouteFallback } from "@astoom/ui/lazy-route"
 import { AppShell } from "@/components/layout/app-shell"
 import { PERMISSIONS } from "@/lib/constants"
-import { ApiKeysPage } from "@/pages/api-keys/api-keys-page"
-import { ApplicationDetailPage } from "@/pages/applications/application-detail-page"
-import { ApplicationsPage } from "@/pages/applications/applications-page"
-import { AuditLogsPage } from "@/pages/audit-logs/audit-logs-page"
-import { DashboardPage } from "@/pages/dashboard/dashboard-page"
-import {
-  ConsoleOrganizationDetailPage,
-  ConsoleOrganizationsPage,
-} from "@/pages/organizations/organizations-page"
-import { NotificationLayoutDetailPage } from "@/pages/notifications/notification-layout-detail-page"
-import { NotificationLayoutsPage } from "@/pages/notifications/notification-layouts-page"
-import { NotificationOutboxPage } from "@/pages/notifications/notification-outbox-page"
-import { NotificationPolicyDetailPage } from "@/pages/notifications/notification-policy-detail-page"
-import { NotificationPolicyPage } from "@/pages/notifications/notification-policy-page"
-import { NotificationsOverviewPage } from "@/pages/notifications/notifications-overview-page"
-import { NotificationTemplateDetailPage } from "@/pages/notifications/notification-template-detail-page"
-import { NotificationTemplatesPage } from "@/pages/notifications/notification-templates-page"
-import { PermissionDetailPage } from "@/pages/permissions/permission-detail-page"
-import { PermissionsPage } from "@/pages/permissions/permissions-page"
-import { PlatformSettingsPage } from "@/pages/platform-settings/platform-settings-page"
-import { RoleDetailPage } from "@/pages/roles/role-detail-page"
-import { RolesPage } from "@/pages/roles/roles-page"
-import { SecretsPage } from "@/pages/secrets/secrets-page"
-import { UserDetailPage } from "@/pages/users/user-detail-page"
-import { UsersPage } from "@/pages/users/users-page"
-import { WebhookKeysPage } from "@/pages/webhook-keys/webhook-keys-page"
+
+/**
+ * Every page is loaded on demand.
+ *
+ * All 33 were statically imported before, so the login screen downloaded recharts
+ * (dashboard), CodeMirror (notification editors), react-day-picker (audit filters)
+ * and qrcode (2FA) as part of one 2.5 MB chunk. Login, the shell and the guards stay
+ * eager because they are on the path to every route.
+ *
+ * See `lazyRoute` for why this uses the router's own `lazy` rather than
+ * `React.lazy` + `Suspense`.
+ */
 
 /**
  * Invitations are an end-user flow owned by the accounts app. Links in old
@@ -81,23 +63,43 @@ function LegacyNotificationRedirect({
 
 export const router = createBrowserRouter([
   {
+    // Pathless root purely to own the hydrate fallback, so a cold load of any lazy
+    // route shows a spinner instead of nothing. Matching is unaffected.
+    HydrateFallback: RouteFallback,
+    children: [
+  {
     element: <RequireAnonymous />,
     children: [
       { path: "/login", element: <LoginPage /> },
-      { path: "/forgot-password", element: <ForgotPasswordPage /> },
+      {
+        path: "/forgot-password",
+        lazy: lazyRoute(
+          () => import("@astoom/auth/pages/forgot-password"),
+          (m) => m.ForgotPasswordPage
+        ),
+      },
       { path: "/reset-password", element: <ResetPasswordRedirect /> },
     ],
   },
   {
     element: <RequireAuth />,
     children: [
-      { path: "/force-password-change", element: <ForcePasswordChangePage /> },
+      {
+        path: "/force-password-change",
+        lazy: lazyRoute(
+          () => import("@astoom/auth/pages/force-password-change"),
+          (m) => m.ForcePasswordChangePage
+        ),
+      },
       {
         element: <AppShell />,
         children: [
           {
             index: true,
-            element: <DashboardPage />,
+            lazy: lazyRoute(
+              () => import("@/pages/dashboard/dashboard-page"),
+              (m) => m.DashboardPage
+            ),
             handle: crumb("dashboard", "/"),
           },
           {
@@ -105,12 +107,18 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: "users",
-                element: <UsersPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/users/users-page"),
+                  (m) => m.UsersPage
+                ),
                 handle: crumb("users", "/users"),
               },
               {
                 path: "users/:id",
-                element: <UserDetailPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/users/user-detail-page"),
+                  (m) => m.UserDetailPage
+                ),
                 handle: crumb("users", "/users", true),
               },
             ],
@@ -120,12 +128,18 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: "roles",
-                element: <RolesPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/roles/roles-page"),
+                  (m) => m.RolesPage
+                ),
                 handle: crumb("roles", "/roles"),
               },
               {
                 path: "roles/:id",
-                element: <RoleDetailPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/roles/role-detail-page"),
+                  (m) => m.RoleDetailPage
+                ),
                 handle: crumb("roles", "/roles", true),
               },
             ],
@@ -137,12 +151,18 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: "permissions",
-                element: <PermissionsPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/permissions/permissions-page"),
+                  (m) => m.PermissionsPage
+                ),
                 handle: crumb("permissions", "/permissions"),
               },
               {
                 path: "permissions/:id",
-                element: <PermissionDetailPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/permissions/permission-detail-page"),
+                  (m) => m.PermissionDetailPage
+                ),
                 handle: crumb("permissions", "/permissions", true),
               },
             ],
@@ -154,12 +174,18 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: "applications",
-                element: <ApplicationsPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/applications/applications-page"),
+                  (m) => m.ApplicationsPage
+                ),
                 handle: crumb("applications", "/applications"),
               },
               {
                 path: "applications/:id",
-                element: <ApplicationDetailPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/applications/application-detail-page"),
+                  (m) => m.ApplicationDetailPage
+                ),
                 handle: crumb("applications", "/applications", true),
               },
             ],
@@ -168,17 +194,26 @@ export const router = createBrowserRouter([
           // everyone else gets the membership-scoped self-service list.
           {
             path: "organizations",
-            element: <ConsoleOrganizationsPage />,
+            lazy: lazyRoute(
+              () => import("@/pages/organizations/organizations-page"),
+              (m) => m.ConsoleOrganizationsPage
+            ),
             handle: crumb("organizations", "/organizations"),
           },
           {
             path: "organizations/:id",
-            element: <ConsoleOrganizationDetailPage />,
+            lazy: lazyRoute(
+              () => import("@/pages/organizations/organizations-page"),
+              (m) => m.ConsoleOrganizationDetailPage
+            ),
             handle: crumb("organizations", "/organizations", true),
           },
           {
             path: "profile",
-            element: <ProfilePage />,
+            lazy: lazyRoute(
+              () => import("@astoom/account/pages/profile/profile-page"),
+              (m) => m.ProfilePage
+            ),
             handle: crumb("profile", "/profile"),
           },
           {
@@ -186,7 +221,10 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: "api-keys",
-                element: <ApiKeysPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/api-keys/api-keys-page"),
+                  (m) => m.ApiKeysPage
+                ),
                 handle: crumb("apiKeys", "/api-keys"),
               },
             ],
@@ -198,7 +236,10 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: "webhook-keys",
-                element: <WebhookKeysPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/webhook-keys/webhook-keys-page"),
+                  (m) => m.WebhookKeysPage
+                ),
                 handle: crumb("webhookKeys", "/webhook-keys"),
               },
             ],
@@ -210,7 +251,10 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: "audit-logs",
-                element: <AuditLogsPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/audit-logs/audit-logs-page"),
+                  (m) => m.AuditLogsPage
+                ),
                 handle: crumb("auditLogs", "/audit-logs"),
               },
             ],
@@ -229,10 +273,21 @@ export const router = createBrowserRouter([
                 path: "notifications",
                 handle: crumb("notifications", "/notifications"),
                 children: [
-                  { index: true, element: <NotificationsOverviewPage /> },
+                  {
+                    index: true,
+                    lazy: lazyRoute(
+                      () =>
+                        import("@/pages/notifications/notifications-overview-page"),
+                      (m) => m.NotificationsOverviewPage
+                    ),
+                  },
                   {
                     path: "templates",
-                    element: <NotificationTemplatesPage />,
+                    lazy: lazyRoute(
+                      () =>
+                        import("@/pages/notifications/notification-templates-page"),
+                      (m) => m.NotificationTemplatesPage
+                    ),
                     handle: crumb(
                       "notificationTemplates",
                       "/notifications/templates"
@@ -240,7 +295,13 @@ export const router = createBrowserRouter([
                   },
                   {
                     path: "templates/:id",
-                    element: <NotificationTemplateDetailPage />,
+                    lazy: lazyRoute(
+                      () =>
+                        import(
+                          "@/pages/notifications/notification-template-detail-page"
+                        ),
+                      (m) => m.NotificationTemplateDetailPage
+                    ),
                     handle: crumb(
                       "notificationTemplates",
                       "/notifications/templates",
@@ -249,7 +310,11 @@ export const router = createBrowserRouter([
                   },
                   {
                     path: "layouts",
-                    element: <NotificationLayoutsPage />,
+                    lazy: lazyRoute(
+                      () =>
+                        import("@/pages/notifications/notification-layouts-page"),
+                      (m) => m.NotificationLayoutsPage
+                    ),
                     handle: crumb(
                       "notificationLayouts",
                       "/notifications/layouts"
@@ -257,7 +322,13 @@ export const router = createBrowserRouter([
                   },
                   {
                     path: "layouts/:id",
-                    element: <NotificationLayoutDetailPage />,
+                    lazy: lazyRoute(
+                      () =>
+                        import(
+                          "@/pages/notifications/notification-layout-detail-page"
+                        ),
+                      (m) => m.NotificationLayoutDetailPage
+                    ),
                     handle: crumb(
                       "notificationLayouts",
                       "/notifications/layouts",
@@ -266,7 +337,11 @@ export const router = createBrowserRouter([
                   },
                   {
                     path: "outbox",
-                    element: <NotificationOutboxPage />,
+                    lazy: lazyRoute(
+                      () =>
+                        import("@/pages/notifications/notification-outbox-page"),
+                      (m) => m.NotificationOutboxPage
+                    ),
                     handle: crumb(
                       "notificationOutbox",
                       "/notifications/outbox"
@@ -274,7 +349,11 @@ export const router = createBrowserRouter([
                   },
                   {
                     path: "policy",
-                    element: <NotificationPolicyPage />,
+                    lazy: lazyRoute(
+                      () =>
+                        import("@/pages/notifications/notification-policy-page"),
+                      (m) => m.NotificationPolicyPage
+                    ),
                     handle: crumb(
                       "notificationPolicy",
                       "/notifications/policy"
@@ -284,7 +363,13 @@ export const router = createBrowserRouter([
                     // Keyed by the revision's id, not its version string: the
                     // string is editable, so a URL built on it dies on rename.
                     path: "policy/:id",
-                    element: <NotificationPolicyDetailPage />,
+                    lazy: lazyRoute(
+                      () =>
+                        import(
+                          "@/pages/notifications/notification-policy-detail-page"
+                        ),
+                      (m) => m.NotificationPolicyDetailPage
+                    ),
                     handle: crumb(
                       "notificationPolicy",
                       "/notifications/policy",
@@ -324,7 +409,10 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: "admin/secrets",
-                element: <SecretsPage />,
+                lazy: lazyRoute(
+                  () => import("@/pages/secrets/secrets-page"),
+                  (m) => m.SecretsPage
+                ),
                 handle: crumb("secrets", "/admin/secrets"),
               },
             ],
@@ -338,7 +426,11 @@ export const router = createBrowserRouter([
             children: [
               {
                 path: "admin/platform-settings",
-                element: <PlatformSettingsPage />,
+                lazy: lazyRoute(
+                  () =>
+                    import("@/pages/platform-settings/platform-settings-page"),
+                  (m) => m.PlatformSettingsPage
+                ),
                 handle: crumb("platformSettings", "/admin/platform-settings"),
               },
             ],
@@ -349,11 +441,25 @@ export const router = createBrowserRouter([
   },
   // Top-level on purpose: the user holds a 2FA challenge but no tokens yet,
   // so the page belongs under neither RequireAnonymous nor RequireAuth.
-  { path: "/two-factor", element: <TwoFactorVerifyPage /> },
+  {
+    path: "/two-factor",
+    lazy: lazyRoute(
+      () => import("@astoom/auth/pages/two-factor-verify"),
+      (m) => m.TwoFactorVerifyPage
+    ),
+  },
   // Top-level on purpose: shared with accounts; an unconfirmed-email sign-in
   // lands here, and verifying completes the session.
-  { path: "/verify-email", element: <VerifyEmailPage /> },
+  {
+    path: "/verify-email",
+    lazy: lazyRoute(
+      () => import("@astoom/auth/pages/verify-email-page"),
+      (m) => m.VerifyEmailPage
+    ),
+  },
   { path: "/accept-invitation", element: <AcceptInvitationRedirect /> },
   { path: "/403", element: <ForbiddenPage /> },
   { path: "*", element: <NotFoundPage /> },
+    ],
+  },
 ])

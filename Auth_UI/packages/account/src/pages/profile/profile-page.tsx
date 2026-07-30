@@ -44,6 +44,7 @@ import { useProfileImage } from "@astoom/api/use-profile-image"
 import { getErrorMessage } from "@astoom/api/errors"
 import { fullName } from "@astoom/ui/format"
 import i18n, {
+  applyLanguage,
   persistLanguage,
   SUPPORTED_LANGUAGES,
   type LanguageCode,
@@ -115,7 +116,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
         i18n.language !== code
       ) {
         persistLanguage(code as LanguageCode)
-        void i18n.changeLanguage(code)
+        void applyLanguage(code as LanguageCode)
       }
       const theme = values.theme
       if (theme && isTheme(theme) && activeTheme !== theme) {
