@@ -231,10 +231,12 @@ export const zh: TranslationResources = {
   },
   dashboard: {
     window: "时间范围",
+    windowHint: "本页所有数字回溯统计的时间长度。",
     windowCustom: "包含天数",
     windowCustomHint: "介于 {{min}} 到 {{max}} 天之间。",
     windowLabel: "最近 {{days}} 天。",
     granularity: "粒度",
+    granularityHint: "时间轴上每个点代表一天还是一周。",
     tabOverview: "概览",
     tabSecurity: "登录与安全",
     tabPeople: "用户",

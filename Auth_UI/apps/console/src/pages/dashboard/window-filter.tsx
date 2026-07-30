@@ -60,89 +60,134 @@ export function WindowFilter({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <ToggleGroup
-        type="single"
-        spacing={0}
-        variant="outline"
-        value={isPreset ? String(days) : CUSTOM}
-        aria-label={t("dashboard.window")}
-        onValueChange={(next) => {
-          if (!next) return
-          if (next === CUSTOM) {
-            openCustom()
-            return
-          }
-          onChange({ days: Number(next) })
-        }}
+    <div className="flex flex-wrap items-start gap-x-10 gap-y-5">
+      {/* Each group is labelled and explained. They compose — one sets how far
+          back to look, the other how the points in that span are bucketed — and
+          side by side without labels that was not guessable. */}
+      <FilterGroup
+        id="dashboard-window"
+        label={t("dashboard.window")}
+        hint={t("dashboard.windowHint")}
       >
-        {DAY_PRESETS.map((preset) => (
-          <ToggleGroupItem key={preset} value={String(preset)}>
-            {t("common.daysShort", { count: preset })}
-          </ToggleGroupItem>
-        ))}
-        <Popover
-          open={open}
-          onOpenChange={(next) => (next ? openCustom() : setOpen(false))}
+        <ToggleGroup
+          type="single"
+          spacing={0}
+          variant="outline"
+          value={isPreset ? String(days) : CUSTOM}
+          aria-labelledby="dashboard-window-label"
+          onValueChange={(next) => {
+            if (!next) return
+            if (next === CUSTOM) {
+              openCustom()
+              return
+            }
+            onChange({ days: Number(next) })
+          }}
         >
-          <PopoverTrigger asChild>
-            <ToggleGroupItem value={CUSTOM}>
-              {isPreset
-                ? t("common.custom")
-                : t("common.daysShort", { count: days })}
+          {DAY_PRESETS.map((preset) => (
+            <ToggleGroupItem key={preset} value={String(preset)}>
+              {t("common.daysShort", { count: preset })}
             </ToggleGroupItem>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-64">
-            <Field>
-              <FieldLabel htmlFor="dashboard-window-days">
-                {t("dashboard.windowCustom")}
-              </FieldLabel>
-              <div className="flex gap-2">
-                <Input
-                  id="dashboard-window-days"
-                  type="number"
-                  inputMode="numeric"
-                  min={MIN_DAYS}
-                  max={MAX_DAYS}
-                  value={draft}
-                  onChange={(event) => setDraft(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault()
-                      applyCustom()
-                    }
-                  }}
-                />
-                <Button type="button" onClick={applyCustom}>
-                  {t("common.apply")}
-                </Button>
-              </div>
-              <FieldDescription>
-                {t("dashboard.windowCustomHint", {
-                  min: MIN_DAYS,
-                  max: MAX_DAYS,
-                })}
-              </FieldDescription>
-            </Field>
-          </PopoverContent>
-        </Popover>
-      </ToggleGroup>
+          ))}
+          <Popover
+            open={open}
+            onOpenChange={(next) => (next ? openCustom() : setOpen(false))}
+          >
+            <PopoverTrigger asChild>
+              <ToggleGroupItem value={CUSTOM}>
+                {isPreset
+                  ? t("common.custom")
+                  : t("common.daysShort", { count: days })}
+              </ToggleGroupItem>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64">
+              <Field>
+                <FieldLabel htmlFor="dashboard-window-days">
+                  {t("dashboard.windowCustom")}
+                </FieldLabel>
+                <div className="flex gap-2">
+                  <Input
+                    id="dashboard-window-days"
+                    type="number"
+                    inputMode="numeric"
+                    min={MIN_DAYS}
+                    max={MAX_DAYS}
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault()
+                        applyCustom()
+                      }
+                    }}
+                  />
+                  <Button type="button" onClick={applyCustom}>
+                    {t("common.apply")}
+                  </Button>
+                </div>
+                <FieldDescription>
+                  {t("dashboard.windowCustomHint", {
+                    min: MIN_DAYS,
+                    max: MAX_DAYS,
+                  })}
+                </FieldDescription>
+              </Field>
+            </PopoverContent>
+          </Popover>
+        </ToggleGroup>
+      </FilterGroup>
 
-      <ToggleGroup
-        type="single"
-        spacing={0}
-        variant="outline"
-        value={granularity}
-        aria-label={t("dashboard.granularity")}
-        onValueChange={(next) => {
-          if (next === "daily" || next === "weekly") {
-            onChange({ granularity: next })
-          }
-        }}
+      <FilterGroup
+        id="dashboard-granularity"
+        label={t("dashboard.granularity")}
+        hint={t("dashboard.granularityHint")}
       >
-        <ToggleGroupItem value="daily">{t("dashboard.daily")}</ToggleGroupItem>
-        <ToggleGroupItem value="weekly">{t("dashboard.weekly")}</ToggleGroupItem>
-      </ToggleGroup>
+        <ToggleGroup
+          type="single"
+          spacing={0}
+          variant="outline"
+          value={granularity}
+          aria-labelledby="dashboard-granularity-label"
+          onValueChange={(next) => {
+            if (next === "daily" || next === "weekly") {
+              onChange({ granularity: next })
+            }
+          }}
+        >
+          <ToggleGroupItem value="daily">
+            {t("dashboard.daily")}
+          </ToggleGroupItem>
+          <ToggleGroupItem value="weekly">
+            {t("dashboard.weekly")}
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </FilterGroup>
+    </div>
+  )
+}
+
+/** A labelled, explained control group in the filter bar. */
+function FilterGroup({
+  id,
+  label,
+  hint,
+  children,
+}: {
+  id: string
+  label: string
+  hint: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <span
+        id={`${id}-label`}
+        className="text-xs font-medium text-muted-foreground"
+      >
+        {label}
+      </span>
+      {children}
+      <span className="max-w-xs text-xs text-muted-foreground">{hint}</span>
     </div>
   )
 }

@@ -237,10 +237,12 @@ export const tr: TranslationResources = {
   },
   dashboard: {
     window: "Dönem",
+    windowHint: "Bu sayfadaki her sayının ne kadar geriye gidilerek ölçüldüğü.",
     windowCustom: "Kapsanacak gün sayısı",
     windowCustomHint: "{{min}} ile {{max}} gün arasında.",
     windowLabel: "Son {{days}} gün.",
     granularity: "Ayrıntı düzeyi",
+    granularityHint: "Zaman eksenindeki her noktanın bir gün mü bir hafta mı olduğu.",
     tabOverview: "Genel bakış",
     tabSecurity: "Oturum açma ve güvenlik",
     tabPeople: "Kullanıcılar",

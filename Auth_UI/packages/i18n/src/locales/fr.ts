@@ -238,10 +238,12 @@ export const fr: TranslationResources = {
   },
   dashboard: {
     window: "Période",
+    windowHint: "La profondeur sur laquelle chaque chiffre de cette page est mesuré.",
     windowCustom: "Nombre de jours",
     windowCustomHint: "Entre {{min}} et {{max}} jours.",
     windowLabel: "{{days}} derniers jours.",
     granularity: "Granularité",
+    granularityHint: "Si un point de l'axe temporel représente un jour ou une semaine.",
     tabOverview: "Vue d'ensemble",
     tabSecurity: "Connexion et sécurité",
     tabPeople: "Utilisateurs",

@@ -73,7 +73,15 @@ function Calendar({
           "relative rounded-md border border-input shadow-xs has-focus:border-ring has-focus:ring-3 has-focus:ring-ring/30",
           defaultClassNames.dropdown_root
         ),
-        dropdown: cn("absolute inset-0 opacity-0", defaultClassNames.dropdown),
+        // The real <select> sits invisible over the styled trigger, but its option
+        // list is drawn by the browser. `color-scheme` on the root (preset.css)
+        // makes that popup follow the theme; these colours are the fallback for
+        // platforms that ignore it — without them the month and year lists were
+        // light-on-white in dark mode.
+        dropdown: cn(
+          "absolute inset-0 bg-popover text-popover-foreground opacity-0 [&>option]:bg-popover [&>option]:text-popover-foreground",
+          defaultClassNames.dropdown
+        ),
         caption_label: cn(
           "select-none font-medium",
           captionLayout === "label"

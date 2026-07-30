@@ -229,10 +229,12 @@ export const en = {
   },
   dashboard: {
     window: "Period",
+    windowHint: "How far back every number on this page is measured.",
     windowCustom: "Days to include",
     windowCustomHint: "Between {{min}} and {{max}} days.",
     windowLabel: "Trailing {{days}} days.",
     granularity: "Granularity",
+    granularityHint: "Whether points on the time axis are one day or one week.",
     tabOverview: "Overview",
     tabSecurity: "Sign-in & security",
     tabPeople: "People",

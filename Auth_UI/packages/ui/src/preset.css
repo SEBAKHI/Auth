@@ -136,4 +136,23 @@
   html {
     @apply font-sans;
     }
+
+  /*
+   * Tell the browser which palette to render NATIVE UI in.
+   *
+   * Anything the browser draws itself — a <select>'s option popup, the
+   * react-day-picker month/year dropdowns, scrollbars, focus rings on native
+   * controls — ignores our tokens and follows `color-scheme`. Without this the
+   * popups stayed light while the app was dark, so option text (inheriting the
+   * dark theme's light `color`) sat on a white list and was unreadable.
+   *
+   * Set on :root rather than on `.dark` alone so the light theme is declared too;
+   * a bare `color-scheme: dark` on one branch leaves the other at the UA default.
+   */
+  :root {
+    color-scheme: light;
+    }
+  .dark {
+    color-scheme: dark;
+    }
 }

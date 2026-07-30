@@ -235,10 +235,12 @@ export const fa: TranslationResources = {
   },
   dashboard: {
     window: "دوره",
+    windowHint: "همه اعداد این صفحه بر چه بازه‌ای از گذشته محاسبه می‌شوند.",
     windowCustom: "تعداد روزهای موردنظر",
     windowCustomHint: "بین {{min}} تا {{max}} روز.",
     windowLabel: "{{days}} روز گذشته.",
     granularity: "دانه‌بندی",
+    granularityHint: "هر نقطه روی محور زمان یک روز است یا یک هفته.",
     tabOverview: "نمای کلی",
     tabSecurity: "ورود و امنیت",
     tabPeople: "کاربران",

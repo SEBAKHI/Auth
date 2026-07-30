@@ -234,10 +234,12 @@ export const ur: TranslationResources = {
   },
   dashboard: {
     window: "مدت",
+    windowHint: "اس صفحے کے تمام اعداد کتنی پچھلی مدت پر شمار کیے جاتے ہیں۔",
     windowCustom: "شامل کیے جانے والے دن",
     windowCustomHint: "{{min}} سے {{max}} دن کے درمیان۔",
     windowLabel: "گزشتہ {{days}} دن۔",
     granularity: "تفصیل کی سطح",
+    granularityHint: "وقت کے محور پر ہر نقطہ ایک دن ہے یا ایک ہفتہ۔",
     tabOverview: "خلاصہ",
     tabSecurity: "سائن اِن اور سلامتی",
     tabPeople: "صارفین",
