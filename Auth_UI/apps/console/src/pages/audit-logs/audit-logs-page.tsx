@@ -13,6 +13,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
@@ -192,12 +193,18 @@ export function AuditLogsPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => exportMutation.mutate("csv")}>
-                  CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportMutation.mutate("json")}>
-                  JSON
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => exportMutation.mutate("csv")}
+                  >
+                    CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => exportMutation.mutate("json")}
+                  >
+                    JSON
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null

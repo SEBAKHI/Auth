@@ -19,6 +19,7 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -91,11 +92,13 @@ export function CreateTemplateDialog({
               <SelectValue placeholder={t("notifications.selectType")} />
             </SelectTrigger>
             <SelectContent>
-              {types.map((type) => (
-                <SelectItem key={type.id} value={type.id!}>
-                  {type.name}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                {types.map((type) => (
+                  <SelectItem key={type.id} value={type.id!}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </Field>
@@ -123,11 +126,13 @@ export function CreateTemplateDialog({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {SUPPORTED_LANGUAGES.map((language) => (
-                <SelectItem key={language.code} value={language.code}>
-                  {language.label}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                {SUPPORTED_LANGUAGES.map((language) => (
+                  <SelectItem key={language.code} value={language.code}>
+                    {language.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </Field>

@@ -13,6 +13,7 @@ import { Input } from "@astoom/ui/input"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -87,11 +88,13 @@ export function TestSendDialog({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {SUPPORTED_LANGUAGES.map((language) => (
-                <SelectItem key={language.code} value={language.code}>
-                  {language.label}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                {SUPPORTED_LANGUAGES.map((language) => (
+                  <SelectItem key={language.code} value={language.code}>
+                    {language.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </Field>

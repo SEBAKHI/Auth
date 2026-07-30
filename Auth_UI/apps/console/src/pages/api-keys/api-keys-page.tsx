@@ -22,6 +22,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -280,20 +281,24 @@ export function ApiKeysPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {canRotate ? (
-                        <DropdownMenuItem onClick={() => setRotateKey(key)}>
-                          {t("apiKeys.rotate")}
-                        </DropdownMenuItem>
-                      ) : null}
+                      <DropdownMenuGroup>
+                        {canRotate ? (
+                          <DropdownMenuItem onClick={() => setRotateKey(key)}>
+                            {t("apiKeys.rotate")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canRevoke ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setRevokeKey(key)}
-                          >
-                            {t("apiKeys.revoke")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setRevokeKey(key)}
+                            >
+                              {t("apiKeys.revoke")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>

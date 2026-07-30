@@ -28,6 +28,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
@@ -36,6 +37,7 @@ import { Input } from "@astoom/ui/input"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -230,18 +232,22 @@ function MembersTab({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setChangingRole(row.original)}>
-                {t("organizations.changeRole")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setManagingRoles(row.original)}>
-                {t("organizations.manageAppRoles")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => setRemoving(row.original)}
-              >
-                {t("organizations.removeMember")}
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => setChangingRole(row.original)}>
+                  {t("organizations.changeRole")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setManagingRoles(row.original)}
+                >
+                  {t("organizations.manageAppRoles")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setRemoving(row.original)}
+                >
+                  {t("organizations.removeMember")}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -362,13 +368,15 @@ function ChangeMemberRoleDialog({
             </SelectTrigger>
             <SelectContent>
               {/* Membership role is organization-level (no application). */}
-              {(rolesQuery.data ?? [])
-                .filter((role) => role.id && !role.applicationId)
-                .map((role) => (
-                  <SelectItem key={role.id} value={role.id as string}>
-                    {role.name}
-                  </SelectItem>
-                ))}
+              <SelectGroup>
+                {(rolesQuery.data ?? [])
+                  .filter((role) => role.id && !role.applicationId)
+                  .map((role) => (
+                    <SelectItem key={role.id} value={role.id as string}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
         </Field>
@@ -478,13 +486,15 @@ function InviteDialog({
               <SelectContent>
                 {/* The invited role becomes the org membership role, so only
                     organization-level roles (no application) are valid here. */}
-                {(rolesQuery.data ?? [])
-                  .filter((role) => role.id && !role.applicationId)
-                  .map((role) => (
-                    <SelectItem key={role.id} value={role.id as string}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
+                <SelectGroup>
+                  {(rolesQuery.data ?? [])
+                    .filter((role) => role.id && !role.applicationId)
+                    .map((role) => (
+                      <SelectItem key={role.id} value={role.id as string}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </Field>
@@ -789,15 +799,17 @@ function ApplicationsTab({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setEditingApp(row.original)}>
-                {t("organizations.editSubscription")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => setRemoving(row.original)}
-              >
-                {t("common.remove")}
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => setEditingApp(row.original)}>
+                  {t("organizations.editSubscription")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setRemoving(row.original)}
+                >
+                  {t("common.remove")}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

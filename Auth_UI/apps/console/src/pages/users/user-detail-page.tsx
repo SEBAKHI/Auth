@@ -18,6 +18,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -629,83 +630,93 @@ export function UserDetailPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                      {canManageRoles ? (
-                        <DropdownMenuItem onClick={() => setRolesOpen(true)}>
-                          {t("users.manageRoles")}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {canManagePerms ? (
-                        <DropdownMenuItem onClick={() => setPermsOpen(true)}>
-                          {t("users.managePermissions")}
-                        </DropdownMenuItem>
-                      ) : null}
+                      <DropdownMenuGroup>
+                        {canManageRoles ? (
+                          <DropdownMenuItem onClick={() => setRolesOpen(true)}>
+                            {t("users.manageRoles")}
+                          </DropdownMenuItem>
+                        ) : null}
+                        {canManagePerms ? (
+                          <DropdownMenuItem onClick={() => setPermsOpen(true)}>
+                            {t("users.managePermissions")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canManage ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            disabled={sendPasswordReset.isPending}
-                            onClick={() => sendPasswordReset.mutate()}
-                          >
-                            {t("users.sendPasswordReset")}
-                          </DropdownMenuItem>
-                          {!user.emailConfirmed ? (
+                          <DropdownMenuGroup>
                             <DropdownMenuItem
-                              onClick={() => setVerifyEmailOpen(true)}
+                              disabled={sendPasswordReset.isPending}
+                              onClick={() => sendPasswordReset.mutate()}
                             >
-                              {t("users.resendConfirmation")}
+                              {t("users.sendPasswordReset")}
                             </DropdownMenuItem>
-                          ) : null}
+                            {!user.emailConfirmed ? (
+                              <DropdownMenuItem
+                                onClick={() => setVerifyEmailOpen(true)}
+                              >
+                                {t("users.resendConfirmation")}
+                              </DropdownMenuItem>
+                            ) : null}
+                          </DropdownMenuGroup>
                           <DropdownMenuSeparator />
-                          {isLocked ? (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                statusAction.mutate({
-                                  id: userId,
-                                  action: "unlock",
-                                })
-                              }
-                            >
-                              {t("users.unlock")}
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => setLockOpen(true)}>
-                              {t("users.lock")}
-                            </DropdownMenuItem>
-                          )}
-                          {isInactive ? (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                statusAction.mutate({
-                                  id: userId,
-                                  action: "activate",
-                                })
-                              }
-                            >
-                              {t("users.activate")}
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                statusAction.mutate({
-                                  id: userId,
-                                  action: "deactivate",
-                                })
-                              }
-                            >
-                              {t("users.deactivate")}
-                            </DropdownMenuItem>
-                          )}
+                          <DropdownMenuGroup>
+                            {isLocked ? (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  statusAction.mutate({
+                                    id: userId,
+                                    action: "unlock",
+                                  })
+                                }
+                              >
+                                {t("users.unlock")}
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => setLockOpen(true)}
+                              >
+                                {t("users.lock")}
+                              </DropdownMenuItem>
+                            )}
+                            {isInactive ? (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  statusAction.mutate({
+                                    id: userId,
+                                    action: "activate",
+                                  })
+                                }
+                              >
+                                {t("users.activate")}
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  statusAction.mutate({
+                                    id: userId,
+                                    action: "deactivate",
+                                  })
+                                }
+                              >
+                                {t("users.deactivate")}
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                       {canDelete ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setDeleteOpen(true)}
-                          >
-                            {t("common.delete")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setDeleteOpen(true)}
+                            >
+                              {t("common.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>

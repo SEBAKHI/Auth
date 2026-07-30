@@ -9,6 +9,7 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -111,11 +112,13 @@ export function UserRolesDialog({
                 <SelectValue placeholder={t("users.assignRole")} />
               </SelectTrigger>
               <SelectContent>
-                {available.map((role) => (
-                  <SelectItem key={role.id} value={role.id as string}>
-                    {roleLabel(role)}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {available.map((role) => (
+                    <SelectItem key={role.id} value={role.id as string}>
+                      {roleLabel(role)}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </AssignmentPicker>

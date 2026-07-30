@@ -15,6 +15,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -153,30 +154,34 @@ export function RolesPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => navigate(`/roles/${role.id}`)}
-                      >
-                        {t("common.view")}
-                      </DropdownMenuItem>
-                      {canUpdate ? (
+                      <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() => {
-                            setEditing(role)
-                            setFormOpen(true)
-                          }}
+                          onClick={() => navigate(`/roles/${role.id}`)}
                         >
-                          {t("common.edit")}
+                          {t("common.view")}
                         </DropdownMenuItem>
-                      ) : null}
+                        {canUpdate ? (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditing(role)
+                              setFormOpen(true)
+                            }}
+                          >
+                            {t("common.edit")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canDelete && !role.isSystem ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setDeleting(role)}
-                          >
-                            {t("common.delete")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setDeleting(role)}
+                            >
+                              {t("common.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>

@@ -22,6 +22,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -279,20 +280,24 @@ export function WebhookKeysPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {canRotate ? (
-                        <DropdownMenuItem onClick={() => setRotateKey(key)}>
-                          {t("webhookKeys.rotate")}
-                        </DropdownMenuItem>
-                      ) : null}
+                      <DropdownMenuGroup>
+                        {canRotate ? (
+                          <DropdownMenuItem onClick={() => setRotateKey(key)}>
+                            {t("webhookKeys.rotate")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canRevoke ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setRevokeKey(key)}
-                          >
-                            {t("webhookKeys.revoke")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setRevokeKey(key)}
+                            >
+                              {t("webhookKeys.revoke")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>

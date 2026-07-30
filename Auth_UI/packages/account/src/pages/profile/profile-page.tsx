@@ -30,6 +30,7 @@ import { Input } from "@astoom/ui/input"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -255,15 +256,17 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="light">
-                            {t("common.light")}
-                          </SelectItem>
-                          <SelectItem value="dark">
-                            {t("common.dark")}
-                          </SelectItem>
-                          <SelectItem value="system">
-                            {t("common.system")}
-                          </SelectItem>
+                          <SelectGroup>
+                            <SelectItem value="light">
+                              {t("common.light")}
+                            </SelectItem>
+                            <SelectItem value="dark">
+                              {t("common.dark")}
+                            </SelectItem>
+                            <SelectItem value="system">
+                              {t("common.system")}
+                            </SelectItem>
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
                       <FormMessage />

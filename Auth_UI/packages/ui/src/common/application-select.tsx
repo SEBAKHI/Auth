@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -53,14 +54,16 @@ export function ApplicationSelect({
         <SelectValue placeholder={placeholder_} />
       </SelectTrigger>
       <SelectContent>
-        {allowAll ? (
-          <SelectItem value={ALL_VALUE}>{t("common.all")}</SelectItem>
-        ) : null}
-        {apps.map((app) => (
-          <SelectItem key={app.id} value={app.id as string}>
-            {app.name}
-          </SelectItem>
-        ))}
+        <SelectGroup>
+          {allowAll ? (
+            <SelectItem value={ALL_VALUE}>{t("common.all")}</SelectItem>
+          ) : null}
+          {apps.map((app) => (
+            <SelectItem key={app.id} value={app.id as string}>
+              {app.name}
+            </SelectItem>
+          ))}
+        </SelectGroup>
       </SelectContent>
     </Select>
   )

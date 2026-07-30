@@ -16,6 +16,7 @@ import { Button } from "@astoom/ui/button"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -123,11 +124,13 @@ export function PermissionImplicationsDialog({
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {available.map((p) => (
-                    <SelectItem key={p.id} value={p.id as string}>
-                      {p.code}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {available.map((p) => (
+                      <SelectItem key={p.id} value={p.id as string}>
+                        {p.code}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>

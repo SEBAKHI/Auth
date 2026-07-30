@@ -16,6 +16,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -202,25 +203,29 @@ export function ApplicationsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => navigate(`/applications/${app.id}`)}
-                      >
-                        {t("common.view")}
-                      </DropdownMenuItem>
-                      {canUpdate ? (
-                        <DropdownMenuItem onClick={() => setEditing(app)}>
-                          {t("common.edit")}
+                      <DropdownMenuGroup>
+                        <DropdownMenuItem
+                          onClick={() => navigate(`/applications/${app.id}`)}
+                        >
+                          {t("common.view")}
                         </DropdownMenuItem>
-                      ) : null}
+                        {canUpdate ? (
+                          <DropdownMenuItem onClick={() => setEditing(app)}>
+                            {t("common.edit")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canDelete ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setDeleting(app)}
-                          >
-                            {t("common.delete")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setDeleting(app)}
+                            >
+                              {t("common.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>

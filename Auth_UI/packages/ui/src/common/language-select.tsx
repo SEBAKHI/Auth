@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -28,11 +29,13 @@ export function LanguageSelect({
         <SelectValue placeholder={t("common.selectLanguage")} />
       </SelectTrigger>
       <SelectContent>
-        {SUPPORTED_LANGUAGES.map((lang) => (
-          <SelectItem key={lang.code} value={lang.code}>
-            {lang.label}
-          </SelectItem>
-        ))}
+        <SelectGroup>
+          {SUPPORTED_LANGUAGES.map((lang) => (
+            <SelectItem key={lang.code} value={lang.code}>
+              {lang.label}
+            </SelectItem>
+          ))}
+        </SelectGroup>
       </SelectContent>
     </Select>
   )

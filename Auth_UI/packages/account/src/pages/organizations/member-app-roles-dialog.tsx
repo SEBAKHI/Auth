@@ -9,6 +9,7 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -144,14 +145,16 @@ export function MemberAppRolesDialog({
                 />
               </SelectTrigger>
               <SelectContent>
-                {enabledApps.map((app) => (
-                  <SelectItem
-                    key={app.applicationId}
-                    value={app.applicationId as string}
-                  >
-                    {app.applicationName}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {enabledApps.map((app) => (
+                    <SelectItem
+                      key={app.applicationId}
+                      value={app.applicationId as string}
+                    >
+                      {app.applicationName}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
             <Select
@@ -163,11 +166,13 @@ export function MemberAppRolesDialog({
                 <SelectValue placeholder={t("organizations.selectRole")} />
               </SelectTrigger>
               <SelectContent>
-                {availableRoles.map((role) => (
-                  <SelectItem key={role.id} value={role.id as string}>
-                    {role.name}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {availableRoles.map((role) => (
+                    <SelectItem key={role.id} value={role.id as string}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </AssignmentPicker>

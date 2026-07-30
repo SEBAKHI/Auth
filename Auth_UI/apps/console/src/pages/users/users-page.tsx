@@ -15,6 +15,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -266,15 +267,17 @@ export function UsersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => {
-                            setHardDeleteConfirm("")
-                            setHardDeleteUser(user)
-                          }}
-                        >
-                          {t("users.hardDelete")}
-                        </DropdownMenuItem>
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => {
+                              setHardDeleteConfirm("")
+                              setHardDeleteUser(user)
+                            }}
+                          >
+                            {t("users.hardDelete")}
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -293,84 +296,92 @@ export function UsersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem
-                        onClick={() => navigate(`/users/${user.id}`)}
-                      >
-                        {t("common.view")}
-                      </DropdownMenuItem>
-                      {canUpdate ? (
+                      <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() => {
-                            setEditing(user)
-                            setFormOpen(true)
-                          }}
+                          onClick={() => navigate(`/users/${user.id}`)}
                         >
-                          {t("common.edit")}
+                          {t("common.view")}
                         </DropdownMenuItem>
-                      ) : null}
-                      {canManageRoles ? (
-                        <DropdownMenuItem onClick={() => setRolesUser(user)}>
-                          {t("users.manageRoles")}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {canManagePerms ? (
-                        <DropdownMenuItem onClick={() => setPermsUser(user)}>
-                          {t("users.managePermissions")}
-                        </DropdownMenuItem>
-                      ) : null}
+                        {canUpdate ? (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditing(user)
+                              setFormOpen(true)
+                            }}
+                          >
+                            {t("common.edit")}
+                          </DropdownMenuItem>
+                        ) : null}
+                        {canManageRoles ? (
+                          <DropdownMenuItem onClick={() => setRolesUser(user)}>
+                            {t("users.manageRoles")}
+                          </DropdownMenuItem>
+                        ) : null}
+                        {canManagePerms ? (
+                          <DropdownMenuItem onClick={() => setPermsUser(user)}>
+                            {t("users.managePermissions")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canManage ? (
                         <>
                           <DropdownMenuSeparator />
-                          {isLocked ? (
+                          <DropdownMenuGroup>
+                            {isLocked ? (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  user.id &&
+                                  statusAction.mutate({
+                                    id: user.id,
+                                    action: "unlock",
+                                  })
+                                }
+                              >
+                                {t("users.unlock")}
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => setLockUser(user)}
+                              >
+                                {t("users.lock")}
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               onClick={() =>
                                 user.id &&
                                 statusAction.mutate({
                                   id: user.id,
-                                  action: "unlock",
+                                  action: "activate",
                                 })
                               }
                             >
-                              {t("users.unlock")}
+                              {t("users.activate")}
                             </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => setLockUser(user)}>
-                              {t("users.lock")}
+                            <DropdownMenuItem
+                              onClick={() =>
+                                user.id &&
+                                statusAction.mutate({
+                                  id: user.id,
+                                  action: "deactivate",
+                                })
+                              }
+                            >
+                              {t("users.deactivate")}
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem
-                            onClick={() =>
-                              user.id &&
-                              statusAction.mutate({
-                                id: user.id,
-                                action: "activate",
-                              })
-                            }
-                          >
-                            {t("users.activate")}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              user.id &&
-                              statusAction.mutate({
-                                id: user.id,
-                                action: "deactivate",
-                              })
-                            }
-                          >
-                            {t("users.deactivate")}
-                          </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                       {canDelete ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setDeleteUser(user)}
-                          >
-                            {t("common.delete")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setDeleteUser(user)}
+                            >
+                              {t("common.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>

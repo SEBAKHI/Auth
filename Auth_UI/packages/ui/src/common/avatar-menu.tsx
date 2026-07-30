@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogTitle } from "@astoom/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
@@ -54,19 +55,21 @@ export function AvatarMenu({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          <DropdownMenuItem disabled={!src} onClick={() => setViewOpen(true)}>
-            {t("common.view")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => inputRef.current?.click()}>
-            {t("common.change")}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={!src}
-            onClick={onRemove}
-          >
-            {t("common.remove")}
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuItem disabled={!src} onClick={() => setViewOpen(true)}>
+              {t("common.view")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => inputRef.current?.click()}>
+              {t("common.change")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={!src}
+              onClick={onRemove}
+            >
+              {t("common.remove")}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
 

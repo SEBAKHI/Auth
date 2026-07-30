@@ -24,6 +24,7 @@ import { Button } from "@astoom/ui/button"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -585,11 +586,13 @@ export function DataTable<TData>({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {PAGE_SIZES.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size} / {t("common.page")}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {PAGE_SIZES.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size} / {t("common.page")}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
             <span className="px-1 text-sm text-muted-foreground">

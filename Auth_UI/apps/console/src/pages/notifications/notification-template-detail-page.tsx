@@ -18,6 +18,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -264,31 +265,37 @@ export function NotificationTemplateDetailPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                {canManage ? (
-                  <DropdownMenuItem onClick={() => setTestSendOpen(true)}>
-                    <Send />
-                    {t("notifications.testSend")}
-                  </DropdownMenuItem>
-                ) : null}
-                {canManage && template.draftVersionId ? (
-                  <DropdownMenuItem onClick={() => setDiscardOpen(true)}>
-                    {t("notifications.discardDraft")}
-                  </DropdownMenuItem>
-                ) : null}
-                {canPublish && template.publishedVersionId && !isSystemGlobal ? (
-                  <DropdownMenuItem onClick={() => unpublishMutation.mutate()}>
-                    {t("notifications.unpublish")}
-                  </DropdownMenuItem>
-                ) : null}
+                <DropdownMenuGroup>
+                  {canManage ? (
+                    <DropdownMenuItem onClick={() => setTestSendOpen(true)}>
+                      <Send />
+                      {t("notifications.testSend")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canManage && template.draftVersionId ? (
+                    <DropdownMenuItem onClick={() => setDiscardOpen(true)}>
+                      {t("notifications.discardDraft")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canPublish && template.publishedVersionId && !isSystemGlobal ? (
+                    <DropdownMenuItem
+                      onClick={() => unpublishMutation.mutate()}
+                    >
+                      {t("notifications.unpublish")}
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuGroup>
                 {canManage && !isSystemGlobal ? (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => setDeleteOpen(true)}
-                    >
-                      {t("common.delete")}
-                    </DropdownMenuItem>
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        {t("common.delete")}
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
                   </>
                 ) : null}
               </DropdownMenuContent>

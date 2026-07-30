@@ -21,6 +21,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
@@ -29,6 +30,7 @@ import { Input } from "@astoom/ui/input"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -114,9 +116,11 @@ function ImportDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="rsa">RSA</SelectItem>
-                <SelectItem value="hmac">HMAC</SelectItem>
-                <SelectItem value="gateway">Gateway token</SelectItem>
+                <SelectGroup>
+                  <SelectItem value="rsa">RSA</SelectItem>
+                  <SelectItem value="hmac">HMAC</SelectItem>
+                  <SelectItem value="gateway">Gateway token</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
           </Field>
@@ -340,15 +344,19 @@ export function SecretsPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setPendingGenerate("rsa")}>
-                  {t("secrets.generateRsa")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setPendingGenerate("hmac")}>
-                  {t("secrets.generateHmac")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setPendingGenerate("gateway")}>
-                  {t("secrets.generateGatewayToken")}
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => setPendingGenerate("rsa")}>
+                    {t("secrets.generateRsa")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setPendingGenerate("hmac")}>
+                    {t("secrets.generateHmac")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setPendingGenerate("gateway")}
+                  >
+                    {t("secrets.generateGatewayToken")}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
