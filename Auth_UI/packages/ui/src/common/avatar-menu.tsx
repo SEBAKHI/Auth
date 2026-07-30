@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { EntityAvatar } from "@astoom/ui/common/entity-avatar"
-import { Dialog, DialogContent } from "@astoom/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@astoom/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -94,6 +94,11 @@ export function AvatarMenu({
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent size="md" className="p-2">
+          {/* The lightbox is purely visual, but every Dialog still needs an
+              accessible name or screen readers announce an unnamed dialog. */}
+          <DialogTitle className="sr-only">
+            {name ?? t("common.avatar")}
+          </DialogTitle>
           {src ? (
             <img
               src={src}

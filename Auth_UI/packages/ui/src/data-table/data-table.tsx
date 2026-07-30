@@ -37,6 +37,7 @@ import {
   TableHeader,
   TableRow,
 } from "@astoom/ui/table"
+import { cn } from "@astoom/ui/utils"
 import { getErrorMessage } from "@astoom/api/errors"
 import { buildDisplayColumns } from "./auto-columns"
 import { buildExportColumns, exportRowsToCsv } from "./csv"
@@ -379,7 +380,7 @@ export function DataTable<TData>({
   }, [table, exportFileName, tableId, onExportAll, data, t])
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       {enableToolbar ? (
         <DataTableToolbar
           table={table}
@@ -443,12 +444,12 @@ export function DataTable<TData>({
                           onMouseDown={(event) => beginResize(event, header)}
                           onTouchStart={(event) => beginResize(event, header)}
                           onDoubleClick={() => header.column.resetSize()}
-                          className={
-                            "absolute inset-y-0 end-0 z-10 w-1.5 cursor-col-resize touch-none select-none " +
-                            (header.column.getIsResizing()
+                          className={cn(
+                            "absolute inset-y-0 end-0 z-10 w-1.5 cursor-col-resize touch-none select-none",
+                            header.column.getIsResizing()
                               ? "bg-primary/50"
-                              : "hover:bg-border")
-                          }
+                              : "hover:bg-border"
+                          )}
                         />
                       ) : null}
                     </TableHead>

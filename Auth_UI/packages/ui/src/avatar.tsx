@@ -73,6 +73,12 @@ function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
   )
 }
 
+/**
+ * `-space-x-2` is deliberate and the one sanctioned exception to the
+ * "gap, never space-x" rule: the avatars must *overlap*, and `gap-*` cannot take
+ * a negative value. Tailwind v4 implements `space-x-*` with `margin-inline-start`,
+ * so the overlap already flips correctly under RTL.
+ */
 function AvatarGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div

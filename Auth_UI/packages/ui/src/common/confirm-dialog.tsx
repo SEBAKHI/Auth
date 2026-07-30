@@ -53,7 +53,9 @@ export function ConfirmDialog({
             <AlertDialogDescription>{description}</AlertDialogDescription>
           ) : null}
         </AlertDialogHeader>
-        {children ? <div className="space-y-3">{children}</div> : null}
+        {children ? (
+          <div className="flex flex-col gap-3">{children}</div>
+        ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>
             {t("common.cancel")}

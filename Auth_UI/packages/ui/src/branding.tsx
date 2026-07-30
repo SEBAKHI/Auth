@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import { useQuery } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"

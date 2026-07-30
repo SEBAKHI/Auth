@@ -19,4 +19,16 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // The design system is not an HMR boundary: its primitives deliberately
+    // export their `cva` variant builders (`buttonVariants`, `toggleVariants`, …)
+    // next to the component, which is the upstream shadcn shape and what lets
+    // sibling components compose them. `only-export-components` is aimed at app
+    // route/page modules, where a stale non-component export really does break
+    // fast refresh.
+    files: ['packages/ui/src/**/*.{ts,tsx}'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

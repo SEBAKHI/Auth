@@ -303,7 +303,7 @@ function ChangeSummary({
   const { t } = useTranslation()
 
   return (
-    <div className="max-h-56 space-y-3 overflow-y-auto text-sm">
+    <div className="flex max-h-56 flex-col gap-3 overflow-y-auto text-sm">
       {addedLabels.length > 0 ? (
         <ChangeList
           title={t("common.toBeAdded", { count: addedLabels.length })}
@@ -332,9 +332,9 @@ function ChangeList({
   icon: React.ReactNode
 }) {
   return (
-    <div className="space-y-1 text-start">
+    <div className="flex flex-col gap-1 text-start">
       <p className="font-medium">{title}</p>
-      <ul className="space-y-1 text-muted-foreground">
+      <ul className="flex flex-col gap-1 text-muted-foreground">
         {labels.map((label) => (
           <li key={label} className="flex items-center gap-2">
             {icon}
@@ -383,7 +383,7 @@ export function AssignmentPicker({
           aria-label={t("common.expiresAt")}
         />
         <Button onClick={onAdd} disabled={!canAdd}>
-          <Plus />
+          <Plus data-icon="inline-start" />
           {addLabel}
         </Button>
       </Field>

@@ -27,3 +27,6 @@ playwright-report/
 *.njsproj
 *.sln
 *.sw?
+
+# Incremental typecheck output (`tsc -p tsconfig.json` at the workspace root).
+*.tsbuildinfo
