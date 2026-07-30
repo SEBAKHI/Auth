@@ -7,6 +7,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApplicationSelect } from "@astoom/ui/common/application-select"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { DetailList } from "@astoom/ui/common/detail-list"
 import { LogoAvatar } from "@astoom/ui/common/logo-avatar"
@@ -830,11 +831,16 @@ function ApplicationsTab({
               <Input value={tier} onChange={(e) => setTier(e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>{t("common.expiresAt")}</Label>
-              <Input
-                type="date"
+              <Label htmlFor="enable-app-expires">
+                {t("common.expiresAt")}
+              </Label>
+              <DatePicker
+                id="enable-app-expires"
                 value={expiresAt}
-                onChange={(e) => setExpiresAt(e.target.value)}
+                onChange={(value) => setExpiresAt(value ?? "")}
+                minDate={new Date()}
+                maxDate={monthsFromNow(10)}
+                placeholder={t("common.never")}
               />
             </div>
           </div>
@@ -935,11 +941,14 @@ function EditOrgAppDialog({
             <Input value={tier} onChange={(e) => setTier(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>{t("common.expiresAt")}</Label>
-            <Input
-              type="date"
+            <Label htmlFor="edit-sub-expires">{t("common.expiresAt")}</Label>
+            <DatePicker
+              id="edit-sub-expires"
               value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
+              onChange={(value) => setExpiresAt(value ?? "")}
+              minDate={new Date()}
+              maxDate={monthsFromNow(10)}
+              placeholder={t("common.never")}
             />
           </div>
           <div className="flex items-center justify-between rounded-lg border p-3">

@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@astoom/ui/dialog"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
 import { Textarea } from "@astoom/ui/textarea"
@@ -149,12 +150,13 @@ export function ClonePolicyDialog({
             <FieldLabel htmlFor="clone-effective">
               {t("notifications.policyEffective")}
             </FieldLabel>
-            <Input
+            <DatePicker
               id="clone-effective"
-              type="date"
               value={effectiveDate}
               disabled={cloneMutation.isPending}
-              onChange={(event) => setEffectiveDate(event.target.value)}
+              onChange={(value) => setEffectiveDate(value ?? "")}
+              minDate={monthsFromNow(-5)}
+              maxDate={monthsFromNow(5)}
             />
           </Field>
           <Field>

@@ -21,6 +21,7 @@ import {
   type PrivacyPolicyContent,
 } from "@astoom/ui/common/policy-document"
 import { usePageBreadcrumb } from "@astoom/ui/crumbs"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
 import { Skeleton } from "@astoom/ui/skeleton"
@@ -401,15 +402,16 @@ export function NotificationPolicyDetailPage() {
                     <FieldLabel htmlFor="meta-effective">
                       {t("notifications.policyEffective")}
                     </FieldLabel>
-                    <Input
+                    <DatePicker
                       id="meta-effective"
-                      type="date"
                       value={effectiveDate}
                       disabled={!canManage}
-                      onChange={(e) => {
-                        setEffectiveDate(e.target.value)
+                      onChange={(value) => {
+                        setEffectiveDate(value ?? "")
                         setMetaDirty(true)
                       }}
+                      minDate={monthsFromNow(-5)}
+                      maxDate={monthsFromNow(5)}
                     />
                   </Field>
                   <Field>

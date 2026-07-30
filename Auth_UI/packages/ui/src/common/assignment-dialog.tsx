@@ -7,6 +7,7 @@ import { getErrorMessage } from "@astoom/api/errors"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,6 @@ import {
 } from "@astoom/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { useDirtyClose } from "@astoom/ui/hooks/use-dirty-close"
-import { Input } from "@astoom/ui/input"
 import { Skeleton } from "@astoom/ui/skeleton"
 
 /** One assignment as it exists on the server. */
@@ -376,11 +376,12 @@ export function AssignmentPicker({
     <Field>
       {children}
       <Field orientation="responsive">
-        <Input
-          type="date"
+        <DatePicker
           value={expiresAt}
-          onChange={(event) => onExpiresAtChange(event.target.value)}
-          aria-label={t("common.expiresAt")}
+          onChange={(value) => onExpiresAtChange(value ?? "")}
+          minDate={new Date()}
+          maxDate={monthsFromNow(10)}
+          placeholder={t("common.expiresAt")}
         />
         <Button onClick={onAdd} disabled={!canAdd}>
           <Plus data-icon="inline-start" />

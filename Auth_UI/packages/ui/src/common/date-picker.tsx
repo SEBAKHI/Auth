@@ -46,15 +46,17 @@ export const DEFAULT_DATE_BOUNDS = {
  * Values are exchanged as `yyyy-MM-dd` strings, so it drops straight into a
  * react-hook-form `FormField` wherever a native date input used to sit.
  *
- * `startMonth`/`endMonth` bound the year dropdown. They are worth setting per
- * use: react-day-picker v10 otherwise opens the dropdown on a 100-year span.
- * (v10 removed `fromYear`/`toYear` — these are the replacements.)
+ * `minDate`/`maxDate` are worth setting per use. They bound the year dropdown
+ * *and* grey out the days outside the range, so an expiry field cannot be given a
+ * date in the past. Without bounds react-day-picker v10 opens the year dropdown
+ * on a 100-year span (v10 removed `fromYear`/`toYear`; `startMonth`/`endMonth`
+ * are the replacements, and are derived from these).
  */
 export function DatePicker({
   value,
   onChange,
-  startMonth,
-  endMonth,
+  minDate,
+  maxDate,
   placeholder,
   disabled,
   clearable = true,
@@ -64,8 +66,10 @@ export function DatePicker({
 }: {
   value?: string
   onChange: (value?: string) => void
-  startMonth?: Date
-  endMonth?: Date
+  /** Earliest selectable day; also the first month in the dropdown. */
+  minDate?: Date
+  /** Latest selectable day; also the last month in the dropdown. */
+  maxDate?: Date
   placeholder?: string
   disabled?: boolean
   /** Show the footer "Clear" action. Off for fields that must hold a date. */
@@ -78,6 +82,13 @@ export function DatePicker({
   const [open, setOpen] = React.useState(false)
 
   const selected = parseCalendarDate(value)
+
+  // Only include the bounds that were actually given: react-day-picker matchers
+  // treat a present-but-undefined `before`/`after` as a malformed matcher.
+  const outOfRange = [
+    ...(minDate ? [{ before: minDate }] : []),
+    ...(maxDate ? [{ after: maxDate }] : []),
+  ]
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -105,8 +116,9 @@ export function DatePicker({
           autoFocus
           selected={selected}
           defaultMonth={selected}
-          startMonth={startMonth ?? DEFAULT_DATE_BOUNDS.startMonth}
-          endMonth={endMonth ?? DEFAULT_DATE_BOUNDS.endMonth}
+          startMonth={minDate ?? DEFAULT_DATE_BOUNDS.startMonth}
+          endMonth={maxDate ?? DEFAULT_DATE_BOUNDS.endMonth}
+          disabled={outOfRange.length > 0 ? outOfRange : undefined}
           onSelect={(date) => {
             onChange(date ? toCalendarDate(date) : undefined)
             if (date) setOpen(false)

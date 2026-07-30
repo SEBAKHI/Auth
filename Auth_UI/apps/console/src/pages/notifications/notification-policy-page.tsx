@@ -24,6 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@astoom/ui/dialog"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { formatDate, formatDateTime } from "@astoom/ui/format"
 import { Input } from "@astoom/ui/input"
@@ -309,11 +310,12 @@ export function NotificationPolicyPage() {
               <FieldLabel htmlFor="policy-effective">
                 {t("notifications.policyEffective")}
               </FieldLabel>
-              <Input
+              <DatePicker
                 id="policy-effective"
-                type="date"
                 value={newEffectiveDate}
-                onChange={(event) => setNewEffectiveDate(event.target.value)}
+                onChange={(value) => setNewEffectiveDate(value ?? "")}
+                minDate={monthsFromNow(-5)}
+                maxDate={monthsFromNow(5)}
               />
             </Field>
             <Field>

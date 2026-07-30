@@ -15,6 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@astoom/ui/dialog"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import { FieldGroup } from "@astoom/ui/field"
 import {
   Form,
@@ -170,7 +171,13 @@ export function WebhookKeyCreateDialog({
                   <FormItem>
                     <FormLabel>{t("common.expiresAt")}</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker
+                        value={field.value}
+                        onChange={(value) => field.onChange(value ?? "")}
+                        minDate={new Date()}
+                        maxDate={monthsFromNow(10)}
+                        placeholder={t("common.never")}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
