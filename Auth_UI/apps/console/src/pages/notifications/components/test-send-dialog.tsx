@@ -8,8 +8,8 @@ import { getErrorMessage } from "@astoom/api/errors"
 import { unwrap } from "@astoom/api/helpers"
 import { SUPPORTED_LANGUAGES } from "@astoom/i18n"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import {
   Select,
   SelectContent,
@@ -64,9 +64,11 @@ export function TestSendDialog({
       loading={sendMutation.isPending}
       onConfirm={() => recipientEmail && sendMutation.mutate()}
     >
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="test-send-email">{t("notifications.recipientEmail")}</Label>
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="test-send-email">
+            {t("notifications.recipientEmail")}
+          </FieldLabel>
           <Input
             id="test-send-email"
             type="email"
@@ -75,11 +77,13 @@ export function TestSendDialog({
             value={recipientEmail}
             onChange={(e) => setRecipientEmail(e.target.value)}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>{t("notifications.language")}</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="test-send-language">
+            {t("notifications.language")}
+          </FieldLabel>
           <Select value={languageCode} onValueChange={setLanguageCode}>
-            <SelectTrigger>
+            <SelectTrigger id="test-send-language">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -90,8 +94,8 @@ export function TestSendDialog({
               ))}
             </SelectContent>
           </Select>
-        </div>
-      </div>
+        </Field>
+      </FieldGroup>
     </ConfirmDialog>
   )
 }

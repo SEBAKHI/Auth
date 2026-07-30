@@ -24,8 +24,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import {
   Select,
   SelectContent,
@@ -101,14 +101,16 @@ function ImportDialog({
           <DialogTitle>{t("secrets.importRsa")}</DialogTitle>
           <DialogDescription>{t("secrets.subtitle")}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>{t("common.type")}</Label>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="import-secret-kind">
+              {t("common.type")}
+            </FieldLabel>
             <Select
               value={kind}
               onValueChange={(v) => setKind(v as ImportKind)}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="import-secret-kind" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -117,17 +119,20 @@ function ImportDialog({
                 <SelectItem value="gateway">Gateway token</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>{t("secrets.value")}</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="import-secret-value">
+              {t("secrets.value")}
+            </FieldLabel>
             <Textarea
+              id="import-secret-value"
               rows={6}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               className="font-mono text-xs"
             />
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
@@ -186,20 +191,29 @@ function CustomSecretDialog({
         <DialogHeader>
           <DialogTitle>{t("secrets.setCustom")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>{t("secrets.key")}</Label>
-            <Input value={key} onChange={(e) => setKey(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>{t("secrets.value")}</Label>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="custom-secret-key">
+              {t("secrets.key")}
+            </FieldLabel>
             <Input
+              id="custom-secret-key"
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="custom-secret-value">
+              {t("secrets.value")}
+            </FieldLabel>
+            <Input
+              id="custom-secret-value"
               value={value}
               onChange={(e) => setValue(e.target.value)}
               className="font-mono text-xs"
             />
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
@@ -286,7 +300,7 @@ export function SecretsPage() {
 
   if (statusQuery.isError) {
     return (
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <PageHeader
           title={t("secrets.title")}
           description={t("secrets.subtitle")}
@@ -308,7 +322,7 @@ export function SecretsPage() {
   const secrets = Object.entries(status?.secrets ?? {})
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("secrets.title")}
         description={t("secrets.subtitle")}
@@ -353,7 +367,7 @@ export function SecretsPage() {
             <RefreshCw />
           </Button>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="flex flex-col gap-2 text-sm">
           {statusQuery.isLoading ? (
             <Skeleton className="h-20 w-full" />
           ) : (
@@ -464,14 +478,14 @@ export function SecretsPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteKey && deleteMutation.mutate(deleteKey)}
       >
-        <div className="space-y-2">
-          <Label htmlFor="delete-key">{t("secrets.key")}</Label>
+        <Field>
+          <FieldLabel htmlFor="delete-key">{t("secrets.key")}</FieldLabel>
           <Input
             id="delete-key"
             value={deleteKey}
             onChange={(e) => setDeleteKey(e.target.value)}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
 
       <SecretRevealDialog

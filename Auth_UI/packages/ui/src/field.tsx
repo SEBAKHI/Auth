@@ -192,8 +192,12 @@ function FieldError({
       return errors[0].message
     }
 
+    // No `flex` on the list: it makes the children flex items instead of
+    // `list-item`, which silently drops the `list-disc` markers — so a field with
+    // several errors rendered as an unbulleted run of lines. Spacing comes from an
+    // adjacent-sibling margin, which leaves the list semantics intact.
     return (
-      <ul className="ms-4 flex list-disc flex-col gap-1">
+      <ul className="ms-4 list-disc [&>li+li]:mt-1">
         {errors.map(
           (error, index) =>
             error?.message && <li key={index}>{error.message}</li>

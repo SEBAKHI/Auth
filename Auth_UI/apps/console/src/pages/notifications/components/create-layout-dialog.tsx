@@ -9,8 +9,13 @@ import { getErrorMessage } from "@astoom/api/errors"
 import { unwrap } from "@astoom/api/helpers"
 import { ApplicationSelect } from "@astoom/ui/common/application-select"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 
 /**
  * A starter layout so the admin edits a working document rather than a blank
@@ -99,28 +104,33 @@ export function CreateLayoutDialog({
       loading={createMutation.isPending}
       onConfirm={() => name && applicationId && createMutation.mutate()}
     >
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="layout-create-name">{t("notifications.layoutName")}</Label>
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="layout-create-name">
+            {t("notifications.layoutName")}
+          </FieldLabel>
           <Input
             id="layout-create-name"
             dir="auto"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
-        </div>
-        <div className="space-y-2">
-          <Label>{t("notifications.application")}</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="layout-create-application">
+            {t("notifications.application")}
+          </FieldLabel>
           <ApplicationSelect
+            id="layout-create-application"
             value={applicationId}
             onChange={setApplicationId}
             placeholder={t("notifications.selectApplication")}
           />
-          <p className="text-xs text-muted-foreground">
+          <FieldDescription>
             {t("notifications.newLayoutScopeHint")}
-          </p>
-        </div>
-      </div>
+          </FieldDescription>
+        </Field>
+      </FieldGroup>
     </ConfirmDialog>
   )
 }

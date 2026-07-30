@@ -27,9 +27,13 @@ import {
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
 import { PresetField } from "@astoom/ui/common/preset-field"
-import { Field, FieldDescription, FieldLabel } from "@astoom/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import { toGracePeriod, useGracePeriodPresets } from "@/lib/presets"
 import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
@@ -75,13 +79,19 @@ function ValidateApiKeyDialog({
         <DialogHeader>
           <DialogTitle>{t("apiKeys.validateTitle")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={t("apiKeys.validatePlaceholder")}
-            className="font-mono text-xs"
-          />
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="validate-api-key">
+              {t("apiKeys.keyLabel")}
+            </FieldLabel>
+            <Input
+              id="validate-api-key"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={t("apiKeys.validatePlaceholder")}
+              className="font-mono text-xs"
+            />
+          </Field>
           {result ? (
             <div className="rounded-lg border p-3 text-sm">
               <Badge variant={result.active ? "default" : "destructive"}>
@@ -94,7 +104,7 @@ function ValidateApiKeyDialog({
               ) : null}
             </div>
           ) : null}
-        </div>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.close")}
@@ -297,7 +307,7 @@ export function ApiKeysPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("apiKeys.title")}
         description={t("apiKeys.subtitle")}
@@ -386,14 +396,16 @@ export function ApiKeysPage() {
           revokeMutation.mutate({ id: revokeKey.id, reason: revokeReason })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="revoke-reason">{t("apiKeys.revokeReason")}</Label>
+        <Field>
+          <FieldLabel htmlFor="revoke-reason">
+            {t("apiKeys.revokeReason")}
+          </FieldLabel>
           <Input
             id="revoke-reason"
             value={revokeReason}
             onChange={(e) => setRevokeReason(e.target.value)}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
 
       <ConfirmDialog

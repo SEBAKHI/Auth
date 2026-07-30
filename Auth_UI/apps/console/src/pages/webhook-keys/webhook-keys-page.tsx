@@ -27,9 +27,13 @@ import {
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
 import { PresetField } from "@astoom/ui/common/preset-field"
-import { Field, FieldDescription, FieldLabel } from "@astoom/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import { toGracePeriod, useGracePeriodPresets } from "@/lib/presets"
 import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
@@ -77,12 +81,18 @@ function ValidateWebhookKeyDialog({
         <DialogHeader>
           <DialogTitle>{t("webhookKeys.validate")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="font-mono text-xs"
-          />
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="validate-webhook-key">
+              {t("webhookKeys.keyLabel")}
+            </FieldLabel>
+            <Input
+              id="validate-webhook-key"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              className="font-mono text-xs"
+            />
+          </Field>
           {result ? (
             <div className="rounded-lg border p-3 text-sm">
               <Badge variant={result.active ? "default" : "destructive"}>
@@ -95,7 +105,7 @@ function ValidateWebhookKeyDialog({
               ) : null}
             </div>
           ) : null}
-        </div>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.close")}
@@ -296,7 +306,7 @@ export function WebhookKeysPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("webhookKeys.title")}
         description={t("webhookKeys.subtitle")}
@@ -385,14 +395,16 @@ export function WebhookKeysPage() {
           revokeMutation.mutate({ id: revokeKey.id, reason: revokeReason })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="wh-revoke-reason">{t("apiKeys.revokeReason")}</Label>
+        <Field>
+          <FieldLabel htmlFor="wh-revoke-reason">
+            {t("apiKeys.revokeReason")}
+          </FieldLabel>
           <Input
             id="wh-revoke-reason"
             value={revokeReason}
             onChange={(e) => setRevokeReason(e.target.value)}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
 
       <ConfirmDialog

@@ -22,8 +22,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { Field, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import { Skeleton } from "@astoom/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
 import { api } from "@astoom/api/client"
@@ -587,7 +587,7 @@ export function UserDetailPage() {
   usePageBreadcrumb(user ? displayName : undefined)
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {detailQuery.isLoading || !user ? (
         <Skeleton className="h-20 w-full" />
       ) : (
@@ -866,14 +866,14 @@ export function UserDetailPage() {
           statusAction.mutate({ id: userId, action: "lock", reason: lockReason })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="lock-reason">{t("users.lockReason")}</Label>
+        <Field>
+          <FieldLabel htmlFor="lock-reason">{t("users.lockReason")}</FieldLabel>
           <Input
             id="lock-reason"
             value={lockReason}
             onChange={(e) => setLockReason(e.target.value)}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
 
       <ConfirmDialog

@@ -31,8 +31,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import {
   Select,
   SelectContent,
@@ -354,10 +354,10 @@ function ChangeMemberRoleDialog({
         <DialogHeader>
           <DialogTitle>{t("organizations.changeRole")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
-          <Label>{t("common.role")}</Label>
+        <Field>
+          <FieldLabel htmlFor="member-role">{t("common.role")}</FieldLabel>
           <Select value={roleId} onValueChange={setRoleId}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="member-role" className="w-full">
               <SelectValue placeholder={t("common.role")} />
             </SelectTrigger>
             <SelectContent>
@@ -371,7 +371,7 @@ function ChangeMemberRoleDialog({
                 ))}
             </SelectContent>
           </Select>
-        </div>
+        </Field>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             {t("common.cancel")}
@@ -438,6 +438,9 @@ function InviteDialog({
   })
 
   const valid = EMAIL_RE.test(email) && Boolean(roleId)
+  // Only complain once something has been typed, so the field does not open
+  // in an error state — but do explain why Confirm stays disabled.
+  const emailInvalid = email.length > 0 && !EMAIL_RE.test(email)
 
   const { requestOpenChange, discardDialog } = useDirtyClose({
     isDirty: Boolean(email) || Boolean(roleId),
@@ -450,19 +453,26 @@ function InviteDialog({
         <DialogHeader>
           <DialogTitle>{t("organizations.inviteMember")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>{t("organizations.inviteEmail")}</Label>
+        <FieldGroup>
+          <Field data-invalid={emailInvalid}>
+            <FieldLabel htmlFor="invite-email">
+              {t("organizations.inviteEmail")}
+            </FieldLabel>
             <Input
+              id="invite-email"
               type="email"
+              aria-invalid={emailInvalid}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label>{t("common.role")}</Label>
+            {emailInvalid ? (
+              <FieldError>{t("validation.email")}</FieldError>
+            ) : null}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="invite-role">{t("common.role")}</FieldLabel>
             <Select value={roleId} onValueChange={setRoleId}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="invite-role" className="w-full">
                 <SelectValue placeholder={t("common.role")} />
               </SelectTrigger>
               <SelectContent>
@@ -477,8 +487,8 @@ function InviteDialog({
                   ))}
               </SelectContent>
             </Select>
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => requestOpenChange(false)}>
             {t("common.cancel")}
@@ -588,7 +598,7 @@ function InvitationsTab({ orgId }: { orgId: string }) {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex justify-end">
         <Button onClick={() => setInviteOpen(true)}>
           <Plus data-icon="inline-start" />
@@ -812,7 +822,7 @@ function ApplicationsTab({
   })
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex justify-end">
         <Button onClick={() => setEnableOpen(true)}>
           <Plus data-icon="inline-start" />
@@ -835,31 +845,41 @@ function ApplicationsTab({
           <DialogHeader>
             <DialogTitle>{t("organizations.enableApplication")}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <ApplicationSelect
-              value={appId}
-              onChange={setAppId}
-              className="w-full"
-            />
-            <div className="space-y-2">
-              <Label>{t("applications.subscriptionTier")}</Label>
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="enable-app-application">
+                {t("common.application")}
+              </FieldLabel>
+              <ApplicationSelect
+                id="enable-app-application"
+                value={appId}
+                onChange={setAppId}
+                className="w-full"
+              />
+            </Field>
+            <Field>
+              <FieldLabel id="enable-app-tier-label" htmlFor="enable-app-tier">
+                {t("applications.subscriptionTier")}
+              </FieldLabel>
               <PresetField
+                aria-labelledby="enable-app-tier-label"
                 presets={SUBSCRIPTION_TIERS}
                 value={tier}
                 onChange={setTier}
               >
                 {({ value, onChange }) => (
                   <Input
+                    id="enable-app-tier"
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                   />
                 )}
               </PresetField>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="enable-app-expires">
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="enable-app-expires">
                 {t("common.expiresAt")}
-              </Label>
+              </FieldLabel>
               <DatePicker
                 id="enable-app-expires"
                 value={expiresAt}
@@ -868,8 +888,8 @@ function ApplicationsTab({
                 maxDate={monthsFromNow(10)}
                 placeholder={t("common.never")}
               />
-            </div>
-          </div>
+            </Field>
+          </FieldGroup>
           <DialogFooter>
             <Button variant="outline" onClick={() => requestEnableClose(false)}>
               {t("common.cancel")}
@@ -961,24 +981,30 @@ function EditOrgAppDialog({
         <DialogHeader>
           <DialogTitle>{t("organizations.editSubscription")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>{t("applications.subscriptionTier")}</Label>
+        <FieldGroup>
+          <Field>
+            <FieldLabel id="edit-sub-tier-label" htmlFor="edit-sub-tier">
+              {t("applications.subscriptionTier")}
+            </FieldLabel>
             <PresetField
+              aria-labelledby="edit-sub-tier-label"
               presets={SUBSCRIPTION_TIERS}
               value={tier}
               onChange={setTier}
             >
               {({ value, onChange }) => (
                 <Input
+                  id="edit-sub-tier"
                   value={value}
                   onChange={(event) => onChange(event.target.value)}
                 />
               )}
             </PresetField>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="edit-sub-expires">{t("common.expiresAt")}</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="edit-sub-expires">
+              {t("common.expiresAt")}
+            </FieldLabel>
             <DatePicker
               id="edit-sub-expires"
               value={expiresAt}
@@ -987,12 +1013,21 @@ function EditOrgAppDialog({
               maxDate={monthsFromNow(10)}
               placeholder={t("common.never")}
             />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <Label className="font-normal">{t("common.active")}</Label>
-            <Switch checked={isActive} onCheckedChange={setIsActive} />
-          </div>
-        </div>
+          </Field>
+          <Field
+            orientation="horizontal"
+            className="justify-between rounded-lg border p-3"
+          >
+            <FieldLabel htmlFor="edit-sub-active" className="font-normal">
+              {t("common.active")}
+            </FieldLabel>
+            <Switch
+              id="edit-sub-active"
+              checked={isActive}
+              onCheckedChange={setIsActive}
+            />
+          </Field>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             {t("common.cancel")}
@@ -1056,7 +1091,7 @@ export function OrganizationDetailPage({
   const canTransferOwnership = isOwner || canManagePlatform
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {detailQuery.isLoading || !org ? (
         <Skeleton className="h-20 w-full" />
       ) : (

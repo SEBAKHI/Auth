@@ -5,6 +5,7 @@ import { toast } from "sonner"
 
 import { Button } from "@astoom/ui/button"
 import { Spinner } from "@astoom/ui/spinner"
+import { Field, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
 import {
   InputOTP,
@@ -12,7 +13,6 @@ import {
   InputOTPSlot,
   REGEXP_ONLY_DIGITS,
 } from "@astoom/ui/input-otp"
-import { Label } from "@astoom/ui/label"
 import { AuthLayout } from "@astoom/ui/auth-layout"
 import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
 import {
@@ -137,8 +137,10 @@ export function TwoFactorVerifyPage({
     >
       <div className="flex flex-col items-center gap-4">
         {useRecoveryCode ? (
-          <div className="w-full space-y-2">
-            <Label htmlFor="recovery-code">{t("auth.recoveryCode")}</Label>
+          <Field data-disabled={submitting}>
+            <FieldLabel htmlFor="recovery-code">
+              {t("auth.recoveryCode")}
+            </FieldLabel>
             <Input
               id="recovery-code"
               ref={codeInputRef}
@@ -149,7 +151,7 @@ export function TwoFactorVerifyPage({
               disabled={submitting}
               className="font-mono"
             />
-          </div>
+          </Field>
         ) : (
           <InputOTP
             ref={codeInputRef}

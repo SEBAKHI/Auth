@@ -19,8 +19,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { Field, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import { Switch } from "@astoom/ui/switch"
 import { api } from "@astoom/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@astoom/api/helpers"
@@ -383,7 +383,7 @@ export function UsersPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("users.title")}
         description={t("users.subtitle")}
@@ -413,7 +413,7 @@ export function UsersPage() {
         className="w-full max-w-sm"
       />
         {canManage ? (
-          <div className="flex items-center gap-2">
+          <Field orientation="horizontal" className="w-auto">
             <Switch
               id="show-deleted-users"
               checked={showDeleted}
@@ -422,8 +422,10 @@ export function UsersPage() {
                 setPage(0)
               }}
             />
-            <Label htmlFor="show-deleted-users">{t("users.showDeleted")}</Label>
-          </div>
+            <FieldLabel htmlFor="show-deleted-users">
+              {t("users.showDeleted")}
+            </FieldLabel>
+          </Field>
         ) : null}
       </div>
 
@@ -495,14 +497,14 @@ export function UsersPage() {
           })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="lock-reason">{t("users.lockReason")}</Label>
+        <Field>
+          <FieldLabel htmlFor="lock-reason">{t("users.lockReason")}</FieldLabel>
           <Input
             id="lock-reason"
             value={lockReason}
             onChange={(e) => setLockReason(e.target.value)}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -553,12 +555,12 @@ export function UsersPage() {
           hardDeleteUser?.id && hardDeleteMutation.mutate(hardDeleteUser.id)
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="hard-delete-confirm">
+        <Field>
+          <FieldLabel htmlFor="hard-delete-confirm">
             {t("users.hardDeleteConfirmHint", {
               email: hardDeleteUser?.email ?? "",
             })}
-          </Label>
+          </FieldLabel>
           <Input
             id="hard-delete-confirm"
             value={hardDeleteConfirm}
@@ -566,7 +568,7 @@ export function UsersPage() {
             autoComplete="off"
             spellCheck={false}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
     </div>
   )

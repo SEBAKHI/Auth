@@ -13,12 +13,15 @@ const ALL_VALUE = "__all__"
 
 /** Application picker backed by the cached applications list. */
 export function ApplicationSelect({
+  id,
   value,
   onChange,
   allowAll = false,
   placeholder,
   className,
 }: {
+  /** Trigger id, so a `FieldLabel htmlFor` can name the control. */
+  id?: string
   value: string | undefined
   onChange: (value: string | undefined) => void
   allowAll?: boolean
@@ -46,7 +49,7 @@ export function ApplicationSelect({
       onValueChange={(next) => onChange(next === ALL_VALUE ? undefined : next)}
       disabled={isEmpty || isLoading}
     >
-      <SelectTrigger className={className}>
+      <SelectTrigger id={id} className={className}>
         <SelectValue placeholder={placeholder_} />
       </SelectTrigger>
       <SelectContent>
