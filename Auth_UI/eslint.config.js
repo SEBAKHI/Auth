@@ -22,9 +22,9 @@ export default defineConfig([
   {
     // House-style guards. Each of these categories was swept to zero, so the rule
     // locks the win in rather than reporting pre-existing debt. Categories still
-    // being migrated (space-y-*, raw div+Label form fields, ungrouped Select and
-    // DropdownMenu items) are deliberately NOT gated yet — a rule that fires a
-    // hundred times is noise nobody reads.
+    // being migrated (raw div+Label form fields, ungrouped Select and DropdownMenu
+    // items) are deliberately NOT gated yet — a rule that fires a hundred times is
+    // noise nobody reads.
     files: ['**/*.{ts,tsx}'],
     rules: {
       'no-restricted-syntax': [
@@ -50,6 +50,15 @@ export default defineConfig([
           selector: 'JSXAttribute[name.name="type"] > Literal[value="date"]',
           message:
             'Use DatePicker from @astoom/ui/common/date-picker instead of a native date input.',
+        },
+        {
+          // `space-y-*` sets a margin on every child but the last, which collapses
+          // and is overridden per-child; `gap-*` is owned by the container and
+          // composes with the Luma spacing primitives.
+          selector:
+            'JSXAttribute[name.name="className"] Literal[value=/(^|\\s)-?space-[xy]-/]',
+          message:
+            'Use flex + gap-* (space-y-4 → flex flex-col gap-4, space-x-2 → flex gap-2). On a list keep the markers with [&>li+li]:mt-*, and on an element that is already grid just use gap-*.',
         },
       ],
       'no-restricted-imports': [
@@ -82,6 +91,16 @@ export default defineConfig([
     rules: {
       'no-restricted-syntax': 'off',
       'no-restricted-imports': 'off',
+    },
+  },
+  {
+    // `avatar.tsx` stacks its group members with `-space-x-2` on purpose: the
+    // avatars must *overlap*, and `gap-*` cannot take a negative value. Tailwind
+    // v4 implements `space-x-*` with `margin-inline-start`, so the overlap already
+    // flips correctly under RTL. The component documents this at length.
+    files: ['packages/ui/src/avatar.tsx'],
+    rules: {
+      'no-restricted-syntax': 'off',
     },
   },
   {

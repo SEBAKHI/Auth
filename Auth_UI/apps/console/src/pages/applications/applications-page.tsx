@@ -238,7 +238,7 @@ export function ApplicationsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("applications.title")}
         description={t("applications.subtitle")}

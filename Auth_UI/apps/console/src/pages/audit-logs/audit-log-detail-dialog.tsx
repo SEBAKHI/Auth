@@ -66,7 +66,7 @@ export function AuditLogDetailDialog({
         </dl>
 
         {log.oldValues ? (
-          <div className="space-y-1">
+          <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">{t("auditLogs.oldValues")}</p>
             <pre className="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs">
               {log.oldValues}
@@ -74,7 +74,7 @@ export function AuditLogDetailDialog({
           </div>
         ) : null}
         {log.newValues ? (
-          <div className="space-y-1">
+          <div className="flex flex-col gap-1">
             <p className="text-sm font-medium">{t("auditLogs.newValues")}</p>
             <pre className="max-h-40 overflow-auto rounded-lg border bg-muted p-3 text-xs">
               {log.newValues}

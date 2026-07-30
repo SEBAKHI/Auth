@@ -178,7 +178,7 @@ function PermissionUsersTab({ permissionId }: { permissionId: string }) {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <SearchInput
         value={searchInput}
         onChange={(value) => {
@@ -301,7 +301,7 @@ export function PermissionDetailPage() {
   usePageBreadcrumb(permission?.name)
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {detailQuery.isLoading || !permission ? (
         <Skeleton className="h-20 w-full" />
       ) : (

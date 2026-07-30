@@ -84,9 +84,12 @@ export function VersionHistorySheet({
           <SheetDescription>{t("notifications.versionHistoryHint")}</SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-3 px-4 pb-6">
+        <div className="flex flex-col gap-3 px-4 pb-6">
           {(template.versions ?? []).map((version) => (
-            <div key={version.id} className="space-y-2 rounded-md border p-3">
+            <div
+              key={version.id}
+              className="flex flex-col gap-2 rounded-md border p-3"
+            >
               <div className="flex flex-wrap items-center gap-2">
                 <span className="font-medium">
                   {t("notifications.versionLabel", { version: version.versionNumber })}

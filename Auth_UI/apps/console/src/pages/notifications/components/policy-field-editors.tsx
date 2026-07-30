@@ -153,7 +153,7 @@ export function SectionListEditor({
 
       {sections.map((section, index) => (
         <Card key={index}>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-sm text-muted-foreground">
               {t("notifications.policySectionNumber", { number: index + 1 })}
             </CardTitle>

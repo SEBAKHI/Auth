@@ -54,7 +54,7 @@ export function FunnelCard({
         <CardTitle>{t("dashboard.funnel")}</CardTitle>
         <CardDescription>{t("dashboard.funnelSubtitle")}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="flex flex-col gap-2">
         {loading ? (
           <Skeleton className="h-[200px] w-full" />
         ) : created > 0 ? (

@@ -175,7 +175,7 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <SearchInput
         value={searchInput}
         onChange={(value) => {
@@ -350,7 +350,7 @@ export function RoleDetailPage() {
   usePageBreadcrumb(role?.name)
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {detailQuery.isLoading || !role ? (
         <Skeleton className="h-20 w-full" />
       ) : (

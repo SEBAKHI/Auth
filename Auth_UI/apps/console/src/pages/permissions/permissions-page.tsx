@@ -176,7 +176,7 @@ export function PermissionsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("permissions.title")}
         description={t("permissions.subtitle")}

@@ -39,7 +39,7 @@ function InvitationSummary({ preview }: { preview: InvitationPreview }) {
     [t("auth.invitationExpires"), formatDateTime(preview.expiresAt)],
   ]
   return (
-    <dl className="space-y-2 text-sm">
+    <dl className="flex flex-col gap-2 text-sm">
       {rows
         .filter(([, value]) => Boolean(value))
         .map(([label, value]) => (

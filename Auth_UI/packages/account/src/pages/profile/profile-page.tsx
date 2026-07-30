@@ -309,7 +309,7 @@ export function ProfilePage({
   })
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("profile.title")}
         description={t("profile.subtitle")}

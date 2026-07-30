@@ -136,7 +136,7 @@ export function ProfileSessions() {
       </CardHeader>
       <CardContent>
         {query.isLoading ? (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))}

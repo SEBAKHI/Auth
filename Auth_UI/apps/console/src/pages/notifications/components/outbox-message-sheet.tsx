@@ -112,7 +112,7 @@ export function OutboxMessageSheet({
           <SheetDescription>{t("notifications.outboxMessageHint")}</SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-4 px-4 pb-6">
+        <div className="flex flex-col gap-4 px-4 pb-6">
           {query.isLoading || !message ? (
             <Skeleton className="h-64 w-full" />
           ) : (
@@ -136,6 +136,7 @@ export function OutboxMessageSheet({
                 <Button
                   variant="outline"
                   size="sm"
+                  className="self-start"
                   disabled={retryMutation.isPending}
                   onClick={() => retryMutation.mutate()}
                 >

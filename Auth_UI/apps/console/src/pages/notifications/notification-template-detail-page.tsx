@@ -403,7 +403,15 @@ export function NotificationTemplateDetailPage() {
                 }}
               />
               {canManage ? (
-                <Button variant="ghost" size="sm" onClick={() => setVariablesOpen(true)}>
+                // `self-start` because the parent is now `flex flex-col`: under the
+                // old `space-y-4` this button was a block-level sibling and hugged
+                // its label, but a flex item stretches to the container width.
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => setVariablesOpen(true)}
+                >
                   {t("notifications.manageVariables")}
                 </Button>
               ) : null}

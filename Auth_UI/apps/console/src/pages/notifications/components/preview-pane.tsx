@@ -34,7 +34,7 @@ export function PreviewPane({
   const [width, setWidth] = React.useState<"desktop" | "mobile">("desktop")
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs value={mode} onValueChange={(value) => setMode(value as "html" | "text")}>
           <TabsList>

@@ -109,7 +109,7 @@ export function NotificationLayoutsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("notifications.layoutsTitle")}
         description={t("notifications.layoutsSubtitle")}

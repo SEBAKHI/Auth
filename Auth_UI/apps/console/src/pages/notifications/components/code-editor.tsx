@@ -52,7 +52,7 @@ export const CodeEditor = React.forwardRef<
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1">
         <Tooltip>
           <TooltipTrigger asChild>

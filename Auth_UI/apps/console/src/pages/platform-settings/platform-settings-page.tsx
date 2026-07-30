@@ -213,7 +213,7 @@ export function PlatformSettingsPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("platformSettings.title")}
         description={t("platformSettings.subtitle")}

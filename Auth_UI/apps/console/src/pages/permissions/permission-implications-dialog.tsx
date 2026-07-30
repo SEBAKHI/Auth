@@ -114,7 +114,7 @@ export function PermissionImplicationsDialog({
           <DialogDescription>{permission.code}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Select value={selected} onValueChange={setSelected}>

@@ -252,7 +252,7 @@ export function OrganizationsAdminPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("organizations.title")}
         description={t("organizations.subtitle")}

@@ -66,7 +66,7 @@ export function TemplatePreview({
   }, [debounced, render])
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       {preview ? (
         <p className="text-sm">
           <span className="text-muted-foreground">{t("notifications.subject")}: </span>

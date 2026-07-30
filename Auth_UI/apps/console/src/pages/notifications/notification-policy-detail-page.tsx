@@ -255,7 +255,7 @@ export function NotificationPolicyDetailPage() {
   // A stale bookmark or a deleted revision must say so, not spin forever.
   if (versionsQuery.isSuccess && !versionRow) {
     return (
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <PageHeader
           title={t("notifications.tabPolicy")}
           description={t("notifications.policyContentDescription")}
@@ -268,7 +268,7 @@ export function NotificationPolicyDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {unsavedPrompt}
       <PageHeader
         title={t("notifications.policyContentTitle", { version })}

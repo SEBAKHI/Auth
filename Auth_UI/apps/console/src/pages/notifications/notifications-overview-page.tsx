@@ -46,7 +46,7 @@ export function NotificationsOverviewPage() {
   const publishedPolicy = versions.find((version) => version.isPublished)
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("notifications.overviewTitle")}
         description={t("notifications.overviewSubtitle")}
@@ -116,7 +116,7 @@ export function NotificationsOverviewPage() {
             </Button>
           </CardAction>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="flex flex-col gap-3">
           {policyQuery.isLoading ? (
             <SummaryListSkeleton />
           ) : versions.length ? (
@@ -129,7 +129,7 @@ export function NotificationsOverviewPage() {
                   navigate("/notifications/policy/" + version.id)
                 }
               >
-                <span className="min-w-0 space-y-0.5">
+                <span className="flex min-w-0 flex-col gap-0.5">
                   <span className="block truncate font-medium" dir="ltr">
                     {version.version}
                   </span>
@@ -182,7 +182,7 @@ export function NotificationsOverviewPage() {
               </Button>
             </CardAction>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-col gap-3">
             {loading ? (
               <SummaryListSkeleton />
             ) : summary?.publishedTemplates?.length ? (
@@ -195,7 +195,7 @@ export function NotificationsOverviewPage() {
                     navigate(`/notifications/templates/${template.id}`)
                   }
                 >
-                  <span className="min-w-0 space-y-0.5">
+                  <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="block truncate font-medium">
                       {template.typeName}
                     </span>
@@ -246,7 +246,7 @@ export function NotificationsOverviewPage() {
               </Button>
             </CardAction>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-col gap-3">
             {loading ? (
               <SummaryListSkeleton />
             ) : summary?.publishedLayouts?.length ? (
@@ -257,7 +257,7 @@ export function NotificationsOverviewPage() {
                   className="flex w-full items-start justify-between gap-3 rounded-lg p-2 text-start hover:bg-muted"
                   onClick={() => navigate(`/notifications/layouts/${layout.id}`)}
                 >
-                  <span className="min-w-0 space-y-0.5">
+                  <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="block truncate font-medium">
                       {layout.name}
                     </span>
@@ -301,7 +301,7 @@ export function NotificationsOverviewPage() {
 
 function SummaryListSkeleton() {
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       {Array.from({ length: 3 }).map((_, index) => (
         <Skeleton key={index} className="h-10 w-full" />
       ))}
