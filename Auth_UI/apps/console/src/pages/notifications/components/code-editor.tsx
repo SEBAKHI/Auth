@@ -89,7 +89,7 @@ export const CodeEditor = React.forwardRef<
             size="sm"
             onClick={() => setImageOpen(true)}
           >
-            <Image />
+            <Image data-icon="inline-start" />
             {t("notifications.insertImage")}
           </Button>
         ) : null}

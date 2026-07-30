@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -32,6 +31,7 @@ import { Button } from "@astoom/ui/button"
 import { Input } from "@astoom/ui/input"
 import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
+import { Spinner } from "@astoom/ui/spinner"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
@@ -217,7 +217,7 @@ export function WebhookKeyCreateDialog({
             form="webhook-key-form"
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("common.create")}
           </Button>
         </DialogFooter>

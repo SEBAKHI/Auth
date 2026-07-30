@@ -176,7 +176,7 @@ export function DataTableRowDetail<TData>({
                   onEdit(row)
                 }}
               >
-                <Pencil />
+                <Pencil data-icon="inline-start" />
                 {t("common.edit")}
               </Button>
             ) : null}

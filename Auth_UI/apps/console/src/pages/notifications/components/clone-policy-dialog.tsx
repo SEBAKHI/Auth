@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -22,6 +21,7 @@ import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import { PolicyVersionField } from "./policy-version-field"
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Textarea } from "@astoom/ui/textarea"
+import { Spinner } from "@astoom/ui/spinner"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
 
@@ -185,7 +185,7 @@ export function ClonePolicyDialog({
             disabled={!valid || cloneMutation.isPending}
             onClick={() => cloneMutation.mutate()}
           >
-            {cloneMutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {cloneMutation.isPending ? <Spinner /> : null}
             {t("notifications.policyClone")}
           </Button>
         </DialogFooter>

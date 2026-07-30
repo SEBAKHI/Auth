@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -21,6 +20,7 @@ import {
 import { Input } from "@astoom/ui/input"
 import { getErrorMessage } from "@astoom/api/errors"
 import { AuthLayout } from "@astoom/ui/auth-layout"
+import { Spinner } from "@astoom/ui/spinner"
 
 /**
  * Sets a new password from a reset link. The token in the query string is the
@@ -141,7 +141,7 @@ export function ResetPasswordPage() {
               disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("auth.resetPassword")}
             </Button>

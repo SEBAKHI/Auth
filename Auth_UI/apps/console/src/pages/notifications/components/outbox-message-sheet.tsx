@@ -139,7 +139,7 @@ export function OutboxMessageSheet({
                   disabled={retryMutation.isPending}
                   onClick={() => retryMutation.mutate()}
                 >
-                  <RotateCcw />
+                  <RotateCcw data-icon="inline-start" />
                   {t("notifications.retryNow")}
                 </Button>
               ) : null}

@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { Loader2, MoreHorizontal, Plus, Send } from "lucide-react"
+import { MoreHorizontal, Plus, Send } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApplicationSelect } from "@astoom/ui/common/application-select"
+import { Spinner } from "@astoom/ui/spinner"
 import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import { PresetField, type Preset } from "@astoom/ui/common/preset-field"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
@@ -379,7 +380,7 @@ function ChangeMemberRoleDialog({
             onClick={() => mutation.mutate()}
             disabled={!roleId || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("common.save")}
           </Button>
         </DialogFooter>
@@ -486,7 +487,7 @@ function InviteDialog({
             onClick={() => mutation.mutate()}
             disabled={!valid || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("organizations.inviteMember")}
           </Button>
         </DialogFooter>
@@ -578,7 +579,7 @@ function InvitationsTab({ orgId }: { orgId: string }) {
               row.original.id && resendMutation.mutate(row.original.id)
             }
           >
-            <Send />
+            <Send data-icon="inline-start" />
             {t("organizations.resendInvite")}
           </Button>
         </div>
@@ -590,7 +591,7 @@ function InvitationsTab({ orgId }: { orgId: string }) {
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button onClick={() => setInviteOpen(true)}>
-          <Plus />
+          <Plus data-icon="inline-start" />
           {t("organizations.inviteMember")}
         </Button>
       </div>
@@ -814,7 +815,7 @@ function ApplicationsTab({
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button onClick={() => setEnableOpen(true)}>
-          <Plus />
+          <Plus data-icon="inline-start" />
           {t("organizations.enableApplication")}
         </Button>
       </div>
@@ -878,7 +879,7 @@ function ApplicationsTab({
               disabled={!appId || enableMutation.isPending}
             >
               {enableMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("common.confirm")}
             </Button>
@@ -1000,7 +1001,7 @@ function EditOrgAppDialog({
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("common.save")}
           </Button>
         </DialogFooter>

@@ -201,7 +201,7 @@ export function RolesPage() {
                 setFormOpen(true)
               }}
             >
-              <Plus />
+              <Plus data-icon="inline-start" />
               {t("roles.newRole")}
             </Button>
           ) : null

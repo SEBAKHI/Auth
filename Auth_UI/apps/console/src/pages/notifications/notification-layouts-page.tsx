@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { Plus, Search } from "lucide-react"
+import { Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -9,10 +9,10 @@ import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
 import { PageHeader } from "@astoom/ui/common/page-header"
+import { SearchInput } from "@astoom/ui/common/search-input"
 import { DataTable } from "@astoom/ui/data-table/data-table"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
-import { Input } from "@astoom/ui/input"
 import { formatDateTime } from "@astoom/ui/format"
 import { PERMISSIONS } from "@/lib/constants"
 import { CreateLayoutDialog } from "./components/create-layout-dialog"
@@ -116,7 +116,7 @@ export function NotificationLayoutsPage() {
         actions={
           canManage ? (
             <Button onClick={() => setCreateOpen(true)}>
-              <Plus />
+              <Plus data-icon="inline-start" />
               {t("notifications.newLayout")}
             </Button>
           ) : null
@@ -125,15 +125,11 @@ export function NotificationLayoutsPage() {
 
       <NotificationsTabs />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={t("notifications.layoutsSearchPlaceholder")}
-          className="ps-8"
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder={t("notifications.layoutsSearchPlaceholder")}
+      />
 
       <DataTable
         tableId="notification-layouts"

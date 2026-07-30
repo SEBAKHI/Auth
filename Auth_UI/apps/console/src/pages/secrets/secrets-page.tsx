@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { KeyRound, Loader2, Lock, RefreshCw, Upload } from "lucide-react"
+import { KeyRound, Lock, RefreshCw, Upload } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -39,6 +39,7 @@ import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
 import { getErrorMessage } from "@astoom/api/errors"
 import { formatDateTime, secretStatusMeta } from "@astoom/ui/format"
+import { Spinner } from "@astoom/ui/spinner"
 
 const SECRET_STATUS_LABEL: Record<string, string> = {
   notConfigured: "Not configured",
@@ -135,7 +136,7 @@ function ImportDialog({
             onClick={() => value && mutation.mutate()}
             disabled={!value || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("common.confirm")}
           </Button>
         </DialogFooter>
@@ -207,7 +208,7 @@ function CustomSecretDialog({
             onClick={() => key && value && mutation.mutate()}
             disabled={!key || !value || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("common.save")}
           </Button>
         </DialogFooter>
@@ -314,13 +315,13 @@ export function SecretsPage() {
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <Upload />
+              <Upload data-icon="inline-start" />
               {t("secrets.importRsa")}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button disabled={generateMutation.isPending}>
-                  <KeyRound />
+                  <KeyRound data-icon="inline-start" />
                   {t("secrets.generate")}
                 </Button>
               </DropdownMenuTrigger>

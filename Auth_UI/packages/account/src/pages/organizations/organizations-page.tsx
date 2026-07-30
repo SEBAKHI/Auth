@@ -170,7 +170,7 @@ export function OrganizationsPage() {
         description={t("organizations.subtitle")}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
-            <Plus />
+            <Plus data-icon="inline-start" />
             {t("organizations.newOrganization")}
           </Button>
         }

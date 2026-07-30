@@ -187,7 +187,7 @@ export function AuditLogsPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" disabled={exportMutation.isPending}>
-                  <Download />
+                  <Download data-icon="inline-start" />
                   {t("auditLogs.export")}
                 </Button>
               </DropdownMenuTrigger>

@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
@@ -23,6 +22,7 @@ import {
 import { Input } from "@astoom/ui/input"
 
 import { ExternalProviders } from "@/components/external-providers"
+import { Spinner } from "@astoom/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -189,7 +189,7 @@ export function RegisterPage() {
             >
               {form.formState.isSubmitting ? (
                 <>
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                   {t("auth.creatingAccount")}
                 </>
               ) : (

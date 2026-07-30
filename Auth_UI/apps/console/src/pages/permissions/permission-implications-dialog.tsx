@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Plus, X } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -25,6 +25,7 @@ import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
 import { getErrorMessage } from "@astoom/api/errors"
 import type { Schemas } from "@astoom/api/types"
+import { Spinner } from "@astoom/ui/spinner"
 
 export function PermissionImplicationsDialog({
   open,
@@ -135,7 +136,7 @@ export function PermissionImplicationsDialog({
               disabled={!selected || addMutation.isPending}
             >
               {addMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : (
                 <Plus />
               )}

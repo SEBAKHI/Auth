@@ -249,7 +249,7 @@ export function NotificationTemplateDetailPage() {
                 disabled={!template.draftVersionId || isDirty || publishMutation.isPending}
                 onClick={() => publishMutation.mutate()}
               >
-                <Check />
+                <Check data-icon="inline-start" />
                 {t("notifications.publish")}
               </Button>
             ) : null}

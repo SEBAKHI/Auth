@@ -153,7 +153,7 @@ export function ManageVariablesDialog({
             setRows((current) => [...current, { name: "", description: "", example: "", required: false }])
           }
         >
-          <Plus />
+          <Plus data-icon="inline-start" />
           {t("notifications.addVariable")}
         </Button>
 

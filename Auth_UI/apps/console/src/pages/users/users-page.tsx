@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { MoreHorizontal, Plus, Search } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { SearchInput } from "@astoom/ui/common/search-input"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { avatarColumn } from "@astoom/ui/data-table/columns"
 import { DataTable } from "@astoom/ui/data-table/data-table"
@@ -394,7 +395,7 @@ export function UsersPage() {
                 setFormOpen(true)
               }}
             >
-              <Plus />
+              <Plus data-icon="inline-start" />
               {t("users.newUser")}
             </Button>
           ) : null
@@ -402,18 +403,15 @@ export function UsersPage() {
       />
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
-          <Input
-            value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value)
+        <SearchInput
+        value={searchInput}
+        onChange={(value) => {
+              setSearchInput(value)
               setPage(0)
             }}
-            placeholder={t("users.searchPlaceholder")}
-            className="ps-8"
-          />
-        </div>
+        placeholder={t("users.searchPlaceholder")}
+        className="w-full max-w-sm"
+      />
         {canManage ? (
           <div className="flex items-center gap-2">
             <Switch

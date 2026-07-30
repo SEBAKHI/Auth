@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -54,6 +53,7 @@ import type { Schemas } from "@astoom/api/types"
 import { ProfileDangerZone } from "./profile-danger-zone"
 import { ProfileSecurity } from "./profile-security"
 import { ProfileSessions } from "./profile-sessions"
+import { Spinner } from "@astoom/ui/spinner"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
@@ -277,7 +277,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                 disabled={mutation.isPending}
               >
                 {mutation.isPending ? (
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                 ) : null}
                 {t("profile.updateProfile")}
               </Button>

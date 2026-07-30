@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { Loader2, MoreHorizontal, Plus, ShieldCheck } from "lucide-react"
+import { MoreHorizontal, Plus, ShieldCheck } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -39,6 +39,7 @@ import { getErrorMessage } from "@astoom/api/errors"
 import { formatDateTime } from "@astoom/ui/format"
 import type { Schemas } from "@astoom/api/types"
 import { WebhookKeyCreateDialog } from "./webhook-key-create-dialog"
+import { Spinner } from "@astoom/ui/spinner"
 
 type WebhookKeyDto = Schemas["WebhookKeyDto"]
 
@@ -103,7 +104,7 @@ function ValidateWebhookKeyDialog({
             onClick={() => value && mutation.mutate(value)}
             disabled={!value || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("webhookKeys.validate")}
           </Button>
         </DialogFooter>
@@ -303,7 +304,7 @@ export function WebhookKeysPage() {
           <div className="flex items-center gap-2">
             {canValidate ? (
               <Button variant="outline" onClick={() => setValidateOpen(true)}>
-                <ShieldCheck />
+                <ShieldCheck data-icon="inline-start" />
                 {t("webhookKeys.validate")}
               </Button>
             ) : null}
@@ -312,7 +313,7 @@ export function WebhookKeysPage() {
                 onClick={() => setCreateOpen(true)}
                 disabled={!applicationId}
               >
-                <Plus />
+                <Plus data-icon="inline-start" />
                 {t("webhookKeys.newKey")}
               </Button>
             ) : null}

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { CheckCircle2, Copy, Loader2, Megaphone, Plus } from "lucide-react"
+import { CheckCircle2, Copy, Megaphone, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -32,6 +32,7 @@ import { PERMISSIONS } from "@/lib/constants"
 import { ClonePolicyDialog } from "./components/clone-policy-dialog"
 import { NotificationsTabs } from "./components/notifications-tabs"
 import { PolicyVersionField } from "./components/policy-version-field"
+import { Spinner } from "@astoom/ui/spinner"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
 
@@ -335,7 +336,7 @@ export function NotificationPolicyPage() {
               disabled={!createValid || createMutation.isPending}
               onClick={() => createMutation.mutate()}
             >
-              {createMutation.isPending ? <Loader2 className="animate-spin" /> : null}
+              {createMutation.isPending ? <Spinner /> : null}
               {t("notifications.policyAdd")}
             </Button>
           </DialogFooter>

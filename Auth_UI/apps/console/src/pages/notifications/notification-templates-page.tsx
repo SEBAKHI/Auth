@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { Plus, Search } from "lucide-react"
+import { Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -9,10 +9,10 @@ import { api } from "@astoom/api/client"
 import { toNumber, toSortParams, unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
 import { PageHeader } from "@astoom/ui/common/page-header"
+import { SearchInput } from "@astoom/ui/common/search-input"
 import { DataTable } from "@astoom/ui/data-table/data-table"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
-import { Input } from "@astoom/ui/input"
 import { formatDateTime } from "@astoom/ui/format"
 import { useDebouncedValue } from "@astoom/ui/hooks/use-debounced-value"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
@@ -200,7 +200,7 @@ export function NotificationTemplatesPage() {
         actions={
           canManage ? (
             <Button onClick={() => setCreateOpen(true)}>
-              <Plus />
+              <Plus data-icon="inline-start" />
               {t("notifications.newTemplate")}
             </Button>
           ) : null
@@ -209,18 +209,14 @@ export function NotificationTemplatesPage() {
 
       <NotificationsTabs />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
-        <Input
-          value={searchInput}
-          onChange={(e) => {
-            setSearchInput(e.target.value)
+      <SearchInput
+        value={searchInput}
+        onChange={(value) => {
+            setSearchInput(value)
             setPage(0)
           }}
-          placeholder={t("notifications.templatesSearchPlaceholder")}
-          className="ps-8"
-        />
-      </div>
+        placeholder={t("notifications.templatesSearchPlaceholder")}
+      />
 
       <DataTable
         tableId="notification-templates"

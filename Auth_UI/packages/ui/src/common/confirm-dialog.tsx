@@ -1,5 +1,4 @@
 import type * as React from "react"
-import { Loader2 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import {
@@ -12,6 +11,7 @@ import {
   AlertDialogTitle,
 } from "@astoom/ui/alert-dialog"
 import { Button } from "@astoom/ui/button"
+import { Spinner } from "@astoom/ui/spinner"
 
 /**
  * Controlled confirmation dialog for destructive or sensitive actions.
@@ -65,7 +65,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={loading || confirmDisabled}
           >
-            {loading ? <Loader2 className="animate-spin" /> : null}
+            {loading ? <Spinner /> : null}
             {confirmLabel ?? t("common.confirm")}
           </Button>
         </AlertDialogFooter>

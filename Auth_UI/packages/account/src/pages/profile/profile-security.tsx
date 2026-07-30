@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Loader2, ShieldCheck } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -34,6 +34,7 @@ import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
 import { unwrap } from "@astoom/api/helpers"
 import type { Schemas } from "@astoom/api/types"
+import { Spinner } from "@astoom/ui/spinner"
 
 function ChangePasswordCard() {
   const { t } = useTranslation()
@@ -142,7 +143,7 @@ function ChangePasswordCard() {
                 disabled={mutation.isPending}
               >
                 {mutation.isPending ? (
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                 ) : null}
                 {t("profile.changePassword")}
               </Button>
@@ -237,7 +238,7 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
               disabled={!disableCode || disableMutation.isPending}
             >
               {disableMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("profile.disableTwoFactor")}
             </Button>
@@ -277,7 +278,7 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
                 disabled={!code || enableMutation.isPending}
               >
                 {enableMutation.isPending ? (
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                 ) : null}
                 {t("auth.verify")}
               </Button>
@@ -289,7 +290,7 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
             disabled={setupMutation.isPending}
           >
             {setupMutation.isPending ? (
-              <Loader2 className="animate-spin" />
+              <Spinner />
             ) : null}
             {t("profile.enableTwoFactor")}
           </Button>

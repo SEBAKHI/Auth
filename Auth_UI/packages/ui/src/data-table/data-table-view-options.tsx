@@ -42,7 +42,7 @@ export function DataTableViewOptions<TData>({
           className="ms-auto"
           aria-label={t("common.toggleColumns")}
         >
-          <SlidersHorizontal />
+          <SlidersHorizontal data-icon="inline-start" />
           <span className="hidden sm:inline">{t("common.columns")}</span>
         </Button>
       </DropdownMenuTrigger>

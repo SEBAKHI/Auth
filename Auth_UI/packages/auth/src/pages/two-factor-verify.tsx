@@ -1,10 +1,10 @@
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Button } from "@astoom/ui/button"
+import { Spinner } from "@astoom/ui/spinner"
 import { Input } from "@astoom/ui/input"
 import {
   InputOTP,
@@ -179,7 +179,7 @@ export function TwoFactorVerifyPage({
           }
           onClick={() => void submit(code)}
         >
-          {submitting ? <Loader2 className="animate-spin" /> : null}
+          {submitting ? <Spinner /> : null}
           {t("auth.verify")}
         </Button>
 

@@ -1,4 +1,3 @@
-import { Loader2 } from "lucide-react"
 import type * as React from "react"
 import type { FieldValues, UseFormReturn } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -15,6 +14,7 @@ import {
 import { FieldGroup } from "@astoom/ui/field"
 import { Form } from "@astoom/ui/form"
 import { useDirtyClose } from "@astoom/ui/hooks/use-dirty-close"
+import { Spinner } from "@astoom/ui/spinner"
 
 /**
  * Standard shell for a react-hook-form dialog. The unsaved-changes guard is
@@ -84,7 +84,7 @@ export function FormDialog<T extends FieldValues>({
             {t("common.cancel")}
           </Button>
           <Button type="submit" form={formId} disabled={pending}>
-            {pending ? <Loader2 className="animate-spin" /> : null}
+            {pending ? <Spinner /> : null}
             {submitLabel}
           </Button>
         </DialogFooter>

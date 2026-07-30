@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react"
+import { Check, CheckCircle2, Plus, Save, Trash2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
@@ -35,6 +35,7 @@ import {
 } from "./components/policy-field-editors"
 import { PolicyPreviewPane } from "./components/policy-preview-pane"
 import { PolicyVersionField } from "./components/policy-version-field"
+import { Spinner } from "@astoom/ui/spinner"
 import {
   PolicyTokenPalette,
   useFocusedField,
@@ -267,7 +268,7 @@ export function NotificationPolicyDetailPage() {
                 onClick={() => saveMutation.mutate()}
               >
                 {saveMutation.isPending ? (
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                 ) : (
                   <Save data-icon="inline-start" />
                 )}

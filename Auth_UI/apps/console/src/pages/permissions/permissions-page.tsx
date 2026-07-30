@@ -181,7 +181,7 @@ export function PermissionsPage() {
                 setFormOpen(true)
               }}
             >
-              <Plus />
+              <Plus data-icon="inline-start" />
               {t("permissions.newPermission")}
             </Button>
           ) : null

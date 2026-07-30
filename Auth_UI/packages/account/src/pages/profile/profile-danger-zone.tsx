@@ -1,5 +1,4 @@
 import { useMutation } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -34,6 +33,7 @@ import {
   REGEXP_ONLY_DIGITS,
 } from "@astoom/ui/input-otp"
 import type { Schemas } from "@astoom/api/types"
+import { Spinner } from "@astoom/ui/spinner"
 
 const CODE_LENGTH = 6
 /** Display-only mirror of the server's grace period (AccountDeletionSettings). */
@@ -194,7 +194,7 @@ export function ProfileDangerZone({ me }: { me: Schemas["UserDto"] }) {
                     onClick={() => sendCodeMutation.mutate()}
                   >
                     {sendCodeMutation.isPending ? (
-                      <Loader2 className="animate-spin" />
+                      <Spinner />
                     ) : null}
                     {t("accountDeletion.resendCode")}
                   </Button>
@@ -207,7 +207,7 @@ export function ProfileDangerZone({ me }: { me: Schemas["UserDto"] }) {
                   onClick={() => sendCodeMutation.mutate()}
                 >
                   {sendCodeMutation.isPending ? (
-                    <Loader2 className="animate-spin" />
+                    <Spinner />
                   ) : null}
                   {t("accountDeletion.sendCode")}
                 </Button>

@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
 import type * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -25,6 +24,7 @@ import { useBranding } from "@astoom/ui/branding"
 
 import { getReturnToClientId, getValidReturnTo } from "../return-to"
 import { useAppBranding } from "../use-app-branding"
+import { Spinner } from "@astoom/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -187,7 +187,7 @@ export function LoginPage({
             >
               {form.formState.isSubmitting ? (
                 <>
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                   {t("auth.signingIn")}
                 </>
               ) : (

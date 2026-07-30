@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -9,6 +8,7 @@ import { collectAllPages, unwrap } from "@astoom/api/helpers"
 import { getErrorMessage } from "@astoom/api/errors"
 import type { Schemas } from "@astoom/api/types"
 import { Button } from "@astoom/ui/button"
+import { Spinner } from "@astoom/ui/spinner"
 import {
   Dialog,
   DialogContent,
@@ -226,7 +226,7 @@ function TransferOwnershipSession({
               }
             >
               {initiateMutation.isPending || transferMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t(
                 platformScope
@@ -280,7 +280,7 @@ function TransferOwnershipSession({
               onClick={() => memberId && initiateMutation.mutate(memberId)}
             >
               {initiateMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("organizations.transferResendCode")}
             </Button>
@@ -295,7 +295,7 @@ function TransferOwnershipSession({
               disabled={code.length < CODE_LENGTH || codeInputDisabled}
             >
               {transferMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("organizations.transferComplete")}
             </Button>

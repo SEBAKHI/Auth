@@ -226,7 +226,7 @@ export function NotificationLayoutDetailPage() {
                 disabled={isDirty || !layout.hasUnpublishedChanges || publishMutation.isPending}
                 onClick={() => publishMutation.mutate()}
               >
-                <Check />
+                <Check data-icon="inline-start" />
                 {t("notifications.publish")}
               </Button>
             </div>
