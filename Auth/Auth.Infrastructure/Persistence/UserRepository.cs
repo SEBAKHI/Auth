@@ -24,7 +24,7 @@ public class UserRepository : IUserRepository
 
     public UserRepository(
         IDbConnectionFactory connectionFactory,
-        IOptions<PasswordSettings> passwordSettings,
+        IOptionsSnapshot<PasswordSettings> passwordSettings,
         IIdentifierHasher identifierHasher,
         IOptions<AccountDeletionSettings> accountDeletionSettings,
         IPerUserCryptoService perUserCrypto)

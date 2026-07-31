@@ -131,6 +131,7 @@ export const fr: TranslationResources = {
     auditLogs: "Journaux d'audit",
     secrets: "Secrets",
     platformSettings: "Paramètres de la plateforme",
+    systemSettings: "Paramètres système",
     profile: "Profil",
     management: "Gestion",
     security: "Sécurité",
@@ -1115,6 +1116,164 @@ export const fr: TranslationResources = {
     favicon: "Favicon",
     updated: "Paramètres de la plateforme mis à jour.",
   },
+  systemSettings: {
+    title: "Paramètres système",
+    subtitle:
+      "Configurez le comportement de la plateforme — politique de mot de passe, jetons, sessions et plus encore — sans toucher aux fichiers de configuration.",
+    restartBannerTitle: "Redémarrage requis",
+    restartBannerBody:
+      "Certaines modifications enregistrées ne prennent effet qu'après le redémarrage de l'API. Elles sont conservées en lieu sûr et s'appliqueront automatiquement au prochain redémarrage.",
+    dbUnavailableTitle: "Stockage des paramètres inaccessible",
+    dbUnavailableBody:
+      "La base de données des paramètres n'a pas pu être lue. Les valeurs affichées proviennent des fichiers de configuration et peuvent ne pas inclure les personnalisations enregistrées.",
+    restartRequired: "Redémarrage requis",
+    pendingRestart: "En attente de redémarrage",
+    overridden: "Personnalisé",
+    fileValue: "Valeur du fichier : {{value}}",
+    notSet: "Non défini",
+    managedInSecrets:
+      "Valeur secrète — stockée chiffrée et gérée sur la page Secrets, jamais ici.",
+    openSecrets: "Ouvrir les Secrets",
+    readOnly: "Lecture seule",
+    resetSection: "Réinitialiser aux valeurs du fichier",
+    resetConfirmTitle: "Réinitialiser cette section ?",
+    resetConfirmBody:
+      "Toutes les valeurs personnalisées de cette section seront supprimées et les valeurs des fichiers de configuration s'appliqueront de nouveau.",
+    saved: "Paramètres enregistrés.",
+    resetDone: "Section réinitialisée aux valeurs du fichier.",
+    conflict:
+      "Quelqu'un d'autre a modifié cette section entre-temps. Elle a été rechargée — veuillez réappliquer vos modifications.",
+    arrayFieldHint: "Une entrée par ligne.",
+    groups: {
+      security: "Sécurité",
+      access: "Accès",
+      communication: "Communication",
+      storage: "Stockage et médias",
+      operations: "Opérations",
+      infrastructure: "Infrastructure",
+    },
+    jwt: {
+      title: "Jetons (JWT)",
+      description:
+        "Les jetons signés que reçoivent les utilisateurs à la connexion : qui les émet, à qui ils sont destinés et combien de temps ils restent valides. Des durées plus courtes sont plus sûres ; des durées plus longues signifient moins de reconnexions.",
+      issuer: "URL de l'émetteur",
+      issuerHint:
+        "L'adresse publique de ce serveur d'authentification, inscrite dans chaque jeton (p. ex. https://auth.example.com). La modifier invalide les jetons émis avant le changement.",
+      audience: "URL de l'audience",
+      audienceHint:
+        "À qui les jetons sont destinés — normalement la même adresse publique. Les applications clientes doivent attendre exactement cette valeur.",
+      accessTokenLifetimeMinutes: "Durée de vie du jeton d'accès (minutes)",
+      accessTokenLifetimeMinutesHint:
+        "Durée de validité d'un jeton de connexion. Recommandé : 5–15 minutes (bonne pratique de sécurité OAuth) — un jeton divulgué expire ainsi rapidement, tandis que le rafraîchissement maintient les utilisateurs connectés.",
+      refreshTokenLifetimeDays:
+        "Durée de vie du jeton de rafraîchissement (jours)",
+      refreshTokenLifetimeDaysHint:
+        "Durée pendant laquelle un utilisateur peut rester connecté sans ressaisir son mot de passe. Recommandé : 7–30 jours ; choisissez la valeur basse pour les déploiements sensibles.",
+      keyId: "ID de la clé de signature",
+      keyIdHint:
+        "L'identifiant (kid) publié avec la clé de signature pour que les applications clientes choisissent la bonne clé. À modifier uniquement dans le cadre d'une rotation de clé.",
+      rotateRefreshTokens: "Rotation des jetons de rafraîchissement",
+      rotateRefreshTokensHint:
+        "Émet un nouveau jeton de rafraîchissement à chaque renouvellement et invalide l'ancien. Recommandé : activé — un jeton de rafraîchissement volé est alors détecté et bloqué dès sa première réutilisation.",
+      clockSkewSeconds: "Décalage d'horloge (secondes)",
+      clockSkewSecondsHint:
+        "Tolérance aux écarts d'horloge entre serveurs lors de la vérification de l'expiration des jetons. Recommandé : 60 ou moins ; 0 est le plus strict.",
+      privateKeyPath: "Chemin de la clé privée",
+      privateKeyPem: "Clé privée (PEM)",
+      privateKeyEncrypted: "Clé privée (chiffrée)",
+      refreshTokenEncryptedKey: "Clé HMAC des jetons de rafraîchissement",
+    },
+    password: {
+      title: "Politique de mot de passe",
+      description:
+        "Les règles que chaque mot de passe doit respecter, ce qui se passe après plusieurs connexions échouées et la robustesse du hachage des mots de passe. Les valeurs par défaut suivent les recommandations OWASP.",
+      minimumLength: "Longueur minimale",
+      minimumLengthHint:
+        "Recommandé : au moins 8 caractères (OWASP/NIST) ; la longueur protège plus que la complexité, envisagez donc 12 ou plus là où la sécurité compte le plus.",
+      requireUppercase: "Exiger une lettre majuscule",
+      requireUppercaseHint:
+        "Rejette les mots de passe sans A–Z. Les règles de complexité ajoutent de la friction — la longueur et la vérification des mots de passe compromis protègent davantage.",
+      requireLowercase: "Exiger une lettre minuscule",
+      requireLowercaseHint: "Rejette les mots de passe sans a–z.",
+      requireDigit: "Exiger un chiffre",
+      requireDigitHint: "Rejette les mots de passe sans 0–9.",
+      requireSpecialCharacter: "Exiger un caractère spécial",
+      requireSpecialCharacterHint:
+        "Rejette les mots de passe composés uniquement de lettres et de chiffres.",
+      historyCount: "Anciens mots de passe mémorisés",
+      historyCountHint:
+        "Nombre d'anciens mots de passe de l'utilisateur qui ne peuvent pas être réutilisés. Recommandé : 3–5. 0 désactive la vérification.",
+      expirationDays: "Expiration du mot de passe (jours)",
+      expirationDaysHint:
+        "Impose un changement de mot de passe après ce nombre de jours. Recommandé : 0 (désactivé) — le NIST déconseille l'expiration systématique ; appuyez-vous plutôt sur la vérification des mots de passe compromis.",
+      maxFailedAttempts: "Tentatives échouées avant verrouillage",
+      maxFailedAttemptsHint:
+        "Après ce nombre de mots de passe erronés, le compte est verrouillé temporairement. Recommandé : 5 — assez bas pour bloquer les tentatives de devinette, assez haut pour tolérer les fautes de frappe.",
+      lockoutDurationMinutes: "Durée de verrouillage (minutes)",
+      lockoutDurationMinutesHint:
+        "Durée pendant laquelle le compte reste verrouillé. Recommandé : 15 — un frein réel pour les attaquants, avec une gêne limitée pour les utilisateurs.",
+      argon2MemorySize: "Mémoire Argon2 (KB)",
+      argon2MemorySizeHint:
+        "Mémoire utilisée pour hacher chaque mot de passe. Recommandé : 19456 (19 MiB, le minimum OWASP). Une valeur plus élevée renforce la sécurité mais ralentit chaque connexion.",
+      argon2Iterations: "Itérations Argon2",
+      argon2IterationsHint:
+        "Recommandé : 2 (minimum OWASP pour cette taille de mémoire).",
+      argon2Parallelism: "Parallélisme Argon2",
+      argon2ParallelismHint:
+        "Recommandé : 1 (OWASP). Les mots de passe existants continuent de fonctionner après un changement — ils sont mis à niveau à la connexion suivante.",
+      saltSize: "Taille du sel (octets)",
+      saltSizeHint: "Fixée à la valeur recommandée par l'OWASP ; non configurable.",
+      hashSize: "Taille du hachage (octets)",
+      hashSizeHint: "Fixée à la valeur recommandée par l'OWASP ; non configurable.",
+      pepperEnabled: "Poivre côté serveur",
+      pepperEnabledHint:
+        "Mélange un secret détenu par le serveur à chaque hachage de mot de passe, de sorte qu'une base de données volée ne suffit pas à elle seule à craquer les mots de passe. Le matériel de clé est créé automatiquement au prochain redémarrage.",
+      breachedPasswordCheckEnabled: "Vérification des mots de passe compromis",
+      breachedPasswordCheckEnabledHint:
+        "Vérifie les nouveaux mots de passe contre les fuites de données connues (Have I Been Pwned, k-anonymity préservant la vie privée). Recommandé : activé — cela bloque les mots de passe les plus souvent devinés.",
+      breachedPasswordCheckMode: "Quand un mot de passe compromis est détecté",
+      breachedPasswordCheckModeHint:
+        "Enforce rejette le mot de passe ; Warn l'accepte mais en informe l'utilisateur. Recommandé : Enforce pour les nouveaux déploiements, Warn pendant la mise en place.",
+      breachedPasswordCheckFailOpen:
+        "Autoriser quand la vérification est indisponible",
+      breachedPasswordCheckFailOpenHint:
+        "Si le service de vérification des fuites est injoignable, accepter le mot de passe plutôt que de bloquer les inscriptions. Recommandé : activé — évite une panne auto-infligée ; les incidents sont journalisés.",
+      breachedPasswordCheckRejectThreshold: "Seuil de compromissions",
+      breachedPasswordCheckRejectThresholdHint:
+        "Nombre de fois qu'un mot de passe doit apparaître dans des fuites avant d'être considéré comme compromis. Recommandé : 1 — une seule apparition suffit.",
+      breachedPasswordCheckTimeoutMs: "Délai de vérification des fuites (ms)",
+      breachedPasswordCheckTimeoutMsHint:
+        "Temps d'attente du service de vérification avant d'abandonner. Recommandé : 2000.",
+    },
+    session: {
+      title: "Sessions",
+      description:
+        "Ce qu'il advient des autres sessions connectées d'un utilisateur quand son mot de passe change. Les limites de session par application se configurent sur chaque application, pas ici.",
+      terminateSessionsOnPasswordChange:
+        "Déconnexion partout au changement de mot de passe",
+      terminateSessionsOnPasswordChangeHint:
+        "Quand un utilisateur change son mot de passe, toutes ses autres sessions prennent fin. Recommandé : activé — un mot de passe changé signifie généralement que l'ancien n'est plus digne de confiance.",
+      terminateSessionsOnPasswordReset:
+        "Déconnexion partout à la réinitialisation du mot de passe",
+      terminateSessionsOnPasswordResetHint:
+        "Quand un mot de passe est réinitialisé via un lien e-mail, toutes les sessions existantes prennent fin. Recommandé : activé — les réinitialisations font souvent suite à une compromission soupçonnée.",
+    },
+    gateway: {
+      title: "Protection de la passerelle",
+      description:
+        "L'API n'accepte normalement que les requêtes provenant de la passerelle API, attestées par un en-tête secret partagé. Cela bloque quiconque découvre l'adresse interne de l'API.",
+      validationEnabled: "Exiger l'en-tête de la passerelle",
+      validationEnabledHint:
+        "Recommandé : activé en production. À désactiver uniquement en développement local, sans passerelle.",
+      exemptPaths: "Chemins exemptés",
+      exemptPathsHint:
+        "Chemins servis sans l'en-tête de la passerelle — sondes de santé et documents de découverte publics. Les entrées doivent commencer par '/' ; un '/' final couvre tout le préfixe.",
+      tokenHeaderName: "Nom de l'en-tête",
+      tokenHeaderNameHint:
+        "Fixé côté passerelle ; affiché ici pour référence.",
+      expectedToken: "Jeton de la passerelle",
+    },
+  },
   profile: {
     title: "Mon profil",
     subtitle: "Gérez votre compte, vos sessions et votre sécurité.",
@@ -1213,6 +1372,9 @@ export const fr: TranslationResources = {
     minLength: "Doit contenir au moins {{count}} caractères.",
     passwordMismatch: "Les mots de passe ne correspondent pas.",
     url: "Saisissez une URL valide.",
+    wholeNumber: "Saisissez un nombre entier.",
+    min: "Doit être au moins {{min}}.",
+    max: "Doit être au plus {{max}}.",
   },
   errors: {
     notFoundTitle: "Page introuvable",

@@ -400,4 +400,10 @@
   <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
     <value>La version de la politique doit suivre le format YYYY.MM.</value>
   </data>
+  <data name="Validation.SectionKey.Required" xml:space="preserve">
+    <value>La clé de section est requise.</value>
+  </data>
+  <data name="Validation.SectionKey.MaxLength" xml:space="preserve">
+    <value>La clé de section ne doit pas dépasser 64 caractères.</value>
+  </data>
 </root>

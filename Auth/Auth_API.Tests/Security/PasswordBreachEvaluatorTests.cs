@@ -4,6 +4,8 @@ using Auth.Application.Security;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
+using Auth_API.Tests.Helpers;
+
 namespace Auth_API.Tests.Security;
 
 /// <summary>
@@ -22,7 +24,7 @@ public class PasswordBreachEvaluatorTests
         return new PasswordBreachEvaluator(
             checker.Object,
             warnings,
-            Options.Create(passwordSettings),
+            TestHelpers.CreateOptions(passwordSettings),
             NullLogger<PasswordBreachEvaluator>.Instance);
     }
 

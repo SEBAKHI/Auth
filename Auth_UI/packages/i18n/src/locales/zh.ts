@@ -130,6 +130,7 @@ export const zh: TranslationResources = {
     auditLogs: "审计日志",
     secrets: "机密",
     platformSettings: "平台设置",
+    systemSettings: "系统设置",
     profile: "个人资料",
     management: "管理",
     security: "安全",
@@ -1025,6 +1026,158 @@ export const zh: TranslationResources = {
     favicon: "网站图标",
     updated: "平台设置已更新。",
   },
+  systemSettings: {
+    title: "系统设置",
+    subtitle:
+      "配置平台的行为方式——密码策略、令牌、会话等——无需修改配置文件。",
+    restartBannerTitle: "需要重启",
+    restartBannerBody:
+      "部分已保存的更改只有在 API 重启后才会生效。这些更改已安全保存，并将在下次重启时自动应用。",
+    dbUnavailableTitle: "无法访问设置存储",
+    dbUnavailableBody:
+      "无法读取设置数据库。当前显示的值来自配置文件，可能不包含已保存的自定义设置。",
+    restartRequired: "需要重启",
+    pendingRestart: "等待重启",
+    overridden: "已自定义",
+    fileValue: "文件值：{{value}}",
+    notSet: "未设置",
+    managedInSecrets:
+      "机密值——加密存储并在机密页面管理，绝不在此处显示。",
+    openSecrets: "打开机密",
+    readOnly: "只读",
+    resetSection: "重置为文件值",
+    resetConfirmTitle: "重置此部分？",
+    resetConfirmBody:
+      "此部分中所有自定义的值将被移除，配置文件中的值将重新生效。",
+    saved: "设置已保存。",
+    resetDone: "该部分已重置为文件值。",
+    conflict:
+      "其他人在此期间修改了此部分。内容已重新加载——请重新应用您的更改。",
+    arrayFieldHint: "每行一个条目。",
+    groups: {
+      security: "安全",
+      access: "访问",
+      communication: "通信",
+      storage: "存储与媒体",
+      operations: "运维",
+      infrastructure: "基础设施",
+    },
+    jwt: {
+      title: "令牌（JWT）",
+      description:
+        "用户登录时收到的签名令牌：由谁签发、面向谁、以及有效期多长。有效期越短越安全；越长则用户重新登录的次数越少。",
+      issuer: "签发者 URL",
+      issuerHint:
+        "此认证服务器的公开地址，会写入每个令牌（例如 https://auth.example.com）。修改后，之前签发的令牌将全部失效。",
+      audience: "受众 URL",
+      audienceHint:
+        "令牌的目标接收方——通常与公开地址相同。客户端应用必须精确匹配此值。",
+      accessTokenLifetimeMinutes: "访问令牌有效期（分钟）",
+      accessTokenLifetimeMinutesHint:
+        "单个登录令牌的有效时长。推荐：5–15 分钟（OAuth 安全最佳实践）——令牌一旦泄露会很快过期，而刷新机制可让用户保持登录状态。",
+      refreshTokenLifetimeDays: "刷新令牌有效期（天）",
+      refreshTokenLifetimeDaysHint:
+        "用户无需再次输入密码即可保持登录的时长。推荐：7–30 天；敏感环境请选择较低值。",
+      keyId: "签名密钥 ID",
+      keyIdHint:
+        "随签名密钥一起发布的标识符（kid），供客户端应用选择正确的密钥。仅应在密钥轮换时更改。",
+      rotateRefreshTokens: "轮换刷新令牌",
+      rotateRefreshTokensHint:
+        "每次续期时签发新的刷新令牌并作废旧令牌。推荐：开启——被盗的刷新令牌在首次被重复使用时即会被发现并切断。",
+      clockSkewSeconds: "时钟偏差（秒）",
+      clockSkewSecondsHint:
+        "校验令牌过期时间时，对服务器之间时钟差异的容忍度。推荐：不超过 60；0 为最严格。",
+      privateKeyPath: "私钥路径",
+      privateKeyPem: "私钥（PEM）",
+      privateKeyEncrypted: "私钥（已加密）",
+      refreshTokenEncryptedKey: "刷新令牌 HMAC 密钥",
+    },
+    password: {
+      title: "密码策略",
+      description:
+        "每个密码必须满足的规则、多次登录失败后的处理方式，以及密码哈希的强度。默认值遵循 OWASP 建议。",
+      minimumLength: "最小长度",
+      minimumLengthHint:
+        "推荐：至少 8 个字符（OWASP/NIST）；长度比复杂度更能保护安全，对安全要求最高的场景请考虑 12 个字符以上。",
+      requireUppercase: "要求包含大写字母",
+      requireUppercaseHint:
+        "拒绝不含 A–Z 的密码。复杂度规则会增加使用负担——长度和泄露密码检查的保护作用更大。",
+      requireLowercase: "要求包含小写字母",
+      requireLowercaseHint: "拒绝不含 a–z 的密码。",
+      requireDigit: "要求包含数字",
+      requireDigitHint: "拒绝不含 0–9 的密码。",
+      requireSpecialCharacter: "要求包含特殊字符",
+      requireSpecialCharacterHint:
+        "拒绝仅由字母和数字组成的密码。",
+      historyCount: "记住的历史密码数量",
+      historyCountHint:
+        "用户不能重复使用的历史密码数量。推荐：3–5。设为 0 则禁用此检查。",
+      expirationDays: "密码过期时间（天）",
+      expirationDaysHint:
+        "强制用户在此天数后修改密码。推荐：0（关闭）——NIST 不建议例行强制过期，应改为依靠泄露密码检查。",
+      maxFailedAttempts: "锁定前允许的失败次数",
+      maxFailedAttemptsHint:
+        "密码输错达到此次数后，账户将被临时锁定。推荐：5——既能阻止猜测攻击，又能容忍正常的输入失误。",
+      lockoutDurationMinutes: "锁定时长（分钟）",
+      lockoutDurationMinutesHint:
+        "账户保持锁定的时长。推荐：15——能有效遏制攻击者，同时对用户影响有限。",
+      argon2MemorySize: "Argon2 内存（KB）",
+      argon2MemorySizeHint:
+        "哈希每个密码所使用的内存。推荐：19456（19 MiB，OWASP 最低值）。数值越高越安全，但会拖慢每次登录。",
+      argon2Iterations: "Argon2 迭代次数",
+      argon2IterationsHint: "推荐：2（此内存大小下的 OWASP 最低值）。",
+      argon2Parallelism: "Argon2 并行度",
+      argon2ParallelismHint: "推荐：1（OWASP）。更改后现有密码仍然可用——将在下次登录时自动升级。",
+      saltSize: "盐长度（字节）",
+      saltSizeHint: "固定为 OWASP 推荐值；不可配置。",
+      hashSize: "哈希长度（字节）",
+      hashSizeHint: "固定为 OWASP 推荐值；不可配置。",
+      pepperEnabled: "服务器端 Pepper",
+      pepperEnabledHint:
+        "在每个密码哈希中混入服务器持有的机密，即使数据库被盗也无法单独破解密码。密钥材料将在下次重启时自动创建。",
+      breachedPasswordCheckEnabled: "泄露密码检查",
+      breachedPasswordCheckEnabledHint:
+        "将新密码与已知数据泄露进行比对（Have I Been Pwned，采用保护隐私的 k-anonymity）。推荐：开启——可拦截最常被猜中的密码。",
+      breachedPasswordCheckMode: "发现泄露密码时",
+      breachedPasswordCheckModeHint:
+        "Enforce 会拒绝该密码；Warn 会接受但提醒用户。推荐：新部署使用 Enforce，推广期间使用 Warn。",
+      breachedPasswordCheckFailOpen: "检查不可用时放行",
+      breachedPasswordCheckFailOpenHint:
+        "当无法连接泄露检查服务时，接受该密码而不是阻止注册。推荐：开启——避免自己造成服务中断；相关事件会被记录。",
+      breachedPasswordCheckRejectThreshold: "泄露次数阈值",
+      breachedPasswordCheckRejectThresholdHint:
+        "密码在泄露数据中出现多少次才算作已泄露。推荐：1——出现一次即算。",
+      breachedPasswordCheckTimeoutMs: "泄露检查超时（ms）",
+      breachedPasswordCheckTimeoutMsHint:
+        "等待泄露检查服务响应的最长时间，超时则放弃。推荐：2000。",
+    },
+    session: {
+      title: "会话",
+      description:
+        "用户修改密码时，其名下其他已登录会话会如何处理。每个应用的会话数量限制在各应用中单独配置，不在此处。",
+      terminateSessionsOnPasswordChange: "修改密码时退出所有设备",
+      terminateSessionsOnPasswordChangeHint:
+        "用户修改密码后，其所有其他会话都会结束。推荐：开启——修改密码通常意味着旧密码已不再可信。",
+      terminateSessionsOnPasswordReset: "重置密码时退出所有设备",
+      terminateSessionsOnPasswordResetHint:
+        "通过邮件链接重置密码后，所有现有会话都会结束。推荐：开启——重置操作往往发生在怀疑账户被盗之后。",
+    },
+    gateway: {
+      title: "网关保护",
+      description:
+        "API 通常只接受来自 API 网关的请求，并通过共享密钥请求头加以验证。这可以阻挡任何发现内部 API 地址的人。",
+      validationEnabled: "要求网关请求头",
+      validationEnabledHint:
+        "推荐：生产环境开启。仅在没有网关运行的本地开发环境中关闭。",
+      exemptPaths: "豁免路径",
+      exemptPathsHint:
+        "无需网关请求头即可访问的路径——健康探测和公开的发现文档。条目必须以 '/' 开头；结尾的 '/' 匹配整个前缀。",
+      tokenHeaderName: "请求头名称",
+      tokenHeaderNameHint:
+        "在网关侧固定；此处仅供参考。",
+      expectedToken: "网关令牌",
+    },
+  },
   profile: {
     title: "我的资料",
     subtitle: "管理您的账户、会话和安全设置。",
@@ -1119,6 +1272,9 @@ export const zh: TranslationResources = {
     minLength: "至少需要 {{count}} 个字符。",
     passwordMismatch: "两次输入的密码不一致。",
     url: "请输入有效的 URL。",
+    wholeNumber: "请输入整数。",
+    min: "不能小于 {{min}}。",
+    max: "不能大于 {{max}}。",
   },
   errors: {
     notFoundTitle: "页面未找到",

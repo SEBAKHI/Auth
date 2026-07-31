@@ -601,6 +601,15 @@ PRINT 'Step 12: Creating notification permissions...';
 GO
 
 -- ============================================
+-- STEP 13: SYSTEM SETTINGS PERMISSIONS
+-- ============================================
+PRINT '';
+PRINT 'Step 13: Creating system settings permissions...';
+
+:r ..\Scripts\SeedData\17_SystemSettingsPermissions.sql
+GO
+
+-- ============================================
 -- COMPLETION
 -- ============================================
 PRINT '';

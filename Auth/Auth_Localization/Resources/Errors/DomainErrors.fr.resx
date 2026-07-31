@@ -755,4 +755,22 @@
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>Cette version ne peut pas être renommée : elle est publiée ou son avis de modification a déjà été envoyé.</value>
   </data>
+  <data name="SystemSettings.SectionNotFound" xml:space="preserve">
+    <value>Section de paramètres inconnue : {0}.</value>
+  </data>
+  <data name="SystemSettings.SectionReadOnly" xml:space="preserve">
+    <value>La section de paramètres '{0}' est en lecture seule et ne peut pas être modifiée depuis la console.</value>
+  </data>
+  <data name="SystemSettings.UnknownField" xml:space="preserve">
+    <value>Le champ '{0}' n'est pas un paramètre modifiable de cette section.</value>
+  </data>
+  <data name="SystemSettings.SecretManagedField" xml:space="preserve">
+    <value>Le champ '{0}' contient des données secrètes et se gère dans la gestion des secrets, pas ici.</value>
+  </data>
+  <data name="SystemSettings.InvalidFieldValue" xml:space="preserve">
+    <value>La valeur du champ '{0}' est invalide : {1}</value>
+  </data>
+  <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
+    <value>La section a été modifiée par quelqu'un d'autre depuis son chargement. Rechargez puis réappliquez vos modifications.</value>
+  </data>
 </root>

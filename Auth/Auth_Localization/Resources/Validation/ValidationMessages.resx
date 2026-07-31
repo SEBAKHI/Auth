@@ -400,4 +400,10 @@
   <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
     <value>The policy version must use the YYYY.MM format.</value>
   </data>
+  <data name="Validation.SectionKey.Required" xml:space="preserve">
+    <value>Section key is required.</value>
+  </data>
+  <data name="Validation.SectionKey.MaxLength" xml:space="preserve">
+    <value>Section key must not exceed 64 characters.</value>
+  </data>
 </root>

@@ -755,4 +755,22 @@
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>This policy version cannot be renamed: it is published or its change notice was already sent.</value>
   </data>
+  <data name="SystemSettings.SectionNotFound" xml:space="preserve">
+    <value>Unknown settings section: {0}.</value>
+  </data>
+  <data name="SystemSettings.SectionReadOnly" xml:space="preserve">
+    <value>The settings section '{0}' is read-only and cannot be changed from the console.</value>
+  </data>
+  <data name="SystemSettings.UnknownField" xml:space="preserve">
+    <value>The field '{0}' is not an editable setting of this section.</value>
+  </data>
+  <data name="SystemSettings.SecretManagedField" xml:space="preserve">
+    <value>The field '{0}' holds secret material and is managed in Secret Management, not here.</value>
+  </data>
+  <data name="SystemSettings.InvalidFieldValue" xml:space="preserve">
+    <value>The value for '{0}' is invalid: {1}</value>
+  </data>
+  <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
+    <value>The section was modified by someone else since you loaded it. Reload and reapply your changes.</value>
+  </data>
 </root>

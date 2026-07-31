@@ -15,6 +15,7 @@ using Auth.Application.Interfaces;
 using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.Security;
+using Auth.Application.SystemSettings;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Infrastructure;
 using Auth.Infrastructure.Authentication;
@@ -240,6 +241,43 @@ var connectionString = builder.Configuration.GetConnectionString("AuthDb")
 
 builder.Services.AddSingleton<IDbConnectionFactory>(_ => new SqlConnectionFactory(connectionString));
 
+// ════════════════════════════════════════════════════════════════════════════
+// Dynamic system settings: a database-backed configuration layer over the
+// file/env layers (secret-owned keys are filtered on both the read and the
+// write path, so the secret provider stays authoritative for them). The
+// provider fails open — database down means file values, never a dead API.
+// Escape hatch: AUTH_DISABLE_DB_SETTINGS=true skips the layer entirely so a
+// bad override can always be bypassed and reset.
+// ════════════════════════════════════════════════════════════════════════════
+var disableDbSettings = string.Equals(
+    Environment.GetEnvironmentVariable("AUTH_DISABLE_DB_SETTINGS"), "true", StringComparison.OrdinalIgnoreCase);
+
+// Baseline snapshot BEFORE the database layer: what every field falls back
+// to on reset (files/env). Captured here because files never change while
+// the process runs.
+var settingsBaseline = StartupValuesSnapshot.CaptureValues(builder.Configuration);
+
+if (!disableDbSettings)
+{
+    var dbSettingsSource = new DbSettingsConfigurationSource(
+        connectionString,
+        DbSettingsConfigurationProvider.CaptureBaselineArrayLengths(builder.Configuration));
+    ((IConfigurationBuilder)builder.Configuration).Add(dbSettingsSource);
+
+    builder.Services.AddSingleton<ISystemSettingsReloader>(_ => dbSettingsSource.Provider!);
+    builder.Services.AddHostedService<SystemSettingsRefreshService>();
+}
+else
+{
+    Log.Warning("AUTH_DISABLE_DB_SETTINGS=true - database system-settings overrides are DISABLED for this run.");
+    builder.Services.AddSingleton<ISystemSettingsReloader, NullSystemSettingsReloader>();
+}
+
+// Startup snapshot AFTER the database layer: what this process actually
+// booted with — the reference for "pending restart" badges.
+builder.Services.AddSingleton<IStartupValuesSnapshot>(
+    new StartupValuesSnapshot(settingsBaseline, StartupValuesSnapshot.CaptureValues(builder.Configuration)));
+
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserEncryptionKeyRepository, UserEncryptionKeyRepository>();
@@ -270,6 +308,7 @@ builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginReposi
 builder.Services.AddScoped<IWebhookKeyRepository, WebhookKeyRepository>();
 builder.Services.AddScoped<IDashboardStatsRepository, DashboardStatsRepository>();
 builder.Services.AddScoped<IPlatformSettingsRepository, PlatformSettingsRepository>();
+builder.Services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>();
 builder.Services.AddScoped<INotificationTypeRepository, NotificationTypeRepository>();
 builder.Services.AddScoped<INotificationTemplateRepository, NotificationTemplateRepository>();
 builder.Services.AddScoped<INotificationLayoutRepository, NotificationLayoutRepository>();
@@ -350,10 +389,13 @@ var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<
 var tempServiceProvider = builder.Services.BuildServiceProvider();
 var jwtDataProtectionProvider = tempServiceProvider.GetRequiredService<IDataProtectionProvider>();
 
+// liveSettings makes token LIFETIMES hot (read per issue); issuer/audience/
+// keys stay on the startup snapshot to match the validation parameters below.
 var jwtTokenService = new JwtTokenService(
     Options.Create(jwtSettings),
     passwordHasher,
-    jwtDataProtectionProvider);
+    jwtDataProtectionProvider,
+    tempServiceProvider.GetRequiredService<IOptionsMonitor<JwtSettings>>());
 builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
 
 // Token blacklist: one singleton behind both the interface and the concrete

@@ -755,4 +755,22 @@
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>Bu politika sürümünün adı değiştirilemez: yayımlanmış ya da değişiklik bildirimi zaten gönderilmiş.</value>
   </data>
+  <data name="SystemSettings.SectionNotFound" xml:space="preserve">
+    <value>Bilinmeyen ayar bölümü: {0}.</value>
+  </data>
+  <data name="SystemSettings.SectionReadOnly" xml:space="preserve">
+    <value>'{0}' ayar bölümü salt okunurdur ve konsoldan değiştirilemez.</value>
+  </data>
+  <data name="SystemSettings.UnknownField" xml:space="preserve">
+    <value>'{0}' alanı bu bölümün düzenlenebilir bir ayarı değildir.</value>
+  </data>
+  <data name="SystemSettings.SecretManagedField" xml:space="preserve">
+    <value>'{0}' alanı gizli materyal içerir ve burada değil, gizli anahtar yönetiminde yönetilir.</value>
+  </data>
+  <data name="SystemSettings.InvalidFieldValue" xml:space="preserve">
+    <value>'{0}' alanının değeri geçersiz: {1}</value>
+  </data>
+  <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
+    <value>Bu bölüm siz yükledikten sonra başkası tarafından değiştirildi. Yeniden yükleyip değişikliklerinizi tekrar uygulayın.</value>
+  </data>
 </root>

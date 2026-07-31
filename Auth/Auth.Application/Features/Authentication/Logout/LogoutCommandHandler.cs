@@ -31,7 +31,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         IUserSessionRepository sessionRepository,
         IIdpSessionRepository idpSessionRepository,
         IPublisher publisher,
-        IOptions<JwtSettings> jwtSettings,
+        IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<LogoutCommandHandler> logger)
     {
         _refreshTokenRepository = refreshTokenRepository;

@@ -126,6 +126,7 @@ export const en = {
     auditLogs: "Audit Logs",
     secrets: "Secrets",
     platformSettings: "Platform Settings",
+    systemSettings: "System Settings",
     profile: "Profile",
     management: "Management",
     security: "Security",
@@ -1076,6 +1077,158 @@ export const en = {
     favicon: "Favicon",
     updated: "Platform settings updated.",
   },
+  systemSettings: {
+    title: "System settings",
+    subtitle:
+      "Configure how the platform behaves — password policy, tokens, sessions, and more — without touching configuration files.",
+    restartBannerTitle: "Restart required",
+    restartBannerBody:
+      "Some saved changes only take effect after the API restarts. They are stored safely and will apply automatically on the next restart.",
+    dbUnavailableTitle: "Settings storage unreachable",
+    dbUnavailableBody:
+      "The settings database could not be read. Values shown come from the configuration files and may not include saved customizations.",
+    restartRequired: "Restart required",
+    pendingRestart: "Waiting for restart",
+    overridden: "Customized",
+    fileValue: "File value: {{value}}",
+    notSet: "Not set",
+    managedInSecrets:
+      "Secret value — stored encrypted and managed on the Secrets page, never here.",
+    openSecrets: "Open Secrets",
+    readOnly: "Read-only",
+    resetSection: "Reset to file values",
+    resetConfirmTitle: "Reset this section?",
+    resetConfirmBody:
+      "All customized values in this section will be removed, and the values from the configuration files will apply again.",
+    saved: "Settings saved.",
+    resetDone: "Section reset to file values.",
+    conflict:
+      "Someone else changed this section in the meantime. It has been reloaded — please reapply your changes.",
+    arrayFieldHint: "One entry per line.",
+    groups: {
+      security: "Security",
+      access: "Access",
+      communication: "Communication",
+      storage: "Storage & media",
+      operations: "Operations",
+      infrastructure: "Infrastructure",
+    },
+    jwt: {
+      title: "Tokens (JWT)",
+      description:
+        "The signed tokens users receive when they sign in: who issues them, who they are for, and how long they stay valid. Shorter lifetimes are safer; longer ones mean fewer re-logins.",
+      issuer: "Issuer URL",
+      issuerHint:
+        "The public address of this authentication server, stamped into every token (e.g. https://auth.example.com). Changing it invalidates tokens issued before the change.",
+      audience: "Audience URL",
+      audienceHint:
+        "Who the tokens are intended for — normally the same public address. Client applications must expect exactly this value.",
+      accessTokenLifetimeMinutes: "Access token lifetime (minutes)",
+      accessTokenLifetimeMinutesHint:
+        "How long one sign-in token stays valid. Recommended: 5–15 minutes (OAuth security best practice) — a leaked token then expires quickly, while refresh keeps users signed in.",
+      refreshTokenLifetimeDays: "Refresh token lifetime (days)",
+      refreshTokenLifetimeDaysHint:
+        "How long a user can stay signed in without typing a password again. Recommended: 7–30 days; choose the low end for sensitive deployments.",
+      keyId: "Signing key ID",
+      keyIdHint:
+        "The identifier (kid) published with the signing key so client apps can pick the right key. Change only as part of a key rotation.",
+      rotateRefreshTokens: "Rotate refresh tokens",
+      rotateRefreshTokensHint:
+        "Issues a fresh refresh token on every renewal and voids the old one. Recommended: on — a stolen refresh token is then detected and cut off on first reuse.",
+      clockSkewSeconds: "Clock skew (seconds)",
+      clockSkewSecondsHint:
+        "Tolerance for clock differences between servers when checking token expiry. Recommended: 60 or less; 0 is strictest.",
+      privateKeyPath: "Private key path",
+      privateKeyPem: "Private key (PEM)",
+      privateKeyEncrypted: "Private key (encrypted)",
+      refreshTokenEncryptedKey: "Refresh-token HMAC key",
+    },
+    password: {
+      title: "Password policy",
+      description:
+        "The rules every password must meet, what happens after repeated failed sign-ins, and how strongly passwords are hashed. The defaults follow OWASP recommendations.",
+      minimumLength: "Minimum length",
+      minimumLengthHint:
+        "Recommended: at least 8 characters (OWASP/NIST); length protects more than complexity, so consider 12+ where security matters most.",
+      requireUppercase: "Require an uppercase letter",
+      requireUppercaseHint:
+        "Rejects passwords without A–Z. Complexity rules add friction — length and the breached-password check protect more.",
+      requireLowercase: "Require a lowercase letter",
+      requireLowercaseHint: "Rejects passwords without a–z.",
+      requireDigit: "Require a digit",
+      requireDigitHint: "Rejects passwords without 0–9.",
+      requireSpecialCharacter: "Require a special character",
+      requireSpecialCharacterHint:
+        "Rejects passwords made only of letters and digits.",
+      historyCount: "Remembered previous passwords",
+      historyCountHint:
+        "How many of the user's past passwords cannot be reused. Recommended: 3–5. 0 disables the check.",
+      expirationDays: "Password expiry (days)",
+      expirationDaysHint:
+        "Force a password change after this many days. Recommended: 0 (off) — NIST advises against routine expiry; rely on the breached-password check instead.",
+      maxFailedAttempts: "Failed attempts before lockout",
+      maxFailedAttemptsHint:
+        "After this many wrong passwords the account locks temporarily. Recommended: 5 — low enough to stop guessing, high enough for honest typos.",
+      lockoutDurationMinutes: "Lockout duration (minutes)",
+      lockoutDurationMinutesHint:
+        "How long the account stays locked. Recommended: 15 — meaningful brake on attackers with limited user pain.",
+      argon2MemorySize: "Argon2 memory (KB)",
+      argon2MemorySizeHint:
+        "Memory used to hash each password. Recommended: 19456 (19 MiB, the OWASP minimum). Higher is stronger but slows every sign-in.",
+      argon2Iterations: "Argon2 iterations",
+      argon2IterationsHint: "Recommended: 2 (OWASP minimum for this memory size).",
+      argon2Parallelism: "Argon2 parallelism",
+      argon2ParallelismHint: "Recommended: 1 (OWASP). Existing passwords keep working after a change — they are upgraded on next sign-in.",
+      saltSize: "Salt size (bytes)",
+      saltSizeHint: "Fixed at the OWASP-recommended value; not configurable.",
+      hashSize: "Hash size (bytes)",
+      hashSizeHint: "Fixed at the OWASP-recommended value; not configurable.",
+      pepperEnabled: "Server-side pepper",
+      pepperEnabledHint:
+        "Mixes a server-held secret into every password hash, so a stolen database alone cannot crack passwords. Key material is created automatically on the next restart.",
+      breachedPasswordCheckEnabled: "Breached-password check",
+      breachedPasswordCheckEnabledHint:
+        "Checks new passwords against known data breaches (Have I Been Pwned, privacy-preserving k-anonymity). Recommended: on — it blocks the most commonly guessed passwords.",
+      breachedPasswordCheckMode: "When a breached password is found",
+      breachedPasswordCheckModeHint:
+        "Enforce rejects the password; Warn accepts it but tells the user. Recommended: Enforce for new deployments, Warn while rolling out.",
+      breachedPasswordCheckFailOpen: "Allow when the check is unavailable",
+      breachedPasswordCheckFailOpenHint:
+        "If the breach service cannot be reached, accept the password instead of blocking sign-ups. Recommended: on — avoids a self-inflicted outage; incidents are logged.",
+      breachedPasswordCheckRejectThreshold: "Breach count threshold",
+      breachedPasswordCheckRejectThresholdHint:
+        "How many times a password must appear in breaches before it counts as breached. Recommended: 1 — any appearance is enough.",
+      breachedPasswordCheckTimeoutMs: "Breach check timeout (ms)",
+      breachedPasswordCheckTimeoutMsHint:
+        "How long to wait for the breach service before giving up. Recommended: 2000.",
+    },
+    session: {
+      title: "Sessions",
+      description:
+        "What happens to a user's other signed-in sessions when their password changes. Per-application session limits are configured on each application, not here.",
+      terminateSessionsOnPasswordChange: "Sign out everywhere on password change",
+      terminateSessionsOnPasswordChangeHint:
+        "When a user changes their password, all their other sessions end. Recommended: on — a changed password usually means the old one is no longer trusted.",
+      terminateSessionsOnPasswordReset: "Sign out everywhere on password reset",
+      terminateSessionsOnPasswordResetHint:
+        "When a password is reset via email link, all existing sessions end. Recommended: on — resets often follow a suspected compromise.",
+    },
+    gateway: {
+      title: "Gateway protection",
+      description:
+        "The API normally accepts requests only from the API gateway, proven by a shared secret header. This blocks anyone who discovers the internal API address.",
+      validationEnabled: "Require the gateway header",
+      validationEnabledHint:
+        "Recommended: on in production. Turn off only in local development where no gateway runs.",
+      exemptPaths: "Exempt paths",
+      exemptPathsHint:
+        "Paths served without the gateway header — health probes and public discovery documents. Entries must start with '/'; a trailing '/' matches the whole prefix.",
+      tokenHeaderName: "Header name",
+      tokenHeaderNameHint:
+        "Fixed on the gateway side; shown here for reference.",
+      expectedToken: "Gateway token",
+    },
+  },
   profile: {
     title: "My profile",
     subtitle: "Manage your account, sessions, and security.",
@@ -1173,6 +1326,9 @@ export const en = {
     minLength: "Must be at least {{count}} characters.",
     passwordMismatch: "Passwords do not match.",
     url: "Enter a valid URL.",
+    wholeNumber: "Enter a whole number.",
+    min: "Must be at least {{min}}.",
+    max: "Must be at most {{max}}.",
   },
   errors: {
     notFoundTitle: "Page not found",

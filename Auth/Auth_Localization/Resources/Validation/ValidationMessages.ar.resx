@@ -400,4 +400,10 @@
   <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
     <value>يجب أن يكون إصدار السياسة بتنسيق YYYY.MM.</value>
   </data>
+  <data name="Validation.SectionKey.Required" xml:space="preserve">
+    <value>مفتاح القسم مطلوب.</value>
+  </data>
+  <data name="Validation.SectionKey.MaxLength" xml:space="preserve">
+    <value>يجب ألا يتجاوز مفتاح القسم 64 حرفًا.</value>
+  </data>
 </root>

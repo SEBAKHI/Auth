@@ -36,8 +36,8 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IRefreshTokenKeyService tokenKeyService,
         PasswordValidator passwordValidator,
         IPasswordBreachEvaluator breachEvaluator,
-        IOptions<PasswordSettings> passwordSettings,
-        IOptions<SessionSettings> sessionSettings,
+        IOptionsSnapshot<PasswordSettings> passwordSettings,
+        IOptionsSnapshot<SessionSettings> sessionSettings,
         ILogger<ResetPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;

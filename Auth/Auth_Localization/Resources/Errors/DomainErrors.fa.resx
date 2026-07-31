@@ -755,4 +755,22 @@
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>نام این نسخه سیاست قابل تغییر نیست: منتشر شده یا اعلان تغییر آن ارسال شده است.</value>
   </data>
+  <data name="SystemSettings.SectionNotFound" xml:space="preserve">
+    <value>بخش تنظیمات ناشناخته: {0}.</value>
+  </data>
+  <data name="SystemSettings.SectionReadOnly" xml:space="preserve">
+    <value>بخش تنظیمات '{0}' فقط‌خواندنی است و از کنسول قابل تغییر نیست.</value>
+  </data>
+  <data name="SystemSettings.UnknownField" xml:space="preserve">
+    <value>فیلد '{0}' تنظیم قابل‌ویرایشی در این بخش نیست.</value>
+  </data>
+  <data name="SystemSettings.SecretManagedField" xml:space="preserve">
+    <value>فیلد '{0}' حاوی مواد محرمانه است و در مدیریت کلیدهای محرمانه اداره می‌شود، نه اینجا.</value>
+  </data>
+  <data name="SystemSettings.InvalidFieldValue" xml:space="preserve">
+    <value>مقدار فیلد '{0}' نامعتبر است: {1}</value>
+  </data>
+  <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
+    <value>این بخش پس از بارگذاری توسط شخص دیگری تغییر کرده است. دوباره بارگذاری کنید و تغییرات خود را از نو اعمال کنید.</value>
+  </data>
 </root>

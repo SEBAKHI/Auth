@@ -755,4 +755,22 @@
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>لا يمكن إعادة تسمية إصدار السياسة هذا: فهو منشور أو تم إرسال إشعار تغييره بالفعل.</value>
   </data>
+  <data name="SystemSettings.SectionNotFound" xml:space="preserve">
+    <value>قسم إعدادات غير معروف: {0}.</value>
+  </data>
+  <data name="SystemSettings.SectionReadOnly" xml:space="preserve">
+    <value>قسم الإعدادات '{0}' للقراءة فقط ولا يمكن تغييره من وحدة التحكم.</value>
+  </data>
+  <data name="SystemSettings.UnknownField" xml:space="preserve">
+    <value>الحقل '{0}' ليس إعدادًا قابلًا للتعديل في هذا القسم.</value>
+  </data>
+  <data name="SystemSettings.SecretManagedField" xml:space="preserve">
+    <value>الحقل '{0}' يحتوي مادة سرية وتُدار في إدارة الأسرار، لا هنا.</value>
+  </data>
+  <data name="SystemSettings.InvalidFieldValue" xml:space="preserve">
+    <value>قيمة الحقل '{0}' غير صالحة: {1}</value>
+  </data>
+  <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
+    <value>عدّل شخص آخر هذا القسم منذ تحميلك إياه. أعد التحميل ثم طبّق تغييراتك من جديد.</value>
+  </data>
 </root>

@@ -131,6 +131,7 @@ export const tr: TranslationResources = {
     auditLogs: "Denetim Kayıtları",
     secrets: "Gizli Anahtarlar",
     platformSettings: "Platform Ayarları",
+    systemSettings: "Sistem Ayarları",
     profile: "Profil",
     management: "Yönetim",
     security: "Güvenlik",
@@ -1093,6 +1094,158 @@ export const tr: TranslationResources = {
     favicon: "Site simgesi",
     updated: "Platform ayarları güncellendi.",
   },
+  systemSettings: {
+    title: "Sistem ayarları",
+    subtitle:
+      "Parola politikası, jetonlar, oturumlar ve daha fazlası — platformun nasıl davranacağını yapılandırma dosyalarına dokunmadan yönetin.",
+    restartBannerTitle: "Yeniden başlatma gerekli",
+    restartBannerBody:
+      "Kaydedilen bazı değişiklikler yalnızca API yeniden başlatıldıktan sonra etkinleşir. Güvenle saklanırlar ve bir sonraki yeniden başlatmada otomatik olarak uygulanırlar.",
+    dbUnavailableTitle: "Ayar deposuna ulaşılamıyor",
+    dbUnavailableBody:
+      "Ayar veritabanı okunamadı. Gösterilen değerler yapılandırma dosyalarından gelir ve kaydedilmiş özelleştirmeleri içermeyebilir.",
+    restartRequired: "Yeniden başlatma gerekli",
+    pendingRestart: "Yeniden başlatma bekleniyor",
+    overridden: "Özelleştirildi",
+    fileValue: "Dosya değeri: {{value}}",
+    notSet: "Ayarlanmadı",
+    managedInSecrets:
+      "Gizli değer — şifreli olarak saklanır ve Gizli Anahtarlar sayfasında yönetilir, asla burada değil.",
+    openSecrets: "Gizli Anahtarlar'ı aç",
+    readOnly: "Salt okunur",
+    resetSection: "Dosya değerlerine sıfırla",
+    resetConfirmTitle: "Bu bölüm sıfırlansın mı?",
+    resetConfirmBody:
+      "Bu bölümdeki tüm özelleştirilmiş değerler kaldırılacak ve yapılandırma dosyalarındaki değerler yeniden geçerli olacak.",
+    saved: "Ayarlar kaydedildi.",
+    resetDone: "Bölüm dosya değerlerine sıfırlandı.",
+    conflict:
+      "Bu bölüm bu sırada başka biri tarafından değiştirildi. Bölüm yeniden yüklendi — lütfen değişikliklerinizi yeniden uygulayın.",
+    arrayFieldHint: "Her satıra bir girdi.",
+    groups: {
+      security: "Güvenlik",
+      access: "Erişim",
+      communication: "İletişim",
+      storage: "Depolama ve medya",
+      operations: "Operasyonlar",
+      infrastructure: "Altyapı",
+    },
+    jwt: {
+      title: "Jetonlar (JWT)",
+      description:
+        "Kullanıcıların oturum açtıklarında aldıkları imzalı jetonlar: bunları kimin verdiği, kime yönelik oldukları ve ne kadar süre geçerli kaldıkları. Daha kısa ömürler daha güvenlidir; daha uzun ömürler ise daha az yeniden oturum açma demektir.",
+      issuer: "Veren URL'si",
+      issuerHint:
+        "Bu kimlik doğrulama sunucusunun her jetona işlenen genel adresi (örn. https://auth.example.com). Değiştirmek, değişiklikten önce verilen jetonları geçersiz kılar.",
+      audience: "Hedef kitle URL'si",
+      audienceHint:
+        "Jetonların kimin için verildiği — normalde aynı genel adres. İstemci uygulamalar tam olarak bu değeri beklemelidir.",
+      accessTokenLifetimeMinutes: "Erişim jetonu ömrü (dakika)",
+      accessTokenLifetimeMinutesHint:
+        "Tek bir oturum açma jetonunun ne kadar süre geçerli kaldığı. Önerilen: 5–15 dakika (OAuth güvenlik en iyi uygulaması) — sızan bir jeton böylece hızla sona ererken, yenileme kullanıcıları oturumda tutar.",
+      refreshTokenLifetimeDays: "Yenileme jetonu ömrü (gün)",
+      refreshTokenLifetimeDaysHint:
+        "Bir kullanıcının parolayı yeniden yazmadan ne kadar süre oturumda kalabileceği. Önerilen: 7–30 gün; hassas kurulumlarda alt sınırı seçin.",
+      keyId: "İmzalama anahtarı kimliği",
+      keyIdHint:
+        "İstemci uygulamaların doğru anahtarı seçebilmesi için imzalama anahtarıyla birlikte yayımlanan tanımlayıcı (kid). Yalnızca anahtar rotasyonunun bir parçası olarak değiştirin.",
+      rotateRefreshTokens: "Yenileme jetonu rotasyonu",
+      rotateRefreshTokensHint:
+        "Her yenilemede yeni bir yenileme jetonu verir ve eskisini geçersiz kılar. Önerilen: açık — çalınan bir yenileme jetonu böylece ilk yeniden kullanımda tespit edilip kesilir.",
+      clockSkewSeconds: "Saat sapması (saniye)",
+      clockSkewSecondsHint:
+        "Jetonun süresi denetlenirken sunucular arasındaki saat farklarına tanınan tolerans. Önerilen: 60 veya daha az; 0 en katı ayardır.",
+      privateKeyPath: "Özel anahtar yolu",
+      privateKeyPem: "Özel anahtar (PEM)",
+      privateKeyEncrypted: "Özel anahtar (şifreli)",
+      refreshTokenEncryptedKey: "Yenileme jetonu HMAC anahtarı",
+    },
+    password: {
+      title: "Parola politikası",
+      description:
+        "Her parolanın karşılaması gereken kurallar, art arda başarısız oturum açma denemelerinden sonra ne olacağı ve parolaların ne kadar güçlü karma işleminden geçirileceği. Varsayılanlar OWASP önerilerini izler.",
+      minimumLength: "Minimum uzunluk",
+      minimumLengthHint:
+        "Önerilen: en az 8 karakter (OWASP/NIST); uzunluk karmaşıklıktan daha çok korur, bu yüzden güvenliğin en önemli olduğu yerlerde 12+ değerini düşünün.",
+      requireUppercase: "Büyük harf zorunlu",
+      requireUppercaseHint:
+        "A–Z içermeyen parolaları reddeder. Karmaşıklık kuralları kullanımı zorlaştırır — uzunluk ve sızmış parola denetimi daha çok korur.",
+      requireLowercase: "Küçük harf zorunlu",
+      requireLowercaseHint: "a–z içermeyen parolaları reddeder.",
+      requireDigit: "Rakam zorunlu",
+      requireDigitHint: "0–9 içermeyen parolaları reddeder.",
+      requireSpecialCharacter: "Özel karakter zorunlu",
+      requireSpecialCharacterHint:
+        "Yalnızca harf ve rakamlardan oluşan parolaları reddeder.",
+      historyCount: "Hatırlanan önceki parolalar",
+      historyCountHint:
+        "Kullanıcının geçmiş parolalarından kaçının yeniden kullanılamayacağı. Önerilen: 3–5. 0 denetimi devre dışı bırakır.",
+      expirationDays: "Parola geçerlilik süresi (gün)",
+      expirationDaysHint:
+        "Bu kadar gün sonra parola değişikliğini zorunlu kılar. Önerilen: 0 (kapalı) — NIST rutin süre dolmasını önermez; bunun yerine sızmış parola denetimine güvenin.",
+      maxFailedAttempts: "Kilitlenmeden önceki başarısız denemeler",
+      maxFailedAttemptsHint:
+        "Bu kadar yanlış paroladan sonra hesap geçici olarak kilitlenir. Önerilen: 5 — tahmini durduracak kadar düşük, masum yazım hatalarına yer bırakacak kadar yüksek.",
+      lockoutDurationMinutes: "Kilitleme süresi (dakika)",
+      lockoutDurationMinutesHint:
+        "Hesabın ne kadar süre kilitli kaldığı. Önerilen: 15 — kullanıcıyı fazla zorlamadan saldırganlara anlamlı bir fren.",
+      argon2MemorySize: "Argon2 belleği (KB)",
+      argon2MemorySizeHint:
+        "Her parolayı karma işleminden geçirmek için kullanılan bellek. Önerilen: 19456 (19 MiB, OWASP alt sınırı). Daha yüksek değer daha güçlüdür ama her oturum açmayı yavaşlatır.",
+      argon2Iterations: "Argon2 yinelemeleri",
+      argon2IterationsHint: "Önerilen: 2 (bu bellek boyutu için OWASP alt sınırı).",
+      argon2Parallelism: "Argon2 paralelliği",
+      argon2ParallelismHint: "Önerilen: 1 (OWASP). Mevcut parolalar değişiklikten sonra çalışmaya devam eder — bir sonraki oturum açmada yükseltilirler.",
+      saltSize: "Tuz boyutu (bayt)",
+      saltSizeHint: "OWASP'ın önerdiği değerde sabittir; yapılandırılamaz.",
+      hashSize: "Karma boyutu (bayt)",
+      hashSizeHint: "OWASP'ın önerdiği değerde sabittir; yapılandırılamaz.",
+      pepperEnabled: "Sunucu tarafı pepper",
+      pepperEnabledHint:
+        "Sunucuda tutulan bir gizli değeri her parola karmasına karıştırır; böylece yalnızca çalınan bir veritabanı parolaları kırmaya yetmez. Anahtar malzemesi bir sonraki yeniden başlatmada otomatik olarak oluşturulur.",
+      breachedPasswordCheckEnabled: "Sızmış parola denetimi",
+      breachedPasswordCheckEnabledHint:
+        "Yeni parolaları bilinen veri sızıntılarına karşı denetler (Have I Been Pwned, gizliliği koruyan k-anonymity). Önerilen: açık — en sık tahmin edilen parolaları engeller.",
+      breachedPasswordCheckMode: "Sızmış bir parola bulunduğunda",
+      breachedPasswordCheckModeHint:
+        "Enforce parolayı reddeder; Warn kabul eder ama kullanıcıyı bilgilendirir. Önerilen: yeni kurulumlar için Enforce, geçiş sürecinde Warn.",
+      breachedPasswordCheckFailOpen: "Denetim kullanılamadığında izin ver",
+      breachedPasswordCheckFailOpenHint:
+        "Sızıntı servisine ulaşılamazsa kayıtları engellemek yerine parolayı kabul eder. Önerilen: açık — kendi kendine yol açılan bir kesintiyi önler; olaylar günlüğe kaydedilir.",
+      breachedPasswordCheckRejectThreshold: "Sızıntı sayısı eşiği",
+      breachedPasswordCheckRejectThresholdHint:
+        "Bir parolanın sızmış sayılması için sızıntılarda kaç kez görünmesi gerektiği. Önerilen: 1 — herhangi bir görünme yeterlidir.",
+      breachedPasswordCheckTimeoutMs: "Sızıntı denetimi zaman aşımı (ms)",
+      breachedPasswordCheckTimeoutMsHint:
+        "Vazgeçmeden önce sızıntı servisinin ne kadar bekleneceği. Önerilen: 2000.",
+    },
+    session: {
+      title: "Oturumlar",
+      description:
+        "Parolası değiştiğinde kullanıcının diğer açık oturumlarına ne olacağı. Uygulama başına oturum sınırları burada değil, her uygulamanın kendi üzerinde yapılandırılır.",
+      terminateSessionsOnPasswordChange: "Parola değişiminde her yerde oturumu kapat",
+      terminateSessionsOnPasswordChangeHint:
+        "Bir kullanıcı parolasını değiştirdiğinde diğer tüm oturumları sona erer. Önerilen: açık — değiştirilen bir parola genellikle eskisine artık güvenilmediği anlamına gelir.",
+      terminateSessionsOnPasswordReset: "Parola sıfırlamada her yerde oturumu kapat",
+      terminateSessionsOnPasswordResetHint:
+        "Parola e-posta bağlantısıyla sıfırlandığında mevcut tüm oturumlar sona erer. Önerilen: açık — sıfırlamalar çoğu zaman bir ele geçirilme şüphesinin ardından gelir.",
+    },
+    gateway: {
+      title: "Ağ geçidi koruması",
+      description:
+        "API normalde yalnızca API ağ geçidinden gelen ve paylaşılan gizli bir üst bilgiyle kanıtlanan istekleri kabul eder. Bu, dahili API adresini keşfeden herkesi engeller.",
+      validationEnabled: "Ağ geçidi üst bilgisini zorunlu kıl",
+      validationEnabledHint:
+        "Önerilen: üretimde açık. Yalnızca ağ geçidinin çalışmadığı yerel geliştirme ortamında kapatın.",
+      exemptPaths: "Muaf yollar",
+      exemptPathsHint:
+        "Ağ geçidi üst bilgisi olmadan sunulan yollar — sağlık denetimleri ve genel keşif belgeleri. Girdiler '/' ile başlamalıdır; sondaki '/' tüm öneki eşleştirir.",
+      tokenHeaderName: "Üst bilgi adı",
+      tokenHeaderNameHint:
+        "Ağ geçidi tarafında sabittir; burada yalnızca bilgi amaçlı gösterilir.",
+      expectedToken: "Ağ geçidi jetonu",
+    },
+  },
   profile: {
     title: "Profilim",
     subtitle: "Hesabınızı, oturumlarınızı ve güvenliğinizi yönetin.",
@@ -1190,6 +1343,9 @@ export const tr: TranslationResources = {
     minLength: "En az {{count}} karakter olmalıdır.",
     passwordMismatch: "Parolalar eşleşmiyor.",
     url: "Geçerli bir URL girin.",
+    wholeNumber: "Tam sayı girin.",
+    min: "En az {{min}} olmalıdır.",
+    max: "En fazla {{max}} olmalıdır.",
   },
   errors: {
     notFoundTitle: "Sayfa bulunamadı",

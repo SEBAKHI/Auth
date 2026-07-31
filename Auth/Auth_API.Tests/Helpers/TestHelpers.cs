@@ -749,10 +749,29 @@ public static class TestHelpers
     }
 
     /// <summary>
-    /// Creates IOptions wrapper for any settings type.
+    /// Creates an options wrapper satisfying IOptions, IOptionsSnapshot and
+    /// IOptionsMonitor at once, so tests keep working as production
+    /// consumers migrate between the three.
     /// </summary>
-    public static IOptions<T> CreateOptions<T>(T value) where T : class
-        => Options.Create(value);
+    public static TestOptions<T> CreateOptions<T>(T value) where T : class
+        => new(value);
+
+    /// <summary>
+    /// Fixed-value options usable wherever any of the options interfaces is
+    /// expected.
+    /// </summary>
+    public sealed class TestOptions<T> : IOptions<T>, IOptionsSnapshot<T>, IOptionsMonitor<T> where T : class
+    {
+        public TestOptions(T value) => Value = value;
+
+        public T Value { get; }
+
+        public T CurrentValue => Value;
+
+        public T Get(string? name) => Value;
+
+        public IDisposable? OnChange(Action<T, string?> listener) => null;
+    }
 
     /// <summary>
     /// Creates an <see cref="IPasswordBreachEvaluator"/> that always allows the password

@@ -38,7 +38,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserSessionRepository sessionRepository,
-        IOptions<JwtSettings> jwtSettings,
+        IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<RefreshTokenCommandHandler> logger)
     {
         _userRepository = userRepository;

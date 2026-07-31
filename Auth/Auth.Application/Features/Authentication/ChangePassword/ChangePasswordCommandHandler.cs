@@ -34,8 +34,8 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         PasswordValidator passwordValidator,
         IPasswordBreachEvaluator breachEvaluator,
         IDomainEventDispatcher eventDispatcher,
-        IOptions<PasswordSettings> passwordSettings,
-        IOptions<SessionSettings> sessionSettings,
+        IOptionsSnapshot<PasswordSettings> passwordSettings,
+        IOptionsSnapshot<SessionSettings> sessionSettings,
         ILogger<ChangePasswordCommandHandler> logger)
     {
         _userRepository = userRepository;

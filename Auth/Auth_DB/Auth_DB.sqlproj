@@ -127,6 +127,7 @@
     <Build Include="dbo\Tables\System\PlatformSettings.sql" />
     <Build Include="dbo\Tables\System\PrivacyPolicyVersions.sql" />
     <Build Include="dbo\Tables\System\PrivacyPolicyTranslations.sql" />
+    <Build Include="dbo\Tables\System\SystemSettingsOverrides.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationTypes.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationLayouts.sql" />
     <Build Include="dbo\Tables\Notifications\NotificationTemplates.sql" />
@@ -159,6 +160,7 @@
     <None Include="dbo\Scripts\SeedData\14_PrivacyPolicyVersions.sql" />
     <None Include="dbo\Scripts\SeedData\15_PrivacyPolicyPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\16_PrivacyPolicyContent.sql" />
+    <None Include="dbo\Scripts\SeedData\17_SystemSettingsPermissions.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-07-20_PurgeInactiveUserAssignments.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-07-26_RetirePlatformApplication.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-07-31_EmailLayoutLogoPlatformDriven.sql" />

@@ -435,6 +435,22 @@ export const router = createBrowserRouter([
               },
             ],
           },
+          {
+            element: (
+              <PermissionRoute permission={PERMISSIONS.systemSettings.manage} />
+            ),
+            children: [
+              {
+                path: "admin/system-settings/:sectionKey?",
+                lazy: lazyRoute(
+                  () =>
+                    import("@/pages/system-settings/system-settings-page"),
+                  (m) => m.SystemSettingsPage
+                ),
+                handle: crumb("systemSettings", "/admin/system-settings"),
+              },
+            ],
+          },
         ],
       },
     ],

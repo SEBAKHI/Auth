@@ -25,7 +25,7 @@ public class GatewayTokenValidationMiddleware
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context, IOptions<GatewaySettings> settings)
+    public async Task InvokeAsync(HttpContext context, IOptionsSnapshot<GatewaySettings> settings)
     {
         var gatewaySettings = settings.Value;
 
@@ -88,6 +88,14 @@ public class GatewayTokenValidationMiddleware
     {
         foreach (var exempt in exemptPaths)
         {
+            // An empty entry would prefix-match every path and exempt the
+            // whole API; the database layer also pads shrunk arrays with
+            // empty tombstones that must be ignored here.
+            if (string.IsNullOrWhiteSpace(exempt))
+            {
+                continue;
+            }
+
             if (exempt.EndsWith('/'))
             {
                 // Prefix match for paths ending with /

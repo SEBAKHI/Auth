@@ -35,7 +35,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
         IDomainEventDispatcher eventDispatcher,
-        IOptions<PasswordSettings> passwordSettings,
+        IOptionsSnapshot<PasswordSettings> passwordSettings,
         ILogger<LoginCommandHandler> logger)
     {
         _userRepository = userRepository;

@@ -24,7 +24,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         IUserRepository userRepository,
         ITwoFactorAuthRepository twoFactorRepository,
         ITotpService totpService,
-        IOptions<JwtSettings> jwtSettings,
+        IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<SetupTwoFactorCommandHandler> logger)
     {
         _userRepository = userRepository;
