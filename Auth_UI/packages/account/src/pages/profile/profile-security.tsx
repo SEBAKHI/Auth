@@ -295,6 +295,7 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
           </div>
         ) : (
           <Button
+            className="w-fit"
             onClick={() => setupMutation.mutate()}
             disabled={setupMutation.isPending}
           >
