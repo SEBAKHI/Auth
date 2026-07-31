@@ -82,9 +82,15 @@ export function NotificationTemplatesPage() {
             className="min-w-0 text-start hover:underline"
             onClick={() => navigate(`/notifications/templates/${template.id}`)}
           >
-            <p className="truncate font-medium">{template.typeName}</p>
-            <p className="truncate text-xs text-muted-foreground" dir="ltr">
-              {template.typeCode}
+            {/* The direction belongs on an inline `bdi`, not on the `p`: `dir` on
+                a block re-resolves the inherited `text-align: start` against that
+                block's own direction, which left-aligned the code line while the
+                title above it stayed right-aligned. */}
+            <p className="truncate font-medium">
+              <bdi dir="auto">{template.typeName}</bdi>
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              <bdi dir="ltr">{template.typeCode}</bdi>
             </p>
           </button>
         )

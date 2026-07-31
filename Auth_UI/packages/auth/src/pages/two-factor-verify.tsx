@@ -141,9 +141,12 @@ export function TwoFactorVerifyPage({
             <FieldLabel htmlFor="recovery-code">
               {t("auth.recoveryCode")}
             </FieldLabel>
+            {/* Pinned LTR for the same reason the OTP branch below is: a recovery
+                code is transcribed exactly, so it must not follow an RTL console. */}
             <Input
               id="recovery-code"
               ref={codeInputRef}
+              dir="ltr"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               autoComplete="one-time-code"

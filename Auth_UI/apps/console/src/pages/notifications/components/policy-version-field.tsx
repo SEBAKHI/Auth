@@ -69,7 +69,13 @@ export function PolicyVersionField({
   }))
 
   return (
-    <div className="flex gap-2" dir="ltr">
+    // No `dir` here. These are two controls, not one string, and forcing `ltr`
+    // made the pair an LTR island inside an RTL dialog: the year landed on the
+    // physical left, so an Arabic reader met the month first, and both select
+    // chevrons sat on the wrong edge because `inline-end` resolved to the right.
+    // Inheriting the UI direction puts the year at the reading start in either
+    // direction, which is the order the `YYYY.MM` value is written in.
+    <div className="flex gap-2">
       <NativeSelect
         id={id}
         disabled={disabled}

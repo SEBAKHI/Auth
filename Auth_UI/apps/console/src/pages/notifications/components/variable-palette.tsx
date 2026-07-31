@@ -51,8 +51,13 @@ export function VariablePalette({
             <TooltipContent>
               <p>{variable.description || variable.name}</p>
               {variable.example ? (
-                <p className="text-muted-foreground" dir="auto">
-                  {t("notifications.example")}: {variable.example}
+                <p className="text-muted-foreground">
+                  {t("notifications.example")}:{" "}
+                  {/* The label is localized and the example is not, so the run
+                      needs its own isolate — and it has to be an inline `bdi`,
+                      since a `dir` on the `p` would re-resolve its inherited
+                      `text-align: start`. */}
+                  <bdi dir="auto">{variable.example}</bdi>
                 </p>
               ) : null}
             </TooltipContent>

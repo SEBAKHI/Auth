@@ -28,9 +28,23 @@ export const CodeEditor = React.forwardRef<
     ariaLabel?: string
     /** Show the insert-image action (bodies yes; layouts optional). */
     allowImages?: boolean
+    /**
+     * Direction of the locale this surface is authoring. It reaches the copy
+     * fields of the insert-image dialog, whose alt text lands inside the body
+     * being edited. Left undefined on a surface shared by every locale — a
+     * layout's HTML — where that copy follows the console instead.
+     */
+    contentDir?: "ltr" | "rtl"
   }
 >(function CodeEditor(
-  { value, onChange, minHeight = "260px", ariaLabel, allowImages = false },
+  {
+    value,
+    onChange,
+    minHeight = "260px",
+    ariaLabel,
+    allowImages = false,
+    contentDir,
+  },
   forwardedRef
 ) {
   const { t } = useTranslation()
@@ -95,7 +109,14 @@ export const CodeEditor = React.forwardRef<
         ) : null}
       </div>
 
-      <div className="overflow-hidden rounded-md border" dir="ltr">
+      <div
+        className="overflow-hidden rounded-md border"
+        // Source code is LTR whatever the UI language is, and that includes the
+        // alignment this block `dir` carries: an RTL gutter would put the line
+        // numbers on the wrong edge.
+        // eslint-disable-next-line no-restricted-syntax
+        dir="ltr"
+      >
         <CodeMirror
           ref={innerRef}
           value={value}
@@ -116,6 +137,7 @@ export const CodeEditor = React.forwardRef<
         <InsertImageDialog
           open={imageOpen}
           onOpenChange={setImageOpen}
+          contentDir={contentDir}
           onInsert={(snippet) => insertAtCursor(innerRef, snippet)}
         />
       ) : null}

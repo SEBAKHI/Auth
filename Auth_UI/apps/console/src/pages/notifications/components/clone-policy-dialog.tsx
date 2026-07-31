@@ -161,9 +161,12 @@ export function ClonePolicyDialog({
             <FieldLabel htmlFor="clone-note">
               {t("notifications.policyChangeNote")}
             </FieldLabel>
+            {/* No `dir="auto"`: Chrome resolves `auto` from the value alone, so an
+                empty control computes `ltr` and this note opened left-aligned with
+                the caret on the wrong edge in every RTL locale. The note is the
+                admin's own prose, so it follows the console's direction. */}
             <Textarea
               id="clone-note"
-              dir="auto"
               rows={2}
               placeholder={t("notifications.policyChangeNoteHint")}
               value={changeNote}

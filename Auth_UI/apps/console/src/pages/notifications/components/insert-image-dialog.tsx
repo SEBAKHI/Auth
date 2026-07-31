@@ -24,10 +24,17 @@ export function InsertImageDialog({
   open,
   onOpenChange,
   onInsert,
+  contentDir,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onInsert: (snippet: string) => void
+  /**
+   * Direction of the locale being authored. The alt text is inserted into that
+   * locale's body, so it takes the body's direction rather than the console's.
+   * Undefined on a layout, whose HTML is shared by every locale.
+   */
+  contentDir?: "ltr" | "rtl"
 }) {
   const { t } = useTranslation()
   const [url, setUrl] = React.useState<string | null>(null)
@@ -137,7 +144,7 @@ export function InsertImageDialog({
               </FieldLabel>
               <Input
                 id="insert-image-alt"
-                dir="auto"
+                dir={contentDir}
                 placeholder={t("notifications.insertImageAltPlaceholder")}
                 value={alt}
                 onChange={(e) => setAlt(e.target.value)}

@@ -85,6 +85,10 @@ export function PolicyPreviewPane({
       <div className="flex justify-center rounded-md border bg-muted/30 p-3">
         {mode === "preview" ? (
           <div
+            // This block renders the policy in its *own* language, not the
+            // console's, so it has to own its alignment too — that is the point
+            // of the preview.
+            // eslint-disable-next-line no-restricted-syntax
             dir={dir}
             className={
               width === "mobile"

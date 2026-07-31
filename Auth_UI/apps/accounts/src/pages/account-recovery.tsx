@@ -194,6 +194,7 @@ export function AccountRecoveryPage() {
                       <FormControl>
                         <Input
                           type="email"
+                          dir="ltr"
                           autoComplete="username"
                           autoFocus
                           {...field}

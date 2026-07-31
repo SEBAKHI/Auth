@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next"
 
 import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
+import { directionForLanguage } from "@astoom/i18n"
 import { Badge } from "@astoom/ui/badge"
 import { useDebouncedValue } from "@astoom/ui/hooks/use-debounced-value"
 import { PreviewPane } from "./preview-pane"
@@ -70,7 +71,12 @@ export function TemplatePreview({
       {preview ? (
         <p className="text-sm">
           <span className="text-muted-foreground">{t("notifications.subject")}: </span>
-          <span className="font-medium" dir="auto">
+          {/* The rendered subject belongs to the locale being previewed, which the
+              DTO names — `auto` guessed it from the text instead. */}
+          <span
+            className="font-medium"
+            dir={directionForLanguage(preview.languageCode ?? languageCode)}
+          >
             {preview.subject}
           </span>
           <Badge variant="outline" className="ms-2">

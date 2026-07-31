@@ -9,7 +9,7 @@ import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
 import { unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
-import { SUPPORTED_LANGUAGES } from "@astoom/i18n"
+import { directionForLanguage, SUPPORTED_LANGUAGES } from "@astoom/i18n"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { usePageBreadcrumb } from "@astoom/ui/crumbs"
@@ -103,6 +103,10 @@ export function NotificationTemplateDetailPage() {
   }, [template])
 
   const active: TranslationDraft = drafts[activeLanguage] ?? EMPTY_DRAFT
+  // Direction of the translation being edited, not of the console. `dir="auto"`
+  // cannot stand in for it: it resolves from the value, so an untranslated field
+  // computed `ltr` and a new Arabic translation opened against the wrong edge.
+  const contentDir = directionForLanguage(activeLanguage)
   const variables = parseVariables(template?.typeVariablesJson)
   const rendererGlobals = React.useMemo(() => getRendererGlobals(t), [t])
 
@@ -363,7 +367,7 @@ export function NotificationTemplateDetailPage() {
               </FieldLabel>
               <Input
                 id="template-subject"
-                dir="auto"
+                dir={contentDir}
                 value={active.subject}
                 onChange={(e) => updateActive({ subject: e.target.value })}
                 placeholder={t("notifications.subjectPlaceholder")}
@@ -381,6 +385,7 @@ export function NotificationTemplateDetailPage() {
                 onChange={(value) => updateActive({ bodyHtml: value })}
                 ariaLabel={t("notifications.bodyHtml")}
                 allowImages
+                contentDir={contentDir}
               />
             </Field>
 
@@ -423,7 +428,7 @@ export function NotificationTemplateDetailPage() {
               </FieldLabel>
               <Textarea
                 id="template-body-text"
-                dir="auto"
+                dir={contentDir}
                 rows={4}
                 value={active.bodyText}
                 onChange={(e) => updateActive({ bodyText: e.target.value })}
@@ -436,9 +441,10 @@ export function NotificationTemplateDetailPage() {
               <FieldLabel htmlFor="template-change-note">
                 {t("notifications.changeNote")}
               </FieldLabel>
+              {/* The change note describes the revision for other admins; it is
+                  not part of any translation, so it follows the console. */}
               <Input
                 id="template-change-note"
-                dir="auto"
                 value={changeNote}
                 onChange={(e) => setChangeNote(e.target.value)}
                 placeholder={t("notifications.changeNotePlaceholder")}

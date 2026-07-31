@@ -109,9 +109,10 @@ export function CreateLayoutDialog({
           <FieldLabel htmlFor="layout-create-name">
             {t("notifications.layoutName")}
           </FieldLabel>
+          {/* A layout name is console metadata, not localized copy, so it takes
+              the console's direction rather than guessing from its own value. */}
           <Input
             id="layout-create-name"
-            dir="auto"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t("notifications.layoutNamePlaceholder")}

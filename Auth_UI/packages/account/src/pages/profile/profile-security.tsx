@@ -257,9 +257,12 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
                 {t("profile.manualEntry")}
               </FieldLabel>
               <div className="flex items-center gap-2">
+                {/* A base32 secret typed into an authenticator by hand — pinned
+                    LTR so an RTL profile cannot right-align or reorder it. */}
                 <Input
                   id="manual-entry-key"
                   readOnly
+                  dir="ltr"
                   value={setup.manualEntryKey}
                   className="font-mono text-xs"
                 />

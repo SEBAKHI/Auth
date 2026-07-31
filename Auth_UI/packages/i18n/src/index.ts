@@ -95,9 +95,28 @@ void i18n.use(initReactI18next).init({
  * Load the stored language's bundle. Entry points must await this before rendering:
  * react-i18next would otherwise paint one frame of English (or of raw keys) while
  * the active bundle was still in flight.
+ *
+ * The trailing `changeLanguage` is not redundant. `init` above resolves the language
+ * while only English is registered, so i18next settles `resolvedLanguage` on `en`
+ * even though `language` is `ar` — and `addResourceBundle` never recomputes it.
+ * Everything i18next derives from `resolvedLanguage` then reports English for an
+ * Arabic session: `i18n.dir()` answers `ltr` against an RTL document, and
+ * `getFixedT()` falls back to the wrong locale. `changeLanguage` is the only path
+ * that recomputes it, and by here the bundle it needs has arrived.
+ *
+ * The document's own direction is stamped here too, not only in `DirectionProvider`.
+ * That provider sets it from an effect, which runs after the first commit, and
+ * `index.html` ships `<html lang="en">` with no `dir` — so an Arabic session
+ * painted its first frame left-to-right and then flipped. Entry points await this
+ * before rendering, so writing it now makes the first frame already correct; the
+ * provider's effect still owns in-session language switches.
  */
 export async function initI18n(): Promise<typeof i18n> {
-  await loadLanguage(getInitialLanguage())
+  const code = getInitialLanguage()
+  await loadLanguage(code)
+  await i18n.changeLanguage(code)
+  document.documentElement.lang = code
+  document.documentElement.dir = directionForLanguage(code)
   return i18n
 }
 

@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-import { Slot } from "radix-ui"
+import { Direction, Slot } from "radix-ui"
 
 import { useIsMobile } from "@astoom/ui/hooks/use-mobile"
 import { cn } from "@astoom/ui/utils"
@@ -510,6 +510,11 @@ function SidebarMenuButton({
 } & VariantProps<typeof sidebarMenuButtonVariants>) {
   const Comp = asChild ? Slot.Root : "button"
   const { isMobile, state } = useSidebar()
+  // `side` is physical, and the rail sits on the physical right under RTL
+  // (`AppShell` derives its `side` from the same direction), so a fixed "right"
+  // points the collapsed-state tooltip back into the sidebar. Only Radix's
+  // collision flip was rescuing it.
+  const direction = Direction.useDirection()
 
   const button = (
     <Comp
@@ -536,7 +541,7 @@ function SidebarMenuButton({
     <Tooltip>
       <TooltipTrigger asChild>{button}</TooltipTrigger>
       <TooltipContent
-        side="right"
+        side={direction === "rtl" ? "left" : "right"}
         align="center"
         hidden={state !== "collapsed" || isMobile}
         {...tooltip}

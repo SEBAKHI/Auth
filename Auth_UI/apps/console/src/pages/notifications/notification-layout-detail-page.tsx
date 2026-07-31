@@ -9,7 +9,7 @@ import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
 import { unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
-import { SUPPORTED_LANGUAGES } from "@astoom/i18n"
+import { directionForLanguage, SUPPORTED_LANGUAGES } from "@astoom/i18n"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { usePageBreadcrumb } from "@astoom/ui/crumbs"
 import { Badge } from "@astoom/ui/badge"
@@ -206,6 +206,10 @@ export function NotificationLayoutDetailPage() {
   }
 
   const activeStrings = strings[previewLanguage] ?? {}
+  // The per-locale chrome strings below are written in the locale on the tab
+  // strip, not in the console's language. `dir="auto"` cannot express that: it
+  // resolves from the value, so an untranslated string always computed `ltr`.
+  const contentDir = directionForLanguage(previewLanguage)
 
   return (
     <div className="flex flex-col gap-6">
@@ -279,9 +283,10 @@ export function NotificationLayoutDetailPage() {
               <FieldLabel htmlFor="layout-name">
                 {t("notifications.layoutName")}
               </FieldLabel>
+              {/* A layout name is console metadata shared by every locale, so it
+                  follows the console's direction. */}
               <Input
                 id="layout-name"
-                dir="auto"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder={t("notifications.layoutNamePlaceholder")}
@@ -329,7 +334,7 @@ export function NotificationLayoutDetailPage() {
               </FieldLabel>
               <Input
                 id="layout-footer"
-                dir="auto"
+                dir={contentDir}
                 value={activeStrings.footer ?? ""}
                 onChange={(e) =>
                   setStrings((current) => ({

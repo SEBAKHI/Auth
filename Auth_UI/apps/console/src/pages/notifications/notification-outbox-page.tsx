@@ -9,6 +9,7 @@ import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
 import { toNumber, toSortParams, unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
+import { directionForLanguage } from "@astoom/i18n"
 import type { Schemas } from "@astoom/api/types"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { SearchInput } from "@astoom/ui/common/search-input"
@@ -101,11 +102,18 @@ export function NotificationOutboxPage() {
           className="min-w-0 text-start hover:underline"
           onClick={() => setSelected(row.original)}
         >
-          <p className="truncate font-medium" dir="ltr">
-            {row.original.notificationTypeCode}
+          {/* Direction on an inline `bdi`, never on the `p`: `dir` on a block
+              re-resolves the inherited `text-align: start` and left-aligns the
+              line inside an RTL table. */}
+          <p className="truncate font-medium">
+            <bdi dir="ltr">{row.original.notificationTypeCode}</bdi>
           </p>
-          <p className="truncate text-xs text-muted-foreground" dir="auto">
-            {row.original.subject}
+          <p className="truncate text-xs text-muted-foreground">
+            {/* The row already knows the send's locale, so bind the subject's
+                direction to it instead of guessing from the text. */}
+            <bdi dir={directionForLanguage(row.original.languageCode ?? "")}>
+              {row.original.subject}
+            </bdi>
           </p>
         </button>
       ),

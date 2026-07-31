@@ -204,7 +204,9 @@ export function WebhookKeysPage() {
         <div className="min-w-0">
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate font-mono text-xs text-muted-foreground">
-            {row.original.keyPrefix}…
+            {/* The ellipsis is neutral, so in an RTL paragraph it took the
+                paragraph level and rendered before the prefix. */}
+            <bdi dir="ltr">{row.original.keyPrefix}…</bdi>
           </p>
         </div>
       ),

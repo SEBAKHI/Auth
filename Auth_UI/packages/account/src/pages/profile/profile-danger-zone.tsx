@@ -246,9 +246,12 @@ export function ProfileDangerZone({ me }: { me: Schemas["UserDto"] }) {
         }
         onConfirm={() => deleteMutation.mutate()}
       >
+        {/* Compared character-for-character against the account address, so it
+            is pinned LTR like every other email field. */}
         <Input
           aria-label={t("auth.email")}
           type="email"
+          dir="ltr"
           autoComplete="off"
           placeholder={me.email ?? ""}
           value={confirmEmail}

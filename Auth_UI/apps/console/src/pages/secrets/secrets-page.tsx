@@ -128,8 +128,11 @@ function ImportDialog({
             <FieldLabel htmlFor="import-secret-value">
               {t("secrets.value")}
             </FieldLabel>
+            {/* Key material — pinned LTR like the key field above it, so an RTL
+                console cannot right-align or reorder a PEM blob. */}
             <Textarea
               id="import-secret-value"
+              dir="ltr"
               rows={6}
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -215,6 +218,7 @@ function CustomSecretDialog({
             </FieldLabel>
             <Input
               id="custom-secret-value"
+              dir="ltr"
               value={value}
               onChange={(e) => setValue(e.target.value)}
               className="font-mono text-xs"

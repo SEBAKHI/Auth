@@ -85,8 +85,11 @@ function ValidateApiKeyDialog({
             <FieldLabel htmlFor="validate-api-key">
               {t("apiKeys.keyLabel")}
             </FieldLabel>
+            {/* Pasted key material — pinned LTR to match the dialog that issues
+                it, so the same string is not read two different ways. */}
             <Input
               id="validate-api-key"
+              dir="ltr"
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder={t("apiKeys.validatePlaceholder")}
@@ -202,7 +205,9 @@ export function ApiKeysPage() {
         <div className="min-w-0">
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate font-mono text-xs text-muted-foreground">
-            {row.original.keyPrefix}…
+            {/* The ellipsis is neutral, so in an RTL paragraph it took the
+                paragraph level and rendered before the prefix. */}
+            <bdi dir="ltr">{row.original.keyPrefix}…</bdi>
           </p>
         </div>
       ),

@@ -130,8 +130,11 @@ export function NotificationsOverviewPage() {
                 }
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
-                  <span className="block truncate font-medium" dir="ltr">
-                    {version.version}
+                  {/* `block` makes this a block box, so a `dir` on it would
+                      re-resolve the inherited `text-align: start` and pull the
+                      version left of the date line beneath it. */}
+                  <span className="block truncate font-medium">
+                    <bdi dir="ltr">{version.version}</bdi>
                   </span>
                   {/* Each run gets its own isolate. Concatenating a localized date
                       with a free-text note in one text node let the bidi algorithm

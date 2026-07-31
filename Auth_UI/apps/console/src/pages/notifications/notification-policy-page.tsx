@@ -132,11 +132,17 @@ export function NotificationPolicyPage() {
           className="min-w-0 text-start hover:underline"
           onClick={() => navigate(`/notifications/policy/${row.original.id}`)}
         >
-          <p className="truncate font-medium" dir="ltr">
-            {row.original.version}
+          {/* The direction belongs on an inline `bdi`, not on the `p`. `dir` on a
+              block re-resolves the inherited `text-align: start` against that
+              block's own direction, so an LTR `p` inside this RTL cell aligned
+              itself left while the rest of the row stayed right. */}
+          <p className="truncate font-medium">
+            <bdi dir="ltr">{row.original.version}</bdi>
           </p>
-          <p className="truncate text-xs text-muted-foreground" dir="auto">
-            {row.original.changeNote || t("notifications.policyNoChangeNote")}
+          <p className="truncate text-xs text-muted-foreground">
+            <bdi dir="auto">
+              {row.original.changeNote || t("notifications.policyNoChangeNote")}
+            </bdi>
           </p>
         </button>
       ),
@@ -321,9 +327,11 @@ export function NotificationPolicyPage() {
               <FieldLabel htmlFor="policy-note">
                 {t("notifications.policyChangeNote")}
               </FieldLabel>
+              {/* No `dir="auto"`: it resolves from the value, so an empty note
+                  computed `ltr` and opened against the wrong edge in RTL. The
+                  note is the admin's prose — it follows the console. */}
               <Textarea
                 id="policy-note"
-                dir="auto"
                 rows={3}
                 placeholder={t("notifications.policyChangeNoteHint")}
                 value={newChangeNote}

@@ -115,6 +115,12 @@ export function ManageVariablesDialog({
                   </FieldLabel>
                   <Input
                     id={`variable-example-${index}`}
+                    // The one field where `dir="auto"` is the answer rather than
+                    // the bug: this holds a sample *value*, not prose, so its
+                    // direction really does depend on what that value is. Empty
+                    // resolves `ltr`, which is right for the phone numbers and
+                    // URLs these usually are, and an Arabic sample flips it.
+                    // eslint-disable-next-line no-restricted-syntax
                     dir="auto"
                     value={row.example ?? ""}
                     onChange={(e) => patch(index, { example: e.target.value })}
@@ -126,9 +132,11 @@ export function ManageVariablesDialog({
                 <FieldLabel htmlFor={`variable-description-${index}`}>
                   {t("notifications.variableDescription")}
                 </FieldLabel>
+                {/* The description is written for whoever administers this
+                    console, so it follows the console's direction. `dir="auto"`
+                    resolves from the value and left-aligned it while empty. */}
                 <Input
                   id={`variable-description-${index}`}
-                  dir="auto"
                   value={row.description ?? ""}
                   onChange={(e) => patch(index, { description: e.target.value })}
                   placeholder={t(

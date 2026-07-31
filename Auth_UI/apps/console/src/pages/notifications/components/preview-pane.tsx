@@ -2,6 +2,7 @@ import { Monitor, Smartphone } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
+import { directionForLanguage } from "@astoom/i18n"
 import { Button } from "@astoom/ui/button"
 import { Skeleton } from "@astoom/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@astoom/ui/tabs"
@@ -94,7 +95,10 @@ export function PreviewPane({
             />
           ) : (
             <pre
-              dir="auto"
+              // The preview renders one specific locale's copy, and the DTO says
+              // which — so bind it rather than guess. `auto` reads the value, so
+              // an empty or Latin-leading body rendered `ltr` for an Arabic send.
+              dir={directionForLanguage(preview.languageCode ?? "")}
               className="w-full overflow-auto whitespace-pre-wrap rounded-md border bg-background p-4 text-sm"
               style={{ height: frameHeight }}
             >

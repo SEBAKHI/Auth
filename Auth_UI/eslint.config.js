@@ -60,6 +60,38 @@ export default defineConfig([
           message:
             'Use flex + gap-* (space-y-4 → flex flex-col gap-4, space-x-2 → flex gap-2). On a list keep the markers with [&>li+li]:mt-*, and on an element that is already grid just use gap-*.',
         },
+        {
+          // `i18n.dir()` reads i18next's `resolvedLanguage`, which settles on the
+          // fallback while the on-demand bundle is still loading and is never
+          // recomputed by `addResourceBundle`. On a cold Arabic load it answered
+          // `ltr` against an RTL document, which inverted the table's column-resize
+          // drag and opened the row-detail sheet from the wrong edge.
+          selector:
+            'CallExpression[callee.type="MemberExpression"][callee.object.name="i18n"][callee.property.name="dir"]',
+          message:
+            'Use directionForLanguage(i18n.language) from @astoom/i18n — the same source DirectionProvider writes onto documentElement.dir. i18n.dir() reads resolvedLanguage, which is the fallback locale on a cold load.',
+        },
+        {
+          // Chrome resolves `dir="auto"` from a control's VALUE, never from its
+          // placeholder or its surroundings — so an empty field always computes
+          // `ltr` and opens against the wrong edge in the three RTL locales. Prose
+          // the admin writes should inherit the console's direction; copy for one
+          // target locale should say which, via `directionForLanguage(lang)`.
+          selector:
+            'JSXOpeningElement[name.name=/^(Input|Textarea|InputGroupInput|InputGroupTextarea|NativeSelect|input|textarea)$/] > JSXAttribute[name.name="dir"][value.value="auto"]',
+          message:
+            'dir="auto" on a control resolves from its value, so an empty field renders LTR in an RTL locale. Drop the attribute to inherit the UI direction, or pass directionForLanguage(<the locale being edited>) when the field holds one locale\'s copy.',
+        },
+        {
+          // `text-align: start` inherits as a keyword and is re-resolved at every
+          // element against *that element's* direction. So a `dir` on a block box
+          // does not just isolate the run, it flips the block's alignment — which
+          // left-aligned single cells inside otherwise right-aligned RTL tables.
+          selector:
+            'JSXOpeningElement[name.name=/^(p|div|dl|dd|dt|ul|ol|li|section|article|aside|main|header|footer|nav|figure|figcaption|blockquote|table|caption|thead|tbody|tr|td|th|h[1-6])$/] > JSXAttribute[name.name="dir"]',
+          message:
+            'Put the direction on an inline <bdi> inside the block, not on the block itself: `dir` re-resolves the inherited `text-align: start` and breaks RTL alignment. A block whose *content* owns its direction (a rendered preview, a code surface) is the documented exception.',
+        },
       ],
       'no-restricted-imports': [
         'error',

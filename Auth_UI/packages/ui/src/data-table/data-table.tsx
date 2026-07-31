@@ -40,6 +40,7 @@ import {
 } from "@astoom/ui/table"
 import { cn } from "@astoom/ui/utils"
 import { getErrorMessage } from "@astoom/api/errors"
+import { directionForLanguage } from "@astoom/i18n"
 import { buildDisplayColumns } from "./auto-columns"
 import { buildExportColumns, exportRowsToCsv } from "./csv"
 import { DataTableRowDetail } from "./data-table-row-detail"
@@ -283,7 +284,12 @@ export function DataTable<TData>({
     onGlobalFilterChange: setGlobalFilter,
     enableColumnResizing: true,
     columnResizeMode: "onChange",
-    columnResizeDirection: i18n.dir(),
+    // The same function `DirectionProvider` writes onto `documentElement.dir`, so
+    // the drag maths and the layout cannot disagree. `i18n.dir()` can: it reads
+    // i18next's `resolvedLanguage`, which is not the active language on a cold
+    // load (see `initI18n`). An `ltr` value here against an RTL table flips
+    // TanStack's delta sign and the column resizes away from the cursor.
+    columnResizeDirection: directionForLanguage(i18n.language),
     defaultColumn: { minSize: 60 },
     onColumnSizingChange: setColumnSizing,
     manualPagination: Boolean(pagination),

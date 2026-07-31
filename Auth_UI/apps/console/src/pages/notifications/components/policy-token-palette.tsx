@@ -88,7 +88,9 @@ export function PolicyTokenPalette({
               disabled={disabled}
               onClick={() => onInsert(token)}
             >
-              {token}
+              {/* Liquid source, and its braces are mirrored characters: without an
+                  isolate an RTL console drew `{{graceDays}}` as `}}graceDays{{`. */}
+              <bdi dir="ltr">{token}</bdi>
             </Button>
           </TooltipTrigger>
           <TooltipContent>
