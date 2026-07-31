@@ -1,7 +1,7 @@
 import { Languages } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@astoom/ui/button"
+import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,10 +9,10 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
-import { usePreferenceSync } from "@astoom/ui/common/use-preference-sync"
-import { SUPPORTED_LANGUAGES, type LanguageCode } from "@astoom/i18n"
-import { useLanguage } from "@astoom/i18n/direction"
+} from "@authsystem/ui/dropdown-menu"
+import { usePreferenceSync } from "@authsystem/ui/common/use-preference-sync"
+import { SUPPORTED_LANGUAGES, type LanguageCode } from "@authsystem/i18n"
+import { useLanguage } from "@authsystem/i18n/direction"
 
 export function LanguageToggle() {
   const { t } = useTranslation()

@@ -1,7 +1,7 @@
-import { ensureFreshAccessToken, sharedRefresh } from "@astoom/api/client"
-import { getRefreshToken } from "@astoom/api/token-store"
-import { API_BASE_URL } from "@astoom/api/env"
-import i18n from "@astoom/i18n"
+import { ensureFreshAccessToken, sharedRefresh } from "@authsystem/api/client"
+import { getRefreshToken } from "@authsystem/api/token-store"
+import { API_BASE_URL } from "@authsystem/api/env"
+import i18n from "@authsystem/i18n"
 
 /**
  * Uploads an image to the generic image endpoint and returns its storage key +

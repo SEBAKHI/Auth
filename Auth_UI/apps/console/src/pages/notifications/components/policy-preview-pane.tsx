@@ -2,19 +2,19 @@ import { Monitor, Smartphone } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   PolicyDocument,
   type PolicyDisclosure,
   type PrivacyPolicyContent,
-} from "@astoom/ui/common/policy-document"
-import { Tabs, TabsList, TabsTrigger } from "@astoom/ui/tabs"
+} from "@authsystem/ui/common/policy-document"
+import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@astoom/ui/tooltip"
+} from "@authsystem/ui/tooltip"
 
 /**
  * Rendered-output pane for the policy editor, mirroring the notification

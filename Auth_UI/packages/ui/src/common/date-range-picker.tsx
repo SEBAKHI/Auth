@@ -2,17 +2,17 @@ import { CalendarIcon } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@astoom/ui/button"
-import { Calendar } from "@astoom/ui/calendar"
+import { Button } from "@authsystem/ui/button"
+import { Calendar } from "@authsystem/ui/calendar"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@astoom/ui/popover"
-import { Separator } from "@astoom/ui/separator"
-import { DEFAULT_DATE_BOUNDS } from "@astoom/ui/common/date-picker"
-import { formatDate, parseCalendarDate, toCalendarDate } from "@astoom/ui/format"
-import { cn } from "@astoom/ui/utils"
+} from "@authsystem/ui/popover"
+import { Separator } from "@authsystem/ui/separator"
+import { DEFAULT_DATE_BOUNDS } from "@authsystem/ui/common/date-picker"
+import { formatDate, parseCalendarDate, toCalendarDate } from "@authsystem/ui/format"
+import { cn } from "@authsystem/ui/utils"
 
 /**
  * Calendar-based date range picker. Emits inclusive `from`/`to` as local

@@ -1,7 +1,7 @@
 import { Activity, Building2, MonitorSmartphone, UserPlus } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { toNumber } from "@astoom/api/helpers"
+import { toNumber } from "@authsystem/api/helpers"
 
 import { AttentionPanel } from "../attention-panel"
 import { HeroHealthCard } from "../hero-health-card"

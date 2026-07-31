@@ -1,6 +1,6 @@
 import { QRCodeSVG } from "qrcode.react"
 
-import { cn } from "@astoom/ui/utils"
+import { cn } from "@authsystem/ui/utils"
 
 /**
  * Renders a QR code for the given value. The white padded backdrop is part of

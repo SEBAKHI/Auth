@@ -1,7 +1,7 @@
 import { ChevronDownIcon } from "lucide-react"
 import * as React from "react"
 
-import { cn } from "@astoom/ui/utils"
+import { cn } from "@authsystem/ui/utils"
 
 /**
  * Browser-native select control. Use this inside modal dialogs when the menu

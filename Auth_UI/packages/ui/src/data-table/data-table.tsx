@@ -20,7 +20,7 @@ import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown } from "l
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { Button } from "@astoom/ui/button"
+import { Button } from "@authsystem/ui/button"
 import {
   Select,
   SelectContent,
@@ -28,8 +28,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@astoom/ui/select"
-import { Skeleton } from "@astoom/ui/skeleton"
+} from "@authsystem/ui/select"
+import { Skeleton } from "@authsystem/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -37,10 +37,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@astoom/ui/table"
-import { cn } from "@astoom/ui/utils"
-import { getErrorMessage } from "@astoom/api/errors"
-import { directionForLanguage } from "@astoom/i18n"
+} from "@authsystem/ui/table"
+import { cn } from "@authsystem/ui/utils"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { directionForLanguage } from "@authsystem/i18n"
 import { buildDisplayColumns } from "./auto-columns"
 import { buildExportColumns, exportRowsToCsv } from "./csv"
 import { DataTableRowDetail } from "./data-table-row-detail"

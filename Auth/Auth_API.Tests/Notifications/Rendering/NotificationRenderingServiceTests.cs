@@ -49,6 +49,7 @@ public class NotificationRenderingServiceTests
             _applicationRepoMock.Object,
             _platformRepoMock.Object,
             new FluidTemplateRenderer(),
+            new Mock<IImageUrlComposer>().Object,
             settings,
             new Mock<ILogger<NotificationRenderingService>>().Object);
     }

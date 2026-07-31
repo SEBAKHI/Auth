@@ -1,8 +1,8 @@
 import { cva, type VariantProps } from "class-variance-authority"
 import { Slot } from "radix-ui"
 
-import { cn } from "@astoom/ui/utils"
-import { Separator } from "@astoom/ui/separator"
+import { cn } from "@authsystem/ui/utils"
+import { Separator } from "@authsystem/ui/separator"
 
 /**
  * Joined row/column of buttons and button-like controls.

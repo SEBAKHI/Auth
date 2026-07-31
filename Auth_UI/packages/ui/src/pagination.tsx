@@ -1,7 +1,7 @@
 import * as React from "react"
 
-import { cn } from "@astoom/ui/utils"
-import { Button } from "@astoom/ui/button"
+import { cn } from "@authsystem/ui/utils"
+import { Button } from "@authsystem/ui/button"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,

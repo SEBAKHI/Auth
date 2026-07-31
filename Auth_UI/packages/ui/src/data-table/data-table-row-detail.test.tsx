@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 
-import "@astoom/i18n"
+import "@authsystem/i18n"
 import { DataTableRowDetail } from "./data-table-row-detail"
 
 const row = {

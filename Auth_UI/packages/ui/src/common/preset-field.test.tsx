@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest"
 
 // Side-effect init, so the Custom chip resolves its real `common.custom` string
 // rather than echoing the key back.
-import "@astoom/i18n"
+import "@authsystem/i18n"
 
 import { PresetField, type Preset } from "./preset-field"
 

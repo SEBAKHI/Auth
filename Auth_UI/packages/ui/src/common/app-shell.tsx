@@ -3,7 +3,7 @@ import { ShieldCheck, type LucideIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { NavLink, Outlet, useLocation } from "react-router-dom"
 
-import { Separator } from "@astoom/ui/separator"
+import { Separator } from "@authsystem/ui/separator"
 import {
   Sidebar,
   SidebarContent,
@@ -16,14 +16,14 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
-} from "@astoom/ui/sidebar"
-import { useActiveTimeZone } from "@astoom/i18n/timezone"
-import { useLanguage } from "@astoom/i18n/direction"
-import { BrandingLogo, useBranding } from "@astoom/ui/branding"
-import { AppBreadcrumbs } from "@astoom/ui/common/app-breadcrumbs"
-import { LanguageToggle } from "@astoom/ui/common/language-toggle"
-import { ThemeToggle } from "@astoom/ui/common/theme-toggle"
-import { UserMenu } from "@astoom/ui/common/user-menu"
+} from "@authsystem/ui/sidebar"
+import { useActiveTimeZone } from "@authsystem/i18n/timezone"
+import { useLanguage } from "@authsystem/i18n/direction"
+import { BrandingLogo, useBranding } from "@authsystem/ui/branding"
+import { AppBreadcrumbs } from "@authsystem/ui/common/app-breadcrumbs"
+import { LanguageToggle } from "@authsystem/ui/common/language-toggle"
+import { ThemeToggle } from "@authsystem/ui/common/theme-toggle"
+import { UserMenu } from "@authsystem/ui/common/user-menu"
 
 export interface AppNavItem {
   /** i18n key under `nav.*`. */

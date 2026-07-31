@@ -3,13 +3,13 @@ import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { APPLE_SERVICES_ID } from "@astoom/api/env"
-import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
-import { useAuth } from "@astoom/auth/auth-context"
-import { Button } from "@astoom/ui/button"
+import { APPLE_SERVICES_ID } from "@authsystem/api/env"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { useAuth } from "@authsystem/auth/auth-context"
+import { Button } from "@authsystem/ui/button"
 
 import { useExternalProviders } from "@/components/use-external-providers"
-import { Spinner } from "@astoom/ui/spinner"
+import { Spinner } from "@authsystem/ui/spinner"
 
 /** Minimal typings for the Sign in with Apple JS client. */
 interface AppleSignInResponse {

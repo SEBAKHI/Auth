@@ -2,8 +2,8 @@ import { TZDate } from "@date-fns/tz"
 import { format, formatDistanceToNow, parseISO, type Locale } from "date-fns"
 import { ar, faIR, fr, tr, zhCN } from "date-fns/locale"
 
-import i18n from "@astoom/i18n"
-import { getActiveTimeZone } from "@astoom/i18n/timezone"
+import i18n from "@authsystem/i18n"
+import { getActiveTimeZone } from "@authsystem/i18n/timezone"
 
 // date-fns locale per UI language. English needs none, and date-fns ships no
 // Urdu locale, so "en" and "ur" use the default English date formatting.

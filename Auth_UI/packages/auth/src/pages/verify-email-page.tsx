@@ -4,19 +4,19 @@ import { useTranslation } from "react-i18next"
 import { Navigate, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
-import { useAuth } from "@astoom/auth/auth-context"
-import { AuthLayout } from "@astoom/ui/auth-layout"
-import { Spinner } from "@astoom/ui/spinner"
-import { Button } from "@astoom/ui/button"
-import { useCountdown } from "@astoom/ui/hooks/use-countdown"
+import { api } from "@authsystem/api/client"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { useAuth } from "@authsystem/auth/auth-context"
+import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { Spinner } from "@authsystem/ui/spinner"
+import { Button } from "@authsystem/ui/button"
+import { useCountdown } from "@authsystem/ui/hooks/use-countdown"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
   REGEXP_ONLY_DIGITS,
-} from "@astoom/ui/input-otp"
+} from "@authsystem/ui/input-otp"
 
 const CODE_LENGTH = 6
 

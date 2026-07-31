@@ -1039,6 +1039,8 @@ export const ur: TranslationResources = {
     globalVariables: "ہمیشہ دستیاب",
     globalVarPlatformName:
       "پلیٹ فارم کا نام، جیسا کہ پلیٹ فارم کی ترتیبات میں طے ہے۔",
+    globalVarPlatformLogoUrl:
+      "پلیٹ فارم لوگو کا پتہ، جیسا کہ پلیٹ فارم کی ترتیبات میں اپ لوڈ کیا گیا ہے۔ لوگو مقرر نہ ہونے پر خالی رہتا ہے — تب لے آؤٹ اس کی جگہ پلیٹ فارم کا نام دکھاتا ہے۔",
     globalVarApplicationName:
       "اس ایپلیکیشن کا نام جس سے پیغام متعلق ہے۔ عمومی پیغامات پلیٹ فارم کا نام استعمال کرتے ہیں۔",
     globalVarApplicationCode:

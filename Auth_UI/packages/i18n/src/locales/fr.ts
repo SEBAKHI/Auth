@@ -1067,6 +1067,8 @@ export const fr: TranslationResources = {
     globalVariables: "Toujours disponibles",
     globalVarPlatformName:
       "Le nom de la plateforme, défini dans les paramètres de la plateforme.",
+    globalVarPlatformLogoUrl:
+      "L'adresse du logo de la plateforme, téléversé dans les paramètres de la plateforme. Vide si aucun logo n'est défini — la mise en page affiche alors le nom de la plateforme à la place.",
     globalVarApplicationName:
       "Le nom de l'application à laquelle appartient le message. Les messages globaux utilisent le nom de la plateforme.",
     globalVarApplicationCode:

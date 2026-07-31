@@ -1032,6 +1032,8 @@ export const en = {
       "Add a new variable only in coordination with your development team. The system must know its value at send time — a variable the system does not know is simply left empty in the message.",
     globalVariables: "Always available",
     globalVarPlatformName: "The platform name, as set in Platform settings.",
+    globalVarPlatformLogoUrl:
+      "The platform logo address, as uploaded in Platform settings. Empty when no logo is set — the layout then shows the platform name instead.",
     globalVarApplicationName:
       "The name of the application the message belongs to. Global messages use the platform name.",
     globalVarApplicationCode:

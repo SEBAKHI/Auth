@@ -5,12 +5,12 @@ import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { unwrap } from "@astoom/api/helpers"
-import { AuthLayout } from "@astoom/ui/auth-layout"
-import { Button } from "@astoom/ui/button"
-import { FieldGroup } from "@astoom/ui/field"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { unwrap } from "@authsystem/api/helpers"
+import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { Button } from "@authsystem/ui/button"
+import { FieldGroup } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -18,11 +18,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { Input } from "@astoom/ui/input"
+} from "@authsystem/ui/form"
+import { Input } from "@authsystem/ui/input"
 
 import { ExternalProviders } from "@/components/external-providers"
-import { Spinner } from "@astoom/ui/spinner"
+import { Spinner } from "@authsystem/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

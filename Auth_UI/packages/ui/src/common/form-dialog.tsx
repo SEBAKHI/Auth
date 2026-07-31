@@ -2,7 +2,7 @@ import type * as React from "react"
 import type { FieldValues, UseFormReturn } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@astoom/ui/button"
+import { Button } from "@authsystem/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -10,11 +10,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { FieldGroup } from "@astoom/ui/field"
-import { Form } from "@astoom/ui/form"
-import { useDirtyClose } from "@astoom/ui/hooks/use-dirty-close"
-import { Spinner } from "@astoom/ui/spinner"
+} from "@authsystem/ui/dialog"
+import { FieldGroup } from "@authsystem/ui/field"
+import { Form } from "@authsystem/ui/form"
+import { useDirtyClose } from "@authsystem/ui/hooks/use-dirty-close"
+import { Spinner } from "@authsystem/ui/spinner"
 
 /**
  * Standard shell for a react-hook-form dialog. The unsaved-changes guard is

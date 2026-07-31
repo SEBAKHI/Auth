@@ -135,13 +135,13 @@ Invoked with the `Skill` tool as `shadcn` (the skill is `user-invocable: false`,
 | `style` | `radix-luma` | base = **radix** → use `asChild` (never `render`); toasts via `sonner`. Luma = **component-owned spacing** |
 | `iconLibrary` | `lucide` | import from `lucide-react` only |
 | `rtl` | `true` | logical CSS only (`ms-*`/`me-*`/`start`/`end`), never `ml-*`/`left-*` |
-| `aliases` | `@astoom/ui`, `@astoom/ui/utils`, `@astoom/ui/hooks` | `cn` from `@astoom/ui/utils`; never hardcode `@/components/ui/...` |
+| `aliases` | `@authsystem/ui`, `@authsystem/ui/utils`, `@authsystem/ui/hooks` | `cn` from `@authsystem/ui/utils`; never hardcode `@/components/ui/...` |
 | `tailwind.css` | `apps/console/src/index.css` | edit this file for CSS variables; never create a new global CSS file |
 | Preset | `b1tel7QNE` (supersedes `b1VlIzU8`) — see `README.md` › Stack | العرض بالكامل مملوك للـpreset — no custom colors, themes, or restyling. الاختيار الوحيد المسموح هو **أي control** يناسب الحالة |
 
-**CLI OVERRIDE — يعلو على تعليمات المهارة (verified 2026-07-29):** every project-aware `shadcn` command (`info`, `docs`, `add`, `apply`) **fails** at the `Auth_UI/` root with `Could not resolve the following aliases: components, ui, lib` — the workspace aliases point at `@astoom/ui`, which the CLI cannot map to a filesystem path. Therefore:
+**CLI OVERRIDE — يعلو على تعليمات المهارة (verified 2026-07-29):** every project-aware `shadcn` command (`info`, `docs`, `add`, `apply`) **fails** at the `Auth_UI/` root with `Could not resolve the following aliases: components, ui, lib` — the workspace aliases point at `@authsystem/ui`, which the CLI cannot map to a filesystem path. Therefore:
 
-1. **Never run `shadcn add` for this repo.** Add a component by hand: write the canonical upstream source into `Auth_UI/packages/ui/src/<name>.tsx`, adapted to house conventions (`cn` from `@astoom/ui/utils`, `data-slot`/`data-variant` attributes, `cva` variants) — mirror an existing sibling such as `badge.tsx` or `alert.tsx`. No `package.json` exports entry is needed; `@astoom/ui/<name>` resolves automatically.
+1. **Never run `shadcn add` for this repo.** Add a component by hand: write the canonical upstream source into `Auth_UI/packages/ui/src/<name>.tsx`, adapted to house conventions (`cn` from `@authsystem/ui/utils`, `data-slot`/`data-variant` attributes, `cva` variants) — mirror an existing sibling such as `badge.tsx` or `alert.tsx`. No `package.json` exports entry is needed; `@authsystem/ui/<name>` resolves automatically.
 2. **Check `Auth_UI/packages/ui/src/` first** — it is the installed-component list; the skill's "injected project context" block is unavailable here.
 3. **Fetch docs directly** at `https://ui.shadcn.com/docs/components/radix/<component>` (base = `radix`) instead of `shadcn docs`. `npx shadcn@latest docs <component>` works only from a directory **outside** the workspace, and defaults to the wrong base.
 

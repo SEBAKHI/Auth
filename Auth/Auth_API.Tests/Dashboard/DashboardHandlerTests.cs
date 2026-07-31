@@ -36,7 +36,7 @@ public class GetUserStatsQueryHandlerTests
         DormantOver60Days = 1,
         DormantOver90Days = 0,
         NeverLoggedIn = 1,
-        UsersByOrganization = [new OrganizationUserCount(Guid.NewGuid(), "Astoom", false, 7)],
+        UsersByOrganization = [new OrganizationUserCount(Guid.NewGuid(), "Acme", false, 7)],
         TotalActiveMemberships = 8
     };
 
@@ -63,7 +63,7 @@ public class GetUserStatsQueryHandlerTests
         result.Value.CohortEmailConfirmed.Should().Be(4);
         result.Value.CohortLoggedIn.Should().Be(3);
         result.Value.UsersByOrganization.Should().ContainSingle()
-            .Which.OrganizationName.Should().Be("Astoom");
+            .Which.OrganizationName.Should().Be("Acme");
         result.Value.TotalActiveMemberships.Should().Be(8);
     }
 
@@ -114,7 +114,7 @@ public class GetAuthStatsQueryHandlerTests
         LoginsByApplication = [new ApplicationLoginCount(appId, "Portal", 9, 1)],
         LoginsByOrganization =
         [
-            new OrganizationLoginCount(orgId, "Astoom", 6, 1),
+            new OrganizationLoginCount(orgId, "Acme", 6, 1),
             new OrganizationLoginCount(null, null, 4, 1)
         ]
     };
@@ -259,7 +259,7 @@ public class GetAppActivityStatsQueryHandlerTests
                 ],
                 OrganizationApplications =
                 [
-                    new OrganizationApplicationEnablement(orgId, "Astoom", appId, "Portal", "pro", null)
+                    new OrganizationApplicationEnablement(orgId, "Acme", appId, "Portal", "pro", null)
                 ]
             });
 
@@ -272,7 +272,7 @@ public class GetAppActivityStatsQueryHandlerTests
         result.Value.Applications[1].ApplicationId.Should().BeNull();
         result.Value.OrganizationApplications.Should().ContainSingle();
         result.Value.OrganizationApplications[0].SubscriptionTier.Should().Be("pro");
-        result.Value.OrganizationApplications[0].OrganizationName.Should().Be("Astoom");
+        result.Value.OrganizationApplications[0].OrganizationName.Should().Be("Acme");
     }
 }
 

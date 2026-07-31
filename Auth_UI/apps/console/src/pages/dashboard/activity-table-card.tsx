@@ -7,9 +7,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { Badge } from "@astoom/ui/badge"
-import { Skeleton } from "@astoom/ui/skeleton"
+} from "@authsystem/ui/card"
+import { Badge } from "@authsystem/ui/badge"
+import { Skeleton } from "@authsystem/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -17,10 +17,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@astoom/ui/table"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
-import { Empty, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
-import { numberLocale } from "@astoom/ui/format"
+} from "@authsystem/ui/table"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
+import { Empty, EmptyHeader, EmptyTitle } from "@authsystem/ui/empty"
+import { numberLocale } from "@authsystem/ui/format"
 
 import { SERIES } from "./chart-constants"
 import { successRate } from "./helpers"

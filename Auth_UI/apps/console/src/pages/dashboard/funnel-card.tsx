@@ -7,17 +7,17 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
+} from "@authsystem/ui/card"
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@astoom/ui/chart"
-import type { ChartConfig } from "@astoom/ui/chart"
-import { Skeleton } from "@astoom/ui/skeleton"
+} from "@authsystem/ui/chart"
+import type { ChartConfig } from "@authsystem/ui/chart"
+import { Skeleton } from "@authsystem/ui/skeleton"
 
 import { SERIES } from "./chart-constants"
-import { Empty, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@authsystem/ui/empty"
 
 /**
  * Three-stage activation funnel for the window cohort:

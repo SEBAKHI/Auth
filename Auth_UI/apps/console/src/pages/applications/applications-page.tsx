@@ -6,13 +6,13 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { SearchInput } from "@astoom/ui/common/search-input"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { avatarColumn } from "@astoom/ui/data-table/columns"
-import { DataTable } from "@astoom/ui/data-table/data-table"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { SearchInput } from "@authsystem/ui/common/search-input"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { avatarColumn } from "@authsystem/ui/data-table/columns"
+import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,15 +20,15 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
-import { api } from "@astoom/api/client"
-import { collectAllPages, toSortParams, unwrap, toNumber } from "@astoom/api/helpers"
-import { useAuth } from "@astoom/auth/auth-context"
+} from "@authsystem/ui/dropdown-menu"
+import { api } from "@authsystem/api/client"
+import { collectAllPages, toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
+import { useAuth } from "@authsystem/auth/auth-context"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
-import { getErrorMessage } from "@astoom/api/errors"
-import { formatDateTime } from "@astoom/ui/format"
-import { useDebouncedValue } from "@astoom/ui/hooks/use-debounced-value"
-import type { Schemas } from "@astoom/api/types"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { formatDateTime } from "@authsystem/ui/format"
+import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import type { Schemas } from "@authsystem/api/types"
 import {
   ApplicationCreateDialog,
   ApplicationEditDialog,

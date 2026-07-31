@@ -77,7 +77,7 @@ export async function applyLanguage(code: LanguageCode): Promise<void> {
 
 /**
  * English is registered synchronously on import, so `t()` resolves the moment this
- * module is loaded. That keeps the long-standing `import "@astoom/i18n"` contract
+ * module is loaded. That keeps the long-standing `import "@authsystem/i18n"` contract
  * — several tests rely on it — while the other six languages load on demand.
  *
  * `lng` starts at the stored language even though its bundle has not arrived yet:

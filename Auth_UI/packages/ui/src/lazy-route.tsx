@@ -1,6 +1,6 @@
 import type { ComponentType } from "react"
 
-import { Spinner } from "@astoom/ui/spinner"
+import { Spinner } from "@authsystem/ui/spinner"
 
 /**
  * What the router shows while it resolves a `lazy` route on a cold load.

@@ -6,11 +6,11 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { Progress } from "@astoom/ui/progress"
-import { Separator } from "@astoom/ui/separator"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { numberLocale } from "@astoom/ui/format"
+} from "@authsystem/ui/card"
+import { Progress } from "@authsystem/ui/progress"
+import { Separator } from "@authsystem/ui/separator"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { numberLocale } from "@authsystem/ui/format"
 
 import { ORDINAL } from "./chart-constants"
 

@@ -4,8 +4,8 @@ import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { Dialog as DialogPrimitive } from "radix-ui"
 
-import { cn } from "@astoom/ui/utils"
-import { Button } from "@astoom/ui/button"
+import { cn } from "@authsystem/ui/utils"
+import { Button } from "@authsystem/ui/button"
 import { XIcon } from "lucide-react"
 
 function Dialog({

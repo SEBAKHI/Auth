@@ -80,19 +80,19 @@ importers:
 
   apps/accounts:
     dependencies:
-      '@astoom/account':
+      '@authsystem/account':
         specifier: workspace:*
         version: link:../../packages/account
-      '@astoom/api':
+      '@authsystem/api':
         specifier: workspace:*
         version: link:../../packages/api
-      '@astoom/auth':
+      '@authsystem/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@astoom/i18n':
+      '@authsystem/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
-      '@astoom/ui':
+      '@authsystem/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@fontsource-variable/ibm-plex-sans':
@@ -171,19 +171,19 @@ importers:
 
   apps/console:
     dependencies:
-      '@astoom/account':
+      '@authsystem/account':
         specifier: workspace:*
         version: link:../../packages/account
-      '@astoom/api':
+      '@authsystem/api':
         specifier: workspace:*
         version: link:../../packages/api
-      '@astoom/auth':
+      '@authsystem/auth':
         specifier: workspace:*
         version: link:../../packages/auth
-      '@astoom/i18n':
+      '@authsystem/i18n':
         specifier: workspace:*
         version: link:../../packages/i18n
-      '@astoom/ui':
+      '@authsystem/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@codemirror/commands':
@@ -283,13 +283,13 @@ importers:
 
   packages/account:
     dependencies:
-      '@astoom/api':
+      '@authsystem/api':
         specifier: workspace:*
         version: link:../api
-      '@astoom/i18n':
+      '@authsystem/i18n':
         specifier: workspace:*
         version: link:../i18n
-      '@astoom/ui':
+      '@authsystem/ui':
         specifier: workspace:*
         version: link:../ui
       '@hookform/resolvers':
@@ -332,7 +332,7 @@ importers:
 
   packages/api:
     dependencies:
-      '@astoom/i18n':
+      '@authsystem/i18n':
         specifier: workspace:*
         version: link:../i18n
       '@tanstack/react-query':
@@ -357,10 +357,10 @@ importers:
 
   packages/auth:
     dependencies:
-      '@astoom/api':
+      '@authsystem/api':
         specifier: workspace:*
         version: link:../api
-      '@astoom/i18n':
+      '@authsystem/i18n':
         specifier: workspace:*
         version: link:../i18n
       '@hookform/resolvers':
@@ -416,10 +416,10 @@ importers:
 
   packages/ui:
     dependencies:
-      '@astoom/api':
+      '@authsystem/api':
         specifier: workspace:*
         version: link:../api
-      '@astoom/i18n':
+      '@authsystem/i18n':
         specifier: workspace:*
         version: link:../i18n
       '@date-fns/tz':

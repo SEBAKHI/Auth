@@ -3,7 +3,7 @@ import { Check, Copy } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { Button } from "@astoom/ui/button"
+import { Button } from "@authsystem/ui/button"
 
 /** Icon button that copies a value to the clipboard with feedback. */
 export function CopyButton({

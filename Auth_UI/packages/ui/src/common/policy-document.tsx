@@ -7,7 +7,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@astoom/ui/table"
+} from "@authsystem/ui/table"
 
 /**
  * Shared privacy-policy document model and renderer.

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import { getErrorMessage, getFieldErrors } from "./errors"
-import { en } from "@astoom/i18n/locales/en"
+import { en } from "@authsystem/i18n/locales/en"
 
 describe("getErrorMessage", () => {
   it("reads an ErrorOr-style errors array", () => {

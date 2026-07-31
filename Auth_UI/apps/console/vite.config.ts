@@ -11,11 +11,11 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "@astoom/account": path.resolve(__dirname, "../../packages/account/src"),
-      "@astoom/api": path.resolve(__dirname, "../../packages/api/src"),
-      "@astoom/auth": path.resolve(__dirname, "../../packages/auth/src"),
-      "@astoom/i18n": path.resolve(__dirname, "../../packages/i18n/src"),
-      "@astoom/ui": path.resolve(__dirname, "../../packages/ui/src"),
+      "@authsystem/account": path.resolve(__dirname, "../../packages/account/src"),
+      "@authsystem/api": path.resolve(__dirname, "../../packages/api/src"),
+      "@authsystem/auth": path.resolve(__dirname, "../../packages/auth/src"),
+      "@authsystem/i18n": path.resolve(__dirname, "../../packages/i18n/src"),
+      "@authsystem/ui": path.resolve(__dirname, "../../packages/ui/src"),
     },
   },
   build: {

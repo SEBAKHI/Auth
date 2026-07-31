@@ -1,6 +1,6 @@
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
-import { useTheme } from "@astoom/ui/theme-provider"
+import { useTheme } from "@authsystem/ui/theme-provider"
 import {
   CircleCheckIcon,
   InfoIcon,

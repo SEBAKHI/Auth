@@ -9,13 +9,13 @@ import {
   YAxis,
 } from "recharts"
 
-import { ChartCard } from "@astoom/ui/common/chart-card"
+import { ChartCard } from "@authsystem/ui/common/chart-card"
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@astoom/ui/chart"
-import type { ChartConfig } from "@astoom/ui/chart"
+} from "@authsystem/ui/chart"
+import type { ChartConfig } from "@authsystem/ui/chart"
 
 import { SERIES } from "./chart-constants"
 import { formatBucket } from "./format-bucket"

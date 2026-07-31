@@ -1,14 +1,14 @@
 import { useTranslation } from "react-i18next"
 
-import { Badge } from "@astoom/ui/badge"
+import { Badge } from "@authsystem/ui/badge"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { Skeleton } from "@astoom/ui/skeleton"
+} from "@authsystem/ui/card"
+import { Skeleton } from "@authsystem/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -16,10 +16,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@astoom/ui/table"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/table"
+import type { Schemas } from "@authsystem/api/types"
 
-import { Empty, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@authsystem/ui/empty"
 import { daysUntil } from "./helpers"
 
 type Enablement = Schemas["OrganizationApplicationEnablementDto"]

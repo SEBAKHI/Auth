@@ -6,12 +6,12 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { ApplicationSelect } from "@astoom/ui/common/application-select"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { DataTable } from "@astoom/ui/data-table/data-table"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { ApplicationSelect } from "@authsystem/ui/common/application-select"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,13 +19,13 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import { useAuth } from "@astoom/auth/auth-context"
+} from "@authsystem/ui/dropdown-menu"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import { useAuth } from "@authsystem/auth/auth-context"
 import { PERMISSIONS } from "@/lib/constants"
-import { getErrorMessage } from "@astoom/api/errors"
-import type { Schemas } from "@astoom/api/types"
+import { getErrorMessage } from "@authsystem/api/errors"
+import type { Schemas } from "@authsystem/api/types"
 import { RoleFormDialog } from "./role-form-dialog"
 
 type RoleDto = Schemas["RoleDto"]

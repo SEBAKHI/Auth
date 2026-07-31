@@ -1,12 +1,12 @@
 {
-  "name": "@astoom/account",
+  "name": "@authsystem/account",
   "private": true,
   "version": "0.0.1",
   "type": "module",
   "dependencies": {
-    "@astoom/api": "workspace:*",
-    "@astoom/i18n": "workspace:*",
-    "@astoom/ui": "workspace:*",
+    "@authsystem/api": "workspace:*",
+    "@authsystem/i18n": "workspace:*",
+    "@authsystem/ui": "workspace:*",
     "@hookform/resolvers": "^5.4.0",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-table": "^8.21.3",

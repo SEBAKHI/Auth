@@ -2,15 +2,15 @@ import { Monitor, Smartphone } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { directionForLanguage } from "@astoom/i18n"
-import { Button } from "@astoom/ui/button"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { Tabs, TabsList, TabsTrigger } from "@astoom/ui/tabs"
+import { directionForLanguage } from "@authsystem/i18n"
+import { Button } from "@authsystem/ui/button"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@astoom/ui/tooltip"
+} from "@authsystem/ui/tooltip"
 import type { NotificationPreviewDto } from "../lib"
 
 /**

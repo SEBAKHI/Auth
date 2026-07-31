@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 
 /**
  * Guards a dialog's close affordances against losing unsaved edits.

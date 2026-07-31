@@ -11,8 +11,8 @@ import type {
   TooltipValueType,
 } from "recharts"
 
-import { numberLocale } from "@astoom/ui/format"
-import { cn } from "@astoom/ui/utils"
+import { numberLocale } from "@authsystem/ui/format"
+import { cn } from "@authsystem/ui/utils"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
 const THEMES = { light: "", dark: ".dark" } as const

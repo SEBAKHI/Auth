@@ -1,8 +1,8 @@
 import { format } from "date-fns"
 import { useTranslation } from "react-i18next"
 
-import { NativeSelect } from "@astoom/ui/native-select"
-import { activeDateLocale } from "@astoom/ui/format"
+import { NativeSelect } from "@authsystem/ui/native-select"
+import { activeDateLocale } from "@authsystem/ui/format"
 
 /** Policy versions are `YYYY.MM`; the API and the list page both rely on it. */
 const VERSION_RE = /^(\d{4})\.(\d{2})$/

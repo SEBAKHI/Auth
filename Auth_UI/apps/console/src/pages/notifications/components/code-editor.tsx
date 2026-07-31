@@ -5,13 +5,13 @@ import { Image, Redo2, Undo2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@astoom/ui/button"
-import { useTheme } from "@astoom/ui/theme-provider"
+import { Button } from "@authsystem/ui/button"
+import { useTheme } from "@authsystem/ui/theme-provider"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@astoom/ui/tooltip"
+} from "@authsystem/ui/tooltip"
 import { InsertImageDialog } from "./insert-image-dialog"
 
 /**

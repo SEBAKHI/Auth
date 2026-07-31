@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 
-import { api } from "@astoom/api/client"
-import type { LanguageCode } from "@astoom/i18n"
+import { api } from "@authsystem/api/client"
+import type { LanguageCode } from "@authsystem/i18n"
 
 import { PRIVACY_CONTENT } from "./content"
 import {

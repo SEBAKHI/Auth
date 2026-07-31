@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 
-import type { Preset } from "@astoom/ui/common/preset-field"
+import type { Preset } from "@authsystem/ui/common/preset-field"
 
 /**
  * Domain preset sets for `PresetField`, so the common answer is one click and the

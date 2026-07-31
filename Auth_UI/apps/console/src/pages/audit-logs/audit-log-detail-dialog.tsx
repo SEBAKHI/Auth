@@ -5,9 +5,9 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { formatDateTime } from "@astoom/ui/format"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/dialog"
+import { formatDateTime } from "@authsystem/ui/format"
+import type { Schemas } from "@authsystem/api/types"
 
 function Row({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null

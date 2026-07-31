@@ -1,15 +1,15 @@
 import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
 
-import { cn } from "@astoom/ui/utils"
+import { cn } from "@authsystem/ui/utils"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { InputGroup, InputGroupAddon } from "@astoom/ui/input-group"
+} from "@authsystem/ui/dialog"
+import { InputGroup, InputGroupAddon } from "@authsystem/ui/input-group"
 import { SearchIcon, CheckIcon } from "lucide-react"
 
 function Command({

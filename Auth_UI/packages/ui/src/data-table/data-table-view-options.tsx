@@ -2,7 +2,7 @@ import type { Table } from "@tanstack/react-table"
 import { SlidersHorizontal } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@astoom/ui/button"
+import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -10,7 +10,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
+} from "@authsystem/ui/dropdown-menu"
 
 interface DataTableViewOptionsProps<TData> {
   table: Table<TData>

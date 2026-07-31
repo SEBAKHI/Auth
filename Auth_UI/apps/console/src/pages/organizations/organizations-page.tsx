@@ -1,6 +1,6 @@
-import { OrganizationDetailPage } from "@astoom/account/pages/organizations/organization-detail-page"
-import { OrganizationsPage } from "@astoom/account/pages/organizations/organizations-page"
-import { useAuth } from "@astoom/auth/auth-context"
+import { OrganizationDetailPage } from "@authsystem/account/pages/organizations/organization-detail-page"
+import { OrganizationsPage } from "@authsystem/account/pages/organizations/organizations-page"
+import { useAuth } from "@authsystem/auth/auth-context"
 import { PERMISSIONS } from "@/lib/constants"
 import { OrganizationsAdminPage } from "./organizations-admin-page"
 

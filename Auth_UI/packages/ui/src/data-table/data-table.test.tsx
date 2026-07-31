@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ColumnDef } from "@tanstack/react-table"
 
-import "@astoom/i18n"
+import "@authsystem/i18n"
 import { DataTable } from "./data-table"
 
 interface Person {

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
 
 import { dashboardKeys } from "./use-dashboard-window"
 

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router-dom"
 
-import { Tabs, TabsList, TabsTrigger } from "@astoom/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 
 const TABS = [
   { value: "overview", path: "/notifications", labelKey: "notifications.tabOverview" },

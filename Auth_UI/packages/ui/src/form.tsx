@@ -12,13 +12,13 @@ import {
   type FieldValues,
 } from "react-hook-form"
 
-import { cn } from "@astoom/ui/utils"
+import { cn } from "@authsystem/ui/utils"
 import {
   Field,
   FieldDescription,
   FieldError,
   FieldLabel,
-} from "@astoom/ui/field"
+} from "@authsystem/ui/field"
 
 const Form = FormProvider
 

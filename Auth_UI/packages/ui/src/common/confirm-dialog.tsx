@@ -9,9 +9,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@astoom/ui/alert-dialog"
-import { Button } from "@astoom/ui/button"
-import { Spinner } from "@astoom/ui/spinner"
+} from "@authsystem/ui/alert-dialog"
+import { Button } from "@authsystem/ui/button"
+import { Spinner } from "@authsystem/ui/spinner"
 
 /**
  * Controlled confirmation dialog for destructive or sensitive actions.

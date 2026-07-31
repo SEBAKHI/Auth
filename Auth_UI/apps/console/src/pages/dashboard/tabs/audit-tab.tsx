@@ -1,7 +1,7 @@
 import { ScrollText } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { toNumber } from "@astoom/api/helpers"
+import { toNumber } from "@authsystem/api/helpers"
 
 import { CountSeriesCard } from "../count-series-card"
 import { RankedBarCard } from "../ranked-bar-card"

@@ -986,6 +986,8 @@ export const zh: TranslationResources = {
       "请仅在与开发团队协调后再添加新变量。系统必须在发送时知道它的值——系统不认识的变量在消息中将显示为空。",
     globalVariables: "始终可用",
     globalVarPlatformName: "平台名称，来自平台设置。",
+    globalVarPlatformLogoUrl:
+      "平台徽标的地址，来自平台设置中上传的徽标。未设置徽标时为空——此时布局会改为显示平台名称。",
     globalVarApplicationName: "消息所属应用的名称。全局消息使用平台名称。",
     globalVarApplicationCode: "应用的短代码；全局消息中为空。",
     globalVarApplicationBaseUrl: "应用的网站地址；可用于构建链接。",

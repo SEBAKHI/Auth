@@ -3,8 +3,8 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 
-import { Alert, AlertDescription, AlertTitle } from "@astoom/ui/alert"
-import { Button } from "@astoom/ui/button"
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
+import { Button } from "@authsystem/ui/button"
 
 import { POLICY_VERSION } from "@/pages/privacy/content/types"
 

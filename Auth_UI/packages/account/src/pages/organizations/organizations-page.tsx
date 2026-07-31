@@ -6,12 +6,12 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { avatarColumn } from "@astoom/ui/data-table/columns"
-import { DataTable } from "@astoom/ui/data-table/data-table"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { avatarColumn } from "@authsystem/ui/data-table/columns"
+import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,11 +19,11 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import { getErrorMessage } from "@astoom/api/errors"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/dropdown-menu"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import { getErrorMessage } from "@authsystem/api/errors"
+import type { Schemas } from "@authsystem/api/types"
 import { OrganizationFormDialog } from "./organization-form-dialog"
 
 type OrganizationSummaryDto = Schemas["OrganizationSummaryDto"]

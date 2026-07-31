@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query"
 
-import { api } from "@astoom/api/client"
-import type { Schemas } from "@astoom/api/types"
-import { useAuth } from "@astoom/auth/auth-context"
+import { api } from "@authsystem/api/client"
+import type { Schemas } from "@authsystem/api/types"
+import { useAuth } from "@authsystem/auth/auth-context"
 
 /**
  * Fire-and-forget sync of profile preferences (language, theme, …) to the

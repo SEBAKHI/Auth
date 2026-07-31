@@ -5,27 +5,27 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { ApplicationSelect } from "@astoom/ui/common/application-select"
-import { DateRangePicker } from "@astoom/ui/common/date-range-picker"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { DataTable } from "@astoom/ui/data-table/data-table"
-import { Button } from "@astoom/ui/button"
+import { ApplicationSelect } from "@authsystem/ui/common/application-select"
+import { DateRangePicker } from "@authsystem/ui/common/date-range-picker"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
-import { Input } from "@astoom/ui/input"
-import { api } from "@astoom/api/client"
-import { toSortParams, unwrap, toNumber } from "@astoom/api/helpers"
-import { useAuth } from "@astoom/auth/auth-context"
+} from "@authsystem/ui/dropdown-menu"
+import { Input } from "@authsystem/ui/input"
+import { api } from "@authsystem/api/client"
+import { toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
+import { useAuth } from "@authsystem/auth/auth-context"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
-import { getErrorMessage } from "@astoom/api/errors"
-import { formatDateTime } from "@astoom/ui/format"
-import { useDebouncedValue } from "@astoom/ui/hooks/use-debounced-value"
-import type { Schemas } from "@astoom/api/types"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { formatDateTime } from "@authsystem/ui/format"
+import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import type { Schemas } from "@authsystem/api/types"
 import { AuditLogDetailDialog } from "./audit-log-detail-dialog"
 
 type AuditLogDto = Schemas["AuditLogDto"]

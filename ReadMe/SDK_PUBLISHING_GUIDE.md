@@ -10,18 +10,18 @@ This guide covers how to name, version, pack, and publish `Auth.Sdk` as a NuGet 
 
 | Property | Value | Why |
 |----------|-------|-----|
-| **PackageId** | `Astoom.Auth.Sdk` | Prefix with organization name to avoid collisions on public feeds |
+| **PackageId** | `AuthSystem.Sdk` | Prefix with organization name to avoid collisions on public feeds |
 | **Root Namespace** | `Auth.Sdk` | Stays clean for consumers — `using Auth.Sdk.Extensions;` |
 | **Assembly Name** | `Auth.Sdk` | Matches the project name |
 
-> **Rule:** On nuget.org, package IDs are globally unique. Always prefix with your organization name (`Astoom.Auth.Sdk`, not `Auth.Sdk`) to reserve your namespace. On private feeds you have more flexibility, but consistent naming is still recommended.
+> **Rule:** On nuget.org, package IDs are globally unique. Always prefix with your organization name (`AuthSystem.Sdk`, not `Auth.Sdk`) to reserve your namespace. On private feeds you have more flexibility, but consistent naming is still recommended.
 
 ### NuGet Package ID Prefix Reservation
 
 If publishing to nuget.org, reserve your prefix to prevent impersonation:
 
 1. Go to https://www.nuget.org/account/manage → Package ID Prefix Reservation
-2. Reserve `Astoom.` for your account/organization
+2. Reserve `AuthSystem.` for your account/organization
 3. Reserved packages show a verified checkmark on nuget.org
 
 ---
@@ -105,17 +105,17 @@ Before publishing, add full package metadata to `Auth.Sdk.csproj`:
     <Nullable>enable</Nullable>
 
     <!-- Package Identity -->
-    <PackageId>Astoom.Auth.Sdk</PackageId>
+    <PackageId>AuthSystem.Sdk</PackageId>
     <Version>1.0.0</Version>
-    <Authors>Astoom</Authors>
-    <Company>Astoom</Company>
+    <Authors>AuthSystem Contributors</Authors>
+    <Company>AuthSystem</Company>
     <Description>SDK for integrating external .NET applications with the AuthSystem. Provides JWT, API Key, and Webhook Key authentication handlers with permission-based authorization.</Description>
 
     <!-- Package Metadata -->
     <PackageTags>authentication;authorization;jwt;apikey;webhook;sdk</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/astoom/auth-system</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/astoom/auth-system</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/your-org/your-repo</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/your-org/your-repo</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
 
     <!-- Package Content -->
@@ -199,7 +199,7 @@ See the full integration guide for details.
 # From the Auth.Sdk project directory
 dotnet pack -c Release
 
-# Output: bin/Release/Astoom.Auth.Sdk.1.0.0.nupkg
+# Output: bin/Release/AuthSystem.Sdk.1.0.0.nupkg
 ```
 
 ### Pack with a Specific Version (Override)
@@ -225,7 +225,7 @@ dotnet nuget locals all -l
 **1. Create a feed:**
 
 - Go to Azure DevOps → Artifacts → Create Feed
-- Name: `astoom-packages`
+- Name: `authsystem-packages`
 - Visibility: Organization or specific project
 
 **2. Add the feed as a NuGet source:**
@@ -233,7 +233,7 @@ dotnet nuget locals all -l
 ```bash
 # Get a PAT (Personal Access Token) with Packaging > Read & Write scope
 dotnet nuget add source "https://pkgs.dev.azure.com/{org}/{project}/_packaging/{feed}/nuget/v3/index.json" \
-  --name "AstoomFeed" \
+  --name "AuthSystemFeed" \
   --username "az" \
   --password "{PAT}" \
   --store-password-in-clear-text
@@ -242,8 +242,8 @@ dotnet nuget add source "https://pkgs.dev.azure.com/{org}/{project}/_packaging/{
 **3. Push the package:**
 
 ```bash
-dotnet nuget push bin/Release/Astoom.Auth.Sdk.1.0.0.nupkg \
-  --source "AstoomFeed" \
+dotnet nuget push bin/Release/AuthSystem.Sdk.1.0.0.nupkg \
+  --source "AuthSystemFeed" \
   --api-key az
 ```
 
@@ -255,13 +255,13 @@ dotnet nuget push bin/Release/Astoom.Auth.Sdk.1.0.0.nupkg \
   <packageSources>
     <clear />
     <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-    <add key="AstoomFeed" value="https://pkgs.dev.azure.com/{org}/{project}/_packaging/{feed}/nuget/v3/index.json" />
+    <add key="AuthSystemFeed" value="https://pkgs.dev.azure.com/{org}/{project}/_packaging/{feed}/nuget/v3/index.json" />
   </packageSources>
   <packageSourceCredentials>
-    <AstoomFeed>
+    <AuthSystemFeed>
       <add key="Username" value="az" />
       <add key="ClearTextPassword" value="%AZURE_DEVOPS_PAT%" />
-    </AstoomFeed>
+    </AuthSystemFeed>
   </packageSourceCredentials>
 </configuration>
 ```
@@ -285,7 +285,7 @@ dotnet nuget add source "https://nuget.pkg.github.com/{owner}/index.json" \
 **2. Push:**
 
 ```bash
-dotnet nuget push bin/Release/Astoom.Auth.Sdk.1.0.0.nupkg \
+dotnet nuget push bin/Release/AuthSystem.Sdk.1.0.0.nupkg \
   --source "GitHubPackages"
 ```
 
@@ -330,7 +330,7 @@ docker run -d \
 ```bash
 dotnet nuget add source "http://localhost:5555/v3/index.json" --name "BaGet"
 
-dotnet nuget push bin/Release/Astoom.Auth.Sdk.1.0.0.nupkg \
+dotnet nuget push bin/Release/AuthSystem.Sdk.1.0.0.nupkg \
   --source "BaGet" \
   --api-key "your-api-key-here"
 ```
@@ -357,14 +357,14 @@ dotnet nuget push bin/Release/Astoom.Auth.Sdk.1.0.0.nupkg \
 1. Create an account at https://www.nuget.org
 2. Go to API Keys → Create
    - Package Owner: your account
-   - Glob Pattern: `Astoom.*`
+   - Glob Pattern: `AuthSystem.*`
    - Scopes: Push
 3. Copy the API key (shown only once)
 
 ### Push
 
 ```bash
-dotnet nuget push bin/Release/Astoom.Auth.Sdk.1.0.0.nupkg \
+dotnet nuget push bin/Release/AuthSystem.Sdk.1.0.0.nupkg \
   --source "https://api.nuget.org/v3/index.json" \
   --api-key "{your-nuget-api-key}"
 ```
@@ -376,7 +376,7 @@ dotnet nuget push bin/Release/Astoom.Auth.Sdk.1.0.0.nupkg \
 ```xml
 <!-- YourApp.csproj -->
 <ItemGroup>
-  <PackageReference Include="Astoom.Auth.Sdk" Version="1.0.0" />
+  <PackageReference Include="AuthSystem.Sdk" Version="1.0.0" />
 </ItemGroup>
 ```
 
@@ -398,7 +398,7 @@ To:
 ```xml
 <!-- After: PackageReference (pinned version, upgrade on your schedule) -->
 <ItemGroup>
-  <PackageReference Include="Astoom.Auth.Sdk" Version="1.0.0" />
+  <PackageReference Include="AuthSystem.Sdk" Version="1.0.0" />
 </ItemGroup>
 ```
 
@@ -451,7 +451,7 @@ jobs:
 
       # Optional: also push to private feed
       # - name: Push to Private Feed
-      #   run: dotnet nuget push Auth/Auth.Sdk/bin/Release/*.nupkg --source "AstoomFeed" --api-key ${{ secrets.AZURE_DEVOPS_PAT }}
+      #   run: dotnet nuget push Auth/Auth.Sdk/bin/Release/*.nupkg --source "AuthSystemFeed" --api-key ${{ secrets.AZURE_DEVOPS_PAT }}
 ```
 
 ### Release Workflow

@@ -3,10 +3,10 @@ import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { GOOGLE_CLIENT_ID } from "@astoom/api/env"
-import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
-import { useAuth } from "@astoom/auth/auth-context"
-import { useTheme } from "@astoom/ui/theme-provider"
+import { GOOGLE_CLIENT_ID } from "@authsystem/api/env"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { useAuth } from "@authsystem/auth/auth-context"
+import { useTheme } from "@authsystem/ui/theme-provider"
 
 import { useExternalProviders } from "@/components/use-external-providers"
 

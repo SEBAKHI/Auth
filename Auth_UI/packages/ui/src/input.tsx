@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { cn } from "@astoom/ui/utils"
+import { cn } from "@authsystem/ui/utils"
 
 function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   return (

@@ -11,6 +11,7 @@ It creates all seed data in the correct order.
 -- them instead of re-inserting hardcoded primary keys.
 :r ..\Scripts\Upgrades\2026-07-20_PurgeInactiveUserAssignments.sql
 :r ..\Scripts\Upgrades\2026-07-26_RetirePlatformApplication.sql
+:r ..\Scripts\Upgrades\2026-07-31_EmailLayoutLogoPlatformDriven.sql
 
 PRINT 'Starting post-deployment seed data...';
 PRINT '======================================';

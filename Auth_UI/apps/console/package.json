@@ -1,5 +1,5 @@
 {
-  "name": "@astoom/console",
+  "name": "@authsystem/console",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -10,11 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@astoom/account": "workspace:*",
-    "@astoom/api": "workspace:*",
-    "@astoom/auth": "workspace:*",
-    "@astoom/i18n": "workspace:*",
-    "@astoom/ui": "workspace:*",
+    "@authsystem/account": "workspace:*",
+    "@authsystem/api": "workspace:*",
+    "@authsystem/auth": "workspace:*",
+    "@authsystem/i18n": "workspace:*",
+    "@authsystem/ui": "workspace:*",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/lang-html": "^6.4.11",
     "@codemirror/lang-liquid": "^6.3.2",

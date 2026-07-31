@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 
-import { TwoFactorVerifyPage } from "@astoom/auth/pages/two-factor-verify"
+import { TwoFactorVerifyPage } from "@authsystem/auth/pages/two-factor-verify"
 
 /**
  * Accounts-flavored two-factor step: same verification, plus the sign-up link

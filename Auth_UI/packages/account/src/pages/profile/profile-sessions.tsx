@@ -4,12 +4,12 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { Spinner } from "@astoom/ui/spinner"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@astoom/ui/card"
-import { Skeleton } from "@astoom/ui/skeleton"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { Spinner } from "@authsystem/ui/spinner"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@authsystem/ui/card"
+import { Skeleton } from "@authsystem/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -17,18 +17,18 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@astoom/ui/table"
+} from "@authsystem/ui/table"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@astoom/ui/tooltip"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import { getErrorMessage } from "@astoom/api/errors"
-import { formatDateTime, formatRelative } from "@astoom/ui/format"
-import { parseUserAgent, type DeviceType } from "@astoom/ui/user-agent"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/tooltip"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { formatDateTime, formatRelative } from "@authsystem/ui/format"
+import { parseUserAgent, type DeviceType } from "@authsystem/ui/user-agent"
+import type { Schemas } from "@authsystem/api/types"
 
 const DEVICE_ICONS: Record<DeviceType, typeof Monitor> = {
   desktop: Monitor,

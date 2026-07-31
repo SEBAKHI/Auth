@@ -6,8 +6,8 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-} from "@astoom/ui/input-group"
-import { cn } from "@astoom/ui/utils"
+} from "@authsystem/ui/input-group"
+import { cn } from "@authsystem/ui/utils"
 
 /**
  * The project's single search field.

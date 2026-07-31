@@ -6,9 +6,9 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { FormDialog } from "@astoom/ui/common/form-dialog"
-import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
-import { PresetField } from "@astoom/ui/common/preset-field"
+import { FormDialog } from "@authsystem/ui/common/form-dialog"
+import { DatePicker, monthsFromNow } from "@authsystem/ui/common/date-picker"
+import { PresetField } from "@authsystem/ui/common/preset-field"
 import { ENVIRONMENTS, RATE_PER_DAY, RATE_PER_MINUTE } from "@/lib/presets"
 import {
   FormControl,
@@ -17,10 +17,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { Input } from "@astoom/ui/input"
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
+} from "@authsystem/ui/form"
+import { Input } from "@authsystem/ui/input"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null

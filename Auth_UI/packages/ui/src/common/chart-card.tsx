@@ -8,9 +8,9 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
-import { Skeleton } from "@astoom/ui/skeleton"
+} from "@authsystem/ui/card"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@authsystem/ui/empty"
+import { Skeleton } from "@authsystem/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -18,13 +18,13 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@astoom/ui/table"
-import { ToggleGroup, ToggleGroupItem } from "@astoom/ui/toggle-group"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@astoom/ui/tooltip"
-import { Button } from "@astoom/ui/button"
-import { exportRowsToCsv, type ExportColumn } from "@astoom/ui/data-table/csv"
-import { formatFieldValue } from "@astoom/ui/data-table/field-format"
-import { cn } from "@astoom/ui/utils"
+} from "@authsystem/ui/table"
+import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@authsystem/ui/tooltip"
+import { Button } from "@authsystem/ui/button"
+import { exportRowsToCsv, type ExportColumn } from "@authsystem/ui/data-table/csv"
+import { formatFieldValue } from "@authsystem/ui/data-table/field-format"
+import { cn } from "@authsystem/ui/utils"
 
 /** A column of the card's table view; doubles as the CSV export column. */
 export interface ChartCardColumn extends ExportColumn {

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 
-import { LoginPage } from "@astoom/auth/pages/login"
+import { LoginPage } from "@authsystem/auth/pages/login"
 
 import { ExternalProviders } from "@/components/external-providers"
 

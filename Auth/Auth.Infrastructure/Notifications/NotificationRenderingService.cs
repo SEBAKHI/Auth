@@ -29,6 +29,7 @@ public class NotificationRenderingService : INotificationRenderer
     private readonly IApplicationRepository _applicationRepository;
     private readonly IPlatformSettingsRepository _platformSettingsRepository;
     private readonly ITemplateRenderer _renderer;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<NotificationRenderingService> _logger;
 
@@ -40,6 +41,7 @@ public class NotificationRenderingService : INotificationRenderer
         IApplicationRepository applicationRepository,
         IPlatformSettingsRepository platformSettingsRepository,
         ITemplateRenderer renderer,
+        IImageUrlComposer imageUrlComposer,
         IOptions<EmailSettings> emailSettings,
         ILogger<NotificationRenderingService> logger)
     {
@@ -50,6 +52,7 @@ public class NotificationRenderingService : INotificationRenderer
         _applicationRepository = applicationRepository;
         _platformSettingsRepository = platformSettingsRepository;
         _renderer = renderer;
+        _imageUrlComposer = imageUrlComposer;
         _emailSettings = emailSettings.Value;
         _logger = logger;
     }
@@ -256,9 +259,14 @@ public class NotificationRenderingService : INotificationRenderer
         // values still come from the caller's Variables (merged last, they win).
         var platform = await _platformSettingsRepository.GetAsync(cancellationToken);
         var platformName = platform?.PlatformName ?? _emailSettings.SenderName;
+        // Null (never "") when no logo is configured: Liquid treats an empty
+        // string as truthy, so the layout's {% if Platform.LogoUrl %} needs nil
+        // to fall back to the text wordmark.
+        var platformLogoUrl = _imageUrlComposer.Compose(platform?.LogoUrl);
         model["Platform"] = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["Name"] = platformName
+            ["Name"] = platformName,
+            ["LogoUrl"] = string.IsNullOrWhiteSpace(platformLogoUrl) ? null : platformLogoUrl
         };
 
         // Application must ALWAYS be present (the variable catalog promises it):

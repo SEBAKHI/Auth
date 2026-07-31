@@ -1,9 +1,9 @@
 import { createBrowserRouter, Navigate } from "react-router-dom"
 
-import { RequireAnonymous, RequireAuth } from "@astoom/auth/require-auth"
-import { crumb } from "@astoom/ui/crumbs"
-import { NotFoundPage } from "@astoom/ui/error-pages/not-found"
-import { lazyRoute, RouteFallback } from "@astoom/ui/lazy-route"
+import { RequireAnonymous, RequireAuth } from "@authsystem/auth/require-auth"
+import { crumb } from "@authsystem/ui/crumbs"
+import { NotFoundPage } from "@authsystem/ui/error-pages/not-found"
+import { lazyRoute, RouteFallback } from "@authsystem/ui/lazy-route"
 
 import { AccountShell } from "@/components/account-shell"
 import { AccountsLoginPage } from "@/pages/auth/login"
@@ -33,14 +33,14 @@ export const router = createBrowserRouter([
       {
         path: "/forgot-password",
         lazy: lazyRoute(
-          () => import("@astoom/auth/pages/forgot-password"),
+          () => import("@authsystem/auth/pages/forgot-password"),
           (m) => m.ForgotPasswordPage
         ),
       },
       {
         path: "/reset-password",
         lazy: lazyRoute(
-          () => import("@astoom/auth/pages/reset-password"),
+          () => import("@authsystem/auth/pages/reset-password"),
           (m) => m.ResetPasswordPage
         ),
       },
@@ -60,7 +60,7 @@ export const router = createBrowserRouter([
       {
         path: "/force-password-change",
         lazy: lazyRoute(
-          () => import("@astoom/auth/pages/force-password-change"),
+          () => import("@authsystem/auth/pages/force-password-change"),
           (m) => m.ForcePasswordChangePage
         ),
       },
@@ -71,7 +71,7 @@ export const router = createBrowserRouter([
           {
             path: "profile",
             lazy: lazyRoute(
-              () => import("@astoom/account/pages/profile/profile-page"),
+              () => import("@authsystem/account/pages/profile/profile-page"),
               (m) => () => <m.ProfilePage showDangerZone />
             ),
             handle: crumb("profile", "/profile"),
@@ -79,7 +79,7 @@ export const router = createBrowserRouter([
           {
             path: "organizations",
             lazy: lazyRoute(
-              () => import("@astoom/account/pages/organizations/organizations-page"),
+              () => import("@authsystem/account/pages/organizations/organizations-page"),
               (m) => m.OrganizationsPage
             ),
             handle: crumb("organizations", "/organizations"),
@@ -89,7 +89,7 @@ export const router = createBrowserRouter([
             lazy: lazyRoute(
               () =>
                 import(
-                  "@astoom/account/pages/organizations/organization-detail-page"
+                  "@authsystem/account/pages/organizations/organization-detail-page"
                 ),
               (m) => m.OrganizationDetailPage
             ),
@@ -114,7 +114,7 @@ export const router = createBrowserRouter([
   {
     path: "/verify-email",
     lazy: lazyRoute(
-      () => import("@astoom/auth/pages/verify-email-page"),
+      () => import("@authsystem/auth/pages/verify-email-page"),
       (m) => m.VerifyEmailPage
     ),
   },
@@ -124,7 +124,7 @@ export const router = createBrowserRouter([
   {
     path: "/accept-invitation",
     lazy: lazyRoute(
-      () => import("@astoom/auth/pages/accept-invitation"),
+      () => import("@authsystem/auth/pages/accept-invitation"),
       (m) => m.AcceptInvitationPage
     ),
   },

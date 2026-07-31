@@ -6,34 +6,34 @@ import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
-import { ApplicationSelect } from "@astoom/ui/common/application-select"
-import { Spinner } from "@astoom/ui/spinner"
-import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
-import { PresetField, type Preset } from "@astoom/ui/common/preset-field"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { DetailList } from "@astoom/ui/common/detail-list"
-import { LogoAvatar } from "@astoom/ui/common/logo-avatar"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { avatarColumn } from "@astoom/ui/data-table/columns"
-import { DataTable } from "@astoom/ui/data-table/data-table"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { ApplicationSelect } from "@authsystem/ui/common/application-select"
+import { Spinner } from "@authsystem/ui/spinner"
+import { DatePicker, monthsFromNow } from "@authsystem/ui/common/date-picker"
+import { PresetField, type Preset } from "@authsystem/ui/common/preset-field"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { DetailList } from "@authsystem/ui/common/detail-list"
+import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { avatarColumn } from "@authsystem/ui/data-table/columns"
+import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
+} from "@authsystem/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
-import { Field, FieldError, FieldGroup, FieldLabel } from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
+} from "@authsystem/ui/dropdown-menu"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import { Input } from "@authsystem/ui/input"
 import {
   Select,
   SelectContent,
@@ -41,25 +41,25 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@astoom/ui/select"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { Switch } from "@astoom/ui/switch"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
-import { useDirtyClose } from "@astoom/ui/hooks/use-dirty-close"
-import { api } from "@astoom/api/client"
+} from "@authsystem/ui/select"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { Switch } from "@authsystem/ui/switch"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
+import { useDirtyClose } from "@authsystem/ui/hooks/use-dirty-close"
+import { api } from "@authsystem/api/client"
 import {
   collectAllPages,
   toSortParams,
   unwrap,
   toNumber,
-} from "@astoom/api/helpers"
-import { decodeJwt } from "@astoom/api/jwt"
-import { getAccessToken } from "@astoom/api/token-store"
-import { usePageBreadcrumb } from "@astoom/ui/crumbs"
-import { DEFAULT_PAGE_SIZE } from "@astoom/api/constants"
-import { getErrorMessage } from "@astoom/api/errors"
-import { formatDateTime, fullName } from "@astoom/ui/format"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/api/helpers"
+import { decodeJwt } from "@authsystem/api/jwt"
+import { getAccessToken } from "@authsystem/api/token-store"
+import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
+import { DEFAULT_PAGE_SIZE } from "@authsystem/api/constants"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { formatDateTime, fullName } from "@authsystem/ui/format"
+import type { Schemas } from "@authsystem/api/types"
 import { MemberAppRolesDialog } from "./member-app-roles-dialog"
 import { OrganizationFormDialog } from "./organization-form-dialog"
 import { TransferOwnershipDialog } from "./transfer-ownership-dialog"

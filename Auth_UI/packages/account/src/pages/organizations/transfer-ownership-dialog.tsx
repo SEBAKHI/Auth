@@ -3,29 +3,29 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { collectAllPages, unwrap } from "@astoom/api/helpers"
-import { getErrorMessage } from "@astoom/api/errors"
-import type { Schemas } from "@astoom/api/types"
-import { Button } from "@astoom/ui/button"
-import { Spinner } from "@astoom/ui/spinner"
+import { api } from "@authsystem/api/client"
+import { collectAllPages, unwrap } from "@authsystem/api/helpers"
+import { getErrorMessage } from "@authsystem/api/errors"
+import type { Schemas } from "@authsystem/api/types"
+import { Button } from "@authsystem/ui/button"
+import { Spinner } from "@authsystem/ui/spinner"
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { Field, FieldLabel } from "@astoom/ui/field"
-import { fullName } from "@astoom/ui/format"
-import { useCountdown } from "@astoom/ui/hooks/use-countdown"
+} from "@authsystem/ui/dialog"
+import { Field, FieldLabel } from "@authsystem/ui/field"
+import { fullName } from "@authsystem/ui/format"
+import { useCountdown } from "@authsystem/ui/hooks/use-countdown"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
   REGEXP_ONLY_DIGITS,
-} from "@astoom/ui/input-otp"
-import { NativeSelect } from "@astoom/ui/native-select"
+} from "@authsystem/ui/input-otp"
+import { NativeSelect } from "@authsystem/ui/native-select"
 
 const CODE_LENGTH = 6
 

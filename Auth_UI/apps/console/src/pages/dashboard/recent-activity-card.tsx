@@ -6,10 +6,10 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
-import { Empty, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
+} from "@authsystem/ui/card"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
+import { Empty, EmptyHeader, EmptyTitle } from "@authsystem/ui/empty"
 import {
   Item,
   ItemActions,
@@ -17,10 +17,10 @@ import {
   ItemDescription,
   ItemGroup,
   ItemTitle,
-} from "@astoom/ui/item"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { formatRelative } from "@astoom/ui/format"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/item"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { formatRelative } from "@authsystem/ui/format"
+import type { Schemas } from "@authsystem/api/types"
 
 /** Latest audit events, newest first. */
 export function RecentActivityCard({

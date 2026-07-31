@@ -12,13 +12,13 @@
  * half-completed policy cannot silently ship.
  */
 export const CONTROLLER = {
-  /** Registered legal name of the data controller (e.g. "Astoom Bilişim A.Ş."). */
+  /** Registered legal name of the data controller (e.g. "Acme Corp LLC"). */
   legalName: "[LEGAL ENTITY NAME]",
 
   /** Registered address, exactly as it should appear in the policy. */
   address: "[REGISTERED ADDRESS]",
 
-  /** A MONITORED inbox for privacy/rights requests (e.g. privacy@astoom.com). */
+  /** A MONITORED inbox for privacy/rights requests (e.g. privacy@example.com). */
   privacyEmail: "[PRIVACY CONTACT EMAIL]",
 
   /**

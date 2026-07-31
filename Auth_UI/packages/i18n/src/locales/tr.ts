@@ -1050,6 +1050,8 @@ export const tr: TranslationResources = {
       "Yeni bir değişkeni yalnızca geliştirme ekibinizle koordineli olarak ekleyin. Sistem, gönderim anında değişkenin değerini bilmelidir — sistemin bilmediği bir değişkenin yeri mesajda boş kalır.",
     globalVariables: "Her zaman kullanılabilir",
     globalVarPlatformName: "Platform ayarlarında tanımlanan platform adı.",
+    globalVarPlatformLogoUrl:
+      "Platform ayarlarında yüklenen platform logosunun adresi. Logo ayarlanmamışsa boştur — bu durumda şablon bunun yerine platform adını gösterir.",
     globalVarApplicationName:
       "Mesajın ait olduğu uygulamanın adı. Genel mesajlar platform adını kullanır.",
     globalVarApplicationCode: "Uygulamanın kısa kodu; genel mesajlarda boştur.",

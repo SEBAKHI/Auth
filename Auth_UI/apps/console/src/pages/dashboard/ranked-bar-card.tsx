@@ -1,14 +1,14 @@
 import { useTranslation } from "react-i18next"
 import { Bar, BarChart, LabelList, XAxis, YAxis } from "recharts"
 
-import { ChartCard } from "@astoom/ui/common/chart-card"
+import { ChartCard } from "@authsystem/ui/common/chart-card"
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-} from "@astoom/ui/chart"
-import type { ChartConfig } from "@astoom/ui/chart"
-import { numberLocale } from "@astoom/ui/format"
+} from "@authsystem/ui/chart"
+import type { ChartConfig } from "@authsystem/ui/chart"
+import { numberLocale } from "@authsystem/ui/format"
 
 import { SERIES } from "./chart-constants"
 

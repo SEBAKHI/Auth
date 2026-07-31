@@ -4,11 +4,11 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { unwrap } from "@astoom/api/helpers"
-import type { Schemas } from "@astoom/api/types"
-import { Button } from "@astoom/ui/button"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { unwrap } from "@authsystem/api/helpers"
+import type { Schemas } from "@authsystem/api/types"
+import { Button } from "@authsystem/ui/button"
 import {
   Dialog,
   DialogContent,
@@ -16,12 +16,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
+} from "@authsystem/ui/dialog"
+import { DatePicker, monthsFromNow } from "@authsystem/ui/common/date-picker"
 import { PolicyVersionField } from "./policy-version-field"
-import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
-import { Textarea } from "@astoom/ui/textarea"
-import { Spinner } from "@astoom/ui/spinner"
+import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import { Textarea } from "@authsystem/ui/textarea"
+import { Spinner } from "@authsystem/ui/spinner"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
 

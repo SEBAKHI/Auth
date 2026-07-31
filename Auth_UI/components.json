@@ -13,11 +13,11 @@
   "iconLibrary": "lucide",
   "rtl": true,
   "aliases": {
-    "components": "@astoom/ui",
-    "utils": "@astoom/ui/utils",
-    "ui": "@astoom/ui",
-    "lib": "@astoom/ui",
-    "hooks": "@astoom/ui/hooks"
+    "components": "@authsystem/ui",
+    "utils": "@authsystem/ui/utils",
+    "ui": "@authsystem/ui",
+    "lib": "@authsystem/ui",
+    "hooks": "@authsystem/ui/hooks"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

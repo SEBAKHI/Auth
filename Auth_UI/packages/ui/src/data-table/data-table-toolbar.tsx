@@ -3,11 +3,11 @@ import type { Table } from "@tanstack/react-table"
 import { Download, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@astoom/ui/button"
-import { Input } from "@astoom/ui/input"
+import { Button } from "@authsystem/ui/button"
+import { Input } from "@authsystem/ui/input"
 import { DataTableFacetedFilter } from "./data-table-faceted-filter"
 import { DataTableViewOptions } from "./data-table-view-options"
-import { Spinner } from "@astoom/ui/spinner"
+import { Spinner } from "@authsystem/ui/spinner"
 
 interface DataTableToolbarProps<TData> {
   table: Table<TData>

@@ -7,8 +7,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@astoom/ui/select"
-import { useApplications } from "@astoom/ui/hooks/use-applications"
+} from "@authsystem/ui/select"
+import { useApplications } from "@authsystem/ui/hooks/use-applications"
 
 const ALL_VALUE = "__all__"
 

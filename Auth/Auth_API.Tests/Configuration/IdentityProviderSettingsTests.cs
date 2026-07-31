@@ -9,22 +9,22 @@ namespace Auth_API.Tests.Configuration;
 /// </summary>
 public class IdentityProviderSettingsTests
 {
-    private const string RequestFallback = "https://identity.astoom.com"; // internal host
+    private const string RequestFallback = "https://identity.example.com"; // internal host
 
     [Fact]
     public void ResolvePublicBaseUrl_WhenConfigured_UsesConfiguredOrigin()
     {
-        var settings = new IdentityProviderSettings { PublicBaseUrl = "https://auth.astoom.com" };
+        var settings = new IdentityProviderSettings { PublicBaseUrl = "https://auth.example.com" };
 
-        settings.ResolvePublicBaseUrl(RequestFallback).Should().Be("https://auth.astoom.com");
+        settings.ResolvePublicBaseUrl(RequestFallback).Should().Be("https://auth.example.com");
     }
 
     [Fact]
     public void ResolvePublicBaseUrl_TrimsTrailingSlash()
     {
-        var settings = new IdentityProviderSettings { PublicBaseUrl = "https://auth.astoom.com/" };
+        var settings = new IdentityProviderSettings { PublicBaseUrl = "https://auth.example.com/" };
 
-        settings.ResolvePublicBaseUrl(RequestFallback).Should().Be("https://auth.astoom.com");
+        settings.ResolvePublicBaseUrl(RequestFallback).Should().Be("https://auth.example.com");
     }
 
     [Theory]

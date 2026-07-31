@@ -6,8 +6,8 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { Skeleton } from "@astoom/ui/skeleton"
+} from "@authsystem/ui/card"
+import { Skeleton } from "@authsystem/ui/skeleton"
 import {
   Table,
   TableBody,
@@ -15,11 +15,11 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@astoom/ui/table"
-import { toNumber } from "@astoom/api/helpers"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/table"
+import { toNumber } from "@authsystem/api/helpers"
+import type { Schemas } from "@authsystem/api/types"
 
-import { Empty, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@authsystem/ui/empty"
 
 type IpFailure = Schemas["IpFailureCountDto"]
 

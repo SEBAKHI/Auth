@@ -2,7 +2,7 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useBlocker } from "react-router-dom"
 
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 
 /**
  * Guards a full PAGE against losing unsaved edits, covering both ways out:

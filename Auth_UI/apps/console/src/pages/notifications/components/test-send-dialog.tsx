@@ -3,13 +3,13 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { unwrap } from "@astoom/api/helpers"
-import { SUPPORTED_LANGUAGES } from "@astoom/i18n"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { unwrap } from "@authsystem/api/helpers"
+import { SUPPORTED_LANGUAGES } from "@authsystem/i18n"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import { Input } from "@authsystem/ui/input"
 import {
   Select,
   SelectContent,
@@ -17,7 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@astoom/ui/select"
+} from "@authsystem/ui/select"
 
 /**
  * Sends a real test message rendered from the current draft (or the published

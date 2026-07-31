@@ -1,10 +1,10 @@
 import { useTranslation } from "react-i18next"
 import { Link, Navigate, useLocation } from "react-router-dom"
 
-import { AuthLayout } from "@astoom/ui/auth-layout"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
-import { formatDate } from "@astoom/ui/format"
+import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
+import { formatDate } from "@authsystem/ui/format"
 
 interface LocationState {
   /** From the 202 body of POST /Users/me/deletion. */

@@ -171,4 +171,4 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ]
 
-export { DEFAULT_PAGE_SIZE } from "@astoom/api/constants"
+export { DEFAULT_PAGE_SIZE } from "@authsystem/api/constants"

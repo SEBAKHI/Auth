@@ -3,20 +3,20 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { toNumber, unwrap } from "@astoom/api/helpers"
-import { getErrorMessage } from "@astoom/api/errors"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { api } from "@authsystem/api/client"
+import { toNumber, unwrap } from "@authsystem/api/helpers"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@astoom/ui/sheet"
-import { formatDateTime } from "@astoom/ui/format"
+} from "@authsystem/ui/sheet"
+import { formatDateTime } from "@authsystem/ui/format"
 import type { NotificationTemplateDetailDto } from "../lib"
 
 /**

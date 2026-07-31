@@ -53,7 +53,7 @@ public class GetPublicBrandingQueryHandlerTests
         // Arrange
         var application = TestHelpers.CreateApplication(
             code: "CRM",
-            name: "Astoom CRM",
+            name: "Acme CRM",
             logoUrl: "https://auth.example.com/uploads/images/crm.png");
         _applicationRepositoryMock
             .Setup(r => r.GetByCodeAsync("CRM", It.IsAny<CancellationToken>()))
@@ -64,7 +64,7 @@ public class GetPublicBrandingQueryHandlerTests
 
         // Assert
         result.IsError.Should().BeFalse();
-        result.Value.Name.Should().Be("Astoom CRM");
+        result.Value.Name.Should().Be("Acme CRM");
         result.Value.LogoUrl.Should().Be("https://auth.example.com/uploads/images/crm.png");
     }
 }

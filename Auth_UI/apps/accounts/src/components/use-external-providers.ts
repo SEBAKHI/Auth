@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
 
-import { api } from "@astoom/api/client"
-import { APPLE_SERVICES_ID, GOOGLE_CLIENT_ID } from "@astoom/api/env"
-import { unwrap } from "@astoom/api/helpers"
+import { api } from "@authsystem/api/client"
+import { APPLE_SERVICES_ID, GOOGLE_CLIENT_ID } from "@authsystem/api/env"
+import { unwrap } from "@authsystem/api/helpers"
 
 /**
  * Which external sign-in options are usable: the API must list the provider as

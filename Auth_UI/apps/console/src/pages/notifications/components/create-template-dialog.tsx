@@ -4,18 +4,18 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { unwrap } from "@astoom/api/helpers"
-import { SUPPORTED_LANGUAGES } from "@astoom/i18n"
-import { ApplicationSelect } from "@astoom/ui/common/application-select"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { unwrap } from "@authsystem/api/helpers"
+import { SUPPORTED_LANGUAGES } from "@authsystem/i18n"
+import { ApplicationSelect } from "@authsystem/ui/common/application-select"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-} from "@astoom/ui/field"
+} from "@authsystem/ui/field"
 import {
   Select,
   SelectContent,
@@ -23,7 +23,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@astoom/ui/select"
+} from "@authsystem/ui/select"
 import type { NotificationTypeDto } from "../lib"
 
 /**
