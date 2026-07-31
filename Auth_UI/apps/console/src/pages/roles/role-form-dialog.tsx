@@ -141,7 +141,7 @@ export function RoleFormDialog({
               <FormItem>
                 <FormLabel>{t("common.code")}</FormLabel>
                 <FormControl>
-                  <Input {...field} />
+                  <Input placeholder="support-agent" dir="ltr" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -156,7 +156,7 @@ export function RoleFormDialog({
           <FormItem>
             <FormLabel>{t("common.name")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder={t("roles.namePlaceholder")} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -169,7 +169,7 @@ export function RoleFormDialog({
           <FormItem>
             <FormLabel>{t("common.description")}</FormLabel>
             <FormControl>
-              <Textarea rows={2} {...field} />
+              <Textarea rows={2} placeholder={t("roles.descriptionPlaceholder")} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>

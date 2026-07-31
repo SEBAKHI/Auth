@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { RotateCcw, Search } from "lucide-react"
+import { RotateCcw } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -9,12 +9,13 @@ import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
 import { toNumber, toSortParams, unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
+import { directionForLanguage } from "@astoom/i18n"
 import type { Schemas } from "@astoom/api/types"
 import { PageHeader } from "@astoom/ui/common/page-header"
+import { SearchInput } from "@astoom/ui/common/search-input"
 import { DataTable } from "@astoom/ui/data-table/data-table"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
-import { Input } from "@astoom/ui/input"
 import { formatDateTime } from "@astoom/ui/format"
 import { useDebouncedValue } from "@astoom/ui/hooks/use-debounced-value"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
@@ -101,11 +102,18 @@ export function NotificationOutboxPage() {
           className="min-w-0 text-start hover:underline"
           onClick={() => setSelected(row.original)}
         >
-          <p className="truncate font-medium" dir="ltr">
-            {row.original.notificationTypeCode}
+          {/* Direction on an inline `bdi`, never on the `p`: `dir` on a block
+              re-resolves the inherited `text-align: start` and left-aligns the
+              line inside an RTL table. */}
+          <p className="truncate font-medium">
+            <bdi dir="ltr">{row.original.notificationTypeCode}</bdi>
           </p>
-          <p className="truncate text-xs text-muted-foreground" dir="auto">
-            {row.original.subject}
+          <p className="truncate text-xs text-muted-foreground">
+            {/* The row already knows the send's locale, so bind the subject's
+                direction to it instead of guessing from the text. */}
+            <bdi dir={directionForLanguage(row.original.languageCode ?? "")}>
+              {row.original.subject}
+            </bdi>
           </p>
         </button>
       ),
@@ -231,7 +239,7 @@ export function NotificationOutboxPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("notifications.outboxTitle")}
         description={t("notifications.outboxSubtitle")}
@@ -239,18 +247,14 @@ export function NotificationOutboxPage() {
 
       <NotificationsTabs />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
-        <Input
-          value={searchInput}
-          onChange={(e) => {
-            setSearchInput(e.target.value)
+      <SearchInput
+        value={searchInput}
+        onChange={(value) => {
+            setSearchInput(value)
             setPage(0)
           }}
-          placeholder={t("notifications.outboxSearchPlaceholder")}
-          className="ps-8"
-        />
-      </div>
+        placeholder={t("notifications.outboxSearchPlaceholder")}
+      />
 
       <DataTable
         tableId="notification-outbox"

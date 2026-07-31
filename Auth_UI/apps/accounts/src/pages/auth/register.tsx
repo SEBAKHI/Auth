@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
@@ -23,6 +22,7 @@ import {
 import { Input } from "@astoom/ui/input"
 
 import { ExternalProviders } from "@/components/external-providers"
+import { Spinner } from "@astoom/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -115,6 +115,8 @@ export function RegisterPage() {
                       type="email"
                       autoComplete="username"
                       autoFocus
+                      placeholder="name@example.com"
+                      dir="ltr"
                       {...field}
                     />
                   </FormControl>
@@ -129,7 +131,11 @@ export function RegisterPage() {
                 <FormItem>
                   <FormLabel>{t("auth.firstName")}</FormLabel>
                   <FormControl>
-                    <Input autoComplete="given-name" {...field} />
+                    <Input
+                      autoComplete="given-name"
+                      placeholder="Sara"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -142,7 +148,11 @@ export function RegisterPage() {
                 <FormItem>
                   <FormLabel>{t("auth.lastName")}</FormLabel>
                   <FormControl>
-                    <Input autoComplete="family-name" {...field} />
+                    <Input
+                      autoComplete="family-name"
+                      placeholder="Al-Rashid"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -189,7 +199,7 @@ export function RegisterPage() {
             >
               {form.formState.isSubmitting ? (
                 <>
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                   {t("auth.creatingAccount")}
                 </>
               ) : (

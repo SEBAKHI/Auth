@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Loader2, ShieldCheck } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -19,7 +19,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@astoom/ui/card"
-import { FieldGroup } from "@astoom/ui/field"
+import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import {
   Form,
   FormControl,
@@ -29,11 +29,11 @@ import {
   FormMessage,
 } from "@astoom/ui/form"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
 import { unwrap } from "@astoom/api/helpers"
 import type { Schemas } from "@astoom/api/types"
+import { Spinner } from "@astoom/ui/spinner"
 
 function ChangePasswordCard() {
   const { t } = useTranslation()
@@ -142,7 +142,7 @@ function ChangePasswordCard() {
                 disabled={mutation.isPending}
               >
                 {mutation.isPending ? (
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                 ) : null}
                 {t("profile.changePassword")}
               </Button>
@@ -218,11 +218,13 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
             : t("profile.twoFactorDisabled")}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-col gap-4">
         {enabled ? (
           <div className="flex max-w-md flex-col gap-2 sm:flex-row sm:items-end">
-            <div className="flex-1 space-y-2">
-              <Label htmlFor="disable-code">{t("auth.twoFactorCode")}</Label>
+            <Field className="flex-1">
+              <FieldLabel htmlFor="disable-code">
+                {t("auth.twoFactorCode")}
+              </FieldLabel>
               <Input
                 id="disable-code"
                 value={disableCode}
@@ -230,40 +232,48 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
                 inputMode="numeric"
                 autoComplete="one-time-code"
               />
-            </div>
+            </Field>
             <Button
               variant="destructive"
               onClick={() => disableMutation.mutate()}
               disabled={!disableCode || disableMutation.isPending}
             >
               {disableMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("profile.disableTwoFactor")}
             </Button>
           </div>
         ) : setup ? (
-          <div className="max-w-md space-y-3">
+          <div className="flex max-w-md flex-col gap-3">
             <p className="text-sm text-muted-foreground">
               {t("profile.setupTwoFactorBody")}
             </p>
             <div className="flex justify-center">
               <QrCode value={setup.qrCodeUri} />
             </div>
-            <div className="space-y-1">
-              <Label>{t("profile.manualEntry")}</Label>
+            <Field>
+              <FieldLabel htmlFor="manual-entry-key">
+                {t("profile.manualEntry")}
+              </FieldLabel>
               <div className="flex items-center gap-2">
+                {/* A base32 secret typed into an authenticator by hand — pinned
+                    LTR so an RTL profile cannot right-align or reorder it. */}
                 <Input
+                  id="manual-entry-key"
                   readOnly
+                  dir="ltr"
                   value={setup.manualEntryKey}
                   className="font-mono text-xs"
                 />
                 <CopyButton value={setup.manualEntryKey} />
               </div>
-            </div>
+            </Field>
             <div className="flex items-end gap-2">
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="enable-code">{t("auth.twoFactorCode")}</Label>
+              <Field className="flex-1">
+                <FieldLabel htmlFor="enable-code">
+                  {t("auth.twoFactorCode")}
+                </FieldLabel>
                 <Input
                   id="enable-code"
                   value={code}
@@ -271,13 +281,13 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
                   inputMode="numeric"
                   autoComplete="one-time-code"
                 />
-              </div>
+              </Field>
               <Button
                 onClick={() => enableMutation.mutate()}
                 disabled={!code || enableMutation.isPending}
               >
                 {enableMutation.isPending ? (
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                 ) : null}
                 {t("auth.verify")}
               </Button>
@@ -289,7 +299,7 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
             disabled={setupMutation.isPending}
           >
             {setupMutation.isPending ? (
-              <Loader2 className="animate-spin" />
+              <Spinner />
             ) : null}
             {t("profile.enableTwoFactor")}
           </Button>
@@ -310,7 +320,7 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
 
 export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <ChangePasswordCard />
       <TwoFactorCard me={me} />
     </div>

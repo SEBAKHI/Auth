@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { Plus, Search } from "lucide-react"
+import { Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -9,10 +9,10 @@ import { api } from "@astoom/api/client"
 import { toNumber, toSortParams, unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
 import { PageHeader } from "@astoom/ui/common/page-header"
+import { SearchInput } from "@astoom/ui/common/search-input"
 import { DataTable } from "@astoom/ui/data-table/data-table"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
-import { Input } from "@astoom/ui/input"
 import { formatDateTime } from "@astoom/ui/format"
 import { useDebouncedValue } from "@astoom/ui/hooks/use-debounced-value"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
@@ -82,9 +82,15 @@ export function NotificationTemplatesPage() {
             className="min-w-0 text-start hover:underline"
             onClick={() => navigate(`/notifications/templates/${template.id}`)}
           >
-            <p className="truncate font-medium">{template.typeName}</p>
-            <p className="truncate text-xs text-muted-foreground" dir="ltr">
-              {template.typeCode}
+            {/* The direction belongs on an inline `bdi`, not on the `p`: `dir` on
+                a block re-resolves the inherited `text-align: start` against that
+                block's own direction, which left-aligned the code line while the
+                title above it stayed right-aligned. */}
+            <p className="truncate font-medium">
+              <bdi dir="auto">{template.typeName}</bdi>
+            </p>
+            <p className="truncate text-xs text-muted-foreground">
+              <bdi dir="ltr">{template.typeCode}</bdi>
             </p>
           </button>
         )
@@ -193,14 +199,14 @@ export function NotificationTemplatesPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("notifications.title")}
         description={t("notifications.subtitle")}
         actions={
           canManage ? (
             <Button onClick={() => setCreateOpen(true)}>
-              <Plus />
+              <Plus data-icon="inline-start" />
               {t("notifications.newTemplate")}
             </Button>
           ) : null
@@ -209,18 +215,14 @@ export function NotificationTemplatesPage() {
 
       <NotificationsTabs />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
-        <Input
-          value={searchInput}
-          onChange={(e) => {
-            setSearchInput(e.target.value)
+      <SearchInput
+        value={searchInput}
+        onChange={(value) => {
+            setSearchInput(value)
             setPage(0)
           }}
-          placeholder={t("notifications.templatesSearchPlaceholder")}
-          className="ps-8"
-        />
-      </div>
+        placeholder={t("notifications.templatesSearchPlaceholder")}
+      />
 
       <DataTable
         tableId="notification-templates"

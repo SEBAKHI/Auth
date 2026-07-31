@@ -10,8 +10,8 @@ import { unwrap } from "@astoom/api/helpers"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { Button } from "@astoom/ui/button"
 import { Checkbox } from "@astoom/ui/checkbox"
+import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import type { NotificationTemplateDetailDto, TemplateVariable } from "../lib"
 import { parseVariables } from "../lib"
 
@@ -92,45 +92,72 @@ export function ManageVariablesDialog({
       loading={saveMutation.isPending}
       onConfirm={() => saveMutation.mutate()}
     >
-      <div className="space-y-4">
-        <div className="max-h-[45vh] space-y-3 overflow-y-auto pe-1">
+      <div className="flex flex-col gap-4">
+        <div className="flex max-h-[45vh] flex-col gap-3 overflow-y-auto pe-1">
           {rows.map((row, index) => (
-            <div key={index} className="space-y-2 rounded-md border p-3">
-              <div className="grid gap-2 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label className="text-xs">{t("notifications.variableName")}</Label>
+            <FieldGroup key={index} className="gap-3 rounded-md border p-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field>
+                  <FieldLabel htmlFor={`variable-name-${index}`}>
+                    {t("notifications.variableName")}
+                  </FieldLabel>
                   <Input
+                    id={`variable-name-${index}`}
                     dir="ltr"
                     value={row.name}
                     onChange={(e) => patch(index, { name: e.target.value })}
                     placeholder="CompanyPhone"
                   />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">{t("notifications.variableExample")}</Label>
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor={`variable-example-${index}`}>
+                    {t("notifications.variableExample")}
+                  </FieldLabel>
                   <Input
+                    id={`variable-example-${index}`}
+                    // The one field where `dir="auto"` is the answer rather than
+                    // the bug: this holds a sample *value*, not prose, so its
+                    // direction really does depend on what that value is. Empty
+                    // resolves `ltr`, which is right for the phone numbers and
+                    // URLs these usually are, and an Arabic sample flips it.
+                    // eslint-disable-next-line no-restricted-syntax
                     dir="auto"
                     value={row.example ?? ""}
                     onChange={(e) => patch(index, { example: e.target.value })}
+                    placeholder="+966 50 000 0000"
                   />
-                </div>
+                </Field>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">{t("notifications.variableDescription")}</Label>
+              <Field>
+                <FieldLabel htmlFor={`variable-description-${index}`}>
+                  {t("notifications.variableDescription")}
+                </FieldLabel>
+                {/* The description is written for whoever administers this
+                    console, so it follows the console's direction. `dir="auto"`
+                    resolves from the value and left-aligned it while empty. */}
                 <Input
-                  dir="auto"
+                  id={`variable-description-${index}`}
                   value={row.description ?? ""}
                   onChange={(e) => patch(index, { description: e.target.value })}
+                  placeholder={t(
+                    "notifications.variableDescriptionPlaceholder"
+                  )}
                 />
-              </div>
+              </Field>
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm">
+                <Field orientation="horizontal" className="w-auto">
                   <Checkbox
+                    id={`variable-required-${index}`}
                     checked={row.required ?? false}
                     onCheckedChange={(checked) => patch(index, { required: checked === true })}
                   />
-                  {t("notifications.variableRequiredLabel")}
-                </label>
+                  <FieldLabel
+                    htmlFor={`variable-required-${index}`}
+                    className="font-normal"
+                  >
+                    {t("notifications.variableRequiredLabel")}
+                  </FieldLabel>
+                </Field>
                 <Button
                   type="button"
                   variant="ghost"
@@ -141,7 +168,7 @@ export function ManageVariablesDialog({
                   <Trash2 />
                 </Button>
               </div>
-            </div>
+            </FieldGroup>
           ))}
         </div>
 
@@ -153,7 +180,7 @@ export function ManageVariablesDialog({
             setRows((current) => [...current, { name: "", description: "", example: "", required: false }])
           }
         >
-          <Plus />
+          <Plus data-icon="inline-start" />
           {t("notifications.addVariable")}
         </Button>
 

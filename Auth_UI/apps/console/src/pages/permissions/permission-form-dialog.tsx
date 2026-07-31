@@ -158,7 +158,7 @@ export function PermissionFormDialog({
           <FormItem>
             <FormLabel>{t("common.name")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="users:read" dir="ltr" {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -171,7 +171,7 @@ export function PermissionFormDialog({
           <FormItem>
             <FormLabel>{t("common.description")}</FormLabel>
             <FormControl>
-              <Textarea rows={2} {...field} />
+              <Textarea rows={2} placeholder={t("permissions.descriptionPlaceholder")} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>

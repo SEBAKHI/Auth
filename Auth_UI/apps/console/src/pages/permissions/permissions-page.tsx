@@ -14,6 +14,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -128,35 +129,41 @@ export function PermissionsPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => navigate(`/permissions/${perm.id}`)}
-                      >
-                        {t("common.view")}
-                      </DropdownMenuItem>
-                      {canUpdate ? (
+                      <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() => {
-                            setEditing(perm)
-                            setFormOpen(true)
-                          }}
+                          onClick={() => navigate(`/permissions/${perm.id}`)}
                         >
-                          {t("common.edit")}
+                          {t("common.view")}
                         </DropdownMenuItem>
-                      ) : null}
-                      {canManage ? (
-                        <DropdownMenuItem onClick={() => setImplications(perm)}>
-                          {t("permissions.implications")}
-                        </DropdownMenuItem>
-                      ) : null}
+                        {canUpdate ? (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditing(perm)
+                              setFormOpen(true)
+                            }}
+                          >
+                            {t("common.edit")}
+                          </DropdownMenuItem>
+                        ) : null}
+                        {canManage ? (
+                          <DropdownMenuItem
+                            onClick={() => setImplications(perm)}
+                          >
+                            {t("permissions.implications")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canDelete ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setDeleting(perm)}
-                          >
-                            {t("common.delete")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setDeleting(perm)}
+                            >
+                              {t("common.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>
@@ -169,7 +176,7 @@ export function PermissionsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("permissions.title")}
         description={t("permissions.subtitle")}
@@ -181,7 +188,7 @@ export function PermissionsPage() {
                 setFormOpen(true)
               }}
             >
-              <Plus />
+              <Plus data-icon="inline-start" />
               {t("permissions.newPermission")}
             </Button>
           ) : null

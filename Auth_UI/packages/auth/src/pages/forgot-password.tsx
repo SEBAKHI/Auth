@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2, MailCheck } from "lucide-react"
+import { MailCheck } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -22,6 +22,7 @@ import { Input } from "@astoom/ui/input"
 import { getErrorMessage } from "@astoom/api/errors"
 import { AuthLayout } from "@astoom/ui/auth-layout"
 import { useCountdown } from "@astoom/ui/hooks/use-countdown"
+import { Spinner } from "@astoom/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -96,6 +97,8 @@ export function ForgotPasswordPage() {
                       type="email"
                       autoComplete="username"
                       autoFocus
+                      placeholder="name@example.com"
+                      dir="ltr"
                       {...field}
                     />
                   </FormControl>
@@ -109,7 +112,7 @@ export function ForgotPasswordPage() {
               disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("auth.sendResetLink")}
             </Button>

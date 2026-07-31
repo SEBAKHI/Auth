@@ -51,8 +51,12 @@ export function SecretRevealDialog({
 
         {multiline ? (
           <div className="flex flex-col gap-2">
+            {/* Secret material is transcribed character by character, so it is
+                pinned LTR: inheriting an RTL console would right-align it and let
+                the bidi algorithm reorder its punctuation. */}
             <Textarea
               readOnly
+              dir="ltr"
               value={value}
               rows={8}
               className="font-mono text-xs"

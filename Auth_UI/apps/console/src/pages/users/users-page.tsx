@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { MoreHorizontal, Plus, Search } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { SearchInput } from "@astoom/ui/common/search-input"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { avatarColumn } from "@astoom/ui/data-table/columns"
 import { DataTable } from "@astoom/ui/data-table/data-table"
@@ -14,12 +15,13 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { Field, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import { Switch } from "@astoom/ui/switch"
 import { api } from "@astoom/api/client"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@astoom/api/helpers"
@@ -265,15 +267,17 @@ export function UsersPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => {
-                            setHardDeleteConfirm("")
-                            setHardDeleteUser(user)
-                          }}
-                        >
-                          {t("users.hardDelete")}
-                        </DropdownMenuItem>
+                        <DropdownMenuGroup>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={() => {
+                              setHardDeleteConfirm("")
+                              setHardDeleteUser(user)
+                            }}
+                          >
+                            {t("users.hardDelete")}
+                          </DropdownMenuItem>
+                        </DropdownMenuGroup>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -292,84 +296,92 @@ export function UsersPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem
-                        onClick={() => navigate(`/users/${user.id}`)}
-                      >
-                        {t("common.view")}
-                      </DropdownMenuItem>
-                      {canUpdate ? (
+                      <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() => {
-                            setEditing(user)
-                            setFormOpen(true)
-                          }}
+                          onClick={() => navigate(`/users/${user.id}`)}
                         >
-                          {t("common.edit")}
+                          {t("common.view")}
                         </DropdownMenuItem>
-                      ) : null}
-                      {canManageRoles ? (
-                        <DropdownMenuItem onClick={() => setRolesUser(user)}>
-                          {t("users.manageRoles")}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {canManagePerms ? (
-                        <DropdownMenuItem onClick={() => setPermsUser(user)}>
-                          {t("users.managePermissions")}
-                        </DropdownMenuItem>
-                      ) : null}
+                        {canUpdate ? (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setEditing(user)
+                              setFormOpen(true)
+                            }}
+                          >
+                            {t("common.edit")}
+                          </DropdownMenuItem>
+                        ) : null}
+                        {canManageRoles ? (
+                          <DropdownMenuItem onClick={() => setRolesUser(user)}>
+                            {t("users.manageRoles")}
+                          </DropdownMenuItem>
+                        ) : null}
+                        {canManagePerms ? (
+                          <DropdownMenuItem onClick={() => setPermsUser(user)}>
+                            {t("users.managePermissions")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canManage ? (
                         <>
                           <DropdownMenuSeparator />
-                          {isLocked ? (
+                          <DropdownMenuGroup>
+                            {isLocked ? (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  user.id &&
+                                  statusAction.mutate({
+                                    id: user.id,
+                                    action: "unlock",
+                                  })
+                                }
+                              >
+                                {t("users.unlock")}
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => setLockUser(user)}
+                              >
+                                {t("users.lock")}
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem
                               onClick={() =>
                                 user.id &&
                                 statusAction.mutate({
                                   id: user.id,
-                                  action: "unlock",
+                                  action: "activate",
                                 })
                               }
                             >
-                              {t("users.unlock")}
+                              {t("users.activate")}
                             </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => setLockUser(user)}>
-                              {t("users.lock")}
+                            <DropdownMenuItem
+                              onClick={() =>
+                                user.id &&
+                                statusAction.mutate({
+                                  id: user.id,
+                                  action: "deactivate",
+                                })
+                              }
+                            >
+                              {t("users.deactivate")}
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem
-                            onClick={() =>
-                              user.id &&
-                              statusAction.mutate({
-                                id: user.id,
-                                action: "activate",
-                              })
-                            }
-                          >
-                            {t("users.activate")}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() =>
-                              user.id &&
-                              statusAction.mutate({
-                                id: user.id,
-                                action: "deactivate",
-                              })
-                            }
-                          >
-                            {t("users.deactivate")}
-                          </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                       {canDelete ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setDeleteUser(user)}
-                          >
-                            {t("common.delete")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setDeleteUser(user)}
+                            >
+                              {t("common.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>
@@ -382,7 +394,7 @@ export function UsersPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("users.title")}
         description={t("users.subtitle")}
@@ -394,7 +406,7 @@ export function UsersPage() {
                 setFormOpen(true)
               }}
             >
-              <Plus />
+              <Plus data-icon="inline-start" />
               {t("users.newUser")}
             </Button>
           ) : null
@@ -402,20 +414,17 @@ export function UsersPage() {
       />
 
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
-          <Input
-            value={searchInput}
-            onChange={(e) => {
-              setSearchInput(e.target.value)
+        <SearchInput
+        value={searchInput}
+        onChange={(value) => {
+              setSearchInput(value)
               setPage(0)
             }}
-            placeholder={t("users.searchPlaceholder")}
-            className="ps-8"
-          />
-        </div>
+        placeholder={t("users.searchPlaceholder")}
+        className="w-full max-w-sm"
+      />
         {canManage ? (
-          <div className="flex items-center gap-2">
+          <Field orientation="horizontal" className="w-auto">
             <Switch
               id="show-deleted-users"
               checked={showDeleted}
@@ -424,8 +433,10 @@ export function UsersPage() {
                 setPage(0)
               }}
             />
-            <Label htmlFor="show-deleted-users">{t("users.showDeleted")}</Label>
-          </div>
+            <FieldLabel htmlFor="show-deleted-users">
+              {t("users.showDeleted")}
+            </FieldLabel>
+          </Field>
         ) : null}
       </div>
 
@@ -497,14 +508,15 @@ export function UsersPage() {
           })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="lock-reason">{t("users.lockReason")}</Label>
+        <Field>
+          <FieldLabel htmlFor="lock-reason">{t("users.lockReason")}</FieldLabel>
           <Input
             id="lock-reason"
             value={lockReason}
             onChange={(e) => setLockReason(e.target.value)}
+            placeholder={t("users.lockReasonPlaceholder")}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -555,12 +567,12 @@ export function UsersPage() {
           hardDeleteUser?.id && hardDeleteMutation.mutate(hardDeleteUser.id)
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="hard-delete-confirm">
+        <Field>
+          <FieldLabel htmlFor="hard-delete-confirm">
             {t("users.hardDeleteConfirmHint", {
               email: hardDeleteUser?.email ?? "",
             })}
-          </Label>
+          </FieldLabel>
           <Input
             id="hard-delete-confirm"
             value={hardDeleteConfirm}
@@ -568,7 +580,7 @@ export function UsersPage() {
             autoComplete="off"
             spellCheck={false}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
     </div>
   )

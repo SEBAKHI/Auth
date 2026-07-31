@@ -1,4 +1,3 @@
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router-dom"
@@ -10,6 +9,7 @@ import { useAuth } from "@astoom/auth/auth-context"
 import { Button } from "@astoom/ui/button"
 
 import { useExternalProviders } from "@/components/use-external-providers"
+import { Spinner } from "@astoom/ui/spinner"
 
 /** Minimal typings for the Sign in with Apple JS client. */
 interface AppleSignInResponse {
@@ -185,7 +185,7 @@ export function AppleSignIn() {
         onClick={() => void signIn()}
       >
         {pending ? (
-          <Loader2 className="animate-spin" />
+          <Spinner />
         ) : (
           <svg
             data-icon="inline-start"

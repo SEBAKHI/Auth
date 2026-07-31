@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { MoreHorizontal, Plus, Search } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { SearchInput } from "@astoom/ui/common/search-input"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { avatarColumn } from "@astoom/ui/data-table/columns"
 import { DataTable } from "@astoom/ui/data-table/data-table"
@@ -15,11 +16,11 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
-import { Input } from "@astoom/ui/input"
 import { api } from "@astoom/api/client"
 import {
   collectAllPages,
@@ -222,20 +223,24 @@ export function OrganizationsAdminPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => navigate(`/organizations/${org.id}`)}
-                >
-                  {t("common.view")}
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => navigate(`/organizations/${org.id}`)}
+                  >
+                    {t("common.view")}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
                 {canManage ? (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => setDeleting(org)}
-                    >
-                      {t("common.delete")}
-                    </DropdownMenuItem>
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => setDeleting(org)}
+                      >
+                        {t("common.delete")}
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
                   </>
                 ) : null}
               </DropdownMenuContent>
@@ -247,32 +252,28 @@ export function OrganizationsAdminPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("organizations.title")}
         description={t("organizations.subtitle")}
         actions={
           canManage ? (
             <Button onClick={() => setCreateOpen(true)}>
-              <Plus />
+              <Plus data-icon="inline-start" />
               {t("organizations.newOrganization")}
             </Button>
           ) : undefined
         }
       />
 
-      <div className="relative max-w-sm">
-        <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
-        <Input
-          value={searchInput}
-          onChange={(e) => {
-            setSearchInput(e.target.value)
+      <SearchInput
+        value={searchInput}
+        onChange={(value) => {
+            setSearchInput(value)
             setPage(0)
           }}
-          placeholder={t("organizations.searchPlaceholder")}
-          className="ps-8"
-        />
-      </div>
+        placeholder={t("organizations.searchPlaceholder")}
+      />
 
       <DataTable
         tableId="organizations-all"

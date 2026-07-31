@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -9,6 +8,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { Button } from "@astoom/ui/button"
+import { Spinner } from "@astoom/ui/spinner"
 import { FieldGroup } from "@astoom/ui/field"
 import {
   Form,
@@ -39,7 +39,7 @@ function InvitationSummary({ preview }: { preview: InvitationPreview }) {
     [t("auth.invitationExpires"), formatDateTime(preview.expiresAt)],
   ]
   return (
-    <dl className="space-y-2 text-sm">
+    <dl className="flex flex-col gap-2 text-sm">
       {rows
         .filter(([, value]) => Boolean(value))
         .map(([label, value]) => (
@@ -142,7 +142,7 @@ function AcceptExisting({
             <Button className="w-full" disabled={accepting} onClick={accept}>
               {accepting ? (
                 <>
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                   {t("auth.invitationAccepting")}
                 </>
               ) : (
@@ -235,7 +235,12 @@ function RegisterAndJoin({
                 <FormItem>
                   <FormLabel>{t("auth.invitationFirstName")}</FormLabel>
                   <FormControl>
-                    <Input autoComplete="given-name" autoFocus {...field} />
+                    <Input
+                      autoComplete="given-name"
+                      autoFocus
+                      placeholder="Sara"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -248,7 +253,11 @@ function RegisterAndJoin({
                 <FormItem>
                   <FormLabel>{t("auth.invitationLastName")}</FormLabel>
                   <FormControl>
-                    <Input autoComplete="family-name" {...field} />
+                    <Input
+                      autoComplete="family-name"
+                      placeholder="Al-Rashid"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -295,7 +304,7 @@ function RegisterAndJoin({
             >
               {form.formState.isSubmitting ? (
                 <>
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                   {t("auth.invitationCreating")}
                 </>
               ) : (
@@ -334,7 +343,7 @@ export function AcceptInvitationPage() {
     return (
       <AuthLayout title={t("auth.invitationTitle")}>
         <div className="flex justify-center py-6">
-          <Loader2 className="animate-spin text-muted-foreground" />
+          <Spinner className="text-muted-foreground" />
         </div>
       </AuthLayout>
     )

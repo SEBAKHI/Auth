@@ -24,6 +24,7 @@ import { Button } from "@astoom/ui/button"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -37,7 +38,9 @@ import {
   TableHeader,
   TableRow,
 } from "@astoom/ui/table"
+import { cn } from "@astoom/ui/utils"
 import { getErrorMessage } from "@astoom/api/errors"
+import { directionForLanguage } from "@astoom/i18n"
 import { buildDisplayColumns } from "./auto-columns"
 import { buildExportColumns, exportRowsToCsv } from "./csv"
 import { DataTableRowDetail } from "./data-table-row-detail"
@@ -281,7 +284,12 @@ export function DataTable<TData>({
     onGlobalFilterChange: setGlobalFilter,
     enableColumnResizing: true,
     columnResizeMode: "onChange",
-    columnResizeDirection: i18n.dir(),
+    // The same function `DirectionProvider` writes onto `documentElement.dir`, so
+    // the drag maths and the layout cannot disagree. `i18n.dir()` can: it reads
+    // i18next's `resolvedLanguage`, which is not the active language on a cold
+    // load (see `initI18n`). An `ltr` value here against an RTL table flips
+    // TanStack's delta sign and the column resizes away from the cursor.
+    columnResizeDirection: directionForLanguage(i18n.language),
     defaultColumn: { minSize: 60 },
     onColumnSizingChange: setColumnSizing,
     manualPagination: Boolean(pagination),
@@ -379,7 +387,7 @@ export function DataTable<TData>({
   }, [table, exportFileName, tableId, onExportAll, data, t])
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-3">
       {enableToolbar ? (
         <DataTableToolbar
           table={table}
@@ -443,12 +451,12 @@ export function DataTable<TData>({
                           onMouseDown={(event) => beginResize(event, header)}
                           onTouchStart={(event) => beginResize(event, header)}
                           onDoubleClick={() => header.column.resetSize()}
-                          className={
-                            "absolute inset-y-0 end-0 z-10 w-1.5 cursor-col-resize touch-none select-none " +
-                            (header.column.getIsResizing()
+                          className={cn(
+                            "absolute inset-y-0 end-0 z-10 w-1.5 cursor-col-resize touch-none select-none",
+                            header.column.getIsResizing()
                               ? "bg-primary/50"
-                              : "hover:bg-border")
-                          }
+                              : "hover:bg-border"
+                          )}
                         />
                       ) : null}
                     </TableHead>
@@ -584,11 +592,13 @@ export function DataTable<TData>({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {PAGE_SIZES.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size} / {t("common.page")}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {PAGE_SIZES.map((size) => (
+                    <SelectItem key={size} value={String(size)}>
+                      {size} / {t("common.page")}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
             <span className="px-1 text-sm text-muted-foreground">

@@ -6,8 +6,13 @@ import { uploadImage } from "@astoom/api/upload"
 import { getErrorMessage } from "@astoom/api/errors"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { Button } from "@astoom/ui/button"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 
 /**
  * Uploads an image through the shared image endpoint (returns an absolute URL so
@@ -19,10 +24,17 @@ export function InsertImageDialog({
   open,
   onOpenChange,
   onInsert,
+  contentDir,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   onInsert: (snippet: string) => void
+  /**
+   * Direction of the locale being authored. The alt text is inserted into that
+   * locale's body, so it takes the body's direction rather than the console's.
+   * Undefined on a layout, whose HTML is shared by every locale.
+   */
+  contentDir?: "ltr" | "rtl"
 }) {
   const { t } = useTranslation()
   const [url, setUrl] = React.useState<string | null>(null)
@@ -86,7 +98,7 @@ export function InsertImageDialog({
       loading={uploading}
       onConfirm={insert}
     >
-      <div className="space-y-4">
+      <div className="flex flex-col gap-4">
         <input
           ref={fileInputRef}
           type="file"
@@ -105,13 +117,15 @@ export function InsertImageDialog({
         </Button>
 
         {url ? (
-          <div className="space-y-4">
+          <FieldGroup>
             <div className="rounded-md border bg-muted/30 p-3">
               <img src={url} alt="" className="mx-auto max-h-40 max-w-full rounded" />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="insert-image-width">{t("notifications.imageWidth")}</Label>
+            <Field>
+              <FieldLabel htmlFor="insert-image-width">
+                {t("notifications.imageWidth")}
+              </FieldLabel>
               <Input
                 id="insert-image-width"
                 dir="ltr"
@@ -119,20 +133,27 @@ export function InsertImageDialog({
                 onChange={(e) => setWidth(e.target.value)}
                 placeholder="320  ·  60%"
               />
-              <p className="text-xs text-muted-foreground">{t("notifications.imageWidthHint")}</p>
-            </div>
+              <FieldDescription>
+                {t("notifications.imageWidthHint")}
+              </FieldDescription>
+            </Field>
 
-            <div className="space-y-2">
-              <Label htmlFor="insert-image-alt">{t("notifications.imageAlt")}</Label>
+            <Field>
+              <FieldLabel htmlFor="insert-image-alt">
+                {t("notifications.imageAlt")}
+              </FieldLabel>
               <Input
                 id="insert-image-alt"
-                dir="auto"
+                dir={contentDir}
+                placeholder={t("notifications.insertImageAltPlaceholder")}
                 value={alt}
                 onChange={(e) => setAlt(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">{t("notifications.imageAltHint")}</p>
-            </div>
-          </div>
+              <FieldDescription>
+                {t("notifications.imageAltHint")}
+              </FieldDescription>
+            </Field>
+          </FieldGroup>
         ) : null}
       </div>
     </ConfirmDialog>

@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -31,6 +30,7 @@ import { Input } from "@astoom/ui/input"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -44,6 +44,7 @@ import { useProfileImage } from "@astoom/api/use-profile-image"
 import { getErrorMessage } from "@astoom/api/errors"
 import { fullName } from "@astoom/ui/format"
 import i18n, {
+  applyLanguage,
   persistLanguage,
   SUPPORTED_LANGUAGES,
   type LanguageCode,
@@ -53,6 +54,7 @@ import type { Schemas } from "@astoom/api/types"
 import { ProfileDangerZone } from "./profile-danger-zone"
 import { ProfileSecurity } from "./profile-security"
 import { ProfileSessions } from "./profile-sessions"
+import { Spinner } from "@astoom/ui/spinner"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
@@ -115,7 +117,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
         i18n.language !== code
       ) {
         persistLanguage(code as LanguageCode)
-        void i18n.changeLanguage(code)
+        void applyLanguage(code as LanguageCode)
       }
       const theme = values.theme
       if (theme && isTheme(theme) && activeTheme !== theme) {
@@ -160,7 +162,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                     <FormItem>
                       <FormLabel>{t("users.firstName")}</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="Sara" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -173,7 +175,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                     <FormItem>
                       <FormLabel>{t("users.lastName")}</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="Al-Rashid" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -186,7 +188,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                     <FormItem>
                       <FormLabel>{t("users.displayName")}</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="Sara Al-Rashid" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -199,7 +201,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                     <FormItem>
                       <FormLabel>{t("users.phoneNumber")}</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input placeholder="+966 50 000 0000" dir="ltr" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -254,15 +256,17 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="light">
-                            {t("common.light")}
-                          </SelectItem>
-                          <SelectItem value="dark">
-                            {t("common.dark")}
-                          </SelectItem>
-                          <SelectItem value="system">
-                            {t("common.system")}
-                          </SelectItem>
+                          <SelectGroup>
+                            <SelectItem value="light">
+                              {t("common.light")}
+                            </SelectItem>
+                            <SelectItem value="dark">
+                              {t("common.dark")}
+                            </SelectItem>
+                            <SelectItem value="system">
+                              {t("common.system")}
+                            </SelectItem>
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -276,7 +280,7 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                 disabled={mutation.isPending}
               >
                 {mutation.isPending ? (
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                 ) : null}
                 {t("profile.updateProfile")}
               </Button>
@@ -305,7 +309,7 @@ export function ProfilePage({
   })
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("profile.title")}
         description={t("profile.subtitle")}

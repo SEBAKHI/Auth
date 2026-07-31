@@ -1,17 +1,16 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { Search } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
 
 import { DetailList } from "@astoom/ui/common/detail-list"
+import { SearchInput } from "@astoom/ui/common/search-input"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { avatarColumn } from "@astoom/ui/data-table/columns"
 import { DataTable } from "@astoom/ui/data-table/data-table"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
-import { Input } from "@astoom/ui/input"
 import { Skeleton } from "@astoom/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
 import { api } from "@astoom/api/client"
@@ -179,19 +178,15 @@ function PermissionUsersTab({ permissionId }: { permissionId: string }) {
   ]
 
   return (
-    <div className="space-y-4">
-      <div className="relative max-w-sm">
-        <Search className="absolute start-2.5 top-2.5 size-4 text-muted-foreground" />
-        <Input
-          value={searchInput}
-          onChange={(e) => {
-            setSearchInput(e.target.value)
+    <div className="flex flex-col gap-4">
+      <SearchInput
+        value={searchInput}
+        onChange={(value) => {
+            setSearchInput(value)
             setPage(0)
           }}
-          placeholder={t("users.searchPlaceholder")}
-          className="ps-8"
-        />
-      </div>
+        placeholder={t("users.searchPlaceholder")}
+      />
       <DataTable
         tableId="permission-users"
         columns={columns}
@@ -306,7 +301,7 @@ export function PermissionDetailPage() {
   usePageBreadcrumb(permission?.name)
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {detailQuery.isLoading || !permission ? (
         <Skeleton className="h-20 w-full" />
       ) : (

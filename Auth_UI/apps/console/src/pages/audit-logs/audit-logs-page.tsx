@@ -13,6 +13,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
@@ -178,7 +179,7 @@ export function AuditLogsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("auditLogs.title")}
         description={t("auditLogs.subtitle")}
@@ -187,17 +188,23 @@ export function AuditLogsPage() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" disabled={exportMutation.isPending}>
-                  <Download />
+                  <Download data-icon="inline-start" />
                   {t("auditLogs.export")}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => exportMutation.mutate("csv")}>
-                  CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => exportMutation.mutate("json")}>
-                  JSON
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => exportMutation.mutate("csv")}
+                  >
+                    CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => exportMutation.mutate("json")}
+                  >
+                    JSON
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null

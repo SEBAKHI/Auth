@@ -17,7 +17,7 @@ import {
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { formatDate, formatDateTime } from "@astoom/ui/format"
 import { Skeleton } from "@astoom/ui/skeleton"
-import { StatCard } from "@/pages/dashboard/stat-card"
+import { StatTile } from "@/pages/dashboard/stat-tile"
 import { NotificationsTabs } from "./components/notifications-tabs"
 
 /**
@@ -46,7 +46,7 @@ export function NotificationsOverviewPage() {
   const publishedPolicy = versions.find((version) => version.isPublished)
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("notifications.overviewTitle")}
         description={t("notifications.overviewSubtitle")}
@@ -55,7 +55,7 @@ export function NotificationsOverviewPage() {
       <NotificationsTabs />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatCard
+        <StatTile
           title={t("notifications.tabPolicy")}
           value={publishedPolicy?.version ?? "—"}
           icon={ShieldCheck}
@@ -64,7 +64,7 @@ export function NotificationsOverviewPage() {
             count: (publishedPolicy?.languages ?? []).length,
           })}
         />
-        <StatCard
+        <StatTile
           title={t("notifications.tabTemplates")}
           value={summary?.templates?.total}
           icon={FileText}
@@ -74,7 +74,7 @@ export function NotificationsOverviewPage() {
             drafts: summary?.templates?.drafts ?? 0,
           })}
         />
-        <StatCard
+        <StatTile
           title={t("notifications.tabLayouts")}
           value={summary?.layouts?.total}
           icon={Layers}
@@ -83,7 +83,7 @@ export function NotificationsOverviewPage() {
             published: summary?.layouts?.published ?? 0,
           })}
         />
-        <StatCard
+        <StatTile
           title={t("notifications.overviewSent")}
           value={summary?.outbox?.sent}
           icon={MailCheck}
@@ -92,7 +92,7 @@ export function NotificationsOverviewPage() {
             count: summary?.outbox?.last24Hours ?? 0,
           })}
         />
-        <StatCard
+        <StatTile
           title={t("notifications.overviewFailed")}
           value={summary?.outbox?.failed}
           icon={MailWarning}
@@ -116,7 +116,7 @@ export function NotificationsOverviewPage() {
             </Button>
           </CardAction>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="flex flex-col gap-3">
           {policyQuery.isLoading ? (
             <SummaryListSkeleton />
           ) : versions.length ? (
@@ -129,13 +129,27 @@ export function NotificationsOverviewPage() {
                   navigate("/notifications/policy/" + version.id)
                 }
               >
-                <span className="min-w-0 space-y-0.5">
-                  <span className="block truncate font-medium" dir="ltr">
-                    {version.version}
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  {/* `block` makes this a block box, so a `dir` on it would
+                      re-resolve the inherited `text-align: start` and pull the
+                      version left of the date line beneath it. */}
+                  <span className="block truncate font-medium">
+                    <bdi dir="ltr">{version.version}</bdi>
                   </span>
+                  {/* Each run gets its own isolate. Concatenating a localized date
+                      with a free-text note in one text node let the bidi algorithm
+                      reorder across the join: an English note's trailing period
+                      jumped to the far edge in Arabic, rendering as
+                      ".Initial published policy". `bdi` + `dir="auto"` scopes each
+                      run to its own direction. */}
                   <span className="block truncate text-xs text-muted-foreground">
-                    {formatDate(version.effectiveDateUtc)}
-                    {version.changeNote ? " · " + version.changeNote : ""}
+                    <bdi>{formatDate(version.effectiveDateUtc)}</bdi>
+                    {version.changeNote ? (
+                      <>
+                        {" · "}
+                        <bdi dir="auto">{version.changeNote}</bdi>
+                      </>
+                    ) : null}
                   </span>
                 </span>
                 <span className="flex shrink-0 items-center gap-1">
@@ -171,7 +185,7 @@ export function NotificationsOverviewPage() {
               </Button>
             </CardAction>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-col gap-3">
             {loading ? (
               <SummaryListSkeleton />
             ) : summary?.publishedTemplates?.length ? (
@@ -184,16 +198,22 @@ export function NotificationsOverviewPage() {
                     navigate(`/notifications/templates/${template.id}`)
                   }
                 >
-                  <span className="min-w-0 space-y-0.5">
+                  <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="block truncate font-medium">
                       {template.typeName}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {template.applicationName ?? t("notifications.global")} ·{" "}
-                      {template.channel}
-                      {template.modifiedAt
-                        ? ` · ${formatDateTime(template.modifiedAt)}`
-                        : ""}
+                      <bdi dir="auto">
+                        {template.applicationName ?? t("notifications.global")}
+                      </bdi>
+                      {" · "}
+                      <bdi>{template.channel}</bdi>
+                      {template.modifiedAt ? (
+                        <>
+                          {" · "}
+                          <bdi>{formatDateTime(template.modifiedAt)}</bdi>
+                        </>
+                      ) : null}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
@@ -229,7 +249,7 @@ export function NotificationsOverviewPage() {
               </Button>
             </CardAction>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="flex flex-col gap-3">
             {loading ? (
               <SummaryListSkeleton />
             ) : summary?.publishedLayouts?.length ? (
@@ -240,16 +260,22 @@ export function NotificationsOverviewPage() {
                   className="flex w-full items-start justify-between gap-3 rounded-lg p-2 text-start hover:bg-muted"
                   onClick={() => navigate(`/notifications/layouts/${layout.id}`)}
                 >
-                  <span className="min-w-0 space-y-0.5">
+                  <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="block truncate font-medium">
                       {layout.name}
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
-                      {layout.applicationName ?? t("notifications.global")} ·{" "}
-                      {layout.channel}
-                      {layout.publishedAt
-                        ? ` · ${formatDateTime(layout.publishedAt)}`
-                        : ""}
+                      <bdi dir="auto">
+                        {layout.applicationName ?? t("notifications.global")}
+                      </bdi>
+                      {" · "}
+                      <bdi>{layout.channel}</bdi>
+                      {layout.publishedAt ? (
+                        <>
+                          {" · "}
+                          <bdi>{formatDateTime(layout.publishedAt)}</bdi>
+                        </>
+                      ) : null}
                     </span>
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
@@ -278,7 +304,7 @@ export function NotificationsOverviewPage() {
 
 function SummaryListSkeleton() {
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-2">
       {Array.from({ length: 3 }).map((_, index) => (
         <Skeleton key={index} className="h-10 w-full" />
       ))}

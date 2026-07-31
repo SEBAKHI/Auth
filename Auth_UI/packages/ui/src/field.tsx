@@ -133,7 +133,7 @@ function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="field-description"
       className={cn(
-        "text-left text-sm leading-normal font-normal text-muted-foreground group-has-[[data-orientation=horizontal]]/field:text-balance",
+        "text-start text-sm leading-normal font-normal text-muted-foreground group-has-[[data-orientation=horizontal]]/field:text-balance",
         "last:mt-0 nth-last-2:-mt-1 [[data-variant=legend]+&]:-mt-1.5",
         "[&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className
@@ -192,8 +192,12 @@ function FieldError({
       return errors[0].message
     }
 
+    // No `flex` on the list: it makes the children flex items instead of
+    // `list-item`, which silently drops the `list-disc` markers — so a field with
+    // several errors rendered as an unbulleted run of lines. Spacing comes from an
+    // adjacent-sibling margin, which leaves the list semantics intact.
     return (
-      <ul className="ms-4 flex list-disc flex-col gap-1">
+      <ul className="ms-4 list-disc [&>li+li]:mt-1">
         {errors.map(
           (error, index) =>
             error?.message && <li key={index}>{error.message}</li>

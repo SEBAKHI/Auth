@@ -253,6 +253,68 @@ public class DashboardStatsRepository : IDashboardStatsRepository
     }
 
     /// <inheritdoc />
+    public async Task<AuditStatsSnapshot> GetAuditStatsAsync(
+        int days,
+        string timeZone,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var sqlTimeZone = ToSqlServerTimeZone(timeZone);
+
+        // Only columns the AuditLogs table actually has are grouped on: there is no
+        // outcome column and no action-type column, so no success/failure split is
+        // possible here and none is implied.
+        using var grid = await connection.QueryMultipleAsync(@"
+            DECLARE @Now DATETIME2 = GETUTCDATE();
+            DECLARE @From DATETIME2 = DATEADD(DAY, -@Days, @Now);
+            DECLARE @PrevFrom DATETIME2 = DATEADD(DAY, -@Days, @From);
+
+            -- Current and previous window totals (for the trend delta)
+            SELECT
+                ISNULL(SUM(CASE WHEN [Timestamp] >= @From THEN 1 ELSE 0 END), 0) AS TotalInWindow,
+                ISNULL(SUM(CASE WHEN [Timestamp] < @From THEN 1 ELSE 0 END), 0) AS PreviousWindowTotal
+            FROM [dbo].[AuditLogs]
+            WHERE [Timestamp] >= @PrevFrom;
+
+            -- Events per viewer-local calendar day inside the UTC instant window
+            SELECT CAST(([Timestamp] AT TIME ZONE 'UTC') AT TIME ZONE @TimeZone AS DATE) AS [Date],
+                   COUNT(*) AS [Count]
+            FROM [dbo].[AuditLogs]
+            WHERE [Timestamp] >= @From
+            GROUP BY CAST(([Timestamp] AT TIME ZONE 'UTC') AT TIME ZONE @TimeZone AS DATE)
+            ORDER BY [Date];
+
+            -- Actions, most frequent first
+            SELECT [Action] AS Reason, COUNT(*) AS [Count]
+            FROM [dbo].[AuditLogs]
+            WHERE [Timestamp] >= @From
+            GROUP BY [Action]
+            ORDER BY [Count] DESC;
+
+            -- Affected entity types, most frequent first
+            SELECT ISNULL([EntityType], N'unknown') AS Reason, COUNT(*) AS [Count]
+            FROM [dbo].[AuditLogs]
+            WHERE [Timestamp] >= @From
+            GROUP BY ISNULL([EntityType], N'unknown')
+            ORDER BY [Count] DESC;",
+            new { Days = days, TimeZone = sqlTimeZone });
+
+        var windowTotals = await grid.ReadSingleAsync<AuditWindowTotalsRow>();
+        var eventsPerDay = (await grid.ReadAsync<DailyCount>()).ToList();
+        var topActions = (await grid.ReadAsync<ReasonCount>()).ToList();
+        var byEntityType = (await grid.ReadAsync<ReasonCount>()).ToList();
+
+        return new AuditStatsSnapshot
+        {
+            TotalInWindow = windowTotals.TotalInWindow,
+            PreviousWindowTotal = windowTotals.PreviousWindowTotal,
+            EventsPerDay = eventsPerDay,
+            TopActions = topActions,
+            ByEntityType = byEntityType
+        };
+    }
+
+    /// <inheritdoc />
     public async Task<SessionStatsSnapshot> GetSessionStatsAsync(int days, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
@@ -446,6 +508,12 @@ public class DashboardStatsRepository : IDashboardStatsRepository
     {
         public int SuccessfulLogins { get; init; }
         public int DistinctUsers { get; init; }
+    }
+
+    private record AuditWindowTotalsRow
+    {
+        public int TotalInWindow { get; init; }
+        public int PreviousWindowTotal { get; init; }
     }
 
     /// <summary>

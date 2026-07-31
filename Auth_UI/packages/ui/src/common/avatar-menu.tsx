@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { EntityAvatar } from "@astoom/ui/common/entity-avatar"
-import { Dialog, DialogContent } from "@astoom/ui/dialog"
+import { Dialog, DialogContent, DialogTitle } from "@astoom/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
@@ -54,19 +55,21 @@ export function AvatarMenu({
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          <DropdownMenuItem disabled={!src} onClick={() => setViewOpen(true)}>
-            {t("common.view")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => inputRef.current?.click()}>
-            {t("common.change")}
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            variant="destructive"
-            disabled={!src}
-            onClick={onRemove}
-          >
-            {t("common.remove")}
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuItem disabled={!src} onClick={() => setViewOpen(true)}>
+              {t("common.view")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => inputRef.current?.click()}>
+              {t("common.change")}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={!src}
+              onClick={onRemove}
+            >
+              {t("common.remove")}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -94,6 +97,11 @@ export function AvatarMenu({
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent size="md" className="p-2">
+          {/* The lightbox is purely visual, but every Dialog still needs an
+              accessible name or screen readers announce an unnamed dialog. */}
+          <DialogTitle className="sr-only">
+            {name ?? t("common.avatar")}
+          </DialogTitle>
           {src ? (
             <img
               src={src}

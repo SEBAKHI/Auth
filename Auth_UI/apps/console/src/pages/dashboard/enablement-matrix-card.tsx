@@ -19,7 +19,7 @@ import {
 } from "@astoom/ui/table"
 import type { Schemas } from "@astoom/api/types"
 
-import { ChartEmpty } from "./chart-empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
 import { daysUntil } from "./helpers"
 
 type Enablement = Schemas["OrganizationApplicationEnablementDto"]
@@ -63,7 +63,11 @@ export function EnablementMatrixCard({
         {loading ? (
           <Skeleton className="h-[180px] w-full" />
         ) : data.length === 0 ? (
-          <ChartEmpty />
+          <Empty className="py-8">
+            <EmptyHeader>
+              <EmptyTitle>{t("dashboard.noData")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -96,10 +100,22 @@ export function EnablementMatrixCard({
                       return (
                         <TableCell key={String(appId)}>
                           <Badge variant={expiring ? "destructive" : "secondary"}>
-                            {enablement.subscriptionTier ?? "✓"}
-                            {expiring
-                              ? ` · ${t("dashboard.expiresInDays", { count: Math.max(remaining, 0) })}`
-                              : ""}
+                            {/* Isolated: the tier is free text of unknown
+                                direction, and joining it to a localized phrase in
+                                one text node lets bidi reorder across the join. */}
+                            <bdi dir="auto">
+                              {enablement.subscriptionTier ?? "✓"}
+                            </bdi>
+                            {expiring ? (
+                              <>
+                                {" · "}
+                                <bdi>
+                                  {t("dashboard.expiresInDays", {
+                                    count: Math.max(remaining, 0),
+                                  })}
+                                </bdi>
+                              </>
+                            ) : null}
                           </Badge>
                         </TableCell>
                       )

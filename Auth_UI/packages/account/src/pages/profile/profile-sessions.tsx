@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Monitor, Smartphone, Tablet } from "lucide-react"
+import { Monitor, Smartphone, Tablet } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { Spinner } from "@astoom/ui/spinner"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@astoom/ui/card"
@@ -129,13 +130,13 @@ export function ProfileSessions() {
           onClick={() => setRevokeAllOpen(true)}
           disabled={revokeAll.isPending}
         >
-          {revokeAll.isPending ? <Loader2 className="animate-spin" /> : null}
+          {revokeAll.isPending ? <Spinner /> : null}
           {t("profile.revokeAll")}
         </Button>
       </CardHeader>
       <CardContent>
         {query.isLoading ? (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <Skeleton key={i} className="h-14 w-full" />
             ))}

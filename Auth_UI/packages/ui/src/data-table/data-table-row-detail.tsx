@@ -20,6 +20,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@astoom/ui/sheet"
+import { directionForLanguage } from "@astoom/i18n"
 import {
   DEFAULT_AUDIT_FIELD_KEYS,
   formatFieldValue,
@@ -73,7 +74,10 @@ export function DataTableRowDetail<TData>({
   title,
 }: DataTableRowDetailProps<TData>) {
   const { t, i18n } = useTranslation()
-  const side = i18n.dir() === "rtl" ? "left" : "right"
+  // `Sheet` takes a physical side, so derive it from the same direction source the
+  // document does. `i18n.dir()` reports `ltr` on a cold Arabic load (see
+  // `initI18n`), which opened this panel from the wrong edge.
+  const side = directionForLanguage(i18n.language) === "rtl" ? "left" : "right"
 
   const resolveLabel = React.useCallback(
     (key: string): string => {
@@ -176,7 +180,7 @@ export function DataTableRowDetail<TData>({
                   onEdit(row)
                 }}
               >
-                <Pencil />
+                <Pencil data-icon="inline-start" />
                 {t("common.edit")}
               </Button>
             ) : null}

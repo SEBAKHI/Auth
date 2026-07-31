@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -15,19 +14,24 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@astoom/ui/dialog"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
+import { PresetField } from "@astoom/ui/common/preset-field"
 import { FieldGroup } from "@astoom/ui/field"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@astoom/ui/form"
+import { ENVIRONMENTS } from "@/lib/presets"
 import { Button } from "@astoom/ui/button"
 import { Input } from "@astoom/ui/input"
 import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
+import { Spinner } from "@astoom/ui/spinner"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
@@ -118,7 +122,7 @@ export function WebhookKeyCreateDialog({
                   <FormItem>
                     <FormLabel>{t("common.name")}</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder={t("webhookKeys.namePlaceholder")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -131,7 +135,11 @@ export function WebhookKeyCreateDialog({
                   <FormItem>
                     <FormLabel>{t("webhookKeys.targetUrl")}</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://" {...field} />
+                      <Input
+                        placeholder="https://acme.com/webhooks/auth"
+                        dir="ltr"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -144,8 +152,24 @@ export function WebhookKeyCreateDialog({
                   <FormItem>
                     <FormLabel>{t("webhookKeys.environment")}</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <PresetField
+                        presets={ENVIRONMENTS}
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                      >
+                        {({ value, onChange }) => (
+                          <Input
+                            value={value}
+                            onChange={(event) => onChange(event.target.value)}
+                            placeholder="production"
+                            dir="ltr"
+                          />
+                        )}
+                      </PresetField>
                     </FormControl>
+                    <FormDescription>
+                      {t("webhookKeys.environmentHint")}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -157,7 +181,7 @@ export function WebhookKeyCreateDialog({
                   <FormItem>
                     <FormLabel>{t("common.description")}</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder={t("webhookKeys.descriptionPlaceholder")} {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -170,7 +194,13 @@ export function WebhookKeyCreateDialog({
                   <FormItem>
                     <FormLabel>{t("common.expiresAt")}</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <DatePicker
+                        value={field.value}
+                        onChange={(value) => field.onChange(value ?? "")}
+                        minDate={new Date()}
+                        maxDate={monthsFromNow(10)}
+                        placeholder={t("common.never")}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -193,7 +223,7 @@ export function WebhookKeyCreateDialog({
             form="webhook-key-form"
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("common.create")}
           </Button>
         </DialogFooter>

@@ -17,7 +17,7 @@ import type { ChartConfig } from "@astoom/ui/chart"
 import { Skeleton } from "@astoom/ui/skeleton"
 
 import { SERIES } from "./chart-constants"
-import { ChartEmpty } from "./chart-empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
 
 /**
  * Three-stage activation funnel for the window cohort:
@@ -54,7 +54,7 @@ export function FunnelCard({
         <CardTitle>{t("dashboard.funnel")}</CardTitle>
         <CardDescription>{t("dashboard.funnelSubtitle")}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="flex flex-col gap-2">
         {loading ? (
           <Skeleton className="h-[200px] w-full" />
         ) : created > 0 ? (
@@ -92,7 +92,11 @@ export function FunnelCard({
             </p>
           </>
         ) : (
-          <ChartEmpty />
+          <Empty className="py-8">
+            <EmptyHeader>
+              <EmptyTitle>{t("dashboard.noData")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         )}
       </CardContent>
     </Card>

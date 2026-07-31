@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -9,6 +8,7 @@ import { collectAllPages, unwrap } from "@astoom/api/helpers"
 import { getErrorMessage } from "@astoom/api/errors"
 import type { Schemas } from "@astoom/api/types"
 import { Button } from "@astoom/ui/button"
+import { Spinner } from "@astoom/ui/spinner"
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@astoom/ui/dialog"
+import { Field, FieldLabel } from "@astoom/ui/field"
 import { fullName } from "@astoom/ui/format"
 import { useCountdown } from "@astoom/ui/hooks/use-countdown"
 import {
@@ -24,7 +25,6 @@ import {
   InputOTPSlot,
   REGEXP_ONLY_DIGITS,
 } from "@astoom/ui/input-otp"
-import { Label } from "@astoom/ui/label"
 import { NativeSelect } from "@astoom/ui/native-select"
 
 const CODE_LENGTH = 6
@@ -163,11 +163,11 @@ function TransferOwnershipSession({
       </DialogHeader>
 
       {step === "select" ? (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor={memberSelectId}>
+        <div className="flex flex-col gap-4">
+          <Field>
+            <FieldLabel htmlFor={memberSelectId}>
               {t("organizations.transferSelectMember")}
-            </Label>
+            </FieldLabel>
             <NativeSelect
               id={memberSelectId}
               value={memberId ?? ""}
@@ -187,13 +187,15 @@ function TransferOwnershipSession({
                 </option>
               ))}
             </NativeSelect>
-          </div>
+          </Field>
 
           <div className="rounded-md border p-3">
             <p className="text-sm font-medium">
               {t("organizations.transferConsequencesTitle")}
             </p>
-            <ul className="mt-2 list-disc space-y-1 ps-5 text-sm text-muted-foreground">
+            {/* Kept as a block list so the markers survive — a flex/grid `ul`
+                drops `list-item` display and the bullets with it. */}
+            <ul className="mt-2 list-disc ps-5 text-sm text-muted-foreground [&>li+li]:mt-1">
               <li>{t("organizations.transferConsequence1")}</li>
               <li>{t("organizations.transferConsequence2")}</li>
               <li>
@@ -226,7 +228,7 @@ function TransferOwnershipSession({
               }
             >
               {initiateMutation.isPending || transferMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t(
                 platformScope
@@ -237,7 +239,7 @@ function TransferOwnershipSession({
           </DialogFooter>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <p className="text-sm text-muted-foreground">
             {t("organizations.transferCodeSent", { email: targetEmail })}
           </p>
@@ -280,7 +282,7 @@ function TransferOwnershipSession({
               onClick={() => memberId && initiateMutation.mutate(memberId)}
             >
               {initiateMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("organizations.transferResendCode")}
             </Button>
@@ -295,7 +297,7 @@ function TransferOwnershipSession({
               disabled={code.length < CODE_LENGTH || codeInputDisabled}
             >
               {transferMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("organizations.transferComplete")}
             </Button>

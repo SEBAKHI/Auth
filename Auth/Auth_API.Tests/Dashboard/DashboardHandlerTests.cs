@@ -1,4 +1,5 @@
 using Auth.Application.Features.Dashboard.GetAppActivityStats;
+using Auth.Application.Features.Dashboard.GetAuditStats;
 using Auth.Application.Features.Dashboard.GetAuthStats;
 using Auth.Application.Features.Dashboard.GetSessionStats;
 using Auth.Application.Features.Dashboard.GetUserStats;
@@ -275,6 +276,89 @@ public class GetAppActivityStatsQueryHandlerTests
     }
 }
 
+public class GetAuditStatsQueryHandlerTests
+{
+    private readonly Mock<IDashboardStatsRepository> _repoMock = new();
+    private readonly GetAuditStatsQueryHandler _handler;
+
+    public GetAuditStatsQueryHandlerTests()
+    {
+        _handler = new GetAuditStatsQueryHandler(
+            _repoMock.Object,
+            new Mock<ILogger<GetAuditStatsQueryHandler>>().Object);
+    }
+
+    private static AuditStatsSnapshot CreateSnapshot() => new()
+    {
+        TotalInWindow = 42,
+        PreviousWindowTotal = 30,
+        EventsPerDay =
+        [
+            new DailyCount(new DateTime(2026, 6, 23), 25),
+            new DailyCount(new DateTime(2026, 6, 24), 17)
+        ],
+        TopActions = [new ReasonCount("user.login", 30), new ReasonCount("user.created", 12)],
+        ByEntityType = [new ReasonCount("User", 40), new ReasonCount("unknown", 2)]
+    };
+
+    [Fact]
+    public async Task Handle_MapsSnapshotToDto()
+    {
+        _repoMock
+            .Setup(r => r.GetAuditStatsAsync(30, "UTC", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateSnapshot());
+
+        var result = await _handler.Handle(new GetAuditStatsQuery(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Days.Should().Be(30);
+        result.Value.TotalInWindow.Should().Be(42);
+        result.Value.PreviousWindowTotal.Should().Be(30);
+        result.Value.EventsPerDay.Should().HaveCount(2);
+        result.Value.EventsPerDay[0].Date.Should().Be(new DateTime(2026, 6, 23));
+        result.Value.EventsPerDay[0].Count.Should().Be(25);
+        result.Value.TopActions.Should().HaveCount(2);
+        result.Value.TopActions[0].Reason.Should().Be("user.login");
+        result.Value.TopActions[0].Count.Should().Be(30);
+        result.Value.ByEntityType.Should().HaveCount(2);
+        result.Value.ByEntityType[1].Reason.Should().Be("unknown");
+    }
+
+    [Fact]
+    public async Task Handle_TotalsAreWholeWindowNotThePageSum()
+    {
+        // The series is capped by the day buckets returned, but the totals come
+        // from their own aggregate: the dashboard previously derived both from a
+        // 100-row page, which under-reported whenever the window was busier.
+        _repoMock
+            .Setup(r => r.GetAuditStatsAsync(30, "UTC", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateSnapshot());
+
+        var result = await _handler.Handle(new GetAuditStatsQuery(), CancellationToken.None);
+
+        result.Value.EventsPerDay.Sum(d => d.Count).Should().Be(42);
+        result.Value.TotalInWindow.Should().Be(42);
+    }
+
+    [Fact]
+    public async Task Handle_PassesRequestedWindowAndZoneToRepository()
+    {
+        _repoMock
+            .Setup(r => r.GetAuditStatsAsync(7, "Europe/Istanbul", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateSnapshot());
+
+        var result = await _handler.Handle(
+            new GetAuditStatsQuery(7, "Europe/Istanbul"),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Days.Should().Be(7);
+        _repoMock.Verify(
+            r => r.GetAuditStatsAsync(7, "Europe/Istanbul", It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+}
+
 public class DashboardQueryValidatorTests
 {
     [Theory]
@@ -287,6 +371,7 @@ public class DashboardQueryValidatorTests
         new GetAuthStatsQueryValidator().Validate(new GetAuthStatsQuery(days)).IsValid.Should().BeTrue();
         new GetSessionStatsQueryValidator().Validate(new GetSessionStatsQuery(days)).IsValid.Should().BeTrue();
         new GetAppActivityStatsQueryValidator().Validate(new GetAppActivityStatsQuery(days)).IsValid.Should().BeTrue();
+        new GetAuditStatsQueryValidator().Validate(new GetAuditStatsQuery(days)).IsValid.Should().BeTrue();
     }
 
     [Theory]
@@ -299,6 +384,7 @@ public class DashboardQueryValidatorTests
         new GetAuthStatsQueryValidator().Validate(new GetAuthStatsQuery(days)).IsValid.Should().BeFalse();
         new GetSessionStatsQueryValidator().Validate(new GetSessionStatsQuery(days)).IsValid.Should().BeFalse();
         new GetAppActivityStatsQueryValidator().Validate(new GetAppActivityStatsQuery(days)).IsValid.Should().BeFalse();
+        new GetAuditStatsQueryValidator().Validate(new GetAuditStatsQuery(days)).IsValid.Should().BeFalse();
     }
 
     [Fact]
@@ -316,6 +402,13 @@ public class DashboardQueryValidatorTests
             .IsValid.Should().BeFalse();
         new GetAuthStatsQueryValidator()
             .Validate(new GetAuthStatsQuery(30, ""))
+            .IsValid.Should().BeFalse();
+
+        new GetAuditStatsQueryValidator()
+            .Validate(new GetAuditStatsQuery(30, "Europe/Istanbul"))
+            .IsValid.Should().BeTrue();
+        new GetAuditStatsQueryValidator()
+            .Validate(new GetAuditStatsQuery(30, "Turkey Standard Time"))
             .IsValid.Should().BeFalse();
     }
 }

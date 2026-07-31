@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
-import { Loader2, MailCheck } from "lucide-react"
+import { MailCheck } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -24,6 +24,7 @@ import {
 } from "@astoom/ui/form"
 import { useCountdown } from "@astoom/ui/hooks/use-countdown"
 import { Input } from "@astoom/ui/input"
+import { Spinner } from "@astoom/ui/spinner"
 import {
   InputOTP,
   InputOTPGroup,
@@ -123,6 +124,8 @@ export function DeleteAccountPage() {
                         type="email"
                         autoComplete="username"
                         autoFocus
+                        placeholder="name@example.com"
+                        dir="ltr"
                         {...field}
                       />
                     </FormControl>
@@ -136,7 +139,7 @@ export function DeleteAccountPage() {
                 disabled={requestMutation.isPending}
               >
                 {requestMutation.isPending ? (
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                 ) : null}
                 {t("accountDeletion.requestCode")}
               </Button>
@@ -173,7 +176,7 @@ export function DeleteAccountPage() {
             onClick={() => confirmMutation.mutate()}
           >
             {confirmMutation.isPending ? (
-              <Loader2 className="animate-spin" />
+              <Spinner />
             ) : null}
             {t("accountDeletion.confirmDeletion")}
           </Button>
@@ -185,7 +188,7 @@ export function DeleteAccountPage() {
             onClick={() => requestMutation.mutate(email)}
           >
             {requestMutation.isPending ? (
-              <Loader2 className="animate-spin" />
+              <Spinner />
             ) : null}
             {cooldown.expired
               ? t("accountDeletion.resendCode")

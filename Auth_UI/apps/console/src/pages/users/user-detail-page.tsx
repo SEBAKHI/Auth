@@ -18,12 +18,13 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { Field, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import { Skeleton } from "@astoom/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
 import { api } from "@astoom/api/client"
@@ -587,7 +588,7 @@ export function UserDetailPage() {
   usePageBreadcrumb(user ? displayName : undefined)
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {detailQuery.isLoading || !user ? (
         <Skeleton className="h-20 w-full" />
       ) : (
@@ -629,83 +630,93 @@ export function UserDetailPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-56">
-                      {canManageRoles ? (
-                        <DropdownMenuItem onClick={() => setRolesOpen(true)}>
-                          {t("users.manageRoles")}
-                        </DropdownMenuItem>
-                      ) : null}
-                      {canManagePerms ? (
-                        <DropdownMenuItem onClick={() => setPermsOpen(true)}>
-                          {t("users.managePermissions")}
-                        </DropdownMenuItem>
-                      ) : null}
+                      <DropdownMenuGroup>
+                        {canManageRoles ? (
+                          <DropdownMenuItem onClick={() => setRolesOpen(true)}>
+                            {t("users.manageRoles")}
+                          </DropdownMenuItem>
+                        ) : null}
+                        {canManagePerms ? (
+                          <DropdownMenuItem onClick={() => setPermsOpen(true)}>
+                            {t("users.managePermissions")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canManage ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            disabled={sendPasswordReset.isPending}
-                            onClick={() => sendPasswordReset.mutate()}
-                          >
-                            {t("users.sendPasswordReset")}
-                          </DropdownMenuItem>
-                          {!user.emailConfirmed ? (
+                          <DropdownMenuGroup>
                             <DropdownMenuItem
-                              onClick={() => setVerifyEmailOpen(true)}
+                              disabled={sendPasswordReset.isPending}
+                              onClick={() => sendPasswordReset.mutate()}
                             >
-                              {t("users.resendConfirmation")}
+                              {t("users.sendPasswordReset")}
                             </DropdownMenuItem>
-                          ) : null}
+                            {!user.emailConfirmed ? (
+                              <DropdownMenuItem
+                                onClick={() => setVerifyEmailOpen(true)}
+                              >
+                                {t("users.resendConfirmation")}
+                              </DropdownMenuItem>
+                            ) : null}
+                          </DropdownMenuGroup>
                           <DropdownMenuSeparator />
-                          {isLocked ? (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                statusAction.mutate({
-                                  id: userId,
-                                  action: "unlock",
-                                })
-                              }
-                            >
-                              {t("users.unlock")}
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem onClick={() => setLockOpen(true)}>
-                              {t("users.lock")}
-                            </DropdownMenuItem>
-                          )}
-                          {isInactive ? (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                statusAction.mutate({
-                                  id: userId,
-                                  action: "activate",
-                                })
-                              }
-                            >
-                              {t("users.activate")}
-                            </DropdownMenuItem>
-                          ) : (
-                            <DropdownMenuItem
-                              onClick={() =>
-                                statusAction.mutate({
-                                  id: userId,
-                                  action: "deactivate",
-                                })
-                              }
-                            >
-                              {t("users.deactivate")}
-                            </DropdownMenuItem>
-                          )}
+                          <DropdownMenuGroup>
+                            {isLocked ? (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  statusAction.mutate({
+                                    id: userId,
+                                    action: "unlock",
+                                  })
+                                }
+                              >
+                                {t("users.unlock")}
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() => setLockOpen(true)}
+                              >
+                                {t("users.lock")}
+                              </DropdownMenuItem>
+                            )}
+                            {isInactive ? (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  statusAction.mutate({
+                                    id: userId,
+                                    action: "activate",
+                                  })
+                                }
+                              >
+                                {t("users.activate")}
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  statusAction.mutate({
+                                    id: userId,
+                                    action: "deactivate",
+                                  })
+                                }
+                              >
+                                {t("users.deactivate")}
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                       {canDelete ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setDeleteOpen(true)}
-                          >
-                            {t("common.delete")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setDeleteOpen(true)}
+                            >
+                              {t("common.delete")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>
@@ -866,14 +877,15 @@ export function UserDetailPage() {
           statusAction.mutate({ id: userId, action: "lock", reason: lockReason })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="lock-reason">{t("users.lockReason")}</Label>
+        <Field>
+          <FieldLabel htmlFor="lock-reason">{t("users.lockReason")}</FieldLabel>
           <Input
             id="lock-reason"
             value={lockReason}
             onChange={(e) => setLockReason(e.target.value)}
+            placeholder={t("users.lockReasonPlaceholder")}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
 
       <ConfirmDialog

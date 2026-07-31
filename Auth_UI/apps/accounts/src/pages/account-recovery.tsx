@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2, TriangleAlert } from "lucide-react"
+import { TriangleAlert } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -22,6 +22,7 @@ import {
   FormMessage,
 } from "@astoom/ui/form"
 import { Input } from "@astoom/ui/input"
+import { Spinner } from "@astoom/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -176,7 +177,7 @@ export function AccountRecoveryPage() {
               disabled={externalPending}
               onClick={() => void onSubmitExternal()}
             >
-              {externalPending ? <Loader2 className="animate-spin" /> : null}
+              {externalPending ? <Spinner /> : null}
               {t("accountDeletion.restoreAccount")}
             </Button>
           </FieldGroup>
@@ -193,6 +194,7 @@ export function AccountRecoveryPage() {
                       <FormControl>
                         <Input
                           type="email"
+                          dir="ltr"
                           autoComplete="username"
                           autoFocus
                           {...field}
@@ -247,7 +249,7 @@ export function AccountRecoveryPage() {
                   disabled={form.formState.isSubmitting}
                 >
                   {form.formState.isSubmitting ? (
-                    <Loader2 className="animate-spin" />
+                    <Spinner />
                   ) : null}
                   {t("accountDeletion.restoreAccount")}
                 </Button>

@@ -1,5 +1,4 @@
 import { useMutation } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Navigate, useLocation, useNavigate } from "react-router-dom"
@@ -9,6 +8,7 @@ import { api } from "@astoom/api/client"
 import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
 import { useAuth } from "@astoom/auth/auth-context"
 import { AuthLayout } from "@astoom/ui/auth-layout"
+import { Spinner } from "@astoom/ui/spinner"
 import { Button } from "@astoom/ui/button"
 import { useCountdown } from "@astoom/ui/hooks/use-countdown"
 import {
@@ -184,7 +184,7 @@ export function VerifyEmailPage() {
             </p>
           )
         ) : resendMutation.isPending ? (
-          <Loader2 className="size-4 animate-spin text-muted-foreground" />
+          <Spinner className="text-muted-foreground" />
         ) : null}
 
         {errorMessage ? (
@@ -196,7 +196,7 @@ export function VerifyEmailPage() {
           disabled={otp.length < CODE_LENGTH || inputDisabled}
           onClick={() => void submit(otp)}
         >
-          {submitting ? <Loader2 className="animate-spin" /> : null}
+          {submitting ? <Spinner /> : null}
           {t("auth.verify")}
         </Button>
 
@@ -207,7 +207,7 @@ export function VerifyEmailPage() {
           disabled={resendMutation.isPending}
           onClick={() => resendMutation.mutate()}
         >
-          {resendMutation.isPending ? <Loader2 className="animate-spin" /> : null}
+          {resendMutation.isPending ? <Spinner /> : null}
           {t("auth.resendCode")}
         </Button>
       </div>

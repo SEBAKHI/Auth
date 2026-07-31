@@ -20,8 +20,13 @@ import { Textarea } from "@astoom/ui/textarea"
 
 /**
  * Editor for an ordered list of prose strings (paragraphs or bullets).
- * `dir="auto"` lets each textarea follow the language being edited, so RTL
- * documents stay readable while typing.
+ *
+ * The direction arrives as a prop rather than from `dir="auto"`. `auto` resolves
+ * from the *value*, never from the placeholder or the surrounding language, so
+ * an empty control always computes `ltr` — every freshly added paragraph opened
+ * left-aligned with the caret on the wrong edge while authoring an Arabic,
+ * Urdu or Persian document. The locale being edited is known to the parent, so
+ * it says so explicitly.
  */
 export function StringListEditor({
   label,
@@ -30,6 +35,7 @@ export function StringListEditor({
   disabled,
   rows = 3,
   removeLabel,
+  dir,
 }: {
   label: string
   values: string[]
@@ -38,6 +44,8 @@ export function StringListEditor({
   rows?: number
   /** Accessible name for each item's remove button. */
   removeLabel?: string
+  /** Direction of the locale being edited — see the note above on `dir="auto"`. */
+  dir: "ltr" | "rtl"
 }) {
   const { t } = useTranslation()
 
@@ -48,9 +56,10 @@ export function StringListEditor({
         {values.map((value, index) => (
           <div key={index} className="flex items-start gap-2">
             <Textarea
-              dir="auto"
+              dir={dir}
               rows={rows}
               className="flex-1"
+              placeholder={t("notifications.policyProsePlaceholder")}
               value={value}
               disabled={disabled}
               onChange={(event) => {
@@ -102,11 +111,14 @@ export function SectionListEditor({
   sections,
   onChange,
   disabled,
+  dir,
 }: {
   label: string
   sections: PolicySection[]
   onChange: (next: PolicySection[]) => void
   disabled?: boolean
+  /** Direction of the locale being edited — see the note on `StringListEditor`. */
+  dir: "ltr" | "rtl"
 }) {
   const { t } = useTranslation()
   const [pendingRemoval, setPendingRemoval] = React.useState<number | null>(null)
@@ -152,7 +164,7 @@ export function SectionListEditor({
 
       {sections.map((section, index) => (
         <Card key={index}>
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-sm text-muted-foreground">
               {t("notifications.policySectionNumber", { number: index + 1 })}
             </CardTitle>
@@ -173,14 +185,16 @@ export function SectionListEditor({
             <Field>
               <FieldLabel>{t("notifications.policyHeading")}</FieldLabel>
               <Input
-                dir="auto"
+                dir={dir}
                 value={section.heading}
                 disabled={disabled}
+                placeholder={t("notifications.policySectionHeadingPlaceholder")}
                 onChange={(event) => update(index, { heading: event.target.value })}
               />
             </Field>
 
             <StringListEditor
+              dir={dir}
               label={t("notifications.policyParagraphs")}
               values={section.paragraphs}
               disabled={disabled}
@@ -189,6 +203,7 @@ export function SectionListEditor({
             />
 
             <StringListEditor
+              dir={dir}
               label={t("notifications.policyBullets")}
               values={section.bullets ?? []}
               disabled={disabled}

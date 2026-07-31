@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { CheckCircle2, Copy, Loader2, Megaphone, Plus } from "lucide-react"
+import { CheckCircle2, Copy, Megaphone, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -24,13 +24,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@astoom/ui/dialog"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { formatDate, formatDateTime } from "@astoom/ui/format"
-import { Input } from "@astoom/ui/input"
 import { Textarea } from "@astoom/ui/textarea"
 import { PERMISSIONS } from "@/lib/constants"
 import { ClonePolicyDialog } from "./components/clone-policy-dialog"
 import { NotificationsTabs } from "./components/notifications-tabs"
+import { PolicyVersionField } from "./components/policy-version-field"
+import { Spinner } from "@astoom/ui/spinner"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
 
@@ -130,11 +132,17 @@ export function NotificationPolicyPage() {
           className="min-w-0 text-start hover:underline"
           onClick={() => navigate(`/notifications/policy/${row.original.id}`)}
         >
-          <p className="truncate font-medium" dir="ltr">
-            {row.original.version}
+          {/* The direction belongs on an inline `bdi`, not on the `p`. `dir` on a
+              block re-resolves the inherited `text-align: start` against that
+              block's own direction, so an LTR `p` inside this RTL cell aligned
+              itself left while the rest of the row stayed right. */}
+          <p className="truncate font-medium">
+            <bdi dir="ltr">{row.original.version}</bdi>
           </p>
-          <p className="truncate text-xs text-muted-foreground" dir="auto">
-            {row.original.changeNote || t("notifications.policyNoChangeNote")}
+          <p className="truncate text-xs text-muted-foreground">
+            <bdi dir="auto">
+              {row.original.changeNote || t("notifications.policyNoChangeNote")}
+            </bdi>
           </p>
         </button>
       ),
@@ -255,7 +263,7 @@ export function NotificationPolicyPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("notifications.policyTitle")}
         description={t("notifications.policySubtitle")}
@@ -297,32 +305,33 @@ export function NotificationPolicyPage() {
               <FieldLabel htmlFor="policy-version">
                 {t("notifications.policyVersion")}
               </FieldLabel>
-              <Input
+              <PolicyVersionField
                 id="policy-version"
-                dir="ltr"
-                placeholder="2026.09"
                 value={newVersion}
-                onChange={(event) => setNewVersion(event.target.value)}
+                onChange={setNewVersion}
               />
             </Field>
             <Field>
               <FieldLabel htmlFor="policy-effective">
                 {t("notifications.policyEffective")}
               </FieldLabel>
-              <Input
+              <DatePicker
                 id="policy-effective"
-                type="date"
                 value={newEffectiveDate}
-                onChange={(event) => setNewEffectiveDate(event.target.value)}
+                onChange={(value) => setNewEffectiveDate(value ?? "")}
+                minDate={monthsFromNow(-5)}
+                maxDate={monthsFromNow(5)}
               />
             </Field>
             <Field>
               <FieldLabel htmlFor="policy-note">
                 {t("notifications.policyChangeNote")}
               </FieldLabel>
+              {/* No `dir="auto"`: it resolves from the value, so an empty note
+                  computed `ltr` and opened against the wrong edge in RTL. The
+                  note is the admin's prose — it follows the console. */}
               <Textarea
                 id="policy-note"
-                dir="auto"
                 rows={3}
                 placeholder={t("notifications.policyChangeNoteHint")}
                 value={newChangeNote}
@@ -335,7 +344,7 @@ export function NotificationPolicyPage() {
               disabled={!createValid || createMutation.isPending}
               onClick={() => createMutation.mutate()}
             >
-              {createMutation.isPending ? <Loader2 className="animate-spin" /> : null}
+              {createMutation.isPending ? <Spinner /> : null}
               {t("notifications.policyAdd")}
             </Button>
           </DialogFooter>

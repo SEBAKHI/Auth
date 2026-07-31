@@ -7,8 +7,10 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { FormDialog } from "@astoom/ui/common/form-dialog"
+import { FieldContent } from "@astoom/ui/field"
 import {
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -142,8 +144,9 @@ export function OrganizationFormDialog({
             <FormItem>
               <FormLabel>{t("common.code")}</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input placeholder="acme-corp" dir="ltr" {...field} />
               </FormControl>
+              <FormDescription>{t("organizations.codeHint")}</FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -156,8 +159,9 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("common.name")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder={t("organizations.namePlaceholder")} {...field} />
             </FormControl>
+            <FormDescription>{t("organizations.nameHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -169,8 +173,11 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("organizations.contactEmail")}</FormLabel>
             <FormControl>
-              <Input type="email" {...field} />
+              <Input type="email" placeholder="contact@acme.com" dir="ltr" {...field} />
             </FormControl>
+            <FormDescription>
+              {t("organizations.contactEmailHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -182,8 +189,9 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("organizations.website")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="https://acme.com" dir="ltr" {...field} />
             </FormControl>
+            <FormDescription>{t("organizations.websiteHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -193,10 +201,11 @@ export function OrganizationFormDialog({
         name="logoUrl"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>{t("applications.logoUrl")}</FormLabel>
+            <FormLabel>{t("organizations.logoUrl")}</FormLabel>
             <FormControl>
-              <Input {...field} />
+              <Input placeholder="https://cdn.acme.com/logo.svg" dir="ltr" {...field} />
             </FormControl>
+            <FormDescription>{t("organizations.logoUrlHint")}</FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -208,8 +217,11 @@ export function OrganizationFormDialog({
           <FormItem>
             <FormLabel>{t("common.description")}</FormLabel>
             <FormControl>
-              <Textarea rows={2} {...field} />
+              <Textarea rows={2} placeholder={t("organizations.descriptionPlaceholder")} {...field} />
             </FormControl>
+            <FormDescription>
+              {t("organizations.descriptionHint")}
+            </FormDescription>
             <FormMessage />
           </FormItem>
         )}
@@ -219,13 +231,15 @@ export function OrganizationFormDialog({
           control={form.control}
           name="isActive"
           render={({ field }) => (
-            <FormItem
-              orientation="horizontal"
-              className="rounded-lg border p-3"
-            >
-              <FormLabel className="font-normal">
-                {t("common.active")}
-              </FormLabel>
+            <FormItem orientation="horizontal">
+              <FieldContent>
+                <FormLabel className="font-normal">
+                  {t("common.active")}
+                </FormLabel>
+                <FormDescription>
+                  {t("organizations.isActiveHint")}
+                </FormDescription>
+              </FieldContent>
               <FormControl>
                 <Switch
                   checked={field.value}

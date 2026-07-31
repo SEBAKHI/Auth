@@ -1,12 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { Loader2, MoreHorizontal, Plus, Send } from "lucide-react"
+import { MoreHorizontal, Plus, Send } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApplicationSelect } from "@astoom/ui/common/application-select"
+import { Spinner } from "@astoom/ui/spinner"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
+import { PresetField, type Preset } from "@astoom/ui/common/preset-field"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { DetailList } from "@astoom/ui/common/detail-list"
 import { LogoAvatar } from "@astoom/ui/common/logo-avatar"
@@ -25,14 +28,16 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { Field, FieldError, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -60,6 +65,19 @@ import { OrganizationFormDialog } from "./organization-form-dialog"
 import { TransferOwnershipDialog } from "./transfer-ownership-dialog"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Subscription tiers offered when enabling an application for an organization.
+ * Free text on the wire, so the list stays open via the Custom choice — but the
+ * field used to be a bare text box, which meant every operator invented their own
+ * spelling and the dashboard's tier badges could never be grouped.
+ */
+const SUBSCRIPTION_TIERS: Preset[] = [
+  { value: "free", label: "free" },
+  { value: "standard", label: "standard" },
+  { value: "pro", label: "pro" },
+  { value: "enterprise", label: "enterprise" },
+]
 
 function MembersTab({
   orgId,
@@ -214,18 +232,22 @@ function MembersTab({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setChangingRole(row.original)}>
-                {t("organizations.changeRole")}
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setManagingRoles(row.original)}>
-                {t("organizations.manageAppRoles")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => setRemoving(row.original)}
-              >
-                {t("organizations.removeMember")}
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => setChangingRole(row.original)}>
+                  {t("organizations.changeRole")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setManagingRoles(row.original)}
+                >
+                  {t("organizations.manageAppRoles")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setRemoving(row.original)}
+                >
+                  {t("organizations.removeMember")}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -338,24 +360,26 @@ function ChangeMemberRoleDialog({
         <DialogHeader>
           <DialogTitle>{t("organizations.changeRole")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-2">
-          <Label>{t("common.role")}</Label>
+        <Field>
+          <FieldLabel htmlFor="member-role">{t("common.role")}</FieldLabel>
           <Select value={roleId} onValueChange={setRoleId}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id="member-role" className="w-full">
               <SelectValue placeholder={t("common.role")} />
             </SelectTrigger>
             <SelectContent>
               {/* Membership role is organization-level (no application). */}
-              {(rolesQuery.data ?? [])
-                .filter((role) => role.id && !role.applicationId)
-                .map((role) => (
-                  <SelectItem key={role.id} value={role.id as string}>
-                    {role.name}
-                  </SelectItem>
-                ))}
+              <SelectGroup>
+                {(rolesQuery.data ?? [])
+                  .filter((role) => role.id && !role.applicationId)
+                  .map((role) => (
+                    <SelectItem key={role.id} value={role.id as string}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
-        </div>
+        </Field>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             {t("common.cancel")}
@@ -364,7 +388,7 @@ function ChangeMemberRoleDialog({
             onClick={() => mutation.mutate()}
             disabled={!roleId || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("common.save")}
           </Button>
         </DialogFooter>
@@ -422,6 +446,9 @@ function InviteDialog({
   })
 
   const valid = EMAIL_RE.test(email) && Boolean(roleId)
+  // Only complain once something has been typed, so the field does not open
+  // in an error state — but do explain why Confirm stays disabled.
+  const emailInvalid = email.length > 0 && !EMAIL_RE.test(email)
 
   const { requestOpenChange, discardDialog } = useDirtyClose({
     isDirty: Boolean(email) || Boolean(roleId),
@@ -434,35 +461,46 @@ function InviteDialog({
         <DialogHeader>
           <DialogTitle>{t("organizations.inviteMember")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>{t("organizations.inviteEmail")}</Label>
+        <FieldGroup>
+          <Field data-invalid={emailInvalid}>
+            <FieldLabel htmlFor="invite-email">
+              {t("organizations.inviteEmail")}
+            </FieldLabel>
             <Input
+              id="invite-email"
               type="email"
+              aria-invalid={emailInvalid}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@example.com"
+              dir="ltr"
             />
-          </div>
-          <div className="space-y-2">
-            <Label>{t("common.role")}</Label>
+            {emailInvalid ? (
+              <FieldError>{t("validation.email")}</FieldError>
+            ) : null}
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="invite-role">{t("common.role")}</FieldLabel>
             <Select value={roleId} onValueChange={setRoleId}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="invite-role" className="w-full">
                 <SelectValue placeholder={t("common.role")} />
               </SelectTrigger>
               <SelectContent>
                 {/* The invited role becomes the org membership role, so only
                     organization-level roles (no application) are valid here. */}
-                {(rolesQuery.data ?? [])
-                  .filter((role) => role.id && !role.applicationId)
-                  .map((role) => (
-                    <SelectItem key={role.id} value={role.id as string}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
+                <SelectGroup>
+                  {(rolesQuery.data ?? [])
+                    .filter((role) => role.id && !role.applicationId)
+                    .map((role) => (
+                      <SelectItem key={role.id} value={role.id as string}>
+                        {role.name}
+                      </SelectItem>
+                    ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => requestOpenChange(false)}>
             {t("common.cancel")}
@@ -471,7 +509,7 @@ function InviteDialog({
             onClick={() => mutation.mutate()}
             disabled={!valid || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("organizations.inviteMember")}
           </Button>
         </DialogFooter>
@@ -563,7 +601,7 @@ function InvitationsTab({ orgId }: { orgId: string }) {
               row.original.id && resendMutation.mutate(row.original.id)
             }
           >
-            <Send />
+            <Send data-icon="inline-start" />
             {t("organizations.resendInvite")}
           </Button>
         </div>
@@ -572,10 +610,10 @@ function InvitationsTab({ orgId }: { orgId: string }) {
   ]
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex justify-end">
         <Button onClick={() => setInviteOpen(true)}>
-          <Plus />
+          <Plus data-icon="inline-start" />
           {t("organizations.inviteMember")}
         </Button>
       </div>
@@ -763,15 +801,17 @@ function ApplicationsTab({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setEditingApp(row.original)}>
-                {t("organizations.editSubscription")}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => setRemoving(row.original)}
-              >
-                {t("common.remove")}
-              </DropdownMenuItem>
+              <DropdownMenuGroup>
+                <DropdownMenuItem onClick={() => setEditingApp(row.original)}>
+                  {t("organizations.editSubscription")}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setRemoving(row.original)}
+                >
+                  {t("common.remove")}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -796,10 +836,10 @@ function ApplicationsTab({
   })
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <div className="flex justify-end">
         <Button onClick={() => setEnableOpen(true)}>
-          <Plus />
+          <Plus data-icon="inline-start" />
           {t("organizations.enableApplication")}
         </Button>
       </div>
@@ -819,25 +859,53 @@ function ApplicationsTab({
           <DialogHeader>
             <DialogTitle>{t("organizations.enableApplication")}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <ApplicationSelect
-              value={appId}
-              onChange={setAppId}
-              className="w-full"
-            />
-            <div className="space-y-2">
-              <Label>{t("applications.subscriptionTier")}</Label>
-              <Input value={tier} onChange={(e) => setTier(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>{t("common.expiresAt")}</Label>
-              <Input
-                type="date"
-                value={expiresAt}
-                onChange={(e) => setExpiresAt(e.target.value)}
+          <FieldGroup>
+            <Field>
+              <FieldLabel htmlFor="enable-app-application">
+                {t("common.application")}
+              </FieldLabel>
+              <ApplicationSelect
+                id="enable-app-application"
+                value={appId}
+                onChange={setAppId}
+                className="w-full"
               />
-            </div>
-          </div>
+            </Field>
+            <Field>
+              <FieldLabel id="enable-app-tier-label" htmlFor="enable-app-tier">
+                {t("applications.subscriptionTier")}
+              </FieldLabel>
+              <PresetField
+                aria-labelledby="enable-app-tier-label"
+                presets={SUBSCRIPTION_TIERS}
+                value={tier}
+                onChange={setTier}
+              >
+                {({ value, onChange }) => (
+                  <Input
+                    id="enable-app-tier"
+                    value={value}
+                    onChange={(event) => onChange(event.target.value)}
+                    placeholder="pro"
+                    dir="ltr"
+                  />
+                )}
+              </PresetField>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="enable-app-expires">
+                {t("common.expiresAt")}
+              </FieldLabel>
+              <DatePicker
+                id="enable-app-expires"
+                value={expiresAt}
+                onChange={(value) => setExpiresAt(value ?? "")}
+                minDate={new Date()}
+                maxDate={monthsFromNow(10)}
+                placeholder={t("common.never")}
+              />
+            </Field>
+          </FieldGroup>
           <DialogFooter>
             <Button variant="outline" onClick={() => requestEnableClose(false)}>
               {t("common.cancel")}
@@ -847,7 +915,7 @@ function ApplicationsTab({
               disabled={!appId || enableMutation.isPending}
             >
               {enableMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("common.confirm")}
             </Button>
@@ -929,24 +997,55 @@ function EditOrgAppDialog({
         <DialogHeader>
           <DialogTitle>{t("organizations.editSubscription")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>{t("applications.subscriptionTier")}</Label>
-            <Input value={tier} onChange={(e) => setTier(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>{t("common.expiresAt")}</Label>
-            <Input
-              type="date"
+        <FieldGroup>
+          <Field>
+            <FieldLabel id="edit-sub-tier-label" htmlFor="edit-sub-tier">
+              {t("applications.subscriptionTier")}
+            </FieldLabel>
+            <PresetField
+              aria-labelledby="edit-sub-tier-label"
+              presets={SUBSCRIPTION_TIERS}
+              value={tier}
+              onChange={setTier}
+            >
+              {({ value, onChange }) => (
+                <Input
+                  id="edit-sub-tier"
+                  value={value}
+                  onChange={(event) => onChange(event.target.value)}
+                  placeholder="pro"
+                  dir="ltr"
+                />
+              )}
+            </PresetField>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="edit-sub-expires">
+              {t("common.expiresAt")}
+            </FieldLabel>
+            <DatePicker
+              id="edit-sub-expires"
               value={expiresAt}
-              onChange={(e) => setExpiresAt(e.target.value)}
+              onChange={(value) => setExpiresAt(value ?? "")}
+              minDate={new Date()}
+              maxDate={monthsFromNow(10)}
+              placeholder={t("common.never")}
             />
-          </div>
-          <div className="flex items-center justify-between rounded-lg border p-3">
-            <Label className="font-normal">{t("common.active")}</Label>
-            <Switch checked={isActive} onCheckedChange={setIsActive} />
-          </div>
-        </div>
+          </Field>
+          <Field
+            orientation="horizontal"
+            className="justify-between rounded-lg border p-3"
+          >
+            <FieldLabel htmlFor="edit-sub-active" className="font-normal">
+              {t("common.active")}
+            </FieldLabel>
+            <Switch
+              id="edit-sub-active"
+              checked={isActive}
+              onCheckedChange={setIsActive}
+            />
+          </Field>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>
             {t("common.cancel")}
@@ -955,7 +1054,7 @@ function EditOrgAppDialog({
             onClick={() => mutation.mutate()}
             disabled={mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("common.save")}
           </Button>
         </DialogFooter>
@@ -1010,7 +1109,7 @@ export function OrganizationDetailPage({
   const canTransferOwnership = isOwner || canManagePlatform
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {detailQuery.isLoading || !org ? (
         <Skeleton className="h-20 w-full" />
       ) : (

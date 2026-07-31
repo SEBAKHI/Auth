@@ -10,10 +10,16 @@ import { unwrap } from "@astoom/api/helpers"
 import { SUPPORTED_LANGUAGES } from "@astoom/i18n"
 import { ApplicationSelect } from "@astoom/ui/common/application-select"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { Label } from "@astoom/ui/label"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@astoom/ui/field"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -76,50 +82,61 @@ export function CreateTemplateDialog({
       loading={createMutation.isPending}
       onConfirm={() => typeId && createMutation.mutate()}
     >
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>{t("notifications.type")}</Label>
+      <FieldGroup>
+        <Field>
+          <FieldLabel htmlFor="create-template-type">
+            {t("notifications.type")}
+          </FieldLabel>
           <Select value={typeId} onValueChange={setTypeId}>
-            <SelectTrigger>
+            <SelectTrigger id="create-template-type">
               <SelectValue placeholder={t("notifications.selectType")} />
             </SelectTrigger>
             <SelectContent>
-              {types.map((type) => (
-                <SelectItem key={type.id} value={type.id!}>
-                  {type.name}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                {types.map((type) => (
+                  <SelectItem key={type.id} value={type.id!}>
+                    {type.name}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
-        </div>
-        <div className="space-y-2">
-          <Label>{t("notifications.application")}</Label>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="create-template-application">
+            {t("notifications.application")}
+          </FieldLabel>
           <ApplicationSelect
+            id="create-template-application"
             value={applicationId}
             onChange={setApplicationId}
             allowAll
             placeholder={t("notifications.globalTemplate")}
           />
-          <p className="text-xs text-muted-foreground">
+          <FieldDescription>
             {t("notifications.applicationScopeHint")}
-          </p>
-        </div>
-        <div className="space-y-2">
-          <Label>{t("notifications.defaultLanguage")}</Label>
+          </FieldDescription>
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="create-template-language">
+            {t("notifications.defaultLanguage")}
+          </FieldLabel>
           <Select value={defaultLanguage} onValueChange={setDefaultLanguage}>
-            <SelectTrigger>
+            <SelectTrigger id="create-template-language">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {SUPPORTED_LANGUAGES.map((language) => (
-                <SelectItem key={language.code} value={language.code}>
-                  {language.label}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                {SUPPORTED_LANGUAGES.map((language) => (
+                  <SelectItem key={language.code} value={language.code}>
+                    {language.label}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
-        </div>
-      </div>
+        </Field>
+      </FieldGroup>
     </ConfirmDialog>
   )
 }

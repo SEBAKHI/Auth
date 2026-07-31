@@ -73,7 +73,15 @@ function Calendar({
           "relative rounded-md border border-input shadow-xs has-focus:border-ring has-focus:ring-3 has-focus:ring-ring/30",
           defaultClassNames.dropdown_root
         ),
-        dropdown: cn("absolute inset-0 opacity-0", defaultClassNames.dropdown),
+        // The real <select> sits invisible over the styled trigger, but its option
+        // list is drawn by the browser. `color-scheme` on the root (preset.css)
+        // makes that popup follow the theme; these colours are the fallback for
+        // platforms that ignore it — without them the month and year lists were
+        // light-on-white in dark mode.
+        dropdown: cn(
+          "absolute inset-0 bg-popover text-popover-foreground opacity-0 [&>option]:bg-popover [&>option]:text-popover-foreground",
+          defaultClassNames.dropdown
+        ),
         caption_label: cn(
           "select-none font-medium",
           captionLayout === "label"
@@ -189,6 +197,15 @@ function CalendarDayButton({
       data-range-middle={modifiers.range_middle}
       className={cn(
         "flex aspect-square size-auto w-full min-w-(--cell-size) flex-col gap-1 rounded-md font-normal leading-none data-[range-end=true]:rounded-e-md data-[range-middle=true]:rounded-none data-[range-start=true]:rounded-s-md data-[selected-single=true]:bg-primary data-[selected-single=true]:text-primary-foreground data-[range-end=true]:bg-primary data-[range-end=true]:text-primary-foreground data-[range-middle=true]:bg-accent data-[range-middle=true]:text-accent-foreground data-[range-start=true]:bg-primary data-[range-start=true]:text-primary-foreground group-data-[focused=true]/day:border-ring group-data-[focused=true]/day:ring-3 group-data-[focused=true]/day:ring-ring/30",
+        // Upstream's own fix for hovering a selected day in dark mode, and the whole
+        // fix needed. The ghost variant's `dark:hover:bg-muted/50` outranks
+        // `data-[selected]:bg-primary` (Tailwind emits `dark:` in a later layer), so
+        // the background does go grey on hover — the bug was that the text stayed
+        // `primary-foreground`, which is near-black in dark mode. Pinning the text in
+        // that same `dark:hover:` layer keeps it light, so grey-on-light stays
+        // readable. This class is missing from the revision of the calendar vendored
+        // here; current upstream carries it.
+        "dark:hover:text-foreground",
         defaultClassNames.day,
         className
       )}

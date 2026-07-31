@@ -9,13 +9,19 @@ import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
 import { unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
-import { SUPPORTED_LANGUAGES } from "@astoom/i18n"
+import { directionForLanguage, SUPPORTED_LANGUAGES } from "@astoom/i18n"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { usePageBreadcrumb } from "@astoom/ui/crumbs"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import { Skeleton } from "@astoom/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@astoom/ui/tabs"
 import { useDebouncedValue } from "@astoom/ui/hooks/use-debounced-value"
@@ -192,7 +198,7 @@ export function NotificationLayoutDetailPage() {
 
   if (query.isLoading || !layout) {
     return (
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <Skeleton className="h-10 w-72" />
         <Skeleton className="h-[540px] w-full" />
       </div>
@@ -200,9 +206,13 @@ export function NotificationLayoutDetailPage() {
   }
 
   const activeStrings = strings[previewLanguage] ?? {}
+  // The per-locale chrome strings below are written in the locale on the tab
+  // strip, not in the console's language. `dir="auto"` cannot express that: it
+  // resolves from the value, so an untranslated string always computed `ltr`.
+  const contentDir = directionForLanguage(previewLanguage)
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={layout.name ?? ""}
         description={
@@ -226,7 +236,7 @@ export function NotificationLayoutDetailPage() {
                 disabled={isDirty || !layout.hasUnpublishedChanges || publishMutation.isPending}
                 onClick={() => publishMutation.mutate()}
               >
-                <Check />
+                <Check data-icon="inline-start" />
                 {t("notifications.publish")}
               </Button>
             </div>
@@ -249,7 +259,7 @@ export function NotificationLayoutDetailPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <Tabs value={previewLanguage} onValueChange={setPreviewLanguage}>
             {/* Wrapping needs the height to follow the rows; the strip's
                 default fixed height would cut off every row but the first. */}
@@ -268,75 +278,84 @@ export function NotificationLayoutDetailPage() {
             </TabsList>
           </Tabs>
 
-          <div className="space-y-2">
-            <Label htmlFor="layout-name">{t("notifications.layoutName")}</Label>
-            <Input
-              id="layout-name"
-              dir="auto"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              disabled={!canManage}
+          <FieldGroup>
+            <Field data-disabled={!canManage}>
+              <FieldLabel htmlFor="layout-name">
+                {t("notifications.layoutName")}
+              </FieldLabel>
+              {/* A layout name is console metadata shared by every locale, so it
+                  follows the console's direction. */}
+              <Input
+                id="layout-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("notifications.layoutNamePlaceholder")}
+                disabled={!canManage}
+              />
+            </Field>
+
+            {/* The editor is a CodeMirror surface, not a labelable control, so
+                the field is titled and the editor carries the same aria-label. */}
+            <Field>
+              <FieldTitle>{t("notifications.layoutContent")}</FieldTitle>
+              <CodeEditor
+                ref={editorRef}
+                value={content}
+                onChange={setContent}
+                minHeight="380px"
+                ariaLabel={t("notifications.layoutContent")}
+                allowImages
+              />
+            </Field>
+
+            <VariablePalette
+              title={t("notifications.layoutSlots")}
+              variables={layoutSlots}
+              onInsert={(placeholder) => {
+                if (!insertAtCursor(editorRef, placeholder)) {
+                  setContent((current) => current + placeholder)
+                }
+              }}
             />
-          </div>
 
-          <div className="space-y-2">
-            <Label>{t("notifications.layoutContent")}</Label>
-            <CodeEditor
-              ref={editorRef}
-              value={content}
-              onChange={setContent}
-              minHeight="380px"
-              ariaLabel={t("notifications.layoutContent")}
-              allowImages
+            <VariablePalette
+              title={t("notifications.globalVariables")}
+              variables={rendererGlobals}
+              onInsert={(placeholder) => {
+                if (!insertAtCursor(editorRef, placeholder)) {
+                  setContent((current) => current + placeholder)
+                }
+              }}
             />
-          </div>
 
-          <VariablePalette
-            title={t("notifications.layoutSlots")}
-            variables={layoutSlots}
-            onInsert={(placeholder) => {
-              if (!insertAtCursor(editorRef, placeholder)) {
-                setContent((current) => current + placeholder)
-              }
-            }}
-          />
-
-          <VariablePalette
-            title={t("notifications.globalVariables")}
-            variables={rendererGlobals}
-            onInsert={(placeholder) => {
-              if (!insertAtCursor(editorRef, placeholder)) {
-                setContent((current) => current + placeholder)
-              }
-            }}
-          />
-
-          <div className="space-y-2">
-            <Label htmlFor="layout-footer">
-              {t("notifications.layoutFooter", { language: previewLanguage.toUpperCase() })}
-            </Label>
-            <Input
-              id="layout-footer"
-              dir="auto"
-              value={activeStrings.footer ?? ""}
-              onChange={(e) =>
-                setStrings((current) => ({
-                  ...current,
-                  [previewLanguage]: {
-                    ...(current[previewLanguage] ?? {}),
-                    footer: e.target.value,
-                  },
-                }))
-              }
-              disabled={!canManage}
-            />
-            <p className="text-xs text-muted-foreground">
-              {t("notifications.layoutFooterHint")}
-            </p>
-          </div>
+            <Field data-disabled={!canManage}>
+              <FieldLabel htmlFor="layout-footer">
+                {t("notifications.layoutFooter", { language: previewLanguage.toUpperCase() })}
+              </FieldLabel>
+              <Input
+                id="layout-footer"
+                dir={contentDir}
+                value={activeStrings.footer ?? ""}
+                onChange={(e) =>
+                  setStrings((current) => ({
+                    ...current,
+                    [previewLanguage]: {
+                      ...(current[previewLanguage] ?? {}),
+                      footer: e.target.value,
+                    },
+                  }))
+                }
+                placeholder={t("notifications.layoutFooterPlaceholder")}
+                disabled={!canManage}
+              />
+              <FieldDescription>
+                {t("notifications.layoutFooterHint")}
+              </FieldDescription>
+            </Field>
+          </FieldGroup>
         </div>
 
-        <div className="space-y-3">
+        <div className="flex flex-col gap-3">
           <p className="text-sm font-medium">{t("notifications.preview")}</p>
           <PreviewPane
             preview={preview}

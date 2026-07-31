@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -18,9 +17,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@astoom/ui/dialog"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
+import { PolicyVersionField } from "./policy-version-field"
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
 import { Textarea } from "@astoom/ui/textarea"
+import { Spinner } from "@astoom/ui/spinner"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
 
@@ -136,34 +137,36 @@ export function ClonePolicyDialog({
             <FieldLabel htmlFor="clone-version">
               {t("notifications.policyVersion")}
             </FieldLabel>
-            <Input
+            <PolicyVersionField
               id="clone-version"
-              dir="ltr"
-              placeholder="2026.09"
               value={version}
               disabled={cloneMutation.isPending}
-              onChange={(event) => setVersion(event.target.value)}
+              onChange={setVersion}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="clone-effective">
               {t("notifications.policyEffective")}
             </FieldLabel>
-            <Input
+            <DatePicker
               id="clone-effective"
-              type="date"
               value={effectiveDate}
               disabled={cloneMutation.isPending}
-              onChange={(event) => setEffectiveDate(event.target.value)}
+              onChange={(value) => setEffectiveDate(value ?? "")}
+              minDate={monthsFromNow(-5)}
+              maxDate={monthsFromNow(5)}
             />
           </Field>
           <Field>
             <FieldLabel htmlFor="clone-note">
               {t("notifications.policyChangeNote")}
             </FieldLabel>
+            {/* No `dir="auto"`: Chrome resolves `auto` from the value alone, so an
+                empty control computes `ltr` and this note opened left-aligned with
+                the caret on the wrong edge in every RTL locale. The note is the
+                admin's own prose, so it follows the console's direction. */}
             <Textarea
               id="clone-note"
-              dir="auto"
               rows={2}
               placeholder={t("notifications.policyChangeNoteHint")}
               value={changeNote}
@@ -185,7 +188,7 @@ export function ClonePolicyDialog({
             disabled={!valid || cloneMutation.isPending}
             onClick={() => cloneMutation.mutate()}
           >
-            {cloneMutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {cloneMutation.isPending ? <Spinner /> : null}
             {t("notifications.policyClone")}
           </Button>
         </DialogFooter>

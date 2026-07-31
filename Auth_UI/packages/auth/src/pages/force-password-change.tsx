@@ -1,5 +1,4 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Loader2 } from "lucide-react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -20,6 +19,7 @@ import {
 import { Input } from "@astoom/ui/input"
 import { getErrorMessage } from "@astoom/api/errors"
 import { AuthLayout } from "@astoom/ui/auth-layout"
+import { Spinner } from "@astoom/ui/spinner"
 
 export function ForcePasswordChangePage() {
   const { t } = useTranslation()
@@ -120,7 +120,7 @@ export function ForcePasswordChangePage() {
               disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : null}
               {t("auth.changePassword")}
             </Button>

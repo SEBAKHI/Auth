@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { Loader2, MoreHorizontal, Plus, ShieldCheck } from "lucide-react"
+import { MoreHorizontal, Plus, ShieldCheck } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -22,12 +22,20 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { PresetField } from "@astoom/ui/common/preset-field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
+import { toGracePeriod, useGracePeriodPresets } from "@/lib/presets"
 import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
@@ -36,6 +44,7 @@ import { getErrorMessage } from "@astoom/api/errors"
 import { formatDateTime } from "@astoom/ui/format"
 import type { Schemas } from "@astoom/api/types"
 import { ApiKeyCreateDialog } from "./api-key-create-dialog"
+import { Spinner } from "@astoom/ui/spinner"
 
 type ApiKeyDto = Schemas["ApiKeyDto"]
 
@@ -71,13 +80,22 @@ function ValidateApiKeyDialog({
         <DialogHeader>
           <DialogTitle>{t("apiKeys.validateTitle")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={t("apiKeys.validatePlaceholder")}
-            className="font-mono text-xs"
-          />
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="validate-api-key">
+              {t("apiKeys.keyLabel")}
+            </FieldLabel>
+            {/* Pasted key material — pinned LTR to match the dialog that issues
+                it, so the same string is not read two different ways. */}
+            <Input
+              id="validate-api-key"
+              dir="ltr"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={t("apiKeys.validatePlaceholder")}
+              className="font-mono text-xs"
+            />
+          </Field>
           {result ? (
             <div className="rounded-lg border p-3 text-sm">
               <Badge variant={result.active ? "default" : "destructive"}>
@@ -90,7 +108,7 @@ function ValidateApiKeyDialog({
               ) : null}
             </div>
           ) : null}
-        </div>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.close")}
@@ -99,7 +117,7 @@ function ValidateApiKeyDialog({
             onClick={() => value && mutation.mutate(value)}
             disabled={!value || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("apiKeys.validate")}
           </Button>
         </DialogFooter>
@@ -121,6 +139,7 @@ export function ApiKeysPage() {
   const [revokeReason, setRevokeReason] = React.useState("")
   const [rotateKey, setRotateKey] = React.useState<ApiKeyDto | undefined>()
   const [grace, setGrace] = React.useState("60")
+  const gracePresets = useGracePeriodPresets()
 
   const canCreate = hasPermission(PERMISSIONS.apiKeys.create)
   const canRevoke = hasPermission(PERMISSIONS.apiKeys.revoke)
@@ -186,7 +205,9 @@ export function ApiKeysPage() {
         <div className="min-w-0">
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate font-mono text-xs text-muted-foreground">
-            {row.original.keyPrefix}…
+            {/* The ellipsis is neutral, so in an RTL paragraph it took the
+                paragraph level and rendered before the prefix. */}
+            <bdi dir="ltr">{row.original.keyPrefix}…</bdi>
           </p>
         </div>
       ),
@@ -265,20 +286,24 @@ export function ApiKeysPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {canRotate ? (
-                        <DropdownMenuItem onClick={() => setRotateKey(key)}>
-                          {t("apiKeys.rotate")}
-                        </DropdownMenuItem>
-                      ) : null}
+                      <DropdownMenuGroup>
+                        {canRotate ? (
+                          <DropdownMenuItem onClick={() => setRotateKey(key)}>
+                            {t("apiKeys.rotate")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canRevoke ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setRevokeKey(key)}
-                          >
-                            {t("apiKeys.revoke")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setRevokeKey(key)}
+                            >
+                              {t("apiKeys.revoke")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>
@@ -292,7 +317,7 @@ export function ApiKeysPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("apiKeys.title")}
         description={t("apiKeys.subtitle")}
@@ -300,7 +325,7 @@ export function ApiKeysPage() {
           <div className="flex items-center gap-2">
             {canValidate ? (
               <Button variant="outline" onClick={() => setValidateOpen(true)}>
-                <ShieldCheck />
+                <ShieldCheck data-icon="inline-start" />
                 {t("apiKeys.validate")}
               </Button>
             ) : null}
@@ -309,7 +334,7 @@ export function ApiKeysPage() {
                 onClick={() => setCreateOpen(true)}
                 disabled={!applicationId}
               >
-                <Plus />
+                <Plus data-icon="inline-start" />
                 {t("apiKeys.newKey")}
               </Button>
             ) : null}
@@ -381,14 +406,17 @@ export function ApiKeysPage() {
           revokeMutation.mutate({ id: revokeKey.id, reason: revokeReason })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="revoke-reason">{t("apiKeys.revokeReason")}</Label>
+        <Field>
+          <FieldLabel htmlFor="revoke-reason">
+            {t("apiKeys.revokeReason")}
+          </FieldLabel>
           <Input
             id="revoke-reason"
             value={revokeReason}
             onChange={(e) => setRevokeReason(e.target.value)}
+            placeholder={t("apiKeys.revokeReasonPlaceholder")}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -402,20 +430,25 @@ export function ApiKeysPage() {
           rotateKey?.id &&
           rotateMutation.mutate({
             id: rotateKey.id,
-            gracePeriodMinutes: Number(grace) || 60,
+            gracePeriodMinutes: toGracePeriod(grace),
           })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="grace">{t("apiKeys.gracePeriod")}</Label>
-          <Input
-            id="grace"
-            type="number"
-            min={0}
-            value={grace}
-            onChange={(e) => setGrace(e.target.value)}
-          />
-        </div>
+        <Field>
+          <FieldLabel htmlFor="grace">{t("apiKeys.gracePeriod")}</FieldLabel>
+          <PresetField presets={gracePresets} value={grace} onChange={setGrace}>
+            {({ value, onChange }) => (
+              <Input
+                id="grace"
+                type="number"
+                min={0}
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+              />
+            )}
+          </PresetField>
+          <FieldDescription>{t("apiKeys.gracePeriodHint")}</FieldDescription>
+        </Field>
       </ConfirmDialog>
     </div>
   )

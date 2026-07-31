@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
 import { toNumber, unwrap } from "@astoom/api/helpers"
+import { directionForLanguage } from "@astoom/i18n"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
 import {
@@ -108,11 +109,23 @@ export function OutboxMessageSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent size="xl" className="overflow-y-auto">
         <SheetHeader>
-          <SheetTitle dir="auto">{message?.subject ?? t("notifications.outboxMessage")}</SheetTitle>
+          {/* SheetTitle renders an <h2>: a `dir` on it would re-resolve the
+              inherited `text-align: start` and shove the heading to the far edge.
+              The subject belongs to the message's own locale, so isolate that run
+              inline instead. */}
+          <SheetTitle>
+            {message?.subject ? (
+              <bdi dir={directionForLanguage(message.languageCode ?? "")}>
+                {message.subject}
+              </bdi>
+            ) : (
+              t("notifications.outboxMessage")
+            )}
+          </SheetTitle>
           <SheetDescription>{t("notifications.outboxMessageHint")}</SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-4 px-4 pb-6">
+        <div className="flex flex-col gap-4 px-4 pb-6">
           {query.isLoading || !message ? (
             <Skeleton className="h-64 w-full" />
           ) : (
@@ -127,8 +140,11 @@ export function OutboxMessageSheet({
               </dl>
 
               {message.lastError ? (
-                <p className="rounded-md border border-destructive/50 p-3 text-sm text-destructive" role="alert" dir="auto">
-                  {message.lastError}
+                <p className="rounded-md border border-destructive/50 p-3 text-sm text-destructive" role="alert">
+                  {/* Provider errors arrive in English; isolating them inline keeps
+                      the paragraph aligned with the rest of the sheet, which a
+                      `dir` on the `p` itself would not. */}
+                  <bdi dir="auto">{message.lastError}</bdi>
                 </p>
               ) : null}
 
@@ -136,10 +152,11 @@ export function OutboxMessageSheet({
                 <Button
                   variant="outline"
                   size="sm"
+                  className="self-start"
                   disabled={retryMutation.isPending}
                   onClick={() => retryMutation.mutate()}
                 >
-                  <RotateCcw />
+                  <RotateCcw data-icon="inline-start" />
                   {t("notifications.retryNow")}
                 </Button>
               ) : null}
@@ -160,7 +177,10 @@ export function OutboxMessageSheet({
                 />
               ) : (
                 <pre
-                  dir="auto"
+                  // The delivered body is in one known locale — the message says
+                  // which — so bind the direction instead of guessing from the
+                  // text, which mis-set it whenever the body opened with Latin.
+                  dir={directionForLanguage(message.languageCode ?? "")}
                   className="h-[480px] w-full overflow-auto whitespace-pre-wrap rounded-md border bg-background p-4 text-sm"
                 >
                   {message.bodyText || "—"}

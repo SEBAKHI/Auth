@@ -1,10 +1,11 @@
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { Button } from "@astoom/ui/button"
+import { Spinner } from "@astoom/ui/spinner"
+import { Field, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
 import {
   InputOTP,
@@ -12,7 +13,6 @@ import {
   InputOTPSlot,
   REGEXP_ONLY_DIGITS,
 } from "@astoom/ui/input-otp"
-import { Label } from "@astoom/ui/label"
 import { AuthLayout } from "@astoom/ui/auth-layout"
 import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
 import {
@@ -137,11 +137,16 @@ export function TwoFactorVerifyPage({
     >
       <div className="flex flex-col items-center gap-4">
         {useRecoveryCode ? (
-          <div className="w-full space-y-2">
-            <Label htmlFor="recovery-code">{t("auth.recoveryCode")}</Label>
+          <Field data-disabled={submitting}>
+            <FieldLabel htmlFor="recovery-code">
+              {t("auth.recoveryCode")}
+            </FieldLabel>
+            {/* Pinned LTR for the same reason the OTP branch below is: a recovery
+                code is transcribed exactly, so it must not follow an RTL console. */}
             <Input
               id="recovery-code"
               ref={codeInputRef}
+              dir="ltr"
               value={code}
               onChange={(e) => setCode(e.target.value)}
               autoComplete="one-time-code"
@@ -149,7 +154,7 @@ export function TwoFactorVerifyPage({
               disabled={submitting}
               className="font-mono"
             />
-          </div>
+          </Field>
         ) : (
           <InputOTP
             ref={codeInputRef}
@@ -179,7 +184,7 @@ export function TwoFactorVerifyPage({
           }
           onClick={() => void submit(code)}
         >
-          {submitting ? <Loader2 className="animate-spin" /> : null}
+          {submitting ? <Spinner /> : null}
           {t("auth.verify")}
         </Button>
 

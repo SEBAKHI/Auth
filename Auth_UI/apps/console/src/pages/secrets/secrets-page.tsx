@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { KeyRound, Loader2, Lock, RefreshCw, Upload } from "lucide-react"
+import { KeyRound, Lock, RefreshCw, Upload } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -21,14 +21,16 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -39,6 +41,7 @@ import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
 import { getErrorMessage } from "@astoom/api/errors"
 import { formatDateTime, secretStatusMeta } from "@astoom/ui/format"
+import { Spinner } from "@astoom/ui/spinner"
 
 const SECRET_STATUS_LABEL: Record<string, string> = {
   notConfigured: "Not configured",
@@ -100,33 +103,44 @@ function ImportDialog({
           <DialogTitle>{t("secrets.importRsa")}</DialogTitle>
           <DialogDescription>{t("secrets.subtitle")}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>{t("common.type")}</Label>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="import-secret-kind">
+              {t("common.type")}
+            </FieldLabel>
             <Select
               value={kind}
               onValueChange={(v) => setKind(v as ImportKind)}
             >
-              <SelectTrigger className="w-full">
+              <SelectTrigger id="import-secret-kind" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="rsa">RSA</SelectItem>
-                <SelectItem value="hmac">HMAC</SelectItem>
-                <SelectItem value="gateway">Gateway token</SelectItem>
+                <SelectGroup>
+                  <SelectItem value="rsa">RSA</SelectItem>
+                  <SelectItem value="hmac">HMAC</SelectItem>
+                  <SelectItem value="gateway">Gateway token</SelectItem>
+                </SelectGroup>
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>{t("secrets.value")}</Label>
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="import-secret-value">
+              {t("secrets.value")}
+            </FieldLabel>
+            {/* Key material — pinned LTR like the key field above it, so an RTL
+                console cannot right-align or reorder a PEM blob. */}
             <Textarea
+              id="import-secret-value"
+              dir="ltr"
               rows={6}
               value={value}
               onChange={(e) => setValue(e.target.value)}
+              placeholder={t("secrets.importValuePlaceholder")}
               className="font-mono text-xs"
             />
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
@@ -135,7 +149,7 @@ function ImportDialog({
             onClick={() => value && mutation.mutate()}
             disabled={!value || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("common.confirm")}
           </Button>
         </DialogFooter>
@@ -185,20 +199,32 @@ function CustomSecretDialog({
         <DialogHeader>
           <DialogTitle>{t("secrets.setCustom")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>{t("secrets.key")}</Label>
-            <Input value={key} onChange={(e) => setKey(e.target.value)} />
-          </div>
-          <div className="space-y-2">
-            <Label>{t("secrets.value")}</Label>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="custom-secret-key">
+              {t("secrets.key")}
+            </FieldLabel>
             <Input
+              id="custom-secret-key"
+              value={key}
+              onChange={(e) => setKey(e.target.value)}
+              placeholder="Smtp:Password"
+              dir="ltr"
+            />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="custom-secret-value">
+              {t("secrets.value")}
+            </FieldLabel>
+            <Input
+              id="custom-secret-value"
+              dir="ltr"
               value={value}
               onChange={(e) => setValue(e.target.value)}
               className="font-mono text-xs"
             />
-          </div>
-        </div>
+          </Field>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.cancel")}
@@ -207,7 +233,7 @@ function CustomSecretDialog({
             onClick={() => key && value && mutation.mutate()}
             disabled={!key || !value || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("common.save")}
           </Button>
         </DialogFooter>
@@ -285,7 +311,7 @@ export function SecretsPage() {
 
   if (statusQuery.isError) {
     return (
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <PageHeader
           title={t("secrets.title")}
           description={t("secrets.subtitle")}
@@ -307,33 +333,37 @@ export function SecretsPage() {
   const secrets = Object.entries(status?.secrets ?? {})
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("secrets.title")}
         description={t("secrets.subtitle")}
         actions={
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <Upload />
+              <Upload data-icon="inline-start" />
               {t("secrets.importRsa")}
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button disabled={generateMutation.isPending}>
-                  <KeyRound />
+                  <KeyRound data-icon="inline-start" />
                   {t("secrets.generate")}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setPendingGenerate("rsa")}>
-                  {t("secrets.generateRsa")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setPendingGenerate("hmac")}>
-                  {t("secrets.generateHmac")}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setPendingGenerate("gateway")}>
-                  {t("secrets.generateGatewayToken")}
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem onClick={() => setPendingGenerate("rsa")}>
+                    {t("secrets.generateRsa")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setPendingGenerate("hmac")}>
+                    {t("secrets.generateHmac")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setPendingGenerate("gateway")}
+                  >
+                    {t("secrets.generateGatewayToken")}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -352,7 +382,7 @@ export function SecretsPage() {
             <RefreshCw />
           </Button>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
+        <CardContent className="flex flex-col gap-2 text-sm">
           {statusQuery.isLoading ? (
             <Skeleton className="h-20 w-full" />
           ) : (
@@ -463,14 +493,14 @@ export function SecretsPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteKey && deleteMutation.mutate(deleteKey)}
       >
-        <div className="space-y-2">
-          <Label htmlFor="delete-key">{t("secrets.key")}</Label>
+        <Field>
+          <FieldLabel htmlFor="delete-key">{t("secrets.key")}</FieldLabel>
           <Input
             id="delete-key"
             value={deleteKey}
             onChange={(e) => setDeleteKey(e.target.value)}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
 
       <SecretRevealDialog

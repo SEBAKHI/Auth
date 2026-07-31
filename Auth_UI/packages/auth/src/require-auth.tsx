@@ -1,5 +1,6 @@
-import { Loader2 } from "lucide-react"
 import { Navigate, Outlet, useLocation } from "react-router-dom"
+
+import { Spinner } from "@astoom/ui/spinner"
 
 import { useAuth } from "./auth-context"
 
@@ -7,7 +8,7 @@ import { useAuth } from "./auth-context"
 function FullScreenLoader() {
   return (
     <div className="flex min-h-svh items-center justify-center">
-      <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <Spinner className="size-6 text-muted-foreground" />
     </div>
   )
 }

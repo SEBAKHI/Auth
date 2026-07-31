@@ -1,12 +1,13 @@
 import * as React from "react"
 import type { Table } from "@tanstack/react-table"
-import { Download, Loader2, X } from "lucide-react"
+import { Download, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@astoom/ui/button"
 import { Input } from "@astoom/ui/input"
 import { DataTableFacetedFilter } from "./data-table-faceted-filter"
 import { DataTableViewOptions } from "./data-table-view-options"
+import { Spinner } from "@astoom/ui/spinner"
 
 interface DataTableToolbarProps<TData> {
   table: Table<TData>
@@ -112,7 +113,7 @@ export function DataTableToolbar<TData>({
             disabled={isExporting || exportDisabled}
             aria-label={t("common.export")}
           >
-            {isExporting ? <Loader2 className="animate-spin" /> : <Download />}
+            {isExporting ? <Spinner /> : <Download />}
             {isExporting ? t("common.exporting") : t("common.export")}
           </Button>
         ) : null}

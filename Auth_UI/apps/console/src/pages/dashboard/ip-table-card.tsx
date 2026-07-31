@@ -19,7 +19,7 @@ import {
 import { toNumber } from "@astoom/api/helpers"
 import type { Schemas } from "@astoom/api/types"
 
-import { ChartEmpty } from "./chart-empty"
+import { Empty, EmptyHeader, EmptyTitle } from "@astoom/ui/empty"
 
 type IpFailure = Schemas["IpFailureCountDto"]
 
@@ -45,7 +45,11 @@ export function IpTableCard({
         {loading ? (
           <Skeleton className="h-[180px] w-full" />
         ) : data.length === 0 ? (
-          <ChartEmpty />
+          <Empty className="py-8">
+            <EmptyHeader>
+              <EmptyTitle>{t("dashboard.noData")}</EmptyTitle>
+            </EmptyHeader>
+          </Empty>
         ) : (
           <div className="overflow-x-auto">
             <Table>
@@ -63,8 +67,11 @@ export function IpTableCard({
               <TableBody>
                 {data.map((row) => (
                   <TableRow key={row.ipAddress}>
-                    <TableCell className="font-mono text-sm" dir="ltr">
-                      {row.ipAddress}
+                    {/* `dir` on the cell would re-resolve its inherited
+                        `text-align: start` to left and make this column the only
+                        one breaking the table's RTL alignment. */}
+                    <TableCell className="font-mono text-sm">
+                      <bdi dir="ltr">{row.ipAddress}</bdi>
                     </TableCell>
                     <TableCell className="text-end tabular-nums">
                       {toNumber(row.failureCount)}

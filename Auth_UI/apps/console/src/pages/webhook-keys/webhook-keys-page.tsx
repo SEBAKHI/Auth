@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import { Loader2, MoreHorizontal, Plus, ShieldCheck } from "lucide-react"
+import { MoreHorizontal, Plus, ShieldCheck } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -22,12 +22,20 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { PresetField } from "@astoom/ui/common/preset-field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
+import { toGracePeriod, useGracePeriodPresets } from "@/lib/presets"
 import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
@@ -36,6 +44,7 @@ import { getErrorMessage } from "@astoom/api/errors"
 import { formatDateTime } from "@astoom/ui/format"
 import type { Schemas } from "@astoom/api/types"
 import { WebhookKeyCreateDialog } from "./webhook-key-create-dialog"
+import { Spinner } from "@astoom/ui/spinner"
 
 type WebhookKeyDto = Schemas["WebhookKeyDto"]
 
@@ -73,12 +82,19 @@ function ValidateWebhookKeyDialog({
         <DialogHeader>
           <DialogTitle>{t("webhookKeys.validate")}</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <Input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            className="font-mono text-xs"
-          />
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="validate-webhook-key">
+              {t("webhookKeys.keyLabel")}
+            </FieldLabel>
+            <Input
+              id="validate-webhook-key"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={t("webhookKeys.validatePlaceholder")}
+              className="font-mono text-xs"
+            />
+          </Field>
           {result ? (
             <div className="rounded-lg border p-3 text-sm">
               <Badge variant={result.active ? "default" : "destructive"}>
@@ -91,7 +107,7 @@ function ValidateWebhookKeyDialog({
               ) : null}
             </div>
           ) : null}
-        </div>
+        </FieldGroup>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t("common.close")}
@@ -100,7 +116,7 @@ function ValidateWebhookKeyDialog({
             onClick={() => value && mutation.mutate(value)}
             disabled={!value || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="animate-spin" /> : null}
+            {mutation.isPending ? <Spinner /> : null}
             {t("webhookKeys.validate")}
           </Button>
         </DialogFooter>
@@ -122,6 +138,7 @@ export function WebhookKeysPage() {
   const [revokeReason, setRevokeReason] = React.useState("")
   const [rotateKey, setRotateKey] = React.useState<WebhookKeyDto | undefined>()
   const [grace, setGrace] = React.useState("60")
+  const gracePresets = useGracePeriodPresets()
 
   const canCreate = hasPermission(PERMISSIONS.webhookKeys.create)
   const canRevoke = hasPermission(PERMISSIONS.webhookKeys.revoke)
@@ -187,7 +204,9 @@ export function WebhookKeysPage() {
         <div className="min-w-0">
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate font-mono text-xs text-muted-foreground">
-            {row.original.keyPrefix}…
+            {/* The ellipsis is neutral, so in an RTL paragraph it took the
+                paragraph level and rendered before the prefix. */}
+            <bdi dir="ltr">{row.original.keyPrefix}…</bdi>
           </p>
         </div>
       ),
@@ -264,20 +283,24 @@ export function WebhookKeysPage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {canRotate ? (
-                        <DropdownMenuItem onClick={() => setRotateKey(key)}>
-                          {t("webhookKeys.rotate")}
-                        </DropdownMenuItem>
-                      ) : null}
+                      <DropdownMenuGroup>
+                        {canRotate ? (
+                          <DropdownMenuItem onClick={() => setRotateKey(key)}>
+                            {t("webhookKeys.rotate")}
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuGroup>
                       {canRevoke ? (
                         <>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => setRevokeKey(key)}
-                          >
-                            {t("webhookKeys.revoke")}
-                          </DropdownMenuItem>
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => setRevokeKey(key)}
+                            >
+                              {t("webhookKeys.revoke")}
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
                         </>
                       ) : null}
                     </DropdownMenuContent>
@@ -291,7 +314,7 @@ export function WebhookKeysPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("webhookKeys.title")}
         description={t("webhookKeys.subtitle")}
@@ -299,7 +322,7 @@ export function WebhookKeysPage() {
           <div className="flex items-center gap-2">
             {canValidate ? (
               <Button variant="outline" onClick={() => setValidateOpen(true)}>
-                <ShieldCheck />
+                <ShieldCheck data-icon="inline-start" />
                 {t("webhookKeys.validate")}
               </Button>
             ) : null}
@@ -308,7 +331,7 @@ export function WebhookKeysPage() {
                 onClick={() => setCreateOpen(true)}
                 disabled={!applicationId}
               >
-                <Plus />
+                <Plus data-icon="inline-start" />
                 {t("webhookKeys.newKey")}
               </Button>
             ) : null}
@@ -380,14 +403,17 @@ export function WebhookKeysPage() {
           revokeMutation.mutate({ id: revokeKey.id, reason: revokeReason })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="wh-revoke-reason">{t("apiKeys.revokeReason")}</Label>
+        <Field>
+          <FieldLabel htmlFor="wh-revoke-reason">
+            {t("apiKeys.revokeReason")}
+          </FieldLabel>
           <Input
             id="wh-revoke-reason"
             value={revokeReason}
             onChange={(e) => setRevokeReason(e.target.value)}
+            placeholder={t("apiKeys.revokeReasonPlaceholder")}
           />
-        </div>
+        </Field>
       </ConfirmDialog>
 
       <ConfirmDialog
@@ -401,20 +427,27 @@ export function WebhookKeysPage() {
           rotateKey?.id &&
           rotateMutation.mutate({
             id: rotateKey.id,
-            gracePeriodMinutes: Number(grace) || 60,
+            gracePeriodMinutes: toGracePeriod(grace),
           })
         }
       >
-        <div className="space-y-2">
-          <Label htmlFor="wh-grace">{t("webhookKeys.gracePeriod")}</Label>
-          <Input
-            id="wh-grace"
-            type="number"
-            min={0}
-            value={grace}
-            onChange={(e) => setGrace(e.target.value)}
-          />
-        </div>
+        <Field>
+          <FieldLabel htmlFor="wh-grace">
+            {t("webhookKeys.gracePeriod")}
+          </FieldLabel>
+          <PresetField presets={gracePresets} value={grace} onChange={setGrace}>
+            {({ value, onChange }) => (
+              <Input
+                id="wh-grace"
+                type="number"
+                min={0}
+                value={value}
+                onChange={(event) => onChange(event.target.value)}
+              />
+            )}
+          </PresetField>
+          <FieldDescription>{t("webhookKeys.gracePeriodHint")}</FieldDescription>
+        </Field>
       </ConfirmDialog>
     </div>
   )

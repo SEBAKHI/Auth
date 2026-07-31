@@ -9,7 +9,7 @@ import { api } from "@astoom/api/client"
 import { getErrorMessage } from "@astoom/api/errors"
 import { unwrap } from "@astoom/api/helpers"
 import { useAuth } from "@astoom/auth/auth-context"
-import { SUPPORTED_LANGUAGES } from "@astoom/i18n"
+import { directionForLanguage, SUPPORTED_LANGUAGES } from "@astoom/i18n"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { usePageBreadcrumb } from "@astoom/ui/crumbs"
@@ -18,12 +18,13 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@astoom/ui/dropdown-menu"
+import { Field, FieldGroup, FieldLabel, FieldTitle } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
-import { Label } from "@astoom/ui/label"
 import { Skeleton } from "@astoom/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@astoom/ui/tabs"
 import { Textarea } from "@astoom/ui/textarea"
@@ -102,6 +103,10 @@ export function NotificationTemplateDetailPage() {
   }, [template])
 
   const active: TranslationDraft = drafts[activeLanguage] ?? EMPTY_DRAFT
+  // Direction of the translation being edited, not of the console. `dir="auto"`
+  // cannot stand in for it: it resolves from the value, so an untranslated field
+  // computed `ltr` and a new Arabic translation opened against the wrong edge.
+  const contentDir = directionForLanguage(activeLanguage)
   const variables = parseVariables(template?.typeVariablesJson)
   const rendererGlobals = React.useMemo(() => getRendererGlobals(t), [t])
 
@@ -213,7 +218,7 @@ export function NotificationTemplateDetailPage() {
 
   if (query.isLoading || !template) {
     return (
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <Skeleton className="h-10 w-72" />
         <Skeleton className="h-[540px] w-full" />
       </div>
@@ -223,7 +228,7 @@ export function NotificationTemplateDetailPage() {
   const isSystemGlobal = Boolean(template.typeIsSystem && !template.applicationId)
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={template.typeName ?? ""}
         description={
@@ -249,7 +254,7 @@ export function NotificationTemplateDetailPage() {
                 disabled={!template.draftVersionId || isDirty || publishMutation.isPending}
                 onClick={() => publishMutation.mutate()}
               >
-                <Check />
+                <Check data-icon="inline-start" />
                 {t("notifications.publish")}
               </Button>
             ) : null}
@@ -264,31 +269,37 @@ export function NotificationTemplateDetailPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                {canManage ? (
-                  <DropdownMenuItem onClick={() => setTestSendOpen(true)}>
-                    <Send />
-                    {t("notifications.testSend")}
-                  </DropdownMenuItem>
-                ) : null}
-                {canManage && template.draftVersionId ? (
-                  <DropdownMenuItem onClick={() => setDiscardOpen(true)}>
-                    {t("notifications.discardDraft")}
-                  </DropdownMenuItem>
-                ) : null}
-                {canPublish && template.publishedVersionId && !isSystemGlobal ? (
-                  <DropdownMenuItem onClick={() => unpublishMutation.mutate()}>
-                    {t("notifications.unpublish")}
-                  </DropdownMenuItem>
-                ) : null}
+                <DropdownMenuGroup>
+                  {canManage ? (
+                    <DropdownMenuItem onClick={() => setTestSendOpen(true)}>
+                      <Send />
+                      {t("notifications.testSend")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canManage && template.draftVersionId ? (
+                    <DropdownMenuItem onClick={() => setDiscardOpen(true)}>
+                      {t("notifications.discardDraft")}
+                    </DropdownMenuItem>
+                  ) : null}
+                  {canPublish && template.publishedVersionId && !isSystemGlobal ? (
+                    <DropdownMenuItem
+                      onClick={() => unpublishMutation.mutate()}
+                    >
+                      {t("notifications.unpublish")}
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuGroup>
                 {canManage && !isSystemGlobal ? (
                   <>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => setDeleteOpen(true)}
-                    >
-                      {t("common.delete")}
-                    </DropdownMenuItem>
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => setDeleteOpen(true)}
+                      >
+                        {t("common.delete")}
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
                   </>
                 ) : null}
               </DropdownMenuContent>
@@ -329,7 +340,7 @@ export function NotificationTemplateDetailPage() {
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <Tabs value={activeLanguage} onValueChange={setActiveLanguage}>
             {/* Wrapping needs the height to follow the rows; the strip's
                 default fixed height would cut off every row but the first. */}
@@ -349,76 +360,98 @@ export function NotificationTemplateDetailPage() {
             </TabsList>
           </Tabs>
 
-          <div className="space-y-2">
-            <Label htmlFor="template-subject">{t("notifications.subject")}</Label>
-            <Input
-              id="template-subject"
-              dir="auto"
-              value={active.subject}
-              onChange={(e) => updateActive({ subject: e.target.value })}
-              disabled={!canManage}
-            />
-          </div>
+          <FieldGroup>
+            <Field data-disabled={!canManage}>
+              <FieldLabel htmlFor="template-subject">
+                {t("notifications.subject")}
+              </FieldLabel>
+              <Input
+                id="template-subject"
+                dir={contentDir}
+                value={active.subject}
+                onChange={(e) => updateActive({ subject: e.target.value })}
+                placeholder={t("notifications.subjectPlaceholder")}
+                disabled={!canManage}
+              />
+            </Field>
 
-          <div className="space-y-2">
-            <Label>{t("notifications.bodyHtml")}</Label>
-            <CodeEditor
-              ref={editorRef}
-              value={active.bodyHtml}
-              onChange={(value) => updateActive({ bodyHtml: value })}
-              ariaLabel={t("notifications.bodyHtml")}
-              allowImages
-            />
-          </div>
+            {/* The editor is a CodeMirror surface, not a labelable control, so
+                the field is titled and the editor carries the same aria-label. */}
+            <Field>
+              <FieldTitle>{t("notifications.bodyHtml")}</FieldTitle>
+              <CodeEditor
+                ref={editorRef}
+                value={active.bodyHtml}
+                onChange={(value) => updateActive({ bodyHtml: value })}
+                ariaLabel={t("notifications.bodyHtml")}
+                allowImages
+                contentDir={contentDir}
+              />
+            </Field>
 
-          <div className="space-y-4">
-            <VariablePalette
-              variables={variables}
-              onInsert={(placeholder) => {
-                if (!insertAtCursor(editorRef, placeholder)) {
-                  updateActive({ bodyHtml: active.bodyHtml + placeholder })
-                }
-              }}
-            />
-            <VariablePalette
-              title={t("notifications.globalVariables")}
-              variables={rendererGlobals}
-              onInsert={(placeholder) => {
-                if (!insertAtCursor(editorRef, placeholder)) {
-                  updateActive({ bodyHtml: active.bodyHtml + placeholder })
-                }
-              }}
-            />
-            {canManage ? (
-              <Button variant="ghost" size="sm" onClick={() => setVariablesOpen(true)}>
-                {t("notifications.manageVariables")}
-              </Button>
-            ) : null}
-          </div>
+            <div className="flex flex-col gap-4">
+              <VariablePalette
+                variables={variables}
+                onInsert={(placeholder) => {
+                  if (!insertAtCursor(editorRef, placeholder)) {
+                    updateActive({ bodyHtml: active.bodyHtml + placeholder })
+                  }
+                }}
+              />
+              <VariablePalette
+                title={t("notifications.globalVariables")}
+                variables={rendererGlobals}
+                onInsert={(placeholder) => {
+                  if (!insertAtCursor(editorRef, placeholder)) {
+                    updateActive({ bodyHtml: active.bodyHtml + placeholder })
+                  }
+                }}
+              />
+              {canManage ? (
+                // `self-start` because the parent is now `flex flex-col`: under the
+                // old `space-y-4` this button was a block-level sibling and hugged
+                // its label, but a flex item stretches to the container width.
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="self-start"
+                  onClick={() => setVariablesOpen(true)}
+                >
+                  {t("notifications.manageVariables")}
+                </Button>
+              ) : null}
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="template-body-text">{t("notifications.bodyText")}</Label>
-            <Textarea
-              id="template-body-text"
-              dir="auto"
-              rows={4}
-              value={active.bodyText}
-              onChange={(e) => updateActive({ bodyText: e.target.value })}
-              placeholder={t("notifications.bodyTextHint")}
-              disabled={!canManage}
-            />
-          </div>
+            <Field data-disabled={!canManage}>
+              <FieldLabel htmlFor="template-body-text">
+                {t("notifications.bodyText")}
+              </FieldLabel>
+              <Textarea
+                id="template-body-text"
+                dir={contentDir}
+                rows={4}
+                value={active.bodyText}
+                onChange={(e) => updateActive({ bodyText: e.target.value })}
+                placeholder={t("notifications.bodyTextHint")}
+                disabled={!canManage}
+              />
+            </Field>
 
-          <div className="space-y-2">
-            <Label htmlFor="template-change-note">{t("notifications.changeNote")}</Label>
-            <Input
-              id="template-change-note"
-              dir="auto"
-              value={changeNote}
-              onChange={(e) => setChangeNote(e.target.value)}
-              disabled={!canManage}
-            />
-          </div>
+            <Field data-disabled={!canManage}>
+              <FieldLabel htmlFor="template-change-note">
+                {t("notifications.changeNote")}
+              </FieldLabel>
+              {/* The change note describes the revision for other admins; it is
+                  not part of any translation, so it follows the console. */}
+              <Input
+                id="template-change-note"
+                value={changeNote}
+                onChange={(e) => setChangeNote(e.target.value)}
+                placeholder={t("notifications.changeNotePlaceholder")}
+                disabled={!canManage}
+              />
+            </Field>
+          </FieldGroup>
         </div>
 
         <TemplatePreview

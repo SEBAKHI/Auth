@@ -43,6 +43,10 @@ function InputOTPGroup({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="input-otp-group"
+      // `dir` orders the slots here, not text: a code is entered and read in one
+      // direction regardless of the surrounding locale, which is why the group
+      // takes its direction from the field rather than the page.
+      // eslint-disable-next-line no-restricted-syntax
       dir={direction}
       className={cn("flex items-center gap-2", className)}
       {...props}

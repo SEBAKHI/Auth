@@ -6,6 +6,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
@@ -34,18 +35,20 @@ export function ThemeToggle() {
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuLabel>{t("common.theme")}</DropdownMenuLabel>
-        <DropdownMenuItem onClick={() => changeTheme("light")}>
-          <Sun />
-          {t("common.light")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => changeTheme("dark")}>
-          <Moon />
-          {t("common.dark")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => changeTheme("system")}>
-          <Monitor />
-          {t("common.system")}
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={() => changeTheme("light")}>
+            <Sun />
+            {t("common.light")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => changeTheme("dark")}>
+            <Moon />
+            {t("common.dark")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => changeTheme("system")}>
+            <Monitor />
+            {t("common.system")}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

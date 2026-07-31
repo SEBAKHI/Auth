@@ -1,4 +1,3 @@
-import { format, parseISO } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import type { DateRange } from "react-day-picker"
 import { useTranslation } from "react-i18next"
@@ -10,36 +9,41 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@astoom/ui/popover"
-import { formatDate } from "@astoom/ui/format"
+import { Separator } from "@astoom/ui/separator"
+import { DEFAULT_DATE_BOUNDS } from "@astoom/ui/common/date-picker"
+import { formatDate, parseCalendarDate, toCalendarDate } from "@astoom/ui/format"
 import { cn } from "@astoom/ui/utils"
-
-function toDate(value?: string): Date | undefined {
-  if (!value) return undefined
-  const date = parseISO(value)
-  return Number.isNaN(date.getTime()) ? undefined : date
-}
 
 /**
  * Calendar-based date range picker. Emits inclusive `from`/`to` as local
  * `yyyy-MM-dd` strings (or `undefined` when cleared).
+ *
+ * Shares the month+year dropdown caption with `DatePicker` so the two read as one
+ * control; see that file for why `startMonth`/`endMonth` are set explicitly.
  */
 export function DateRangePicker({
   from,
   to,
   onChange,
+  startMonth,
+  endMonth,
   placeholder,
   className,
 }: {
   from?: string
   to?: string
   onChange: (range: { from?: string; to?: string }) => void
+  startMonth?: Date
+  endMonth?: Date
   placeholder?: string
   className?: string
 }) {
   const { t } = useTranslation()
 
   const selected: DateRange | undefined =
-    from || to ? { from: toDate(from), to: toDate(to) } : undefined
+    from || to
+      ? { from: parseCalendarDate(from), to: parseCalendarDate(to) }
+      : undefined
 
   const label =
     from && to
@@ -52,6 +56,7 @@ export function DateRangePicker({
     <Popover>
       <PopoverTrigger asChild>
         <Button
+          type="button"
           variant="outline"
           className={cn(
             "w-full justify-start font-normal",
@@ -66,19 +71,24 @@ export function DateRangePicker({
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="range"
+          captionLayout="dropdown"
           numberOfMonths={1}
           autoFocus
           selected={selected}
           defaultMonth={selected?.from}
+          startMonth={startMonth ?? DEFAULT_DATE_BOUNDS.startMonth}
+          endMonth={endMonth ?? DEFAULT_DATE_BOUNDS.endMonth}
           onSelect={(range) =>
             onChange({
-              from: range?.from ? format(range.from, "yyyy-MM-dd") : undefined,
-              to: range?.to ? format(range.to, "yyyy-MM-dd") : undefined,
+              from: range?.from ? toCalendarDate(range.from) : undefined,
+              to: range?.to ? toCalendarDate(range.to) : undefined,
             })
           }
         />
-        <div className="flex justify-end border-t p-2">
+        <Separator />
+        <div className="flex justify-end p-2">
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             onClick={() => onChange({ from: undefined, to: undefined })}

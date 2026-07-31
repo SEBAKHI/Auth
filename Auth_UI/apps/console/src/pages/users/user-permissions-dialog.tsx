@@ -9,6 +9,7 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -103,14 +104,16 @@ export function UserPermissionsDialog({
                 <SelectValue placeholder={t("users.grantPermission")} />
               </SelectTrigger>
               <SelectContent>
-                {available.map((permission) => (
-                  <SelectItem
-                    key={permission.id}
-                    value={permission.id as string}
-                  >
-                    {permission.code}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {available.map((permission) => (
+                    <SelectItem
+                      key={permission.id}
+                      value={permission.id as string}
+                    >
+                      {permission.code}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </AssignmentPicker>

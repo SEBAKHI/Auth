@@ -7,6 +7,7 @@ import { getErrorMessage } from "@astoom/api/errors"
 import { Badge } from "@astoom/ui/badge"
 import { Button } from "@astoom/ui/button"
 import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import {
   Dialog,
   DialogContent,
@@ -17,7 +18,6 @@ import {
 } from "@astoom/ui/dialog"
 import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { useDirtyClose } from "@astoom/ui/hooks/use-dirty-close"
-import { Input } from "@astoom/ui/input"
 import { Skeleton } from "@astoom/ui/skeleton"
 
 /** One assignment as it exists on the server. */
@@ -303,7 +303,7 @@ function ChangeSummary({
   const { t } = useTranslation()
 
   return (
-    <div className="max-h-56 space-y-3 overflow-y-auto text-sm">
+    <div className="flex max-h-56 flex-col gap-3 overflow-y-auto text-sm">
       {addedLabels.length > 0 ? (
         <ChangeList
           title={t("common.toBeAdded", { count: addedLabels.length })}
@@ -332,9 +332,9 @@ function ChangeList({
   icon: React.ReactNode
 }) {
   return (
-    <div className="space-y-1 text-start">
+    <div className="flex flex-col gap-1 text-start">
       <p className="font-medium">{title}</p>
-      <ul className="space-y-1 text-muted-foreground">
+      <ul className="flex flex-col gap-1 text-muted-foreground">
         {labels.map((label) => (
           <li key={label} className="flex items-center gap-2">
             {icon}
@@ -376,14 +376,15 @@ export function AssignmentPicker({
     <Field>
       {children}
       <Field orientation="responsive">
-        <Input
-          type="date"
+        <DatePicker
           value={expiresAt}
-          onChange={(event) => onExpiresAtChange(event.target.value)}
-          aria-label={t("common.expiresAt")}
+          onChange={(value) => onExpiresAtChange(value ?? "")}
+          minDate={new Date()}
+          maxDate={monthsFromNow(10)}
+          placeholder={t("common.expiresAt")}
         />
         <Button onClick={onAdd} disabled={!canAdd}>
-          <Plus />
+          <Plus data-icon="inline-start" />
           {addLabel}
         </Button>
       </Field>

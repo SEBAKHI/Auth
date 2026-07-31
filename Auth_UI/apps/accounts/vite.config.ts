@@ -3,6 +3,8 @@ import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
+import { vendorChunk } from "../../vendor-chunks"
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -19,6 +21,16 @@ export default defineConfig({
       "@astoom/auth": path.resolve(__dirname, "../../packages/auth/src"),
       "@astoom/i18n": path.resolve(__dirname, "../../packages/i18n/src"),
       "@astoom/ui": path.resolve(__dirname, "../../packages/ui/src"),
+    },
+  },
+  build: {
+    chunkSizeWarningLimit: 400,
+    rollupOptions: {
+      output: {
+        // The accounts app has no charts or editors; only the framework vendors
+        // are worth hoisting out of the per-route chunks.
+        manualChunks: vendorChunk,
+      },
     },
   },
 })

@@ -10,6 +10,7 @@ import {
   setTokens,
 } from "@astoom/api/token-store"
 import i18n, {
+  applyLanguage,
   persistLanguage,
   SUPPORTED_LANGUAGES,
   type LanguageCode,
@@ -132,7 +133,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const supported = SUPPORTED_LANGUAGES.some((l) => l.code === code)
       if (code && supported && i18n.language !== code) {
         persistLanguage(code as LanguageCode)
-        void i18n.changeLanguage(code)
+        void applyLanguage(code as LanguageCode)
       }
     },
     []

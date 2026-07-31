@@ -1,6 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2 } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -8,6 +7,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { LogoAvatar } from "@astoom/ui/common/logo-avatar"
+import { Spinner } from "@astoom/ui/spinner"
 import { PageHeader } from "@astoom/ui/common/page-header"
 import { Button } from "@astoom/ui/button"
 import {
@@ -186,14 +186,14 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
                   <FormItem>
                     <FormLabel>{t("platformSettings.platformName")}</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input placeholder="Acme" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
               <Button type="submit" className="w-fit" disabled={saveName.isPending}>
-                {saveName.isPending ? <Loader2 className="animate-spin" /> : null}
+                {saveName.isPending ? <Spinner /> : null}
                 {t("common.save")}
               </Button>
             </FieldGroup>
@@ -213,7 +213,7 @@ export function PlatformSettingsPage() {
   })
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("platformSettings.title")}
         description={t("platformSettings.subtitle")}

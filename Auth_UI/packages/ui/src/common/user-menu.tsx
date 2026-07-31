@@ -9,6 +9,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -76,19 +77,23 @@ export function UserMenu({
         <DropdownMenuSeparator />
         {showProfile ? (
           <>
-            <DropdownMenuItem asChild>
-              <Link to={profileHref}>
-                <UserIcon />
-                {t("common.profile")}
-              </Link>
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem asChild>
+                <Link to={profileHref}>
+                  <UserIcon />
+                  {t("common.profile")}
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
           </>
         ) : null}
-        <DropdownMenuItem onClick={handleLogout}>
-          <LogOut />
-          {t("common.signOut")}
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut />
+            {t("common.signOut")}
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

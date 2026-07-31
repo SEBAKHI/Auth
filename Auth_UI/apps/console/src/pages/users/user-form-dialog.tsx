@@ -172,7 +172,7 @@ export function UserFormDialog({
                 <FormItem>
                   <FormLabel>{t("common.email")}</FormLabel>
                   <FormControl>
-                    <Input type="email" {...field} />
+                    <Input type="email" placeholder="name@example.com" dir="ltr" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -205,7 +205,7 @@ export function UserFormDialog({
             <FormItem>
               <FormLabel>{t("users.firstName")}</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input placeholder="Sara" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -218,7 +218,7 @@ export function UserFormDialog({
             <FormItem>
               <FormLabel>{t("users.lastName")}</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input placeholder="Al-Rashid" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -237,7 +237,7 @@ export function UserFormDialog({
             <FormItem>
               <FormLabel>{t("users.phoneNumber")}</FormLabel>
               <FormControl>
-                <Input {...field} />
+                <Input placeholder="+966 50 000 0000" dir="ltr" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

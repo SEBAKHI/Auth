@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Loader2, Plus, X } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -16,6 +16,7 @@ import { Button } from "@astoom/ui/button"
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -25,6 +26,7 @@ import { api } from "@astoom/api/client"
 import { unwrap } from "@astoom/api/helpers"
 import { getErrorMessage } from "@astoom/api/errors"
 import type { Schemas } from "@astoom/api/types"
+import { Spinner } from "@astoom/ui/spinner"
 
 export function PermissionImplicationsDialog({
   open,
@@ -112,7 +114,7 @@ export function PermissionImplicationsDialog({
           <DialogDescription>{permission.code}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <div className="flex items-end gap-2">
             <div className="flex-1">
               <Select value={selected} onValueChange={setSelected}>
@@ -122,11 +124,13 @@ export function PermissionImplicationsDialog({
                   />
                 </SelectTrigger>
                 <SelectContent>
-                  {available.map((p) => (
-                    <SelectItem key={p.id} value={p.id as string}>
-                      {p.code}
-                    </SelectItem>
-                  ))}
+                  <SelectGroup>
+                    {available.map((p) => (
+                      <SelectItem key={p.id} value={p.id as string}>
+                        {p.code}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 </SelectContent>
               </Select>
             </div>
@@ -135,7 +139,7 @@ export function PermissionImplicationsDialog({
               disabled={!selected || addMutation.isPending}
             >
               {addMutation.isPending ? (
-                <Loader2 className="animate-spin" />
+                <Spinner />
               ) : (
                 <Plus />
               )}

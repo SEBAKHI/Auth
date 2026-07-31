@@ -69,6 +69,22 @@ export function formatDate(value: string | null | undefined): string {
     : "—"
 }
 
+/**
+ * Parse a calendar-date value for the Calendar component. A date-only value is a
+ * calendar day, not an instant, so it is deliberately NOT re-expressed in the
+ * display time zone — shifting it would move the highlighted day by one.
+ */
+export function parseCalendarDate(
+  value: string | null | undefined
+): Date | undefined {
+  return toDate(value) ?? undefined
+}
+
+/** Serialize a Date to the `yyyy-MM-dd` wire format the date fields exchange. */
+export function toCalendarDate(date: Date): string {
+  return format(date, "yyyy-MM-dd")
+}
+
 /** Relative time, e.g. "3 hours ago". */
 export function formatRelative(value: string | null | undefined): string {
   const date = toDate(value)

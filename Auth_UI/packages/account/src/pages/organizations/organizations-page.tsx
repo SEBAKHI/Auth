@@ -15,6 +15,7 @@ import { Button } from "@astoom/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -143,18 +144,22 @@ export function OrganizationsPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => navigate(`/organizations/${org.id}`)}
-                >
-                  {t("common.view")}
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    onClick={() => navigate(`/organizations/${org.id}`)}
+                  >
+                    {t("common.view")}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => setDeleting(org)}
-                >
-                  {t("common.delete")}
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => setDeleting(org)}
+                  >
+                    {t("common.delete")}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -164,13 +169,13 @@ export function OrganizationsPage() {
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("organizations.title")}
         description={t("organizations.subtitle")}
         actions={
           <Button onClick={() => setCreateOpen(true)}>
-            <Plus />
+            <Plus data-icon="inline-start" />
             {t("organizations.newOrganization")}
           </Button>
         }

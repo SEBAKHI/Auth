@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, CheckCircle2, Loader2, Plus, Save, Trash2 } from "lucide-react"
+import { Check, CheckCircle2, Plus, Save, Trash2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
@@ -21,6 +21,7 @@ import {
   type PrivacyPolicyContent,
 } from "@astoom/ui/common/policy-document"
 import { usePageBreadcrumb } from "@astoom/ui/crumbs"
+import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@astoom/ui/field"
 import { Input } from "@astoom/ui/input"
 import { Skeleton } from "@astoom/ui/skeleton"
@@ -33,6 +34,8 @@ import {
   StringListEditor,
 } from "./components/policy-field-editors"
 import { PolicyPreviewPane } from "./components/policy-preview-pane"
+import { PolicyVersionField } from "./components/policy-version-field"
+import { Spinner } from "@astoom/ui/spinner"
 import {
   PolicyTokenPalette,
   useFocusedField,
@@ -229,16 +232,34 @@ export function NotificationPolicyDetailPage() {
     policyVersion: publishedQuery.data?.disclosure?.policyVersion ?? version,
   }
 
+  // The retention table's cells are rendered from index/key loops, so their
+  // placeholders are keyed the same way — each column and each cell of a row
+  // shows an example of the text that belongs in it.
+  const retentionColumnPlaceholders = [
+    t("notifications.policyColumnCategoryPlaceholder"),
+    t("notifications.policyColumnPeriodPlaceholder"),
+    t("notifications.policyColumnOutcomePlaceholder"),
+  ]
+  const retentionRowPlaceholders = {
+    category: t("notifications.policyRowCategoryPlaceholder"),
+    retention: t("notifications.policyRowPeriodPlaceholder"),
+    detail: t("notifications.policyRowDetailPlaceholder"),
+  }
+
   // A published or already-announced revision's identifier is referenced by
   // deletion records and by users' inboxes, so it can no longer move.
   const versionLocked = Boolean(versionRow?.isPublished || versionRow?.notifiedAtUtc)
 
+  // Direction of the locale being *edited*, which is not the console's. Every
+  // control holding this document's copy takes it, rather than `dir="auto"`:
+  // `auto` reads the value, so an empty field always computed `ltr` and a new
+  // Arabic translation opened left-aligned with the caret on the wrong edge.
   const dir = directionForLanguage(language)
 
   // A stale bookmark or a deleted revision must say so, not spin forever.
   if (versionsQuery.isSuccess && !versionRow) {
     return (
-      <div className="space-y-6">
+      <div className="flex flex-col gap-6">
         <PageHeader
           title={t("notifications.tabPolicy")}
           description={t("notifications.policyContentDescription")}
@@ -251,7 +272,7 @@ export function NotificationPolicyDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       {unsavedPrompt}
       <PageHeader
         title={t("notifications.policyContentTitle", { version })}
@@ -265,7 +286,7 @@ export function NotificationPolicyDetailPage() {
                 onClick={() => saveMutation.mutate()}
               >
                 {saveMutation.isPending ? (
-                  <Loader2 className="animate-spin" />
+                  <Spinner />
                 ) : (
                   <Save data-icon="inline-start" />
                 )}
@@ -381,13 +402,12 @@ export function NotificationPolicyDetailPage() {
                     <FieldLabel htmlFor="meta-version">
                       {t("notifications.policyVersion")}
                     </FieldLabel>
-                    <Input
+                    <PolicyVersionField
                       id="meta-version"
-                      dir="ltr"
                       value={versionName}
                       disabled={!canManage || versionLocked}
-                      onChange={(e) => {
-                        setVersionName(e.target.value)
+                      onChange={(value) => {
+                        setVersionName(value)
                         setMetaDirty(true)
                       }}
                     />
@@ -401,24 +421,27 @@ export function NotificationPolicyDetailPage() {
                     <FieldLabel htmlFor="meta-effective">
                       {t("notifications.policyEffective")}
                     </FieldLabel>
-                    <Input
+                    <DatePicker
                       id="meta-effective"
-                      type="date"
                       value={effectiveDate}
                       disabled={!canManage}
-                      onChange={(e) => {
-                        setEffectiveDate(e.target.value)
+                      onChange={(value) => {
+                        setEffectiveDate(value ?? "")
                         setMetaDirty(true)
                       }}
+                      minDate={monthsFromNow(-5)}
+                      maxDate={monthsFromNow(5)}
                     />
                   </Field>
                   <Field>
                     <FieldLabel htmlFor="meta-note">
                       {t("notifications.policyChangeNote")}
                     </FieldLabel>
+                    {/* The revision note is stored once per version, outside the
+                        per-language payload — it is the admin's own prose, so it
+                        follows the console rather than the edited locale. */}
                     <Textarea
                       id="meta-note"
-                      dir="auto"
                       rows={2}
                       placeholder={t("notifications.policyChangeNoteHint")}
                       value={changeNote}
@@ -445,9 +468,10 @@ export function NotificationPolicyDetailPage() {
                     </FieldLabel>
                     <Input
                       id="doc-title"
-                      dir="auto"
+                      dir={dir}
                       value={doc.title}
                       disabled={!canManage}
+                      placeholder={t("notifications.policyDocTitlePlaceholder")}
                       onChange={(e) => patch({ title: e.target.value })}
                     />
                   </Field>
@@ -457,9 +481,12 @@ export function NotificationPolicyDetailPage() {
                     </FieldLabel>
                     <Input
                       id="doc-effective"
-                      dir="auto"
+                      dir={dir}
                       value={doc.effectiveDate}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyEffectiveLabelPlaceholder"
+                      )}
                       onChange={(e) => patch({ effectiveDate: e.target.value })}
                     />
                   </Field>
@@ -469,7 +496,7 @@ export function NotificationPolicyDetailPage() {
                     </FieldLabel>
                     <Input
                       id="doc-versionlabel"
-                      dir="auto"
+                      dir={dir}
                       value={doc.versionLabel}
                       disabled={!canManage}
                       onChange={(e) => patch({ versionLabel: e.target.value })}
@@ -481,14 +508,18 @@ export function NotificationPolicyDetailPage() {
                     </FieldLabel>
                     <Textarea
                       id="doc-warning"
-                      dir="auto"
+                      dir={dir}
                       rows={2}
                       value={doc.unfilledWarning}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyDraftWarningPlaceholder"
+                      )}
                       onChange={(e) => patch({ unfilledWarning: e.target.value })}
                     />
                   </Field>
                   <StringListEditor
+                    dir={dir}
                     label={t("notifications.policyIntro")}
                     values={doc.intro}
                     disabled={!canManage}
@@ -500,6 +531,7 @@ export function NotificationPolicyDetailPage() {
             </Card>
 
             <SectionListEditor
+              dir={dir}
               label={t("notifications.policySections")}
               sections={doc.sections}
               disabled={!canManage}
@@ -518,9 +550,12 @@ export function NotificationPolicyDetailPage() {
                     </FieldLabel>
                     <Input
                       id="ret-heading"
-                      dir="auto"
+                      dir={dir}
                       value={doc.retention.heading}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyRetentionHeadingPlaceholder"
+                      )}
                       onChange={(e) =>
                         patch({
                           retention: { ...doc.retention, heading: e.target.value },
@@ -534,10 +569,13 @@ export function NotificationPolicyDetailPage() {
                     </FieldLabel>
                     <Textarea
                       id="ret-intro"
-                      dir="auto"
+                      dir={dir}
                       rows={3}
                       value={doc.retention.intro}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyRetentionIntroPlaceholder"
+                      )}
                       onChange={(e) =>
                         patch({
                           retention: { ...doc.retention, intro: e.target.value },
@@ -552,9 +590,10 @@ export function NotificationPolicyDetailPage() {
                       {doc.retention.columns.map((column, index) => (
                         <Input
                           key={index}
-                          dir="auto"
+                          dir={dir}
                           value={column}
                           disabled={!canManage}
+                          placeholder={retentionColumnPlaceholders[index]}
                           onChange={(e) => {
                             const columns = [...doc.retention.columns] as [
                               string,
@@ -581,10 +620,11 @@ export function NotificationPolicyDetailPage() {
                             (key) => (
                               <Textarea
                                 key={key}
-                                dir="auto"
+                                dir={dir}
                                 rows={2}
                                 value={row[key]}
                                 disabled={!canManage}
+                                placeholder={retentionRowPlaceholders[key]}
                                 onChange={(e) => {
                                   const rows = [...doc.retention.rows]
                                   rows[index] = { ...rows[index], [key]: e.target.value }
@@ -654,9 +694,12 @@ export function NotificationPolicyDetailPage() {
                     </FieldLabel>
                     <Input
                       id="del-heading"
-                      dir="auto"
+                      dir={dir}
                       value={doc.deletion.heading}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyDeletionHeadingPlaceholder"
+                      )}
                       onChange={(e) =>
                         patch({
                           deletion: { ...doc.deletion, heading: e.target.value },
@@ -665,6 +708,7 @@ export function NotificationPolicyDetailPage() {
                     />
                   </Field>
                   <StringListEditor
+                    dir={dir}
                     label={t("notifications.policyParagraphs")}
                     values={doc.deletion.paragraphs}
                     disabled={!canManage}
@@ -674,6 +718,7 @@ export function NotificationPolicyDetailPage() {
                     }
                   />
                   <StringListEditor
+                    dir={dir}
                     label={t("notifications.policyBullets")}
                     values={doc.deletion.bullets}
                     disabled={!canManage}
@@ -689,9 +734,12 @@ export function NotificationPolicyDetailPage() {
                     </FieldLabel>
                     <Input
                       id="del-button"
-                      dir="auto"
+                      dir={dir}
                       value={doc.deletion.button}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policyButtonLabelPlaceholder"
+                      )}
                       onChange={(e) =>
                         patch({
                           deletion: { ...doc.deletion, button: e.target.value },
@@ -705,9 +753,12 @@ export function NotificationPolicyDetailPage() {
                     </FieldLabel>
                     <Input
                       id="del-hint"
-                      dir="auto"
+                      dir={dir}
                       value={doc.deletion.signedInHint}
                       disabled={!canManage}
+                      placeholder={t(
+                        "notifications.policySignedInHintPlaceholder"
+                      )}
                       onChange={(e) =>
                         patch({
                           deletion: { ...doc.deletion, signedInHint: e.target.value },
@@ -720,6 +771,7 @@ export function NotificationPolicyDetailPage() {
             </Card>
 
             <SectionListEditor
+              dir={dir}
               label={t("notifications.policyRights")}
               sections={doc.rights}
               disabled={!canManage}
@@ -727,6 +779,7 @@ export function NotificationPolicyDetailPage() {
             />
 
             <SectionListEditor
+              dir={dir}
               label={t("notifications.policyClosing")}
               sections={doc.closing}
               disabled={!canManage}
@@ -741,18 +794,31 @@ export function NotificationPolicyDetailPage() {
                 <FieldGroup>
                   {(
                     [
-                      ["contactDpoLabel", t("notifications.policyDpoLabel")],
-                      ["contactVerbisLabel", t("notifications.policyVerbisLabel")],
-                      ["contactKepLabel", t("notifications.policyKepLabel")],
+                      [
+                        "contactDpoLabel",
+                        t("notifications.policyDpoLabel"),
+                        t("notifications.policyDpoLabelPlaceholder"),
+                      ],
+                      [
+                        "contactVerbisLabel",
+                        t("notifications.policyVerbisLabel"),
+                        t("notifications.policyVerbisLabelPlaceholder"),
+                      ],
+                      [
+                        "contactKepLabel",
+                        t("notifications.policyKepLabel"),
+                        t("notifications.policyKepLabelPlaceholder"),
+                      ],
                     ] as const
-                  ).map(([key, label]) => (
+                  ).map(([key, label, placeholder]) => (
                     <Field key={key}>
                       <FieldLabel htmlFor={`doc-${key}`}>{label}</FieldLabel>
                       <Input
                         id={`doc-${key}`}
-                        dir="auto"
+                        dir={dir}
                         value={doc[key]}
                         disabled={!canManage}
+                        placeholder={placeholder}
                         onChange={(e) => patch({ [key]: e.target.value })}
                       />
                     </Field>
