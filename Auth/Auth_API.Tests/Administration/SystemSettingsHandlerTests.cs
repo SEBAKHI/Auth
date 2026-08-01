@@ -71,7 +71,9 @@ public class UpdateSystemSettingsCommandHandlerTests
             ("Password:MinimumLength", "10"),
             ("Password:HistoryCount", "5"),
             ("Gateway:ValidationEnabled", "true"),
-            ("Gateway:ExemptPaths:0", "/health"));
+            ("Gateway:ExemptPaths:0", "/health"),
+            ("ImageStorage:PublicBaseUrl", "https://auth.example.com/uploads/images"),
+            ("ImageStorage:RequestPath", "/uploads/images"));
 
         _handler = new UpdateSystemSettingsCommandHandler(
             _settingsRepoMock.Object,
@@ -220,6 +222,84 @@ public class UpdateSystemSettingsCommandHandlerTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
         VerifyNothingWritten();
+    }
+
+    // Image URLs are composed as PublicBaseUrl + '/' + file and served under
+    // RequestPath. The two must agree, and only one of them takes effect
+    // without a restart — so a save that breaks the pair is refused rather
+    // than left to surface later as 404s on every logo.
+
+    [Fact]
+    public async Task Handle_PublicBaseUrlNotEndingWithServingPath_ReturnsInvalidFieldValue()
+    {
+        var result = await _handler.Handle(
+            Command("ImageStorage", """{"PublicBaseUrl":"https://cdn.example.com/media"}"""),
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+        result.FirstError.Description.Should().Contain("/uploads/images");
+        VerifyNothingWritten();
+    }
+
+    [Fact]
+    public async Task Handle_RequestPathMovedWithoutPublicBaseUrl_ReturnsInvalidFieldValue()
+    {
+        // The mirror case: the effective base still points at the old path.
+        var result = await _handler.Handle(
+            Command("ImageStorage", """{"RequestPath":"/media"}"""), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+        VerifyNothingWritten();
+    }
+
+    [Fact]
+    public async Task Handle_PublicBaseUrlWithoutAnyPath_ReturnsInvalidFieldValue()
+    {
+        var result = await _handler.Handle(
+            Command("ImageStorage", """{"PublicBaseUrl":"https://cdn.example.com"}"""),
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+        VerifyNothingWritten();
+    }
+
+    [Theory]
+    // Same host, different origin, rooted path, trailing slash, and a CDN that
+    // prefixes the serving path — all keep the pairing intact.
+    [InlineData("""{"PublicBaseUrl":"https://cdn.example.com/uploads/images"}""")]
+    [InlineData("""{"PublicBaseUrl":"/uploads/images"}""")]
+    [InlineData("""{"PublicBaseUrl":"https://cdn.example.com/uploads/images/"}""")]
+    [InlineData("""{"PublicBaseUrl":"https://cdn.example.com/auth/uploads/images"}""")]
+    [InlineData("""{"PublicBaseUrl":"https://cdn.example.com/media","RequestPath":"/media"}""")]
+    public async Task Handle_PairingHeld_PassesValidation(string overridesJson)
+    {
+        _settingsRepoMock
+            .Setup(r => r.UpsertAsync(It.IsAny<SystemSettingsOverride>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SystemSettingsUpsertResult(true, [1, 2, 3, 4, 5, 6, 7, 8], 1));
+
+        var result = await _handler.Handle(
+            Command("ImageStorage", overridesJson), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _settingsRepoMock.Verify(
+            r => r.UpsertAsync(It.IsAny<SystemSettingsOverride>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_UnrelatedImageStorageField_IsNotPairChecked()
+    {
+        _settingsRepoMock
+            .Setup(r => r.UpsertAsync(It.IsAny<SystemSettingsOverride>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SystemSettingsUpsertResult(true, [1, 2, 3, 4, 5, 6, 7, 8], 1));
+
+        var result = await _handler.Handle(
+            Command("ImageStorage", """{"WebpQuality":80}"""), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
     }
 
     [Fact]

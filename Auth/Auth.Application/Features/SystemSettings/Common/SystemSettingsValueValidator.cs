@@ -180,6 +180,7 @@ internal static class SystemSettingsValueValidator
                 break;
 
             case "ImageStorage":
+                var malformedPublicBaseUrl = false;
                 foreach (var (path, value) in values)
                 {
                     if (path.Equals("PublicBaseUrl", StringComparison.OrdinalIgnoreCase) &&
@@ -190,7 +191,21 @@ internal static class SystemSettingsValueValidator
                     {
                         errors.Add(SystemSettingsErrors.InvalidFieldValue(
                             path, "must be an absolute URL or a rooted path starting with '/'."));
+                        malformedPublicBaseUrl = true;
                     }
+                }
+
+                // An image URL is composed as PublicBaseUrl + '/' + key and is
+                // served by the static-files middleware mounted at RequestPath,
+                // so the base's path has to end with the serving path or every
+                // image 404s. Both halves are resolved as they WILL be after
+                // this save: changing them together is the supported way to
+                // move the path, changing one alone is the mistake. RequestPath
+                // only takes effect on restart, but the pair still has to be
+                // consistent when it does.
+                if (!malformedPublicBaseUrl)
+                {
+                    ValidateImageUrlPairing(values, section, errors, effectiveValue);
                 }
 
                 ForEachArrayEntry(values, "AllowedContentTypes", errors, (entry, path) =>
@@ -199,6 +214,85 @@ internal static class SystemSettingsValueValidator
                         : $"'{entry}' must be an image/* content type.");
                 break;
         }
+    }
+
+    /// <summary>
+    /// Rejects an ImageStorage save whose resulting PublicBaseUrl does not end
+    /// with the resulting RequestPath. The error is reported on whichever of
+    /// the two fields the payload actually carries, so the console flags a
+    /// field the admin just edited.
+    /// </summary>
+    private static void ValidateImageUrlPairing(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        List<Error> errors,
+        Func<string, string?> effectiveValue)
+    {
+        var editsPublicBaseUrl = ContainsField(values, "PublicBaseUrl");
+        if (!editsPublicBaseUrl && !ContainsField(values, "RequestPath"))
+        {
+            return;
+        }
+
+        var publicBaseUrl = PayloadOrEffective(values, section, "PublicBaseUrl", effectiveValue);
+        var requestPath = PayloadOrEffective(values, section, "RequestPath", effectiveValue);
+
+        // Nothing to pair until both halves exist; each has its own rule.
+        if (string.IsNullOrWhiteSpace(publicBaseUrl) || string.IsNullOrWhiteSpace(requestPath))
+        {
+            return;
+        }
+
+        // A request path of "/" serves from the root and has no segment to
+        // pair against (and never reaches here: the middleware rejects it).
+        var servingSegments = requestPath.Trim('/');
+        if (servingSegments.Length == 0)
+        {
+            return;
+        }
+
+        var servingPath = $"/{servingSegments}";
+        if (PathOf(publicBaseUrl) is not { } basePath ||
+            basePath.EndsWith(servingPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        errors.Add(SystemSettingsErrors.InvalidFieldValue(
+            editsPublicBaseUrl ? "PublicBaseUrl" : "RequestPath",
+            $"'{publicBaseUrl}' must end with the serving path '{servingPath}': image URLs are " +
+            "composed as PublicBaseUrl + '/' + file name and are served under RequestPath, so a " +
+            "mismatched pair returns 404 for every image. Change both fields together to move the path."));
+    }
+
+    /// <summary>
+    /// Path portion of an absolute URL or of a rooted path, without its
+    /// trailing slash. Null when the value is neither — a shape the caller has
+    /// already reported, so pairing stays silent about it.
+    /// </summary>
+    private static string? PathOf(string publicBaseUrl)
+    {
+        if (Uri.TryCreate(publicBaseUrl, UriKind.Absolute, out var absolute))
+        {
+            return absolute.AbsolutePath.TrimEnd('/');
+        }
+
+        return publicBaseUrl.StartsWith('/') ? publicBaseUrl.TrimEnd('/') : null;
+    }
+
+    private static bool ContainsField(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        string fieldPath)
+    {
+        foreach (var (path, _) in values)
+        {
+            if (path.Equals(fieldPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void RequireAbsoluteUrl(
