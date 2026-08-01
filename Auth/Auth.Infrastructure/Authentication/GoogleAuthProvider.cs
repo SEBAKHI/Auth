@@ -16,16 +16,16 @@ namespace Auth.Infrastructure.Authentication;
 /// </summary>
 public class GoogleAuthProvider : IExternalAuthProvider
 {
-    private readonly ExternalAuthSettings _settings;
+    private readonly IOptionsMonitor<ExternalAuthSettings> _settings;
     private readonly ILogger<GoogleAuthProvider> _logger;
 
     public string ProviderName => "google";
 
     public GoogleAuthProvider(
-        IOptions<ExternalAuthSettings> settings,
+        IOptionsMonitor<ExternalAuthSettings> settings,
         ILogger<GoogleAuthProvider> logger)
     {
-        _settings = settings.Value;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -35,7 +35,7 @@ public class GoogleAuthProvider : IExternalAuthProvider
         string? nonce,
         CancellationToken cancellationToken)
     {
-        var googleSettings = _settings.Google;
+        var googleSettings = _settings.CurrentValue.Google;
         if (googleSettings == null || !googleSettings.Enabled || string.IsNullOrEmpty(googleSettings.ClientId))
         {
             return ExternalAuthErrors.ProviderNotConfigured("google");

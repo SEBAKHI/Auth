@@ -26,7 +26,7 @@ public class UserRepository : IUserRepository
         IDbConnectionFactory connectionFactory,
         IOptionsSnapshot<PasswordSettings> passwordSettings,
         IIdentifierHasher identifierHasher,
-        IOptions<AccountDeletionSettings> accountDeletionSettings,
+        IOptionsSnapshot<AccountDeletionSettings> accountDeletionSettings,
         IPerUserCryptoService perUserCrypto)
     {
         _connectionFactory = connectionFactory;

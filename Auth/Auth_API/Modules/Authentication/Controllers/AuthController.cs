@@ -51,7 +51,7 @@ public class AuthController : ApiController
 
     public AuthController(
         ISender sender,
-        IOptions<IdentityProviderSettings> idpSettings,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<AuthController> logger)
     {
         _sender = sender;

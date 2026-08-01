@@ -45,7 +45,7 @@ public class AccountDeletionRequestorTests
                 new Mock<ILogger<OwnedOrganizationDeletionGuard>>().Object),
             _credentialRevocationMock.Object,
             _publisherMock.Object,
-            Options.Create(new AccountDeletionSettings()),
+            TestHelpers.CreateOptions(new AccountDeletionSettings()),
             new Mock<ILogger<AccountDeletionRequestor>>().Object);
     }
 

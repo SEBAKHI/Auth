@@ -33,7 +33,7 @@ public class TwoFactorController : ApiController
 
     public TwoFactorController(
         ISender sender,
-        IOptions<IdentityProviderSettings> idpSettings,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<TwoFactorController> logger)
     {
         _sender = sender;

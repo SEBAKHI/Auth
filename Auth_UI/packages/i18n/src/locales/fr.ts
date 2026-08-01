@@ -1144,6 +1144,8 @@ export const fr: TranslationResources = {
     conflict:
       "Quelqu'un d'autre a modifié cette section entre-temps. Elle a été rechargée — veuillez réappliquer vos modifications.",
     arrayFieldHint: "Une entrée par ligne.",
+    sendTestEmail: "Envoyer un e-mail de test",
+    testEmailSent: "E-mail de test envoyé — consultez votre boîte de réception.",
     groups: {
       security: "Sécurité",
       access: "Accès",
@@ -1272,6 +1274,260 @@ export const fr: TranslationResources = {
       tokenHeaderNameHint:
         "Fixé côté passerelle ; affiché ici pour référence.",
       expectedToken: "Jeton de la passerelle",
+    },
+    cors: {
+      title: "Origines web autorisées (CORS)",
+      description:
+        "Les sites web dont les navigateurs peuvent appeler cette API. Seules les adresses des applications console et comptes ont leur place ici — chaque origine supplémentaire élargit la surface d'attaque.",
+      allowedOrigins: "Origines autorisées",
+      allowedOriginsHint:
+        "Origines nues uniquement, p. ex. https://console.example.com — pas de chemin, pas de barre oblique finale, pas de jokers.",
+      allowCredentials: "Autoriser les identifiants",
+      allowCredentialsHint:
+        "Permet aux navigateurs d'envoyer des cookies avec les appels inter-origines. Requis pour le cookie de session IdP ; sûr uniquement parce que les origines ci-dessus forment une liste explicite.",
+    },
+    rateLimiting: {
+      title: "Limitation de débit (API)",
+      description:
+        "Limitation des requêtes par IP cliente. Une couche d'une défense en profondeur : elle ralentit les abus automatisés tandis que le verrouillage de compte stoppe la devinette de mots de passe. Les limites modifiées s'appliquent immédiatement aux nouvelles fenêtres client.",
+      permitLimit: "Requêtes générales par fenêtre",
+      permitLimitHint:
+        "Recommandé : 100 — généreux pour les vrais utilisateurs, restrictif pour les scripts.",
+      windowSeconds: "Fenêtre générale (secondes)",
+      windowSecondsHint: "Recommandé : 60.",
+      queueLimit: "Taille de la file d'attente",
+      queueLimitHint:
+        "Requêtes retenues brièvement quand la limite est atteinte, au lieu d'échouer immédiatement. Recommandé : 10.",
+      loginPermitLimit: "Tentatives de connexion par fenêtre",
+      loginPermitLimitHint:
+        "S'applique à la connexion, à l'inscription et aux autres points de terminaison d'authentification interactifs. Recommandé : 20 par IP.",
+      loginWindowSeconds: "Fenêtre de connexion (secondes)",
+      loginWindowSecondsHint: "Recommandé : 60.",
+      passwordResetPermitLimit: "Demandes de réinitialisation par fenêtre",
+      passwordResetPermitLimitHint:
+        "Recommandé : 10 — une mesure d'hygiène pour un point de terminaison anonyme.",
+      passwordResetWindowSeconds: "Fenêtre de réinitialisation (secondes)",
+      passwordResetWindowSecondsHint: "Recommandé : 60.",
+    },
+    externalAuth: {
+      title: "Connexion externe (Google / Apple)",
+      description:
+        "Fournisseurs de connexion sociale. Les ID client ici sont des identifiants publics ; les clés privées vivent sur la page Secrets. Le fournisseur doit AUSSI être activé dans sa fiche de l'annuaire pour que le bouton apparaisse.",
+      googleEnabled: "Connexion Google",
+      googleEnabledHint: "Nécessite un ID client valide ci-dessous.",
+      googleClientId: "ID client Google",
+      googleClientIdHint:
+        "Depuis Google Cloud Console → Credentials. Valeur publique, sans risque à stocker ici.",
+      appleEnabled: "Connexion Apple",
+      appleEnabledHint:
+        "Nécessite le Services ID, le Team ID, le Key ID et la clé .p8 dans les Secrets.",
+      appleServicesId: "Apple Services ID",
+      appleServicesIdHint:
+        "p. ex. com.example.accounts, depuis le portail Apple Developer.",
+      appleTeamId: "Apple Team ID",
+      appleTeamIdHint:
+        "L'identifiant d'équipe à 10 caractères du portail Apple Developer.",
+      appleKeyId: "Apple Key ID",
+      appleKeyIdHint:
+        "Identifiant de la clé de signature .p8 ; la clé elle-même vit dans les Secrets.",
+      applePrivateKeyPem: "Clé de signature Apple (.p8)",
+    },
+    identityProvider: {
+      title: "Fournisseur d'identité (SSO)",
+      description:
+        "Le parcours de connexion universelle : où les utilisateurs se connectent, combien de temps dure l'authentification unique et comment se comportent les codes d'autorisation à usage unique.",
+      accountsBaseUrl: "URL de l'application comptes",
+      accountsBaseUrlHint:
+        "Adresse publique de l'application comptes destinée aux utilisateurs finaux ; les redirections de connexion y mènent. Une valeur erronée = connexion cassée pour toutes les applications connectées.",
+      publicBaseUrl: "URL publique d'authentification",
+      publicBaseUrlHint:
+        "L'adresse publique de ce serveur telle que la voient les navigateurs. Requise derrière un proxy inverse ; utilisée dans les redirections et le document de découverte.",
+      authorizationCodeLifetimeSeconds:
+        "Durée de vie du code d'autorisation (secondes)",
+      authorizationCodeLifetimeSecondsHint:
+        "Codes à usage unique échangés contre des jetons. Recommandé : 60 ou moins (OAuth 2.0 Security BCP).",
+      idpSessionCookieName: "Nom du cookie SSO",
+      idpSessionCookieNameHint:
+        "Le renommer déconnecte tout le monde de l'authentification unique (les cookies existants ne correspondent plus).",
+      idpSessionLifetimeDays: "Durée de vie de la session SSO (jours)",
+      idpSessionLifetimeDaysHint:
+        "Durée du « se connecter une fois, utiliser toutes les applications ». Recommandé : 7–30 jours.",
+    },
+    email: {
+      title: "E-mail (SMTP)",
+      description:
+        "Comment la plateforme envoie du courrier — codes de vérification, réinitialisations de mot de passe, invitations. Après un changement de serveur, utilisez « Envoyer un e-mail de test » pour prouver la connexion avant que le trafic réel n'en dépende.",
+      enabled: "Envoi d'e-mails",
+      enabledHint:
+        "Interrupteur principal. Désactivé, les parcours nécessitant un e-mail (vérification, réinitialisation) sont indisponibles.",
+      smtpHost: "Serveur SMTP",
+      smtpHostHint:
+        "Nom d'hôte de votre serveur de messagerie, p. ex. mail.example.com.",
+      smtpPort: "Port SMTP",
+      smtpPortHint:
+        "587 = STARTTLS (recommandé), 465 = TLS implicite, 25 = généralement bloqué par les hébergeurs.",
+      useSsl: "Exiger TLS",
+      useSslHint:
+        "Recommandé : activé. Désactivé n'autorise le TLS opportuniste qu'en développement local.",
+      username: "Nom d'utilisateur SMTP",
+      usernameHint:
+        "Généralement l'adresse complète de la boîte aux lettres. Laissez vide pour les relais non authentifiés.",
+      password: "Mot de passe SMTP",
+      senderEmail: "Adresse de l'expéditeur",
+      senderEmailHint:
+        "L'adresse From. Elle doit être autorisée par les enregistrements SPF/DKIM de votre domaine.",
+      senderName: "Nom de l'expéditeur",
+      senderNameHint:
+        "Le nom affiché que voient les destinataires ; sert aussi de nom de plateforme de repli dans les modèles.",
+      frontendBaseUrl: "URL de base des liens",
+      frontendBaseUrlHint:
+        "Adresse absolue de l'application comptes ; chaque lien envoyé par e-mail (réinitialisation, vérification) est construit dessus. Requise tant que l'envoi est activé.",
+      otpExpirationMinutes: "Durée de vie du code de vérification (minutes)",
+      otpExpirationMinutesHint:
+        "Recommandé : 5–15 — assez long pour le saisir, assez court pour ne rien laisser voler.",
+      resetTokenExpirationMinutes:
+        "Durée de vie du lien de réinitialisation (minutes)",
+      resetTokenExpirationMinutesHint: "Recommandé : 30–60.",
+      rateLimitWindowSeconds: "Fenêtre du débit d'envoi (secondes)",
+      rateLimitWindowSecondsHint:
+        "Fenêtre de la limite d'envoi par adresse ci-dessous. Recommandé : 60.",
+      maxOtpRequestsPerWindow: "Codes par fenêtre",
+      maxOtpRequestsPerWindowHint:
+        "Nombre maximal de codes de vérification qu'une même adresse peut demander par fenêtre. Recommandé : 3 — stoppe le bombardement d'e-mails.",
+    },
+    notificationsSection: {
+      title: "Livraison des notifications",
+      description:
+        "Comment les notifications sortantes sont livrées : directement, ou via une boîte d'envoi durable qui réessaie les échecs et survit aux redémarrages. Le contenu et les modèles se gèrent sur les pages Notifications.",
+      useOutbox: "Boîte d'envoi durable",
+      useOutboxHint:
+        "Recommandé : activé en production — les messages sont d'abord stockés puis réessayés en cas d'échec, au lieu d'être perdus.",
+      pollIntervalSeconds: "Intervalle d'interrogation (secondes)",
+      pollIntervalSecondsHint:
+        "Réveil de secours quand aucun signal d'envoi n'arrive. Recommandé : 30.",
+      batchSize: "Taille du lot",
+      batchSizeHint: "Messages pris en charge par cycle d'envoi. Recommandé : 20.",
+      maxAttempts: "Tentatives maximales",
+      maxAttemptsHint:
+        "Tentatives de livraison (avec attente exponentielle) avant qu'un message ne soit définitivement écarté. Recommandé : 5.",
+      staleClaimMinutes: "Réclamation périmée (minutes)",
+      staleClaimMinutesHint:
+        "Un message pris en charge par un worker planté est réessayé après ce délai. Recommandé : 5.",
+    },
+    imageStorage: {
+      title: "Stockage des images",
+      description:
+        "Logos et photos de profil téléversés : où ils sont stockés sur le disque, comment ils sont servis et les limites de taille appliquées au téléversement.",
+      provider: "Fournisseur de stockage",
+      providerHint:
+        "Stockage sur le système de fichiers ; fait partie du déploiement du serveur, non modifiable ici.",
+      physicalPath: "Dossier de stockage",
+      physicalPathHint:
+        "Emplacement sur le disque du serveur ; le changer impose de déplacer les fichiers — une tâche de déploiement.",
+      publicBaseUrl: "URL de base publique",
+      publicBaseUrlHint:
+        "Préfixe de chaque URL d'image renvoyée. Réglez-le sur l'adresse publique de l'API (ou un chemin absolu) pour que les logos s'affichent via la passerelle.",
+      requestPath: "Chemin de diffusion",
+      requestPathHint:
+        "Le chemin d'URL sous lequel les images sont servies ; figé dans le pipeline au démarrage.",
+      maxSizeBytes: "Taille maximale de téléversement (octets)",
+      maxSizeBytesHint:
+        "Recommandé : 4194304 (4 Mo) — largement suffisant pour les logos et avatars.",
+      maxMegapixels: "Mégapixels maximum",
+      maxMegapixelsHint:
+        "Rejette les bombes de décompression avant traitement. Recommandé : 50.",
+      maxEdgePx: "Bord maximal (pixels)",
+      maxEdgePxHint:
+        "Les images plus grandes sont réduites à ce bord. Recommandé : 1024.",
+      webpQuality: "Qualité WebP",
+      webpQualityHint:
+        "Les téléversements sont réencodés en WebP à cette qualité. Recommandé : 90.",
+      allowedContentTypes: "Types de contenu autorisés",
+      allowedContentTypesHint: "Types MIME image/* acceptés au téléversement.",
+    },
+    accountDeletionSection: {
+      title: "Suppression de compte",
+      description:
+        "Le pipeline de suppression GDPR/KVKK : le délai de grâce avant l'effacement définitif, le rythme du worker en arrière-plan et la durée de conservation des journaux de sécurité.",
+      graceDays: "Délai de grâce (jours)",
+      graceDaysHint:
+        "Temps pour changer d'avis avant la suppression définitive. Recommandé : 30 (pratique réglementaire courante).",
+      workerPollMinutes: "Interrogation du worker (minutes)",
+      workerPollMinutesHint:
+        "Fréquence d'exécution des suppressions arrivées à échéance. Recommandé : 15.",
+      workerBatchSize: "Taille de lot du worker",
+      workerBatchSizeHint: "Suppressions exécutées par cycle. Recommandé : 25.",
+      maxExecutionAttempts: "Tentatives d'exécution maximales",
+      maxExecutionAttemptsHint:
+        "Réessais avant qu'une suppression échouée ne déclenche l'alarme de conformité. Recommandé : 5.",
+      otpExpirationMinutes: "Durée de vie du code de confirmation (minutes)",
+      otpExpirationMinutesHint:
+        "Code confirmant une demande de suppression publique. Recommandé : 15.",
+      loginAttemptRetentionDays:
+        "Conservation des tentatives de connexion (jours)",
+      loginAttemptRetentionDaysHint:
+        "Conservation des journaux de sécurité ; alignez-la sur votre politique de confidentialité. Recommandé : 365.",
+      outboxRetentionDays: "Conservation de la boîte d'envoi (jours)",
+      outboxRetentionDaysHint:
+        "Conservation du journal des notifications livrées. Recommandé : 180.",
+      policyVersion: "Version de la politique de confidentialité",
+      policyVersionHint:
+        "Estampille de version enregistrée avec chaque suppression (format YYYY.MM). Doit correspondre à la politique publiée.",
+      runEncryptionMigration: "Exécuter la migration de chiffrement",
+      runEncryptionMigrationHint:
+        "Rattrapage ponctuel exécuté au prochain démarrage ; laissez désactivé sauf indication contraire du guide d'exploitation.",
+      identifierHmacKeyPlain: "Clé de hachage des identifiants",
+    },
+    healthChecks: {
+      title: "Sondes de santé",
+      description:
+        "Les sondes publiques /health et /ready utilisées par la passerelle et la supervision.",
+      exposeErrorDetails: "Exposer les détails des erreurs",
+      exposeErrorDetailsHint:
+        "Inclut les messages d'exception dans les réponses des sondes. Recommandé : désactivé en production — ces points de terminaison sont accessibles publiquement.",
+    },
+    serilog: {
+      title: "Journalisation",
+      description:
+        "Ce que l'API écrit dans ses fichiers journaux. Les niveaux s'appliquent immédiatement ; l'emplacement des fichiers journaux fait partie du déploiement.",
+      minimumLevelDefault: "Niveau minimum",
+      minimumLevelDefaultHint:
+        "Information pour l'exploitation normale ; Debug uniquement pendant une investigation (verbeux et peut inclure plus de détails des requêtes) ; Warning pour des journaux de production silencieux.",
+      minimumLevelOverrideMicrosoft: "Niveau de l'espace de noms Microsoft",
+      minimumLevelOverrideMicrosoftHint:
+        "Filtre le bruit du framework. Recommandé : Warning.",
+      minimumLevelOverrideMicrosoftHostingLifetime:
+        "Niveau du cycle de vie de l'hôte",
+      minimumLevelOverrideMicrosoftHostingLifetimeHint:
+        "Messages de démarrage/arrêt. Recommandé : Information.",
+      minimumLevelOverrideSystem: "Niveau de l'espace de noms System",
+      minimumLevelOverrideSystemHint: "Recommandé : Warning.",
+    },
+    dataProtection: {
+      title: "Clés de protection des données",
+      description:
+        "Le trousseau de clés qui chiffre les secrets au repos (graines 2FA, clés stockées). Lu avant que la base de données ne soit disponible — et le pointer vers le mauvais dossier rend chaque valeur chiffrée définitivement illisible — il se gère donc uniquement dans les fichiers du serveur.",
+      keyPath: "Dossier du trousseau de clés",
+      certificatePfxPath: "Fichier de certificat",
+      certificateThumbprint: "Empreinte du certificat",
+      certificatePasswordEnvironmentVariable:
+        "Variable d'environnement du mot de passe",
+    },
+    secretManagement: {
+      title: "Gestion des secrets",
+      description:
+        "Comment les secrets cryptographiques sont stockés (fichier chiffré / DPAPI / texte clair pour le développement). S'amorce avant la base de données, le mode se gère donc dans les fichiers du serveur ; les VALEURS des secrets se gèrent sur la page Secrets.",
+      storageMode: "Mode de stockage",
+      secretFilePath: "Fichier des secrets",
+      autoGenerateKeys: "Génération automatique des clés",
+      enableAdminApi: "API d'administration activée",
+      requiredPermission: "Permission requise",
+    },
+    connectionStrings: {
+      title: "Connexion à la base de données",
+      description:
+        "La connexion SQL Server sur laquelle cette API fonctionne. Elle contient des identifiants et est nécessaire avant le chargement de tout paramètre ; elle vit donc uniquement dans les fichiers du serveur / le magasin de secrets.",
+      authDb: "Chaîne de connexion AuthDb",
     },
   },
   profile: {

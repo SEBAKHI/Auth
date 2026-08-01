@@ -55,6 +55,7 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
     private readonly IReadOnlyDictionary<string, int> _baselineArrayLengths;
     private readonly Lock _sync = new();
     private volatile bool _lastLoadFailed;
+    private volatile int _version;
 
     public DbSettingsConfigurationProvider(
         string connectionString,
@@ -66,6 +67,9 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
 
     /// <inheritdoc />
     public bool LastLoadFailed => _lastLoadFailed;
+
+    /// <inheritdoc />
+    public int Version => _version;
 
     /// <summary>
     /// Captures the array lengths of the pre-database configuration state,
@@ -135,6 +139,7 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
             }
 
             Data = data;
+            _version++;
             return true;
         }
     }
@@ -263,4 +268,6 @@ public sealed class NullSystemSettingsReloader : ISystemSettingsReloader
     }
 
     public bool LastLoadFailed => false;
+
+    public int Version => 0;
 }

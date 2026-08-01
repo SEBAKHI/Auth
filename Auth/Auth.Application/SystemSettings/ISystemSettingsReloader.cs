@@ -21,4 +21,12 @@ public interface ISystemSettingsReloader
     /// console so an admin knows the view may be stale.
     /// </summary>
     bool LastLoadFailed { get; }
+
+    /// <summary>
+    /// Monotonic counter bumped whenever a reload actually changed the
+    /// loaded data. Consumers that cache derived state per key (the rate
+    /// limiter's per-IP partitions) stamp this into their keys so changed
+    /// limits take effect for new partitions immediately.
+    /// </summary>
+    int Version { get; }
 }

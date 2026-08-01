@@ -19,11 +19,11 @@ public class AppleClientSecretGenerator
     private const string AppleAudience = "https://appleid.apple.com";
     private static readonly TimeSpan SecretLifetime = TimeSpan.FromMinutes(5);
 
-    private readonly ExternalAuthSettings _settings;
+    private readonly IOptionsMonitor<ExternalAuthSettings> _settings;
 
-    public AppleClientSecretGenerator(IOptions<ExternalAuthSettings> settings)
+    public AppleClientSecretGenerator(IOptionsMonitor<ExternalAuthSettings> settings)
     {
-        _settings = settings.Value;
+        _settings = settings;
     }
 
     /// <summary>
@@ -32,7 +32,7 @@ public class AppleClientSecretGenerator
     /// <exception cref="InvalidOperationException">When Apple is not fully configured.</exception>
     public string Generate()
     {
-        var apple = _settings.Apple;
+        var apple = _settings.CurrentValue.Apple;
         if (apple is null
             || string.IsNullOrWhiteSpace(apple.TeamId)
             || string.IsNullOrWhiteSpace(apple.ServicesId)

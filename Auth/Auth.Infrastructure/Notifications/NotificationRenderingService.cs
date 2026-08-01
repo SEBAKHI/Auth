@@ -42,7 +42,7 @@ public class NotificationRenderingService : INotificationRenderer
         IPlatformSettingsRepository platformSettingsRepository,
         ITemplateRenderer renderer,
         IImageUrlComposer imageUrlComposer,
-        IOptions<EmailSettings> emailSettings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<NotificationRenderingService> logger)
     {
         _cache = cache;

@@ -5,6 +5,8 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SkiaSharp;
 
+using Auth_API.Tests.Helpers;
+
 namespace Auth_API.Tests.Media;
 
 /// <summary>
@@ -29,7 +31,7 @@ public class FileSystemImageStorageServiceTests : IDisposable
         };
 
         return new FileSystemImageStorageService(
-            Options.Create(settings),
+            TestHelpers.CreateOptions(settings),
             new Mock<ILogger<FileSystemImageStorageService>>().Object);
     }
 

@@ -37,7 +37,7 @@ public class AppleAuthProviderTests
 
         return new AppleAuthProvider(
             new HttpClient(handler),
-            Options.Create(new ExternalAuthSettings
+            TestHelpers.CreateOptions(new ExternalAuthSettings
             {
                 Apple = new AppleAuthSettings { Enabled = enabled, ServicesId = ServicesId }
             }),

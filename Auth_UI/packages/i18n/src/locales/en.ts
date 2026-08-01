@@ -1105,6 +1105,8 @@ export const en = {
     conflict:
       "Someone else changed this section in the meantime. It has been reloaded — please reapply your changes.",
     arrayFieldHint: "One entry per line.",
+    sendTestEmail: "Send test email",
+    testEmailSent: "Test email sent — check your inbox.",
     groups: {
       security: "Security",
       access: "Access",
@@ -1227,6 +1229,229 @@ export const en = {
       tokenHeaderNameHint:
         "Fixed on the gateway side; shown here for reference.",
       expectedToken: "Gateway token",
+    },
+    cors: {
+      title: "Allowed web origins (CORS)",
+      description:
+        "Which websites' browsers may call this API. Only the console and accounts apps' own addresses belong here — every extra origin widens the attack surface.",
+      allowedOrigins: "Allowed origins",
+      allowedOriginsHint:
+        "Bare origins only, e.g. https://console.example.com — no paths, no trailing slash, no wildcards.",
+      allowCredentials: "Allow credentials",
+      allowCredentialsHint:
+        "Lets browsers send cookies with cross-origin calls. Required for the IdP session cookie; only safe because origins above are an explicit list.",
+    },
+    rateLimiting: {
+      title: "Rate limiting (API)",
+      description:
+        "Per-client-IP request throttling. One layer of a layered defense: it slows automated abuse while account lockout stops password guessing. Changed limits apply to new client windows immediately.",
+      permitLimit: "General requests per window",
+      permitLimitHint: "Recommended: 100 — generous for real users, restrictive for scripts.",
+      windowSeconds: "General window (seconds)",
+      windowSecondsHint: "Recommended: 60.",
+      queueLimit: "Queue size",
+      queueLimitHint:
+        "Requests held briefly when the limit is hit instead of failing immediately. Recommended: 10.",
+      loginPermitLimit: "Sign-in attempts per window",
+      loginPermitLimitHint:
+        "Applies to login, registration, and other interactive auth endpoints. Recommended: 20 per IP.",
+      loginWindowSeconds: "Sign-in window (seconds)",
+      loginWindowSecondsHint: "Recommended: 60.",
+      passwordResetPermitLimit: "Password-reset requests per window",
+      passwordResetPermitLimitHint: "Recommended: 10 — hygiene for an anonymous endpoint.",
+      passwordResetWindowSeconds: "Password-reset window (seconds)",
+      passwordResetWindowSecondsHint: "Recommended: 60.",
+    },
+    externalAuth: {
+      title: "External sign-in (Google / Apple)",
+      description:
+        "Social sign-in providers. The client IDs here are public identifiers; private keys live on the Secrets page. The provider must ALSO be enabled in its directory row for the button to appear.",
+      googleEnabled: "Google sign-in",
+      googleEnabledHint: "Requires a valid client ID below.",
+      googleClientId: "Google client ID",
+      googleClientIdHint:
+        "From Google Cloud Console → Credentials. Public value, safe to store here.",
+      appleEnabled: "Apple sign-in",
+      appleEnabledHint: "Requires the Services ID, Team ID, Key ID, and the .p8 key in Secrets.",
+      appleServicesId: "Apple Services ID",
+      appleServicesIdHint: "e.g. com.example.accounts, from the Apple Developer portal.",
+      appleTeamId: "Apple Team ID",
+      appleTeamIdHint: "The 10-character team identifier from the Apple Developer portal.",
+      appleKeyId: "Apple Key ID",
+      appleKeyIdHint: "Identifier of the .p8 signing key; the key itself lives in Secrets.",
+      applePrivateKeyPem: "Apple signing key (.p8)",
+    },
+    identityProvider: {
+      title: "Identity provider (SSO)",
+      description:
+        "The universal-login flow: where users sign in, how long single sign-on lasts, and how one-time authorization codes behave.",
+      accountsBaseUrl: "Accounts app URL",
+      accountsBaseUrlHint:
+        "Public address of the end-user accounts app; sign-in redirects go there. Wrong value = broken login for every connected app.",
+      publicBaseUrl: "Public auth URL",
+      publicBaseUrlHint:
+        "This server's own public address as browsers see it. Required behind a reverse proxy; used in redirects and the discovery document.",
+      authorizationCodeLifetimeSeconds: "Authorization code lifetime (seconds)",
+      authorizationCodeLifetimeSecondsHint:
+        "One-time codes exchanged for tokens. Recommended: 60 or less (OAuth 2.0 Security BCP).",
+      idpSessionCookieName: "SSO cookie name",
+      idpSessionCookieNameHint:
+        "Renaming signs everyone out of single sign-on (existing cookies stop matching).",
+      idpSessionLifetimeDays: "SSO session lifetime (days)",
+      idpSessionLifetimeDaysHint:
+        "How long 'sign in once, use every app' lasts. Recommended: 7–30 days.",
+    },
+    email: {
+      title: "Email (SMTP)",
+      description:
+        "How the platform sends mail — verification codes, password resets, invitations. After changing the server, use 'Send test email' to prove the connection before real traffic depends on it.",
+      enabled: "Email sending",
+      enabledHint:
+        "Master switch. When off, flows that need email (verification, reset) are unavailable.",
+      smtpHost: "SMTP server",
+      smtpHostHint: "Hostname of your mail server, e.g. mail.example.com.",
+      smtpPort: "SMTP port",
+      smtpPortHint:
+        "587 = STARTTLS (recommended), 465 = implicit TLS, 25 = usually blocked by hosts.",
+      useSsl: "Require TLS",
+      useSslHint: "Recommended: on. Off allows opportunistic TLS only in local development.",
+      username: "SMTP username",
+      usernameHint: "Usually the full mailbox address. Leave empty for unauthenticated relays.",
+      password: "SMTP password",
+      senderEmail: "Sender address",
+      senderEmailHint: "The From address. Must be authorized by your domain's SPF/DKIM records.",
+      senderName: "Sender name",
+      senderNameHint: "The display name recipients see; also the fallback platform name in templates.",
+      frontendBaseUrl: "Links base URL",
+      frontendBaseUrlHint:
+        "Absolute address of the accounts app; every emailed link (reset, verify) is built on it. Required while sending is enabled.",
+      otpExpirationMinutes: "Verification code lifetime (minutes)",
+      otpExpirationMinutesHint: "Recommended: 5–15 — long enough to type, short enough to steal nothing.",
+      resetTokenExpirationMinutes: "Reset link lifetime (minutes)",
+      resetTokenExpirationMinutesHint: "Recommended: 30–60.",
+      rateLimitWindowSeconds: "Send-rate window (seconds)",
+      rateLimitWindowSecondsHint: "Window for the per-address send limit below. Recommended: 60.",
+      maxOtpRequestsPerWindow: "Codes per window",
+      maxOtpRequestsPerWindowHint:
+        "Max verification codes one address can request per window. Recommended: 3 — stops mail-bombing.",
+    },
+    notificationsSection: {
+      title: "Notification delivery",
+      description:
+        "How outgoing notifications are delivered: directly, or through a durable outbox that retries failures and survives restarts. Content and templates are managed on the Notifications pages.",
+      useOutbox: "Durable outbox",
+      useOutboxHint:
+        "Recommended: on in production — messages are stored first and retried on failure instead of being lost.",
+      pollIntervalSeconds: "Poll interval (seconds)",
+      pollIntervalSecondsHint: "Fallback wake-up when no send signal arrives. Recommended: 30.",
+      batchSize: "Batch size",
+      batchSizeHint: "Messages claimed per dispatch cycle. Recommended: 20.",
+      maxAttempts: "Max attempts",
+      maxAttemptsHint:
+        "Delivery attempts (with exponential backoff) before a message is dead-lettered. Recommended: 5.",
+      staleClaimMinutes: "Stale claim (minutes)",
+      staleClaimMinutesHint:
+        "A message claimed by a crashed worker is retried after this long. Recommended: 5.",
+    },
+    imageStorage: {
+      title: "Image storage",
+      description:
+        "Uploaded logos and profile pictures: where they are stored on disk, how they are served, and the size limits applied on upload.",
+      provider: "Storage provider",
+      providerHint: "Filesystem storage; part of the server deployment, not editable here.",
+      physicalPath: "Storage folder",
+      physicalPathHint: "Server disk location; changing it requires moving files — a deployment task.",
+      publicBaseUrl: "Public base URL",
+      publicBaseUrlHint:
+        "Prefix of every returned image URL. Set to the API's public address (or a rooted path) so logos render through the gateway.",
+      requestPath: "Serving path",
+      requestPathHint: "The URL path images are served under; baked into the pipeline at startup.",
+      maxSizeBytes: "Max upload size (bytes)",
+      maxSizeBytesHint: "Recommended: 4194304 (4 MB) — plenty for logos and avatars.",
+      maxMegapixels: "Max megapixels",
+      maxMegapixelsHint: "Rejects decompression bombs before processing. Recommended: 50.",
+      maxEdgePx: "Max edge (pixels)",
+      maxEdgePxHint: "Larger images are downscaled to this edge. Recommended: 1024.",
+      webpQuality: "WebP quality",
+      webpQualityHint: "Uploads are re-encoded to WebP at this quality. Recommended: 90.",
+      allowedContentTypes: "Allowed content types",
+      allowedContentTypesHint: "image/* MIME types accepted on upload.",
+    },
+    accountDeletionSection: {
+      title: "Account deletion",
+      description:
+        "The GDPR/KVKK deletion pipeline: the grace period before permanent erasure, the background worker's pace, and how long security records are retained.",
+      graceDays: "Grace period (days)",
+      graceDaysHint:
+        "Time to change one's mind before permanent deletion. Recommended: 30 (common regulatory practice).",
+      workerPollMinutes: "Worker poll (minutes)",
+      workerPollMinutesHint: "How often due deletions are executed. Recommended: 15.",
+      workerBatchSize: "Worker batch size",
+      workerBatchSizeHint: "Deletions executed per cycle. Recommended: 25.",
+      maxExecutionAttempts: "Max execution attempts",
+      maxExecutionAttemptsHint: "Retries before a failed deletion raises the compliance alarm. Recommended: 5.",
+      otpExpirationMinutes: "Confirmation code lifetime (minutes)",
+      otpExpirationMinutesHint: "Code confirming a public deletion request. Recommended: 15.",
+      loginAttemptRetentionDays: "Login-attempt retention (days)",
+      loginAttemptRetentionDaysHint:
+        "Security log retention; align with your privacy policy. Recommended: 365.",
+      outboxRetentionDays: "Outbox retention (days)",
+      outboxRetentionDaysHint: "Delivered-notification log retention. Recommended: 180.",
+      policyVersion: "Privacy policy version",
+      policyVersionHint:
+        "Version stamp recorded with each deletion (format YYYY.MM). Must match the published policy.",
+      runEncryptionMigration: "Run encryption migration",
+      runEncryptionMigrationHint:
+        "One-shot backfill executed at the next startup; leave off unless the runbook says otherwise.",
+      identifierHmacKeyPlain: "Identifier hash key",
+    },
+    healthChecks: {
+      title: "Health checks",
+      description:
+        "The public /health and /ready probes used by the gateway and monitoring.",
+      exposeErrorDetails: "Expose error details",
+      exposeErrorDetailsHint:
+        "Includes exception messages in probe responses. Recommended: off in production — the endpoints are publicly reachable.",
+    },
+    serilog: {
+      title: "Logging",
+      description:
+        "How much the API writes to its log files. Levels apply immediately; log file locations are part of the deployment.",
+      minimumLevelDefault: "Minimum level",
+      minimumLevelDefaultHint:
+        "Information for normal operation; Debug only while investigating (verbose and may include more request detail); Warning for quiet production logs.",
+      minimumLevelOverrideMicrosoft: "Microsoft namespace level",
+      minimumLevelOverrideMicrosoftHint: "Framework noise filter. Recommended: Warning.",
+      minimumLevelOverrideMicrosoftHostingLifetime: "Host lifetime level",
+      minimumLevelOverrideMicrosoftHostingLifetimeHint:
+        "Startup/shutdown messages. Recommended: Information.",
+      minimumLevelOverrideSystem: "System namespace level",
+      minimumLevelOverrideSystemHint: "Recommended: Warning.",
+    },
+    dataProtection: {
+      title: "Data protection keys",
+      description:
+        "The key ring that encrypts secrets at rest (2FA seeds, stored keys). Read before the database is available — and pointing it at the wrong folder makes every encrypted value permanently unreadable — so it is managed in server files only.",
+      keyPath: "Key ring folder",
+      certificatePfxPath: "Certificate file",
+      certificateThumbprint: "Certificate thumbprint",
+      certificatePasswordEnvironmentVariable: "Password environment variable",
+    },
+    secretManagement: {
+      title: "Secret management",
+      description:
+        "How cryptographic secrets are stored (encrypted file / DPAPI / plaintext for development). Bootstraps before the database, so the mode is managed in server files; the secret VALUES are managed on the Secrets page.",
+      storageMode: "Storage mode",
+      secretFilePath: "Secrets file",
+      autoGenerateKeys: "Auto-generate keys",
+      enableAdminApi: "Admin API enabled",
+      requiredPermission: "Required permission",
+    },
+    connectionStrings: {
+      title: "Database connection",
+      description:
+        "The SQL Server connection this API runs on. Contains credentials and is needed before any setting can load, so it lives in server files / the secret store only.",
+      authDb: "AuthDb connection string",
     },
   },
   profile: {

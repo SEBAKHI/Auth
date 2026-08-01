@@ -773,4 +773,10 @@
   <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
     <value>Bu bölüm siz yükledikten sonra başkası tarafından değiştirildi. Yeniden yükleyip değişikliklerinizi tekrar uygulayın.</value>
   </data>
+  <data name="SystemSettings.EmailSendingDisabled" xml:space="preserve">
+    <value>E-posta gönderimi devre dışı (Email:Enabled kapalı); test edilecek bir şey yok.</value>
+  </data>
+  <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
+    <value>Test e-postası gönderilemedi: {0}</value>
+  </data>
 </root>

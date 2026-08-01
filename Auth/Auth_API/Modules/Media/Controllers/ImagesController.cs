@@ -27,7 +27,7 @@ public class ImagesController : ControllerBase
     public ImagesController(
         IImageStorageService storage,
         IImageUrlComposer urlComposer,
-        IOptions<ImageStorageSettings> settings)
+        IOptionsSnapshot<ImageStorageSettings> settings)
     {
         _storage = storage;
         _urlComposer = urlComposer;

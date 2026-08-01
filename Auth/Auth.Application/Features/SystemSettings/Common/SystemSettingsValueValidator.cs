@@ -94,49 +94,191 @@ internal static class SystemSettingsValueValidator
     }
 
     /// <summary>
-    /// Cross-field / semantic rules per section.
+    /// Cross-field / semantic rules per section. Rules that depend on values
+    /// NOT in the payload (e.g. Email:Enabled saved earlier) resolve them via
+    /// <paramref name="effectiveValue"/>, so the RESULTING configuration is
+    /// validated — mirroring the corresponding startup fail-fasts.
     /// </summary>
     public static void ValidateSectionRules(
         SettingSectionDefinition section,
         IReadOnlyList<KeyValuePair<string, JsonElement>> values,
-        List<Error> errors)
+        List<Error> errors,
+        Func<string, string?> effectiveValue)
     {
         switch (section.Key)
         {
             case "Jwt":
-                foreach (var (path, value) in values)
+                RequireAbsoluteUrl(values, "Issuer", allowEmpty: false, errors);
+                RequireAbsoluteUrl(values, "Audience", allowEmpty: false, errors);
+                break;
+
+            case "Gateway":
+                ForEachArrayEntry(values, "ExemptPaths", errors, (entry, path) =>
+                    entry.StartsWith('/') ? null : $"'{entry}' must start with '/'.");
+                break;
+
+            case "IdentityProvider":
+                RequireAbsoluteUrl(values, "AccountsBaseUrl", allowEmpty: true, errors);
+                RequireAbsoluteUrl(values, "PublicBaseUrl", allowEmpty: true, errors);
+                break;
+
+            case "Email":
+                // Mirror of the Email options ValidateOnStart rule: sending
+                // enabled with a relative FrontendBaseUrl would abort the
+                // next boot, so the resulting combination is checked here
+                // (payload value first, currently effective value otherwise).
+                var enabledText = PayloadOrEffective(values, section, "Enabled", effectiveValue);
+                var frontendBaseUrl = PayloadOrEffective(values, section, "FrontendBaseUrl", effectiveValue);
+                if (bool.TryParse(enabledText, out var emailEnabled) && emailEnabled &&
+                    !Uri.IsWellFormedUriString(frontendBaseUrl, UriKind.Absolute))
                 {
-                    if ((path.Equals("Issuer", StringComparison.OrdinalIgnoreCase) ||
-                         path.Equals("Audience", StringComparison.OrdinalIgnoreCase)) &&
-                        value.ValueKind == JsonValueKind.String &&
-                        !Uri.IsWellFormedUriString(value.GetString(), UriKind.Absolute))
-                    {
-                        errors.Add(SystemSettingsErrors.InvalidFieldValue(path, "must be an absolute URL (e.g. https://auth.example.com)."));
-                    }
+                    errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                        "FrontendBaseUrl", "must be an absolute URL while email sending is enabled."));
                 }
 
                 break;
 
-            case "Gateway":
+            case "Cors":
                 foreach (var (path, value) in values)
                 {
-                    if (path.Equals("ExemptPaths", StringComparison.OrdinalIgnoreCase) &&
-                        value.ValueKind == JsonValueKind.Array)
+                    if (!path.Equals("AllowedOrigins", StringComparison.OrdinalIgnoreCase) ||
+                        value.ValueKind != JsonValueKind.Array)
                     {
-                        foreach (var item in value.EnumerateArray())
+                        continue;
+                    }
+
+                    // An empty override would tombstone every file origin
+                    // and cut the console off — mirrors the production
+                    // startup fail-fast on empty CORS origins.
+                    if (value.GetArrayLength() == 0)
+                    {
+                        errors.Add(SystemSettingsErrors.InvalidFieldValue(path, "must contain at least one origin."));
+                    }
+
+                    foreach (var item in value.EnumerateArray())
+                    {
+                        if (item.ValueKind != JsonValueKind.String || item.GetString() is not { } origin)
                         {
-                            if (item.ValueKind == JsonValueKind.String &&
-                                item.GetString() is { } entry &&
-                                !string.IsNullOrWhiteSpace(entry) &&
-                                !entry.StartsWith('/'))
-                            {
-                                errors.Add(SystemSettingsErrors.InvalidFieldValue(path, $"'{entry}' must start with '/'."));
-                            }
+                            continue;
+                        }
+
+                        if (origin.Contains('*'))
+                        {
+                            errors.Add(SystemSettingsErrors.InvalidFieldValue(path, "wildcard origins are not allowed with credentials."));
+                        }
+                        else if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri) ||
+                                 (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) ||
+                                 uri.AbsolutePath != "/" || origin.EndsWith('/') ||
+                                 !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
+                        {
+                            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                                path, $"'{origin}' must be a bare http(s) origin without path or trailing slash."));
                         }
                     }
                 }
 
                 break;
+
+            case "ImageStorage":
+                foreach (var (path, value) in values)
+                {
+                    if (path.Equals("PublicBaseUrl", StringComparison.OrdinalIgnoreCase) &&
+                        value.ValueKind == JsonValueKind.String &&
+                        value.GetString() is { } publicBase &&
+                        !publicBase.StartsWith('/') &&
+                        !Uri.IsWellFormedUriString(publicBase, UriKind.Absolute))
+                    {
+                        errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                            path, "must be an absolute URL or a rooted path starting with '/'."));
+                    }
+                }
+
+                ForEachArrayEntry(values, "AllowedContentTypes", errors, (entry, path) =>
+                    entry.StartsWith("image/", StringComparison.OrdinalIgnoreCase)
+                        ? null
+                        : $"'{entry}' must be an image/* content type.");
+                break;
         }
+    }
+
+    private static void RequireAbsoluteUrl(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        string fieldPath,
+        bool allowEmpty,
+        List<Error> errors)
+    {
+        foreach (var (path, value) in values)
+        {
+            if (!path.Equals(fieldPath, StringComparison.OrdinalIgnoreCase) ||
+                value.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            var text = value.GetString();
+            if (allowEmpty && string.IsNullOrEmpty(text))
+            {
+                continue;
+            }
+
+            if (!Uri.IsWellFormedUriString(text, UriKind.Absolute))
+            {
+                errors.Add(SystemSettingsErrors.InvalidFieldValue(path, "must be an absolute URL (e.g. https://auth.example.com)."));
+            }
+        }
+    }
+
+    private static void ForEachArrayEntry(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        string fieldPath,
+        List<Error> errors,
+        Func<string, string, string?> rule)
+    {
+        foreach (var (path, value) in values)
+        {
+            if (!path.Equals(fieldPath, StringComparison.OrdinalIgnoreCase) ||
+                value.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            foreach (var item in value.EnumerateArray())
+            {
+                if (item.ValueKind == JsonValueKind.String &&
+                    item.GetString() is { } entry &&
+                    !string.IsNullOrWhiteSpace(entry) &&
+                    rule(entry, path) is { } message)
+                {
+                    errors.Add(SystemSettingsErrors.InvalidFieldValue(path, message));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The value the configuration WILL have after this save: the payload's
+    /// value when the field is part of it, the live effective value otherwise.
+    /// </summary>
+    private static string? PayloadOrEffective(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        string fieldPath,
+        Func<string, string?> effectiveValue)
+    {
+        foreach (var (path, value) in values)
+        {
+            if (path.Equals(fieldPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return value.ValueKind switch
+                {
+                    JsonValueKind.String => value.GetString(),
+                    JsonValueKind.True => "true",
+                    JsonValueKind.False => "false",
+                    _ => value.GetRawText()
+                };
+            }
+        }
+
+        return effectiveValue(section.FullKey(fieldPath));
     }
 }

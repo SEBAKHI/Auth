@@ -46,14 +46,14 @@ public class PublicDeletionFlowTests
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success);
 
-        var settings = Options.Create(new AccountDeletionSettings());
+        var settings = TestHelpers.CreateOptions(new AccountDeletionSettings());
         _otpService = new DeletionOtpService(
             _verificationRepositoryMock.Object,
             _notificationServiceMock.Object,
             _otpGeneratorMock.Object,
             _passwordHasherMock.Object,
             settings,
-            Options.Create(new EmailSettings()),
+            TestHelpers.CreateOptions(new EmailSettings()),
             new Mock<ILogger<DeletionOtpService>>().Object);
         _requestor = new AccountDeletionRequestor(
             _requestRepositoryMock.Object,

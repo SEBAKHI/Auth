@@ -22,44 +22,53 @@ public class NotificationOutboxDispatcher : BackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly INotificationDispatchSignal _signal;
     private readonly INotificationChannelFactory _channelFactory;
-    private readonly NotificationSettings _settings;
+    private readonly IOptionsMonitor<NotificationSettings> _settings;
     private readonly ILogger<NotificationOutboxDispatcher> _logger;
 
     public NotificationOutboxDispatcher(
         IServiceScopeFactory scopeFactory,
         INotificationDispatchSignal signal,
         INotificationChannelFactory channelFactory,
-        IOptions<NotificationSettings> settings,
+        IOptionsMonitor<NotificationSettings> settings,
         ILogger<NotificationOutboxDispatcher> logger)
     {
         _scopeFactory = scopeFactory;
         _signal = signal;
         _channelFactory = channelFactory;
-        _settings = settings.Value;
+        _settings = settings;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        if (!_settings.UseOutbox)
-        {
-            _logger.LogInformation("Notification outbox dispatcher idle: Notifications:UseOutbox is disabled.");
-            return;
-        }
+        // Settings are read live each cycle so poll/batch/attempt changes —
+        // and the UseOutbox toggle itself — apply without a restart.
+        _logger.LogInformation("Notification outbox dispatcher started.");
 
-        _logger.LogInformation(
-            "Notification outbox dispatcher started (poll {PollSeconds}s, batch {BatchSize}, max attempts {MaxAttempts}).",
-            _settings.PollIntervalSeconds, _settings.BatchSize, _settings.MaxAttempts);
-
-        // Cold-start catch-up: reclaim orphans and drain any backlog immediately.
-        await SafeReclaimAsync(stoppingToken);
-        _signal.Notify();
-
+        var catchUpDone = false;
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                await _signal.WaitAsync(_settings.PollInterval, stoppingToken);
+                var settings = _settings.CurrentValue;
+                if (!settings.UseOutbox)
+                {
+                    // Outbox off: idle-poll so enabling it later is picked up.
+                    catchUpDone = false;
+                    await Task.Delay(TimeSpan.FromSeconds(Math.Max(5, settings.PollIntervalSeconds)), stoppingToken);
+                    continue;
+                }
+
+                if (!catchUpDone)
+                {
+                    // Cold-start / re-enable catch-up: reclaim orphans and
+                    // drain any backlog immediately.
+                    await SafeReclaimAsync(stoppingToken);
+                    _signal.Notify();
+                    catchUpDone = true;
+                }
+
+                await _signal.WaitAsync(settings.PollInterval, stoppingToken);
                 if (stoppingToken.IsCancellationRequested)
                 {
                     break;
@@ -90,7 +99,7 @@ public class NotificationOutboxDispatcher : BackgroundService
         using var scope = _scopeFactory.CreateScope();
         var repository = scope.ServiceProvider.GetRequiredService<INotificationOutboxRepository>();
 
-        var batch = await repository.ClaimBatchAsync(_settings.BatchSize, cancellationToken);
+        var batch = await repository.ClaimBatchAsync(_settings.CurrentValue.BatchSize, cancellationToken);
         foreach (var message in batch)
         {
             var channel = _channelFactory.GetChannel(message.Channel);
@@ -100,7 +109,7 @@ public class NotificationOutboxDispatcher : BackgroundService
                     message.Id,
                     $"No delivery channel registered for '{message.Channel}'.",
                     ComputeNextAttempt(message.AttemptCount),
-                    _settings.MaxAttempts,
+                    _settings.CurrentValue.MaxAttempts,
                     cancellationToken);
                 continue;
             }
@@ -128,10 +137,10 @@ public class NotificationOutboxDispatcher : BackgroundService
                     message.Id,
                     result.FirstError.Description,
                     nextAttempt,
-                    _settings.MaxAttempts,
+                    _settings.CurrentValue.MaxAttempts,
                     cancellationToken);
 
-                if (message.AttemptCount + 1 >= _settings.MaxAttempts)
+                if (message.AttemptCount + 1 >= _settings.CurrentValue.MaxAttempts)
                 {
                     _logger.LogError(
                         "Outbox message {MessageId} ({TypeCode}) dead-lettered after {Attempts} attempts: {Error}",
@@ -173,7 +182,7 @@ public class NotificationOutboxDispatcher : BackgroundService
             var repository = scope.ServiceProvider.GetRequiredService<INotificationOutboxRepository>();
 
             var reclaimed = await repository.ReclaimStaleAsync(
-                DateTime.UtcNow - _settings.StaleClaimAge, cancellationToken);
+                DateTime.UtcNow - _settings.CurrentValue.StaleClaimAge, cancellationToken);
             if (reclaimed > 0)
             {
                 _logger.LogWarning(

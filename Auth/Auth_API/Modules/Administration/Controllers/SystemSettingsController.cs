@@ -6,6 +6,7 @@ using Auth_API.Modules.Administration.Contracts;
 using Auth.Application.DTOs;
 using Auth.Application.Features.SystemSettings.GetSystemSettings;
 using Auth.Application.Features.SystemSettings.ResetSystemSettings;
+using Auth.Application.Features.SystemSettings.SendTestEmail;
 using Auth.Application.Features.SystemSettings.UpdateSystemSettings;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -109,6 +110,29 @@ public class SystemSettingsController : ApiController
 
         return result.Match(
             section => Ok(section),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Sends a diagnostic email to the calling administrator with the
+    /// current effective SMTP settings.
+    /// </summary>
+    /// <response code="204">Test email sent</response>
+    /// <response code="400">Email sending is disabled</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions</response>
+    [HttpPost("email/test")]
+    [RequirePermission("system-settings:manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> SendTestEmail(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new SendTestEmailCommand(GetUserId()), cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
             errors => Problem(errors));
     }
 

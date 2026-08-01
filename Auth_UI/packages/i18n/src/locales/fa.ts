@@ -1111,6 +1111,8 @@ export const fa: TranslationResources = {
     conflict:
       "شخص دیگری در همین حین این بخش را تغییر داده است. بخش دوباره بارگذاری شد — لطفاً تغییرات خود را دوباره اعمال کنید.",
     arrayFieldHint: "در هر خط یک مورد.",
+    sendTestEmail: "ارسال ایمیل آزمایشی",
+    testEmailSent: "ایمیل آزمایشی ارسال شد — صندوق ورودی خود را بررسی کنید.",
     groups: {
       security: "امنیت",
       access: "دسترسی",
@@ -1234,6 +1236,251 @@ export const fa: TranslationResources = {
       tokenHeaderNameHint:
         "در سمت درگاه ثابت است؛ اینجا فقط برای مرجع نمایش داده می‌شود.",
       expectedToken: "توکن درگاه",
+    },
+    cors: {
+      title: "مبدأهای وب مجاز (CORS)",
+      description:
+        "مرورگرهای کدام وب‌سایت‌ها اجازه دارند این API را فراخوانی کنند. فقط نشانی‌های خود برنامه‌های کنسول و حساب‌ها به اینجا تعلق دارند — هر مبدأ اضافی سطح حمله را گسترده‌تر می‌کند.",
+      allowedOrigins: "مبدأهای مجاز",
+      allowedOriginsHint:
+        "فقط مبدأ خالص، مانند https://console.example.com — بدون مسیر، بدون '/' پایانی و بدون wildcard.",
+      allowCredentials: "اجازه اعتبارنامه‌ها",
+      allowCredentialsHint:
+        "به مرورگرها اجازه می‌دهد کوکی‌ها را همراه فراخوانی‌های بین‌مبدأ بفرستند. برای کوکی نشست IdP لازم است؛ فقط از این رو امن است که مبدأهای بالا فهرستی صریح‌اند.",
+    },
+    rateLimiting: {
+      title: "محدودسازی نرخ (API)",
+      description:
+        "کنترل نرخ درخواست‌ها به ازای IP هر کلاینت. یک لایه از دفاع لایه‌ای: سوءاستفاده خودکار را کند می‌کند، در حالی که قفل شدن حساب جلوی حدس زدن رمز عبور را می‌گیرد. محدودیت‌های تغییریافته بلافاصله بر پنجره‌های جدید کلاینت‌ها اعمال می‌شوند.",
+      permitLimit: "درخواست‌های عمومی در هر پنجره",
+      permitLimitHint:
+        "پیشنهاد: ۱۰۰ — برای کاربران واقعی سخاوتمندانه و برای اسکریپت‌ها محدودکننده.",
+      windowSeconds: "پنجره عمومی (ثانیه)",
+      windowSecondsHint: "پیشنهاد: ۶۰.",
+      queueLimit: "اندازه صف",
+      queueLimitHint:
+        "درخواست‌هایی که هنگام رسیدن به سقف، به جای رد فوری، مدت کوتاهی نگه داشته می‌شوند. پیشنهاد: ۱۰.",
+      loginPermitLimit: "تلاش‌های ورود در هر پنجره",
+      loginPermitLimitHint:
+        "بر ورود، ثبت‌نام و سایر نقاط پایانی تعاملی احراز هویت اعمال می‌شود. پیشنهاد: ۲۰ به ازای هر IP.",
+      loginWindowSeconds: "پنجره ورود (ثانیه)",
+      loginWindowSecondsHint: "پیشنهاد: ۶۰.",
+      passwordResetPermitLimit: "درخواست‌های بازنشانی رمز در هر پنجره",
+      passwordResetPermitLimitHint:
+        "پیشنهاد: ۱۰ — رعایت بهداشت برای یک نقطه پایانی ناشناس.",
+      passwordResetWindowSeconds: "پنجره بازنشانی رمز (ثانیه)",
+      passwordResetWindowSecondsHint: "پیشنهاد: ۶۰.",
+    },
+    externalAuth: {
+      title: "ورود خارجی (Google / Apple)",
+      description:
+        "ارائه‌دهندگان ورود اجتماعی. شناسه‌های کلاینت اینجا شناسه‌های عمومی‌اند؛ کلیدهای خصوصی در صفحه اسرار نگهداری می‌شوند. برای نمایان شدن دکمه، ارائه‌دهنده باید در ردیف دایرکتوری خود نیز فعال شده باشد.",
+      googleEnabled: "ورود با Google",
+      googleEnabledHint: "به شناسه کلاینت معتبر در پایین نیاز دارد.",
+      googleClientId: "شناسه کلاینت Google",
+      googleClientIdHint:
+        "از بخش Credentials در Google Cloud Console. مقداری عمومی است و نگهداری آن اینجا امن است.",
+      appleEnabled: "ورود با Apple",
+      appleEnabledHint:
+        "به Services ID، Team ID، Key ID و کلید .p8 در اسرار نیاز دارد.",
+      appleServicesId: "Apple Services ID",
+      appleServicesIdHint: "مثلاً com.example.accounts، از پورتال Apple Developer.",
+      appleTeamId: "Apple Team ID",
+      appleTeamIdHint: "شناسه تیم ۱۰نویسه‌ای از پورتال Apple Developer.",
+      appleKeyId: "Apple Key ID",
+      appleKeyIdHint: "شناسه کلید امضای .p8؛ خود کلید در اسرار نگهداری می‌شود.",
+      applePrivateKeyPem: "کلید امضای Apple (.p8)",
+    },
+    identityProvider: {
+      title: "ارائه‌دهنده هویت (SSO)",
+      description:
+        "جریان ورود سراسری: کاربران کجا وارد می‌شوند، ورود یکپارچه چه مدت دوام دارد و کدهای مجوز یک‌بارمصرف چگونه رفتار می‌کنند.",
+      accountsBaseUrl: "نشانی برنامه حساب‌ها",
+      accountsBaseUrlHint:
+        "نشانی عمومی برنامه حساب‌های کاربران نهایی؛ هدایت‌های ورود به آنجا می‌روند. مقدار اشتباه یعنی خرابی ورود برای همه برنامه‌های متصل.",
+      publicBaseUrl: "نشانی عمومی احراز هویت",
+      publicBaseUrlHint:
+        "نشانی عمومی خود این سرور آن‌گونه که مرورگرها می‌بینند. پشت پروکسی معکوس الزامی است؛ در هدایت‌ها و سند کشف استفاده می‌شود.",
+      authorizationCodeLifetimeSeconds: "عمر کد مجوز (ثانیه)",
+      authorizationCodeLifetimeSecondsHint:
+        "کدهای یک‌بارمصرفی که با توکن مبادله می‌شوند. پیشنهاد: ۶۰ یا کمتر (OAuth 2.0 Security BCP).",
+      idpSessionCookieName: "نام کوکی SSO",
+      idpSessionCookieNameHint:
+        "تغییر نام، همه را از ورود یکپارچه خارج می‌کند (کوکی‌های موجود دیگر مطابقت نمی‌کنند).",
+      idpSessionLifetimeDays: "عمر نشست SSO (روز)",
+      idpSessionLifetimeDaysHint:
+        "مدت دوام «یک بار وارد شو، از همه برنامه‌ها استفاده کن». پیشنهاد: ۷ تا ۳۰ روز.",
+    },
+    email: {
+      title: "ایمیل (SMTP)",
+      description:
+        "نحوه ارسال ایمیل توسط پلتفرم — کدهای تأیید، بازنشانی رمز عبور، دعوت‌نامه‌ها. پس از تغییر سرور، پیش از آنکه ترافیک واقعی به آن وابسته شود، با «ارسال ایمیل آزمایشی» درستی اتصال را ثابت کنید.",
+      enabled: "ارسال ایمیل",
+      enabledHint:
+        "کلید اصلی. وقتی خاموش باشد، جریان‌هایی که به ایمیل نیاز دارند (تأیید، بازنشانی) در دسترس نیستند.",
+      smtpHost: "سرور SMTP",
+      smtpHostHint: "نام میزبان سرور ایمیل شما، مثلاً mail.example.com.",
+      smtpPort: "پورت SMTP",
+      smtpPortHint:
+        "587 = STARTTLS (پیشنهادی)، 465 = TLS ضمنی، 25 = معمولاً توسط میزبان‌ها مسدود است.",
+      useSsl: "الزام TLS",
+      useSslHint:
+        "پیشنهاد: روشن. حالت خاموش فقط در توسعه محلی TLS فرصت‌طلبانه را مجاز می‌کند.",
+      username: "نام کاربری SMTP",
+      usernameHint:
+        "معمولاً نشانی کامل صندوق ایمیل. برای رله‌های بدون احراز هویت خالی بگذارید.",
+      password: "رمز عبور SMTP",
+      senderEmail: "نشانی فرستنده",
+      senderEmailHint:
+        "نشانی From. باید در رکوردهای SPF/DKIM دامنه شما مجاز شده باشد.",
+      senderName: "نام فرستنده",
+      senderNameHint:
+        "نام نمایشی که گیرندگان می‌بینند؛ همچنین نام جایگزین پلتفرم در قالب‌ها.",
+      frontendBaseUrl: "نشانی پایه پیوندها",
+      frontendBaseUrlHint:
+        "نشانی مطلق برنامه حساب‌ها؛ همه پیوندهای ایمیلی (بازنشانی، تأیید) بر پایه آن ساخته می‌شوند. تا زمانی که ارسال فعال است، الزامی است.",
+      otpExpirationMinutes: "عمر کد تأیید (دقیقه)",
+      otpExpirationMinutesHint:
+        "پیشنهاد: ۵ تا ۱۵ — آن‌قدر بلند که بشود تایپ کرد و آن‌قدر کوتاه که چیزی برای سرقت نماند.",
+      resetTokenExpirationMinutes: "عمر پیوند بازنشانی (دقیقه)",
+      resetTokenExpirationMinutesHint: "پیشنهاد: ۳۰ تا ۶۰.",
+      rateLimitWindowSeconds: "پنجره نرخ ارسال (ثانیه)",
+      rateLimitWindowSecondsHint:
+        "پنجره محدودیت ارسالِ به ازای هر نشانی در پایین. پیشنهاد: ۶۰.",
+      maxOtpRequestsPerWindow: "کدها در هر پنجره",
+      maxOtpRequestsPerWindowHint:
+        "حداکثر کدهای تأییدی که یک نشانی می‌تواند در هر پنجره درخواست کند. پیشنهاد: ۳ — جلوی بمباران ایمیلی را می‌گیرد.",
+    },
+    notificationsSection: {
+      title: "تحویل اعلان‌ها",
+      description:
+        "نحوه تحویل اعلان‌های خروجی: مستقیم، یا از طریق صندوق خروجی پایداری که خطاها را دوباره تلاش می‌کند و از راه‌اندازی‌های مجدد جان سالم به در می‌برد. محتوا و قالب‌ها در صفحه‌های اعلان‌ها مدیریت می‌شوند.",
+      useOutbox: "صندوق خروجی پایدار",
+      useOutboxHint:
+        "پیشنهاد: در محیط تولید روشن باشد — پیام‌ها ابتدا ذخیره می‌شوند و در صورت خطا به جای از دست رفتن دوباره تلاش می‌شوند.",
+      pollIntervalSeconds: "بازه سرکشی (ثانیه)",
+      pollIntervalSecondsHint:
+        "بیدارباش پشتیبان وقتی هیچ سیگنال ارسالی نمی‌رسد. پیشنهاد: ۳۰.",
+      batchSize: "اندازه دسته",
+      batchSizeHint: "پیام‌های برداشته‌شده در هر چرخه ارسال. پیشنهاد: ۲۰.",
+      maxAttempts: "حداکثر تلاش‌ها",
+      maxAttemptsHint:
+        "تعداد تلاش‌های تحویل (با عقب‌نشینی نمایی) پیش از آنکه پیام به صف پیام‌های مرده برود. پیشنهاد: ۵.",
+      staleClaimMinutes: "ادعای منقضی (دقیقه)",
+      staleClaimMinutesHint:
+        "پیامی که کارگرِ از کار افتاده برداشته بود، پس از این مدت دوباره تلاش می‌شود. پیشنهاد: ۵.",
+    },
+    imageStorage: {
+      title: "ذخیره‌سازی تصاویر",
+      description:
+        "لوگوها و تصاویر پروفایل بارگذاری‌شده: کجای دیسک ذخیره می‌شوند، چگونه سرویس‌دهی می‌شوند و چه محدودیت‌های اندازه‌ای هنگام بارگذاری اعمال می‌شود.",
+      provider: "ارائه‌دهنده ذخیره‌سازی",
+      providerHint:
+        "ذخیره‌سازی روی سیستم فایل؛ بخشی از استقرار سرور است و اینجا قابل ویرایش نیست.",
+      physicalPath: "پوشه ذخیره‌سازی",
+      physicalPathHint:
+        "محل روی دیسک سرور؛ تغییر آن مستلزم جابه‌جایی فایل‌هاست — کاری مربوط به استقرار.",
+      publicBaseUrl: "نشانی پایه عمومی",
+      publicBaseUrlHint:
+        "پیشوند هر نشانی تصویری که بازگردانده می‌شود. آن را روی نشانی عمومی API (یا یک مسیر ریشه‌دار) بگذارید تا لوگوها از طریق درگاه نمایش داده شوند.",
+      requestPath: "مسیر سرویس‌دهی",
+      requestPathHint:
+        "مسیر URL که تصاویر زیر آن سرویس‌دهی می‌شوند؛ هنگام راه‌اندازی در خط لوله تثبیت می‌شود.",
+      maxSizeBytes: "حداکثر اندازه بارگذاری (بایت)",
+      maxSizeBytesHint:
+        "پیشنهاد: 4194304 (۴ مگابایت) — برای لوگوها و آواتارها کاملاً کافی است.",
+      maxMegapixels: "حداکثر مگاپیکسل",
+      maxMegapixelsHint:
+        "بمب‌های فشرده‌سازی را پیش از پردازش رد می‌کند. پیشنهاد: ۵۰.",
+      maxEdgePx: "حداکثر ضلع (پیکسل)",
+      maxEdgePxHint: "تصاویر بزرگ‌تر تا این ضلع کوچک می‌شوند. پیشنهاد: 1024.",
+      webpQuality: "کیفیت WebP",
+      webpQualityHint:
+        "بارگذاری‌ها با این کیفیت به WebP بازکدگذاری می‌شوند. پیشنهاد: ۹۰.",
+      allowedContentTypes: "انواع محتوای مجاز",
+      allowedContentTypesHint:
+        "انواع MIME از خانواده image/* که هنگام بارگذاری پذیرفته می‌شوند.",
+    },
+    accountDeletionSection: {
+      title: "حذف حساب",
+      description:
+        "خط لوله حذف GDPR/KVKK: مهلت انصراف پیش از پاک‌سازی دائمی، آهنگ کار کارگر پس‌زمینه و مدت نگهداری سوابق امنیتی.",
+      graceDays: "مهلت انصراف (روز)",
+      graceDaysHint:
+        "فرصت تغییر تصمیم پیش از حذف دائمی. پیشنهاد: ۳۰ (رویه نظارتی رایج).",
+      workerPollMinutes: "سرکشی کارگر (دقیقه)",
+      workerPollMinutesHint:
+        "هر چند وقت یک‌بار حذف‌های سررسیده اجرا می‌شوند. پیشنهاد: ۱۵.",
+      workerBatchSize: "اندازه دسته کارگر",
+      workerBatchSizeHint: "تعداد حذف‌های اجراشده در هر چرخه. پیشنهاد: ۲۵.",
+      maxExecutionAttempts: "حداکثر تلاش‌های اجرا",
+      maxExecutionAttemptsHint:
+        "تعداد تلاش‌های مجدد پیش از آنکه حذف ناموفق هشدار انطباق را به صدا درآورد. پیشنهاد: ۵.",
+      otpExpirationMinutes: "عمر کد تأیید (دقیقه)",
+      otpExpirationMinutesHint:
+        "کدی که درخواست حذف عمومی را تأیید می‌کند. پیشنهاد: ۱۵.",
+      loginAttemptRetentionDays: "نگهداری تلاش‌های ورود (روز)",
+      loginAttemptRetentionDaysHint:
+        "مدت نگهداری گزارش‌های امنیتی؛ آن را با سیاست حریم خصوصی خود هماهنگ کنید. پیشنهاد: ۳۶۵.",
+      outboxRetentionDays: "نگهداری صندوق خروجی (روز)",
+      outboxRetentionDaysHint:
+        "مدت نگهداری سابقه اعلان‌های تحویل‌شده. پیشنهاد: ۱۸۰.",
+      policyVersion: "نسخه سیاست حریم خصوصی",
+      policyVersionHint:
+        "مهر نسخه‌ای که با هر حذف ثبت می‌شود (قالب YYYY.MM). باید با سیاست منتشرشده مطابقت داشته باشد.",
+      runEncryptionMigration: "اجرای مهاجرت رمزگذاری",
+      runEncryptionMigrationHint:
+        "پرکردن یک‌باره‌ای که در راه‌اندازی بعدی اجرا می‌شود؛ آن را خاموش نگه دارید مگر آنکه دستورالعمل عملیاتی خلاف آن بگوید.",
+      identifierHmacKeyPlain: "کلید هش شناسه",
+    },
+    healthChecks: {
+      title: "بررسی‌های سلامت",
+      description:
+        "کاوشگرهای عمومی /health و /ready که درگاه و ابزارهای پایش از آن‌ها استفاده می‌کنند.",
+      exposeErrorDetails: "نمایش جزئیات خطا",
+      exposeErrorDetailsHint:
+        "پیام‌های استثنا را در پاسخ کاوشگرها می‌گنجاند. پیشنهاد: در محیط تولید خاموش باشد — این نقاط پایانی به‌صورت عمومی در دسترس‌اند.",
+    },
+    serilog: {
+      title: "ثبت گزارش",
+      description:
+        "میزان جزئیاتی که API در فایل‌های گزارش خود می‌نویسد. سطح‌ها بلافاصله اعمال می‌شوند؛ محل فایل‌های گزارش بخشی از استقرار است.",
+      minimumLevelDefault: "حداقل سطح",
+      minimumLevelDefaultHint:
+        "Information برای کارکرد عادی؛ Debug فقط هنگام عیب‌یابی (پرحجم است و ممکن است جزئیات بیشتری از درخواست‌ها دربر داشته باشد)؛ Warning برای گزارش‌های کم‌حجم در محیط تولید.",
+      minimumLevelOverrideMicrosoft: "سطح فضای نام Microsoft",
+      minimumLevelOverrideMicrosoftHint:
+        "صافی سروصدای فریم‌ورک. پیشنهاد: Warning.",
+      minimumLevelOverrideMicrosoftHostingLifetime: "سطح چرخه عمر میزبان",
+      minimumLevelOverrideMicrosoftHostingLifetimeHint:
+        "پیام‌های راه‌اندازی و خاموش شدن. پیشنهاد: Information.",
+      minimumLevelOverrideSystem: "سطح فضای نام System",
+      minimumLevelOverrideSystemHint: "پیشنهاد: Warning.",
+    },
+    dataProtection: {
+      title: "کلیدهای حفاظت داده",
+      description:
+        "حلقه کلیدی که اسرار را در حالت سکون رمزگذاری می‌کند (بذرهای 2FA، کلیدهای ذخیره‌شده). پیش از در دسترس بودن پایگاه‌داده خوانده می‌شود — و نشانه رفتن آن به پوشه اشتباه، همه مقادیر رمزگذاری‌شده را برای همیشه غیرقابل خواندن می‌کند — از این رو فقط در فایل‌های سرور مدیریت می‌شود.",
+      keyPath: "پوشه حلقه کلید",
+      certificatePfxPath: "فایل گواهی",
+      certificateThumbprint: "اثر انگشت گواهی",
+      certificatePasswordEnvironmentVariable: "متغیر محیطی رمز عبور",
+    },
+    secretManagement: {
+      title: "مدیریت اسرار",
+      description:
+        "نحوه ذخیره اسرار رمزنگاری (فایل رمزگذاری‌شده / DPAPI / متن ساده برای توسعه). پیش از پایگاه‌داده راه‌اندازی می‌شود، پس حالت آن در فایل‌های سرور مدیریت می‌شود؛ خودِ مقادیر اسرار در صفحه اسرار مدیریت می‌شوند.",
+      storageMode: "حالت ذخیره‌سازی",
+      secretFilePath: "فایل اسرار",
+      autoGenerateKeys: "تولید خودکار کلیدها",
+      enableAdminApi: "فعال بودن API مدیریتی",
+      requiredPermission: "مجوز موردنیاز",
+    },
+    connectionStrings: {
+      title: "اتصال پایگاه‌داده",
+      description:
+        "اتصال SQL Server که این API روی آن اجرا می‌شود. حاوی اعتبارنامه است و پیش از بارگیری هر تنظیمی لازم است، بنابراین فقط در فایل‌های سرور / مخزن اسرار نگهداری می‌شود.",
+      authDb: "رشته اتصال AuthDb",
     },
   },
   profile: {

@@ -35,4 +35,13 @@ public static class SystemSettingsErrors
     public static Error ConcurrencyConflict => Error.Conflict(
         code: "SystemSettings.ConcurrencyConflict",
         description: "The section was modified by someone else since you loaded it. Reload and reapply your changes.");
+
+    public static Error EmailSendingDisabled => Error.Validation(
+        code: "SystemSettings.EmailSendingDisabled",
+        description: "Email sending is disabled (Email:Enabled is off), so there is nothing to test.");
+
+    public static Error TestEmailFailed(string detail) => Error.Failure(
+        code: "SystemSettings.TestEmailFailed",
+        description: $"The test email could not be sent: {detail}",
+        metadata: new() { ["args"] = new object[] { detail } });
 }

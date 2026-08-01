@@ -17,7 +17,16 @@ public class SystemSettingsDefaultParityTests
         ["Jwt"] = new JwtSettings(),
         ["Password"] = new PasswordSettings(),
         ["Session"] = new SessionSettings(),
-        ["Gateway"] = new GatewaySettings()
+        ["Gateway"] = new GatewaySettings(),
+        ["Email"] = new EmailSettings(),
+        ["Notifications"] = new NotificationSettings(),
+        ["AccountDeletion"] = new AccountDeletionSettings(),
+        ["ImageStorage"] = new ImageStorageSettings(),
+        ["IdentityProvider"] = new IdentityProviderSettings(),
+        // ExternalAuth is omitted: its Google/Apple sub-objects default to
+        // null (provider treats that as "not configured"), so nested class
+        // defaults cannot be resolved by reflection.
+        ["SecretManagement"] = new SecretManagementSettings()
     };
 
     [Fact]

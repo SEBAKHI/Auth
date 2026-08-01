@@ -773,4 +773,10 @@
   <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
     <value>The section was modified by someone else since you loaded it. Reload and reapply your changes.</value>
   </data>
+  <data name="SystemSettings.EmailSendingDisabled" xml:space="preserve">
+    <value>Email sending is disabled (Email:Enabled is off), so there is nothing to test.</value>
+  </data>
+  <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
+    <value>The test email could not be sent: {0}</value>
+  </data>
 </root>

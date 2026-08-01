@@ -26,6 +26,19 @@ export const SECTION_I18N: Record<string, string> = {
   Password: "password",
   Session: "session",
   Gateway: "gateway",
+  Cors: "cors",
+  RateLimiting: "rateLimiting",
+  ExternalAuth: "externalAuth",
+  IdentityProvider: "identityProvider",
+  Email: "email",
+  Notifications: "notificationsSection",
+  ImageStorage: "imageStorage",
+  AccountDeletion: "accountDeletionSection",
+  HealthChecks: "healthChecks",
+  Serilog: "serilog",
+  DataProtection: "dataProtection",
+  SecretManagement: "secretManagement",
+  ConnectionStrings: "connectionStrings",
 }
 
 /**
@@ -42,7 +55,8 @@ export function fieldI18nKey(path: string): string {
         : segment
     )
     .join("")
-  return joined
+  // Dots (Serilog override namespaces) would read as nested i18n lookups.
+  return joined.replace(/\./g, "")
 }
 
 /** Groups the sections for the setup navigation, in stable order. */

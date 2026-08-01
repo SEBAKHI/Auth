@@ -13,6 +13,12 @@ namespace Auth.Application.SystemSettings;
 /// </summary>
 public static class SystemSettingsRegistry
 {
+    // Declared before Sections: static initializers run in declaration
+    // order, so referencing this from the Sections initializer would
+    // otherwise read null.
+    private static readonly string[] LogLevels =
+        ["Verbose", "Debug", "Information", "Warning", "Error", "Fatal"];
+
     /// <summary>
     /// All sections, in the order the console presents them.
     /// </summary>
@@ -109,6 +115,215 @@ public static class SystemSettingsRegistry
                 // changing it here alone would lock the API away.
                 new SettingFieldDefinition("TokenHeaderName", SettingKind.String, ReadOnly: true, DefaultValue: "X-Gateway-Token"),
                 new SettingFieldDefinition("ExpectedToken", SettingKind.String, Sensitive: true)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "Cors",
+            ConfigRoot: "Cors",
+            Group: SettingGroups.Access,
+            Editable: true,
+            Fields:
+            [
+                // Hot through DynamicCorsPolicyProvider (the policy is
+                // rebuilt when the settings version changes).
+                new SettingFieldDefinition("AllowedOrigins", SettingKind.StringArray),
+                new SettingFieldDefinition("AllowCredentials", SettingKind.Bool)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "RateLimiting",
+            ConfigRoot: "RateLimiting",
+            Group: SettingGroups.Access,
+            Editable: true,
+            // Hot via version-stamped partitions: existing per-IP windows
+            // keep their old limits until they idle out; new partitions pick
+            // up the saved values immediately. Defaults mirror the fallbacks
+            // Program.cs passes to GetValue (no options class exists).
+            Fields:
+            [
+                new SettingFieldDefinition("PermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 100),
+                new SettingFieldDefinition("WindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                new SettingFieldDefinition("QueueLimit", SettingKind.Int, Min: 0, Max: 1000, DefaultValue: 10),
+                new SettingFieldDefinition("LoginPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
+                new SettingFieldDefinition("LoginWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                new SettingFieldDefinition("PasswordResetPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 10),
+                new SettingFieldDefinition("PasswordResetWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "ExternalAuth",
+            ConfigRoot: "ExternalAuth",
+            Group: SettingGroups.Access,
+            Editable: true,
+            Fields:
+            [
+                new SettingFieldDefinition("Google:Enabled", SettingKind.Bool, DefaultValue: false),
+                new SettingFieldDefinition("Google:ClientId", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("Apple:Enabled", SettingKind.Bool, DefaultValue: false),
+                new SettingFieldDefinition("Apple:ServicesId", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("Apple:TeamId", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("Apple:KeyId", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("Apple:PrivateKeyPem", SettingKind.String, Sensitive: true)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "IdentityProvider",
+            ConfigRoot: "IdentityProvider",
+            Group: SettingGroups.Access,
+            Editable: true,
+            Fields:
+            [
+                new SettingFieldDefinition("AccountsBaseUrl", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("PublicBaseUrl", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("AuthorizationCodeLifetimeSeconds", SettingKind.Int, Min: 10, Max: 300, DefaultValue: 60),
+                // Hot-capable technically, but renaming orphans every
+                // existing IdP session cookie — surfaced as restart-level.
+                new SettingFieldDefinition("IdpSessionCookieName", SettingKind.String, RestartRequired: true, DefaultValue: "auth_idp"),
+                new SettingFieldDefinition("IdpSessionLifetimeDays", SettingKind.Int, Min: 1, Max: 90, DefaultValue: 7)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "Email",
+            ConfigRoot: "Email",
+            Group: SettingGroups.Communication,
+            Editable: true,
+            Fields:
+            [
+                new SettingFieldDefinition("Enabled", SettingKind.Bool, DefaultValue: false),
+                new SettingFieldDefinition("SmtpHost", SettingKind.String, DefaultValue: "localhost"),
+                new SettingFieldDefinition("SmtpPort", SettingKind.Int, Min: 1, Max: 65535, DefaultValue: 587),
+                new SettingFieldDefinition("UseSsl", SettingKind.Bool, DefaultValue: true),
+                new SettingFieldDefinition("Username", SettingKind.String),
+                new SettingFieldDefinition("Password", SettingKind.String, Sensitive: true),
+                new SettingFieldDefinition("SenderEmail", SettingKind.String, DefaultValue: "noreply@example.com"),
+                new SettingFieldDefinition("SenderName", SettingKind.String, DefaultValue: "Auth System"),
+                new SettingFieldDefinition("FrontendBaseUrl", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("OtpExpirationMinutes", SettingKind.Int, Min: 1, Max: 60, DefaultValue: 15),
+                new SettingFieldDefinition("ResetTokenExpirationMinutes", SettingKind.Int, Min: 5, Max: 1440, DefaultValue: 30),
+                new SettingFieldDefinition("RateLimitWindowSeconds", SettingKind.Int, Min: 10, Max: 3600, DefaultValue: 60),
+                new SettingFieldDefinition("MaxOtpRequestsPerWindow", SettingKind.Int, Min: 1, Max: 20, DefaultValue: 3)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "Notifications",
+            ConfigRoot: "Notifications",
+            Group: SettingGroups.Communication,
+            Editable: true,
+            Fields:
+            [
+                new SettingFieldDefinition("UseOutbox", SettingKind.Bool, DefaultValue: false),
+                new SettingFieldDefinition("PollIntervalSeconds", SettingKind.Int, Min: 5, Max: 3600, DefaultValue: 30),
+                new SettingFieldDefinition("BatchSize", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 20),
+                new SettingFieldDefinition("MaxAttempts", SettingKind.Int, Min: 1, Max: 20, DefaultValue: 5),
+                new SettingFieldDefinition("StaleClaimMinutes", SettingKind.Int, Min: 1, Max: 120, DefaultValue: 5)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "ImageStorage",
+            ConfigRoot: "ImageStorage",
+            Group: SettingGroups.Storage,
+            Editable: true,
+            Fields:
+            [
+                // Provider/PhysicalPath describe the server's disk layout;
+                // RequestPath is baked into the static-files middleware.
+                new SettingFieldDefinition("Provider", SettingKind.String, ReadOnly: true, DefaultValue: "filesystem"),
+                new SettingFieldDefinition("PhysicalPath", SettingKind.String, ReadOnly: true, DefaultValue: "uploads/images"),
+                new SettingFieldDefinition("PublicBaseUrl", SettingKind.String, DefaultValue: "/uploads/images"),
+                new SettingFieldDefinition("RequestPath", SettingKind.String, RestartRequired: true, DefaultValue: "/uploads/images"),
+                new SettingFieldDefinition("MaxSizeBytes", SettingKind.Int, Min: 1024, Max: 104857600, DefaultValue: 4194304),
+                new SettingFieldDefinition("MaxMegapixels", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 50),
+                new SettingFieldDefinition("MaxEdgePx", SettingKind.Int, Min: 64, Max: 8192, DefaultValue: 1024),
+                new SettingFieldDefinition("WebpQuality", SettingKind.Int, Min: 1, Max: 100, DefaultValue: 90),
+                new SettingFieldDefinition(
+                    "AllowedContentTypes",
+                    SettingKind.StringArray,
+                    DefaultValue: new[] { "image/png", "image/jpeg", "image/webp", "image/gif" })
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "AccountDeletion",
+            ConfigRoot: "AccountDeletion",
+            Group: SettingGroups.Operations,
+            Editable: true,
+            Fields:
+            [
+                new SettingFieldDefinition("GraceDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 30),
+                new SettingFieldDefinition("WorkerPollMinutes", SettingKind.Int, Min: 1, Max: 1440, DefaultValue: 15),
+                new SettingFieldDefinition("WorkerBatchSize", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 25),
+                new SettingFieldDefinition("MaxExecutionAttempts", SettingKind.Int, Min: 1, Max: 20, DefaultValue: 5),
+                new SettingFieldDefinition("OtpExpirationMinutes", SettingKind.Int, Min: 1, Max: 60, DefaultValue: 15),
+                new SettingFieldDefinition("LoginAttemptRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 365),
+                new SettingFieldDefinition("OutboxRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 180),
+                new SettingFieldDefinition("PolicyVersion", SettingKind.String, DefaultValue: "2026.07"),
+                // One-shot migration hosted service, evaluated at startup.
+                new SettingFieldDefinition("RunEncryptionMigration", SettingKind.Bool, RestartRequired: true, DefaultValue: false),
+                new SettingFieldDefinition("IdentifierHmacKeyPlain", SettingKind.String, Sensitive: true)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "HealthChecks",
+            ConfigRoot: "HealthChecks",
+            Group: SettingGroups.Operations,
+            Editable: true,
+            Fields:
+            [
+                new SettingFieldDefinition("ExposeErrorDetails", SettingKind.Bool, DefaultValue: false)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "Serilog",
+            ConfigRoot: "Serilog",
+            Group: SettingGroups.Operations,
+            Editable: true,
+            // Levels are hot through LoggingLevelSwitchRegistry; sinks and
+            // enrichers stay file-owned (they are built once at startup).
+            Fields:
+            [
+                new SettingFieldDefinition("MinimumLevel:Default", SettingKind.Enum, AllowedValues: LogLevels, DefaultValue: "Information"),
+                new SettingFieldDefinition("MinimumLevel:Override:Microsoft", SettingKind.Enum, AllowedValues: LogLevels),
+                new SettingFieldDefinition("MinimumLevel:Override:Microsoft.Hosting.Lifetime", SettingKind.Enum, AllowedValues: LogLevels),
+                new SettingFieldDefinition("MinimumLevel:Override:System", SettingKind.Enum, AllowedValues: LogLevels)
+            ]),
+
+        // Bootstrap sections: consumed before the database layer exists, so
+        // they are read-only information cards in the console.
+        new SettingSectionDefinition(
+            Key: "DataProtection",
+            ConfigRoot: "DataProtection",
+            Group: SettingGroups.Infrastructure,
+            Editable: false,
+            Fields:
+            [
+                new SettingFieldDefinition("KeyPath", SettingKind.String, ReadOnly: true),
+                new SettingFieldDefinition("Certificate:PfxPath", SettingKind.String, ReadOnly: true),
+                new SettingFieldDefinition("Certificate:Thumbprint", SettingKind.String, ReadOnly: true),
+                new SettingFieldDefinition("Certificate:PasswordEnvironmentVariable", SettingKind.String, ReadOnly: true)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "SecretManagement",
+            ConfigRoot: "SecretManagement",
+            Group: SettingGroups.Infrastructure,
+            Editable: false,
+            Fields:
+            [
+                new SettingFieldDefinition("StorageMode", SettingKind.String, ReadOnly: true, DefaultValue: "PlainText"),
+                new SettingFieldDefinition("SecretFilePath", SettingKind.String, ReadOnly: true),
+                new SettingFieldDefinition("AutoGenerateKeys", SettingKind.Bool, ReadOnly: true, DefaultValue: true),
+                new SettingFieldDefinition("EnableAdminApi", SettingKind.Bool, ReadOnly: true, DefaultValue: false),
+                new SettingFieldDefinition("RequiredPermission", SettingKind.String, ReadOnly: true, DefaultValue: "secrets.manage")
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "ConnectionStrings",
+            ConfigRoot: "ConnectionStrings",
+            Group: SettingGroups.Infrastructure,
+            Editable: false,
+            // Credentials — never readable here; managed via files/secrets.
+            Fields:
+            [
+                new SettingFieldDefinition("AuthDb", SettingKind.String, Sensitive: true)
             ])
     ];
 

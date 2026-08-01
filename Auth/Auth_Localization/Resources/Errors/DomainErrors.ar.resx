@@ -773,4 +773,10 @@
   <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
     <value>عدّل شخص آخر هذا القسم منذ تحميلك إياه. أعد التحميل ثم طبّق تغييراتك من جديد.</value>
   </data>
+  <data name="SystemSettings.EmailSendingDisabled" xml:space="preserve">
+    <value>إرسال البريد الإلكتروني معطل (الإعداد Email:Enabled مغلق)، فلا يوجد ما يُختبر.</value>
+  </data>
+  <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
+    <value>تعذر إرسال البريد التجريبي: {0}</value>
+  </data>
 </root>

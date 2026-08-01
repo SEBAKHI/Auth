@@ -1122,6 +1122,8 @@ export const tr: TranslationResources = {
     conflict:
       "Bu bölüm bu sırada başka biri tarafından değiştirildi. Bölüm yeniden yüklendi — lütfen değişikliklerinizi yeniden uygulayın.",
     arrayFieldHint: "Her satıra bir girdi.",
+    sendTestEmail: "Test e-postası gönder",
+    testEmailSent: "Test e-postası gönderildi — gelen kutunuzu kontrol edin.",
     groups: {
       security: "Güvenlik",
       access: "Erişim",
@@ -1244,6 +1246,229 @@ export const tr: TranslationResources = {
       tokenHeaderNameHint:
         "Ağ geçidi tarafında sabittir; burada yalnızca bilgi amaçlı gösterilir.",
       expectedToken: "Ağ geçidi jetonu",
+    },
+    cors: {
+      title: "İzin verilen web kaynakları (CORS)",
+      description:
+        "Hangi web sitelerinin tarayıcılarının bu API'yi çağırabileceği. Buraya yalnızca konsol ve hesap uygulamalarının kendi adresleri girmelidir — her fazladan kaynak saldırı yüzeyini genişletir.",
+      allowedOrigins: "İzin verilen kaynaklar",
+      allowedOriginsHint:
+        "Yalnızca yalın kaynaklar, örn. https://console.example.com — yol yok, sonda eğik çizgi yok, joker karakter yok.",
+      allowCredentials: "Kimlik bilgilerine izin ver",
+      allowCredentialsHint:
+        "Tarayıcıların kaynaklar arası çağrılarda çerez göndermesine izin verir. IdP oturum çerezi için gereklidir; yalnızca yukarıdaki kaynaklar açık bir liste olduğu için güvenlidir.",
+    },
+    rateLimiting: {
+      title: "Hız sınırlama (API)",
+      description:
+        "İstemci IP'si başına istek kısıtlaması. Katmanlı savunmanın bir katmanı: hesap kilitleme parola tahminini durdururken bu, otomatik kötüye kullanımı yavaşlatır. Değiştirilen sınırlar yeni istemci pencerelerine hemen uygulanır.",
+      permitLimit: "Pencere başına genel istekler",
+      permitLimitHint: "Önerilen: 100 — gerçek kullanıcılar için cömert, betikler için kısıtlayıcı.",
+      windowSeconds: "Genel pencere (saniye)",
+      windowSecondsHint: "Önerilen: 60.",
+      queueLimit: "Kuyruk boyutu",
+      queueLimitHint:
+        "Sınıra ulaşıldığında hemen reddedilmek yerine kısa süre bekletilen istekler. Önerilen: 10.",
+      loginPermitLimit: "Pencere başına oturum açma denemeleri",
+      loginPermitLimitHint:
+        "Oturum açma, kayıt ve diğer etkileşimli kimlik doğrulama uç noktalarına uygulanır. Önerilen: IP başına 20.",
+      loginWindowSeconds: "Oturum açma penceresi (saniye)",
+      loginWindowSecondsHint: "Önerilen: 60.",
+      passwordResetPermitLimit: "Pencere başına parola sıfırlama istekleri",
+      passwordResetPermitLimitHint: "Önerilen: 10 — anonim bir uç nokta için temel hijyen.",
+      passwordResetWindowSeconds: "Parola sıfırlama penceresi (saniye)",
+      passwordResetWindowSecondsHint: "Önerilen: 60.",
+    },
+    externalAuth: {
+      title: "Harici oturum açma (Google / Apple)",
+      description:
+        "Sosyal oturum açma sağlayıcıları. Buradaki istemci kimlikleri genel tanımlayıcılardır; özel anahtarlar Gizli Anahtarlar sayfasında durur. Düğmenin görünmesi için sağlayıcının AYRICA kendi dizin satırında da etkinleştirilmesi gerekir.",
+      googleEnabled: "Google ile oturum açma",
+      googleEnabledHint: "Aşağıda geçerli bir istemci kimliği gerektirir.",
+      googleClientId: "Google istemci kimliği",
+      googleClientIdHint:
+        "Google Cloud Console → Credentials bölümünden alınır. Genel bir değerdir, burada saklanması güvenlidir.",
+      appleEnabled: "Apple ile oturum açma",
+      appleEnabledHint: "Services ID, Team ID, Key ID ve Gizli Anahtarlar'daki .p8 anahtarını gerektirir.",
+      appleServicesId: "Apple Services ID",
+      appleServicesIdHint: "örn. com.example.accounts, Apple Developer portalından alınır.",
+      appleTeamId: "Apple Team ID",
+      appleTeamIdHint: "Apple Developer portalındaki 10 karakterlik ekip tanımlayıcısı.",
+      appleKeyId: "Apple Key ID",
+      appleKeyIdHint: ".p8 imzalama anahtarının tanımlayıcısı; anahtarın kendisi Gizli Anahtarlar'da durur.",
+      applePrivateKeyPem: "Apple imzalama anahtarı (.p8)",
+    },
+    identityProvider: {
+      title: "Kimlik sağlayıcı (SSO)",
+      description:
+        "Evrensel oturum açma akışı: kullanıcıların nerede oturum açtığı, tek oturum açmanın ne kadar sürdüğü ve tek kullanımlık yetkilendirme kodlarının nasıl davrandığı.",
+      accountsBaseUrl: "Hesaplar uygulaması URL'si",
+      accountsBaseUrlHint:
+        "Son kullanıcı hesap uygulamasının genel adresi; oturum açma yönlendirmeleri oraya gider. Yanlış değer = bağlı her uygulama için bozuk oturum açma.",
+      publicBaseUrl: "Genel kimlik doğrulama URL'si",
+      publicBaseUrlHint:
+        "Bu sunucunun tarayıcıların gördüğü kendi genel adresi. Ters proxy arkasında zorunludur; yönlendirmelerde ve keşif belgesinde kullanılır.",
+      authorizationCodeLifetimeSeconds: "Yetkilendirme kodu ömrü (saniye)",
+      authorizationCodeLifetimeSecondsHint:
+        "Jetonlarla takas edilen tek kullanımlık kodlar. Önerilen: 60 veya daha az (OAuth 2.0 Security BCP).",
+      idpSessionCookieName: "SSO çerez adı",
+      idpSessionCookieNameHint:
+        "Yeniden adlandırmak herkesin tek oturum açma oturumunu kapatır (mevcut çerezler artık eşleşmez).",
+      idpSessionLifetimeDays: "SSO oturum ömrü (gün)",
+      idpSessionLifetimeDaysHint:
+        "'Bir kez oturum aç, her uygulamayı kullan' deneyiminin ne kadar sürdüğü. Önerilen: 7–30 gün.",
+    },
+    email: {
+      title: "E-posta (SMTP)",
+      description:
+        "Platformun postayı nasıl gönderdiği — doğrulama kodları, parola sıfırlamaları, davetler. Sunucuyu değiştirdikten sonra, gerçek trafik ona bağımlı olmadan önce bağlantıyı kanıtlamak için 'Test e-postası gönder'i kullanın.",
+      enabled: "E-posta gönderimi",
+      enabledHint:
+        "Ana anahtar. Kapalıyken e-posta gerektiren akışlar (doğrulama, sıfırlama) kullanılamaz.",
+      smtpHost: "SMTP sunucusu",
+      smtpHostHint: "Posta sunucunuzun ana bilgisayar adı, örn. mail.example.com.",
+      smtpPort: "SMTP portu",
+      smtpPortHint:
+        "587 = STARTTLS (önerilen), 465 = doğrudan TLS, 25 = çoğu barındırıcıda engellidir.",
+      useSsl: "TLS zorunlu",
+      useSslHint: "Önerilen: açık. Kapalı ayar, fırsatçı TLS'e yalnızca yerel geliştirmede izin verir.",
+      username: "SMTP kullanıcı adı",
+      usernameHint: "Genellikle tam posta kutusu adresidir. Kimlik doğrulamasız aktarıcılar için boş bırakın.",
+      password: "SMTP parolası",
+      senderEmail: "Gönderen adresi",
+      senderEmailHint: "From adresi. Alan adınızın SPF/DKIM kayıtları tarafından yetkilendirilmiş olmalıdır.",
+      senderName: "Gönderen adı",
+      senderNameHint: "Alıcıların gördüğü görünen ad; şablonlarda da yedek platform adı olarak kullanılır.",
+      frontendBaseUrl: "Bağlantıların temel URL'si",
+      frontendBaseUrlHint:
+        "Hesap uygulamasının mutlak adresi; e-postayla gönderilen her bağlantı (sıfırlama, doğrulama) bunun üzerine kurulur. Gönderim etkinken zorunludur.",
+      otpExpirationMinutes: "Doğrulama kodu ömrü (dakika)",
+      otpExpirationMinutesHint: "Önerilen: 5–15 — yazmaya yetecek kadar uzun, çalmaya değmeyecek kadar kısa.",
+      resetTokenExpirationMinutes: "Sıfırlama bağlantısı ömrü (dakika)",
+      resetTokenExpirationMinutesHint: "Önerilen: 30–60.",
+      rateLimitWindowSeconds: "Gönderim hızı penceresi (saniye)",
+      rateLimitWindowSecondsHint: "Aşağıdaki adres başına gönderim sınırının penceresi. Önerilen: 60.",
+      maxOtpRequestsPerWindow: "Pencere başına kod sayısı",
+      maxOtpRequestsPerWindowHint:
+        "Bir adresin pencere başına isteyebileceği en fazla doğrulama kodu. Önerilen: 3 — posta bombardımanını durdurur.",
+    },
+    notificationsSection: {
+      title: "Bildirim teslimatı",
+      description:
+        "Giden bildirimlerin nasıl teslim edildiği: doğrudan ya da hataları yeniden deneyen ve yeniden başlatmalara dayanan kalıcı bir giden kutusu üzerinden. İçerik ve şablonlar Bildirimler sayfalarında yönetilir.",
+      useOutbox: "Kalıcı giden kutusu",
+      useOutboxHint:
+        "Önerilen: üretimde açık — mesajlar kaybolmak yerine önce saklanır ve hata durumunda yeniden denenir.",
+      pollIntervalSeconds: "Yoklama aralığı (saniye)",
+      pollIntervalSecondsHint: "Gönderim sinyali gelmediğinde yedek uyanma süresi. Önerilen: 30.",
+      batchSize: "Toplu iş boyutu",
+      batchSizeHint: "Gönderim döngüsü başına üstlenilen mesajlar. Önerilen: 20.",
+      maxAttempts: "En fazla deneme",
+      maxAttemptsHint:
+        "Bir mesaj ölü mektup kuyruğuna düşmeden önceki teslim denemeleri (üstel geri çekilmeyle). Önerilen: 5.",
+      staleClaimMinutes: "Bayat üstlenme (dakika)",
+      staleClaimMinutesHint:
+        "Çöken bir işleyicinin üstlendiği mesaj bu süre sonunda yeniden denenir. Önerilen: 5.",
+    },
+    imageStorage: {
+      title: "Görsel depolama",
+      description:
+        "Yüklenen logolar ve profil fotoğrafları: diskte nerede saklandıkları, nasıl sunuldukları ve yüklemede uygulanan boyut sınırları.",
+      provider: "Depolama sağlayıcısı",
+      providerHint: "Dosya sistemi depolaması; sunucu dağıtımının parçasıdır, burada düzenlenemez.",
+      physicalPath: "Depolama klasörü",
+      physicalPathHint: "Sunucu disk konumu; değiştirmek dosyaları taşımayı gerektirir — bu bir dağıtım görevidir.",
+      publicBaseUrl: "Genel temel URL",
+      publicBaseUrlHint:
+        "Döndürülen her görsel URL'sinin öneki. Logoların ağ geçidi üzerinden görüntülenebilmesi için API'nin genel adresine (veya kökten başlayan bir yola) ayarlayın.",
+      requestPath: "Sunum yolu",
+      requestPathHint: "Görsellerin sunulduğu URL yolu; başlangıçta işlem hattına gömülür.",
+      maxSizeBytes: "En fazla yükleme boyutu (bayt)",
+      maxSizeBytesHint: "Önerilen: 4194304 (4 MB) — logolar ve avatarlar için fazlasıyla yeterli.",
+      maxMegapixels: "En fazla megapiksel",
+      maxMegapixelsHint: "Açma bombalarını işlemeden önce reddeder. Önerilen: 50.",
+      maxEdgePx: "En fazla kenar (piksel)",
+      maxEdgePxHint: "Daha büyük görseller bu kenar uzunluğuna küçültülür. Önerilen: 1024.",
+      webpQuality: "WebP kalitesi",
+      webpQualityHint: "Yüklemeler bu kalitede WebP olarak yeniden kodlanır. Önerilen: 90.",
+      allowedContentTypes: "İzin verilen içerik türleri",
+      allowedContentTypesHint: "Yüklemede kabul edilen image/* MIME türleri.",
+    },
+    accountDeletionSection: {
+      title: "Hesap silme",
+      description:
+        "GDPR/KVKK silme hattı: kalıcı silmeden önceki bekleme süresi, arka plan işleyicisinin temposu ve güvenlik kayıtlarının ne kadar saklandığı.",
+      graceDays: "Bekleme süresi (gün)",
+      graceDaysHint:
+        "Kalıcı silmeden önce fikir değiştirme süresi. Önerilen: 30 (yaygın düzenleyici uygulama).",
+      workerPollMinutes: "İşleyici yoklaması (dakika)",
+      workerPollMinutesHint: "Vadesi gelen silmelerin ne sıklıkla yürütüldüğü. Önerilen: 15.",
+      workerBatchSize: "İşleyici toplu iş boyutu",
+      workerBatchSizeHint: "Döngü başına yürütülen silmeler. Önerilen: 25.",
+      maxExecutionAttempts: "En fazla yürütme denemesi",
+      maxExecutionAttemptsHint: "Başarısız bir silme uyum alarmını tetiklemeden önceki yeniden denemeler. Önerilen: 5.",
+      otpExpirationMinutes: "Onay kodu ömrü (dakika)",
+      otpExpirationMinutesHint: "Genel bir silme talebini onaylayan kod. Önerilen: 15.",
+      loginAttemptRetentionDays: "Oturum açma denemesi saklama (gün)",
+      loginAttemptRetentionDaysHint:
+        "Güvenlik günlüğü saklama süresi; gizlilik politikanızla uyumlu tutun. Önerilen: 365.",
+      outboxRetentionDays: "Giden kutusu saklama (gün)",
+      outboxRetentionDaysHint: "Teslim edilen bildirim günlüğünün saklama süresi. Önerilen: 180.",
+      policyVersion: "Gizlilik politikası sürümü",
+      policyVersionHint:
+        "Her silmeyle birlikte kaydedilen sürüm damgası (biçim: YYYY.MM). Yayımlanan politikayla eşleşmelidir.",
+      runEncryptionMigration: "Şifreleme geçişini çalıştır",
+      runEncryptionMigrationHint:
+        "Bir sonraki başlangıçta yürütülen tek seferlik geri doldurma; işletim rehberi aksini söylemedikçe kapalı bırakın.",
+      identifierHmacKeyPlain: "Tanımlayıcı karma anahtarı",
+    },
+    healthChecks: {
+      title: "Sağlık denetimleri",
+      description:
+        "Ağ geçidi ve izleme tarafından kullanılan genel /health ve /ready sondaları.",
+      exposeErrorDetails: "Hata ayrıntılarını göster",
+      exposeErrorDetailsHint:
+        "Sonda yanıtlarına istisna mesajlarını ekler. Önerilen: üretimde kapalı — bu uç noktalara herkes erişebilir.",
+    },
+    serilog: {
+      title: "Günlükleme",
+      description:
+        "API'nin günlük dosyalarına ne kadar yazdığı. Düzeyler hemen uygulanır; günlük dosyası konumları dağıtımın parçasıdır.",
+      minimumLevelDefault: "En düşük düzey",
+      minimumLevelDefaultHint:
+        "Normal çalışma için Information; yalnızca inceleme sırasında Debug (ayrıntılıdır ve daha fazla istek ayrıntısı içerebilir); sessiz üretim günlükleri için Warning.",
+      minimumLevelOverrideMicrosoft: "Microsoft ad alanı düzeyi",
+      minimumLevelOverrideMicrosoftHint: "Çerçeve gürültüsü filtresi. Önerilen: Warning.",
+      minimumLevelOverrideMicrosoftHostingLifetime: "Ana bilgisayar yaşam döngüsü düzeyi",
+      minimumLevelOverrideMicrosoftHostingLifetimeHint:
+        "Başlatma/kapatma mesajları. Önerilen: Information.",
+      minimumLevelOverrideSystem: "System ad alanı düzeyi",
+      minimumLevelOverrideSystemHint: "Önerilen: Warning.",
+    },
+    dataProtection: {
+      title: "Veri koruma anahtarları",
+      description:
+        "Bekleyen gizli değerleri (2FA tohumları, saklanan anahtarlar) şifreleyen anahtar halkası. Veritabanı kullanılabilir olmadan önce okunur — ve yanlış klasöre yönlendirmek şifrelenmiş her değeri kalıcı olarak okunamaz hale getirir — bu yüzden yalnızca sunucu dosyalarında yönetilir.",
+      keyPath: "Anahtar halkası klasörü",
+      certificatePfxPath: "Sertifika dosyası",
+      certificateThumbprint: "Sertifika parmak izi",
+      certificatePasswordEnvironmentVariable: "Parola ortam değişkeni",
+    },
+    secretManagement: {
+      title: "Gizli anahtar yönetimi",
+      description:
+        "Kriptografik gizli değerlerin nasıl saklandığı (şifreli dosya / DPAPI / geliştirme için düz metin). Veritabanından önce başlatıldığı için mod sunucu dosyalarında yönetilir; gizli DEĞERLER ise Gizli Anahtarlar sayfasında yönetilir.",
+      storageMode: "Depolama modu",
+      secretFilePath: "Gizli anahtar dosyası",
+      autoGenerateKeys: "Anahtarları otomatik oluştur",
+      enableAdminApi: "Yönetici API'si etkin",
+      requiredPermission: "Gerekli izin",
+    },
+    connectionStrings: {
+      title: "Veritabanı bağlantısı",
+      description:
+        "Bu API'nin üzerinde çalıştığı SQL Server bağlantısı. Kimlik bilgileri içerir ve herhangi bir ayar yüklenmeden önce gereklidir; bu yüzden yalnızca sunucu dosyalarında / gizli anahtar deposunda durur.",
+      authDb: "AuthDb bağlantı dizesi",
     },
   },
   profile: {

@@ -29,7 +29,7 @@ public class AccountDeletionWorker : BackgroundService
     private const int SweepReapplyBatchSize = 50;
 
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly AccountDeletionSettings _settings;
+    private readonly IOptionsMonitor<AccountDeletionSettings> _settings;
     private readonly ILogger<AccountDeletionWorker> _logger;
 
     // Default(DateOnly) is far in the past, so the first cycle always sweeps —
@@ -38,11 +38,11 @@ public class AccountDeletionWorker : BackgroundService
 
     public AccountDeletionWorker(
         IServiceScopeFactory scopeFactory,
-        IOptions<AccountDeletionSettings> settings,
+        IOptionsMonitor<AccountDeletionSettings> settings,
         ILogger<AccountDeletionWorker> logger)
     {
         _scopeFactory = scopeFactory;
-        _settings = settings.Value;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -50,7 +50,7 @@ public class AccountDeletionWorker : BackgroundService
     {
         _logger.LogInformation(
             "Account deletion worker started (poll {PollMinutes}m, batch {BatchSize}, max attempts {MaxAttempts}).",
-            _settings.WorkerPollMinutes, _settings.WorkerBatchSize, _settings.MaxExecutionAttempts);
+            _settings.CurrentValue.WorkerPollMinutes, _settings.CurrentValue.WorkerBatchSize, _settings.CurrentValue.MaxExecutionAttempts);
 
         await SafeReclaimAsync(stoppingToken);
 
@@ -72,7 +72,7 @@ public class AccountDeletionWorker : BackgroundService
 
             try
             {
-                await Task.Delay(_settings.WorkerPollInterval, stoppingToken);
+                await Task.Delay(_settings.CurrentValue.WorkerPollInterval, stoppingToken);
             }
             catch (OperationCanceledException)
             {
@@ -92,7 +92,7 @@ public class AccountDeletionWorker : BackgroundService
         var sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
         var due = await requestRepository.GetDueAsync(
-            DateTime.UtcNow, _settings.WorkerBatchSize, cancellationToken);
+            DateTime.UtcNow, _settings.CurrentValue.WorkerBatchSize, cancellationToken);
 
         foreach (var request in due)
         {
@@ -200,11 +200,11 @@ public class AccountDeletionWorker : BackgroundService
 
         // 3) Anonymized login attempts past the fraud-analysis retention.
         await loginAttemptRepository.CleanupOldAttemptsAsync(
-            DateTime.UtcNow.AddDays(-_settings.LoginAttemptRetentionDays), cancellationToken);
+            DateTime.UtcNow.AddDays(-_settings.CurrentValue.LoginAttemptRetentionDays), cancellationToken);
 
         // 4) Delivered mail past its retention (rendered recipient PII).
         var purgedOutbox = await outboxRepository.DeleteSentOlderThanAsync(
-            DateTime.UtcNow.AddDays(-_settings.OutboxRetentionDays), cancellationToken);
+            DateTime.UtcNow.AddDays(-_settings.CurrentValue.OutboxRetentionDays), cancellationToken);
 
         await auditLogRepository.CreateAsync(
             Auth.Domain.Entities.AuditLog.CreateSuccess(

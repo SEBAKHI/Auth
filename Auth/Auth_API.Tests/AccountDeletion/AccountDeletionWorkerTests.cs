@@ -11,6 +11,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Auth_API.Tests.Helpers;
+
 namespace Auth_API.Tests.AccountDeletion;
 
 /// <summary>
@@ -60,7 +62,7 @@ public class AccountDeletionWorkerTests
 
         _worker = new AccountDeletionWorker(
             scopeFactory.Object,
-            Options.Create(_settings),
+            TestHelpers.CreateOptions(_settings),
             _loggerMock.Object);
     }
 

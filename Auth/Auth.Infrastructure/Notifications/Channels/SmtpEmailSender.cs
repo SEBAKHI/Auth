@@ -16,12 +16,12 @@ public class SmtpEmailSender
 {
     private const int SendTimeoutMilliseconds = 30_000;
 
-    private readonly EmailSettings _settings;
+    private readonly IOptionsMonitor<EmailSettings> _settings;
     private readonly ILogger<SmtpEmailSender> _logger;
 
-    public SmtpEmailSender(IOptions<EmailSettings> settings, ILogger<SmtpEmailSender> logger)
+    public SmtpEmailSender(IOptionsMonitor<EmailSettings> settings, ILogger<SmtpEmailSender> logger)
     {
-        _settings = settings.Value;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -37,8 +37,9 @@ public class SmtpEmailSender
     {
         try
         {
+            var settings = _settings.CurrentValue;
             var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(_settings.SenderName, _settings.SenderEmail));
+            message.From.Add(new MailboxAddress(settings.SenderName, settings.SenderEmail));
             message.To.Add(MailboxAddress.Parse(toEmail));
             message.Subject = subject;
 
@@ -50,11 +51,11 @@ public class SmtpEmailSender
             message.Body = bodyBuilder.ToMessageBody();
 
             using var client = new SmtpClient { Timeout = SendTimeoutMilliseconds };
-            await client.ConnectAsync(_settings.SmtpHost, _settings.SmtpPort, GetSocketOptions(), cancellationToken);
+            await client.ConnectAsync(settings.SmtpHost, settings.SmtpPort, GetSocketOptions(settings), cancellationToken);
 
-            if (!string.IsNullOrEmpty(_settings.Username))
+            if (!string.IsNullOrEmpty(settings.Username))
             {
-                await client.AuthenticateAsync(_settings.Username, _settings.Password, cancellationToken);
+                await client.AuthenticateAsync(settings.Username, settings.Password, cancellationToken);
             }
 
             await client.SendAsync(message, cancellationToken);
@@ -76,10 +77,10 @@ public class SmtpEmailSender
     /// other ports use STARTTLS — required when <see cref="EmailSettings.UseSsl"/> is true,
     /// opportunistic otherwise (e.g. local development SMTP servers without TLS).
     /// </summary>
-    private SecureSocketOptions GetSocketOptions() =>
-        _settings.SmtpPort == 465
+    private static SecureSocketOptions GetSocketOptions(EmailSettings settings) =>
+        settings.SmtpPort == 465
             ? SecureSocketOptions.SslOnConnect
-            : _settings.UseSsl
+            : settings.UseSsl
                 ? SecureSocketOptions.StartTls
                 : SecureSocketOptions.StartTlsWhenAvailable;
 }

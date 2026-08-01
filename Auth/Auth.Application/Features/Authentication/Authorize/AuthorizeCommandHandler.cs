@@ -44,7 +44,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         IUserRepository userRepository,
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
-        IOptions<IdentityProviderSettings> idpSettings,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<AuthorizeCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;

@@ -47,7 +47,7 @@ public class ExecuteAccountDeletionCommandHandlerTests
             _perUserCryptoMock.Object,
             _imageStorageMock.Object,
             _publisherMock.Object,
-            Options.Create(new AccountDeletionSettings()),
+            TestHelpers.CreateOptions(new AccountDeletionSettings()),
             new Mock<ILogger<ExecuteAccountDeletionCommandHandler>>().Object);
     }
 

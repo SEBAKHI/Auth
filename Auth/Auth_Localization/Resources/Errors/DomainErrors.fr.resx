@@ -773,4 +773,10 @@
   <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
     <value>La section a été modifiée par quelqu'un d'autre depuis son chargement. Rechargez puis réappliquez vos modifications.</value>
   </data>
+  <data name="SystemSettings.EmailSendingDisabled" xml:space="preserve">
+    <value>L'envoi d'e-mails est désactivé (Email:Enabled est inactif), il n'y a donc rien à tester.</value>
+  </data>
+  <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
+    <value>L'e-mail de test n'a pas pu être envoyé : {0}</value>
+  </data>
 </root>

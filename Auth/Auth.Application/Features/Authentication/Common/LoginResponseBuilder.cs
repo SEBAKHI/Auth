@@ -42,7 +42,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         IUserSessionRepository sessionRepository,
         IIdpSessionRepository idpSessionRepository,
         IOptionsSnapshot<JwtSettings> jwtSettings,
-        IOptions<IdentityProviderSettings> idpSettings,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<LoginResponseBuilder> logger)
     {
         _roleRepository = roleRepository;

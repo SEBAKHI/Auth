@@ -116,7 +116,7 @@ public class UpdatePlatformSettingsCommandHandlerTests
     public UpdatePlatformSettingsCommandHandlerTests()
     {
         // Real composer so key normalization (Decompose) is exercised.
-        var composer = new ImageUrlComposer(Options.Create(
+        var composer = new ImageUrlComposer(TestHelpers.CreateOptions(
             new ImageStorageSettings { PublicBaseUrl = PublicBaseUrl }));
 
         _handler = new UpdatePlatformSettingsCommandHandler(

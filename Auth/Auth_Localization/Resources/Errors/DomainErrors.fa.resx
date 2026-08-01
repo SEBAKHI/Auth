@@ -773,4 +773,10 @@
   <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
     <value>این بخش پس از بارگذاری توسط شخص دیگری تغییر کرده است. دوباره بارگذاری کنید و تغییرات خود را از نو اعمال کنید.</value>
   </data>
+  <data name="SystemSettings.EmailSendingDisabled" xml:space="preserve">
+    <value>ارسال ایمیل غیرفعال است (Email:Enabled خاموش است)، بنابراین چیزی برای آزمایش وجود ندارد.</value>
+  </data>
+  <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
+    <value>ایمیل آزمایشی ارسال نشد: {0}</value>
+  </data>
 </root>

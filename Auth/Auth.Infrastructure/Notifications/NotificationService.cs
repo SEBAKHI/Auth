@@ -32,7 +32,7 @@ public class NotificationService : INotificationService
         INotificationChannelFactory channelFactory,
         INotificationOutboxRepository outboxRepository,
         INotificationDispatchSignal dispatchSignal,
-        IOptions<NotificationSettings> settings,
+        IOptionsSnapshot<NotificationSettings> settings,
         ILogger<NotificationService> logger)
     {
         _renderer = renderer;

@@ -773,4 +773,10 @@
   <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
     <value>آپ کے لوڈ کرنے کے بعد کسی اور نے یہ سیکشن تبدیل کر دیا ہے۔ دوبارہ لوڈ کریں اور اپنی تبدیلیاں دوبارہ لاگو کریں۔</value>
   </data>
+  <data name="SystemSettings.EmailSendingDisabled" xml:space="preserve">
+    <value>ای میل بھیجنا غیر فعال ہے (Email:Enabled بند ہے)، لہٰذا جانچنے کے لیے کچھ نہیں۔</value>
+  </data>
+  <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
+    <value>آزمائشی ای میل نہیں بھیجی جا سکی: {0}</value>
+  </data>
 </root>

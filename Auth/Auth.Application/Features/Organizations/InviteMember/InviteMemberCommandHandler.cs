@@ -34,7 +34,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         IRoleRepository roleRepository,
         ISecureTokenGenerator tokenGenerator,
         INotificationService notificationService,
-        IOptions<EmailSettings> emailSettings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<InviteMemberCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;

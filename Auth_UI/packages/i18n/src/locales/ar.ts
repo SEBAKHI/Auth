@@ -1094,6 +1094,8 @@ export const ar: TranslationResources = {
     conflict:
       "قام شخص آخر بتغيير هذا القسم في هذه الأثناء. أُعيد تحميله — يرجى إعادة تطبيق تغييراتك.",
     arrayFieldHint: "إدخال واحد في كل سطر.",
+    sendTestEmail: "إرسال بريد تجريبي",
+    testEmailSent: "تم إرسال البريد التجريبي — تفقد بريدك الوارد.",
     groups: {
       security: "الأمان",
       access: "الوصول",
@@ -1216,6 +1218,229 @@ export const ar: TranslationResources = {
       tokenHeaderNameHint:
         "ثابت على جانب البوابة؛ ويُعرض هنا للاطلاع.",
       expectedToken: "رمز البوابة",
+    },
+    cors: {
+      title: "مصادر الويب المسموح بها (CORS)",
+      description:
+        "المواقع التي يجوز لمتصفحاتها استدعاء واجهة API هذه. لا ينبغي أن يُدرج هنا سوى عنواني تطبيقَي لوحة الإدارة والحسابات — فكل مصدر إضافي يوسّع سطح الهجوم.",
+      allowedOrigins: "المصادر المسموح بها",
+      allowedOriginsHint:
+        "مصادر مجردة فقط، مثل https://console.example.com — دون مسارات، ودون شرطة مائلة في النهاية، ودون أحرف بدل.",
+      allowCredentials: "السماح ببيانات الاعتماد",
+      allowCredentialsHint:
+        "يسمح للمتصفحات بإرسال ملفات تعريف الارتباط مع الاستدعاءات عبر المصادر. مطلوب لملف تعريف ارتباط جلسة IdP؛ وهو آمن فقط لأن المصادر أعلاه قائمة صريحة.",
+    },
+    rateLimiting: {
+      title: "تحديد معدل الطلبات (API)",
+      description:
+        "تقييد الطلبات لكل عنوان IP للعميل. طبقة واحدة من دفاع متعدد الطبقات: يبطئ الإساءة الآلية بينما يوقف قفلُ الحساب تخمينَ كلمات المرور. الحدود المعدّلة تسري على نوافذ العملاء الجديدة فورًا.",
+      permitLimit: "الطلبات العامة لكل نافذة",
+      permitLimitHint: "الموصى به: 100 — رحب للمستخدمين الحقيقيين، ومقيّد للنصوص البرمجية.",
+      windowSeconds: "النافذة العامة (ثوانٍ)",
+      windowSecondsHint: "الموصى به: 60.",
+      queueLimit: "حجم قائمة الانتظار",
+      queueLimitHint:
+        "طلبات تُحتجز لوهلة عند بلوغ الحد بدلًا من الفشل فورًا. الموصى به: 10.",
+      loginPermitLimit: "محاولات تسجيل الدخول لكل نافذة",
+      loginPermitLimitHint:
+        "يسري على تسجيل الدخول والتسجيل وسائر نقاط المصادقة التفاعلية. الموصى به: 20 لكل عنوان IP.",
+      loginWindowSeconds: "نافذة تسجيل الدخول (ثوانٍ)",
+      loginWindowSecondsHint: "الموصى به: 60.",
+      passwordResetPermitLimit: "طلبات إعادة تعيين كلمة المرور لكل نافذة",
+      passwordResetPermitLimitHint: "الموصى به: 10 — إجراء وقائي لنقطة وصول مفتوحة دون تسجيل دخول.",
+      passwordResetWindowSeconds: "نافذة إعادة تعيين كلمة المرور (ثوانٍ)",
+      passwordResetWindowSecondsHint: "الموصى به: 60.",
+    },
+    externalAuth: {
+      title: "تسجيل الدخول الخارجي (Google / Apple)",
+      description:
+        "مزودو تسجيل الدخول الاجتماعي. معرّفات العملاء هنا معرّفات عامة؛ أما المفاتيح الخاصة فتُحفظ في صفحة الأسرار. يجب أيضًا تفعيل المزود في صفّه بالدليل حتى يظهر الزر.",
+      googleEnabled: "تسجيل الدخول عبر Google",
+      googleEnabledHint: "يتطلب معرّف عميل صالحًا أدناه.",
+      googleClientId: "معرّف عميل Google",
+      googleClientIdHint:
+        "من صفحة Credentials في Google Cloud Console. قيمة عامة يمكن تخزينها هنا بأمان.",
+      appleEnabled: "تسجيل الدخول عبر Apple",
+      appleEnabledHint: "يتطلب معرّف الخدمات ومعرّف الفريق ومعرّف المفتاح، إضافة إلى مفتاح .p8 في الأسرار.",
+      appleServicesId: "معرّف خدمات Apple",
+      appleServicesIdHint: "مثل com.example.accounts، من بوابة مطوري Apple.",
+      appleTeamId: "معرّف فريق Apple",
+      appleTeamIdHint: "معرّف الفريق المكوّن من 10 أحرف من بوابة مطوري Apple.",
+      appleKeyId: "معرّف مفتاح Apple",
+      appleKeyIdHint: "معرّف مفتاح التوقيع .p8؛ أما المفتاح نفسه فيُحفظ في الأسرار.",
+      applePrivateKeyPem: "مفتاح توقيع Apple (.p8)",
+    },
+    identityProvider: {
+      title: "موفر الهوية (SSO)",
+      description:
+        "تدفق تسجيل الدخول الموحد: أين يسجل المستخدمون دخولهم، وكم يدوم تسجيل الدخول الأحادي، وكيف تعمل رموز التفويض ذات الاستخدام الواحد.",
+      accountsBaseUrl: "رابط تطبيق الحسابات",
+      accountsBaseUrlHint:
+        "العنوان العام لتطبيق حسابات المستخدمين النهائيين؛ إليه تتجه إعادة توجيه تسجيل الدخول. القيمة الخاطئة تعني تعطل تسجيل الدخول في كل تطبيق متصل.",
+      publicBaseUrl: "رابط المصادقة العام",
+      publicBaseUrlHint:
+        "العنوان العام لهذا الخادم نفسه كما تراه المتصفحات. مطلوب خلف وكيل عكسي؛ ويُستخدم في إعادة التوجيه وفي وثيقة الاكتشاف.",
+      authorizationCodeLifetimeSeconds: "مدة صلاحية رمز التفويض (ثوانٍ)",
+      authorizationCodeLifetimeSecondsHint:
+        "رموز تُستخدم مرة واحدة وتُستبدل بها الرموز الدائمة. الموصى به: 60 أو أقل (أفضل الممارسات الأمنية لـ OAuth 2.0).",
+      idpSessionCookieName: "اسم ملف تعريف ارتباط SSO",
+      idpSessionCookieNameHint:
+        "إعادة التسمية تُخرج الجميع من تسجيل الدخول الأحادي (تتوقف ملفات تعريف الارتباط الحالية عن التطابق).",
+      idpSessionLifetimeDays: "مدة جلسة SSO (أيام)",
+      idpSessionLifetimeDaysHint:
+        "مدة بقاء مبدأ «سجّل الدخول مرة واستخدم كل التطبيقات». الموصى به: 7–30 يومًا.",
+    },
+    email: {
+      title: "البريد الإلكتروني (SMTP)",
+      description:
+        "كيف ترسل المنصة البريد — رموز التحقق وإعادة تعيين كلمات المرور والدعوات. بعد تغيير الخادم، استخدم «إرسال بريد تجريبي» لإثبات الاتصال قبل أن تعتمد عليه الحركة الفعلية.",
+      enabled: "إرسال البريد الإلكتروني",
+      enabledHint:
+        "المفتاح الرئيسي. عند تعطيله تصبح التدفقات التي تحتاج إلى البريد (التحقق، إعادة التعيين) غير متاحة.",
+      smtpHost: "خادم SMTP",
+      smtpHostHint: "اسم مضيف خادم البريد لديك، مثل mail.example.com.",
+      smtpPort: "منفذ SMTP",
+      smtpPortHint:
+        "المنفذ 587 = STARTTLS (الموصى به)، والمنفذ 465 = TLS ضمني، والمنفذ 25 = يحجبه المستضيفون عادةً.",
+      useSsl: "اشتراط TLS",
+      useSslHint: "الموصى به: مفعّل. أما التعطيل فيسمح بـ TLS الانتهازي في التطوير المحلي فقط.",
+      username: "اسم مستخدم SMTP",
+      usernameHint: "عادةً عنوان صندوق البريد الكامل. اتركه فارغًا لخوادم الترحيل غير الموثقة.",
+      password: "كلمة مرور SMTP",
+      senderEmail: "عنوان المرسل",
+      senderEmailHint: "عنوان الحقل «من». يجب أن تخوّله سجلات SPF/DKIM لنطاقك.",
+      senderName: "اسم المرسل",
+      senderNameHint: "الاسم الظاهر الذي يراه المستلمون؛ وهو أيضًا اسم المنصة الاحتياطي في القوالب.",
+      frontendBaseUrl: "الرابط الأساسي لروابط البريد",
+      frontendBaseUrlHint:
+        "العنوان المطلق لتطبيق الحسابات؛ يُبنى عليه كل رابط يُرسل بالبريد (إعادة التعيين، التحقق). مطلوب ما دام الإرسال مفعّلًا.",
+      otpExpirationMinutes: "مدة صلاحية رمز التحقق (دقائق)",
+      otpExpirationMinutesHint: "الموصى به: 5–15 — طويلة بما يكفي للإدخال، وقصيرة بما لا يتيح سرقة شيء.",
+      resetTokenExpirationMinutes: "مدة صلاحية رابط إعادة التعيين (دقائق)",
+      resetTokenExpirationMinutesHint: "الموصى به: 30–60.",
+      rateLimitWindowSeconds: "نافذة معدل الإرسال (ثوانٍ)",
+      rateLimitWindowSecondsHint: "النافذة الخاصة بحد الإرسال لكل عنوان أدناه. الموصى به: 60.",
+      maxOtpRequestsPerWindow: "الرموز لكل نافذة",
+      maxOtpRequestsPerWindowHint:
+        "أقصى عدد من رموز التحقق يمكن لعنوان واحد طلبه في النافذة. الموصى به: 3 — يوقف القصف البريدي.",
+    },
+    notificationsSection: {
+      title: "تسليم الإشعارات",
+      description:
+        "كيفية تسليم الإشعارات الصادرة: مباشرة، أو عبر صندوق صادر متين يعيد المحاولة عند الفشل ويصمد أمام إعادة التشغيل. المحتوى والقوالب يُداران في صفحات الإشعارات.",
+      useOutbox: "صندوق صادر متين",
+      useOutboxHint:
+        "الموصى به: مفعّل في الإنتاج — تُخزن الرسائل أولًا ويُعاد إرسالها عند الفشل بدلًا من فقدانها.",
+      pollIntervalSeconds: "فاصل الاستطلاع (ثوانٍ)",
+      pollIntervalSecondsHint: "استيقاظ احتياطي عندما لا تصل إشارة إرسال. الموصى به: 30.",
+      batchSize: "حجم الدفعة",
+      batchSizeHint: "عدد الرسائل المستحوذ عليها في كل دورة إرسال. الموصى به: 20.",
+      maxAttempts: "أقصى عدد للمحاولات",
+      maxAttemptsHint:
+        "محاولات التسليم (بتراجع أُسّي) قبل تحويل الرسالة إلى الرسائل المتعذرة. الموصى به: 5.",
+      staleClaimMinutes: "الاستحواذ الراكد (دقائق)",
+      staleClaimMinutesHint:
+        "الرسالة التي استحوذ عليها عامل منهار يُعاد تجربتها بعد هذه المدة. الموصى به: 5.",
+    },
+    imageStorage: {
+      title: "تخزين الصور",
+      description:
+        "الشعارات وصور الملفات الشخصية المرفوعة: أين تُخزن على القرص، وكيف تُقدَّم، وحدود الحجم المطبقة عند الرفع.",
+      provider: "مزود التخزين",
+      providerHint: "تخزين على نظام الملفات؛ وهو جزء من نشر الخادم ولا يُعدل هنا.",
+      physicalPath: "مجلد التخزين",
+      physicalPathHint: "موقع على قرص الخادم؛ وتغييره يتطلب نقل الملفات — وهي مهمة نشر.",
+      publicBaseUrl: "الرابط الأساسي العام",
+      publicBaseUrlHint:
+        "بادئة كل رابط صورة يُعاد. اضبطه على العنوان العام لواجهة API (أو مسار متجذر) لتُعرض الشعارات عبر البوابة.",
+      requestPath: "مسار التقديم",
+      requestPathHint: "مسار URL الذي تُقدَّم الصور تحته؛ يُثبَّت في خط المعالجة عند بدء التشغيل.",
+      maxSizeBytes: "أقصى حجم للرفع (بايت)",
+      maxSizeBytesHint: "الموصى به: 4194304 (أي 4 MB) — يكفي ويزيد للشعارات والصور الرمزية.",
+      maxMegapixels: "أقصى عدد للميغابكسل",
+      maxMegapixelsHint: "يرفض قنابل فك الضغط قبل المعالجة. الموصى به: 50.",
+      maxEdgePx: "أقصى طول للضلع (بكسل)",
+      maxEdgePxHint: "تُصغَّر الصور الأكبر إلى هذا الضلع. الموصى به: 1024.",
+      webpQuality: "جودة WebP",
+      webpQualityHint: "يُعاد ترميز المرفوعات إلى WebP بهذه الجودة. الموصى به: 90.",
+      allowedContentTypes: "أنواع المحتوى المسموح بها",
+      allowedContentTypesHint: "أنواع MIME من صنف image/* المقبولة عند الرفع.",
+    },
+    accountDeletionSection: {
+      title: "حذف الحسابات",
+      description:
+        "مسار الحذف وفق GDPR/KVKK: فترة السماح قبل المحو النهائي، ووتيرة عامل الخلفية، ومدة الاحتفاظ بالسجلات الأمنية.",
+      graceDays: "فترة السماح (أيام)",
+      graceDaysHint:
+        "مهلة للعدول عن القرار قبل الحذف النهائي. الموصى به: 30 (الممارسة التنظيمية الشائعة).",
+      workerPollMinutes: "استطلاع العامل (دقائق)",
+      workerPollMinutesHint: "وتيرة تنفيذ عمليات الحذف المستحقة. الموصى به: 15.",
+      workerBatchSize: "حجم دفعة العامل",
+      workerBatchSizeHint: "عمليات الحذف المنفذة في كل دورة. الموصى به: 25.",
+      maxExecutionAttempts: "أقصى عدد لمحاولات التنفيذ",
+      maxExecutionAttemptsHint: "إعادة المحاولة قبل أن يطلق الحذفُ الفاشل إنذارَ الامتثال. الموصى به: 5.",
+      otpExpirationMinutes: "مدة صلاحية رمز التأكيد (دقائق)",
+      otpExpirationMinutesHint: "الرمز الذي يؤكد طلب حذف علنيًا. الموصى به: 15.",
+      loginAttemptRetentionDays: "الاحتفاظ بمحاولات تسجيل الدخول (أيام)",
+      loginAttemptRetentionDaysHint:
+        "مدة الاحتفاظ بالسجل الأمني؛ وائمها مع سياسة الخصوصية لديك. الموصى به: 365.",
+      outboxRetentionDays: "الاحتفاظ بالصندوق الصادر (أيام)",
+      outboxRetentionDaysHint: "مدة الاحتفاظ بسجل الإشعارات المسلَّمة. الموصى به: 180.",
+      policyVersion: "إصدار سياسة الخصوصية",
+      policyVersionHint:
+        "ختم الإصدار المسجل مع كل عملية حذف (بالتنسيق YYYY.MM). يجب أن يطابق السياسة المنشورة.",
+      runEncryptionMigration: "تشغيل ترحيل التشفير",
+      runEncryptionMigrationHint:
+        "تعبئة رجعية تُنفذ مرة واحدة عند بدء التشغيل التالي؛ اتركه معطلًا ما لم يقضِ دليل التشغيل بغير ذلك.",
+      identifierHmacKeyPlain: "مفتاح تجزئة المعرّفات",
+    },
+    healthChecks: {
+      title: "فحوصات الصحة",
+      description:
+        "مسبارا /health و/ready العامان اللذان تستخدمهما البوابة وأنظمة المراقبة.",
+      exposeErrorDetails: "كشف تفاصيل الأخطاء",
+      exposeErrorDetailsHint:
+        "يضمّن رسائل الاستثناءات في استجابات المسبار. الموصى به: معطّل في الإنتاج — فالنقاط متاحة للعموم.",
+    },
+    serilog: {
+      title: "التسجيل",
+      description:
+        "مقدار ما تكتبه واجهة API في ملفات السجل. تسري المستويات فورًا؛ أما مواقع ملفات السجل فجزء من النشر.",
+      minimumLevelDefault: "المستوى الأدنى",
+      minimumLevelDefaultHint:
+        "المستوى Information للتشغيل الاعتيادي؛ وDebug أثناء التحقيق فقط (مسهب وقد يتضمن تفاصيل أكثر عن الطلبات)؛ وWarning لسجلات إنتاج هادئة.",
+      minimumLevelOverrideMicrosoft: "مستوى نطاق أسماء Microsoft",
+      minimumLevelOverrideMicrosoftHint: "مرشّح ضجيج إطار العمل. الموصى به: Warning.",
+      minimumLevelOverrideMicrosoftHostingLifetime: "مستوى دورة حياة المضيف",
+      minimumLevelOverrideMicrosoftHostingLifetimeHint:
+        "رسائل بدء التشغيل والإيقاف. الموصى به: Information.",
+      minimumLevelOverrideSystem: "مستوى نطاق أسماء System",
+      minimumLevelOverrideSystemHint: "الموصى به: Warning.",
+    },
+    dataProtection: {
+      title: "مفاتيح حماية البيانات",
+      description:
+        "حلقة المفاتيح التي تشفّر الأسرار المخزنة (بذور المصادقة الثنائية والمفاتيح المحفوظة). تُقرأ قبل توفر قاعدة البيانات — وتوجيهها إلى المجلد الخطأ يجعل كل قيمة مشفرة غير قابلة للقراءة نهائيًا — لذا تُدار في ملفات الخادم فقط.",
+      keyPath: "مجلد حلقة المفاتيح",
+      certificatePfxPath: "ملف الشهادة",
+      certificateThumbprint: "بصمة الشهادة",
+      certificatePasswordEnvironmentVariable: "متغير البيئة لكلمة المرور",
+    },
+    secretManagement: {
+      title: "إدارة الأسرار",
+      description:
+        "كيفية تخزين الأسرار التشفيرية (ملف مشفر / DPAPI / نص صريح للتطوير). يُهيأ قبل قاعدة البيانات، لذا يُدار الوضع في ملفات الخادم؛ أما قيم الأسرار نفسها فتُدار في صفحة الأسرار.",
+      storageMode: "وضع التخزين",
+      secretFilePath: "ملف الأسرار",
+      autoGenerateKeys: "توليد المفاتيح تلقائيًا",
+      enableAdminApi: "تفعيل واجهة API الإدارية",
+      requiredPermission: "الصلاحية المطلوبة",
+    },
+    connectionStrings: {
+      title: "اتصال قاعدة البيانات",
+      description:
+        "اتصال SQL Server الذي تعمل عليه واجهة API هذه. يحتوي على بيانات اعتماد ويلزم قبل تحميل أي إعداد، لذا يبقى في ملفات الخادم / مخزن الأسرار فقط.",
+      authDb: "سلسلة اتصال AuthDb",
     },
   },
   profile: {

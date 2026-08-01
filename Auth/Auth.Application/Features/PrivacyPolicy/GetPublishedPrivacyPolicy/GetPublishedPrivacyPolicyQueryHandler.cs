@@ -23,7 +23,7 @@ public class GetPublishedPrivacyPolicyQueryHandler
 
     public GetPublishedPrivacyPolicyQueryHandler(
         IPrivacyPolicyVersionRepository repository,
-        IOptions<AccountDeletionSettings> settings)
+        IOptionsSnapshot<AccountDeletionSettings> settings)
     {
         _repository = repository;
         _settings = settings.Value;

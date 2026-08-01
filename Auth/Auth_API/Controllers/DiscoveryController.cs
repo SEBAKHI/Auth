@@ -23,7 +23,7 @@ public class DiscoveryController : ApiController
     private readonly ISender _sender;
     private readonly IdentityProviderSettings _idpSettings;
 
-    public DiscoveryController(ISender sender, IOptions<IdentityProviderSettings> idpSettings)
+    public DiscoveryController(ISender sender, IOptionsSnapshot<IdentityProviderSettings> idpSettings)
     {
         _sender = sender;
         _idpSettings = idpSettings.Value;

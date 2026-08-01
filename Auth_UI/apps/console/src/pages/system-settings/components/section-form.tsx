@@ -175,6 +175,19 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
     },
   })
 
+  const sendTestEmail = useMutation({
+    mutationFn: async () => {
+      const { error, response } = await api.POST(
+        "/api/v1/admin/system-settings/email/test",
+        {}
+      )
+      if (error) throw Object.assign(new Error("test failed"), { error, status: response.status })
+    },
+    onSuccess: () => toast.success(t("systemSettings.testEmailSent")),
+    onError: (failure: { error?: unknown }) =>
+      toast.error(getErrorMessage(failure.error ?? failure)),
+  })
+
   const hasOverrides = Number(section.version ?? 0) > 0
   const title = sectionI18n
     ? t(`systemSettings.${sectionI18n}.title`, { defaultValue: sectionKey })
@@ -182,6 +195,38 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
   const description = sectionI18n
     ? t(`systemSettings.${sectionI18n}.description`, { defaultValue: "" })
     : ""
+
+  // Bootstrap sections are information cards: consumed before the database
+  // layer exists, so there is nothing to save from here.
+  if (!section.editable) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>{title}</CardTitle>
+          {description ? <CardDescription>{description}</CardDescription> : null}
+        </CardHeader>
+        <CardContent>
+          <FieldGroup>
+            {fields.map((field) =>
+              field.sensitive ? (
+                <SecretFieldRow
+                  key={field.path}
+                  sectionI18n={sectionI18n}
+                  field={field}
+                />
+              ) : (
+                <ReadOnlyFieldRow
+                  key={field.path}
+                  sectionI18n={sectionI18n}
+                  field={field}
+                />
+              )
+            )}
+          </FieldGroup>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card>
@@ -229,6 +274,17 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
                     onClick={() => setConfirmReset(true)}
                   >
                     {t("systemSettings.resetSection")}
+                  </Button>
+                ) : null}
+                {sectionKey === "Email" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={sendTestEmail.isPending}
+                    onClick={() => sendTestEmail.mutate()}
+                  >
+                    {sendTestEmail.isPending ? <Spinner data-icon="inline-start" /> : null}
+                    {t("systemSettings.sendTestEmail")}
                   </Button>
                 ) : null}
               </div>

@@ -33,8 +33,8 @@ public class DeletionOtpService
         INotificationService notificationService,
         IOtpGenerator otpGenerator,
         IPasswordHasher passwordHasher,
-        IOptions<AccountDeletionSettings> settings,
-        IOptions<EmailSettings> emailSettings,
+        IOptionsSnapshot<AccountDeletionSettings> settings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<DeletionOtpService> logger)
     {
         _verificationRepository = verificationRepository;

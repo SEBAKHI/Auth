@@ -55,7 +55,7 @@ public class OwnershipTransferCommandHandlerTests
         _passwordHasherMock.Object,
         _notificationServiceMock.Object,
         _publisherMock.Object,
-        Options.Create(new EmailSettings { Enabled = false }),
+        TestHelpers.CreateOptions(new EmailSettings { Enabled = false }),
         new Mock<ILogger<InitiateOwnershipTransferCommandHandler>>().Object);
 
     private TransferOwnershipCommandHandler CreateTransferHandler() => new(
