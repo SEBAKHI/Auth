@@ -112,7 +112,6 @@ export function ReadOnlyFieldRow({
         value={value === null || value === undefined ? "" : String(value)}
         disabled
         dir="ltr"
-        className="max-w-lg"
       />
       {hint ? <FieldDescription>{hint}</FieldDescription> : null}
     </Field>
@@ -178,6 +177,9 @@ export function SettingField({
                 type="single"
                 spacing={2}
                 variant="outline"
+                // Chip rows sit in a single grid column; wrapping keeps the
+                // longest option set readable when the column narrows.
+                className="flex-wrap"
                 value={typeof rhf.value === "string" ? rhf.value : ""}
                 onValueChange={(value) => {
                   if (value) rhf.onChange(value)
@@ -205,7 +207,8 @@ export function SettingField({
         control={control}
         name={name}
         render={({ field: rhf }) => (
-          <FormItem>
+          // A list of URLs or paths needs the whole grid width to stay readable.
+          <FormItem className="@2xl/settings:col-span-2">
             <FormLabel>
               {label}
               <FieldBadges field={field} />
@@ -217,7 +220,6 @@ export function SettingField({
                 onBlur={rhf.onBlur}
                 rows={4}
                 dir="ltr"
-                className="max-w-lg"
               />
             </FormControl>
             <FormDescription>
@@ -266,9 +268,6 @@ export function SettingField({
               onBlur={rhf.onBlur}
               inputMode={isInt ? "numeric" : undefined}
               dir="ltr"
-              // Control width hints at the expected value length instead of
-              // stretching a 3-digit number across an ultrawide monitor.
-              className={isInt ? "max-w-40" : "max-w-lg"}
             />
           </FormControl>
           {hint ? <FormDescription>{hint}</FormDescription> : null}
