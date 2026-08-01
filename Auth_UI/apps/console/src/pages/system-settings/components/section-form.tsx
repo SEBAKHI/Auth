@@ -240,14 +240,8 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          {/* Container query, not a viewport breakpoint: the field grid reacts
-              to the card's own width, so it behaves the same whether the app
-              sidebar is open or collapsed. */}
-          <form
-            onSubmit={form.handleSubmit((values) => save.mutate(values))}
-            className="@container/settings"
-          >
-            <FieldGroup className="@2xl/settings:grid @2xl/settings:grid-cols-2 @2xl/settings:items-start @2xl/settings:gap-x-10">
+          <form onSubmit={form.handleSubmit((values) => save.mutate(values))}>
+            <FieldGroup>
               {fields.map((field) =>
                 field.sensitive ? (
                   <SecretFieldRow
@@ -270,11 +264,10 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
                   />
                 )
               )}
-              {/* Actions always close the card across the full grid width. */}
-              <FieldSeparator className="@2xl/settings:col-span-2" />
+              <FieldSeparator />
               {/* Primary actions lead; the destructive-ish reset sits at the
                   far end so it can never be hit while reaching for Save. */}
-              <div className="flex flex-wrap items-center justify-between gap-3 @2xl/settings:col-span-2">
+              <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-3">
                   <Button type="submit" disabled={save.isPending}>
                     {save.isPending ? <Spinner data-icon="inline-start" /> : null}

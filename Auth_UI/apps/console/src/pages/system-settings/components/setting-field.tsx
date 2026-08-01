@@ -29,6 +29,33 @@ import {
   type SystemSettingsField,
 } from "../lib/sections"
 
+/**
+ * Row geometry, applied to every setting alike (Windows 11 SettingsCard /
+ * macOS System Settings): the row spans the card, the label and its hint read
+ * at the start, and the control is pinned to the END of the row at a width
+ * that suits its value. That way a wide card is used by the layout instead of
+ * by a stretched input, and the controls line up as one column no matter how
+ * wide the window gets.
+ */
+const ROW = "justify-between"
+
+/** Explanatory text stops at a comfortable measure rather than the card edge. */
+const TEXT_BLOCK = "max-w-2xl"
+
+/**
+ * Control width, sized to the value it holds. Declared on the ROW targeting
+ * its last child rather than on the control: the responsive Field variant
+ * already sets `[&>*]:w-auto` once the row is horizontal, and a plain width
+ * class on the control loses to it on specificity. Below the row breakpoint
+ * the primitive's own `w-full` still applies, so stacked controls fill the
+ * width as they should.
+ */
+const CONTROL = {
+  int: "@md/field-group:[&>*:last-child]:w-40",
+  text: "@md/field-group:[&>*:last-child]:w-80",
+  area: "@md/field-group:[&>*:last-child]:w-[28rem]",
+} as const
+
 function useFieldTexts(sectionI18n: string | undefined, field: SystemSettingsField) {
   const { t } = useTranslation()
   const key = fieldI18nKey(field.path ?? "")
@@ -55,7 +82,7 @@ function FieldBadges({ field }: { field: SystemSettingsField }) {
   )
 }
 
-/** Shows the file/default fallback under a customized field. */
+/** Shows the default a customized field would fall back to. */
 function BaselineNote({ field }: { field: SystemSettingsField }) {
   const { t } = useTranslation()
   if (field.source !== "database") return null
@@ -68,7 +95,7 @@ function BaselineNote({ field }: { field: SystemSettingsField }) {
   return <FieldDescription>{t("systemSettings.fileValue", { value: rendered })}</FieldDescription>
 }
 
-/** A secret-owned field: value lives in Secret Management, never here. */
+/** A secret-owned field: the value lives in Secret Management, never here. */
 export function SecretFieldRow({
   sectionI18n,
   field,
@@ -79,8 +106,8 @@ export function SecretFieldRow({
   const { t } = useTranslation()
   const { label } = useFieldTexts(sectionI18n, field)
   return (
-    <Field orientation="responsive">
-      <FieldContent>
+    <Field orientation="responsive" className={ROW}>
+      <FieldContent className={TEXT_BLOCK}>
         <FieldLabel>{label}</FieldLabel>
         <FieldDescription>{t("systemSettings.managedInSecrets")}</FieldDescription>
       </FieldContent>
@@ -103,17 +130,19 @@ export function ReadOnlyFieldRow({
   const { label, hint } = useFieldTexts(sectionI18n, field)
   const value = field.effectiveValue
   return (
-    <Field data-disabled>
-      <FieldLabel>
-        {label}
-        <Badge variant="outline">{t("systemSettings.readOnly")}</Badge>
-      </FieldLabel>
+    <Field orientation="responsive" className={`${ROW} ${CONTROL.text}`} data-disabled>
+      <FieldContent className={TEXT_BLOCK}>
+        <FieldLabel>
+          {label}
+          <Badge variant="outline">{t("systemSettings.readOnly")}</Badge>
+        </FieldLabel>
+        {hint ? <FieldDescription>{hint}</FieldDescription> : null}
+      </FieldContent>
       <Input
         value={value === null || value === undefined ? "" : String(value)}
         disabled
         dir="ltr"
       />
-      {hint ? <FieldDescription>{hint}</FieldDescription> : null}
     </Field>
   )
 }
@@ -137,21 +166,30 @@ export function SettingField({
   const name = formFieldName(field.path ?? "")
   const kind = field.kind ?? "string"
 
+  // The hint, the default-value note and any validation message all belong to
+  // the text block; as direct row children they would become extra columns.
+  const textBlock = (extraHint?: string) => (
+    <FieldContent className={TEXT_BLOCK}>
+      <FormLabel className={kind === "bool" ? "font-normal" : undefined}>
+        {label}
+        <FieldBadges field={field} />
+      </FormLabel>
+      {hint || extraHint ? (
+        <FormDescription>{[hint, extraHint].filter(Boolean).join(" ")}</FormDescription>
+      ) : null}
+      <BaselineNote field={field} />
+      <FormMessage />
+    </FieldContent>
+  )
+
   if (kind === "bool") {
     return (
       <FormField
         control={control}
         name={name}
         render={({ field: rhf }) => (
-          <FormItem orientation="horizontal">
-            <FieldContent>
-              <FormLabel className="font-normal">
-                {label}
-                <FieldBadges field={field} />
-              </FormLabel>
-              {hint ? <FormDescription>{hint}</FormDescription> : null}
-              <BaselineNote field={field} />
-            </FieldContent>
+          <FormItem orientation="horizontal" className={ROW}>
+            {textBlock()}
             <FormControl>
               <Switch checked={rhf.value === true} onCheckedChange={rhf.onChange} />
             </FormControl>
@@ -167,18 +205,14 @@ export function SettingField({
         control={control}
         name={name}
         render={({ field: rhf }) => (
-          <FormItem>
-            <FormLabel>
-              {label}
-              <FieldBadges field={field} />
-            </FormLabel>
+          <FormItem orientation="responsive" className={ROW}>
+            {textBlock()}
             <FormControl>
               <ToggleGroup
                 type="single"
                 spacing={2}
                 variant="outline"
-                // Chip rows sit in a single grid column; wrapping keeps the
-                // longest option set readable when the column narrows.
+                // Wraps only when the row is too narrow to hold every option.
                 className="flex-wrap"
                 value={typeof rhf.value === "string" ? rhf.value : ""}
                 onValueChange={(value) => {
@@ -192,9 +226,6 @@ export function SettingField({
                 ))}
               </ToggleGroup>
             </FormControl>
-            {hint ? <FormDescription>{hint}</FormDescription> : null}
-            <BaselineNote field={field} />
-            <FormMessage />
           </FormItem>
         )}
       />
@@ -207,12 +238,8 @@ export function SettingField({
         control={control}
         name={name}
         render={({ field: rhf }) => (
-          // A list of URLs or paths needs the whole grid width to stay readable.
-          <FormItem className="@2xl/settings:col-span-2">
-            <FormLabel>
-              {label}
-              <FieldBadges field={field} />
-            </FormLabel>
+          <FormItem orientation="responsive" className={`${ROW} ${CONTROL.area}`}>
+            {textBlock(t("systemSettings.arrayFieldHint"))}
             <FormControl>
               <Textarea
                 value={typeof rhf.value === "string" ? rhf.value : ""}
@@ -222,11 +249,6 @@ export function SettingField({
                 dir="ltr"
               />
             </FormControl>
-            <FormDescription>
-              {[hint, t("systemSettings.arrayFieldHint")].filter(Boolean).join(" ")}
-            </FormDescription>
-            <BaselineNote field={field} />
-            <FormMessage />
           </FormItem>
         )}
       />
@@ -256,11 +278,11 @@ export function SettingField({
           : undefined
       }
       render={({ field: rhf }) => (
-        <FormItem>
-          <FormLabel>
-            {label}
-            <FieldBadges field={field} />
-          </FormLabel>
+        <FormItem
+          orientation="responsive"
+          className={`${ROW} ${isInt ? CONTROL.int : CONTROL.text}`}
+        >
+          {textBlock()}
           <FormControl>
             <Input
               value={typeof rhf.value === "string" ? rhf.value : ""}
@@ -270,9 +292,6 @@ export function SettingField({
               dir="ltr"
             />
           </FormControl>
-          {hint ? <FormDescription>{hint}</FormDescription> : null}
-          <BaselineNote field={field} />
-          <FormMessage />
         </FormItem>
       )}
     />

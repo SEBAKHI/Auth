@@ -110,10 +110,10 @@ export function SystemSettingsPage() {
       ) : (
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <SectionNav groups={groups} activeKey={active?.key ?? ""} />
-          {/* Generous, not narrow: the extra width of a large monitor is spent
-              on a second column of fields (see SectionForm), not on stretching
-              one control across the glass. */}
-          <div className="min-w-0 flex-1 2xl:max-w-[80rem]">
+          {/* The card keeps the full page width: extra width is spent by the
+              rows (label at the start, control pinned to the end), never by
+              stretching a control. */}
+          <div className="min-w-0 flex-1">
             {active ? (
               <SectionForm
                 key={`${active.key}:${active.rowVersion ?? "none"}`}
