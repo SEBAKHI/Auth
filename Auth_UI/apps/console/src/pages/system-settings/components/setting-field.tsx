@@ -38,16 +38,18 @@ import {
  * wide the window gets.
  *
  * On a large monitor that puts real distance between a label and its control,
- * so the row lights up as a band on hover — and on focus-within, so tabbing
- * to a control gives keyboard users the same anchor. The tint is the same
- * token the data tables use for their rows.
+ * so each row is ruled off from the next: the line pairs the two ends of a
+ * row while simply reading down the page, and the hover tint (plus
+ * focus-within, so the aid is not mouse-only) confirms the one in play. The
+ * rule and the tint reuse the tokens the separator and the data tables
+ * already use.
  *
- * The band bleeds into the card padding rather than indenting the content:
+ * The row bleeds into the card padding rather than indenting the content:
  * that needs the explicit width, because Field is `w-full` and a negative
  * margin alone would slide the row sideways instead of widening it.
  */
 const ROW =
-  "justify-between rounded-lg -mx-3 w-[calc(100%+1.5rem)] px-3 py-2 transition-colors hover:bg-muted/50 focus-within:bg-muted/50"
+  "justify-between border-b -mx-3 w-[calc(100%+1.5rem)] px-3 py-4 transition-colors hover:bg-muted/50 focus-within:bg-muted/50"
 
 /** Explanatory text stops at a comfortable measure rather than the card edge. */
 const TEXT_BLOCK = "max-w-2xl"

@@ -15,7 +15,7 @@ import {
   CardTitle,
 } from "@authsystem/ui/card"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
-import { FieldGroup, FieldSeparator } from "@authsystem/ui/field"
+import { FieldGroup } from "@authsystem/ui/field"
 import { Form } from "@authsystem/ui/form"
 import { Spinner } from "@authsystem/ui/spinner"
 import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
@@ -241,7 +241,9 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((values) => save.mutate(values))}>
-            <FieldGroup>
+            {/* Rows are ruled off from one another, so the breathing room
+                lives in the row padding and the group adds no extra gap. */}
+            <FieldGroup className="gap-0">
               {fields.map((field) =>
                 field.sensitive ? (
                   <SecretFieldRow
@@ -264,10 +266,10 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
                   />
                 )
               )}
-              <FieldSeparator />
               {/* Primary actions lead; the destructive-ish reset sits at the
-                  far end so it can never be hit while reaching for Save. */}
-              <div className="flex flex-wrap items-center justify-between gap-3">
+                  far end so it can never be hit while reaching for Save. The
+                  last row's rule already separates them. */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-6">
                 <div className="flex flex-wrap items-center gap-3">
                   <Button type="submit" disabled={save.isPending}>
                     {save.isPending ? <Spinner data-icon="inline-start" /> : null}
