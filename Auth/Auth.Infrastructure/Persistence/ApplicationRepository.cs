@@ -157,17 +157,21 @@ public class ApplicationRepository : IApplicationRepository
     public async Task<AppEntity> CreateAsync(AppEntity application, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
 
+        // Every configurable column is written here: a value the caller set and
+        // the INSERT silently dropped would come back from the next read as the
+        // column default, with nothing to show the setting was lost.
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[Applications] (
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             ) VALUES (
                 @Id, @Code, @Name, @Description, @BaseUrl, @LogoUrl, @ContactEmail,
                 @IsActive, @AllowSelfRegistration, @RequireTwoFactor, @RequireEmailVerification,
-                @SessionTimeoutMinutes, @MaxConcurrentSessions,
+                @SessionTimeoutMinutes, @MaxConcurrentSessions, @ReauthenticationMaxAgeMinutes,
                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
             )",
             new
@@ -185,11 +189,32 @@ public class ApplicationRepository : IApplicationRepository
                 application.RequireEmailVerification,
                 application.SessionTimeoutMinutes,
                 application.MaxConcurrentSessions,
+                application.ReauthenticationMaxAgeMinutes,
                 application.CreatedAt,
                 application.CreatedBy,
                 application.ModifiedAt,
                 application.ModifiedBy
-            });
+            },
+            transaction);
+
+        // The redirect-URI allowlist is part of the application, so it lands in
+        // the same transaction: never an application row whose allowlist is a
+        // partial write.
+        if (application.RedirectUris.Count > 0)
+        {
+            await connection.ExecuteAsync(@"
+                INSERT INTO [dbo].[ApplicationRedirectUris] ([ApplicationId], [Uri], [CreatedBy])
+                VALUES (@ApplicationId, @Uri, @CreatedBy)",
+                application.RedirectUris.Select(uri => new
+                {
+                    ApplicationId = application.Id,
+                    Uri = uri,
+                    application.CreatedBy
+                }),
+                transaction);
+        }
+
+        transaction.Commit();
 
         return application;
     }
@@ -198,6 +223,7 @@ public class ApplicationRepository : IApplicationRepository
     public async Task UpdateAsync(AppEntity application, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
 
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[Applications] SET
@@ -233,14 +259,19 @@ public class ApplicationRepository : IApplicationRepository
                 application.ReauthenticationMaxAgeMinutes,
                 application.ModifiedAt,
                 application.ModifiedBy
-            });
+            },
+            transaction);
 
         // Sync the redirect-URI allowlist (delete + reinsert; the list is
-        // capped at 20 entries so this stays trivial).
+        // capped at 20 entries so this stays trivial). Both statements share the
+        // update's transaction — a failed reinsert must not leave the
+        // application with an emptied allowlist, which would break every
+        // authorization request for it.
         await connection.ExecuteAsync(@"
             DELETE FROM [dbo].[ApplicationRedirectUris]
             WHERE [ApplicationId] = @ApplicationId",
-            new { ApplicationId = application.Id });
+            new { ApplicationId = application.Id },
+            transaction);
 
         if (application.RedirectUris.Count > 0)
         {
@@ -252,8 +283,11 @@ public class ApplicationRepository : IApplicationRepository
                     ApplicationId = application.Id,
                     Uri = uri,
                     CreatedBy = application.ModifiedBy ?? application.CreatedBy
-                }));
+                }),
+                transaction);
         }
+
+        transaction.Commit();
     }
 
     /// <inheritdoc />

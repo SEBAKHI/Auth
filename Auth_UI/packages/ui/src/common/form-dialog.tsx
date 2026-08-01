@@ -14,6 +14,7 @@ import {
 import { FieldGroup } from "@authsystem/ui/field"
 import { Form } from "@authsystem/ui/form"
 import { useDirtyClose } from "@authsystem/ui/hooks/use-dirty-close"
+import { Skeleton } from "@authsystem/ui/skeleton"
 import { Spinner } from "@authsystem/ui/spinner"
 
 /**
@@ -35,6 +36,7 @@ export function FormDialog<T extends FieldValues>({
   onSubmit,
   submitLabel,
   pending = false,
+  loading = false,
   size,
   contentClassName,
   children,
@@ -48,6 +50,12 @@ export function FormDialog<T extends FieldValues>({
   onSubmit: (values: T) => void
   submitLabel: string
   pending?: boolean
+  /**
+   * The values being edited are still loading. Shows a placeholder in place of
+   * the fields and blocks submit, so a form can never be saved from values it
+   * has not received yet. Cancel stays available.
+   */
+  loading?: boolean
   /** Width from the shared dialog scale; defaults to the dialog default (`lg`). */
   size?: React.ComponentProps<typeof DialogContent>["size"]
   contentClassName?: string
@@ -71,7 +79,9 @@ export function FormDialog<T extends FieldValues>({
 
         <Form {...form}>
           <form id={formId} onSubmit={form.handleSubmit(onSubmit)}>
-            <FieldGroup>{children}</FieldGroup>
+            <FieldGroup>
+              {loading ? <Skeleton className="h-64 w-full" /> : children}
+            </FieldGroup>
           </form>
         </Form>
 
@@ -83,7 +93,7 @@ export function FormDialog<T extends FieldValues>({
           >
             {t("common.cancel")}
           </Button>
-          <Button type="submit" form={formId} disabled={pending}>
+          <Button type="submit" form={formId} disabled={pending || loading}>
             {pending ? <Spinner /> : null}
             {submitLabel}
           </Button>

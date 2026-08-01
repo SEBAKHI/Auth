@@ -11167,6 +11167,7 @@ export interface components {
              * @default 5
              */
             maxConcurrentSessions: number | string;
+            redirectUris?: null | string[];
             /** Format: int32 */
             reauthenticationMaxAgeMinutes?: null | number | string;
         };

@@ -12,4 +12,5 @@ public record CreateApplicationRequest(
     bool RequireEmailVerification = false,
     int SessionTimeoutMinutes = 60,
     int MaxConcurrentSessions = 5,
+    IReadOnlyList<string>? RedirectUris = null,
     int? ReauthenticationMaxAgeMinutes = null);

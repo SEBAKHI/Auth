@@ -544,6 +544,10 @@ export function ApplicationDetailPage() {
                     "/api/v1/Applications/{id}",
                     {
                       params: { path: { id: appId } },
+                      // A full replace: every setting the update contract
+                      // accepts has to be resent, or changing the logo quietly
+                      // resets it. `redirectUris` is the one exception — the
+                      // API reads null as "leave the allowlist alone".
                       body: {
                         name: app.name ?? "",
                         description: app.description ?? null,
@@ -559,6 +563,8 @@ export function ApplicationDetailPage() {
                           app.sessionTimeoutMinutes ?? 60,
                         maxConcurrentSessions:
                           app.maxConcurrentSessions ?? 5,
+                        reauthenticationMaxAgeMinutes:
+                          app.reauthenticationMaxAgeMinutes ?? null,
                       },
                     }
                   )
@@ -617,6 +623,28 @@ export function ApplicationDetailPage() {
               {
                 label: t("applications.maxConcurrentSessions"),
                 value: toNumber(app.maxConcurrentSessions),
+              },
+              {
+                // Unset means step-up is off; DetailList drops empty values, so
+                // the row only appears when a threshold is actually configured.
+                label: t("applications.reauthMaxAge"),
+                value:
+                  app.reauthenticationMaxAgeMinutes != null
+                    ? toNumber(app.reauthenticationMaxAgeMinutes)
+                    : null,
+              },
+              {
+                label: t("applications.redirectUris"),
+                value: app.redirectUris?.length ? (
+                  <div className="flex flex-col">
+                    {app.redirectUris.map((uri) => (
+                      <span key={uri} dir="ltr" className="text-start">
+                        {uri}
+                      </span>
+                    ))}
+                  </div>
+                ) : null,
+                fullWidth: true,
               },
               {
                 label: t("common.createdAt"),

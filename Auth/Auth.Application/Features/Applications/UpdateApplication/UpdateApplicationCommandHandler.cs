@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -12,13 +13,16 @@ namespace Auth.Application.Features.Applications.UpdateApplication;
 public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplicationCommand, ErrorOr<ApplicationDto>>
 {
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<UpdateApplicationCommandHandler> _logger;
 
     public UpdateApplicationCommandHandler(
         IApplicationRepository applicationRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<UpdateApplicationCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -31,12 +35,15 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             return ApplicationErrors.NotFound(request.Id);
         }
 
-        // Update application
+        // Update application. The client resends the composed absolute URL it
+        // last read, so the logo is normalized back to its storage key —
+        // otherwise the row stores a host-bound URL that breaks the moment the
+        // public image base changes. External URLs pass through untouched.
         application.Update(
             request.Name,
             request.Description,
             request.BaseUrl,
-            request.LogoUrl,
+            _imageUrlComposer.Decompose(request.LogoUrl),
             request.ContactEmail,
             request.AllowSelfRegistration,
             request.RequireTwoFactor,
@@ -65,7 +72,7 @@ public class UpdateApplicationCommandHandler : IRequestHandler<UpdateApplication
             Name = application.Name,
             Description = application.Description,
             BaseUrl = application.BaseUrl,
-            LogoUrl = application.LogoUrl,
+            LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
             AllowSelfRegistration = application.AllowSelfRegistration,

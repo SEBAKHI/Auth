@@ -1,6 +1,7 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using ApplicationEntity = Auth.Domain.Entities.Application;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -14,13 +15,16 @@ namespace Auth.Application.Features.Applications.CreateApplication;
 public class CreateApplicationCommandHandler : IRequestHandler<CreateApplicationCommand, ErrorOr<ApplicationDto>>
 {
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<CreateApplicationCommandHandler> _logger;
 
     public CreateApplicationCommandHandler(
         IApplicationRepository applicationRepository,
+        IImageUrlComposer imageUrlComposer,
         ILogger<CreateApplicationCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
+        _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
 
@@ -41,12 +45,14 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             request.CreatedBy);
 
         // Set additional properties using reflection or update method
-        // Since Application.Create sets defaults, we need to update with custom values
+        // Since Application.Create sets defaults, we need to update with custom values.
+        // The logo is stored as a key, never as a composed absolute URL (same
+        // normalization as the update path); external URLs pass through.
         application.Update(
             request.Name,
             request.Description,
             request.BaseUrl,
-            request.LogoUrl,
+            _imageUrlComposer.Decompose(request.LogoUrl),
             request.ContactEmail,
             request.AllowSelfRegistration,
             request.RequireTwoFactor,
@@ -55,6 +61,13 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             request.MaxConcurrentSessions,
             request.CreatedBy,
             request.ReauthenticationMaxAgeMinutes);
+
+        // Null means "no allowlist yet"; a list registers it up front so an
+        // application can be created ready for the authorization-code flow.
+        if (request.RedirectUris is not null)
+        {
+            application.SetRedirectUris(request.RedirectUris, request.CreatedBy);
+        }
 
         await _applicationRepository.CreateAsync(application, cancellationToken);
 
@@ -69,7 +82,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             Name = application.Name,
             Description = application.Description,
             BaseUrl = application.BaseUrl,
-            LogoUrl = application.LogoUrl,
+            LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
             AllowSelfRegistration = application.AllowSelfRegistration,
@@ -78,6 +91,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             SessionTimeoutMinutes = application.SessionTimeoutMinutes,
             MaxConcurrentSessions = application.MaxConcurrentSessions,
             ReauthenticationMaxAgeMinutes = application.ReauthenticationMaxAgeMinutes,
+            RedirectUris = [.. application.RedirectUris],
             CreatedAt = application.CreatedAt,
             CreatedBy = application.CreatedBy,
             ModifiedAt = application.ModifiedAt,

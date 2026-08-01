@@ -222,6 +222,7 @@ public class ApplicationsController : ApiController
             request.RequireEmailVerification,
             request.SessionTimeoutMinutes,
             request.MaxConcurrentSessions,
+            request.RedirectUris,
             request.ReauthenticationMaxAgeMinutes)
         {
             CreatedBy = userId

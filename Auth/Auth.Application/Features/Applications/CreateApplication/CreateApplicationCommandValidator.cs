@@ -19,5 +19,15 @@ public class CreateApplicationCommandValidator : AbstractValidator<CreateApplica
         RuleFor(x => x.SessionTimeoutMinutes).GreaterThan(0);
         RuleFor(x => x.MaxConcurrentSessions).GreaterThan(0);
         RuleFor(x => x.ReauthenticationMaxAgeMinutes).IsValidReauthenticationMaxAge();
+
+        // Same allowlist rules as the update path: a redirect URI registered at
+        // creation is exactly as much of a security boundary as one added later.
+        RuleFor(x => x.RedirectUris!)
+            .IsWithinRedirectUriLimit()
+            .When(x => x.RedirectUris is not null);
+
+        RuleForEach(x => x.RedirectUris!)
+            .IsValidRedirectUri()
+            .When(x => x.RedirectUris is not null);
     }
 }
