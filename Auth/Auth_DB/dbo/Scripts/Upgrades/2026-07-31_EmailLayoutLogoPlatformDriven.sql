@@ -32,3 +32,4 @@ SET [PublishedContent] = REPLACE([PublishedContent], @OldLogo, @NewLogo)
 WHERE CHARINDEX(@OldLogo, [PublishedContent]) > 0;
 
 PRINT '  PublishedContent rows updated: ' + CAST(@@ROWCOUNT AS NVARCHAR(10));
+GO

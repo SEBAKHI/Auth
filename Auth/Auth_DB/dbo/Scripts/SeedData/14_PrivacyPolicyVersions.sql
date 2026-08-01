@@ -12,3 +12,4 @@ BEGIN
         ('46000000-0000-0000-0000-000000000001', N'2026.07', '2026-07-28T00:00:00', NULL, NULL, GETUTCDATE(), @SystemUserId);
     PRINT 'Created privacy policy version 2026.07';
 END
+GO
