@@ -36,8 +36,18 @@ import {
  * that suits its value. That way a wide card is used by the layout instead of
  * by a stretched input, and the controls line up as one column no matter how
  * wide the window gets.
+ *
+ * On a large monitor that puts real distance between a label and its control,
+ * so the row lights up as a band on hover — and on focus-within, so tabbing
+ * to a control gives keyboard users the same anchor. The tint is the same
+ * token the data tables use for their rows.
+ *
+ * The band bleeds into the card padding rather than indenting the content:
+ * that needs the explicit width, because Field is `w-full` and a negative
+ * margin alone would slide the row sideways instead of widening it.
  */
-const ROW = "justify-between"
+const ROW =
+  "justify-between rounded-lg -mx-3 w-[calc(100%+1.5rem)] px-3 py-2 transition-colors hover:bg-muted/50 focus-within:bg-muted/50"
 
 /** Explanatory text stops at a comfortable measure rather than the card edge. */
 const TEXT_BLOCK = "max-w-2xl"
