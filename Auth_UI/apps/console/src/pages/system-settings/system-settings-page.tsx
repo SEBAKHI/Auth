@@ -110,7 +110,9 @@ export function SystemSettingsPage() {
       ) : (
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
           <SectionNav groups={groups} activeKey={active?.key ?? ""} />
-          <div className="min-w-0 flex-1">
+          {/* Capped at a readable measure: settings forms must not stretch
+              across an ultrawide monitor. */}
+          <div className="min-w-0 flex-1 lg:max-w-3xl">
             {active ? (
               <SectionForm
                 key={`${active.key}:${active.rowVersion ?? "none"}`}

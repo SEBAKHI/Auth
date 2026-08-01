@@ -1090,18 +1090,18 @@ export const en = {
     restartRequired: "Restart required",
     pendingRestart: "Waiting for restart",
     overridden: "Customized",
-    fileValue: "File value: {{value}}",
+    fileValue: "Default: {{value}}",
     notSet: "Not set",
     managedInSecrets:
       "Secret value — stored encrypted and managed on the Secrets page, never here.",
     openSecrets: "Open Secrets",
     readOnly: "Read-only",
-    resetSection: "Reset to file values",
+    resetSection: "Reset to defaults",
     resetConfirmTitle: "Reset this section?",
     resetConfirmBody:
-      "All customized values in this section will be removed, and the values from the configuration files will apply again.",
+      "All customized values in this section will be removed and the default values will apply again.",
     saved: "Settings saved.",
-    resetDone: "Section reset to file values.",
+    resetDone: "Section reset to defaults.",
     conflict:
       "Someone else changed this section in the meantime. It has been reloaded — please reapply your changes.",
     arrayFieldHint: "One entry per line.",
@@ -1380,7 +1380,7 @@ export const en = {
     accountDeletionSection: {
       title: "Account deletion",
       description:
-        "The GDPR/KVKK deletion pipeline: the grace period before permanent erasure, the background worker's pace, and how long security records are retained.",
+        "The GDPR/KVKK deletion pipeline: the grace period before permanent erasure, the confirmation code, and the pace of the background worker that carries deletions out.",
       graceDays: "Grace period (days)",
       graceDaysHint:
         "Time to change one's mind before permanent deletion. Recommended: 30 (common regulatory practice).",
@@ -1392,18 +1392,28 @@ export const en = {
       maxExecutionAttemptsHint: "Retries before a failed deletion raises the compliance alarm. Recommended: 5.",
       otpExpirationMinutes: "Confirmation code lifetime (minutes)",
       otpExpirationMinutesHint: "Code confirming a public deletion request. Recommended: 15.",
+      identifierHmacKeyPlain: "Identifier hash key",
+    },
+    dataRetention: {
+      title: "Privacy & data retention",
+      description:
+        "How long security and delivery records are kept, and which published privacy-policy version is stamped on each deletion. Keep these aligned with what your privacy policy actually promises.",
+      policyVersion: "Privacy policy version",
+      policyVersionHint:
+        "Version stamp recorded with each deletion (format YYYY.MM). Must match the published policy.",
       loginAttemptRetentionDays: "Login-attempt retention (days)",
       loginAttemptRetentionDaysHint:
         "Security log retention; align with your privacy policy. Recommended: 365.",
       outboxRetentionDays: "Outbox retention (days)",
       outboxRetentionDaysHint: "Delivered-notification log retention. Recommended: 180.",
-      policyVersion: "Privacy policy version",
-      policyVersionHint:
-        "Version stamp recorded with each deletion (format YYYY.MM). Must match the published policy.",
+    },
+    maintenance: {
+      title: "Maintenance",
+      description:
+        "One-off operational switches executed at startup. Leave them off during normal operation and turn one on only when a runbook tells you to.",
       runEncryptionMigration: "Run encryption migration",
       runEncryptionMigrationHint:
         "One-shot backfill executed at the next startup; leave off unless the runbook says otherwise.",
-      identifierHmacKeyPlain: "Identifier hash key",
     },
     healthChecks: {
       title: "Health checks",

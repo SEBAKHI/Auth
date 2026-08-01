@@ -23,7 +23,11 @@ import { Switch } from "@authsystem/ui/switch"
 import { Textarea } from "@authsystem/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
 
-import { fieldI18nKey, type SystemSettingsField } from "../lib/sections"
+import {
+  fieldI18nKey,
+  formFieldName,
+  type SystemSettingsField,
+} from "../lib/sections"
 
 function useFieldTexts(sectionI18n: string | undefined, field: SystemSettingsField) {
   const { t } = useTranslation()
@@ -108,6 +112,7 @@ export function ReadOnlyFieldRow({
         value={value === null || value === undefined ? "" : String(value)}
         disabled
         dir="ltr"
+        className="max-w-lg"
       />
       {hint ? <FieldDescription>{hint}</FieldDescription> : null}
     </Field>
@@ -130,7 +135,7 @@ export function SettingField({
 }) {
   const { t } = useTranslation()
   const { label, hint } = useFieldTexts(sectionI18n, field)
-  const name = field.path ?? ""
+  const name = formFieldName(field.path ?? "")
   const kind = field.kind ?? "string"
 
   if (kind === "bool") {
@@ -212,6 +217,7 @@ export function SettingField({
                 onBlur={rhf.onBlur}
                 rows={4}
                 dir="ltr"
+                className="max-w-lg"
               />
             </FormControl>
             <FormDescription>
@@ -260,6 +266,9 @@ export function SettingField({
               onBlur={rhf.onBlur}
               inputMode={isInt ? "numeric" : undefined}
               dir="ltr"
+              // Control width hints at the expected value length instead of
+              // stretching a 3-digit number across an ultrawide monitor.
+              className={isInt ? "max-w-40" : "max-w-lg"}
             />
           </FormControl>
           {hint ? <FormDescription>{hint}</FormDescription> : null}

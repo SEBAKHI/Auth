@@ -1107,18 +1107,18 @@ export const tr: TranslationResources = {
     restartRequired: "Yeniden başlatma gerekli",
     pendingRestart: "Yeniden başlatma bekleniyor",
     overridden: "Özelleştirildi",
-    fileValue: "Dosya değeri: {{value}}",
+    fileValue: "Varsayılan değer: {{value}}",
     notSet: "Ayarlanmadı",
     managedInSecrets:
       "Gizli değer — şifreli olarak saklanır ve Gizli Anahtarlar sayfasında yönetilir, asla burada değil.",
     openSecrets: "Gizli Anahtarlar'ı aç",
     readOnly: "Salt okunur",
-    resetSection: "Dosya değerlerine sıfırla",
+    resetSection: "Varsayılanlara sıfırla",
     resetConfirmTitle: "Bu bölüm sıfırlansın mı?",
     resetConfirmBody:
-      "Bu bölümdeki tüm özelleştirilmiş değerler kaldırılacak ve yapılandırma dosyalarındaki değerler yeniden geçerli olacak.",
+      "Bu bölümdeki tüm özelleştirilmiş değerler kaldırılacak ve varsayılan değerler yeniden geçerli olacak.",
     saved: "Ayarlar kaydedildi.",
-    resetDone: "Bölüm dosya değerlerine sıfırlandı.",
+    resetDone: "Bölüm varsayılanlara sıfırlandı.",
     conflict:
       "Bu bölüm bu sırada başka biri tarafından değiştirildi. Bölüm yeniden yüklendi — lütfen değişikliklerinizi yeniden uygulayın.",
     arrayFieldHint: "Her satıra bir girdi.",
@@ -1397,7 +1397,7 @@ export const tr: TranslationResources = {
     accountDeletionSection: {
       title: "Hesap silme",
       description:
-        "GDPR/KVKK silme hattı: kalıcı silmeden önceki bekleme süresi, arka plan işleyicisinin temposu ve güvenlik kayıtlarının ne kadar saklandığı.",
+        "GDPR/KVKK silme hattı: kalıcı silmeden önceki bekleme süresi, onay kodu ve silmeleri yürüten arka plan görevinin temposu.",
       graceDays: "Bekleme süresi (gün)",
       graceDaysHint:
         "Kalıcı silmeden önce fikir değiştirme süresi. Önerilen: 30 (yaygın düzenleyici uygulama).",
@@ -1409,18 +1409,28 @@ export const tr: TranslationResources = {
       maxExecutionAttemptsHint: "Başarısız bir silme uyum alarmını tetiklemeden önceki yeniden denemeler. Önerilen: 5.",
       otpExpirationMinutes: "Onay kodu ömrü (dakika)",
       otpExpirationMinutesHint: "Genel bir silme talebini onaylayan kod. Önerilen: 15.",
+      identifierHmacKeyPlain: "Tanımlayıcı karma anahtarı",
+    },
+    dataRetention: {
+      title: "Gizlilik ve veri saklama",
+      description:
+        "Güvenlik ve teslimat kayıtlarının ne kadar saklanacağı ve her silme işlemine hangi yayımlanmış gizlilik politikası sürümünün damgalanacağı. Bunları gizlilik politikanızın gerçekte vaat ettiğiyle uyumlu tutun.",
+      policyVersion: "Gizlilik politikası sürümü",
+      policyVersionHint:
+        "Her silmeyle birlikte kaydedilen sürüm damgası (biçim: YYYY.MM). Yayımlanan politikayla eşleşmelidir.",
       loginAttemptRetentionDays: "Oturum açma denemesi saklama (gün)",
       loginAttemptRetentionDaysHint:
         "Güvenlik günlüğü saklama süresi; gizlilik politikanızla uyumlu tutun. Önerilen: 365.",
       outboxRetentionDays: "Giden kutusu saklama (gün)",
       outboxRetentionDaysHint: "Teslim edilen bildirim günlüğünün saklama süresi. Önerilen: 180.",
-      policyVersion: "Gizlilik politikası sürümü",
-      policyVersionHint:
-        "Her silmeyle birlikte kaydedilen sürüm damgası (biçim: YYYY.MM). Yayımlanan politikayla eşleşmelidir.",
+    },
+    maintenance: {
+      title: "Bakım",
+      description:
+        "Başlangıçta bir kez çalıştırılan operasyonel anahtarlar. Normal işletimde kapalı bırakın; yalnızca bir çalıştırma kılavuzu söylediğinde açın.",
       runEncryptionMigration: "Şifreleme geçişini çalıştır",
       runEncryptionMigrationHint:
         "Bir sonraki başlangıçta yürütülen tek seferlik geri doldurma; işletim rehberi aksini söylemedikçe kapalı bırakın.",
-      identifierHmacKeyPlain: "Tanımlayıcı karma anahtarı",
     },
     healthChecks: {
       title: "Sağlık denetimleri",

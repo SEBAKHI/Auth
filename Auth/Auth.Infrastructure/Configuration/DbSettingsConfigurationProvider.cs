@@ -132,7 +132,7 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
                 return false;
             }
 
-            var data = BuildData(rows);
+            var data = BuildOverrideData(rows, _baselineArrayLengths);
             if (DataEquals(Data, data))
             {
                 return false;
@@ -164,7 +164,14 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
         return rows;
     }
 
-    private Dictionary<string, string?> BuildData(List<(string SectionKey, string OverridesJson)> rows)
+    /// <summary>
+    /// Flattens stored section overrides into configuration keys. Public so
+    /// the exhaustive "every editable field actually reaches configuration"
+    /// test can exercise the real code path without a database.
+    /// </summary>
+    public static Dictionary<string, string?> BuildOverrideData(
+        IEnumerable<(string SectionKey, string OverridesJson)> rows,
+        IReadOnlyDictionary<string, int> baselineArrayLengths)
     {
         var data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
@@ -216,7 +223,7 @@ public sealed class DbSettingsConfigurationProvider : ConfigurationProvider, ISy
 
                     // Tombstones: mask residual file elements past the
                     // override's length.
-                    var baselineLength = _baselineArrayLengths.GetValueOrDefault(fullKey);
+                    var baselineLength = baselineArrayLengths.GetValueOrDefault(fullKey);
                     for (; index < baselineLength; index++)
                     {
                         data[$"{fullKey}:{index}"] = string.Empty;

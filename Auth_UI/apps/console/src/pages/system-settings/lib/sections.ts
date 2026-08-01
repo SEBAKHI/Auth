@@ -34,6 +34,8 @@ export const SECTION_I18N: Record<string, string> = {
   Notifications: "notificationsSection",
   ImageStorage: "imageStorage",
   AccountDeletion: "accountDeletionSection",
+  DataRetention: "dataRetention",
+  Maintenance: "maintenance",
   HealthChecks: "healthChecks",
   Serilog: "serilog",
   DataProtection: "dataProtection",
@@ -46,6 +48,17 @@ export const SECTION_I18N: Record<string, string> = {
  * per-field table: "BreachedPasswordCheck:Mode" → "breachedPasswordCheckMode",
  * key = label, key + "Hint" = hint.
  */
+/**
+ * react-hook-form reads "." (and brackets) in a field name as a nested path,
+ * so a config path like "MinimumLevel:Override:Microsoft.Hosting.Lifetime"
+ * would register a nested object that never matches its flat default value —
+ * the form would report itself dirty on mount and submit an empty value.
+ * Config paths never contain "-", so it is a safe stand-in.
+ */
+export function formFieldName(path: string): string {
+  return path.replace(/\./g, "-")
+}
+
 export function fieldI18nKey(path: string): string {
   const joined = path
     .split(":")

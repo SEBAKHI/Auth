@@ -1039,18 +1039,18 @@ export const zh: TranslationResources = {
     restartRequired: "需要重启",
     pendingRestart: "等待重启",
     overridden: "已自定义",
-    fileValue: "文件值：{{value}}",
+    fileValue: "默认值：{{value}}",
     notSet: "未设置",
     managedInSecrets:
       "机密值——加密存储并在机密页面管理，绝不在此处显示。",
     openSecrets: "打开机密",
     readOnly: "只读",
-    resetSection: "重置为文件值",
+    resetSection: "重置为默认值",
     resetConfirmTitle: "重置此部分？",
     resetConfirmBody:
-      "此部分中所有自定义的值将被移除，配置文件中的值将重新生效。",
+      "此部分中所有自定义的值将被移除，默认值将重新生效。",
     saved: "设置已保存。",
-    resetDone: "该部分已重置为文件值。",
+    resetDone: "该部分已重置为默认值。",
     conflict:
       "其他人在此期间修改了此部分。内容已重新加载——请重新应用您的更改。",
     arrayFieldHint: "每行一个条目。",
@@ -1329,7 +1329,7 @@ export const zh: TranslationResources = {
     accountDeletionSection: {
       title: "账户删除",
       description:
-        "GDPR/KVKK 删除流程：永久清除前的宽限期、后台工作进程的执行节奏，以及安全记录的保留时长。",
+        "GDPR/KVKK 删除流程：永久擦除前的宽限期、确认码，以及执行删除的后台任务节奏。",
       graceDays: "宽限期（天）",
       graceDaysHint:
         "永久删除前允许反悔的时间。推荐：30（常见的合规实践）。",
@@ -1341,18 +1341,28 @@ export const zh: TranslationResources = {
       maxExecutionAttemptsHint: "删除失败触发合规警报前的重试次数。推荐：5。",
       otpExpirationMinutes: "确认码有效期（分钟）",
       otpExpirationMinutesHint: "用于确认公开删除请求的验证码。推荐：15。",
+      identifierHmacKeyPlain: "标识符哈希密钥",
+    },
+    dataRetention: {
+      title: "隐私与数据保留",
+      description:
+        "安全和投递记录的保留时长，以及每次删除时标记的已发布隐私政策版本。请与隐私政策的实际承诺保持一致。",
+      policyVersion: "隐私政策版本",
+      policyVersionHint:
+        "随每次删除记录的版本标记（格式 YYYY.MM）。必须与已发布的政策一致。",
       loginAttemptRetentionDays: "登录尝试保留（天）",
       loginAttemptRetentionDaysHint:
         "安全日志的保留时长；请与您的隐私政策保持一致。推荐：365。",
       outboxRetentionDays: "发件箱保留（天）",
       outboxRetentionDaysHint: "已投递通知日志的保留时长。推荐：180。",
-      policyVersion: "隐私政策版本",
-      policyVersionHint:
-        "随每次删除记录的版本标记（格式 YYYY.MM）。必须与已发布的政策一致。",
+    },
+    maintenance: {
+      title: "维护",
+      description:
+        "在启动时执行一次的运维开关。正常运行期间请保持关闭，仅在运维手册要求时才开启。",
       runEncryptionMigration: "运行加密迁移",
       runEncryptionMigrationHint:
         "下次启动时执行的一次性回填；除非运维手册要求，否则请保持关闭。",
-      identifierHmacKeyPlain: "标识符哈希密钥",
     },
     healthChecks: {
       title: "健康检查",

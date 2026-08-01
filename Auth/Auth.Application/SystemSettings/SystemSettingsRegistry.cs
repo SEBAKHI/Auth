@@ -241,6 +241,11 @@ public static class SystemSettingsRegistry
                     DefaultValue: new[] { "image/png", "image/jpeg", "image/webp", "image/gif" })
             ]),
 
+        // The three sections below share the AccountDeletion config root but
+        // are separate ADMIN concerns: the deletion pipeline, the retention /
+        // privacy commitments, and a one-shot maintenance switch. Section.Key
+        // is the console + storage identity; ConfigRoot is where the values
+        // actually live, so grouping by meaning costs nothing at the binder.
         new SettingSectionDefinition(
             Key: "AccountDeletion",
             ConfigRoot: "AccountDeletion",
@@ -249,16 +254,34 @@ public static class SystemSettingsRegistry
             Fields:
             [
                 new SettingFieldDefinition("GraceDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 30),
+                new SettingFieldDefinition("OtpExpirationMinutes", SettingKind.Int, Min: 1, Max: 60, DefaultValue: 15),
                 new SettingFieldDefinition("WorkerPollMinutes", SettingKind.Int, Min: 1, Max: 1440, DefaultValue: 15),
                 new SettingFieldDefinition("WorkerBatchSize", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 25),
                 new SettingFieldDefinition("MaxExecutionAttempts", SettingKind.Int, Min: 1, Max: 20, DefaultValue: 5),
-                new SettingFieldDefinition("OtpExpirationMinutes", SettingKind.Int, Min: 1, Max: 60, DefaultValue: 15),
-                new SettingFieldDefinition("LoginAttemptRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 365),
-                new SettingFieldDefinition("OutboxRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 180),
-                new SettingFieldDefinition("PolicyVersion", SettingKind.String, DefaultValue: "2026.07"),
-                // One-shot migration hosted service, evaluated at startup.
-                new SettingFieldDefinition("RunEncryptionMigration", SettingKind.Bool, RestartRequired: true, DefaultValue: false),
                 new SettingFieldDefinition("IdentifierHmacKeyPlain", SettingKind.String, Sensitive: true)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "DataRetention",
+            ConfigRoot: "AccountDeletion",
+            Group: SettingGroups.Operations,
+            Editable: true,
+            Fields:
+            [
+                new SettingFieldDefinition("PolicyVersion", SettingKind.String, DefaultValue: "2026.07"),
+                new SettingFieldDefinition("LoginAttemptRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 365),
+                new SettingFieldDefinition("OutboxRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 180)
+            ]),
+
+        new SettingSectionDefinition(
+            Key: "Maintenance",
+            ConfigRoot: "AccountDeletion",
+            Group: SettingGroups.Operations,
+            Editable: true,
+            Fields:
+            [
+                // One-shot backfill evaluated by a hosted service at startup.
+                new SettingFieldDefinition("RunEncryptionMigration", SettingKind.Bool, RestartRequired: true, DefaultValue: false)
             ]),
 
         new SettingSectionDefinition(

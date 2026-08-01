@@ -23,6 +23,7 @@ import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-change
 import {
   SECTION_I18N,
   SETTINGS_QUERY_KEY,
+  formFieldName,
   type SystemSettingsField,
   type SystemSettingsSection,
 } from "../lib/sections"
@@ -102,7 +103,9 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
 
   const defaultValues = React.useMemo(() => {
     const values: FieldValues = {}
-    for (const field of editable) values[field.path ?? ""] = toFormValue(field)
+    for (const field of editable) {
+      values[formFieldName(field.path ?? "")] = toFormValue(field)
+    }
     return values
   }, [editable])
 
@@ -133,7 +136,7 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
       // as simple as typing the file value back.
       const overrides: Record<string, unknown> = {}
       for (const field of editable) {
-        const next = toApiValue(field, values[field.path ?? ""])
+        const next = toApiValue(field, values[formFieldName(field.path ?? "")])
         if (!sameValue(next, normalizedBaseline(field))) {
           setNested(overrides, field.path ?? "", next)
         }
@@ -262,11 +265,35 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
                 )
               )}
               <FieldSeparator />
-              <div className="flex items-center gap-3">
-                <Button type="submit" disabled={save.isPending}>
-                  {save.isPending ? <Spinner data-icon="inline-start" /> : null}
-                  {t("common.save")}
-                </Button>
+              {/* Primary actions lead; the destructive-ish reset sits at the
+                  far end so it can never be hit while reaching for Save. */}
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <Button type="submit" disabled={save.isPending}>
+                    {save.isPending ? <Spinner data-icon="inline-start" /> : null}
+                    {t("common.save")}
+                  </Button>
+                  {form.formState.isDirty ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => form.reset()}
+                    >
+                      {t("common.cancel")}
+                    </Button>
+                  ) : null}
+                  {sectionKey === "Email" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={sendTestEmail.isPending}
+                      onClick={() => sendTestEmail.mutate()}
+                    >
+                      {sendTestEmail.isPending ? <Spinner data-icon="inline-start" /> : null}
+                      {t("systemSettings.sendTestEmail")}
+                    </Button>
+                  ) : null}
+                </div>
                 {hasOverrides ? (
                   <Button
                     type="button"
@@ -274,17 +301,6 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
                     onClick={() => setConfirmReset(true)}
                   >
                     {t("systemSettings.resetSection")}
-                  </Button>
-                ) : null}
-                {sectionKey === "Email" ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={sendTestEmail.isPending}
-                    onClick={() => sendTestEmail.mutate()}
-                  >
-                    {sendTestEmail.isPending ? <Spinner data-icon="inline-start" /> : null}
-                    {t("systemSettings.sendTestEmail")}
                   </Button>
                 ) : null}
               </div>

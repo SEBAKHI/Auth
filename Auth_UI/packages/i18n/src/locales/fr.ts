@@ -1129,18 +1129,18 @@ export const fr: TranslationResources = {
     restartRequired: "Redémarrage requis",
     pendingRestart: "En attente de redémarrage",
     overridden: "Personnalisé",
-    fileValue: "Valeur du fichier : {{value}}",
+    fileValue: "Valeur par défaut : {{value}}",
     notSet: "Non défini",
     managedInSecrets:
       "Valeur secrète — stockée chiffrée et gérée sur la page Secrets, jamais ici.",
     openSecrets: "Ouvrir les Secrets",
     readOnly: "Lecture seule",
-    resetSection: "Réinitialiser aux valeurs du fichier",
+    resetSection: "Réinitialiser aux valeurs par défaut",
     resetConfirmTitle: "Réinitialiser cette section ?",
     resetConfirmBody:
-      "Toutes les valeurs personnalisées de cette section seront supprimées et les valeurs des fichiers de configuration s'appliqueront de nouveau.",
+      "Toutes les valeurs personnalisées de cette section seront supprimées et les valeurs par défaut s'appliqueront de nouveau.",
     saved: "Paramètres enregistrés.",
-    resetDone: "Section réinitialisée aux valeurs du fichier.",
+    resetDone: "Section réinitialisée aux valeurs par défaut.",
     conflict:
       "Quelqu'un d'autre a modifié cette section entre-temps. Elle a été rechargée — veuillez réappliquer vos modifications.",
     arrayFieldHint: "Une entrée par ligne.",
@@ -1448,7 +1448,7 @@ export const fr: TranslationResources = {
     accountDeletionSection: {
       title: "Suppression de compte",
       description:
-        "Le pipeline de suppression GDPR/KVKK : le délai de grâce avant l'effacement définitif, le rythme du worker en arrière-plan et la durée de conservation des journaux de sécurité.",
+        "Le pipeline de suppression RGPD/KVKK : le délai de grâce avant l'effacement définitif, le code de confirmation et le rythme du traitement en arrière-plan qui exécute les suppressions.",
       graceDays: "Délai de grâce (jours)",
       graceDaysHint:
         "Temps pour changer d'avis avant la suppression définitive. Recommandé : 30 (pratique réglementaire courante).",
@@ -1463,6 +1463,15 @@ export const fr: TranslationResources = {
       otpExpirationMinutes: "Durée de vie du code de confirmation (minutes)",
       otpExpirationMinutesHint:
         "Code confirmant une demande de suppression publique. Recommandé : 15.",
+      identifierHmacKeyPlain: "Clé de hachage des identifiants",
+    },
+    dataRetention: {
+      title: "Confidentialité et conservation des données",
+      description:
+        "Durée de conservation des journaux de sécurité et de livraison, et version publiée de la politique de confidentialité horodatée sur chaque suppression. Alignez ces valeurs sur ce que votre politique promet réellement.",
+      policyVersion: "Version de la politique de confidentialité",
+      policyVersionHint:
+        "Estampille de version enregistrée avec chaque suppression (format YYYY.MM). Doit correspondre à la politique publiée.",
       loginAttemptRetentionDays:
         "Conservation des tentatives de connexion (jours)",
       loginAttemptRetentionDaysHint:
@@ -1470,13 +1479,14 @@ export const fr: TranslationResources = {
       outboxRetentionDays: "Conservation de la boîte d'envoi (jours)",
       outboxRetentionDaysHint:
         "Conservation du journal des notifications livrées. Recommandé : 180.",
-      policyVersion: "Version de la politique de confidentialité",
-      policyVersionHint:
-        "Estampille de version enregistrée avec chaque suppression (format YYYY.MM). Doit correspondre à la politique publiée.",
+    },
+    maintenance: {
+      title: "Maintenance",
+      description:
+        "Commutateurs opérationnels ponctuels exécutés au démarrage. Laissez-les désactivés en fonctionnement normal et n'en activez un que sur instruction d'une procédure d'exploitation.",
       runEncryptionMigration: "Exécuter la migration de chiffrement",
       runEncryptionMigrationHint:
         "Rattrapage ponctuel exécuté au prochain démarrage ; laissez désactivé sauf indication contraire du guide d'exploitation.",
-      identifierHmacKeyPlain: "Clé de hachage des identifiants",
     },
     healthChecks: {
       title: "Sondes de santé",

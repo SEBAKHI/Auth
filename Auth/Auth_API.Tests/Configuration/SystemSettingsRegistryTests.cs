@@ -34,6 +34,20 @@ public class SystemSettingsRegistryTests
     }
 
     [Fact]
+    public void FullConfigKeys_AreOwnedByExactlyOneSection()
+    {
+        // Sections may share a ConfigRoot (grouping by admin concern rather
+        // than by appsettings shape), but two sections claiming the SAME
+        // config key would let two stored rows fight over one value — the
+        // provider would apply whichever it flattened last.
+        AllFields()
+            .GroupBy(x => x.Section.FullKey(x.Field), StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => g.Key)
+            .Should().BeEmpty("each configuration key must belong to exactly one section");
+    }
+
+    [Fact]
     public void EditableFields_AreNeverSecretOwned()
     {
         // The guarantee that the database layer and the secret layer hold

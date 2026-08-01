@@ -34,7 +34,9 @@ public class SystemSettingsDefaultParityTests
     {
         foreach (var section in SystemSettingsRegistry.Sections)
         {
-            if (!SettingsInstances.TryGetValue(section.Key, out var instance))
+            // Keyed by ConfigRoot, not Key: several console sections can
+            // present one appsettings section (e.g. the AccountDeletion root).
+            if (!SettingsInstances.TryGetValue(section.ConfigRoot, out var instance))
             {
                 continue;
             }

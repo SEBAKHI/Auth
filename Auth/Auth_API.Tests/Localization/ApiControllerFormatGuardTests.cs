@@ -80,6 +80,39 @@ public class ApiControllerFormatGuardTests
     }
 
     [Fact]
+    public void Problem_WhenValidationResourceHasPlaceholders_FillsThemFromMetadata()
+    {
+        // Regression: validation messages quote configured policy values (the
+        // password minimum length is the live PasswordSettings value). Skipping
+        // the format showed users a literal "{0}" instead of the policy.
+        var controller = CreateController(validationMessageValue: "Password must be at least {0} characters long.");
+        var error = Error.Validation(
+            code: "Password.TooShort",
+            description: "Validation.Password.TooShort",
+            metadata: new Dictionary<string, object> { ["args"] = new object[] { 24 } });
+
+        var result = controller.InvokeProblem([error]);
+
+        var problemDetails = Assert.IsType<ProblemDetails>(Assert.IsType<ObjectResult>(result).Value);
+        problemDetails.Detail.Should().Be("Password must be at least 24 characters long.");
+    }
+
+    [Fact]
+    public void Problem_WhenValidationResourcePlaceholdersMismatch_FallsBackToDescription()
+    {
+        var controller = CreateController(validationMessageValue: "At least {0} and {1}.");
+        var error = Error.Validation(
+            code: "Password.TooShort",
+            description: "Validation.Password.TooShort",
+            metadata: new Dictionary<string, object> { ["args"] = new object[] { 24 } });
+
+        var result = controller.InvokeProblem([error]);
+
+        var problemDetails = Assert.IsType<ProblemDetails>(Assert.IsType<ObjectResult>(result).Value);
+        problemDetails.Detail.Should().Be("Validation.Password.TooShort");
+    }
+
+    [Fact]
     public void LocalizeMessage_WhenResourceExpectsMoreArgumentsThanSupplied_FallsBackToCallerText()
     {
         var controller = CreateController(authMessageValue: "Rotated {0} of {1}.");
@@ -101,12 +134,13 @@ public class ApiControllerFormatGuardTests
 
     private static TestController CreateController(
         string? domainErrorValue = null,
-        string? authMessageValue = null)
+        string? authMessageValue = null,
+        string? validationMessageValue = null)
     {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(StubLocalizer<DomainErrors>(domainErrorValue));
-        services.AddSingleton(StubLocalizer<ValidationMessages>(value: null));
+        services.AddSingleton(StubLocalizer<ValidationMessages>(validationMessageValue));
         services.AddSingleton(StubLocalizer<AuthMessages>(authMessageValue));
 
         var httpContext = new DefaultHttpContext { RequestServices = services.BuildServiceProvider() };
