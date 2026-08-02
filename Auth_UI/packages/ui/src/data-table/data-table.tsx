@@ -58,6 +58,13 @@ import { cn } from "@authsystem/ui/utils"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { directionForLanguage } from "@authsystem/i18n"
 import { buildDisplayColumns } from "./auto-columns"
+import {
+  ACTIONS_COLUMN_ID,
+  columnPosition,
+  moveColumn,
+  reorderColumn,
+  resolveColumnOrder,
+} from "./column-order"
 import { buildExportColumns, exportRowsToCsv } from "./csv"
 import { DataTableRowDetail } from "./data-table-row-detail"
 import { humanizeKey } from "./field-format"
@@ -156,6 +163,26 @@ function readPersistedSizing(tableId?: string): ColumnSizingState {
   }
 }
 
+function readPersistedOrder(tableId?: string): string[] {
+  if (!tableId || typeof window === "undefined") return []
+  try {
+    const raw = window.localStorage.getItem(`dt:order:${tableId}`)
+    const parsed = raw ? (JSON.parse(raw) as unknown) : null
+    // A hand-edited or half-written value must not take the grid down.
+    return Array.isArray(parsed)
+      ? parsed.filter((id): id is string => typeof id === "string")
+      : []
+  } catch {
+    return []
+  }
+}
+
+/** The id TanStack will derive for a column definition. */
+function columnIdOf(column: ColumnDef<unknown, unknown>): string {
+  const def = column as { id?: string; accessorKey?: string }
+  return def.id ?? def.accessorKey ?? ""
+}
+
 /**
  * Drops entries that match what the table would do anyway, so the persisted
  * blob stays proportional to the user's actual choices. Without it every toggle
@@ -242,6 +269,15 @@ export function DataTable<TData>({
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>(
     () => readPersistedSizing(tableId)
   )
+  const [columnOrder, setColumnOrder] = React.useState<string[]>(() =>
+    readPersistedOrder(tableId)
+  )
+  const [draggedColumnId, setDraggedColumnId] = React.useState<string | null>(
+    null
+  )
+  // Reordering has no visual feedback a screen reader can use, so every move is
+  // narrated here. This is the keyboard path's only confirmation.
+  const [orderAnnouncement, setOrderAnnouncement] = React.useState("")
   const [detailRow, setDetailRow] = React.useState<TData | null>(null)
   const [isExporting, setIsExporting] = React.useState(false)
 
@@ -253,6 +289,20 @@ export function DataTable<TData>({
       // Ignore storage failures (private mode / quota); sizing stays in-memory.
     }
   }, [tableId, columnSizing])
+
+  React.useEffect(() => {
+    if (!tableId || typeof window === "undefined" || columnOrder.length === 0) {
+      return
+    }
+    try {
+      window.localStorage.setItem(
+        `dt:order:${tableId}`,
+        JSON.stringify(columnOrder)
+      )
+    } catch {
+      // Ignore storage failures (private mode / quota); order stays in-memory.
+    }
+  }, [tableId, columnOrder])
 
   // Server-controlled sorting is active when the page lifts the sort state.
   const isManualSorting =
@@ -300,6 +350,21 @@ export function DataTable<TData>({
     [autoHiddenDefaults, columnVisibility]
   )
 
+  // The stored order is reconciled against the columns that exist right now:
+  // auto-discovery changes the set with the API payload, so it is always
+  // partial. See `resolveColumnOrder` for the invariants this upholds.
+  const naturalColumnIds = React.useMemo(
+    () =>
+      (effectiveColumns as ColumnDef<unknown, unknown>[])
+        .map(columnIdOf)
+        .filter(Boolean),
+    [effectiveColumns]
+  )
+  const effectiveOrder = React.useMemo(
+    () => resolveColumnOrder(naturalColumnIds, columnOrder),
+    [naturalColumnIds, columnOrder]
+  )
+
   // Persisted after `autoHiddenDefaults` exists, so only genuine departures
   // from the default are written (see `pruneVisibility`).
   React.useEffect(() => {
@@ -332,6 +397,10 @@ export function DataTable<TData>({
         return typeof updater === "function" ? updater(current) : updater
       }),
     onGlobalFilterChange: setGlobalFilter,
+    onColumnOrderChange: (updater) =>
+      setColumnOrder(
+        typeof updater === "function" ? updater(effectiveOrder) : updater
+      ),
     enableColumnResizing: true,
     columnResizeMode: "onChange",
     // The same function `DirectionProvider` writes onto `documentElement.dir`, so
@@ -350,6 +419,7 @@ export function DataTable<TData>({
       globalFilter,
       columnVisibility: effectiveVisibility,
       columnSizing,
+      columnOrder: effectiveOrder,
       ...(pagination
         ? {
             pagination: {
@@ -396,6 +466,41 @@ export function DataTable<TData>({
       return width
     },
     [columnSizing]
+  )
+
+  const columnLabel = React.useCallback(
+    (columnId: string) => {
+      const match = (effectiveColumns as ColumnDef<unknown, unknown>[]).find(
+        (column) => columnIdOf(column) === columnId
+      )
+      return match?.meta?.label ?? humanizeKey(columnId)
+    },
+    [effectiveColumns]
+  )
+
+  // Single funnel for both reorder paths (menu buttons and drag), so the move
+  // and its announcement can never drift apart.
+  const applyOrder = React.useCallback(
+    (nextOrder: string[], movedId: string) => {
+      // The helpers return the input untouched when the move is a no-op.
+      if (nextOrder === effectiveOrder) return
+      setColumnOrder(nextOrder)
+      const { position, total } = columnPosition(nextOrder, movedId)
+      setOrderAnnouncement(
+        t("common.columnMoved", {
+          column: columnLabel(movedId),
+          position,
+          total,
+        })
+      )
+    },
+    [effectiveOrder, columnLabel, t]
+  )
+
+  const handleMoveColumn = React.useCallback(
+    (columnId: string, delta: number) =>
+      applyOrder(moveColumn(effectiveOrder, columnId, delta), columnId),
+    [applyOrder, effectiveOrder]
   )
 
   const beginResize = React.useCallback(
@@ -509,8 +614,15 @@ export function DataTable<TData>({
           onExport={enableExport ? handleExport : undefined}
           isExporting={isExporting}
           exportDisabled={exportDisabled}
+          onMoveColumn={handleMoveColumn}
         />
       ) : null}
+
+      {/* Outside the menu, which unmounts on close and would take the
+          announcement with it before a screen reader read it. */}
+      <div aria-live="polite" className="sr-only">
+        {orderAnnouncement}
+      </div>
 
       <div className="overflow-hidden rounded-lg border">
         <Table>
@@ -524,10 +636,39 @@ export function DataTable<TData>({
                     columnSizing[header.column.id] != null
                       ? header.getSize()
                       : undefined
+                  const canReorder =
+                    header.column.id !== ACTIONS_COLUMN_ID &&
+                    header.column.columnDef.meta?.enableReordering !== false
+                  const isDropTarget =
+                    canReorder &&
+                    draggedColumnId !== null &&
+                    draggedColumnId !== header.column.id
                   return (
                     <TableHead
                       key={header.id}
-                      className="relative"
+                      // The whole cell is the drop target so the aim is
+                      // forgiving; only the inner block is the drag source, so
+                      // the resize handle keeps its own gesture.
+                      onDragOver={(event) => {
+                        if (isDropTarget) event.preventDefault()
+                      }}
+                      onDrop={(event) => {
+                        if (!isDropTarget || !draggedColumnId) return
+                        event.preventDefault()
+                        applyOrder(
+                          reorderColumn(
+                            effectiveOrder,
+                            draggedColumnId,
+                            header.column.id
+                          ),
+                          draggedColumnId
+                        )
+                        setDraggedColumnId(null)
+                      }}
+                      className={cn(
+                        "relative",
+                        isDropTarget && "bg-muted/50"
+                      )}
                       style={
                         resizedWidth != null
                           ? {
@@ -547,14 +688,28 @@ export function DataTable<TData>({
                           : undefined
                       }
                     >
-                      {header.isPlaceholder ? null : header.column.getCanSort() ? (
-                        <SortableHeader header={header} />
-                      ) : (
-                        flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )
-                      )}
+                      <div
+                        draggable={canReorder}
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = "move"
+                          setDraggedColumnId(header.column.id)
+                        }}
+                        onDragEnd={() => setDraggedColumnId(null)}
+                        className={cn(
+                          "flex items-center",
+                          canReorder && "cursor-grab active:cursor-grabbing",
+                          draggedColumnId === header.column.id && "opacity-50"
+                        )}
+                      >
+                        {header.isPlaceholder ? null : header.column.getCanSort() ? (
+                          <SortableHeader header={header} />
+                        ) : (
+                          flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )
+                        )}
+                      </div>
                       {header.column.getCanResize() ? (
                         <div
                           role="separator"

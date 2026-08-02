@@ -27,6 +27,8 @@ interface DataTableToolbarProps<TData> {
   isExporting?: boolean
   /** Disable the export button when there is nothing to export. */
   exportDisabled?: boolean
+  /** Move a column `delta` slots in the display order (keyboard reorder path). */
+  onMoveColumn?: (columnId: string, delta: number) => void
 }
 
 /**
@@ -45,6 +47,7 @@ export function DataTableToolbar<TData>({
   onExport,
   isExporting = false,
   exportDisabled = false,
+  onMoveColumn,
 }: DataTableToolbarProps<TData>) {
   const { t } = useTranslation()
 
@@ -119,7 +122,7 @@ export function DataTableToolbar<TData>({
           </Button>
         ) : null}
 
-        <DataTableViewOptions table={table} />
+        <DataTableViewOptions table={table} onMoveColumn={onMoveColumn} />
       </div>
     </div>
   )

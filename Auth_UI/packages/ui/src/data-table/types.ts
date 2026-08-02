@@ -21,6 +21,8 @@ declare module "@tanstack/react-table" {
     excludeFromExport?: boolean
     /** Hide this column's field from the row-detail panel. */
     detailHidden?: boolean
+    /** Pin the column in place; it can neither be dragged nor moved by menu. */
+    enableReordering?: boolean
   }
 
   /** Registers the shared faceted (multi-select) filter under a string key. */

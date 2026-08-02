@@ -28,6 +28,13 @@ function nameColumnOrder(): string[] {
   return rows.map((row) => within(row).getAllByRole("cell")[0].textContent ?? "")
 }
 
+/** Visible header labels, in display order. */
+function headerOrder(): string[] {
+  return screen
+    .getAllByRole("columnheader")
+    .map((cell) => cell.textContent?.trim() ?? "")
+}
+
 /**
  * jsdom here ships no Storage implementation, so the persistence paths need a
  * stand-in before a table with a `tableId` is rendered.
@@ -181,6 +188,52 @@ describe("DataTable", () => {
     expect(JSON.parse(store.get("dt:cols:prune") ?? "{}")).toEqual({
       email: true,
     })
+  })
+
+  it("reorders columns from the menu, announces it and persists the order", async () => {
+    const store = stubLocalStorage()
+    const user = userEvent.setup()
+    render(<DataTable columns={columns} data={data} tableId="order" />)
+
+    expect(headerOrder()).toEqual(["Name", "Age"])
+
+    await user.click(screen.getByRole("button", { name: /columns/i }))
+    await user.click(screen.getByRole("button", { name: /move name later/i }))
+    // The open menu marks the rest of the page aria-hidden, so the grid is only
+    // queryable once it closes.
+    await user.keyboard("{Escape}")
+
+    expect(headerOrder()).toEqual(["Age", "Name"])
+    expect(JSON.parse(store.get("dt:order:order") ?? "[]")).toEqual([
+      "age",
+      "name",
+    ])
+    // The move has no visual cue a screen reader can use, so it is narrated.
+    expect(
+      screen.getByText("Name moved to position 2 of 2")
+    ).toBeInTheDocument()
+  })
+
+  it("restores a persisted column order on mount", () => {
+    const store = stubLocalStorage()
+    store.set("dt:order:restore", JSON.stringify(["age", "name"]))
+
+    render(<DataTable columns={columns} data={data} tableId="restore" />)
+
+    expect(headerOrder()).toEqual(["Age", "Name"])
+  })
+
+  it("keeps the actions column last whatever the persisted order says", () => {
+    const store = stubLocalStorage()
+    store.set("dt:order:pinned", JSON.stringify(["actions", "age", "name"]))
+    const withActions: ColumnDef<Person, unknown>[] = [
+      ...columns,
+      { id: "actions", enableSorting: false, enableHiding: false, header: () => null },
+    ]
+
+    render(<DataTable columns={withActions} data={data} tableId="pinned" />)
+
+    expect(headerOrder()).toEqual(["Age", "Name", ""])
   })
 
   it("renders an export button that downloads the in-memory rows", async () => {
