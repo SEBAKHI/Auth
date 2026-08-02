@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest"
 import type { TFunction } from "i18next"
 
 import type { SystemSettingsSection } from "@/pages/system-settings/lib/sections"
-import { buildSearchIndex, pathKeywords, searchSettings } from "./build-index"
+import {
+  MAX_FIELDS_PER_GROUP,
+  buildSearchIndex,
+  pathKeywords,
+  searchSettings,
+} from "./build-index"
 
 /** Stands in for the active locale bundle. */
 const LABELS: Record<string, string> = {
@@ -17,6 +22,9 @@ const LABELS: Record<string, string> = {
   "systemSettings.password.minimumLengthHint":
     "The fewest characters a new password may have.",
   "systemSettings.password.argon2MemorySize": "Argon2 memory size",
+  // A label that shares no word with its config path, so a hit on the path is
+  // provably a hit on the path.
+  "systemSettings.password.maxAgeDays": "Expiry",
   "platformSettings.title": "Platform settings",
   "platformSettings.subtitle": "Control the platform branding.",
   "secrets.title": "Secrets",
@@ -44,6 +52,7 @@ const sections: SystemSettingsSection[] = [
     fields: [
       { path: "MinimumLength", kind: "int" },
       { path: "Argon2MemorySize", kind: "int" },
+      { path: "MaxAgeDays", kind: "int" },
     ],
   } as SystemSettingsSection,
 ]
@@ -96,17 +105,29 @@ describe("buildSearchIndex", () => {
     const profileTab = index.find((e) => e.id === "profile-sessions")
     const settingsSection = index.find((e) => e.id === "section:Session")
 
-    expect(profileTab).toMatchObject({ title: "Sessions", path: "Profile" })
+    expect(profileTab).toMatchObject({ title: "Sessions", trail: ["Profile"] })
     expect(settingsSection).toMatchObject({
-      path: "System Settings › Security",
+      trail: ["System Settings", "Security"],
     })
+  })
+
+  it("keeps the trail as crumbs so an all-Latin path cannot flip in Arabic", () => {
+    // Joined into one string, a trail of Latin crumbs resolves LTR inside an
+    // RTL row and renders back to front. Separate elements each get their own
+    // bidi paragraph.
+    const index = buildSearchIndex(sections, t, allow)
+    const section = index.find((e) => e.id === "section:Password")
+
+    expect(Array.isArray((section as { trail: string[] }).trail)).toBe(true)
   })
 
   it("heads each field group with the trail to its section", () => {
     const index = buildSearchIndex(sections, t, allow)
     const field = index.find((e) => e.id === "Password:MinimumLength")
 
-    expect(field).toMatchObject({ sectionPath: "System Settings › Password" })
+    expect(field).toMatchObject({
+      sectionTrail: ["System Settings", "Password"],
+    })
   })
 
   it("omits surfaces the user has no permission for", () => {
@@ -151,10 +172,63 @@ describe("searchSettings", () => {
   })
 
   it("returns nothing for a blank or unmatched query", () => {
-    expect(searchSettings(index, "")).toEqual({ surfaces: [], fieldGroups: [] })
-    expect(searchSettings(index, "zzzzz")).toEqual({
+    const empty = {
       surfaces: [],
+      totalSurfaces: 0,
       fieldGroups: [],
-    })
+      totalFieldGroups: 0,
+      total: 0,
+    }
+    expect(searchSettings(index, "")).toEqual(empty)
+    expect(searchSettings(index, "zzzzz")).toEqual(empty)
+  })
+
+  it("says which visible text produced the hit", () => {
+    // A row that matched only on the invisible config key has to be able to
+    // explain itself, or it reads as noise in a list of highlighted rows.
+    const { fieldGroups } = searchSettings(index, "days")
+    const field = fieldGroups[0].fields.find((f) => f.title === "Expiry")
+    expect(field?.via).toBe("keywords")
+
+    expect(searchSettings(index, "characters").fieldGroups[0].fields[0].via).toBe(
+      "description"
+    )
+    expect(searchSettings(index, "minimum").fieldGroups[0].fields[0].via).toBe(
+      "title"
+    )
+  })
+})
+
+describe("searchSettings caps", () => {
+  const many: SystemSettingsSection[] = [
+    {
+      key: "Password",
+      group: "security",
+      editable: true,
+      fields: Array.from({ length: 9 }, (_, i) => ({
+        path: `Widget${i}`,
+        kind: "int",
+      })),
+    } as SystemSettingsSection,
+  ]
+  const index = buildSearchIndex(many, t, allow)
+
+  it("caps a group but reports what it left out", () => {
+    const { fieldGroups } = searchSettings(index, "widget")
+
+    expect(fieldGroups[0].fields).toHaveLength(MAX_FIELDS_PER_GROUP)
+    // The count is the point: a silently truncated list is indistinguishable
+    // from an exhaustive one.
+    expect(fieldGroups[0].totalFields).toBe(9)
+  })
+
+  it("lifts the cap for a group the user expanded", () => {
+    const { fieldGroups } = searchSettings(
+      index,
+      "widget",
+      new Set(["Password"])
+    )
+
+    expect(fieldGroups[0].fields).toHaveLength(9)
   })
 })

@@ -8,49 +8,59 @@ import {
 } from "@/pages/system-settings/lib/sections"
 import { STATIC_SURFACES, type StaticSurface } from "./static-surfaces"
 
-/**
- * A page or section — something with its own place in the navigation.
- * Rendered full-size.
- */
-export interface SurfaceEntry {
-  kind: "surface"
+/** Which visible text produced the hit. Drives the match explanation. */
+export type MatchVia = "title" | "description" | "keywords"
+
+interface BaseEntry {
   id: string
   title: string
   description: string
   route: string
-  /**
-   * Where the result lives, shown beside the title. Two entries can share a
-   * name — "Sessions" is both a profile tab and a system-settings section —
-   * and the title alone gives no way to tell them apart.
-   */
-  path: string
   /** Extra words to match on that are not shown, e.g. the raw config path. */
   keywords: string
+  /** Set by the search, not the index: how this row came to be here. */
+  via?: MatchVia
 }
 
 /**
- * A single setting inside a section. Rendered smaller and indented under its
- * parent, which is the distinction between "a page" and "one option on it".
+ * A page or section — something with its own place in the navigation.
  */
-export interface FieldEntry {
+export interface SurfaceEntry extends BaseEntry {
+  kind: "surface"
+  /**
+   * Where the result lives, shown under its title. Two entries can share a
+   * name — "Sessions" is both a profile tab and a system-settings section —
+   * and the title alone gives no way to tell them apart.
+   *
+   * Kept as separate crumbs rather than a joined string: rendered as one
+   * string, a trail whose crumbs are all Latin resolves to LTR inside an
+   * Arabic row and comes out back-to-front.
+   */
+  trail: string[]
+}
+
+/**
+ * A single setting inside a section, grouped under its parent section.
+ */
+export interface FieldEntry extends BaseEntry {
   kind: "field"
-  id: string
-  title: string
-  description: string
-  route: string
-  keywords: string
-  /** Section title, shown as the group heading above the field.  */
+  /** Section title, shown as the group heading above the field. */
   sectionTitle: string
   /** Full trail to the section, used as the group heading. */
-  sectionPath: string
+  sectionTrail: string[]
   sectionId: string
+  /** The raw config path, shown when that is the only reason this row matched. */
+  configPath: string
 }
 
 export type SearchEntry = SurfaceEntry | FieldEntry
 
-/** Joins a trail for display. `›` reads correctly in both text directions. */
+/**
+ * Joins a trail for matching, not for display — the rendered trail keeps its
+ * crumbs apart so each is its own bidi paragraph.
+ */
 export function joinPath(parts: (string | undefined)[]): string {
-  return parts.filter(Boolean).join(" › ")
+  return parts.filter(Boolean).join(" ")
 }
 
 /**
@@ -84,15 +94,16 @@ export function buildSearchIndex(
   hasPermission: (permission: string | undefined) => boolean
 ): SearchEntry[] {
   const entries: SearchEntry[] = []
+  const settingsRoot = t("nav.systemSettings", { defaultValue: "" })
 
   for (const surface of STATIC_SURFACES as StaticSurface[]) {
     if (!hasPermission(surface.permission)) continue
     const title = t(surface.titleKey, { defaultValue: "" })
     if (!title) continue
 
-    const path = joinPath(
-      surface.pathKeys.map((key) => t(key, { defaultValue: "" }))
-    )
+    const trail = surface.pathKeys
+      .map((key) => t(key, { defaultValue: "" }))
+      .filter(Boolean)
 
     entries.push({
       kind: "surface",
@@ -102,10 +113,11 @@ export function buildSearchIndex(
         ? t(surface.descriptionKey, { defaultValue: "" })
         : "",
       route: surface.route,
-      path,
+      trail,
       // The trail is searchable too: typing "profile" should surface the tabs
       // that live on it, not only the page itself.
-      keywords: `${surface.id.replace(/-/g, " ")} ${path}`.toLowerCase(),
+      keywords:
+        `${surface.id.replace(/-/g, " ")} ${joinPath(trail)}`.toLowerCase(),
     })
   }
 
@@ -119,11 +131,10 @@ export function buildSearchIndex(
       ? t(`systemSettings.${sectionI18n}.title`, { defaultValue: sectionKey })
       : sectionKey
     const route = `/admin/system-settings/${sectionKey}`
-    const settingsRoot = t("nav.systemSettings", { defaultValue: "" })
     const groupLabel = section.group
       ? t(`systemSettings.groups.${section.group}`, { defaultValue: "" })
       : ""
-    const sectionPath = joinPath([settingsRoot, groupLabel])
+    const sectionOwnTrail = [settingsRoot, groupLabel].filter(Boolean)
 
     entries.push({
       kind: "surface",
@@ -133,8 +144,9 @@ export function buildSearchIndex(
         ? t(`systemSettings.${sectionI18n}.description`, { defaultValue: "" })
         : "",
       route,
-      path: sectionPath,
-      keywords: `${pathKeywords(sectionKey)} ${sectionPath}`.toLowerCase(),
+      trail: sectionOwnTrail,
+      keywords:
+        `${pathKeywords(sectionKey)} ${joinPath(sectionOwnTrail)}`.toLowerCase(),
     })
 
     for (const field of section.fields ?? []) {
@@ -155,8 +167,9 @@ export function buildSearchIndex(
         sectionTitle,
         // The group heading carries the whole trail, so each field row does
         // not have to repeat it.
-        sectionPath: joinPath([settingsRoot, sectionTitle]),
+        sectionTrail: [settingsRoot, sectionTitle].filter(Boolean),
         sectionId: sectionKey,
+        configPath: `${sectionKey}:${path}`,
       })
     }
   }
@@ -171,64 +184,123 @@ export function buildSearchIndex(
  * hint, and a hint outranks the invisible path keywords — so typing a word
  * that is literally a setting's name puts that setting first.
  */
-export function scoreEntry(entry: SearchEntry, query: string): number {
+export function scoreEntry(
+  entry: SearchEntry,
+  query: string
+): { score: number; via: MatchVia } {
   const needle = query.trim().toLowerCase()
-  if (!needle) return 0
+  if (!needle) return { score: 0, via: "title" }
 
   const title = entry.title.toLowerCase()
-  if (title === needle) return 100
-  if (title.startsWith(needle)) return 80
-  if (title.includes(needle)) return 60
-  if (entry.description.toLowerCase().includes(needle)) return 40
-  if (entry.keywords.includes(needle)) return 20
-  return 0
+  if (title === needle) return { score: 100, via: "title" }
+  if (title.startsWith(needle)) return { score: 80, via: "title" }
+  if (title.includes(needle)) return { score: 60, via: "title" }
+  if (entry.description.toLowerCase().includes(needle)) {
+    return { score: 40, via: "description" }
+  }
+  if (entry.keywords.includes(needle)) return { score: 20, via: "keywords" }
+  return { score: 0, via: "title" }
+}
+
+export interface FieldGroup {
+  sectionId: string
+  sectionTitle: string
+  sectionTrail: string[]
+  /** Capped unless the group was expanded. */
+  fields: FieldEntry[]
+  /** How many matched in total, so a capped group can say so. */
+  totalFields: number
 }
 
 export interface SearchResults {
   surfaces: SurfaceEntry[]
+  /** How many surfaces matched before the cap. */
+  totalSurfaces: number
   /** Field hits grouped under their section, in score order. */
-  fieldGroups: {
-    sectionId: string
-    sectionTitle: string
-    sectionPath: string
-    fields: FieldEntry[]
-  }[]
+  fieldGroups: FieldGroup[]
+  /** How many field groups matched before the cap. */
+  totalFieldGroups: number
+  /** Every match, capped or not — what the screen reader is told. */
+  total: number
 }
 
-const MAX_SURFACES = 8
-const MAX_FIELDS = 20
+/**
+ * Caps exist so the panel stays scannable, not to hide things: whatever they
+ * drop is counted and offered behind a "show all" row, because a silently
+ * truncated list is indistinguishable from an exhaustive one.
+ */
+export const MAX_SURFACES = 5
+export const MAX_FIELD_GROUPS = 3
+export const MAX_FIELDS_PER_GROUP = 5
+
+const EMPTY: SearchResults = {
+  surfaces: [],
+  totalSurfaces: 0,
+  fieldGroups: [],
+  totalFieldGroups: 0,
+  total: 0,
+}
 
 /** Filters and groups the index for one query. */
 export function searchSettings(
   index: SearchEntry[],
-  query: string
+  query: string,
+  /** Section ids whose cap the user lifted for this query. */
+  expandedGroups: ReadonlySet<string> = new Set()
 ): SearchResults {
-  const scored = index
-    .map((entry) => ({ entry, score: scoreEntry(entry, query) }))
-    .filter((hit) => hit.score > 0)
-    .sort((a, b) => b.score - a.score || a.entry.title.localeCompare(b.entry.title))
+  if (!query.trim()) return EMPTY
 
-  const surfaces = scored
+  const scored = index
+    .map((entry) => ({ entry, ...scoreEntry(entry, query) }))
+    .filter((hit) => hit.score > 0)
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        a.entry.title.localeCompare(b.entry.title) ||
+        // Two entries can share a score and a title; without a final tiebreak
+        // they can swap places between keystrokes that changed nothing.
+        a.entry.id.localeCompare(b.entry.id)
+    )
+    .map((hit) => ({ ...hit, entry: { ...hit.entry, via: hit.via } }))
+
+  const matchedSurfaces = scored
     .filter((hit) => hit.entry.kind === "surface")
-    .slice(0, MAX_SURFACES)
     .map((hit) => hit.entry as SurfaceEntry)
 
-  const fields = scored
+  const matchedFields = scored
     .filter((hit) => hit.entry.kind === "field")
-    .slice(0, MAX_FIELDS)
     .map((hit) => hit.entry as FieldEntry)
 
-  const groups = new Map<string, SearchResults["fieldGroups"][number]>()
-  for (const field of fields) {
+  // Grouping happens before the cap so a group's count is the true total, and
+  // insertion order follows the best-scoring field in each section.
+  const groups = new Map<string, FieldGroup>()
+  for (const field of matchedFields) {
     const group = groups.get(field.sectionId) ?? {
       sectionId: field.sectionId,
       sectionTitle: field.sectionTitle,
-      sectionPath: field.sectionPath,
+      sectionTrail: field.sectionTrail,
       fields: [],
+      totalFields: 0,
     }
     group.fields.push(field)
+    group.totalFields += 1
     groups.set(field.sectionId, group)
   }
 
-  return { surfaces, fieldGroups: [...groups.values()] }
+  const fieldGroups = [...groups.values()]
+    .slice(0, MAX_FIELD_GROUPS)
+    .map((group) => ({
+      ...group,
+      fields: expandedGroups.has(group.sectionId)
+        ? group.fields
+        : group.fields.slice(0, MAX_FIELDS_PER_GROUP),
+    }))
+
+  return {
+    surfaces: matchedSurfaces.slice(0, MAX_SURFACES),
+    totalSurfaces: matchedSurfaces.length,
+    fieldGroups,
+    totalFieldGroups: groups.size,
+    total: scored.length,
+  }
 }
