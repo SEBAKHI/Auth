@@ -1394,7 +1394,6 @@ export const zh: TranslationResources = {
       secretFilePath: "机密文件",
       autoGenerateKeys: "自动生成密钥",
       enableAdminApi: "启用管理 API",
-      requiredPermission: "所需权限",
     },
     connectionStrings: {
       title: "数据库连接",

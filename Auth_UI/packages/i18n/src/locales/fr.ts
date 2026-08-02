@@ -1520,7 +1520,6 @@ export const fr: TranslationResources = {
       secretFilePath: "Fichier des secrets",
       autoGenerateKeys: "Génération automatique des clés",
       enableAdminApi: "API d'administration activée",
-      requiredPermission: "Permission requise",
     },
     connectionStrings: {
       title: "Connexion à la base de données",

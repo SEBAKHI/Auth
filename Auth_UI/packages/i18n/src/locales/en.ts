@@ -1445,7 +1445,6 @@ export const en = {
       secretFilePath: "Secrets file",
       autoGenerateKeys: "Auto-generate keys",
       enableAdminApi: "Admin API enabled",
-      requiredPermission: "Required permission",
     },
     connectionStrings: {
       title: "Database connection",

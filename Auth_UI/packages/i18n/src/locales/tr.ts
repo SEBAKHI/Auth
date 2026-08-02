@@ -1462,7 +1462,6 @@ export const tr: TranslationResources = {
       secretFilePath: "Gizli anahtar dosyası",
       autoGenerateKeys: "Anahtarları otomatik oluştur",
       enableAdminApi: "Yönetici API'si etkin",
-      requiredPermission: "Gerekli izin",
     },
     connectionStrings: {
       title: "Veritabanı bağlantısı",

@@ -1473,7 +1473,6 @@ export const fa: TranslationResources = {
       secretFilePath: "فایل اسرار",
       autoGenerateKeys: "تولید خودکار کلیدها",
       enableAdminApi: "فعال بودن API مدیریتی",
-      requiredPermission: "مجوز موردنیاز",
     },
     connectionStrings: {
       title: "اتصال پایگاه‌داده",

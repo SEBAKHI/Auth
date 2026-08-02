@@ -233,6 +233,13 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("Provider", SettingKind.String, ReadOnly: true, DefaultValue: "filesystem"),
                 new SettingFieldDefinition("PhysicalPath", SettingKind.String, ReadOnly: true, DefaultValue: "uploads/images"),
                 new SettingFieldDefinition("PublicBaseUrl", SettingKind.String, DefaultValue: "/uploads/images"),
+                // Stays editable — the PublicBaseUrl/RequestPath pairing rule
+                // exists precisely so an operator can move the serving path —
+                // but note the coupling: production reaches images through the
+                // gateway, whose route table forwards /uploads/{**catch-all}
+                // and whose ExemptPaths exempts /uploads/. Moving OUTSIDE that
+                // prefix therefore needs a matching gateway route in the same
+                // deployment; GatewayRouteCoverageTests fails when the two drift.
                 new SettingFieldDefinition("RequestPath", SettingKind.String, RestartRequired: true, DefaultValue: "/uploads/images"),
                 new SettingFieldDefinition("MaxSizeBytes", SettingKind.Int, Min: 1024, Max: 104857600, DefaultValue: 4194304),
                 new SettingFieldDefinition("MaxMegapixels", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 50),
@@ -260,7 +267,12 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("OtpExpirationMinutes", SettingKind.Int, Min: 1, Max: 60, DefaultValue: 15),
                 new SettingFieldDefinition("WorkerPollMinutes", SettingKind.Int, Min: 1, Max: 1440, DefaultValue: 15),
                 new SettingFieldDefinition("WorkerBatchSize", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 25),
-                new SettingFieldDefinition("MaxExecutionAttempts", SettingKind.Int, Min: 1, Max: 20, DefaultValue: 5),
+                // Floor of 2, not 1: at 1 the first transient failure — a brief
+                // network blip while revoking an external token — permanently
+                // dead-letters the deletion request into a state nothing retries
+                // and no user can recover from. "Attempts" must mean at least
+                // one retry, which is also what the field's own hint promises.
+                new SettingFieldDefinition("MaxExecutionAttempts", SettingKind.Int, Min: 2, Max: 20, DefaultValue: 5),
                 new SettingFieldDefinition("IdentifierHmacKeyPlain", SettingKind.String, Sensitive: true)
             ]),
 
@@ -306,10 +318,14 @@ public static class SystemSettingsRegistry
             // enrichers stay file-owned (they are built once at startup).
             Fields:
             [
+                // Every switch — the default and all three overrides — is seeded
+                // at Information (LoggingLevelSwitchRegistry), so an unset key
+                // filters at Information rather than at "nothing". Stating that
+                // keeps the console from showing a blank where a real level runs.
                 new SettingFieldDefinition("MinimumLevel:Default", SettingKind.Enum, AllowedValues: LogLevels, DefaultValue: "Information"),
-                new SettingFieldDefinition("MinimumLevel:Override:Microsoft", SettingKind.Enum, AllowedValues: LogLevels),
-                new SettingFieldDefinition("MinimumLevel:Override:Microsoft.Hosting.Lifetime", SettingKind.Enum, AllowedValues: LogLevels),
-                new SettingFieldDefinition("MinimumLevel:Override:System", SettingKind.Enum, AllowedValues: LogLevels)
+                new SettingFieldDefinition("MinimumLevel:Override:Microsoft", SettingKind.Enum, AllowedValues: LogLevels, DefaultValue: "Information"),
+                new SettingFieldDefinition("MinimumLevel:Override:Microsoft.Hosting.Lifetime", SettingKind.Enum, AllowedValues: LogLevels, DefaultValue: "Information"),
+                new SettingFieldDefinition("MinimumLevel:Override:System", SettingKind.Enum, AllowedValues: LogLevels, DefaultValue: "Information")
             ]),
 
         // Bootstrap sections: consumed before the database layer exists, so
@@ -337,8 +353,13 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("StorageMode", SettingKind.String, ReadOnly: true, DefaultValue: "PlainText"),
                 new SettingFieldDefinition("SecretFilePath", SettingKind.String, ReadOnly: true),
                 new SettingFieldDefinition("AutoGenerateKeys", SettingKind.Bool, ReadOnly: true, DefaultValue: true),
-                new SettingFieldDefinition("EnableAdminApi", SettingKind.Bool, ReadOnly: true, DefaultValue: false),
-                new SettingFieldDefinition("RequiredPermission", SettingKind.String, ReadOnly: true, DefaultValue: "secrets.manage")
+                new SettingFieldDefinition("EnableAdminApi", SettingKind.Bool, ReadOnly: true, DefaultValue: false)
+                // RequiredPermission is deliberately absent: every SecretsController
+                // endpoint carries [RequirePermission("secrets.manage")] as an
+                // attribute, so the configuration key has no reader. Showing it as
+                // "the permission that guards this API" was simply untrue — and
+                // resolving authorization from a mutable string is not a fix worth
+                // building.
             ]),
 
         new SettingSectionDefinition(

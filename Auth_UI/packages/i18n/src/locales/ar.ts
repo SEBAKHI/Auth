@@ -1434,7 +1434,6 @@ export const ar: TranslationResources = {
       secretFilePath: "ملف الأسرار",
       autoGenerateKeys: "توليد المفاتيح تلقائيًا",
       enableAdminApi: "تفعيل واجهة API الإدارية",
-      requiredPermission: "الصلاحية المطلوبة",
     },
     connectionStrings: {
       title: "اتصال قاعدة البيانات",

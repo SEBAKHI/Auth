@@ -1450,7 +1450,6 @@ export const ur: TranslationResources = {
       secretFilePath: "راز کی فائل",
       autoGenerateKeys: "کلیدیں خودکار بنائیں",
       enableAdminApi: "ایڈمن API فعال",
-      requiredPermission: "درکار اجازت",
     },
     connectionStrings: {
       title: "ڈیٹا بیس کنکشن",
