@@ -79,7 +79,11 @@ public sealed class FileSystemImageStorageService : IImageStorageService
                 var ratio = Math.Min((float)max / original.Width, (float)max / original.Height);
                 var width = Math.Max(1, (int)(original.Width * ratio));
                 var height = Math.Max(1, (int)(original.Height * ratio));
-                scaled = original.Resize(new SKImageInfo(width, height), SKFilterQuality.High);
+                // Mitchell cubic (B = C = 1/3) is Skia's own replacement for the retired
+                // SKFilterQuality.High, so downscaling keeps the exact quality it had before.
+                scaled = original.Resize(
+                    new SKImageInfo(width, height),
+                    new SKSamplingOptions(SKCubicResampler.Mitchell));
                 if (scaled is not null)
                 {
                     source = scaled;
