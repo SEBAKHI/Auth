@@ -238,7 +238,7 @@ export const tr: TranslationResources = {
     signInSubtitleAccounts: "Hesabınıza giriş yapın.",
     continueToApp: "{{name}} uygulamasına devam edin.",
     securedBy: "{{name}} güvencesiyle",
-    orContinueWith: "veya şununla devam edin",
+    or: "veya",
     registerTitle: "Hesabınızı oluşturun",
     registerSubtitle: "E-posta adresinizle kaydolun.",
     firstName: "Ad",

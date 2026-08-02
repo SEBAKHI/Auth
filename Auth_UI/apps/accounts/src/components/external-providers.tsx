@@ -7,9 +7,9 @@ import { GoogleSignIn } from "@/components/google-sign-in"
 import { useExternalProviders } from "@/components/use-external-providers"
 
 /**
- * External sign-in section under the credentials form: renders the
- * "or continue with" divider once, followed by every enabled provider button.
- * Renders nothing when no provider is usable.
+ * External sign-in section under the credentials form: renders the "or"
+ * divider once, followed by every enabled provider button. Renders nothing
+ * when no provider is usable.
  */
 export function ExternalProviders() {
   const { t } = useTranslation()
@@ -22,7 +22,7 @@ export function ExternalProviders() {
       <div className="flex items-center gap-3">
         <Separator className="flex-1" />
         <span className="text-xs text-muted-foreground">
-          {t("auth.orContinueWith")}
+          {t("auth.or")}
         </span>
         <Separator className="flex-1" />
       </div>

@@ -235,7 +235,7 @@ export const ur: TranslationResources = {
     signInSubtitleAccounts: "اپنے اکاؤنٹ میں سائن ان کریں۔",
     continueToApp: "{{name}} پر جاری رکھنے کے لیے۔",
     securedBy: "{{name}} کے ذریعے محفوظ",
-    orContinueWith: "یا اس کے ذریعے جاری رکھیں",
+    or: "یا",
     registerTitle: "اپنا اکاؤنٹ بنائیں",
     registerSubtitle: "اپنے ای میل پتے کے ساتھ رجسٹر کریں۔",
     firstName: "پہلا نام",

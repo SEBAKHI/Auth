@@ -236,7 +236,7 @@ export const fa: TranslationResources = {
     signInSubtitleAccounts: "به حساب خود وارد شوید.",
     continueToApp: "برای ادامه به {{name}}.",
     securedBy: "محافظت‌شده توسط {{name}}",
-    orContinueWith: "یا ادامه با",
+    or: "یا",
     registerTitle: "حساب خود را بسازید",
     registerSubtitle: "با نشانی ایمیل خود ثبت‌نام کنید.",
     firstName: "نام",

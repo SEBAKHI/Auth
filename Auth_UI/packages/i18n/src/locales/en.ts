@@ -230,7 +230,9 @@ export const en = {
     signInSubtitleAccounts: "Sign in to your account.",
     continueToApp: "Continue to {{name}}.",
     securedBy: "Secured by {{name}}",
-    orContinueWith: "Or continue with",
+    // Divider above the external providers. Deliberately just "or": each
+    // provider button already carries its own "Continue with …" label.
+    or: "or",
     registerTitle: "Create your account",
     registerSubtitle: "Sign up with your email address.",
     firstName: "First name",

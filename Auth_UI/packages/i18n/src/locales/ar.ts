@@ -235,7 +235,7 @@ export const ar: TranslationResources = {
     signInSubtitleAccounts: "سجّل الدخول إلى حسابك.",
     continueToApp: "للمتابعة إلى {{name}}.",
     securedBy: "محمي بواسطة {{name}}",
-    orContinueWith: "أو تابع باستخدام",
+    or: "أو",
     registerTitle: "أنشئ حسابك",
     registerSubtitle: "سجّل باستخدام بريدك الإلكتروني.",
     firstName: "الاسم الأول",

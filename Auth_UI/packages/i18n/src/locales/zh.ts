@@ -232,7 +232,7 @@ export const zh: TranslationResources = {
     signInSubtitleAccounts: "登录您的账户。",
     continueToApp: "继续前往 {{name}}。",
     securedBy: "由 {{name}} 保障安全",
-    orContinueWith: "或通过以下方式继续",
+    or: "或",
     registerTitle: "创建您的账户",
     registerSubtitle: "使用您的电子邮箱注册。",
     firstName: "名字",

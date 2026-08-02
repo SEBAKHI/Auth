@@ -239,7 +239,7 @@ export const fr: TranslationResources = {
     signInSubtitleAccounts: "Connectez-vous à votre compte.",
     continueToApp: "Continuer vers {{name}}.",
     securedBy: "Sécurisé par {{name}}",
-    orContinueWith: "Ou continuer avec",
+    or: "ou",
     registerTitle: "Créez votre compte",
     registerSubtitle: "Inscrivez-vous avec votre adresse e-mail.",
     firstName: "Prénom",
