@@ -1165,9 +1165,6 @@ export const en = {
       historyCount: "Remembered previous passwords",
       historyCountHint:
         "How many of the user's past passwords cannot be reused. Recommended: 3–5. 0 disables the check.",
-      expirationDays: "Password expiry (days)",
-      expirationDaysHint:
-        "Force a password change after this many days. Recommended: 0 (off) — NIST advises against routine expiry; rely on the breached-password check instead.",
       maxFailedAttempts: "Failed attempts before lockout",
       maxFailedAttemptsHint:
         "After this many wrong passwords the account locks temporarily. Recommended: 5 — low enough to stop guessing, high enough for honest typos.",
@@ -1245,13 +1242,6 @@ export const en = {
       title: "Rate limiting (API)",
       description:
         "Per-client-IP request throttling. One layer of a layered defense: it slows automated abuse while account lockout stops password guessing. Changed limits apply to new client windows immediately.",
-      permitLimit: "General requests per window",
-      permitLimitHint: "Recommended: 100 — generous for real users, restrictive for scripts.",
-      windowSeconds: "General window (seconds)",
-      windowSecondsHint: "Recommended: 60.",
-      queueLimit: "Queue size",
-      queueLimitHint:
-        "Requests held briefly when the limit is hit instead of failing immediately. Recommended: 10.",
       loginPermitLimit: "Sign-in attempts per window",
       loginPermitLimitHint:
         "Applies to login, registration, and other interactive auth endpoints. Recommended: 20 per IP.",

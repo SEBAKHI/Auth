@@ -713,10 +713,10 @@ public class GetSystemSettingsQueryHandlerTests
         historyCount.OverrideValue.Should().BeNull();
         historyCount.BaselineValue.Should().Be(5L);
 
-        var expirationDays = password.Fields.Single(f => f.Path == "ExpirationDays");
-        expirationDays.Source.Should().Be("default");
-        expirationDays.EffectiveValue.Should().Be(
-            SystemSettingsRegistry.TryGetField(passwordDefinition, "ExpirationDays")!.DefaultValue,
+        var lockoutDuration = password.Fields.Single(f => f.Path == "LockoutDurationMinutes");
+        lockoutDuration.Source.Should().Be("default");
+        lockoutDuration.EffectiveValue.Should().Be(
+            SystemSettingsRegistry.TryGetField(passwordDefinition, "LockoutDurationMinutes")!.DefaultValue,
             "a field neither files nor database configure still reports the running class default");
     }
 

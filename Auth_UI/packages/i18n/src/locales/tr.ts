@@ -1182,9 +1182,6 @@ export const tr: TranslationResources = {
       historyCount: "Hatırlanan önceki parolalar",
       historyCountHint:
         "Kullanıcının geçmiş parolalarından kaçının yeniden kullanılamayacağı. Önerilen: 3–5. 0 denetimi devre dışı bırakır.",
-      expirationDays: "Parola geçerlilik süresi (gün)",
-      expirationDaysHint:
-        "Bu kadar gün sonra parola değişikliğini zorunlu kılar. Önerilen: 0 (kapalı) — NIST rutin süre dolmasını önermez; bunun yerine sızmış parola denetimine güvenin.",
       maxFailedAttempts: "Kilitlenmeden önceki başarısız denemeler",
       maxFailedAttemptsHint:
         "Bu kadar yanlış paroladan sonra hesap geçici olarak kilitlenir. Önerilen: 5 — tahmini durduracak kadar düşük, masum yazım hatalarına yer bırakacak kadar yüksek.",
@@ -1262,13 +1259,6 @@ export const tr: TranslationResources = {
       title: "Hız sınırlama (API)",
       description:
         "İstemci IP'si başına istek kısıtlaması. Katmanlı savunmanın bir katmanı: hesap kilitleme parola tahminini durdururken bu, otomatik kötüye kullanımı yavaşlatır. Değiştirilen sınırlar yeni istemci pencerelerine hemen uygulanır.",
-      permitLimit: "Pencere başına genel istekler",
-      permitLimitHint: "Önerilen: 100 — gerçek kullanıcılar için cömert, betikler için kısıtlayıcı.",
-      windowSeconds: "Genel pencere (saniye)",
-      windowSecondsHint: "Önerilen: 60.",
-      queueLimit: "Kuyruk boyutu",
-      queueLimitHint:
-        "Sınıra ulaşıldığında hemen reddedilmek yerine kısa süre bekletilen istekler. Önerilen: 10.",
       loginPermitLimit: "Pencere başına oturum açma denemeleri",
       loginPermitLimitHint:
         "Oturum açma, kayıt ve diğer etkileşimli kimlik doğrulama uç noktalarına uygulanır. Önerilen: IP başına 20.",

@@ -10,6 +10,7 @@ using Auth_API.Common;
 using Auth_API.Common.Filters;
 using Auth_API.Common.HealthChecks;
 using Auth_API.Common.Middleware;
+using Auth_API.Modules.Media.Filters;
 using Auth_API.Tools;
 using Auth.Application.Interfaces;
 using Auth.Application.Common;
@@ -109,6 +110,9 @@ builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSectio
 builder.Services.Configure<AccountDeletionSettings>(builder.Configuration.GetSection(AccountDeletionSettings.SectionName));
 builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
 builder.Services.PostConfigure<ImageStorageSettings>(SettingsArrayNormalizer.Apply);
+// Scoped: it reads the image size limit through IOptionsSnapshot so a limit saved
+// in the console governs the very next upload (see ImageUploadSizeLimitFilter).
+builder.Services.AddScoped<ImageUploadSizeLimitFilter>();
 
 // ════════════════════════════════════════════════════════════════════════════
 // Secret Management - choose how the RSA signing key, HMAC key, and gateway token
@@ -652,17 +656,14 @@ builder.Services.AddRateLimiter(options =>
     // makes changed limits take effect via fresh partitions while old ones
     // idle out.
 
-    // Default policy — per client IP.
-    options.AddPolicy("fixed", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = builder.Configuration.GetValue("RateLimiting:PermitLimit", 100),
-                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:WindowSeconds", 60)),
-                QueueLimit = builder.Configuration.GetValue("RateLimiting:QueueLimit", 10),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
-            }));
+    // There is deliberately NO general/default policy. A "fixed" policy once
+    // existed here reading RateLimiting:PermitLimit/WindowSeconds/QueueLimit, but
+    // no endpoint was ever attached to it and no GlobalLimiter was set, so those
+    // three settings throttled nothing while the console offered them as live
+    // controls. Attaching it globally is not the fix — see the note above on why a
+    // shared bucket on an auth surface is a self-inflicted DoS. Limits are applied
+    // per endpoint group below; a new group gets its own named policy plus its own
+    // registry fields.
 
     // Interactive auth endpoints (login, register, external-login, verify-email,
     // forgot/reset-password submit, 2FA, invitation accept, token exchange) — per

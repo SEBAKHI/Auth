@@ -1114,9 +1114,6 @@ export const zh: TranslationResources = {
       historyCount: "记住的历史密码数量",
       historyCountHint:
         "用户不能重复使用的历史密码数量。推荐：3–5。设为 0 则禁用此检查。",
-      expirationDays: "密码过期时间（天）",
-      expirationDaysHint:
-        "强制用户在此天数后修改密码。推荐：0（关闭）——NIST 不建议例行强制过期，应改为依靠泄露密码检查。",
       maxFailedAttempts: "锁定前允许的失败次数",
       maxFailedAttemptsHint:
         "密码输错达到此次数后，账户将被临时锁定。推荐：5——既能阻止猜测攻击，又能容忍正常的输入失误。",
@@ -1194,13 +1191,6 @@ export const zh: TranslationResources = {
       title: "速率限制（API）",
       description:
         "按客户端 IP 进行请求节流。这是分层防御中的一层：它能减缓自动化滥用，而账户锁定则负责阻止密码猜测。修改后的限制会立即应用于新的客户端窗口。",
-      permitLimit: "每窗口常规请求数",
-      permitLimitHint: "推荐：100——对真实用户足够宽松，对脚本足够严格。",
-      windowSeconds: "常规窗口（秒）",
-      windowSecondsHint: "推荐：60。",
-      queueLimit: "队列大小",
-      queueLimitHint:
-        "达到限制时短暂排队而不是立即失败的请求数。推荐：10。",
       loginPermitLimit: "每窗口登录尝试次数",
       loginPermitLimitHint:
         "适用于登录、注册及其他交互式认证端点。推荐：每个 IP 20 次。",

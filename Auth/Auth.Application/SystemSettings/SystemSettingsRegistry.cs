@@ -59,7 +59,9 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("RequireDigit", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("RequireSpecialCharacter", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("HistoryCount", SettingKind.Int, Min: 0, Max: 24, DefaultValue: 3),
-                new SettingFieldDefinition("ExpirationDays", SettingKind.Int, Min: 0, Max: 3650, DefaultValue: 0),
+                // ExpirationDays is deliberately absent: no login path evaluates
+                // password age and nothing ever writes Users.PasswordExpiresUtc, so
+                // offering it here promised a rotation policy that never ran.
                 new SettingFieldDefinition("MaxFailedAttempts", SettingKind.Int, Min: 1, Max: 100, DefaultValue: 5),
                 new SettingFieldDefinition("LockoutDurationMinutes", SettingKind.Int, Min: 1, Max: 1440, DefaultValue: 15),
                 // Argon2 parameters feed the singleton hasher built at
@@ -139,11 +141,12 @@ public static class SystemSettingsRegistry
             // keep their old limits until they idle out; new partitions pick
             // up the saved values immediately. Defaults mirror the fallbacks
             // Program.cs passes to GetValue (no options class exists).
+            // Only the limits an endpoint group is actually attached to appear
+            // here. PermitLimit/WindowSeconds/QueueLimit are deliberately absent:
+            // they fed a "fixed" policy no endpoint ever used, so the console was
+            // offering three throttles that throttled nothing.
             Fields:
             [
-                new SettingFieldDefinition("PermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 100),
-                new SettingFieldDefinition("WindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
-                new SettingFieldDefinition("QueueLimit", SettingKind.Int, Min: 0, Max: 1000, DefaultValue: 10),
                 new SettingFieldDefinition("LoginPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
                 new SettingFieldDefinition("LoginWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 new SettingFieldDefinition("PasswordResetPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 10),

@@ -1205,9 +1205,6 @@ export const fr: TranslationResources = {
       historyCount: "Anciens mots de passe mémorisés",
       historyCountHint:
         "Nombre d'anciens mots de passe de l'utilisateur qui ne peuvent pas être réutilisés. Recommandé : 3–5. 0 désactive la vérification.",
-      expirationDays: "Expiration du mot de passe (jours)",
-      expirationDaysHint:
-        "Impose un changement de mot de passe après ce nombre de jours. Recommandé : 0 (désactivé) — le NIST déconseille l'expiration systématique ; appuyez-vous plutôt sur la vérification des mots de passe compromis.",
       maxFailedAttempts: "Tentatives échouées avant verrouillage",
       maxFailedAttemptsHint:
         "Après ce nombre de mots de passe erronés, le compte est verrouillé temporairement. Recommandé : 5 — assez bas pour bloquer les tentatives de devinette, assez haut pour tolérer les fautes de frappe.",
@@ -1290,14 +1287,6 @@ export const fr: TranslationResources = {
       title: "Limitation de débit (API)",
       description:
         "Limitation des requêtes par IP cliente. Une couche d'une défense en profondeur : elle ralentit les abus automatisés tandis que le verrouillage de compte stoppe la devinette de mots de passe. Les limites modifiées s'appliquent immédiatement aux nouvelles fenêtres client.",
-      permitLimit: "Requêtes générales par fenêtre",
-      permitLimitHint:
-        "Recommandé : 100 — généreux pour les vrais utilisateurs, restrictif pour les scripts.",
-      windowSeconds: "Fenêtre générale (secondes)",
-      windowSecondsHint: "Recommandé : 60.",
-      queueLimit: "Taille de la file d'attente",
-      queueLimitHint:
-        "Requêtes retenues brièvement quand la limite est atteinte, au lieu d'échouer immédiatement. Recommandé : 10.",
       loginPermitLimit: "Tentatives de connexion par fenêtre",
       loginPermitLimitHint:
         "S'applique à la connexion, à l'inscription et aux autres points de terminaison d'authentification interactifs. Recommandé : 20 par IP.",

@@ -1,6 +1,7 @@
 using Asp.Versioning;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using Auth_API.Modules.Media.Filters;
 using ErrorOr;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -37,7 +38,9 @@ public class ImagesController : ControllerBase
     /// <summary>Uploads and processes an image; returns its storage key and public URL.</summary>
     [HttpPost]
     [Consumes("multipart/form-data")]
-    [RequestSizeLimit(5 * 1024 * 1024)]
+    // The body limit follows ImageStorage:MaxSizeBytes live; a constant here would
+    // put a second, invisible ceiling under the one the console publishes.
+    [ServiceFilter(typeof(ImageUploadSizeLimitFilter))]
     [ProducesResponseType(typeof(UploadImageResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Upload(IFormFile file, CancellationToken cancellationToken)
