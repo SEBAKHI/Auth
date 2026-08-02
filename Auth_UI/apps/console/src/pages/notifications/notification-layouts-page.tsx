@@ -11,6 +11,7 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import { formatDateTime } from "@authsystem/ui/format"
@@ -29,7 +30,10 @@ export function NotificationLayoutsPage() {
   const { hasPermission } = useAuth()
   const navigate = useNavigate()
   const [createOpen, setCreateOpen] = React.useState(false)
-  const [search, setSearch] = React.useState("")
+  // A term the command palette handed over, so arriving from "see all N in
+  // Layouts" lands on those rows rather than on the whole list again.
+  const handoff = useSearchHandoff()
+  const [search, setSearch] = React.useState(handoff)
 
   const canManage = hasPermission(PERMISSIONS.notificationLayouts.manage)
 
@@ -109,7 +113,7 @@ export function NotificationLayoutsPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("notifications.layoutsTitle")}
         description={t("notifications.layoutsSubtitle")}
@@ -132,6 +136,7 @@ export function NotificationLayoutsPage() {
       />
 
       <DataTable
+        fillHeight
         tableId="notification-layouts"
         columns={columns}
         data={filtered}

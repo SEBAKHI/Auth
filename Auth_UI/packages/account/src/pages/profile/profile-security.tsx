@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import { AuthenticatorApps } from "@authsystem/ui/common/authenticator-apps"
 import { CopyButton } from "@authsystem/ui/common/copy-button"
 import { QrCode } from "@authsystem/ui/common/qr-code"
 import { SecretRevealDialog } from "@authsystem/ui/common/secret-reveal-dialog"
@@ -249,6 +250,8 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
             <p className="text-sm text-muted-foreground">
               {t("profile.setupTwoFactorBody")}
             </p>
+            {/* Above the QR: the app has to exist before the code is any use. */}
+            <AuthenticatorApps />
             <div className="flex justify-center">
               <QrCode value={setup.qrCodeUri} />
             </div>

@@ -18,4 +18,12 @@
     <ProjectReference Include="..\Auth.Domain\Auth.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Shared handler helpers are internal on purpose: they are an
+         implementation detail of this layer, not part of its surface. The test
+         project still needs to reach them, and widening them to public to make
+         them testable would be the wrong trade. -->
+    <InternalsVisibleTo Include="Auth_API.Tests" />
+  </ItemGroup>
+
 </Project>

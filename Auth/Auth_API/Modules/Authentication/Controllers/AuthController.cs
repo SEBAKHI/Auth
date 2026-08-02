@@ -168,6 +168,7 @@ public class AuthController : ApiController
             request.CreateOrganization,
             GetClientIpAddress(),
             GetUserAgent(),
+            DeviceId: request.DeviceId,
             AuthorizationCode: request.AuthorizationCode,
             GivenName: request.GivenName,
             FamilyName: request.FamilyName);

@@ -131,11 +131,7 @@ export function RegisterPage() {
                 <FormItem>
                   <FormLabel>{t("auth.firstName")}</FormLabel>
                   <FormControl>
-                    <Input
-                      autoComplete="given-name"
-                      placeholder="Sara"
-                      {...field}
-                    />
+                    <Input autoComplete="given-name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -148,11 +144,7 @@ export function RegisterPage() {
                 <FormItem>
                   <FormLabel>{t("auth.lastName")}</FormLabel>
                   <FormControl>
-                    <Input
-                      autoComplete="family-name"
-                      placeholder="Al-Rashid"
-                      {...field}
-                    />
+                    <Input autoComplete="family-name" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

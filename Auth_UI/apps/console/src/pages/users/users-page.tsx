@@ -29,6 +29,7 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import { useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
@@ -44,7 +45,10 @@ export function UsersPage() {
 
   const [page, setPage] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  const [searchInput, setSearchInput] = React.useState("")
+  // A term the command palette handed over, so arriving from "see all N"
+  // lands on those rows rather than on the whole list again.
+  const handoff = useSearchHandoff()
+  const [searchInput, setSearchInput] = React.useState(handoff)
   const search = useDebouncedValue(searchInput)
   // Server-side sort over the whole dataset; initial value mirrors the API default.
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -394,7 +398,7 @@ export function UsersPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("users.title")}
         description={t("users.subtitle")}
@@ -441,6 +445,7 @@ export function UsersPage() {
       </div>
 
       <DataTable
+        fillHeight
         tableId="users"
         columns={columns}
         data={query.data?.users ?? []}

@@ -314,7 +314,7 @@ export function WebhookKeysPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("webhookKeys.title")}
         description={t("webhookKeys.subtitle")}
@@ -349,6 +349,7 @@ export function WebhookKeysPage() {
 
       {applicationId ? (
         <DataTable
+          fillHeight
           tableId="webhook-keys"
           globalSearch
           columns={columns}

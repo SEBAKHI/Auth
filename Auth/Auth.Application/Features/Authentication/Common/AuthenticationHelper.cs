@@ -41,4 +41,32 @@ internal static class AuthenticationHelper
 
         return $"{userAgent} | DeviceId: {deviceId}";
     }
+
+    /// <summary>
+    /// Exact inverse of <see cref="BuildDeviceInfo"/>.
+    ///
+    /// The two halves are combined into one string before they reach the
+    /// session row, and device recognition needs them apart again. Recovering
+    /// them here keeps <c>ILoginResponseBuilder</c>'s signature — and its five
+    /// call sites — untouched.
+    /// </summary>
+    internal static (string? UserAgent, string? DeviceId) ParseDeviceInfo(string? deviceInfo)
+    {
+        if (string.IsNullOrEmpty(deviceInfo))
+        {
+            return (null, null);
+        }
+
+        const string separator = " | DeviceId: ";
+        var index = deviceInfo.IndexOf(separator, StringComparison.Ordinal);
+        if (index >= 0)
+        {
+            return (deviceInfo[..index], deviceInfo[(index + separator.Length)..]);
+        }
+
+        const string deviceOnly = "DeviceId: ";
+        return deviceInfo.StartsWith(deviceOnly, StringComparison.Ordinal)
+            ? (null, deviceInfo[deviceOnly.Length..])
+            : (deviceInfo, null);
+    }
 }

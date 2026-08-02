@@ -325,6 +325,8 @@ builder.Services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IPasswordHistoryRepository, PasswordHistoryRepository>();
 builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
+builder.Services.AddScoped<IUserUiPreferenceRepository, UserUiPreferenceRepository>();
+builder.Services.AddScoped<IUserKnownDeviceRepository, UserKnownDeviceRepository>();
 builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
 builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 builder.Services.AddScoped<IAuthorizationCodeRepository, AuthorizationCodeRepository>();

@@ -26,6 +26,7 @@ import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
 import {
   fieldI18nKey,
   formFieldName,
+  settingAnchorId,
   type SystemSettingsField,
 } from "../lib/sections"
 
@@ -49,7 +50,7 @@ import {
  * margin alone would slide the row sideways instead of widening it.
  */
 const ROW =
-  "justify-between border-b -mx-3 w-[calc(100%+1.5rem)] px-3 py-4 transition-colors hover:bg-muted/50 focus-within:bg-muted/50"
+  "justify-between border-b -mx-3 w-[calc(100%+1.5rem)] px-3 py-4 transition-colors hover:bg-muted/50 focus-within:bg-muted/50 data-[highlight]:bg-muted"
 
 /** Explanatory text stops at a comfortable measure rather than the card edge. */
 const TEXT_BLOCK = "max-w-2xl"
@@ -67,6 +68,11 @@ const CONTROL = {
   text: "@md/field-group:[&>*:last-child]:w-80",
   area: "@md/field-group:[&>*:last-child]:w-[28rem]",
 } as const
+
+/** The row's anchor; highlighted for a moment on arrival — see `section-form`. */
+function anchorId(field: SystemSettingsField): string {
+  return settingAnchorId(field.path ?? "")
+}
 
 function useFieldTexts(sectionI18n: string | undefined, field: SystemSettingsField) {
   const { t } = useTranslation()
@@ -118,7 +124,7 @@ export function SecretFieldRow({
   const { t } = useTranslation()
   const { label } = useFieldTexts(sectionI18n, field)
   return (
-    <Field orientation="responsive" className={ROW}>
+    <Field orientation="responsive" className={ROW} id={anchorId(field)}>
       <FieldContent className={TEXT_BLOCK}>
         <FieldLabel>{label}</FieldLabel>
         <FieldDescription>{t("systemSettings.managedInSecrets")}</FieldDescription>
@@ -142,7 +148,12 @@ export function ReadOnlyFieldRow({
   const { label, hint } = useFieldTexts(sectionI18n, field)
   const value = field.effectiveValue
   return (
-    <Field orientation="responsive" className={`${ROW} ${CONTROL.text}`} data-disabled>
+    <Field
+      orientation="responsive"
+      className={`${ROW} ${CONTROL.text}`}
+      id={anchorId(field)}
+      data-disabled
+    >
       <FieldContent className={TEXT_BLOCK}>
         <FieldLabel>
           {label}
@@ -200,7 +211,7 @@ export function SettingField({
         control={control}
         name={name}
         render={({ field: rhf }) => (
-          <FormItem orientation="horizontal" className={ROW}>
+          <FormItem orientation="horizontal" className={ROW} id={anchorId(field)}>
             {textBlock()}
             <FormControl>
               <Switch checked={rhf.value === true} onCheckedChange={rhf.onChange} />
@@ -217,7 +228,7 @@ export function SettingField({
         control={control}
         name={name}
         render={({ field: rhf }) => (
-          <FormItem orientation="responsive" className={ROW}>
+          <FormItem orientation="responsive" className={ROW} id={anchorId(field)}>
             {textBlock()}
             <FormControl>
               <ToggleGroup
@@ -250,7 +261,11 @@ export function SettingField({
         control={control}
         name={name}
         render={({ field: rhf }) => (
-          <FormItem orientation="responsive" className={`${ROW} ${CONTROL.area}`}>
+          <FormItem
+            orientation="responsive"
+            className={`${ROW} ${CONTROL.area}`}
+            id={anchorId(field)}
+          >
             {textBlock(t("systemSettings.arrayFieldHint"))}
             <FormControl>
               <Textarea
@@ -293,6 +308,7 @@ export function SettingField({
         <FormItem
           orientation="responsive"
           className={`${ROW} ${isInt ? CONTROL.int : CONTROL.text}`}
+          id={anchorId(field)}
         >
           {textBlock()}
           <FormControl>

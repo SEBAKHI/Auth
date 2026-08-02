@@ -53,4 +53,12 @@ public record ExternalLoginRequest
     /// </summary>
     [StringLength(100)]
     public string? FamilyName { get; init; }
+
+    /// <summary>
+    /// Optional stable client identifier, used only to tell one device from
+    /// another when deciding whether a sign-in is worth alerting the owner
+    /// about. Never an authorization input — it is client-supplied.
+    /// </summary>
+    [StringLength(100)]
+    public string? DeviceId { get; init; }
 }

@@ -16,6 +16,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
 {
     private readonly IUserRepository _userRepository;
     private readonly ITwoFactorAuthRepository _twoFactorRepository;
+    private readonly IPlatformSettingsRepository _platformSettingsRepository;
     private readonly ITotpService _totpService;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<SetupTwoFactorCommandHandler> _logger;
@@ -23,12 +24,14 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
     public SetupTwoFactorCommandHandler(
         IUserRepository userRepository,
         ITwoFactorAuthRepository twoFactorRepository,
+        IPlatformSettingsRepository platformSettingsRepository,
         ITotpService totpService,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<SetupTwoFactorCommandHandler> logger)
     {
         _userRepository = userRepository;
         _twoFactorRepository = twoFactorRepository;
+        _platformSettingsRepository = platformSettingsRepository;
         _totpService = totpService;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
@@ -56,7 +59,7 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
         var secret = _totpService.GenerateSecret();
 
         // Generate QR code URI
-        var issuer = _jwtSettings.Issuer ?? "AuthSystem";
+        var issuer = await ResolveIssuerAsync(cancellationToken);
         var qrCodeUri = _totpService.GenerateQrCodeUri(secret, user.Email, issuer);
 
         // Store the secret (not yet enabled)
@@ -77,6 +80,42 @@ public class SetupTwoFactorCommandHandler : IRequestHandler<SetupTwoFactorComman
             Secret: secret,
             QrCodeUri: qrCodeUri,
             ManualEntryKey: FormatManualEntryKey(secret));
+    }
+
+    /// <summary>
+    /// The issuer is what an authenticator app shows as the account's provider,
+    /// so it has to read as a name. <c>Jwt:Issuer</c> is a URL — using it put
+    /// "https://auth.example.com" in the app's list, percent-encoded, and the
+    /// encoded "://" inside the otpauth label trips stricter parsers. The
+    /// platform's display name is the same identity the branding and the
+    /// transactional emails already use.
+    /// </summary>
+    private async Task<string> ResolveIssuerAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            var platform = await _platformSettingsRepository.GetAsync(cancellationToken);
+            if (!string.IsNullOrWhiteSpace(platform?.PlatformName))
+            {
+                return platform.PlatformName.Trim();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Branding is not worth failing an enrolment over.
+            _logger.LogWarning(ex, "Could not read the platform name for the TOTP issuer");
+        }
+
+        // Fall back to the issuer's host rather than the whole URL, so the
+        // account label stays readable even when branding is unavailable.
+        if (Uri.TryCreate(_jwtSettings.Issuer, UriKind.Absolute, out var issuerUri))
+        {
+            return issuerUri.Host;
+        }
+
+        return string.IsNullOrWhiteSpace(_jwtSettings.Issuer)
+            ? "AuthSystem"
+            : _jwtSettings.Issuer;
     }
 
     private static string FormatManualEntryKey(string secret)

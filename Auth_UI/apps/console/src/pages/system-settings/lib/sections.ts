@@ -59,6 +59,14 @@ export function formFieldName(path: string): string {
   return path.replace(/\./g, "-")
 }
 
+/**
+ * DOM id of a setting's row, so the settings search can land on one setting
+ * rather than just its section. Read by `section-form`'s anchor effect.
+ */
+export function settingAnchorId(path: string): string {
+  return `setting-${formFieldName(path)}`
+}
+
 export function fieldI18nKey(path: string): string {
   const joined = path
     .split(":")

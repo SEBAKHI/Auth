@@ -2,6 +2,7 @@ import * as React from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm, type FieldValues } from "react-hook-form"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { api } from "@authsystem/api/client"
@@ -24,6 +25,7 @@ import {
   SECTION_I18N,
   SETTINGS_QUERY_KEY,
   formFieldName,
+  settingAnchorId,
   type SystemSettingsField,
   type SystemSettingsSection,
 } from "../lib/sections"
@@ -88,12 +90,44 @@ function setNested(target: Record<string, unknown>, path: string, value: unknown
   cursor[segments[segments.length - 1]] = value
 }
 
+/**
+ * Brings the setting named by `?field=` into view and marks it briefly, so a
+ * search result lands on one row rather than on a page of forty.
+ *
+ * A missing target is not an error: a deployed console can be a release behind
+ * the backend and simply not render a field the server already knows about.
+ * The navigation still put the user on the right section.
+ */
+function useFieldAnchor(sectionKey: string) {
+  const [searchParams] = useSearchParams()
+  const target = searchParams.get("field")
+
+  React.useEffect(() => {
+    if (!target) return
+    const element = document.getElementById(settingAnchorId(target))
+    if (!element) return
+
+    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    element.scrollIntoView({
+      block: "center",
+      behavior: reduceMotion ? "auto" : "smooth",
+    })
+    element.setAttribute("data-highlight", "true")
+    const timer = setTimeout(() => element.removeAttribute("data-highlight"), 2000)
+    return () => clearTimeout(timer)
+    // Re-runs when the section changes too, since the row only exists once
+    // its own section is rendered.
+  }, [target, sectionKey])
+}
+
 export function SectionForm({ section }: { section: SystemSettingsSection }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const sectionKey = section.key ?? ""
   const sectionI18n = SECTION_I18N[sectionKey]
   const [confirmReset, setConfirmReset] = React.useState(false)
+
+  useFieldAnchor(sectionKey)
 
   const fields = React.useMemo(() => section.fields ?? [], [section.fields])
   const editable = React.useMemo(

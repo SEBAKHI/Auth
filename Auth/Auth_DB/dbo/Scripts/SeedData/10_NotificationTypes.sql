@@ -180,4 +180,21 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created privacy-policy-updated notification type';
 END
+
+-- new-device-sign-in (security notice; raised by LoginResponseBuilder when a
+-- sign-in arrives from a device signature the user has not been seen on)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000012')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000012',
+        N'new-device-sign-in',
+        N'New Device Sign-In',
+        N'Security notice that an account was signed into from an unrecognised device',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"DeviceName","description":"Browser and operating system, or empty when unrecognised","example":"Chrome on Windows","required":false},{"name":"IpAddress","description":"Address the sign-in came from","example":"203.0.113.42","required":false},{"name":"SignedInAt","description":"When the sign-in happened (UTC, yyyy-MM-dd HH:mm:ssZ)","example":"2026-08-02 14:05:00Z","required":true},{"name":"SecureAccountLink","description":"Absolute URL of the password-reset page","example":"https://example.com/forgot-password","required":true}]',
+        N'{"UserName":"Jane Doe","DeviceName":"Chrome on Windows","IpAddress":"203.0.113.42","SignedInAt":"2026-08-02 14:05:00Z","SecureAccountLink":"https://example.com/forgot-password"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created new-device-sign-in notification type';
+END
 GO

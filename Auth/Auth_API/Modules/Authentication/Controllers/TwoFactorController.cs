@@ -111,7 +111,8 @@ public class TwoFactorController : ApiController
             request.Code,
             request.UseRecoveryCode,
             GetClientIpAddress(),
-            GetUserAgent());
+            GetUserAgent(),
+            request.DeviceId);
 
         var result = await _sender.Send(command, cancellationToken);
 

@@ -44,6 +44,12 @@ interface AppShellProps {
   profileHref?: string
   /** Forwarded to the header UserMenu. */
   showProfile?: boolean
+  /**
+   * App-specific header controls, placed before the language and theme
+   * toggles. The console puts its settings search here; the accounts app
+   * passes nothing and is unaffected.
+   */
+  headerExtras?: React.ReactNode
 }
 
 /**
@@ -131,22 +137,31 @@ export function AppShell({
   homeKey,
   profileHref,
   showProfile,
+  headerExtras,
 }: AppShellProps) {
   return (
-    <SidebarProvider>
+    // The shell is exactly one viewport tall and never scrolls itself, so the
+    // header — breadcrumbs, settings search, account menu — stays put however
+    // long the page below it runs. Scrolling belongs to `main`.
+    <SidebarProvider className="h-svh overflow-hidden">
       <AppSidebar navItems={navItems} navGroupKey={navGroupKey} />
-      <SidebarInset>
+      <SidebarInset className="min-h-0 overflow-hidden">
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-6" />
           <AppBreadcrumbs homeKey={homeKey} />
           <div className="ms-auto flex items-center gap-1">
+            {headerExtras}
             <LanguageToggle />
             <ThemeToggle />
             <UserMenu profileHref={profileHref} showProfile={showProfile} />
           </div>
         </header>
-        <main className="flex-1 p-4 md:p-6">
+        {/* `min-h-0` so this can actually shrink inside the flex column; without
+            it a tall page pushes the shell past the viewport again. Pages that
+            fill the height (list pages with their own scrolling table) render a
+            `h-full` root and never make this scroll. */}
+        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-6">
           <ZonedOutlet />
         </main>
       </SidebarInset>

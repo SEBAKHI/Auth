@@ -17,6 +17,7 @@ public static class NotificationTypeCodes
     public const string AccountDeletionCancelled = "account-deletion-cancelled";
     public const string AccountDeletionCompleted = "account-deletion-completed";
     public const string PrivacyPolicyUpdated = "privacy-policy-updated";
+    public const string NewDeviceSignIn = "new-device-sign-in";
 
     /// <summary>
     /// System types that back critical auth flows; their global templates must
@@ -26,7 +27,10 @@ public static class NotificationTypeCodes
         [
             EmailVerification, PasswordReset, OrganizationInvitation, OwnershipTransferCode, OwnershipTransferred,
             AccountDeletionRequested, AccountDeletionVerification, AccountDeletionCancelled, AccountDeletionCompleted,
-            PrivacyPolicyUpdated
+            PrivacyPolicyUpdated,
+            // A security notice: if its template were ever unpublished, the
+            // account owner would silently stop hearing about new sign-ins.
+            NewDeviceSignIn
         ];
 
     /// <summary>

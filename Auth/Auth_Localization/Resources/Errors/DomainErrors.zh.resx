@@ -779,4 +779,16 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>测试邮件发送失败：{0}</value>
   </data>
+  <data name="UiPreference.InvalidKey" xml:space="preserve">
+    <value>该显示偏好键不是本应用会保存的类型。</value>
+  </data>
+  <data name="UiPreference.ValueTooLarge" xml:space="preserve">
+    <value>显示偏好最多为 {0} 个字符。</value>
+  </data>
+  <data name="UiPreference.ValueNotJson" xml:space="preserve">
+    <value>显示偏好必须是 JSON 文档。</value>
+  </data>
+  <data name="UiPreference.TooManyKeys" xml:space="preserve">
+    <value>已达到已保存显示偏好的上限 {0} 项。</value>
+  </data>
 </root>

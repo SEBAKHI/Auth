@@ -20,4 +20,11 @@ public record TwoFactorLoginVerifyRequest
     /// Whether <see cref="Code"/> is a recovery code instead of a TOTP code.
     /// </summary>
     public bool UseRecoveryCode { get; init; }
+
+    /// <summary>
+    /// Optional stable client identifier, used only to tell one device from
+    /// another when deciding whether a sign-in is worth alerting the owner
+    /// about. Never an authorization input — it is client-supplied.
+    /// </summary>
+    public string? DeviceId { get; init; }
 }

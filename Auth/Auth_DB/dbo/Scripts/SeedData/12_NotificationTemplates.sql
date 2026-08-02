@@ -1271,3 +1271,162 @@ BEGIN
     PRINT 'privacy-policy-updated template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 12: new-device-sign-in (global, Email channel)
+--
+-- One action only, and it points at the ordinary password-reset page with no
+-- token. There is deliberately no "this wasn't me" or "this was me" link:
+-- mail scanners prefetch links, so a link that ended sessions would fire
+-- before any human read the message.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000012')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000012', '40000000-0000-0000-0000-000000000012', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000012', '42000000-0000-0000-0000-000000000012', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0012-000000000001', '43000000-0000-0000-0000-000000000012', N'en', N'New sign-in from a new device',
+N'<div class="header">
+    <p class="eyebrow">Security alert</p>
+    <h1>New sign-in to your account</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">Your {{ Platform.Name }} account was just signed into from a device we have not seen before.</p>
+<div class="notice">
+    <p class="notice-title">Sign-in details</p>
+    <p class="notice-text">Device: {{ DeviceName }}<br />IP address: {{ IpAddress }}<br />When: {{ SignedInAt }}</p>
+</div>
+<p class="message">If this was you, no action is needed.</p>
+<p class="message">If it was not, change your password now. That signs out every device.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">Change your password</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0012-000000000002', '43000000-0000-0000-0000-000000000012', N'ar', N'تسجيل دخول جديد من جهاز جديد',
+N'<div class="header">
+    <p class="eyebrow">تنبيه أمني</p>
+    <h1>تسجيل دخول جديد إلى حسابك</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">تم تسجيل الدخول للتو إلى حسابك في {{ Platform.Name }} من جهاز لم نره من قبل.</p>
+<div class="notice">
+    <p class="notice-title">تفاصيل تسجيل الدخول</p>
+    <p class="notice-text">الجهاز: {{ DeviceName }}<br />عنوان IP: {{ IpAddress }}<br />الوقت: {{ SignedInAt }}</p>
+</div>
+<p class="message">إن كان هذا أنت، فلا حاجة إلى أي إجراء.</p>
+<p class="message">وإن لم يكن، فغيّر كلمة مرورك الآن؛ ذلك يُخرج كل الأجهزة من الحساب.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">تغيير كلمة المرور</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0012-000000000003', '43000000-0000-0000-0000-000000000012', N'tr', N'Yeni bir cihazdan oturum açıldı',
+N'<div class="header">
+    <p class="eyebrow">Güvenlik uyarısı</p>
+    <h1>Hesabınızda yeni bir oturum açıldı</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{{ Platform.Name }} hesabınızda daha önce görmediğimiz bir cihazdan oturum açıldı.</p>
+<div class="notice">
+    <p class="notice-title">Oturum ayrıntıları</p>
+    <p class="notice-text">Cihaz: {{ DeviceName }}<br />IP adresi: {{ IpAddress }}<br />Zaman: {{ SignedInAt }}</p>
+</div>
+<p class="message">Bu sizseniz yapmanız gereken bir şey yok.</p>
+<p class="message">Siz değilseniz parolanızı hemen değiştirin. Bu, tüm cihazlardaki oturumları kapatır.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">Parolanızı değiştirin</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı kopyalayıp tarayıcınıza yapıştırın:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0012-000000000004', '43000000-0000-0000-0000-000000000012', N'fr', N'Nouvelle connexion depuis un nouvel appareil',
+N'<div class="header">
+    <p class="eyebrow">Alerte de sécurité</p>
+    <h1>Nouvelle connexion à votre compte</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Votre compte {{ Platform.Name }} vient d''être utilisé pour se connecter depuis un appareil que nous n''avions jamais vu.</p>
+<div class="notice">
+    <p class="notice-title">Détails de la connexion</p>
+    <p class="notice-text">Appareil : {{ DeviceName }}<br />Adresse IP : {{ IpAddress }}<br />Date : {{ SignedInAt }}</p>
+</div>
+<p class="message">S''il s''agit de vous, aucune action n''est nécessaire.</p>
+<p class="message">Sinon, changez votre mot de passe maintenant. Cela déconnecte tous les appareils.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">Changer votre mot de passe</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0012-000000000005', '43000000-0000-0000-0000-000000000012', N'zh', N'检测到来自新设备的登录',
+N'<div class="header">
+    <p class="eyebrow">安全提醒</p>
+    <h1>您的账户有新的登录</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">刚刚有人从我们未见过的设备登录了您的 {{ Platform.Name }} 账户。</p>
+<div class="notice">
+    <p class="notice-title">登录详情</p>
+    <p class="notice-text">设备：{{ DeviceName }}<br />IP 地址：{{ IpAddress }}<br />时间：{{ SignedInAt }}</p>
+</div>
+<p class="message">如果是您本人，无需任何操作。</p>
+<p class="message">如果不是，请立即修改密码。这会退出所有设备的登录。</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">修改密码</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请复制此链接到浏览器打开：</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0012-000000000006', '43000000-0000-0000-0000-000000000012', N'ur', N'نئے آلے سے نیا سائن اِن',
+N'<div class="header">
+    <p class="eyebrow">سیکیورٹی انتباہ</p>
+    <h1>آپ کے اکاؤنٹ میں نیا سائن اِن</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">ابھی آپ کے {{ Platform.Name }} اکاؤنٹ میں ایسے آلے سے سائن اِن ہوا ہے جو ہم نے پہلے نہیں دیکھا۔</p>
+<div class="notice">
+    <p class="notice-title">سائن اِن کی تفصیلات</p>
+    <p class="notice-text">آلہ: {{ DeviceName }}<br />آئی پی پتہ: {{ IpAddress }}<br />وقت: {{ SignedInAt }}</p>
+</div>
+<p class="message">اگر یہ آپ تھے تو کچھ کرنے کی ضرورت نہیں۔</p>
+<p class="message">اگر یہ آپ نہیں تھے تو ابھی اپنا پاس ورڈ تبدیل کریں۔ اس سے تمام آلات سے سائن آؤٹ ہو جائے گا۔</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">پاس ورڈ تبدیل کریں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک کاپی کرکے اپنے براؤزر میں کھولیں:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0012-000000000007', '43000000-0000-0000-0000-000000000012', N'fa', N'ورود جدید از دستگاهی تازه',
+N'<div class="header">
+    <p class="eyebrow">هشدار امنیتی</p>
+    <h1>ورود جدید به حساب شما</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">هم‌اکنون از دستگاهی که پیش‌تر ندیده بودیم به حساب {{ Platform.Name }} شما وارد شدند.</p>
+<div class="notice">
+    <p class="notice-title">جزئیات ورود</p>
+    <p class="notice-text">دستگاه: {{ DeviceName }}<br />نشانی IP: {{ IpAddress }}<br />زمان: {{ SignedInAt }}</p>
+</div>
+<p class="message">اگر خودتان بوده‌اید، نیازی به هیچ کاری نیست.</p>
+<p class="message">اگر نبوده‌اید، همین حالا گذرواژه‌تان را تغییر دهید؛ این کار همهٔ دستگاه‌ها را خارج می‌کند.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">تغییر گذرواژه</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را کپی کرده و در مرورگر خود باز کنید:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000012'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000012';
+
+    PRINT 'Created new-device-sign-in template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'new-device-sign-in template already exists';
+END
+GO

@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./apps/console/src"),
+      "@authsystem/account": path.resolve(__dirname, "./packages/account/src"),
       "@authsystem/api": path.resolve(__dirname, "./packages/api/src"),
       "@authsystem/auth": path.resolve(__dirname, "./packages/auth/src"),
       "@authsystem/i18n": path.resolve(__dirname, "./packages/i18n/src"),

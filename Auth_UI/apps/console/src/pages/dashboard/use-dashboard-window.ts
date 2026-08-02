@@ -15,6 +15,20 @@ export const DEFAULT_DAYS = 30
 /** The presets offered before anyone has to type a number. */
 export const DAY_PRESETS = [7, 14, 30, 90] as const
 
+/**
+ * The deep-dives, in the order they appear on the strip. Named here rather than
+ * beside the tab bar because the console's search builds `/?tab=…` links from
+ * this list: a tab renamed on one side and not the other yields a link that
+ * silently opens the overview, and a test asserts the two agree.
+ */
+export const DASHBOARD_TABS = [
+  "overview",
+  "security",
+  "people",
+  "apps",
+  "audit",
+] as const
+
 export type Granularity = "daily" | "weekly"
 
 export function clampDays(value: number): number {
@@ -37,7 +51,12 @@ export function useDashboardWindow() {
   const days = clampDays(Number(params.get("days") ?? DEFAULT_DAYS))
   const granularity: Granularity =
     params.get("grain") === "weekly" ? "weekly" : "daily"
-  const tab = params.get("tab") ?? "overview"
+  // A tab the strip does not have — a stale link, a hand-typed guess — reads as
+  // the overview rather than as a page with every panel closed.
+  const requestedTab = params.get("tab")
+  const tab = DASHBOARD_TABS.some((value) => value === requestedTab)
+    ? (requestedTab as string)
+    : "overview"
 
   const update = React.useCallback(
     (next: { days?: number; granularity?: Granularity; tab?: string }) => {

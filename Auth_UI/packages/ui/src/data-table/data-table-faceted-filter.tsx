@@ -1,10 +1,11 @@
 import * as React from "react"
 import type { Column } from "@tanstack/react-table"
-import { Check, PlusCircle } from "lucide-react"
+import { PlusCircle } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
+import { Checkbox } from "@authsystem/ui/checkbox"
 import {
   Command,
   CommandEmpty,
@@ -20,7 +21,6 @@ import {
   PopoverTrigger,
 } from "@authsystem/ui/popover"
 import { Separator } from "@authsystem/ui/separator"
-import { cn } from "@authsystem/ui/utils"
 
 interface FacetOption {
   label: string
@@ -79,23 +79,19 @@ export function DataTableFacetedFilter<TData, TValue>({
           {selectedValues.size > 0 ? (
             <>
               <Separator orientation="vertical" className="mx-2 h-4" />
-              <Badge variant="secondary" className="rounded-sm px-1 font-normal lg:hidden">
+              <Badge variant="secondary" className="lg:hidden">
                 {selectedValues.size}
               </Badge>
               <div className="hidden gap-1 lg:flex">
                 {selectedValues.size > 2 ? (
-                  <Badge variant="secondary" className="rounded-sm px-1 font-normal">
+                  <Badge variant="secondary">
                     {t("common.selectedCount", { count: selectedValues.size })}
                   </Badge>
                 ) : (
                   resolvedOptions
                     .filter((option) => selectedValues.has(option.value))
                     .map((option) => (
-                      <Badge
-                        variant="secondary"
-                        key={option.value}
-                        className="rounded-sm px-1 font-normal"
-                      >
+                      <Badge variant="secondary" key={option.value}>
                         {option.label}
                       </Badge>
                     ))
@@ -108,7 +104,9 @@ export function DataTableFacetedFilter<TData, TValue>({
       <PopoverContent className="w-52 p-0" align="start">
         <Command>
           <CommandInput placeholder={title} />
-          <CommandList>
+          {/* A handful of options in a narrow popover; a scrollbar here would
+              be more chrome than the content. */}
+          <CommandList className="no-scrollbar">
             <CommandEmpty>{t("common.noResults")}</CommandEmpty>
             <CommandGroup>
               {resolvedOptions.map((option) => {
@@ -116,6 +114,10 @@ export function DataTableFacetedFilter<TData, TValue>({
                 return (
                   <CommandItem
                     key={option.value}
+                    // cmdk owns `aria-selected` for the keyboard highlight, so
+                    // the multi-select state rides on `aria-checked` — without
+                    // it the tick is a purely visual cue.
+                    aria-checked={isSelected}
                     onSelect={() => {
                       if (isSelected) selectedValues.delete(option.value)
                       else selectedValues.add(option.value)
@@ -125,16 +127,15 @@ export function DataTableFacetedFilter<TData, TValue>({
                       )
                     }}
                   >
-                    <div
-                      className={cn(
-                        "flex size-4 items-center justify-center rounded-md border border-primary",
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "opacity-50 [&_svg]:invisible"
-                      )}
-                    >
-                      <Check className="size-3.5" />
-                    </div>
+                    {/* Presentational: the row itself is the control, and a
+                        real checkbox nested inside it would be a second tab
+                        stop announcing the same thing twice. */}
+                    <Checkbox
+                      checked={isSelected}
+                      tabIndex={-1}
+                      aria-hidden
+                      className="pointer-events-none"
+                    />
                     <span>{option.label}</span>
                     {facets.get(option.value) ? (
                       <span className="ms-auto flex size-4 items-center justify-center font-mono text-xs text-muted-foreground">

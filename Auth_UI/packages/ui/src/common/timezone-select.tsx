@@ -121,7 +121,7 @@ export function TimeZoneSelect({
         <Command>
           <CommandInput placeholder={t("users.timeZoneSearch")} />
           {/* The long zone list gets an always-visible, draggable scrollbar
-              (CommandList's native one is hidden by the design preset). */}
+              rather than the native one that only appears once you scroll. */}
           <CommandList className="max-h-none">
             {/* The max-height lives on the Radix viewport (not the root):
                 a percentage height can't resolve against a max-h-only parent,
