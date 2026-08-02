@@ -23,7 +23,8 @@ interface BaseEntry {
 }
 
 /**
- * A page or section — something with its own place in the navigation.
+ * A page, a tab or a settings section — something with its own place in the
+ * navigation.
  */
 export interface SurfaceEntry extends BaseEntry {
   kind: "surface"
@@ -53,7 +54,20 @@ export interface FieldEntry extends BaseEntry {
   configPath: string
 }
 
-export type SearchEntry = SurfaceEntry | FieldEntry
+/**
+ * One record on the platform — a user, a role, an application.
+ *
+ * Records never enter the in-memory index: they come from the server, one
+ * request per source per query. They are the reason the palette can answer
+ * "who is omar@…" as well as "where do I set the password length".
+ */
+export interface RecordEntry extends BaseEntry {
+  kind: "record"
+  /** Which record source produced it; also the group it renders under. */
+  sourceKey: string
+}
+
+export type SearchEntry = SurfaceEntry | FieldEntry | RecordEntry
 
 /**
  * Joins a trail for matching, not for display — the rendered trail keeps its
@@ -81,12 +95,12 @@ export function pathKeywords(path: string): string {
 }
 
 /**
- * Builds the searchable index from the settings payload and the active
- * translation bundle.
+ * Builds the in-memory index: every page the viewer may open, plus every
+ * setting in the registry.
  *
  * Runtime rather than generated: a build-time index needs a build step, goes
  * stale against the backend registry the moment a field is added, and cannot
- * carry per-field state. The payload is already in the query cache.
+ * carry per-field state. The settings payload is already in the query cache.
  */
 export function buildSearchIndex(
   sections: SystemSettingsSection[],
@@ -105,6 +119,13 @@ export function buildSearchIndex(
       .map((key) => t(key, { defaultValue: "" }))
       .filter(Boolean)
 
+    // What the destination is called everywhere else: on its tab, in the
+    // sidebar. Someone searching types the label they saw, and the label they
+    // saw is often not the one the page prints as its heading.
+    const altTitles = (surface.altTitleKeys ?? [])
+      .map((key) => t(key, { defaultValue: "" }))
+      .filter(Boolean)
+
     entries.push({
       kind: "surface",
       id: surface.id,
@@ -115,9 +136,12 @@ export function buildSearchIndex(
       route: surface.route,
       trail,
       // The trail is searchable too: typing "profile" should surface the tabs
-      // that live on it, not only the page itself.
-      keywords:
-        `${surface.id.replace(/-/g, " ")} ${joinPath(trail)}`.toLowerCase(),
+      // that live on it, not only the page itself. The id contributes the
+      // English route words, so "api keys" still finds the page on an Arabic
+      // console — the same trick the config paths play for settings.
+      keywords: `${surface.id.replace(/-/g, " ")} ${joinPath(trail)} ${joinPath(
+        altTitles
+      )}`.toLowerCase(),
     })
   }
 
@@ -177,15 +201,22 @@ export function buildSearchIndex(
   return entries
 }
 
+/** The three texts any candidate is ranked on, whatever kind it is. */
+export interface Rankable {
+  title: string
+  description: string
+  keywords: string
+}
+
 /**
- * Ranks one entry against a query. Higher is better; 0 means no match.
+ * Ranks one candidate against a query. Higher is better; 0 means no match.
  *
  * Exact and prefix matches on the visible label outrank a hit buried in a
  * hint, and a hint outranks the invisible path keywords — so typing a word
  * that is literally a setting's name puts that setting first.
  */
 export function scoreEntry(
-  entry: SearchEntry,
+  entry: Rankable,
   query: string
 ): { score: number; via: MatchVia } {
   const needle = query.trim().toLowerCase()
@@ -241,8 +272,24 @@ const EMPTY: SearchResults = {
   total: 0,
 }
 
-/** Filters and groups the index for one query. */
-export function searchSettings(
+/**
+ * Orders scored hits. The final tiebreak on id is not decoration: two entries
+ * can share a score and a title, and without it they swap places between
+ * keystrokes that changed nothing.
+ */
+function byScoreThenName(
+  a: { score: number; entry: { title: string; id: string } },
+  b: { score: number; entry: { title: string; id: string } }
+): number {
+  return (
+    b.score - a.score ||
+    a.entry.title.localeCompare(b.entry.title) ||
+    a.entry.id.localeCompare(b.entry.id)
+  )
+}
+
+/** Filters and groups the in-memory index for one query. */
+export function searchIndex(
   index: SearchEntry[],
   query: string,
   /** Section ids whose cap the user lifted for this query. */
@@ -253,14 +300,7 @@ export function searchSettings(
   const scored = index
     .map((entry) => ({ entry, ...scoreEntry(entry, query) }))
     .filter((hit) => hit.score > 0)
-    .sort(
-      (a, b) =>
-        b.score - a.score ||
-        a.entry.title.localeCompare(b.entry.title) ||
-        // Two entries can share a score and a title; without a final tiebreak
-        // they can swap places between keystrokes that changed nothing.
-        a.entry.id.localeCompare(b.entry.id)
-    )
+    .sort(byScoreThenName)
     .map((hit) => ({ ...hit, entry: { ...hit.entry, via: hit.via } }))
 
   const matchedSurfaces = scored
@@ -303,4 +343,33 @@ export function searchSettings(
     totalFieldGroups: groups.size,
     total: scored.length,
   }
+}
+
+/**
+ * Turns one source's rows into ranked entries.
+ *
+ * A source whose endpoint did the filtering keeps the server's order — it
+ * ranked against the whole table, which no client-side pass can reproduce from
+ * six rows — and only gains the `via` marker so a row can explain itself. A
+ * source fetched whole is filtered and ranked here, by the same rules the
+ * settings index uses, so the two halves of the palette agree on what a better
+ * match is.
+ */
+export function rankRecords(
+  entries: RecordEntry[],
+  query: string,
+  mode: "remote" | "local"
+): RecordEntry[] {
+  if (mode === "remote") {
+    return entries.map((entry) => ({
+      ...entry,
+      via: scoreEntry(entry, query).via,
+    }))
+  }
+
+  return entries
+    .map((entry) => ({ entry, ...scoreEntry(entry, query) }))
+    .filter((hit) => hit.score > 0)
+    .sort(byScoreThenName)
+    .map((hit) => ({ ...hit.entry, via: hit.via }))
 }

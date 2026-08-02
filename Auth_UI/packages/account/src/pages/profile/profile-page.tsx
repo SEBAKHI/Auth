@@ -38,6 +38,8 @@ import {
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import { isTheme, useTheme } from "@authsystem/ui/theme-provider"
+import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
+import { PROFILE_TABS } from "./profile-tabs"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { useProfileImage } from "@authsystem/api/use-profile-image"
@@ -302,6 +304,9 @@ export function ProfilePage({
   showDangerZone?: boolean
 } = {}) {
   const { t } = useTranslation()
+  // In the URL, so each tab is a place a link — or a search result — can point
+  // at, rather than something only reachable by clicking.
+  const [activeTab, setActiveTab] = useTabParam(PROFILE_TABS)
 
   const meQuery = useQuery({
     queryKey: ["me"],
@@ -315,7 +320,7 @@ export function ProfilePage({
         description={t("profile.subtitle")}
       />
 
-      <Tabs defaultValue="account">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="account">{t("profile.account")}</TabsTrigger>
           <TabsTrigger value="sessions">{t("profile.sessions")}</TabsTrigger>

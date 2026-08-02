@@ -6,7 +6,9 @@ import {
   MAX_FIELDS_PER_GROUP,
   buildSearchIndex,
   pathKeywords,
-  searchSettings,
+  rankRecords,
+  searchIndex,
+  type RecordEntry,
 } from "./build-index"
 
 /** Stands in for the active locale bundle. */
@@ -144,28 +146,28 @@ describe("buildSearchIndex", () => {
   })
 })
 
-describe("searchSettings", () => {
+describe("searchIndex", () => {
   const index = buildSearchIndex(sections, t, allow)
 
   it("ranks a label match above a hint match", () => {
-    const { fieldGroups } = searchSettings(index, "minimum")
+    const { fieldGroups } = searchIndex(index, "minimum")
     expect(fieldGroups[0].fields[0].title).toBe("Minimum length")
   })
 
   it("finds a setting by a word from its raw config path", () => {
-    const { fieldGroups } = searchSettings(index, "argon2")
+    const { fieldGroups } = searchIndex(index, "argon2")
     expect(fieldGroups[0].fields.map((f) => f.title)).toContain(
       "Argon2 memory size"
     )
   })
 
   it("finds a setting by a word only present in its hint", () => {
-    const { fieldGroups } = searchSettings(index, "characters")
+    const { fieldGroups } = searchIndex(index, "characters")
     expect(fieldGroups[0].fields[0].title).toBe("Minimum length")
   })
 
   it("separates pages from the settings inside them", () => {
-    const { surfaces, fieldGroups } = searchSettings(index, "password")
+    const { surfaces, fieldGroups } = searchIndex(index, "password")
 
     expect(surfaces.map((s) => s.title)).toContain("Password")
     expect(fieldGroups[0].sectionTitle).toBe("Password")
@@ -179,27 +181,27 @@ describe("searchSettings", () => {
       totalFieldGroups: 0,
       total: 0,
     }
-    expect(searchSettings(index, "")).toEqual(empty)
-    expect(searchSettings(index, "zzzzz")).toEqual(empty)
+    expect(searchIndex(index, "")).toEqual(empty)
+    expect(searchIndex(index, "zzzzz")).toEqual(empty)
   })
 
   it("says which visible text produced the hit", () => {
     // A row that matched only on the invisible config key has to be able to
     // explain itself, or it reads as noise in a list of highlighted rows.
-    const { fieldGroups } = searchSettings(index, "days")
+    const { fieldGroups } = searchIndex(index, "days")
     const field = fieldGroups[0].fields.find((f) => f.title === "Expiry")
     expect(field?.via).toBe("keywords")
 
-    expect(searchSettings(index, "characters").fieldGroups[0].fields[0].via).toBe(
+    expect(searchIndex(index, "characters").fieldGroups[0].fields[0].via).toBe(
       "description"
     )
-    expect(searchSettings(index, "minimum").fieldGroups[0].fields[0].via).toBe(
+    expect(searchIndex(index, "minimum").fieldGroups[0].fields[0].via).toBe(
       "title"
     )
   })
 })
 
-describe("searchSettings caps", () => {
+describe("searchIndex caps", () => {
   const many: SystemSettingsSection[] = [
     {
       key: "Password",
@@ -214,7 +216,7 @@ describe("searchSettings caps", () => {
   const index = buildSearchIndex(many, t, allow)
 
   it("caps a group but reports what it left out", () => {
-    const { fieldGroups } = searchSettings(index, "widget")
+    const { fieldGroups } = searchIndex(index, "widget")
 
     expect(fieldGroups[0].fields).toHaveLength(MAX_FIELDS_PER_GROUP)
     // The count is the point: a silently truncated list is indistinguishable
@@ -223,12 +225,62 @@ describe("searchSettings caps", () => {
   })
 
   it("lifts the cap for a group the user expanded", () => {
-    const { fieldGroups } = searchSettings(
+    const { fieldGroups } = searchIndex(
       index,
       "widget",
       new Set(["Password"])
     )
 
     expect(fieldGroups[0].fields).toHaveLength(9)
+  })
+})
+
+describe("rankRecords", () => {
+  const record = (
+    id: string,
+    title: string,
+    description = ""
+  ): RecordEntry => ({
+    kind: "record",
+    id,
+    sourceKey: "user",
+    title,
+    description,
+    route: `/users/${id}`,
+    keywords: "",
+  })
+
+  const rows = [
+    record("1", "Zara Ahmed", "zara@example.com"),
+    record("2", "Ahmed Salem", "ahmed@example.com"),
+    record("3", "Nobody", "nobody@example.com"),
+  ]
+
+  it("keeps a server-filtered source in the order the server returned", () => {
+    // The endpoint ranked against the whole table. Re-sorting six rows here
+    // would override that with a judgement made on a sample of it — and would
+    // drop the third row, which matched a column the palette does not show.
+    const ranked = rankRecords(rows, "ahmed", "remote")
+
+    expect(ranked.map((entry) => entry.id)).toEqual(["1", "2", "3"])
+  })
+
+  it("filters and ranks a source that was fetched whole", () => {
+    // A prefix match on the name beats the same word buried mid-title, and the
+    // row that matches nothing is not a result at all.
+    const ranked = rankRecords(rows, "ahmed", "local")
+
+    expect(ranked.map((entry) => entry.title)).toEqual([
+      "Ahmed Salem",
+      "Zara Ahmed",
+    ])
+  })
+
+  it("matches a record on the line under its name", () => {
+    // An address is what an admin usually types, and it is never the title.
+    const ranked = rankRecords(rows, "nobody@", "local")
+
+    expect(ranked.map((entry) => entry.title)).toEqual(["Nobody"])
+    expect(ranked[0].via).toBe("description")
   })
 })

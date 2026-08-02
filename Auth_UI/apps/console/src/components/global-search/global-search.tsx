@@ -1,12 +1,14 @@
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
 import {
+  ArrowRight,
   ChevronDown,
   FileText,
   Search,
   SlidersHorizontal,
   TriangleAlert,
   X,
+  type LucideIcon,
 } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -34,29 +36,35 @@ import {
 import { Kbd } from "@authsystem/ui/kbd"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import { SEARCH_QUERY_PARAM } from "@authsystem/ui/hooks/use-search-query"
 
 import { PERMISSIONS } from "@/lib/constants"
 import { SETTINGS_QUERY_KEY } from "@/pages/system-settings/lib/sections"
 import {
   buildSearchIndex,
-  searchSettings,
+  searchIndex,
   type FieldEntry,
+  type RecordEntry,
   type SearchEntry,
   type SurfaceEntry,
 } from "./build-index"
 import { Highlight } from "./highlight"
-import { useRecentSettings } from "./use-recent-settings"
+import { MIN_RECORD_QUERY, recordIcon } from "./record-sources"
+import { useRecentSearches, type RecentEntry } from "./use-recent-searches"
+import { useRecordSearch } from "./use-record-search"
 
 /** Where an admin with no history is offered a way in. */
-const JUMP_TO = [
-  "section:Password",
-  "section:Session",
-  "secrets",
-  "profile-security",
-]
+const JUMP_TO = ["users", "applications", "section:Password", "audit-logs"]
 
 /** A stable identity, so "nothing is expanded" does not re-run the search. */
 const NO_GROUPS: ReadonlySet<string> = new Set()
+
+/**
+ * Long enough that a fast typist issues one round of requests instead of eight,
+ * short enough that pausing to read feels like the results were already there.
+ * Pages and settings ignore it entirely — they are in memory.
+ */
+const RECORD_DEBOUNCE_MS = 250
 
 /**
  * Wraps a value in FSI…PDI so quoting it inside a sentence cannot reorder the
@@ -159,7 +167,7 @@ function FieldRow({
         </CommandItemTitle>
         {explainKey ? (
           <CommandItemDescription className="text-xs/5">
-            {t("settingsSearch.matchedOn")}{" "}
+            {t("globalSearch.matchedOn")}{" "}
             {/* A config key is never Arabic; isolated so it cannot flip the
                 line it sits in, and truncated on its own terms. */}
             <bdi dir="ltr" className="font-mono">
@@ -176,11 +184,50 @@ function FieldRow({
   )
 }
 
-/** Row geometry, held while the settings payload is still in flight. */
-function LoadingRows() {
+/**
+ * One record. The second line is what tells two of them apart — an address, a
+ * code, the application a role belongs to — so it is always shown, and it is
+ * highlighted too: for a record, the match is as often in the address as in the
+ * name.
+ */
+function RecordRow({
+  entry,
+  icon: Icon,
+  query,
+  onSelect,
+}: {
+  entry: RecordEntry
+  icon: LucideIcon
+  query: string
+  onSelect: () => void
+}) {
+  return (
+    <CommandItem value={entry.id} onSelect={onSelect}>
+      <Icon aria-hidden="true" />
+      <CommandItemContent>
+        <CommandItemTitle>
+          <Highlight text={entry.title} query={query} />
+        </CommandItemTitle>
+        {entry.description ? (
+          <CommandItemDescription>
+            {/* Addresses, codes and channel names are Latin sitting in a row
+                that may be Arabic. Isolated, they order correctly instead of
+                dragging the separators around them to the wrong side. */}
+            <bdi>
+              <Highlight text={entry.description} query={query} />
+            </bdi>
+          </CommandItemDescription>
+        ) : null}
+      </CommandItemContent>
+    </CommandItem>
+  )
+}
+
+/** Row geometry, held while a payload is still in flight. */
+function LoadingRows({ rows = 3 }: { rows?: number }) {
   return (
     <div className="flex flex-col gap-1 p-1.5">
-      {[0, 1, 2].map((row) => (
+      {Array.from({ length: rows }, (_, row) => (
         <div key={row} className="flex items-center gap-2 px-3 py-2">
           <Skeleton className="size-4 shrink-0 rounded-sm" />
           <div className="flex min-w-0 flex-1 flex-col gap-1.5">
@@ -194,7 +241,14 @@ function LoadingRows() {
 }
 
 /**
- * Finds a setting by name without knowing which page it lives on.
+ * Searches the whole console: pages, records and settings, from one field.
+ *
+ * Three kinds of answer, in the order they can be produced. Pages and settings
+ * are an in-memory index built from the navigation table and the settings
+ * registry, so they answer on the first keystroke. Records — users, roles,
+ * applications, organizations, notification templates and layouts — come from
+ * the API, one debounced request per source, and land underneath as they
+ * arrive.
  *
  * A centred palette rather than a dropdown hanging off the header button: it
  * answers to ⌘K from anywhere, and a panel anchored to a control that may be
@@ -203,11 +257,11 @@ function LoadingRows() {
  * means focus is trapped rather than tabbing away behind the open panel, and
  * Escape, focus-in and focus-return come for free.
  *
- * Lives in the console rather than the shared UI package because the results
- * are permission-filtered, which needs the auth context and the console's
+ * Lives in the console rather than the shared UI package because every result
+ * is permission-filtered, which needs the auth context and the console's
  * permission constants.
  */
-export function SettingsSearch() {
+export function GlobalSearch() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { hasPermission, user } = useAuth()
@@ -220,7 +274,7 @@ export function SettingsSearch() {
     ids: ReadonlySet<string>
   }>({ query: "", ids: NO_GROUPS })
   const commandKey = useCommandKeyLabel()
-  const { recent, remember, clear } = useRecentSettings(user?.id)
+  const { recent, remember, clear } = useRecentSearches(user?.id)
 
   const canReadSettings = hasPermission(PERMISSIONS.systemSettings.manage)
 
@@ -240,24 +294,23 @@ export function SettingsSearch() {
   )
 
   const expanded = expansion.query === query ? expansion.ids : NO_GROUPS
-  // No debounce: the index is in memory, so a delay buys nothing and only makes
-  // typing feel behind. The announcement below is the one thing that waits.
+  // No debounce here: the index is in memory, so a delay buys nothing and only
+  // makes typing feel behind. Records are the one thing that waits.
   const results = React.useMemo(
-    () => searchSettings(index, query, expanded),
+    () => searchIndex(index, query, expanded),
     [index, query, expanded]
   )
+
+  const debouncedQuery = useDebouncedValue(query, RECORD_DEBOUNCE_MS)
+  const records = useRecordSearch({
+    query: debouncedQuery,
+    enabled: open,
+    hasPermission,
+  })
 
   const byId = React.useMemo(
     () => new Map(index.map((entry) => [entry.id, entry])),
     [index]
-  )
-
-  const recentEntries = React.useMemo(
-    () =>
-      recent
-        .map((item) => byId.get(item.id))
-        .filter((entry): entry is SearchEntry => Boolean(entry)),
-    [recent, byId]
   )
 
   const jumpEntries = React.useMemo(
@@ -269,7 +322,13 @@ export function SettingsSearch() {
   )
 
   const isLoadingIndex = canReadSettings && settings.isLoading
-  const hasResults = results.total > 0
+  // The records half is still working when the debounce has not caught up
+  // either — otherwise a fast typist sees "nothing matches" for the instant
+  // between the last keystroke and the request going out.
+  const isSettlingRecords =
+    records.isPending || (query.trim() !== debouncedQuery.trim())
+  const hasResults = results.total > 0 || records.total > 0
+  const totalShown = results.total + records.total
 
   // Every close resets, however it was closed. A palette that reopens holding
   // the last query never shows what you last opened, which is the one thing
@@ -281,9 +340,26 @@ export function SettingsSearch() {
   }
 
   const go = (entry: SearchEntry) => {
-    remember({ id: entry.id, route: entry.route })
+    remember({
+      id: entry.id,
+      route: entry.route,
+      // Only a record needs its text carried: everything else is resolved from
+      // the live index, so it follows a language switch and a revoked
+      // permission instead of being frozen at the moment it was opened.
+      ...(entry.kind === "record"
+        ? { label: entry.title, sublabel: entry.description }
+        : {}),
+    })
     close()
     void navigate(entry.route)
+  }
+
+  /** Hands the query off to the page that owns the rest of the matches. */
+  const goToList = (listRoute: string) => {
+    close()
+    void navigate(
+      `${listRoute}?${SEARCH_QUERY_PARAM}=${encodeURIComponent(query.trim())}`
+    )
   }
 
   const expand = (groupId: string) =>
@@ -317,34 +393,99 @@ export function SettingsSearch() {
   // count on every keystroke.
   const status = !query
     ? ""
-    : isLoadingIndex
-      ? t("settingsSearch.searching")
+    : isLoadingIndex || isSettlingRecords
+      ? t("globalSearch.searching")
       : hasResults
-        ? t("settingsSearch.a11yResultCount", { total: results.total })
-        : t("settingsSearch.a11yNoResults", { query: isolate(query) })
+        ? t("globalSearch.a11yResultCount", { total: totalShown })
+        : t("globalSearch.a11yNoResults", { query: isolate(query) })
   const announced = useDebouncedValue(status, 400)
+
+  /** Renders whichever row kind an entry is. Used by results and by history. */
+  const renderEntry = (entry: SearchEntry, highlight: string) => {
+    if (entry.kind === "surface") {
+      return (
+        <SurfaceRow
+          key={entry.id}
+          entry={entry}
+          query={highlight}
+          onSelect={() => go(entry)}
+        />
+      )
+    }
+    if (entry.kind === "field") {
+      return (
+        <FieldRow
+          key={entry.id}
+          entry={entry}
+          query={highlight}
+          onSelect={() => go(entry)}
+        />
+      )
+    }
+    return (
+      <RecordRow
+        key={entry.id}
+        entry={entry}
+        icon={recordIcon(entry.id) ?? FileText}
+        query={highlight}
+        onSelect={() => go(entry)}
+      />
+    )
+  }
+
+  /**
+   * A remembered row. Pages and settings are re-resolved from the live index so
+   * they stay current; a record falls back to the name stored with it, and is
+   * dropped if it has none rather than rendering as an empty row.
+   */
+  const renderRecent = (item: RecentEntry) => {
+    const indexed = byId.get(item.id)
+    if (indexed) return renderEntry(indexed, "")
+    if (!item.label) return null
+
+    const entry: RecordEntry = {
+      kind: "record",
+      id: item.id,
+      sourceKey: "",
+      title: item.label,
+      description: item.sublabel ?? "",
+      route: item.route,
+      keywords: "",
+    }
+    return (
+      <RecordRow
+        key={entry.id}
+        entry={entry}
+        icon={recordIcon(entry.id) ?? FileText}
+        query=""
+        onSelect={() => go(entry)}
+      />
+    )
+  }
+
+  const recentRows = recent.map(renderRecent).filter(Boolean)
 
   return (
     <>
       <Button
         variant="outline"
         size="sm"
-        aria-label={t("settingsSearch.label")}
+        aria-label={t("globalSearch.label")}
         onClick={() => setOpen(true)}
         // Reads as the search field it stands in for, so it carries the
         // weight and colour of placeholder text rather than of a button.
         className="w-48 justify-start font-normal text-muted-foreground lg:w-64"
       >
         <Search data-icon="inline-start" />
-        <span className="truncate">{t("settingsSearch.placeholder")}</span>
+        <span className="truncate">{t("globalSearch.placeholder")}</span>
         <Kbd className="ms-auto hidden lg:inline-flex">{commandKey}</Kbd>
       </Button>
 
       <CommandDialog
         open={open}
         onOpenChange={onOpenChange}
-        title={t("settingsSearch.label")}
-        description={t("settingsSearch.hint")}
+        title={t("globalSearch.label")}
+        description={t("globalSearch.hint")}
         // The first Escape empties the field; only an already-empty field
         // closes. Retyping a long key name because you meant to narrow it is
         // the kind of loss a palette should never impose.
@@ -354,23 +495,24 @@ export function SettingsSearch() {
           setQuery("")
         }}
       >
-        {/* Scoring is two-tier and also matches raw config paths, neither of
-            which cmdk's built-in filter can express. `disablePointerSelection`
-            stops a stationary cursor from stealing the highlight away from the
-            arrow keys as the list scrolls under it. */}
+        {/* Scoring is tiered and also matches raw config paths, neither of
+            which cmdk's built-in filter can express — and records are filtered
+            by the server, which it cannot express at all.
+            `disablePointerSelection` stops a stationary cursor from stealing
+            the highlight away from the arrow keys as the list scrolls. */}
         <Command
           shouldFilter={false}
           disablePointerSelection
-          label={t("settingsSearch.label")}
+          label={t("globalSearch.label")}
         >
           <CommandInput
             value={query}
             onValueChange={setQuery}
-            placeholder={t("settingsSearch.placeholder")}
-            aria-describedby="settings-search-instructions"
+            placeholder={t("globalSearch.placeholder")}
+            aria-describedby="global-search-instructions"
           />
-          <span id="settings-search-instructions" className="sr-only">
-            {t("settingsSearch.a11yInstructions")}
+          <span id="global-search-instructions" className="sr-only">
+            {t("globalSearch.a11yInstructions")}
           </span>
           <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
             {announced}
@@ -386,14 +528,14 @@ export function SettingsSearch() {
               <div className="flex flex-col items-start gap-2 px-4 py-6">
                 <p className="flex items-center gap-2 text-sm text-foreground">
                   <TriangleAlert className="size-4 text-muted-foreground" />
-                  {t("settingsSearch.loadFailed")}
+                  {t("globalSearch.settingsFailed")}
                 </p>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => void settings.refetch()}
                 >
-                  {t("settingsSearch.retry")}
+                  {t("globalSearch.retry")}
                 </Button>
               </div>
             ) : null}
@@ -402,69 +544,45 @@ export function SettingsSearch() {
 
             {/* Idle: what you last opened, or a way in if there is no history.
                 An empty panel with a sentence in it teaches nothing. */}
-            {!query && !isLoadingIndex && recentEntries.length > 0 ? (
-              <CommandGroup heading={t("settingsSearch.recent")}>
-                {recentEntries.map((entry) =>
-                  entry.kind === "surface" ? (
-                    <SurfaceRow
-                      key={entry.id}
-                      entry={entry}
-                      query=""
-                      onSelect={() => go(entry)}
-                    />
-                  ) : (
-                    <FieldRow
-                      key={entry.id}
-                      entry={entry}
-                      query=""
-                      onSelect={() => go(entry)}
-                    />
-                  )
-                )}
+            {!query && !isLoadingIndex && recentRows.length > 0 ? (
+              <CommandGroup heading={t("globalSearch.recent")}>
+                {recentRows}
                 {/* Carries an icon like every other row: a text-only row
                     starts inside the gutter the others align to and reads as
                     a stray line rather than a choice. */}
                 <CommandItem value="recent:clear" onSelect={clear}>
                   <X aria-hidden="true" />
                   <span className="font-normal text-muted-foreground">
-                    {t("settingsSearch.clearRecent")}
+                    {t("globalSearch.clearRecent")}
                   </span>
                 </CommandItem>
               </CommandGroup>
             ) : null}
 
-            {!query && !isLoadingIndex && recentEntries.length === 0 &&
+            {!query && !isLoadingIndex && recentRows.length === 0 &&
             jumpEntries.length > 0 ? (
-              <CommandGroup heading={t("settingsSearch.jumpTo")}>
-                {jumpEntries.map((entry) =>
-                  entry.kind === "surface" ? (
-                    <SurfaceRow
-                      key={entry.id}
-                      entry={entry}
-                      query=""
-                      onSelect={() => go(entry)}
-                    />
-                  ) : (
-                    <FieldRow
-                      key={entry.id}
-                      entry={entry}
-                      query=""
-                      onSelect={() => go(entry)}
-                    />
-                  )
-                )}
+              <CommandGroup heading={t("globalSearch.jumpTo")}>
+                {jumpEntries.map((entry) => renderEntry(entry, ""))}
               </CommandGroup>
             ) : null}
 
             {/* Nothing matched. Not four grey words: say what was searched for,
                 say what else to try, and leave a way out of the dead end. */}
-            {query && !isLoadingIndex && !hasResults && !settings.isError ? (
+            {query &&
+            !isLoadingIndex &&
+            !isSettlingRecords &&
+            !hasResults &&
+            !settings.isError ? (
               <div className="flex flex-col items-start gap-2 px-4 py-6">
                 <p className="text-sm font-medium text-foreground">
-                  {t("settingsSearch.noResultsFor", { query: isolate(query) })}
+                  {t("globalSearch.noResultsFor", { query: isolate(query) })}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {t("settingsSearch.emptySuggestion")}
+                  {/* `min`, not `count`: i18next treats `count` as a plural
+                      selector and would look for keys that do not exist. */}
+                  {query.trim().length < MIN_RECORD_QUERY
+                    ? t("globalSearch.minQueryHint", { min: MIN_RECORD_QUERY })
+                    : t("globalSearch.emptySuggestion")}
                 </p>
               </div>
             ) : null}
@@ -473,10 +591,10 @@ export function SettingsSearch() {
               <CommandGroup
                 heading={
                   <>
-                    <span>{t("settingsSearch.pages")}</span>
+                    <span>{t("globalSearch.pages")}</span>
                     {results.totalSurfaces > results.surfaces.length ? (
                       <span className="ms-auto font-normal">
-                        {t("settingsSearch.countOf", {
+                        {t("globalSearch.countOf", {
                           shown: results.surfaces.length,
                           total: results.totalSurfaces,
                         })}
@@ -496,13 +614,105 @@ export function SettingsSearch() {
               </CommandGroup>
             ) : null}
 
+            {/* Records sit between the two: more specific than a page, and the
+                answer whenever what was typed is a name rather than a concept. */}
+            {query && records.groups.length > 0 ? (
+              <>
+                {results.surfaces.length > 0 ? (
+                  <CommandSeparator alwaysRender />
+                ) : null}
+                {records.groups.map((group) => (
+                  <CommandGroup
+                    key={group.sourceKey}
+                    heading={
+                      <>
+                        <span className="truncate">{t(group.headingKey)}</span>
+                        {group.totalEntries > group.entries.length ? (
+                          <span className="ms-auto shrink-0 font-normal">
+                            {t("globalSearch.countOf", {
+                              shown: group.entries.length,
+                              total: group.totalEntries,
+                            })}
+                          </span>
+                        ) : null}
+                      </>
+                    }
+                  >
+                    {group.entries.map((entry) => (
+                      <RecordRow
+                        key={entry.id}
+                        entry={entry}
+                        icon={group.icon}
+                        query={query}
+                        onSelect={() => go(entry)}
+                      />
+                    ))}
+                    {/* The rest of the matches are a page away, not gone: the
+                        query travels with the navigation and the list arrives
+                        already filtered.
+
+                        Carries no count, unlike the heading above it. The
+                        heading counts what this panel matched; the page runs
+                        its own search across columns the panel never showed,
+                        and lands on a different number. Promising one here and
+                        showing another there is the kind of small lie that
+                        makes a reader stop trusting the rest. */}
+                    {group.totalEntries > group.entries.length ? (
+                      <CommandItem
+                        value={`more:${group.sourceKey}`}
+                        onSelect={() => goToList(group.listRoute)}
+                      >
+                        {/* An arrow means "onward", not "rightward". Lucide
+                            glyphs do not mirror themselves, so it is turned by
+                            hand — the same way every other directional icon in
+                            the UI package is. */}
+                        <ArrowRight aria-hidden="true" className="rtl:rotate-180" />
+                        <span className="font-normal text-muted-foreground">
+                          {t("globalSearch.seeAllIn", {
+                            section: t(group.headingKey),
+                          })}
+                        </span>
+                      </CommandItem>
+                    ) : null}
+                  </CommandGroup>
+                ))}
+              </>
+            ) : null}
+
+            {/* Records are still on the wire. Skeletons rather than nothing:
+                without them the panel visibly reflows a moment after every
+                pause, under a cursor that has already moved. */}
+            {query && isSettlingRecords && records.groups.length === 0 &&
+            query.trim().length >= MIN_RECORD_QUERY ? (
+              <LoadingRows rows={2} />
+            ) : null}
+
+            {/* One source failing is not the search failing: the others have
+                already rendered above, so this admits the gap without taking
+                the panel over. */}
+            {query && records.isError ? (
+              <div className="flex items-center gap-2 px-4 py-3">
+                <TriangleAlert className="size-4 shrink-0 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {t("globalSearch.recordsFailed")}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ms-auto"
+                  onClick={records.retry}
+                >
+                  {t("globalSearch.retry")}
+                </Button>
+              </div>
+            ) : null}
+
             {query &&
-            results.surfaces.length > 0 &&
+            (results.surfaces.length > 0 || records.groups.length > 0) &&
             results.fieldGroups.length > 0 ? (
-              // The one rule in the list, and only where the kind of result
-              // changes. `alwaysRender` because cmdk otherwise hides every
-              // separator the moment a query exists — which is the only time
-              // this one has anything to divide.
+              // A rule only where the kind of result changes. `alwaysRender`
+              // because cmdk otherwise hides every separator the moment a query
+              // exists — which is the only time this one has anything to divide.
               <CommandSeparator alwaysRender />
             ) : null}
 
@@ -520,7 +730,7 @@ export function SettingsSearch() {
                       ))}
                       {group.totalFields > group.fields.length ? (
                         <span className="ms-auto shrink-0 font-normal">
-                          {t("settingsSearch.countOf", {
+                          {t("globalSearch.countOf", {
                             shown: group.fields.length,
                             total: group.totalFields,
                           })}
@@ -544,7 +754,7 @@ export function SettingsSearch() {
                     >
                       <ChevronDown aria-hidden="true" />
                       <span className="font-normal text-muted-foreground">
-                        {t("settingsSearch.showAll", {
+                        {t("globalSearch.showAll", {
                           total: group.totalFields,
                         })}
                       </span>
@@ -558,15 +768,15 @@ export function SettingsSearch() {
             <span className="flex items-center gap-1.5">
               <Kbd>↑</Kbd>
               <Kbd>↓</Kbd>
-              {t("settingsSearch.kbdNavigate")}
+              {t("globalSearch.kbdNavigate")}
             </span>
             <span className="flex items-center gap-1.5">
               <Kbd>↵</Kbd>
-              {t("settingsSearch.kbdOpen")}
+              {t("globalSearch.kbdOpen")}
             </span>
             <span className="flex items-center gap-1.5">
               <Kbd>esc</Kbd>
-              {t("settingsSearch.kbdClose")}
+              {t("globalSearch.kbdClose")}
             </span>
           </CommandFooter>
         </Command>

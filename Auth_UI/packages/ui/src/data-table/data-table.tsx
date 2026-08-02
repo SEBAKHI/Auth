@@ -117,6 +117,13 @@ interface DataTableProps<TData> {
   enableToolbar?: boolean
   /** Show a client-side global search box in the toolbar. */
   globalSearch?: boolean
+  /**
+   * Term the search box starts with. Set by a page that was opened with a
+   * query already in hand — the command palette handing off the rest of its
+   * matches — so the table arrives filtered rather than showing everything and
+   * making the user type it a second time.
+   */
+  initialGlobalFilter?: string
   searchPlaceholder?: string
   /** Page-owned filter controls to merge into the toolbar. */
   toolbarExtras?: React.ReactNode
@@ -249,6 +256,7 @@ export function DataTable<TData>({
   tableId,
   enableToolbar = true,
   globalSearch = false,
+  initialGlobalFilter = "",
   searchPlaceholder,
   toolbarExtras,
   enableExport = true,
@@ -268,7 +276,10 @@ export function DataTable<TData>({
 
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
-  const [globalFilter, setGlobalFilter] = React.useState("")
+  // Seeded, not controlled: the caller says what the table opens with and the
+  // table owns it from there, so typing does not have to round-trip through
+  // the page that mounted it.
+  const [globalFilter, setGlobalFilter] = React.useState(initialGlobalFilter)
   // One stored document per table, read synchronously so the first paint is
   // already the user's layout rather than the default rearranging itself.
   const [initialLayout] = React.useState<TableLayout>(() =>

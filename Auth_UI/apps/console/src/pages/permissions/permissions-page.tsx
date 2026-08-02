@@ -10,6 +10,7 @@ import { ApplicationSelect } from "@authsystem/ui/common/application-select"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
 import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
@@ -35,6 +36,10 @@ export function PermissionsPage() {
   const { hasPermission } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // A term the command palette handed over, so arriving from "see all N in
+  // Permissions" lands on those rows rather than on the whole list again.
+  const handoff = useSearchHandoff()
 
   const [applicationId, setApplicationId] = React.useState<string>()
   const [formOpen, setFormOpen] = React.useState(false)
@@ -208,6 +213,7 @@ export function PermissionsPage() {
         fillHeight
         tableId="permissions"
         globalSearch
+        initialGlobalFilter={handoff}
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}

@@ -28,6 +28,7 @@ import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import {
   ApplicationCreateDialog,
@@ -44,7 +45,10 @@ export function ApplicationsPage() {
 
   const [page, setPage] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  const [searchInput, setSearchInput] = React.useState("")
+  // A term the command palette handed over, so arriving from "see all N"
+  // lands on those rows rather than on the whole list again.
+  const handoff = useSearchHandoff()
+  const [searchInput, setSearchInput] = React.useState(handoff)
   const search = useDebouncedValue(searchInput)
   // Server-side sort over the whole dataset (API default order is by code).
   const [sorting, setSorting] = React.useState<SortingState>([])

@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import {
@@ -32,6 +33,10 @@ export function OrganizationsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // A term a search handed over, so arriving from the console's palette lands
+  // on the matching organizations rather than on the whole membership list.
+  const handoff = useSearchHandoff()
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState<
@@ -185,6 +190,7 @@ export function OrganizationsPage() {
         fillHeight
         tableId="organizations"
         globalSearch
+        initialGlobalFilter={handoff}
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}

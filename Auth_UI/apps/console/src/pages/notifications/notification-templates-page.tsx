@@ -15,6 +15,7 @@ import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import { formatDateTime } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
 import { CreateTemplateDialog } from "./components/create-template-dialog"
 import { NotificationsTabs } from "./components/notifications-tabs"
@@ -32,7 +33,10 @@ export function NotificationTemplatesPage() {
 
   const [page, setPage] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  const [searchInput, setSearchInput] = React.useState("")
+  // A term the command palette handed over, so arriving from "see all N"
+  // lands on those rows rather than on the whole list again.
+  const handoff = useSearchHandoff()
+  const [searchInput, setSearchInput] = React.useState(handoff)
   const search = useDebouncedValue(searchInput)
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "typeName", desc: false },

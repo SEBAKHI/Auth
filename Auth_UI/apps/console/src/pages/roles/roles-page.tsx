@@ -10,6 +10,7 @@ import { ApplicationSelect } from "@authsystem/ui/common/application-select"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import {
@@ -35,6 +36,10 @@ export function RolesPage() {
   const { hasPermission } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  // A term the command palette handed over, so arriving from "see all 12 in
+  // Roles" lands on those twelve rather than on the whole list again.
+  const handoff = useSearchHandoff()
 
   const [applicationId, setApplicationId] = React.useState<string>()
   const [formOpen, setFormOpen] = React.useState(false)
@@ -226,6 +231,7 @@ export function RolesPage() {
         fillHeight
         tableId="roles"
         globalSearch
+        initialGlobalFilter={handoff}
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}
