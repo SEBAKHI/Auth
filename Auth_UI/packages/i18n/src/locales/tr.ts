@@ -1574,6 +1574,13 @@ export const tr: TranslationResources = {
     resendCode: "Kodu yeniden gönder",
     resendIn: "{{seconds}} sn içinde yeniden gönder",
   },
+  settingsSearch: {
+    label: "Ayarlarda ara",
+    placeholder: "Ayarlarda ara…",
+    hint: "Bir ayarı adıyla bulmak için yazın.",
+    noResults: "Eşleşen ayar yok.",
+    pages: "Sayfalar",
+  },
   validation: {
     required: "Bu alan zorunludur.",
     email: "Geçerli bir e-posta adresi girin.",

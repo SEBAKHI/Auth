@@ -1544,6 +1544,13 @@ export const ar: TranslationResources = {
     resendCode: "إعادة إرسال الرمز",
     resendIn: "إعادة الإرسال خلال {{seconds}} ث",
   },
+  settingsSearch: {
+    label: "البحث في الإعدادات",
+    placeholder: "ابحث في الإعدادات…",
+    hint: "اكتب للعثور على إعداد باسمه.",
+    noResults: "لا توجد إعدادات مطابقة.",
+    pages: "الصفحات",
+  },
   validation: {
     required: "هذا الحقل مطلوب.",
     email: "أدخل بريدًا إلكترونيًا صالحًا.",

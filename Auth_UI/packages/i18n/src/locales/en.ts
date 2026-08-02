@@ -1557,6 +1557,13 @@ export const en = {
     resendCode: "Resend code",
     resendIn: "Resend in {{seconds}}s",
   },
+  settingsSearch: {
+    label: "Search settings",
+    placeholder: "Search settings…",
+    hint: "Type to find a setting by name.",
+    noResults: "No matching settings.",
+    pages: "Pages",
+  },
   validation: {
     required: "This field is required.",
     email: "Enter a valid email address.",

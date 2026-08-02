@@ -1585,6 +1585,13 @@ export const fa: TranslationResources = {
     resendCode: "ارسال دوباره کد",
     resendIn: "ارسال دوباره تا {{seconds}} ثانیه",
   },
+  settingsSearch: {
+    label: "جست‌وجو در تنظیمات",
+    placeholder: "جست‌وجوی تنظیمات…",
+    hint: "برای یافتن یک تنظیم، نام آن را بنویسید.",
+    noResults: "تنظیم مطابقی یافت نشد.",
+    pages: "صفحه‌ها",
+  },
   validation: {
     required: "این فیلد الزامی است.",
     email: "یک نشانی ایمیل معتبر وارد کنید.",

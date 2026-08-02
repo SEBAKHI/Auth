@@ -1,5 +1,6 @@
 import { useAuth } from "@authsystem/auth/auth-context"
 import { AppShell as SharedAppShell } from "@authsystem/ui/common/app-shell"
+import { SettingsSearch } from "@/components/settings-search/settings-search"
 import { NAV_ITEMS } from "@/lib/constants"
 
 /** Console shell: the shared sidebar layout with the permission-filtered admin nav. */
@@ -13,6 +14,8 @@ export function AppShell() {
       navGroupKey="platform"
       homeKey="dashboard"
       profileHref="/profile"
+      // Console-only: the accounts app has no settings to search.
+      headerExtras={<SettingsSearch />}
     />
   )
 }

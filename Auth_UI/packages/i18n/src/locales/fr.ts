@@ -1633,6 +1633,13 @@ export const fr: TranslationResources = {
     resendCode: "Renvoyer le code",
     resendIn: "Renvoyer dans {{seconds}} s",
   },
+  settingsSearch: {
+    label: "Rechercher dans les paramètres",
+    placeholder: "Rechercher un paramètre…",
+    hint: "Saisissez le nom d'un paramètre pour le trouver.",
+    noResults: "Aucun paramètre correspondant.",
+    pages: "Pages",
+  },
   validation: {
     required: "Ce champ est obligatoire.",
     email: "Saisissez une adresse e-mail valide.",

@@ -44,6 +44,12 @@ interface AppShellProps {
   profileHref?: string
   /** Forwarded to the header UserMenu. */
   showProfile?: boolean
+  /**
+   * App-specific header controls, placed before the language and theme
+   * toggles. The console puts its settings search here; the accounts app
+   * passes nothing and is unaffected.
+   */
+  headerExtras?: React.ReactNode
 }
 
 /**
@@ -131,6 +137,7 @@ export function AppShell({
   homeKey,
   profileHref,
   showProfile,
+  headerExtras,
 }: AppShellProps) {
   return (
     <SidebarProvider>
@@ -141,6 +148,7 @@ export function AppShell({
           <Separator orientation="vertical" className="h-6" />
           <AppBreadcrumbs homeKey={homeKey} />
           <div className="ms-auto flex items-center gap-1">
+            {headerExtras}
             <LanguageToggle />
             <ThemeToggle />
             <UserMenu profileHref={profileHref} showProfile={showProfile} />

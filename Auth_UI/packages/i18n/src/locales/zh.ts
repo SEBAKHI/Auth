@@ -1503,6 +1503,13 @@ export const zh: TranslationResources = {
     resendCode: "重新发送验证码",
     resendIn: "{{seconds}} 秒后可重新发送",
   },
+  settingsSearch: {
+    label: "搜索设置",
+    placeholder: "搜索设置…",
+    hint: "输入名称以查找设置。",
+    noResults: "没有匹配的设置。",
+    pages: "页面",
+  },
   validation: {
     required: "此字段为必填项。",
     email: "请输入有效的邮箱地址。",

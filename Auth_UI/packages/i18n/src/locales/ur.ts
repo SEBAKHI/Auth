@@ -1563,6 +1563,13 @@ export const ur: TranslationResources = {
     resendCode: "کوڈ دوبارہ بھیجیں",
     resendIn: "{{seconds}} سیکنڈ میں دوبارہ بھیجیں",
   },
+  settingsSearch: {
+    label: "ترتیبات میں تلاش کریں",
+    placeholder: "ترتیبات تلاش کریں…",
+    hint: "کسی ترتیب کو نام سے تلاش کرنے کے لیے لکھیں۔",
+    noResults: "کوئی مماثل ترتیب نہیں۔",
+    pages: "صفحات",
+  },
   validation: {
     required: "یہ خانہ لازمی ہے۔",
     email: "درست ای میل پتہ درج کریں۔",
