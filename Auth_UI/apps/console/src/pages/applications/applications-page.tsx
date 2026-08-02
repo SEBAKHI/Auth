@@ -238,7 +238,7 @@ export function ApplicationsPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("applications.title")}
         description={t("applications.subtitle")}
@@ -262,6 +262,7 @@ export function ApplicationsPage() {
       />
 
       <DataTable
+        fillHeight
         tableId="applications"
         columns={columns}
         data={query.data?.applications ?? []}

@@ -179,7 +179,7 @@ export function AuditLogsPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("auditLogs.title")}
         description={t("auditLogs.subtitle")}
@@ -241,6 +241,7 @@ export function AuditLogsPage() {
       </div>
 
       <DataTable
+        fillHeight
         tableId="audit-logs"
         columns={columns}
         data={query.data?.logs ?? []}

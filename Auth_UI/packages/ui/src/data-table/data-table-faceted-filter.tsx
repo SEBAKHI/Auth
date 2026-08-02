@@ -104,7 +104,9 @@ export function DataTableFacetedFilter<TData, TValue>({
       <PopoverContent className="w-52 p-0" align="start">
         <Command>
           <CommandInput placeholder={title} />
-          <CommandList>
+          {/* A handful of options in a narrow popover; a scrollbar here would
+              be more chrome than the content. */}
+          <CommandList className="no-scrollbar">
             <CommandEmpty>{t("common.noResults")}</CommandEmpty>
             <CommandGroup>
               {resolvedOptions.map((option) => {

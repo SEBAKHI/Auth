@@ -252,7 +252,7 @@ export function OrganizationsAdminPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("organizations.title")}
         description={t("organizations.subtitle")}
@@ -276,6 +276,7 @@ export function OrganizationsAdminPage() {
       />
 
       <DataTable
+        fillHeight
         tableId="organizations-all"
         columns={columns}
         data={query.data?.organizations ?? []}

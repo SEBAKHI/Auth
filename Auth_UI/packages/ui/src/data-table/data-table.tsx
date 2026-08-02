@@ -147,6 +147,15 @@ interface DataTableProps<TData> {
    */
   sorting?: SortingState
   onSortingChange?: (sorting: SortingState) => void
+  /**
+   * Fill the available height and scroll the rows inside the table instead of
+   * scrolling the page. Keeps the page title, the toolbar and the pagination
+   * bar on screen no matter how many rows load, and pins the column headers.
+   *
+   * The page must give the table something to fill — a `h-full` root — or
+   * there is no available height to take.
+   */
+  fillHeight?: boolean
 }
 
 function readPersistedOrder(layout: TableLayout): string[] {
@@ -251,6 +260,7 @@ export function DataTable<TData>({
   getDetailTitle,
   sorting: controlledSorting,
   onSortingChange: onControlledSortingChange,
+  fillHeight = false,
 }: DataTableProps<TData>) {
   const { t, i18n } = useTranslation()
   const direction = directionForLanguage(i18n.language)
@@ -621,7 +631,13 @@ export function DataTable<TData>({
   }, [table, exportFileName, tableId, onExportAll, data, t])
 
   return (
-    <div className="flex flex-col gap-3">
+    <div
+      className={cn(
+        "flex flex-col gap-3",
+        // Takes the height the page hands it, so only the rows scroll.
+        fillHeight && "min-h-0 flex-1"
+      )}
+    >
       {enableToolbar ? (
         <DataTableToolbar
           table={table}
@@ -642,9 +658,27 @@ export function DataTable<TData>({
         {orderAnnouncement}
       </div>
 
-      <div className="overflow-hidden rounded-lg border">
-        <Table>
-          <TableHeader>
+      <div
+        className={cn(
+          "rounded-lg border",
+          fillHeight
+            ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+            : "overflow-hidden"
+        )}
+      >
+        <Table
+          containerClassName={
+            // The container is the scrolling element, so it owns the height.
+            fillHeight ? "min-h-40 flex-1 overflow-auto" : undefined
+          }
+        >
+          <TableHeader
+            className={
+              // Pinned while the rows scroll under it. Opaque, or the rows
+              // show through; `top-0` is relative to the scroll container.
+              fillHeight ? "sticky top-0 z-20 bg-background" : undefined
+            }
+          >
             {table.getHeaderGroups().map((group) => (
               <TableRow key={group.id}>
                 {group.headers.map((header) => {

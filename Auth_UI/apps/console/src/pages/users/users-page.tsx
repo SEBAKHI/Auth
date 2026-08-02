@@ -394,7 +394,7 @@ export function UsersPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("users.title")}
         description={t("users.subtitle")}
@@ -441,6 +441,7 @@ export function UsersPage() {
       </div>
 
       <DataTable
+        fillHeight
         tableId="users"
         columns={columns}
         data={query.data?.users ?? []}

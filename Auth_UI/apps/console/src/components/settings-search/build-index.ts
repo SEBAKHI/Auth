@@ -18,6 +18,12 @@ export interface SurfaceEntry {
   title: string
   description: string
   route: string
+  /**
+   * Where the result lives, shown beside the title. Two entries can share a
+   * name — "Sessions" is both a profile tab and a system-settings section —
+   * and the title alone gives no way to tell them apart.
+   */
+  path: string
   /** Extra words to match on that are not shown, e.g. the raw config path. */
   keywords: string
 }
@@ -35,10 +41,17 @@ export interface FieldEntry {
   keywords: string
   /** Section title, shown as the group heading above the field.  */
   sectionTitle: string
+  /** Full trail to the section, used as the group heading. */
+  sectionPath: string
   sectionId: string
 }
 
 export type SearchEntry = SurfaceEntry | FieldEntry
+
+/** Joins a trail for display. `›` reads correctly in both text directions. */
+export function joinPath(parts: (string | undefined)[]): string {
+  return parts.filter(Boolean).join(" › ")
+}
 
 /**
  * Splits a config path into searchable words: "Password:Argon2MemorySize"
@@ -77,6 +90,10 @@ export function buildSearchIndex(
     const title = t(surface.titleKey, { defaultValue: "" })
     if (!title) continue
 
+    const path = joinPath(
+      surface.pathKeys.map((key) => t(key, { defaultValue: "" }))
+    )
+
     entries.push({
       kind: "surface",
       id: surface.id,
@@ -85,7 +102,10 @@ export function buildSearchIndex(
         ? t(surface.descriptionKey, { defaultValue: "" })
         : "",
       route: surface.route,
-      keywords: surface.id.replace(/-/g, " "),
+      path,
+      // The trail is searchable too: typing "profile" should surface the tabs
+      // that live on it, not only the page itself.
+      keywords: `${surface.id.replace(/-/g, " ")} ${path}`.toLowerCase(),
     })
   }
 
@@ -99,6 +119,11 @@ export function buildSearchIndex(
       ? t(`systemSettings.${sectionI18n}.title`, { defaultValue: sectionKey })
       : sectionKey
     const route = `/admin/system-settings/${sectionKey}`
+    const settingsRoot = t("nav.systemSettings", { defaultValue: "" })
+    const groupLabel = section.group
+      ? t(`systemSettings.groups.${section.group}`, { defaultValue: "" })
+      : ""
+    const sectionPath = joinPath([settingsRoot, groupLabel])
 
     entries.push({
       kind: "surface",
@@ -108,7 +133,8 @@ export function buildSearchIndex(
         ? t(`systemSettings.${sectionI18n}.description`, { defaultValue: "" })
         : "",
       route,
-      keywords: pathKeywords(sectionKey),
+      path: sectionPath,
+      keywords: `${pathKeywords(sectionKey)} ${sectionPath}`.toLowerCase(),
     })
 
     for (const field of section.fields ?? []) {
@@ -127,6 +153,9 @@ export function buildSearchIndex(
         route: `${route}?field=${encodeURIComponent(formFieldName(path))}`,
         keywords: pathKeywords(path),
         sectionTitle,
+        // The group heading carries the whole trail, so each field row does
+        // not have to repeat it.
+        sectionPath: joinPath([settingsRoot, sectionTitle]),
         sectionId: sectionKey,
       })
     }
@@ -158,7 +187,12 @@ export function scoreEntry(entry: SearchEntry, query: string): number {
 export interface SearchResults {
   surfaces: SurfaceEntry[]
   /** Field hits grouped under their section, in score order. */
-  fieldGroups: { sectionId: string; sectionTitle: string; fields: FieldEntry[] }[]
+  fieldGroups: {
+    sectionId: string
+    sectionTitle: string
+    sectionPath: string
+    fields: FieldEntry[]
+  }[]
 }
 
 const MAX_SURFACES = 8
@@ -184,11 +218,12 @@ export function searchSettings(
     .slice(0, MAX_FIELDS)
     .map((hit) => hit.entry as FieldEntry)
 
-  const groups = new Map<string, { sectionId: string; sectionTitle: string; fields: FieldEntry[] }>()
+  const groups = new Map<string, SearchResults["fieldGroups"][number]>()
   for (const field of fields) {
     const group = groups.get(field.sectionId) ?? {
       sectionId: field.sectionId,
       sectionTitle: field.sectionTitle,
+      sectionPath: field.sectionPath,
       fields: [],
     }
     group.fields.push(field)

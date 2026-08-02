@@ -239,7 +239,7 @@ export function NotificationOutboxPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("notifications.outboxTitle")}
         description={t("notifications.outboxSubtitle")}
@@ -257,6 +257,7 @@ export function NotificationOutboxPage() {
       />
 
       <DataTable
+        fillHeight
         tableId="notification-outbox"
         columns={columns}
         data={query.data?.messages ?? []}

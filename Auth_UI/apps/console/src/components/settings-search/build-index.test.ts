@@ -8,6 +8,11 @@ import { buildSearchIndex, pathKeywords, searchSettings } from "./build-index"
 const LABELS: Record<string, string> = {
   "systemSettings.password.title": "Password",
   "systemSettings.password.description": "Password rules and hashing.",
+  "systemSettings.groups.security": "Security",
+  "nav.systemSettings": "System Settings",
+  "nav.platform": "Platform",
+  "nav.profile": "Profile",
+  "nav.notifications": "Notifications",
   "systemSettings.password.minimumLength": "Minimum length",
   "systemSettings.password.minimumLengthHint":
     "The fewest characters a new password may have.",
@@ -75,6 +80,33 @@ describe("buildSearchIndex", () => {
       sectionTitle: "Password",
       route: "/admin/system-settings/Password?field=MinimumLength",
     })
+  })
+
+  it("tells same-named results apart by where they live", () => {
+    // "Sessions" is both a profile tab and a system-settings section. Without
+    // the trail the two rows are identical and there is no way to pick.
+    const sessionsSection: SystemSettingsSection = {
+      key: "Session",
+      group: "security",
+      editable: true,
+      fields: [],
+    } as SystemSettingsSection
+    const index = buildSearchIndex([sessionsSection], t, allow)
+
+    const profileTab = index.find((e) => e.id === "profile-sessions")
+    const settingsSection = index.find((e) => e.id === "section:Session")
+
+    expect(profileTab).toMatchObject({ title: "Sessions", path: "Profile" })
+    expect(settingsSection).toMatchObject({
+      path: "System Settings › Security",
+    })
+  })
+
+  it("heads each field group with the trail to its section", () => {
+    const index = buildSearchIndex(sections, t, allow)
+    const field = index.find((e) => e.id === "Password:MinimumLength")
+
+    expect(field).toMatchObject({ sectionPath: "System Settings › Password" })
   })
 
   it("omits surfaces the user has no permission for", () => {

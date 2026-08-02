@@ -2,11 +2,22 @@ import * as React from "react"
 
 import { cn } from "@authsystem/ui/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+function Table({
+  className,
+  containerClassName,
+  ...props
+}: React.ComponentProps<"table"> & {
+  /**
+   * Styles the scroll container rather than the table. Needed when the table
+   * has to scroll vertically inside a fixed-height page: the container is the
+   * scrolling element, so only it can be given a height and an overflow.
+   */
+  containerClassName?: string
+}) {
   return (
     <div
       data-slot="table-container"
-      className="relative w-full overflow-x-auto"
+      className={cn("relative w-full overflow-x-auto", containerClassName)}
     >
       <table
         data-slot="table"

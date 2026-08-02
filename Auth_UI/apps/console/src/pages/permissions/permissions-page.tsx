@@ -176,7 +176,7 @@ export function PermissionsPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("permissions.title")}
         description={t("permissions.subtitle")}
@@ -205,6 +205,7 @@ export function PermissionsPage() {
       </div>
 
       <DataTable
+        fillHeight
         tableId="permissions"
         globalSearch
         columns={columns}

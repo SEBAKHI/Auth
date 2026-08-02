@@ -100,7 +100,9 @@ export function SettingsSearch() {
           variant="outline"
           size="sm"
           aria-label={t("settingsSearch.label")}
-          className="w-48 justify-start text-muted-foreground lg:w-64"
+          // Reads as the search field it stands in for, so it carries the
+          // weight and colour of placeholder text rather than of a button.
+          className="w-48 justify-start font-normal text-muted-foreground lg:w-64"
         >
           <Search data-icon="inline-start" />
           <span className="truncate">{t("settingsSearch.placeholder")}</span>
@@ -136,8 +138,19 @@ export function SettingsSearch() {
                     value={entry.id}
                     onSelect={() => go(entry.route)}
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <span className="font-medium">{entry.title}</span>
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <div className="flex min-w-0 items-baseline gap-2">
+                        <span className="truncate font-medium">
+                          {entry.title}
+                        </span>
+                        {/* Two results can carry the same name; the trail is
+                            the only thing that says which one this is. */}
+                        {entry.path ? (
+                          <span className="ms-auto shrink-0 text-xs text-muted-foreground">
+                            {entry.path}
+                          </span>
+                        ) : null}
+                      </div>
                       {entry.description ? (
                         <span className="line-clamp-1 text-xs text-muted-foreground">
                           {entry.description}
@@ -157,7 +170,7 @@ export function SettingsSearch() {
                 and indented — a single option is not the same kind of result
                 as a whole page. */}
             {results.fieldGroups.map((group) => (
-              <CommandGroup key={group.sectionId} heading={group.sectionTitle}>
+              <CommandGroup key={group.sectionId} heading={group.sectionPath}>
                 {group.fields.map((field) => (
                   <CommandItem
                     key={field.id}

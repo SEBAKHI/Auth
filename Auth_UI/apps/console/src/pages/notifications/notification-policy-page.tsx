@@ -263,7 +263,7 @@ export function NotificationPolicyPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("notifications.policyTitle")}
         description={t("notifications.policySubtitle")}
@@ -280,6 +280,7 @@ export function NotificationPolicyPage() {
       <NotificationsTabs />
 
       <DataTable
+        fillHeight
         columns={columns}
         data={versionsQuery.data ?? []}
         isLoading={versionsQuery.isLoading}

@@ -109,7 +109,7 @@ export function NotificationLayoutsPage() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-h-0 flex-1 flex-col gap-6">
       <PageHeader
         title={t("notifications.layoutsTitle")}
         description={t("notifications.layoutsSubtitle")}
@@ -132,6 +132,7 @@ export function NotificationLayoutsPage() {
       />
 
       <DataTable
+        fillHeight
         tableId="notification-layouts"
         columns={columns}
         data={filtered}
