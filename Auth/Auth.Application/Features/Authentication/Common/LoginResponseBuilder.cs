@@ -1,8 +1,11 @@
+using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using RefreshTokenEntity = Auth.Domain.Entities.RefreshToken;
@@ -26,8 +29,11 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly IUserSessionRepository _sessionRepository;
     private readonly IIdpSessionRepository _idpSessionRepository;
+    private readonly IUserKnownDeviceRepository _knownDeviceRepository;
+    private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly IdentityProviderSettings _idpSettings;
+    private readonly NotificationSettings _notificationSettings;
     private readonly ILogger<LoginResponseBuilder> _logger;
 
     public LoginResponseBuilder(
@@ -41,8 +47,11 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         ILoginAttemptRepository loginAttemptRepository,
         IUserSessionRepository sessionRepository,
         IIdpSessionRepository idpSessionRepository,
+        IUserKnownDeviceRepository knownDeviceRepository,
+        IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
+        IOptionsSnapshot<NotificationSettings> notificationSettings,
         ILogger<LoginResponseBuilder> logger)
     {
         _roleRepository = roleRepository;
@@ -55,8 +64,11 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _loginAttemptRepository = loginAttemptRepository;
         _sessionRepository = sessionRepository;
         _idpSessionRepository = idpSessionRepository;
+        _knownDeviceRepository = knownDeviceRepository;
+        _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _idpSettings = idpSettings.Value;
+        _notificationSettings = notificationSettings.Value;
         _logger = logger;
     }
 
@@ -131,6 +143,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
                 null,                                        // terminatedAt
                 null);                                       // terminationReason
             await _sessionRepository.CreateAsync(session, cancellationToken);
+
+            await TrackDeviceAsync(user, ipAddress, deviceInfo, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -205,5 +219,80 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             RequiresTwoFactor = false,
             IdpSessionToken = idpSessionToken
         };
+    }
+
+    /// <summary>
+    /// Records the device this sign-in came from and, when it is one the user
+    /// has not been seen on before, raises the event that tells them so.
+    ///
+    /// Called from inside the session-tracking try/catch on purpose: every
+    /// successful sign-in passes through here — password, external provider,
+    /// two-factor completion, email verification, account recovery — and none
+    /// of them may fail because a notification could not be arranged.
+    /// </summary>
+    private async Task TrackDeviceAsync(
+        User user,
+        string? ipAddress,
+        string? deviceInfo,
+        CancellationToken cancellationToken)
+    {
+        if (!_notificationSettings.NewDeviceAlertEnabled)
+        {
+            return;
+        }
+
+        var (userAgent, deviceId) = AuthenticationHelper.ParseDeviceInfo(deviceInfo);
+        var parsed = UserAgentParser.Parse(userAgent);
+        var deviceHash = UserKnownDevice.ComputeHash(deviceId, parsed.Browser, parsed.Os);
+        var deviceName = parsed.Describe();
+
+        var known = await _knownDeviceRepository.GetAsync(user.Id, deviceHash, cancellationToken);
+        if (known is not null)
+        {
+            known.Touch(deviceName);
+            await _knownDeviceRepository.UpsertAsync(known, cancellationToken);
+            return;
+        }
+
+        // The user's very first device must not raise an alert: it would be
+        // reporting the sign-in they are performing right now, moments after
+        // registering, which reads as a compromise rather than a welcome.
+        var isFirstEver = !await _knownDeviceRepository.HasAnyAsync(user.Id, cancellationToken);
+
+        // Someone who clears site data every session presents a new signature
+        // every time; without a per-user floor that is one email per sign-in.
+        var lastAlertAt = isFirstEver
+            ? null
+            : await _knownDeviceRepository.GetLastAlertAtAsync(user.Id, cancellationToken);
+        var throttled = lastAlertAt.HasValue
+            && DateTime.UtcNow - lastAlertAt.Value < _notificationSettings.NewDeviceAlertMinInterval;
+
+        var alerting = !isFirstEver && !throttled;
+
+        // The insert decides: two concurrent sign-ins from the same new device
+        // both reach here, and only the one that actually created the row is
+        // the discovery.
+        var inserted = await _knownDeviceRepository.UpsertAsync(
+            UserKnownDevice.Create(
+                user.Id,
+                deviceHash,
+                deviceName,
+                alerting ? DateTime.UtcNow : null),
+            cancellationToken);
+
+        if (!alerting || !inserted)
+        {
+            return;
+        }
+
+        await _publisher.Publish(
+            new NewDeviceSignInEvent(
+                user.Id,
+                user.Email,
+                user.DisplayName ?? user.FirstName,
+                deviceName,
+                ipAddress,
+                DateTime.UtcNow),
+            cancellationToken);
     }
 }

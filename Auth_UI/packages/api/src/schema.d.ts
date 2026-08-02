@@ -11547,6 +11547,7 @@ export interface components {
             authorizationCode?: null | string;
             givenName?: null | string;
             familyName?: null | string;
+            deviceId?: null | string;
         };
         FileContentResult: {
             /** Format: byte */
@@ -12782,6 +12783,7 @@ export interface components {
             challengeToken: string;
             code: string;
             useRecoveryCode?: boolean;
+            deviceId?: null | string;
         };
         TwoFactorSetupResponse: {
             secret: string;

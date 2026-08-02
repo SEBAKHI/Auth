@@ -443,6 +443,10 @@ public class UserRepository : IUserRepository
             -- Client display state (table column layouts); no audit value
             DELETE FROM [dbo].[UserUiPreferences] WHERE [UserId] = @Id;
 
+            -- Recognised devices: a recognition aid, not part of the security
+            -- record (the sign-ins themselves survive in LoginAttempts)
+            DELETE FROM [dbo].[UserKnownDevices] WHERE [UserId] = @Id;
+
             -- Class B/C: the audit and login-attempt history is anonymized,
             -- never deleted — the security record survives with identity and
             -- PII payloads stripped.

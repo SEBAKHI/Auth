@@ -2,6 +2,7 @@
 import * as React from "react"
 
 import { api, SESSION_EXPIRED_EVENT } from "@authsystem/api/client"
+import { getDeviceId } from "@authsystem/api/device-id"
 import { claimToArray, decodeJwt } from "@authsystem/api/jwt"
 import {
   clearTokens,
@@ -212,7 +213,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = React.useCallback(
     async (email: string, password: string): Promise<LoginResult> => {
       const { data, error } = await api.POST("/api/v1/Auth/login", {
-        body: { email, password },
+        // deviceId only distinguishes this browser from another one for the
+        // new-device notice; it grants nothing.
+        body: { email, password, deviceId: getDeviceId() },
       })
       if (error || !data) {
         throw error ?? new Error("Login failed")
@@ -238,6 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           authorizationCode: extras?.authorizationCode,
           givenName: extras?.givenName,
           familyName: extras?.familyName,
+          deviceId: getDeviceId(),
         },
       })
       if (error || !data) {
@@ -299,7 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       useRecoveryCode: boolean
     ): Promise<{ requiresPasswordChange: boolean }> => {
       const { data, error } = await api.POST("/api/v1/auth/2fa/verify", {
-        body: { challengeToken, code, useRecoveryCode },
+        body: { challengeToken, code, useRecoveryCode, deviceId: getDeviceId() },
       })
       if (error || !data) {
         throw error ?? new Error("Two-factor verification failed")

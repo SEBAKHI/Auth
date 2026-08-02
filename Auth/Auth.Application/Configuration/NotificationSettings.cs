@@ -42,6 +42,20 @@ public class NotificationSettings
     /// </summary>
     public int StaleClaimMinutes { get; set; } = 5;
 
+    /// <summary>
+    /// Whether a sign-in from an unrecognised device emails the account owner.
+    /// </summary>
+    public bool NewDeviceAlertEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Shortest gap between two alerts for the same device. A genuinely new
+    /// device is new exactly once, so this only collapses a burst of concurrent
+    /// first sign-ins into a single email.
+    /// </summary>
+    public int NewDeviceAlertMinIntervalMinutes { get; set; } = 60;
+
     public TimeSpan PollInterval => TimeSpan.FromSeconds(PollIntervalSeconds);
     public TimeSpan StaleClaimAge => TimeSpan.FromMinutes(StaleClaimMinutes);
+    public TimeSpan NewDeviceAlertMinInterval =>
+        TimeSpan.FromMinutes(NewDeviceAlertMinIntervalMinutes);
 }

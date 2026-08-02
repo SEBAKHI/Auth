@@ -218,7 +218,9 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("PollIntervalSeconds", SettingKind.Int, Min: 5, Max: 3600, DefaultValue: 30),
                 new SettingFieldDefinition("BatchSize", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 20),
                 new SettingFieldDefinition("MaxAttempts", SettingKind.Int, Min: 1, Max: 20, DefaultValue: 5),
-                new SettingFieldDefinition("StaleClaimMinutes", SettingKind.Int, Min: 1, Max: 120, DefaultValue: 5)
+                new SettingFieldDefinition("StaleClaimMinutes", SettingKind.Int, Min: 1, Max: 120, DefaultValue: 5),
+                new SettingFieldDefinition("NewDeviceAlertEnabled", SettingKind.Bool, DefaultValue: true),
+                new SettingFieldDefinition("NewDeviceAlertMinIntervalMinutes", SettingKind.Int, Min: 0, Max: 10080, DefaultValue: 60)
             ]),
 
         new SettingSectionDefinition(
