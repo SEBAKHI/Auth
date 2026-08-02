@@ -82,6 +82,7 @@ export const zh: TranslationResources = {
     showing: "显示 {{count}} / {{total}}",
     columns: "列",
     toggleColumns: "切换列显示",
+    resizeColumn: "调整列宽：{{column}}",
     sortAscending: "升序排列",
     sortDescending: "降序排列",
     reset: "重置",

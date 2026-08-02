@@ -4,9 +4,12 @@ import { Download, X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@authsystem/ui/button"
-import { Input } from "@authsystem/ui/input"
+import { SearchInput } from "@authsystem/ui/common/search-input"
 import { DataTableFacetedFilter } from "./data-table-faceted-filter"
-import { DataTableViewOptions } from "./data-table-view-options"
+import {
+  DataTableViewOptions,
+  getHideableColumns,
+} from "./data-table-view-options"
 import { Spinner } from "@authsystem/ui/spinner"
 
 interface DataTableToolbarProps<TData> {
@@ -49,9 +52,7 @@ export function DataTableToolbar<TData>({
     .getAllColumns()
     .filter((column) => column.getCanFilter() && column.columnDef.meta?.filterVariant === "faceted")
 
-  const hideableColumns = table
-    .getAllColumns()
-    .filter((column) => typeof column.accessorFn !== "undefined" && column.getCanHide())
+  const hideableColumns = getHideableColumns(table)
 
   const isFiltered =
     table.getState().columnFilters.length > 0 ||
@@ -71,11 +72,11 @@ export function DataTableToolbar<TData>({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {globalSearch ? (
-        <Input
+        <SearchInput
           value={(table.getState().globalFilter as string) ?? ""}
-          onChange={(event) => table.setGlobalFilter(event.target.value)}
-          placeholder={searchPlaceholder ?? t("common.search")}
-          className="h-8 w-40 lg:w-56"
+          onChange={(value) => table.setGlobalFilter(value)}
+          placeholder={searchPlaceholder}
+          className="w-40 lg:w-56"
         />
       ) : null}
 

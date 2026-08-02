@@ -77,6 +77,7 @@ export const en = {
     showing: "Showing {{count}} of {{total}}",
     columns: "Columns",
     toggleColumns: "Toggle columns",
+    resizeColumn: "Resize column {{column}}",
     sortAscending: "Sort ascending",
     sortDescending: "Sort descending",
     reset: "Reset",

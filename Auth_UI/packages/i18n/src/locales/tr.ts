@@ -82,6 +82,7 @@ export const tr: TranslationResources = {
     showing: "{{count}} / {{total}} gösteriliyor",
     columns: "Sütunlar",
     toggleColumns: "Sütunları aç/kapat",
+    resizeColumn: "{{column}} sütununu yeniden boyutlandır",
     sortAscending: "Artan sırala",
     sortDescending: "Azalan sırala",
     reset: "Sıfırla",

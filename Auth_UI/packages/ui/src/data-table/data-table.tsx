@@ -16,11 +16,27 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, ChevronsUpDown } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsUpDown,
+  Inbox,
+  TriangleAlert,
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
 import { Button } from "@authsystem/ui/button"
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@authsystem/ui/empty"
 import {
   Select,
   SelectContent,
@@ -50,6 +66,16 @@ import { DataTableToolbar } from "./data-table-toolbar"
 import "./types"
 
 const PAGE_SIZES = [10, 20, 50, 100]
+
+/**
+ * Column-width bounds and keyboard resize steps, in pixels. The maximum keeps a
+ * dragged column from pushing every other one out of the viewport; the steps
+ * mirror the usual grid convention of a fine nudge plus a coarse one on Shift.
+ */
+const MIN_COLUMN_WIDTH = 60
+const MAX_COLUMN_WIDTH = 800
+const RESIZE_STEP = 8
+const RESIZE_STEP_LARGE = 32
 
 export interface DataTablePagination {
   pageIndex: number
@@ -131,6 +157,23 @@ function readPersistedSizing(tableId?: string): ColumnSizingState {
 }
 
 /**
+ * Drops entries that match what the table would do anyway, so the persisted
+ * blob stays proportional to the user's actual choices. Without it every toggle
+ * rewrites the whole auto-discovered set, and the stored object gains an entry
+ * for every field the API ever adds to its response — permanently.
+ */
+function pruneVisibility(
+  visibility: VisibilityState,
+  defaults: VisibilityState
+): VisibilityState {
+  const pruned: VisibilityState = {}
+  for (const [id, visible] of Object.entries(visibility)) {
+    if (visible !== (defaults[id] ?? true)) pruned[id] = visible
+  }
+  return pruned
+}
+
+/**
  * Header cell that toggles sorting; used only for columns that can sort. The
  * visible column title stays the accessible name; sort state is announced via
  * `aria-sort` on the parent `<th>`.
@@ -187,6 +230,8 @@ export function DataTable<TData>({
   onSortingChange: onControlledSortingChange,
 }: DataTableProps<TData>) {
   const { t, i18n } = useTranslation()
+  const direction = directionForLanguage(i18n.language)
+  const isRtl = direction === "rtl"
 
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -199,15 +244,6 @@ export function DataTable<TData>({
   )
   const [detailRow, setDetailRow] = React.useState<TData | null>(null)
   const [isExporting, setIsExporting] = React.useState(false)
-
-  React.useEffect(() => {
-    if (!tableId || typeof window === "undefined") return
-    try {
-      window.localStorage.setItem(`dt:cols:${tableId}`, JSON.stringify(columnVisibility))
-    } catch {
-      // Ignore storage failures (private mode / quota); visibility stays in-memory.
-    }
-  }, [tableId, columnVisibility])
 
   React.useEffect(() => {
     if (!tableId || typeof window === "undefined") return
@@ -264,6 +300,20 @@ export function DataTable<TData>({
     [autoHiddenDefaults, columnVisibility]
   )
 
+  // Persisted after `autoHiddenDefaults` exists, so only genuine departures
+  // from the default are written (see `pruneVisibility`).
+  React.useEffect(() => {
+    if (!tableId || typeof window === "undefined") return
+    try {
+      window.localStorage.setItem(
+        `dt:cols:${tableId}`,
+        JSON.stringify(pruneVisibility(columnVisibility, autoHiddenDefaults))
+      )
+    } catch {
+      // Ignore storage failures (private mode / quota); visibility stays in-memory.
+    }
+  }, [tableId, columnVisibility, autoHiddenDefaults])
+
   const table = useReactTable({
     data,
     columns: effectiveColumns,
@@ -289,8 +339,8 @@ export function DataTable<TData>({
     // i18next's `resolvedLanguage`, which is not the active language on a cold
     // load (see `initI18n`). An `ltr` value here against an RTL table flips
     // TanStack's delta sign and the column resizes away from the cursor.
-    columnResizeDirection: directionForLanguage(i18n.language),
-    defaultColumn: { minSize: 60 },
+    columnResizeDirection: direction,
+    defaultColumn: { minSize: MIN_COLUMN_WIDTH, maxSize: MAX_COLUMN_WIDTH },
     onColumnSizingChange: setColumnSizing,
     manualPagination: Boolean(pagination),
     pageCount: pagination ? Math.max(pagination.pageCount, 1) : undefined,
@@ -314,56 +364,117 @@ export function DataTable<TData>({
   const visibleColumnCount = table.getVisibleLeafColumns().length
   const rows = table.getRowModel().rows
 
-  // TanStack measures a drag against the column's current size, which is the
+  // Auto-discovered columns only exist once a row has arrived, so the skeleton
+  // would otherwise render fewer columns than the loaded grid and the layout
+  // would jump on every refetch. Remember the last real width instead.
+  const lastColumnCountRef = React.useRef(visibleColumnCount)
+  React.useEffect(() => {
+    if (!isLoading && visibleColumnCount > 0) {
+      lastColumnCountRef.current = visibleColumnCount
+    }
+  }, [isLoading, visibleColumnCount])
+  const skeletonColumnCount = Math.max(
+    visibleColumnCount,
+    lastColumnCountRef.current
+  )
+
+  // TanStack measures a resize against the column's current size, which is the
   // built-in default for columns that were never resized (their widths are
   // content-driven until then). Seed the real rendered width into the sizing
-  // state synchronously so the drag starts from what the user actually sees.
+  // state synchronously so the gesture starts from what the user actually sees,
+  // and so `aria-valuenow` reports a real number rather than that default.
+  const seedWidth = React.useCallback(
+    (element: HTMLElement | null, columnId: string): number | undefined => {
+      const existing = columnSizing[columnId]
+      if (existing != null) return existing
+      const headCell = element?.closest("th")
+      if (!headCell) return undefined
+      const width = Math.round(headCell.getBoundingClientRect().width)
+      flushSync(() => {
+        setColumnSizing((prev) => ({ ...prev, [columnId]: width }))
+      })
+      return width
+    },
+    [columnSizing]
+  )
+
   const beginResize = React.useCallback(
     (
       event: React.MouseEvent | React.TouchEvent,
       header: Header<TData, unknown>
     ) => {
       event.stopPropagation()
-      const headCell = (event.currentTarget as HTMLElement).closest("th")
-      const columnId = header.column.id
-      if (headCell && columnSizing[columnId] == null) {
-        const width = Math.round(headCell.getBoundingClientRect().width)
-        flushSync(() => {
-          setColumnSizing((prev) => ({ ...prev, [columnId]: width }))
-        })
-      }
+      seedWidth(event.currentTarget as HTMLElement, header.column.id)
       header.getResizeHandler()(event)
     },
-    [columnSizing]
+    [seedWidth]
+  )
+
+  // The pointer gesture has a keyboard equivalent: a focusable separator that
+  // does not respond to arrow keys is unreachable for anyone not using a mouse.
+  const resizeByKeyboard = React.useCallback(
+    (event: React.KeyboardEvent, header: Header<TData, unknown>) => {
+      if (event.key === "Home") {
+        event.preventDefault()
+        header.column.resetSize()
+        return
+      }
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+      event.preventDefault()
+
+      const current = seedWidth(
+        event.currentTarget as HTMLElement,
+        header.column.id
+      )
+      if (current == null) return
+
+      // The handle sits at the column's inline end, so the key that widens is
+      // the one pointing away from the column: Right in LTR, Left in RTL.
+      const widens = isRtl ? event.key === "ArrowLeft" : event.key === "ArrowRight"
+      const step = event.shiftKey ? RESIZE_STEP_LARGE : RESIZE_STEP
+      const min = header.column.columnDef.minSize ?? MIN_COLUMN_WIDTH
+      const max = header.column.columnDef.maxSize ?? MAX_COLUMN_WIDTH
+      const next = Math.min(
+        max,
+        Math.max(min, current + (widens ? step : -step))
+      )
+      setColumnSizing((prev) => ({ ...prev, [header.column.id]: next }))
+    },
+    [isRtl, seedWidth]
   )
 
   // Field name → localized label, sourced from the same column definitions the
-  // grid uses, so the detail panel reuses the page's translated headers.
+  // grid uses, so the detail panel reuses the page's translated headers. Derived
+  // from `effectiveColumns` rather than `table.getAllLeafColumns()`: the table
+  // instance is rebuilt every render and so cannot be a dependency, which is
+  // what the silenced exhaustive-deps warning used to hide.
   const detailLabelMap = React.useMemo(() => {
     const map: Record<string, string> = {}
-    for (const column of table.getAllLeafColumns()) {
-      if (column.id === "actions") continue
-      const def = column.columnDef as { accessorKey?: string; header?: unknown }
-      const key = def.accessorKey ?? column.id
-      const label =
-        column.columnDef.meta?.label ??
-        (typeof def.header === "string" ? def.header : humanizeKey(column.id))
-      map[key] = label
+    for (const column of effectiveColumns) {
+      const def = column as {
+        id?: string
+        accessorKey?: string
+        header?: unknown
+      }
+      const key = def.accessorKey ?? def.id
+      if (!key || key === "actions") continue
+      map[key] =
+        column.meta?.label ??
+        (typeof def.header === "string" ? def.header : humanizeKey(key))
     }
     return map
-    // built.columns drives the leaf set; recompute when columns or locale change.
-  }, [built, t]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [effectiveColumns])
 
   const detailHiddenKeys = React.useMemo(
     () =>
-      table
-        .getAllLeafColumns()
-        .filter((column) => column.columnDef.meta?.detailHidden)
+      effectiveColumns
+        .filter((column) => column.meta?.detailHidden)
         .map((column) => {
-          const def = column.columnDef as { accessorKey?: string }
-          return def.accessorKey ?? column.id
-        }),
-    [built] // eslint-disable-line react-hooks/exhaustive-deps
+          const def = column as { id?: string; accessorKey?: string }
+          return def.accessorKey ?? def.id ?? ""
+        })
+        .filter(Boolean),
+    [effectiveColumns]
   )
 
   const exportDisabled = data.length === 0 && !onExportAll
@@ -448,14 +559,33 @@ export function DataTable<TData>({
                         <div
                           role="separator"
                           aria-orientation="vertical"
+                          // Focusable and arrow-driven: a separator that only
+                          // answers to a pointer is invisible to keyboard use.
+                          tabIndex={0}
+                          aria-label={t("common.resizeColumn", {
+                            column:
+                              header.column.columnDef.meta?.label ??
+                              humanizeKey(header.column.id),
+                          })}
+                          aria-valuenow={columnSizing[header.column.id]}
+                          aria-valuemin={
+                            header.column.columnDef.minSize ?? MIN_COLUMN_WIDTH
+                          }
+                          aria-valuemax={
+                            header.column.columnDef.maxSize ?? MAX_COLUMN_WIDTH
+                          }
                           onMouseDown={(event) => beginResize(event, header)}
                           onTouchStart={(event) => beginResize(event, header)}
                           onDoubleClick={() => header.column.resetSize()}
+                          onFocus={(event) =>
+                            seedWidth(event.currentTarget, header.column.id)
+                          }
+                          onKeyDown={(event) => resizeByKeyboard(event, header)}
                           className={cn(
-                            "absolute inset-y-0 end-0 z-10 w-1.5 cursor-col-resize touch-none select-none",
+                            "absolute inset-y-0 end-0 z-10 w-1.5 cursor-col-resize touch-none select-none outline-none",
                             header.column.getIsResizing()
                               ? "bg-primary/50"
-                              : "hover:bg-border"
+                              : "hover:bg-border focus-visible:bg-primary"
                           )}
                         />
                       ) : null}
@@ -469,7 +599,7 @@ export function DataTable<TData>({
             {isLoading ? (
               Array.from({ length: 6 }).map((_, rowIdx) => (
                 <TableRow key={`skeleton-${rowIdx}`}>
-                  {Array.from({ length: visibleColumnCount }).map((__, cellIdx) => (
+                  {Array.from({ length: skeletonColumnCount }).map((__, cellIdx) => (
                     <TableCell key={`skeleton-${rowIdx}-${cellIdx}`}>
                       <Skeleton className="h-5 w-full" />
                     </TableCell>
@@ -478,26 +608,40 @@ export function DataTable<TData>({
               ))
             ) : error ? (
               <TableRow>
-                <TableCell colSpan={visibleColumnCount} className="h-32 text-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <p className="text-sm text-muted-foreground">
-                      {getErrorMessage(error, t("common.error"))}
-                    </p>
+                <TableCell colSpan={visibleColumnCount}>
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <TriangleAlert />
+                      </EmptyMedia>
+                      <EmptyTitle>{t("common.error")}</EmptyTitle>
+                      <EmptyDescription>
+                        {getErrorMessage(error, t("common.error"))}
+                      </EmptyDescription>
+                    </EmptyHeader>
                     {onRetry ? (
-                      <Button variant="outline" size="sm" onClick={onRetry}>
-                        {t("common.retry")}
-                      </Button>
+                      <EmptyContent>
+                        <Button variant="outline" size="sm" onClick={onRetry}>
+                          {t("common.retry")}
+                        </Button>
+                      </EmptyContent>
                     ) : null}
-                  </div>
+                  </Empty>
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
-                <TableCell
-                  colSpan={visibleColumnCount}
-                  className="h-32 text-center text-sm text-muted-foreground"
-                >
-                  {emptyMessage ?? t("common.noResults")}
+                <TableCell colSpan={visibleColumnCount}>
+                  <Empty>
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <Inbox />
+                      </EmptyMedia>
+                      <EmptyTitle>
+                        {emptyMessage ?? t("common.noResults")}
+                      </EmptyTitle>
+                    </EmptyHeader>
+                  </Empty>
                 </TableCell>
               </TableRow>
             ) : (
@@ -536,11 +680,7 @@ export function DataTable<TData>({
                         // Cells are whitespace-nowrap; the explicit max width
                         // is what lets a narrowed column truncate instead of
                         // forcing the table wider.
-                        className={
-                          resizedWidth != null
-                            ? "overflow-hidden text-ellipsis"
-                            : undefined
-                        }
+                        className={resizedWidth != null ? "truncate" : undefined}
                         style={
                           resizedWidth != null
                             ? {

@@ -28,6 +28,34 @@ function nameColumnOrder(): string[] {
   return rows.map((row) => within(row).getAllByRole("cell")[0].textContent ?? "")
 }
 
+/**
+ * jsdom here ships no Storage implementation, so the persistence paths need a
+ * stand-in before a table with a `tableId` is rendered.
+ */
+function stubLocalStorage(): Map<string, string> {
+  const store = new Map<string, string>()
+  const mock: Storage = {
+    getItem: (key) => store.get(key) ?? null,
+    setItem: (key, value) => {
+      store.set(key, String(value))
+    },
+    removeItem: (key) => {
+      store.delete(key)
+    },
+    clear: () => store.clear(),
+    key: (index) => Array.from(store.keys())[index] ?? null,
+    get length() {
+      return store.size
+    },
+  }
+  Object.defineProperty(window, "localStorage", {
+    value: mock,
+    configurable: true,
+    writable: true,
+  })
+  return store
+}
+
 describe("DataTable", () => {
   it("renders every row", () => {
     render(<DataTable columns={columns} data={data} />)
@@ -109,6 +137,50 @@ describe("DataTable", () => {
     // The page owns the state: callback fired, local order untouched.
     expect(onSortingChange).toHaveBeenCalledWith([{ id: "name", desc: false }])
     expect(nameColumnOrder()).toEqual(["Charlie", "Alice", "Bob"])
+  })
+
+  it("lets the keyboard drive the column resize handle", async () => {
+    const user = userEvent.setup()
+    render(<DataTable columns={columns} data={data} />)
+
+    const handle = screen.getAllByRole("separator")[0]
+    expect(handle).toHaveAttribute("tabindex", "0")
+    expect(handle).toHaveAccessibleName(/name/i)
+
+    const head = screen.getAllByRole("columnheader")[0]
+    expect(head.style.width).toBe("")
+
+    handle.focus()
+    await user.keyboard("{ArrowRight}")
+    expect(head.style.width).not.toBe("")
+
+    await user.keyboard("{Home}")
+    expect(head.style.width).toBe("")
+  })
+
+  it("persists only the visibility choices that differ from the default", async () => {
+    const store = stubLocalStorage()
+    const user = userEvent.setup()
+    // Two fields beyond the curated columns, so both arrive as auto-discovered
+    // columns that are hidden by default.
+    const rows = [{ name: "Charlie", age: 30, email: "c@x.com", city: "Cairo" }]
+
+    render(
+      <DataTable
+        columns={columns as ColumnDef<(typeof rows)[number], unknown>[]}
+        data={rows}
+        tableId="prune"
+      />
+    )
+
+    await user.click(screen.getByRole("button", { name: /columns/i }))
+    await user.click(screen.getByRole("menuitemcheckbox", { name: "Email" }))
+
+    // "city" stays hidden, which is already the default, so it must not be
+    // written — otherwise the blob grows by one entry per API field forever.
+    expect(JSON.parse(store.get("dt:cols:prune") ?? "{}")).toEqual({
+      email: true,
+    })
   })
 
   it("renders an export button that downloads the in-memory rows", async () => {

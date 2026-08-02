@@ -7,6 +7,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -14,6 +15,19 @@ import {
 
 interface DataTableViewOptionsProps<TData> {
   table: Table<TData>
+}
+
+/**
+ * The columns a user may hide. Exported so the toolbar can decide whether it has
+ * anything to render without duplicating the rule.
+ */
+export function getHideableColumns<TData>(table: Table<TData>) {
+  return table
+    .getAllColumns()
+    .filter(
+      (column) =>
+        typeof column.accessorFn !== "undefined" && column.getCanHide()
+    )
 }
 
 /**
@@ -27,21 +41,14 @@ export function DataTableViewOptions<TData>({
 }: DataTableViewOptionsProps<TData>) {
   const { t } = useTranslation()
 
-  const hideableColumns = table
-    .getAllColumns()
-    .filter((column) => typeof column.accessorFn !== "undefined" && column.getCanHide())
+  const hideableColumns = getHideableColumns(table)
 
   if (hideableColumns.length === 0) return null
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="ms-auto"
-          aria-label={t("common.toggleColumns")}
-        >
+        <Button variant="outline" size="sm" aria-label={t("common.toggleColumns")}>
           <SlidersHorizontal data-icon="inline-start" />
           <span className="hidden sm:inline">{t("common.columns")}</span>
         </Button>
@@ -49,17 +56,18 @@ export function DataTableViewOptions<TData>({
       <DropdownMenuContent align="end" className="w-44">
         <DropdownMenuLabel>{t("common.toggleColumns")}</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {hideableColumns.map((column) => (
-          <DropdownMenuCheckboxItem
-            key={column.id}
-            className="capitalize"
-            checked={column.getIsVisible()}
-            onCheckedChange={(value) => column.toggleVisibility(!!value)}
-            onSelect={(event) => event.preventDefault()}
-          >
-            {column.columnDef.meta?.label ?? column.id}
-          </DropdownMenuCheckboxItem>
-        ))}
+        <DropdownMenuGroup>
+          {hideableColumns.map((column) => (
+            <DropdownMenuCheckboxItem
+              key={column.id}
+              checked={column.getIsVisible()}
+              onCheckedChange={(value) => column.toggleVisibility(!!value)}
+              onSelect={(event) => event.preventDefault()}
+            >
+              {column.columnDef.meta?.label ?? column.id}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

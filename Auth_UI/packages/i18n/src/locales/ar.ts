@@ -82,6 +82,7 @@ export const ar: TranslationResources = {
     showing: "عرض {{count}} من {{total}}",
     columns: "الأعمدة",
     toggleColumns: "إظهار/إخفاء الأعمدة",
+    resizeColumn: "تغيير عرض العمود {{column}}",
     sortAscending: "ترتيب تصاعدي",
     sortDescending: "ترتيب تنازلي",
     reset: "إعادة تعيين",

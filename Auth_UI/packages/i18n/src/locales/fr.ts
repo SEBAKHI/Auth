@@ -82,6 +82,7 @@ export const fr: TranslationResources = {
     showing: "Affichage de {{count}} sur {{total}}",
     columns: "Colonnes",
     toggleColumns: "Afficher/masquer les colonnes",
+    resizeColumn: "Redimensionner la colonne {{column}}",
     sortAscending: "Tri croissant",
     sortDescending: "Tri décroissant",
     reset: "Réinitialiser",

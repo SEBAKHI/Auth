@@ -82,6 +82,7 @@ export const ur: TranslationResources = {
     showing: "{{total}} میں سے {{count}} دکھائے جا رہے ہیں",
     columns: "کالم",
     toggleColumns: "کالم دکھائیں/چھپائیں",
+    resizeColumn: "کالم {{column}} کی چوڑائی تبدیل کریں",
     sortAscending: "صعودی ترتیب",
     sortDescending: "نزولی ترتیب",
     reset: "دوبارہ ترتیب دیں",

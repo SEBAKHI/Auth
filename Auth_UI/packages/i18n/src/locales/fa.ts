@@ -82,6 +82,7 @@ export const fa: TranslationResources = {
     showing: "نمایش {{count}} از {{total}}",
     columns: "ستون‌ها",
     toggleColumns: "نمایش/پنهان‌سازی ستون‌ها",
+    resizeColumn: "تغییر عرض ستون {{column}}",
     sortAscending: "مرتب‌سازی صعودی",
     sortDescending: "مرتب‌سازی نزولی",
     reset: "بازنشانی",
