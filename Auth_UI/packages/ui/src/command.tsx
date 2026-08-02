@@ -209,10 +209,21 @@ function CommandItem({
         // own, so a caller can still colour one deliberately.
         "[&_svg:not([class*='text-'])]:text-muted-foreground",
         // The active row is marked twice — tint plus a bar at the inline start
-        // — because a tint alone carries the state in colour only, and the tint
-        // is faint by design. `start-0` lands on the right edge under RTL with
-        // no override. The item is already `relative`, so nothing reflows.
-        "data-selected:before:absolute data-selected:before:inset-y-2 data-selected:before:start-0 data-selected:before:w-0.5 data-selected:before:rounded-full data-selected:before:bg-primary",
+        // — because `--muted` against `--background` is barely one to one, so
+        // the tint cannot carry the state on its own.
+        //
+        // The bar is a fixed 16px, centred: a length derived from the row would
+        // make the marker report how tall the row is rather than that it is
+        // selected, and a row whose radius clamps to half its height (every
+        // single-line row in the dialog) would get no marker at all.
+        //
+        // What keeps it clear of the rounded corner is the 4px inline inset,
+        // not the length. 4px wide rather than 2px because a 2px line lands on
+        // fractional device pixels at the fractional display scales Windows
+        // ships by default, and the colour fringe that produces is then half
+        // the width of the mark — which is what reads as a blue tint on a mark
+        // that has no chroma at all. `start-*` needs no RTL override.
+        "data-selected:before:absolute data-selected:before:start-1 data-selected:before:top-1/2 data-selected:before:-mt-2 data-selected:before:h-4 data-selected:before:w-1 data-selected:before:rounded-full data-selected:before:bg-foreground",
         className
       )}
       {...props}
