@@ -214,7 +214,7 @@ public static class SystemSettingsRegistry
             Editable: true,
             Fields:
             [
-                new SettingFieldDefinition("UseOutbox", SettingKind.Bool, DefaultValue: false),
+                new SettingFieldDefinition("UseOutbox", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("PollIntervalSeconds", SettingKind.Int, Min: 5, Max: 3600, DefaultValue: 30),
                 new SettingFieldDefinition("BatchSize", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 20),
                 new SettingFieldDefinition("MaxAttempts", SettingKind.Int, Min: 1, Max: 20, DefaultValue: 5),
