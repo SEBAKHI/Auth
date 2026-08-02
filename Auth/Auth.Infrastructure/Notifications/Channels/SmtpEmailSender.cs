@@ -55,6 +55,19 @@ public class SmtpEmailSender
 
             if (!string.IsNullOrEmpty(settings.Username))
             {
+                // A configured username with no password is a misconfiguration, not a transient
+                // failure. MailKit rejects a null password, and that exception would be swallowed
+                // by the catch below and reported as a generic "Failed to send email".
+                if (string.IsNullOrEmpty(settings.Password))
+                {
+                    _logger.LogError(
+                        "SMTP is misconfigured: username '{Username}' is set but no password is configured. " +
+                        "Set the 'Email:Password' configuration key. Email to {Email} was not sent.",
+                        settings.Username,
+                        toEmail);
+                    return false;
+                }
+
                 await client.AuthenticateAsync(settings.Username, settings.Password, cancellationToken);
             }
 

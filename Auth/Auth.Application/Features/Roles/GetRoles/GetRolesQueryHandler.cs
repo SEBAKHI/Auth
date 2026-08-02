@@ -78,7 +78,7 @@ public class GetRolesQueryHandler : IRequestHandler<GetRolesQuery, ErrorOr<IRead
                 ModifiedByName = role.ModifiedBy.HasValue
                     ? userNames.GetValueOrDefault(role.ModifiedBy.Value)
                     : null,
-                Permissions = permissions.Select(p => (string)p.Code).ToList()
+                Permissions = permissions.Select(p => p.Code.Value).ToList()
             });
         }
 

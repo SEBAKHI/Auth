@@ -63,7 +63,7 @@ public class GetRoleByIdQueryHandler : IRequestHandler<GetRoleByIdQuery, ErrorOr
             ModifiedByName = role.ModifiedBy.HasValue
                 ? userNames.GetValueOrDefault(role.ModifiedBy.Value)
                 : null,
-            Permissions = permissions.Select(p => (string)p.Code).ToList()
+            Permissions = permissions.Select(p => p.Code.Value).ToList()
         };
     }
 }

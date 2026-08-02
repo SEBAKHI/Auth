@@ -89,7 +89,7 @@ public class GetOrganizationMembersQueryHandler : IRequestHandler<GetOrganizatio
                 Id = member.Id,
                 OrganizationId = member.OrganizationId,
                 UserId = member.UserId,
-                Email = user?.Email ?? string.Empty,
+                Email = user?.Email?.Value ?? string.Empty,
                 FirstName = user?.FirstName,
                 LastName = user?.LastName,
                 FullName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : null,

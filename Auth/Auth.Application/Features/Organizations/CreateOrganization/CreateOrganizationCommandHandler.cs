@@ -90,7 +90,7 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
             ContactEmail = organization.ContactEmail,
             OwnerId = organization.OwnerId,
             OwnerName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : null,
-            OwnerEmail = user?.Email,
+            OwnerEmail = user?.Email?.Value,
             IsActive = organization.IsActive,
             MemberCount = 1,
             EnabledAppCount = 0,

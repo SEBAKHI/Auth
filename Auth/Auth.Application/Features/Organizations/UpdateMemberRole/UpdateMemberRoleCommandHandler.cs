@@ -105,7 +105,7 @@ public class UpdateMemberRoleCommandHandler : IRequestHandler<UpdateMemberRoleCo
             Id = membership.Id,
             OrganizationId = membership.OrganizationId,
             UserId = membership.UserId,
-            Email = user?.Email ?? string.Empty,
+            Email = user?.Email?.Value ?? string.Empty,
             FirstName = user?.FirstName,
             LastName = user?.LastName,
             FullName = user != null ? $"{user.FirstName} {user.LastName}".Trim() : null,

@@ -63,7 +63,7 @@ public class UpdateRoleCommandHandler : IRequestHandler<UpdateRoleCommand, Error
             IsActive = role.IsActive,
             CreatedAt = role.CreatedAt,
             ModifiedAt = role.ModifiedAt,
-            Permissions = permissions.Select(p => (string)p.Code).ToList()
+            Permissions = permissions.Select(p => p.Code.Value).ToList()
         };
     }
 }

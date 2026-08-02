@@ -84,7 +84,7 @@ public class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrganizati
             ContactEmail = organization.ContactEmail,
             OwnerId = organization.OwnerId,
             OwnerName = owner != null ? $"{owner.FirstName} {owner.LastName}".Trim() : null,
-            OwnerEmail = owner?.Email,
+            OwnerEmail = owner?.Email?.Value,
             IsActive = organization.IsActive,
             MemberCount = members.Count,
             EnabledAppCount = apps.Count,

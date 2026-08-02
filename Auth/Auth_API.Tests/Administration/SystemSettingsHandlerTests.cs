@@ -579,7 +579,7 @@ public class ResetSystemSettingsCommandHandlerTests
     /// reset would fall back to.
     /// </summary>
     private ResetSystemSettingsCommandHandler HandlerWithFileLayer(
-        params (string Key, string Value)[] fileLayer)
+        params (string Key, string? Value)[] fileLayer)
     {
         var configuration = SystemSettingsTestSupport.BuildConfiguration(fileLayer);
         return new ResetSystemSettingsCommandHandler(

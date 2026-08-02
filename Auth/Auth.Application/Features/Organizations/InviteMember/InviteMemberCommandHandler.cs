@@ -189,7 +189,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             IsExpired = invitation.IsExpired(),
             InvitedBy = invitation.InvitedBy,
             InvitedByName = inviter != null ? $"{inviter.FirstName} {inviter.LastName}".Trim() : null,
-            InvitedByEmail = inviter?.Email,
+            InvitedByEmail = inviter?.Email?.Value,
             AcceptedAt = invitation.AcceptedAt,
             AcceptedByUserId = invitation.AcceptedByUserId,
             CreatedAt = invitation.CreatedAt

@@ -1,0 +1,21 @@
+<Project>
+
+  <!--
+    Nullable-reference warnings are treated as build errors.
+
+    Rationale: a single over-broad implicit conversion operator once produced 150 nullable
+    warnings across the solution, and a genuine null-dereference defect in SmtpEmailSender
+    sat hidden among them. Escalating these specific codes keeps that signal from being
+    buried again.
+
+    Scope is deliberately narrow — only the nullable-flow codes are escalated. Unrelated
+    warnings (ASP0000, NU1510, CS0618, ...) still surface as warnings and never break a build.
+
+    The Condition excludes Auth_DB.sqlproj, which is an SSDT project compiled by a separate
+    .NET Framework toolchain that does not share these diagnostics.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
+    <WarningsAsErrors>$(WarningsAsErrors);CS8600;CS8601;CS8602;CS8603;CS8604;CS8618;CS8619;CS8620;CS8625</WarningsAsErrors>
+  </PropertyGroup>
+
+</Project>

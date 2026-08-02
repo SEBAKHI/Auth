@@ -102,7 +102,12 @@ public sealed partial class PermissionCode : IEquatable<PermissionCode>
         return (byte)(code.Count(c => c == ':') + 1);
     }
 
-    public static implicit operator string?(PermissionCode? code) => code?.Value;
+    /// <summary>
+    /// Converts a non-null PermissionCode to its underlying string value.
+    /// A non-null PermissionCode always carries a non-null <see cref="Value"/>; use <c>?.Value</c>
+    /// when the PermissionCode reference itself may be null.
+    /// </summary>
+    public static implicit operator string(PermissionCode code) => code.Value;
 
     public bool Equals(PermissionCode? other) => other is not null && string.Equals(Value, other.Value, StringComparison.Ordinal);
     public override bool Equals(object? obj) => obj is PermissionCode other && Equals(other);

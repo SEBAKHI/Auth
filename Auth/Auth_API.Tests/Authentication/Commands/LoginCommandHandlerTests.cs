@@ -92,11 +92,11 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
-            .Setup(h => h.NeedsRehash(user.PasswordHash))
+            .Setup(h => h.NeedsRehash(user.PasswordHash!))
             .Returns(false);
 
         _loginResponseBuilderMock
@@ -264,11 +264,11 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(unlockedUser);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Password, unlockedUser.PasswordHash))
+            .Setup(h => h.VerifyPassword(command.Password, unlockedUser.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
-            .Setup(h => h.NeedsRehash(unlockedUser.PasswordHash))
+            .Setup(h => h.NeedsRehash(unlockedUser.PasswordHash!))
             .Returns(false);
 
         _loginResponseBuilderMock
@@ -344,7 +344,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("WrongPassword!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("WrongPassword!", user.PasswordHash!))
             .Returns(false);
 
         // Act
@@ -379,7 +379,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!))
             .Returns(true);
 
         // Act
@@ -403,11 +403,11 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
-            .Setup(h => h.NeedsRehash(user.PasswordHash))
+            .Setup(h => h.NeedsRehash(user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
@@ -442,11 +442,11 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
-            .Setup(h => h.NeedsRehash(user.PasswordHash))
+            .Setup(h => h.NeedsRehash(user.PasswordHash!))
             .Returns(false);
 
         _loginResponseBuilderMock
@@ -474,11 +474,11 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
-            .Setup(h => h.NeedsRehash(user.PasswordHash))
+            .Setup(h => h.NeedsRehash(user.PasswordHash!))
             .Returns(false);
 
         _loginResponseBuilderMock
@@ -507,11 +507,11 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
-            .Setup(h => h.NeedsRehash(user.PasswordHash))
+            .Setup(h => h.NeedsRehash(user.PasswordHash!))
             .Returns(false);
 
         _loginResponseBuilderMock
@@ -552,11 +552,11 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
-            .Setup(h => h.NeedsRehash(user.PasswordHash))
+            .Setup(h => h.NeedsRehash(user.PasswordHash!))
             .Returns(false);
 
         _loginResponseBuilderMock
@@ -590,11 +590,11 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
-            .Setup(h => h.NeedsRehash(user.PasswordHash))
+            .Setup(h => h.NeedsRehash(user.PasswordHash!))
             .Returns(false);
 
         _twoFactorChallengeServiceMock
@@ -624,11 +624,11 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash))
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
-            .Setup(h => h.NeedsRehash(user.PasswordHash))
+            .Setup(h => h.NeedsRehash(user.PasswordHash!))
             .Returns(false);
 
         _twoFactorChallengeServiceMock
@@ -681,7 +681,7 @@ public class LoginCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("WrongPass!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("WrongPass!", user.PasswordHash!))
             .Returns(false);
 
         // Act

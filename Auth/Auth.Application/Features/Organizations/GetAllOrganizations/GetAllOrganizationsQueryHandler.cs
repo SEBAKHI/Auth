@@ -69,7 +69,7 @@ public class GetAllOrganizationsQueryHandler
                 ContactEmail = organization.ContactEmail,
                 OwnerId = organization.OwnerId,
                 OwnerName = owner != null ? $"{owner.FirstName} {owner.LastName}".Trim() : null,
-                OwnerEmail = owner?.Email,
+                OwnerEmail = owner?.Email?.Value,
                 IsActive = organization.IsActive,
                 MemberCount = memberCounts.GetValueOrDefault(organization.Id),
                 EnabledAppCount = appCounts.GetValueOrDefault(organization.Id),

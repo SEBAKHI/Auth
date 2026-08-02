@@ -51,7 +51,12 @@ public sealed partial class Email : IEquatable<Email>
     /// </summary>
     public string ToNormalized() => Value.ToUpperInvariant();
 
-    public static implicit operator string?(Email? email) => email?.Value;
+    /// <summary>
+    /// Converts a non-null Email to its underlying string value.
+    /// A non-null Email always carries a non-null <see cref="Value"/>; use <c>?.Value</c>
+    /// when the Email reference itself may be null.
+    /// </summary>
+    public static implicit operator string(Email email) => email.Value;
 
     public bool Equals(Email? other) => other is not null && string.Equals(Value, other.Value, StringComparison.Ordinal);
     public override bool Equals(object? obj) => obj is Email other && Equals(other);

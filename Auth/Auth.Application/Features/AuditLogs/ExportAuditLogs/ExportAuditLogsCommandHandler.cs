@@ -82,7 +82,7 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
             if (log.UserId.HasValue)
             {
                 var user = await _userRepository.GetByIdAsync(log.UserId.Value, cancellationToken);
-                row.UserEmail = user?.Email;
+                row.UserEmail = user?.Email?.Value;
             }
 
             // Get application name if available

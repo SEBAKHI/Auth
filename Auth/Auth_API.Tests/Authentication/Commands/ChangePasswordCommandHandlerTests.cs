@@ -69,7 +69,7 @@ public class ChangePasswordCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
@@ -125,7 +125,7 @@ public class ChangePasswordCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("WrongPass1!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("WrongPass1!", user.PasswordHash!))
             .Returns(false);
 
         // Act
@@ -173,7 +173,7 @@ public class ChangePasswordCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash!))
             .Returns(true);
 
         // Act
@@ -197,7 +197,7 @@ public class ChangePasswordCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash!))
             .Returns(true);
 
         _passwordHistoryRepositoryMock
@@ -229,7 +229,7 @@ public class ChangePasswordCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash!))
             .Returns(true);
 
         _passwordHistoryRepositoryMock
@@ -238,7 +238,7 @@ public class ChangePasswordCommandHandlerTests
 
         // NewPass1! matches current password hash
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("NewPass1!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("NewPass1!", user.PasswordHash!))
             .Returns(true);
 
         // Act
@@ -263,7 +263,7 @@ public class ChangePasswordCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("OldPass1!", originalPasswordHash))
+            .Setup(h => h.VerifyPassword("OldPass1!", originalPasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
@@ -300,7 +300,7 @@ public class ChangePasswordCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock
@@ -407,7 +407,7 @@ public class ChangePasswordCommandHandlerTests
             .ReturnsAsync(user);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("OldPass1!", user.PasswordHash!))
             .Returns(true);
 
         _passwordHasherMock

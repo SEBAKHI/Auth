@@ -168,16 +168,16 @@ public class EmailTests
     }
 
     [Fact]
-    public void ImplicitOperator_WithNullEmail_ReturnsNull()
+    public void ImplicitOperator_ReturnsUnderlyingValue()
     {
         // Arrange
-        Email? email = null;
+        var email = Email.From("user@example.com");
 
         // Act
-        string? result = email;
+        string result = email;
 
         // Assert
-        result.Should().BeNull();
+        result.Should().Be("user@example.com");
     }
 
     [Fact]

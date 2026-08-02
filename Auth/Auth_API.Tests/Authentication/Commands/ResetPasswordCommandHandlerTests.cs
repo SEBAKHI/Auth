@@ -223,7 +223,7 @@ public class ResetPasswordCommandHandlerTests
         SetupValidResetScenario(user, resetToken, command);
 
         _passwordHasherMock
-            .Setup(h => h.VerifyPassword("NewPass1!", user.PasswordHash))
+            .Setup(h => h.VerifyPassword("NewPass1!", user.PasswordHash!))
             .Returns(true);
 
         // Act

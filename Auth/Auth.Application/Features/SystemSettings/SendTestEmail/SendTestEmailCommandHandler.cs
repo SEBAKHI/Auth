@@ -41,7 +41,7 @@ public class SendTestEmailCommandHandler : IRequestHandler<SendTestEmailCommand,
         }
 
         var user = await _userRepository.GetByIdAsync(request.UserId, cancellationToken);
-        string? recipient = user?.Email;
+        string? recipient = user?.Email?.Value;
         if (string.IsNullOrEmpty(recipient))
         {
             return SystemSettingsErrors.TestEmailFailed("the calling account has no email address.");
