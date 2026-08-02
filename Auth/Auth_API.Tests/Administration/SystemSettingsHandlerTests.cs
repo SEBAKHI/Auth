@@ -170,6 +170,65 @@ public class UpdateSystemSettingsCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ExemptPathIsBareSlash_ReturnsInvalidFieldValue()
+    {
+        // The middleware prefix-matches any entry ending in '/', so "/" exempts
+        // every path — one keystroke that disables gateway-token validation for
+        // the whole API while the console shows a normal-looking list.
+        var result = await _handler.Handle(
+            Command("Gateway", """{"ExemptPaths":["/"]}"""), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+        VerifyNothingWritten();
+    }
+
+    [Fact]
+    public async Task Handle_ExemptPathsWithRealPrefixes_IsAccepted()
+    {
+        _settingsRepoMock
+            .Setup(r => r.GetAsync("Gateway", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SystemSettingsOverride?)null);
+        _settingsRepoMock
+            .Setup(r => r.UpsertAsync(It.IsAny<SystemSettingsOverride>(), It.IsAny<byte[]?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SystemSettingsUpsertResult(true, [1, 2, 3, 4, 5, 6, 7, 8], 1));
+
+        var result = await _handler.Handle(
+            Command("Gateway", """{"ExemptPaths":["/health","/ready"]}"""), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("only the catch-all entry is refused, not ordinary prefixes");
+    }
+
+    [Fact]
+    public async Task Handle_EmptyAccountsBaseUrl_ReturnsInvalidFieldValue()
+    {
+        // Unlike PublicBaseUrl, an empty AccountsBaseUrl has no fallback in its
+        // consumer: it yields a relative authorize redirect and silently breaks
+        // universal login.
+        var result = await _handler.Handle(
+            Command("IdentityProvider", """{"AccountsBaseUrl":""}"""), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+        VerifyNothingWritten();
+    }
+
+    [Fact]
+    public async Task Handle_PolicyVersionLongerThanItsColumn_ReturnsInvalidFieldValue()
+    {
+        // AccountDeletionRequests.PolicyVersion is NVARCHAR(20); without this
+        // guard the console accepts the value and the first account deletion
+        // fails on truncation, long after the save.
+        var result = await _handler.Handle(
+            Command("DataRetention", """{"PolicyVersion":"2026.07-with-a-very-long-suffix"}"""),
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+        VerifyNothingWritten();
+    }
+
+    [Fact]
     public async Task Handle_EnumOutsideAllowedValues_ReturnsInvalidFieldValue()
     {
         var result = await _handler.Handle(
@@ -515,6 +574,23 @@ public class ResetSystemSettingsCommandHandlerTests
             new Mock<ILogger<ResetSystemSettingsCommandHandler>>().Object);
     }
 
+    /// <summary>
+    /// A reset handler whose FILE layer is the given configuration — the state a
+    /// reset would fall back to.
+    /// </summary>
+    private ResetSystemSettingsCommandHandler HandlerWithFileLayer(
+        params (string Key, string Value)[] fileLayer)
+    {
+        var configuration = SystemSettingsTestSupport.BuildConfiguration(fileLayer);
+        return new ResetSystemSettingsCommandHandler(
+            _settingsRepoMock.Object,
+            configuration,
+            SystemSettingsTestSupport.SnapshotOf(configuration),
+            _reloaderMock.Object,
+            _publisherMock.Object,
+            new Mock<ILogger<ResetSystemSettingsCommandHandler>>().Object);
+    }
+
     [Fact]
     public async Task Handle_UnknownSection_ReturnsSectionNotFound()
     {
@@ -523,6 +599,56 @@ public class ResetSystemSettingsCommandHandlerTests
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("SystemSettings.SectionNotFound");
+    }
+
+    [Fact]
+    public async Task Handle_ResetWouldRestoreAConfigurationTheSavePathRefuses_KeepsTheRow()
+    {
+        // The file layer alone is Email:Enabled=true with a relative
+        // FrontendBaseUrl — the exact combination the update path and the boot
+        // rule both reject. The override row is what was holding the process
+        // together, so deleting it unvalidated would arm the next restart to
+        // fail. A reset is a write and must clear the same bar.
+        var handler = HandlerWithFileLayer(
+            ("Email:Enabled", "true"),
+            ("Email:FrontendBaseUrl", "/relative/path"));
+
+        _settingsRepoMock
+            .Setup(r => r.GetAsync("Email", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SystemSettingsTestSupport.ExistingRow(
+                "Email", """{"FrontendBaseUrl":"https://accounts.example.com"}"""));
+
+        var result = await handler.Handle(
+            new ResetSystemSettingsCommand("Email", Guid.NewGuid()), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("SystemSettings.InvalidFieldValue");
+
+        _settingsRepoMock.Verify(
+            r => r.DeleteAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never());
+        _reloaderMock.Verify(r => r.Reload(), Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_ResetToAHealthyFileLayer_StillDeletes()
+    {
+        var handler = HandlerWithFileLayer(
+            ("Email:Enabled", "true"),
+            ("Email:FrontendBaseUrl", "https://accounts.example.com"));
+
+        _settingsRepoMock
+            .Setup(r => r.GetAsync("Email", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SystemSettingsTestSupport.ExistingRow(
+                "Email", """{"SenderName":"Custom"}"""));
+        _settingsRepoMock
+            .Setup(r => r.DeleteAsync("Email", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var result = await handler.Handle(
+            new ResetSystemSettingsCommand("Email", Guid.NewGuid()), CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the guard must only block a reset that would break the next boot");
+        _settingsRepoMock.Verify(r => r.DeleteAsync("Email", It.IsAny<CancellationToken>()), Times.Once());
     }
 
     [Fact]

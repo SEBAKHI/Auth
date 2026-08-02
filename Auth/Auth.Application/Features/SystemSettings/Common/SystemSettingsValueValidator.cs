@@ -114,12 +114,39 @@ internal static class SystemSettingsValueValidator
 
             case "Gateway":
                 ForEachArrayEntry(values, "ExemptPaths", errors, (entry, path) =>
-                    entry.StartsWith('/') ? null : $"'{entry}' must start with '/'.");
+                {
+                    if (!entry.StartsWith('/'))
+                    {
+                        return $"'{entry}' must start with '/'.";
+                    }
+
+                    // The middleware prefix-matches any entry ending in '/', so a
+                    // bare "/" matches every request path and exempts the whole
+                    // API from gateway-token validation — an authentication
+                    // bypass disguised as one keystroke.
+                    return entry.Trim() == "/"
+                        ? "'/' would exempt every path from gateway validation; list the specific prefixes instead."
+                        : null;
+                });
                 break;
 
             case "IdentityProvider":
-                RequireAbsoluteUrl(values, "AccountsBaseUrl", allowEmpty: true, errors);
+                // AccountsBaseUrl has no empty-value fallback in its consumer
+                // (unlike PublicBaseUrl, where empty means "derive from the
+                // request"): an empty value builds a relative authorize redirect
+                // and breaks universal login without any error.
+                RequireAbsoluteUrl(values, "AccountsBaseUrl", allowEmpty: false, errors);
                 RequireAbsoluteUrl(values, "PublicBaseUrl", allowEmpty: true, errors);
+                break;
+
+            case "DataRetention":
+                // PolicyVersion is stamped onto every deletion request and
+                // tombstone, where the column is NVARCHAR(20) NOT NULL
+                // (AccountDeletionRequests.sql:11, AccountDeletionTombstones.sql:7).
+                // Without this the console accepts a longer string and the
+                // failure surfaces much later, as a truncation error the first
+                // time a user asks to delete their account.
+                RequireMaxLength(values, "PolicyVersion", 20, errors);
                 break;
 
             case "Email":
@@ -318,6 +345,33 @@ internal static class SystemSettingsValueValidator
             if (!Uri.IsWellFormedUriString(text, UriKind.Absolute))
             {
                 errors.Add(SystemSettingsErrors.InvalidFieldValue(path, "must be an absolute URL (e.g. https://auth.example.com)."));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Refuses a string longer than the storage column that will hold it. The
+    /// registry's Min/Max only describe numbers, so a string field whose value
+    /// ends up in a fixed-width column needs its ceiling stated here.
+    /// </summary>
+    private static void RequireMaxLength(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        string fieldPath,
+        int maxLength,
+        List<Error> errors)
+    {
+        foreach (var (path, value) in values)
+        {
+            if (!path.Equals(fieldPath, StringComparison.OrdinalIgnoreCase) ||
+                value.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            if (value.GetString() is { } text && text.Length > maxLength)
+            {
+                errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                    path, $"must be at most {maxLength} characters."));
             }
         }
     }

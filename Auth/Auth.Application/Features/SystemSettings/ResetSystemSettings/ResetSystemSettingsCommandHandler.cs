@@ -56,6 +56,23 @@ public class ResetSystemSettingsCommandHandler : IRequestHandler<ResetSystemSett
         var existing = await _systemSettingsRepository.GetAsync(section.Key, cancellationToken);
         if (existing is not null)
         {
+            // A reset is a write like any other: it swaps the running values for
+            // the file ones, and those can be a combination the save path
+            // refuses (Email:Enabled=true with a relative FrontendBaseUrl is the
+            // documented example — the override was what kept the boot rule
+            // satisfied). Validating the POST-reset state first means the console
+            // can never delete its way into a configuration that aborts the next
+            // restart. The state after the reset is the pre-database baseline, so
+            // that is what the rules resolve against, with an empty payload.
+            var resetErrors = new List<Error>();
+            SystemSettingsValueValidator.ValidateSectionRules(
+                section, [], resetErrors, _startupSnapshot.Baseline);
+
+            if (resetErrors.Count > 0)
+            {
+                return resetErrors;
+            }
+
             await _systemSettingsRepository.DeleteAsync(section.Key, cancellationToken);
 
             await _publisher.Publish(
