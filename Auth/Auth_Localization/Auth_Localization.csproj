@@ -7,8 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Microsoft.Extensions.Localization ships inside the shared framework referenced
+         here, so an explicit PackageReference is redundant (NU1510). -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Microsoft.Extensions.Localization" Version="10.0.10" />
   </ItemGroup>
 
   <ItemGroup>

@@ -26,9 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Microsoft.Extensions.Http and Microsoft.Extensions.Caching.Memory are deliberately
+         NOT referenced: they ship inside the Microsoft.AspNetCore.App shared framework
+         referenced above, so an explicit PackageReference is redundant (NU1510).
+         JwtBearer is not part of that framework, so it stays. -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
-    <PackageReference Include="Microsoft.Extensions.Http" Version="10.0.10" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="10.0.10" />
   </ItemGroup>
 
 </Project>

@@ -258,7 +258,7 @@ public class RegisterCommandHandlerTests
             .Returns("hashed-password");
         _mediatorMock
             .Setup(m => m.Send(It.IsAny<SendEmailVerificationCommand>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(ErrorOr<SendVerificationResponse>.From(new List<Error> { Error.Failure("Email.SendFailed", "Email sending failed") }));
+            .ReturnsAsync((ErrorOr<SendVerificationResponse>)Error.Failure("Email.SendFailed", "Email sending failed"));
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
