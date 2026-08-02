@@ -11331,6 +11331,7 @@ export interface components {
             code: string;
             name: string;
             iconUrl: null | string;
+            clientId: string;
         };
         ExternalLoginRequest: {
             provider: string;

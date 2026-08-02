@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { GOOGLE_CLIENT_ID } from "@authsystem/api/env"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { useTheme } from "@authsystem/ui/theme-provider"
@@ -88,7 +87,7 @@ export function GoogleSignIn() {
   const location = useLocation()
   const containerRef = React.useRef<HTMLDivElement>(null)
   const nonceRef = React.useRef<string>(crypto.randomUUID())
-  const { googleEnabled } = useExternalProviders()
+  const { googleEnabled, googleClientId } = useExternalProviders()
 
   const state = location.state as LocationState | null
   const from = state?.from?.pathname
@@ -146,7 +145,7 @@ export function GoogleSignIn() {
       .then(() => {
         if (cancelled || !containerRef.current || !window.google) return
         window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
+          client_id: googleClientId,
           nonce: nonceRef.current,
           callback: (response) => void onCredential(response.credential),
         })
@@ -167,7 +166,7 @@ export function GoogleSignIn() {
     return () => {
       cancelled = true
     }
-  }, [googleEnabled, i18n.language, resolvedTheme, onCredential])
+  }, [googleEnabled, googleClientId, i18n.language, resolvedTheme, onCredential])
 
   if (!googleEnabled) return null
 
