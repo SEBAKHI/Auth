@@ -117,6 +117,12 @@ export const fr: TranslationResources = {
     applyChangesTitle: "Appliquer ces modifications ?",
     toBeAdded: "À ajouter ({{count}})",
     toBeRemoved: "À retirer ({{count}})",
+    platform: {
+      ios: "iPhone",
+      android: "Android",
+      desktop: "Ordinateur",
+      web: "Web",
+    },
   },
   nav: {
     notifications: "Notifications",
@@ -197,6 +203,9 @@ export const fr: TranslationResources = {
     verify: "Vérifier",
     useRecoveryCode: "Utiliser un code de récupération",
     useAuthenticatorCode: "Utiliser un code d'authentification",
+    authenticatorAppsHint:
+      "N'importe quelle application d'authentification convient. Si vous n'en avez pas encore, celles-ci sont gratuites et peuvent sauvegarder vos codes :",
+    noAuthenticatorApp: "Vous n'avez pas votre application d'authentification ?",
     recoveryCode: "Code de récupération",
     twoFactorChallengeExpired:
       "Votre tentative de connexion a expiré. Veuillez vous reconnecter.",

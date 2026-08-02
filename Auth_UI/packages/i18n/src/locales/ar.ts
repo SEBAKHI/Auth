@@ -116,6 +116,12 @@ export const ar: TranslationResources = {
     applyChangesTitle: "هل تريد تطبيق هذه التغييرات؟",
     toBeAdded: "ستتم الإضافة ({{count}})",
     toBeRemoved: "ستتم الإزالة ({{count}})",
+    platform: {
+      ios: "آيفون",
+      android: "أندرويد",
+      desktop: "سطح المكتب",
+      web: "الويب",
+    },
   },
   nav: {
     notifications: "الإشعارات",
@@ -193,6 +199,9 @@ export const ar: TranslationResources = {
     verify: "تحقق",
     useRecoveryCode: "استخدام رمز استرداد",
     useAuthenticatorCode: "استخدام رمز تطبيق المصادقة",
+    authenticatorAppsHint:
+      "أي تطبيق مصادقة يفي بالغرض. وإن لم يكن لديك واحد بعد، فهذه مجانية وتدعم النسخ الاحتياطي لرموزك:",
+    noAuthenticatorApp: "ليس لديك تطبيق المصادقة؟",
     recoveryCode: "رمز الاسترداد",
     twoFactorChallengeExpired:
       "انتهت صلاحية محاولة تسجيل الدخول. يرجى تسجيل الدخول مرة أخرى.",

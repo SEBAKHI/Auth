@@ -14,6 +14,7 @@ import {
   REGEXP_ONLY_DIGITS,
 } from "@authsystem/ui/input-otp"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { AuthenticatorApps } from "@authsystem/ui/common/authenticator-apps"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import {
   clearPendingTwoFactorChallenge,
@@ -198,6 +199,11 @@ export function TwoFactorVerifyPage({
             ? t("auth.useAuthenticatorCode")
             : t("auth.useRecoveryCode")}
         </Button>
+
+        {/* Folded away by default. Someone on this screen has already enrolled;
+            an open block of download links would read as a prompt to install
+            something mid-sign-in, which is the shape a phishing page takes. */}
+        <AuthenticatorApps variant="disclosure" />
       </div>
     </AuthLayout>
   )

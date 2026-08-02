@@ -1,6 +1,7 @@
 using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.SetupTwoFactor;
 using Auth.Application.Interfaces;
+using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,7 @@ public class SetupTwoFactorCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<ITwoFactorAuthRepository> _twoFactorRepositoryMock;
+    private readonly Mock<IPlatformSettingsRepository> _platformSettingsRepositoryMock;
     private readonly Mock<ITotpService> _totpServiceMock;
     private readonly Mock<ILogger<SetupTwoFactorCommandHandler>> _loggerMock;
     private readonly SetupTwoFactorCommandHandler _handler;
@@ -23,6 +25,7 @@ public class SetupTwoFactorCommandHandlerTests
     {
         _userRepositoryMock = new Mock<IUserRepository>();
         _twoFactorRepositoryMock = new Mock<ITwoFactorAuthRepository>();
+        _platformSettingsRepositoryMock = new Mock<IPlatformSettingsRepository>();
         _totpServiceMock = new Mock<ITotpService>();
         _loggerMock = new Mock<ILogger<SetupTwoFactorCommandHandler>>();
 
@@ -31,13 +34,23 @@ public class SetupTwoFactorCommandHandlerTests
             Issuer = "TestIssuer"
         });
 
-        _handler = new SetupTwoFactorCommandHandler(
+        _handler = CreateHandler(jwtSettings);
+    }
+
+    private SetupTwoFactorCommandHandler CreateHandler(IOptionsSnapshot<JwtSettings> jwtSettings) =>
+        new(
             _userRepositoryMock.Object,
             _twoFactorRepositoryMock.Object,
+            _platformSettingsRepositoryMock.Object,
             _totpServiceMock.Object,
             jwtSettings,
             _loggerMock.Object);
-    }
+
+    private void GivenPlatformName(string platformName) =>
+        _platformSettingsRepositoryMock
+            .Setup(r => r.GetAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PlatformSettings(
+                PlatformSettings.SingletonId, platformName, null, null, null, null, null));
 
     [Fact]
     public async Task Handle_UserNotFound_ReturnsNotFoundError()
@@ -178,12 +191,7 @@ public class SetupTwoFactorCommandHandlerTests
         var secret = "ABCDEFGHIJKLMNOP";
 
         var jwtSettingsNoIssuer = TestHelpers.CreateOptions(new JwtSettings { Issuer = null! });
-        var handler = new SetupTwoFactorCommandHandler(
-            _userRepositoryMock.Object,
-            _twoFactorRepositoryMock.Object,
-            _totpServiceMock.Object,
-            jwtSettingsNoIssuer,
-            _loggerMock.Object);
+        var handler = CreateHandler(jwtSettingsNoIssuer);
 
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -210,5 +218,78 @@ public class SetupTwoFactorCommandHandlerTests
         _totpServiceMock.Verify(
             s => s.GenerateQrCodeUri(secret, user.Email, "AuthSystem"),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_PlatformNameConfigured_UsesItAsTheIssuer()
+    {
+        // The issuer is what the authenticator app lists as the account's
+        // provider, so it has to be the platform's display name, not a URL.
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, email: "test@example.com");
+        GivenSetupCanProceed(userId, user, "ABCDEFGHIJKLMNOP");
+        GivenPlatformName("  Sebakhi Console  ");
+
+        var result = await _handler.Handle(new SetupTwoFactorCommand(userId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _totpServiceMock.Verify(
+            s => s.GenerateQrCodeUri(It.IsAny<string>(), user.Email, "Sebakhi Console"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_NoPlatformNameAndUrlIssuer_FallsBackToTheHost()
+    {
+        // Jwt:Issuer is a URL in every deployed environment. Passing it whole
+        // put "https://auth.example.com" — percent-encoded — in the app's
+        // account list, and the encoded "://" inside the otpauth label trips
+        // stricter parsers.
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, email: "test@example.com");
+        GivenSetupCanProceed(userId, user, "ABCDEFGHIJKLMNOP");
+
+        var handler = CreateHandler(TestHelpers.CreateOptions(
+            new JwtSettings { Issuer = "https://auth.astoom.com" }));
+
+        var result = await handler.Handle(new SetupTwoFactorCommand(userId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _totpServiceMock.Verify(
+            s => s.GenerateQrCodeUri(It.IsAny<string>(), user.Email, "auth.astoom.com"),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_PlatformSettingsUnavailable_StillCompletesSetup()
+    {
+        // Branding is not worth failing an enrolment over.
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, email: "test@example.com");
+        GivenSetupCanProceed(userId, user, "ABCDEFGHIJKLMNOP");
+
+        _platformSettingsRepositoryMock
+            .Setup(r => r.GetAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unavailable"));
+
+        var result = await _handler.Handle(new SetupTwoFactorCommand(userId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _totpServiceMock.Verify(
+            s => s.GenerateQrCodeUri(It.IsAny<string>(), user.Email, "TestIssuer"),
+            Times.Once);
+    }
+
+    private void GivenSetupCanProceed(Guid userId, Auth.Domain.Entities.User user, string secret)
+    {
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        _twoFactorRepositoryMock
+            .Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Auth.Domain.Entities.TwoFactorAuth?)null);
+
+        _totpServiceMock.Setup(s => s.GenerateSecret()).Returns(secret);
     }
 }

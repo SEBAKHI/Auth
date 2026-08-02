@@ -117,6 +117,12 @@ export const tr: TranslationResources = {
     applyChangesTitle: "Bu değişiklikler uygulansın mı?",
     toBeAdded: "Eklenecek ({{count}})",
     toBeRemoved: "Kaldırılacak ({{count}})",
+    platform: {
+      ios: "iPhone",
+      android: "Android",
+      desktop: "Masaüstü",
+      web: "Web",
+    },
   },
   nav: {
     notifications: "Bildirimler",
@@ -195,6 +201,9 @@ export const tr: TranslationResources = {
     verify: "Doğrula",
     useRecoveryCode: "Kurtarma kodu kullan",
     useAuthenticatorCode: "Doğrulayıcı kodu kullan",
+    authenticatorAppsHint:
+      "Herhangi bir doğrulayıcı uygulama çalışır. Henüz yoksa, bunlar ücretsizdir ve kodlarınızı yedekleyebilir:",
+    noAuthenticatorApp: "Doğrulayıcı uygulamanız yok mu?",
     recoveryCode: "Kurtarma kodu",
     twoFactorChallengeExpired:
       "Oturum açma denemenizin süresi doldu. Lütfen tekrar oturum açın.",

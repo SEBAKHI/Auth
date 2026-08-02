@@ -117,6 +117,12 @@ export const fa: TranslationResources = {
     applyChangesTitle: "این تغییرات اعمال شود؟",
     toBeAdded: "افزوده می‌شود ({{count}})",
     toBeRemoved: "حذف می‌شود ({{count}})",
+    platform: {
+      ios: "آیفون",
+      android: "اندروید",
+      desktop: "رایانه",
+      web: "وب",
+    },
   },
   nav: {
     notifications: "اعلان‌ها",
@@ -194,6 +200,9 @@ export const fa: TranslationResources = {
     verify: "تأیید",
     useRecoveryCode: "استفاده از کد بازیابی",
     useAuthenticatorCode: "استفاده از کد برنامه احراز هویت",
+    authenticatorAppsHint:
+      "هر برنامهٔ احراز هویتی کار می‌کند. اگر هنوز ندارید، این‌ها رایگان‌اند و می‌توانند از کدهای شما نسخهٔ پشتیبان بگیرند:",
+    noAuthenticatorApp: "برنامهٔ احراز هویت خود را ندارید؟",
     recoveryCode: "کد بازیابی",
     twoFactorChallengeExpired:
       "مهلت تلاش برای ورود به پایان رسید. لطفاً دوباره وارد شوید.",

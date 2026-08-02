@@ -112,6 +112,12 @@ export const en = {
     applyChangesTitle: "Apply these changes?",
     toBeAdded: "Will be added ({{count}})",
     toBeRemoved: "Will be removed ({{count}})",
+    platform: {
+      ios: "iPhone",
+      android: "Android",
+      desktop: "Desktop",
+      web: "Web",
+    },
   },
   nav: {
     notifications: "Notifications",
@@ -188,6 +194,9 @@ export const en = {
     verify: "Verify",
     useRecoveryCode: "Use a recovery code",
     useAuthenticatorCode: "Use an authenticator code",
+    authenticatorAppsHint:
+      "Any authenticator app works. If you do not have one yet, these are free and can back up your codes:",
+    noAuthenticatorApp: "Don't have your authenticator app?",
     recoveryCode: "Recovery code",
     twoFactorChallengeExpired:
       "Your sign-in attempt expired. Please sign in again.",

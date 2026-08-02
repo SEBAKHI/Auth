@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Web;
 using Auth.Application.Interfaces;
 using OtpNet;
 
@@ -36,8 +35,11 @@ public class TotpService : ITotpService
     /// <inheritdoc />
     public string GenerateQrCodeUri(string secret, string email, string issuer)
     {
-        var encodedIssuer = HttpUtility.UrlEncode(issuer);
-        var encodedEmail = HttpUtility.UrlEncode(email);
+        // Uri.EscapeDataString, not HttpUtility.UrlEncode: the latter is
+        // form encoding, so a space becomes "+" and several otpauth parsers
+        // then show a literal plus in the account name instead of a space.
+        var encodedIssuer = Uri.EscapeDataString(issuer);
+        var encodedEmail = Uri.EscapeDataString(email);
 
         return $"otpauth://totp/{encodedIssuer}:{encodedEmail}?secret={secret}&issuer={encodedIssuer}&algorithm=SHA1&digits={TotpSize}&period={TotpStep}";
     }

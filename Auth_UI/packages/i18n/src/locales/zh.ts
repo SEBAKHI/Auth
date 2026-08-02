@@ -116,6 +116,12 @@ export const zh: TranslationResources = {
     applyChangesTitle: "要应用这些更改吗？",
     toBeAdded: "将添加（{{count}}）",
     toBeRemoved: "将移除（{{count}}）",
+    platform: {
+      ios: "iPhone",
+      android: "Android",
+      desktop: "桌面端",
+      web: "网页版",
+    },
   },
   nav: {
     notifications: "通知",
@@ -192,6 +198,9 @@ export const zh: TranslationResources = {
     verify: "验证",
     useRecoveryCode: "使用恢复代码",
     useAuthenticatorCode: "使用验证器验证码",
+    authenticatorAppsHint:
+      "任何验证器应用都可以使用。如果你还没有，以下这些免费且可备份你的验证码：",
+    noAuthenticatorApp: "没有你的验证器应用？",
     recoveryCode: "恢复代码",
     twoFactorChallengeExpired: "登录尝试已过期，请重新登录。",
     signedOut: "您已退出登录。",

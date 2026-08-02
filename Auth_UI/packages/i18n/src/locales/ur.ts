@@ -117,6 +117,12 @@ export const ur: TranslationResources = {
     applyChangesTitle: "کیا یہ تبدیلیاں لاگو کی جائیں؟",
     toBeAdded: "شامل کی جائیں گی ({{count}})",
     toBeRemoved: "ہٹائی جائیں گی ({{count}})",
+    platform: {
+      ios: "آئی فون",
+      android: "اینڈرائیڈ",
+      desktop: "ڈیسک ٹاپ",
+      web: "ویب",
+    },
   },
   nav: {
     notifications: "اطلاعات",
@@ -193,6 +199,9 @@ export const ur: TranslationResources = {
     verify: "تصدیق کریں",
     useRecoveryCode: "ریکوری کوڈ استعمال کریں",
     useAuthenticatorCode: "تصدیقی ایپ کا کوڈ استعمال کریں",
+    authenticatorAppsHint:
+      "کوئی بھی تصدیقی ایپ کام کرتی ہے۔ اگر ابھی آپ کے پاس کوئی نہیں تو یہ مفت ہیں اور آپ کے کوڈز کا بیک اپ رکھ سکتی ہیں:",
+    noAuthenticatorApp: "آپ کے پاس تصدیقی ایپ نہیں ہے؟",
     recoveryCode: "ریکوری کوڈ",
     twoFactorChallengeExpired:
       "سائن ان کی کوشش کی میعاد ختم ہو گئی۔ براہ کرم دوبارہ سائن ان کریں۔",
