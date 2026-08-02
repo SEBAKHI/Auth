@@ -17,17 +17,34 @@ public class SystemSettingsDefaultParityTests
         ["Jwt"] = new JwtSettings(),
         ["Password"] = new PasswordSettings(),
         ["Session"] = new SessionSettings(),
-        ["Gateway"] = new GatewaySettings(),
+        // Array properties deliberately start empty (a non-empty initializer is an
+        // unremovable prefix once the configuration binder appends to it), so the
+        // EFFECTIVE default is what the production PostConfigure produces. Applying
+        // it here keeps this guard pointed at the value a consumer really receives —
+        // and at the value the console displays as the fallback.
+        ["Gateway"] = Normalized(new GatewaySettings()),
         ["Email"] = new EmailSettings(),
         ["Notifications"] = new NotificationSettings(),
         ["AccountDeletion"] = new AccountDeletionSettings(),
-        ["ImageStorage"] = new ImageStorageSettings(),
+        ["ImageStorage"] = Normalized(new ImageStorageSettings()),
         ["IdentityProvider"] = new IdentityProviderSettings(),
         // ExternalAuth is omitted: its Google/Apple sub-objects default to
         // null (provider treats that as "not configured"), so nested class
         // defaults cannot be resolved by reflection.
         ["SecretManagement"] = new SecretManagementSettings()
     };
+
+    private static GatewaySettings Normalized(GatewaySettings settings)
+    {
+        SettingsArrayNormalizer.Apply(settings);
+        return settings;
+    }
+
+    private static ImageStorageSettings Normalized(ImageStorageSettings settings)
+    {
+        SettingsArrayNormalizer.Apply(settings);
+        return settings;
+    }
 
     [Fact]
     public void RegistryDefaults_MatchSettingsClassDefaults()

@@ -86,6 +86,12 @@ builder.Host.UseSerilog();
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
 builder.Services.Configure<PasswordSettings>(builder.Configuration.GetSection(PasswordSettings.SectionName));
 builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(GatewaySettings.SectionName));
+// Array settings need a post-bind pass: the binder APPENDS configured entries to a
+// non-empty property initializer (making the initializer unremovable), and the
+// database settings layer masks entries removed in the console with empty-string
+// tombstones. Both would otherwise keep a removed entry alive at runtime while the
+// console reports it gone. Runs on every rebind, so it also holds after a save.
+builder.Services.PostConfigure<GatewaySettings>(SettingsArrayNormalizer.Apply);
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
 builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSection(IdentityProviderSettings.SectionName));
 // Password reset and email verification links are built from FrontendBaseUrl. An
@@ -102,6 +108,7 @@ builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSectio
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
 builder.Services.Configure<AccountDeletionSettings>(builder.Configuration.GetSection(AccountDeletionSettings.SectionName));
 builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
+builder.Services.PostConfigure<ImageStorageSettings>(SettingsArrayNormalizer.Apply);
 
 // ════════════════════════════════════════════════════════════════════════════
 // Secret Management - choose how the RSA signing key, HMAC key, and gateway token
