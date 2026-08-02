@@ -1,5 +1,7 @@
 using System.Threading.RateLimiting;
+using API_Gateway.Configuration;
 using API_Gateway.Middleware;
+using Microsoft.AspNetCore.Cors.Infrastructure;
 using Auth_Localization.Extensions;
 using Auth.Shared.Configuration;
 using Auth.Shared.Diagnostics;
@@ -258,36 +260,19 @@ builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy("API Gateway process is running."), tags: ["live"])
     .AddUrlGroup(new Uri(authApiReadyUrl), name: "auth-api", tags: ["ready"]);
 
-// CORS
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-            ?? ["*"];
+// System settings shared with the Auth API (CORS origins, health-error detail).
+// This process has no database layer by design, so it pulls them from the API
+// instead: see GatewayRuntimeSettingsPoller for why pull beats shared storage
+// and push here. Until the first successful poll — and through any API outage —
+// the values below are this process's own configuration file.
+builder.Services.AddHttpClient();
+builder.Services.AddSingleton<GatewayRuntimeSettingsProvider>();
+builder.Services.AddHostedService<GatewayRuntimeSettingsPoller>();
 
-        if (origins.Contains("*"))
-        {
-            policy.AllowAnyOrigin();
-        }
-        else
-        {
-            policy.WithOrigins(origins);
-
-            // The IdP session cookie rides on credentialed requests from the
-            // accounts SPA. AllowCredentials is only legal with explicit
-            // origins, never with AllowAnyOrigin.
-            if (builder.Configuration.GetValue("Cors:AllowCredentials", false))
-            {
-                policy.AllowCredentials();
-            }
-        }
-
-        policy.AllowAnyMethod()
-              .AllowAnyHeader()
-              .WithExposedHeaders("X-Correlation-ID", "X-RateLimit-Remaining", "Retry-After");
-    });
-});
+// CORS: the policy is rebuilt from those live values rather than frozen here,
+// so origins saved in the console apply to the gateway without a restart.
+builder.Services.AddCors();
+builder.Services.AddSingleton<ICorsPolicyProvider, DynamicCorsPolicyProvider>();
 
 var app = builder.Build();
 
@@ -322,11 +307,16 @@ app.UseRateLimiter();
 // Health endpoints (detailed JSON breakdown per check).
 // Exception messages are included only in Development, or when HealthChecks:ExposeErrorDetails is
 // explicitly enabled, because these endpoints are publicly reachable and could leak internal info.
-var exposeHealthErrors = app.Environment.IsDevelopment()
-    || app.Configuration.GetValue("HealthChecks:ExposeErrorDetails", false);
+var gatewayRuntimeSettings = app.Services.GetRequiredService<GatewayRuntimeSettingsProvider>();
+var isDevelopment = app.Environment.IsDevelopment();
 
 Task WriteHealthResponse(HttpContext httpContext, HealthReport report)
 {
+    // Read per request, not captured once: the console toggle must apply to the
+    // gateway's own /health and /ready the same way it applies to the API's.
+    var exposeHealthErrors = isDevelopment
+        || gatewayRuntimeSettings.Current.HealthChecksExposeErrorDetails;
+
     httpContext.Response.ContentType = "application/json; charset=utf-8";
     return httpContext.Response.WriteAsync(HealthCheckJsonFormatter.Serialize(report, exposeHealthErrors));
 }
