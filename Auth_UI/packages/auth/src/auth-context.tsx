@@ -1,22 +1,22 @@
 /* eslint-disable react-refresh/only-export-components */
 import * as React from "react"
 
-import { api, SESSION_EXPIRED_EVENT } from "@astoom/api/client"
-import { claimToArray, decodeJwt } from "@astoom/api/jwt"
+import { api, SESSION_EXPIRED_EVENT } from "@authsystem/api/client"
+import { claimToArray, decodeJwt } from "@authsystem/api/jwt"
 import {
   clearTokens,
   getAccessToken,
   getRefreshToken,
   setTokens,
-} from "@astoom/api/token-store"
+} from "@authsystem/api/token-store"
 import i18n, {
   applyLanguage,
   persistLanguage,
   SUPPORTED_LANGUAGES,
   type LanguageCode,
-} from "@astoom/i18n"
-import { setActiveTimeZone } from "@astoom/i18n/timezone"
-import type { UserInfo } from "@astoom/api/types"
+} from "@authsystem/i18n"
+import { setActiveTimeZone } from "@authsystem/i18n/timezone"
+import type { UserInfo } from "@authsystem/api/types"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
 

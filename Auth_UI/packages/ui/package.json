@@ -1,11 +1,11 @@
 {
-  "name": "@astoom/ui",
+  "name": "@authsystem/ui",
   "private": true,
   "version": "0.0.1",
   "type": "module",
   "dependencies": {
-    "@astoom/api": "workspace:*",
-    "@astoom/i18n": "workspace:*",
+    "@authsystem/api": "workspace:*",
+    "@authsystem/i18n": "workspace:*",
     "@date-fns/tz": "^1.5.0",
     "@tanstack/react-query": "^5.101.0",
     "@tanstack/react-table": "^8.21.3",

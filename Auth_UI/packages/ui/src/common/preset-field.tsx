@@ -1,8 +1,8 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { ToggleGroup, ToggleGroupItem } from "@astoom/ui/toggle-group"
-import { cn } from "@astoom/ui/utils"
+import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
+import { cn } from "@authsystem/ui/utils"
 
 /** Radix ToggleGroup needs a non-empty item value, and a preset may write "". */
 const CUSTOM_KEY = "__custom__"

@@ -15,6 +15,20 @@ namespace Auth_API.Tests.Gateway;
 /// </summary>
 public class GatewayRouteCoverageTests
 {
+    /// <summary>
+    /// Controllers that must NOT be forwarded, each with the reason. An entry
+    /// here is a decision to keep an endpoint off the internet, so it costs a
+    /// deliberate edit rather than a silently passing test.
+    /// </summary>
+    private static readonly Dictionary<string, string> NotForwardedOnPurpose = new(StringComparer.Ordinal)
+    {
+        // Server-to-server only: the gateway calls it directly to learn the
+        // settings it consumes, authenticated by the shared gateway token.
+        // Publishing it through the gateway would expose an internal endpoint
+        // for no caller that needs it.
+        ["GatewayRuntimeSettingsController"] = "internal, called by the gateway process itself"
+    };
+
     [Fact]
     public void EveryControllerRoute_IsCoveredByAGatewayRoute()
     {
@@ -25,7 +39,8 @@ public class GatewayRouteCoverageTests
             .GetTypes()
             .Where(type => type.IsClass
                 && !type.IsAbstract
-                && typeof(ControllerBase).IsAssignableFrom(type));
+                && typeof(ControllerBase).IsAssignableFrom(type)
+                && !NotForwardedOnPurpose.ContainsKey(type.Name));
 
         foreach (var controller in controllers)
         {

@@ -4,22 +4,22 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { toNumber, unwrap } from "@astoom/api/helpers"
-import { directionForLanguage } from "@astoom/i18n"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { toNumber, unwrap } from "@authsystem/api/helpers"
+import { directionForLanguage } from "@authsystem/i18n"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from "@astoom/ui/sheet"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { Tabs, TabsList, TabsTrigger } from "@astoom/ui/tabs"
-import { formatDateTime } from "@astoom/ui/format"
+} from "@authsystem/ui/sheet"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
+import { formatDateTime } from "@authsystem/ui/format"
 
 /**
  * One delivery-log entry: metadata (status, attempts, errors, audit references)

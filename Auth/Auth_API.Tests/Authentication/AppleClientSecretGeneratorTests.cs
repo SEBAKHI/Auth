@@ -5,6 +5,8 @@ using Auth.Infrastructure.Authentication;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
+using Auth_API.Tests.Helpers;
+
 namespace Auth_API.Tests.Authentication;
 
 /// <summary>
@@ -28,7 +30,7 @@ public class AppleClientSecretGeneratorTests
     {
         var apple = CreateConfiguredApple();
         var generator = new AppleClientSecretGenerator(
-            Options.Create(new ExternalAuthSettings { Apple = apple }));
+            TestHelpers.CreateOptions(new ExternalAuthSettings { Apple = apple }));
 
         var secret = generator.Generate();
 
@@ -45,7 +47,7 @@ public class AppleClientSecretGeneratorTests
     public void Generate_MissingConfiguration_ThrowsWithGuidance()
     {
         var generator = new AppleClientSecretGenerator(
-            Options.Create(new ExternalAuthSettings { Apple = new AppleAuthSettings { Enabled = true } }));
+            TestHelpers.CreateOptions(new ExternalAuthSettings { Apple = new AppleAuthSettings { Enabled = true } }));
 
         var act = () => generator.Generate();
 

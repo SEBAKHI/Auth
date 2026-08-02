@@ -1,4 +1,4 @@
-import type { Schemas } from "@astoom/api/types"
+import type { Schemas } from "@authsystem/api/types"
 
 export type NotificationTemplateDto = Schemas["NotificationTemplateDto"]
 export type NotificationTemplateDetailDto = Schemas["NotificationTemplateDetailDto"]
@@ -30,11 +30,12 @@ export interface TemplateVariable {
  */
 export function getRendererGlobals(t: (key: string) => string): TemplateVariable[] {
   return [
-    { name: "Platform.Name", description: t("notifications.globalVarPlatformName"), example: "Astoom" },
-    { name: "Application.Name", description: t("notifications.globalVarApplicationName"), example: "Astoom Console" },
+    { name: "Platform.Name", description: t("notifications.globalVarPlatformName"), example: "Acme" },
+    { name: "Platform.LogoUrl", description: t("notifications.globalVarPlatformLogoUrl"), example: "https://auth.example.com/uploads/images/logo.webp" },
+    { name: "Application.Name", description: t("notifications.globalVarApplicationName"), example: "Acme Console" },
     { name: "Application.Code", description: t("notifications.globalVarApplicationCode"), example: "console" },
-    { name: "Application.BaseUrl", description: t("notifications.globalVarApplicationBaseUrl"), example: "https://accounts.astoom.com" },
-    { name: "SenderName", description: t("notifications.layoutSlotSenderName"), example: "Astoom" },
+    { name: "Application.BaseUrl", description: t("notifications.globalVarApplicationBaseUrl"), example: "https://accounts.example.com" },
+    { name: "SenderName", description: t("notifications.layoutSlotSenderName"), example: "Acme" },
     { name: "Year", description: t("notifications.globalVarYear"), example: "2026" },
   ]
 }

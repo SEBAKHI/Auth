@@ -3,10 +3,10 @@
 A pnpm workspace hosting the frontend apps of the Auth system, built with
 **React + Vite + TypeScript** and **shadcn/ui**:
 
-- `apps/console` — the admin console (`console.astoom.com`): users, roles,
+- `apps/console` — the admin console: users, roles,
   permissions, applications, API/webhook keys, audit logs, signing secrets,
   dashboard.
-- `apps/accounts` — the end-user self-service app (`accounts.astoom.com`):
+- `apps/accounts` — the end-user self-service app:
   sign in/up (email + Google), password flows, invitations, profile,
   organization self-service. Google Identity Services needs
   `VITE_GOOGLE_CLIENT_ID` and the GSI origins in its CSP (accounts only).
@@ -88,8 +88,8 @@ packages/
           format utils, ThemeProvider, BrandingProvider
 ```
 
-Workspace packages are consumed as `@astoom/api`, `@astoom/auth`,
-`@astoom/i18n`, and `@astoom/ui` — resolved from source via tsconfig paths +
+Workspace packages are consumed as `@authsystem/api`, `@authsystem/auth`,
+`@authsystem/i18n`, and `@authsystem/ui` — resolved from source via tsconfig paths +
 Vite aliases (no per-package build step).
 
 ### Auth & security
@@ -116,9 +116,9 @@ English and Arabic are bundled; switching language updates the document `dir`
 pnpm build           # outputs static files to apps/<app>/dist/
 ```
 
-Deploy each app's `dist/` (including its `web.config`) as its own static site:
-`apps/console/dist/` → `console.astoom.com` and `apps/accounts/dist/` →
-`accounts.astoom.com`; both origins are in the API's production CORS
+Deploy each app's `dist/` (including its `web.config`) as its own static site
+(e.g. `apps/console/dist/` → `console.example.com` and `apps/accounts/dist/` →
+`accounts.example.com`); both origins must be in the API's production CORS
 allow-list. `web.config` provides SPA fallback routing and security headers.
 Update the CSP `connect-src` and `VITE_API_BASE_URL` to match your API origin.
 Invitation/reset emails link to the accounts origin (`Email:FrontendBaseUrl`).

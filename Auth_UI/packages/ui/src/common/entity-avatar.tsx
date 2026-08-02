@@ -1,5 +1,5 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@astoom/ui/avatar"
-import { initials } from "@astoom/ui/format"
+import { Avatar, AvatarFallback, AvatarImage } from "@authsystem/ui/avatar"
+import { initials } from "@authsystem/ui/format"
 
 /**
  * Circular entity avatar: shows the image when present, otherwise the name's

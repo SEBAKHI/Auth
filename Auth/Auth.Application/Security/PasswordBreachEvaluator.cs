@@ -24,7 +24,7 @@ public sealed class PasswordBreachEvaluator : IPasswordBreachEvaluator
     public PasswordBreachEvaluator(
         IBreachedPasswordChecker checker,
         IPasswordWarningContext warningContext,
-        IOptions<PasswordSettings> passwordSettings,
+        IOptionsSnapshot<PasswordSettings> passwordSettings,
         ILogger<PasswordBreachEvaluator> logger)
     {
         _checker = checker;

@@ -3,8 +3,8 @@ import type { Column } from "@tanstack/react-table"
 import { Check, PlusCircle } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   Command,
   CommandEmpty,
@@ -13,14 +13,14 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
-} from "@astoom/ui/command"
+} from "@authsystem/ui/command"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@astoom/ui/popover"
-import { Separator } from "@astoom/ui/separator"
-import { cn } from "@astoom/ui/utils"
+} from "@authsystem/ui/popover"
+import { Separator } from "@authsystem/ui/separator"
+import { cn } from "@authsystem/ui/utils"
 
 interface FacetOption {
   label: string

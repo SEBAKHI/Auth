@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import {
   AssignmentDialog,
   AssignmentPicker,
-} from "@astoom/ui/common/assignment-dialog"
+} from "@authsystem/ui/common/assignment-dialog"
 import {
   Select,
   SelectContent,
@@ -13,10 +13,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@astoom/ui/select"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/select"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import type { Schemas } from "@authsystem/api/types"
 
 interface PermissionDraft {
   permissionId: string

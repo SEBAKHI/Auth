@@ -8,7 +8,7 @@ import {
   secretStatusMeta,
   userStatusMeta,
 } from "./format"
-import { setActiveTimeZone } from "@astoom/i18n/timezone"
+import { setActiveTimeZone } from "@authsystem/i18n/timezone"
 
 describe("userStatusMeta", () => {
   it("maps known statuses", () => {

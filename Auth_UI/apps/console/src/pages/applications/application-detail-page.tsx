@@ -4,24 +4,24 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
 
-import { DetailList } from "@astoom/ui/common/detail-list"
-import { SearchInput } from "@astoom/ui/common/search-input"
-import { LogoAvatar } from "@astoom/ui/common/logo-avatar"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { avatarColumn } from "@astoom/ui/data-table/columns"
-import { DataTable } from "@astoom/ui/data-table/data-table"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
-import { api } from "@astoom/api/client"
-import { collectAllPages, toSortParams, unwrap, toNumber } from "@astoom/api/helpers"
-import { useAuth } from "@astoom/auth/auth-context"
-import { usePageBreadcrumb } from "@astoom/ui/crumbs"
+import { DetailList } from "@authsystem/ui/common/detail-list"
+import { SearchInput } from "@authsystem/ui/common/search-input"
+import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { avatarColumn } from "@authsystem/ui/data-table/columns"
+import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
+import { api } from "@authsystem/api/client"
+import { collectAllPages, toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
+import { useAuth } from "@authsystem/auth/auth-context"
+import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
-import { formatDateTime, fullName, userStatusMeta } from "@astoom/ui/format"
-import { useDebouncedValue } from "@astoom/ui/hooks/use-debounced-value"
-import type { Schemas } from "@astoom/api/types"
+import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
+import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import type { Schemas } from "@authsystem/api/types"
 import { ApplicationEditDialog } from "./application-dialogs"
 
 function ApplicationUsersTab({ appId }: { appId: string }) {
@@ -544,6 +544,10 @@ export function ApplicationDetailPage() {
                     "/api/v1/Applications/{id}",
                     {
                       params: { path: { id: appId } },
+                      // A full replace: every setting the update contract
+                      // accepts has to be resent, or changing the logo quietly
+                      // resets it. `redirectUris` is the one exception — the
+                      // API reads null as "leave the allowlist alone".
                       body: {
                         name: app.name ?? "",
                         description: app.description ?? null,
@@ -559,6 +563,8 @@ export function ApplicationDetailPage() {
                           app.sessionTimeoutMinutes ?? 60,
                         maxConcurrentSessions:
                           app.maxConcurrentSessions ?? 5,
+                        reauthenticationMaxAgeMinutes:
+                          app.reauthenticationMaxAgeMinutes ?? null,
                       },
                     }
                   )
@@ -617,6 +623,28 @@ export function ApplicationDetailPage() {
               {
                 label: t("applications.maxConcurrentSessions"),
                 value: toNumber(app.maxConcurrentSessions),
+              },
+              {
+                // Unset means step-up is off; DetailList drops empty values, so
+                // the row only appears when a threshold is actually configured.
+                label: t("applications.reauthMaxAge"),
+                value:
+                  app.reauthenticationMaxAgeMinutes != null
+                    ? toNumber(app.reauthenticationMaxAgeMinutes)
+                    : null,
+              },
+              {
+                label: t("applications.redirectUris"),
+                value: app.redirectUris?.length ? (
+                  <div className="flex flex-col">
+                    {app.redirectUris.map((uri) => (
+                      <span key={uri} dir="ltr" className="text-start">
+                        {uri}
+                      </span>
+                    ))}
+                  </div>
+                ) : null,
+                fullWidth: true,
               },
               {
                 label: t("common.createdAt"),

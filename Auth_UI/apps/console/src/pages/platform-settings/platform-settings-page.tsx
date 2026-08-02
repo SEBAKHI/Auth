@@ -6,18 +6,18 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { LogoAvatar } from "@astoom/ui/common/logo-avatar"
-import { Spinner } from "@astoom/ui/spinner"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { Button } from "@astoom/ui/button"
+import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
+import { Spinner } from "@authsystem/ui/spinner"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { Button } from "@authsystem/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { FieldGroup } from "@astoom/ui/field"
+} from "@authsystem/ui/card"
+import { FieldGroup } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -25,14 +25,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { Input } from "@astoom/ui/input"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import { BRANDING_QUERY_KEY } from "@astoom/ui/branding"
-import { getErrorMessage } from "@astoom/api/errors"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/form"
+import { Input } from "@authsystem/ui/input"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import { BRANDING_QUERY_KEY } from "@authsystem/ui/branding"
+import { getErrorMessage } from "@authsystem/api/errors"
+import type { Schemas } from "@authsystem/api/types"
 
 const SETTINGS_QUERY_KEY = ["platform-settings"] as const
 

@@ -1,6 +1,6 @@
-import { AvatarMenu } from "@astoom/ui/common/avatar-menu"
-import { EntityAvatar } from "@astoom/ui/common/entity-avatar"
-import { useLogo } from "@astoom/api/use-logo"
+import { AvatarMenu } from "@authsystem/ui/common/avatar-menu"
+import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
+import { useLogo } from "@authsystem/api/use-logo"
 
 /**
  * Entity logo avatar. When `canEdit`, renders a clickable View/Change/Remove

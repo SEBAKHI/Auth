@@ -1,4 +1,4 @@
-import type { LanguageCode } from "@astoom/i18n"
+import type { LanguageCode } from "@authsystem/i18n"
 
 import { ar } from "./ar"
 import { en } from "./en"

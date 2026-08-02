@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useSearchParams } from "react-router-dom"
 
-import { useActiveTimeZone } from "@astoom/i18n/timezone"
+import { useActiveTimeZone } from "@authsystem/i18n/timezone"
 
 /**
  * The server validates `days` as `InclusiveBetween(1, 90)` (SharedValidationRules),

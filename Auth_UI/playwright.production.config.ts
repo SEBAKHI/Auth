@@ -26,14 +26,14 @@ export default defineConfig({
   webServer: [
     {
       command:
-        "pnpm --filter @astoom/console preview --host 127.0.0.1 --port 4173 --strictPort",
+        "pnpm --filter @authsystem/console preview --host 127.0.0.1 --port 4173 --strictPort",
       url: "http://localhost:4173",
       reuseExistingServer: false,
       timeout: 120_000,
     },
     {
       command:
-        "pnpm --filter @astoom/accounts preview --host 127.0.0.1 --port 4174 --strictPort",
+        "pnpm --filter @authsystem/accounts preview --host 127.0.0.1 --port 4174 --strictPort",
       url: "http://localhost:4174",
       reuseExistingServer: false,
       timeout: 120_000,

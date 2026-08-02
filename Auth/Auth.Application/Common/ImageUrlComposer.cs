@@ -11,11 +11,11 @@ namespace Auth.Application.Common;
 /// </summary>
 public sealed class ImageUrlComposer : IImageUrlComposer
 {
-    private readonly ImageStorageSettings _settings;
+    private readonly IOptionsMonitor<ImageStorageSettings> _settings;
 
-    public ImageUrlComposer(IOptions<ImageStorageSettings> settings)
+    public ImageUrlComposer(IOptionsMonitor<ImageStorageSettings> settings)
     {
-        _settings = settings.Value;
+        _settings = settings;
     }
 
     public string? Compose(string? keyOrUrl)
@@ -31,7 +31,7 @@ public sealed class ImageUrlComposer : IImageUrlComposer
             return keyOrUrl;
         }
 
-        return $"{_settings.PublicBaseUrl.TrimEnd('/')}/{keyOrUrl.TrimStart('/')}";
+        return $"{_settings.CurrentValue.PublicBaseUrl.TrimEnd('/')}/{keyOrUrl.TrimStart('/')}";
     }
 
     public string? Decompose(string? keyOrUrl)
@@ -41,7 +41,7 @@ public sealed class ImageUrlComposer : IImageUrlComposer
             return null;
         }
 
-        var basePrefix = $"{_settings.PublicBaseUrl.TrimEnd('/')}/";
+        var basePrefix = $"{_settings.CurrentValue.PublicBaseUrl.TrimEnd('/')}/";
         if (keyOrUrl.StartsWith(basePrefix, StringComparison.OrdinalIgnoreCase))
         {
             return keyOrUrl[basePrefix.Length..];

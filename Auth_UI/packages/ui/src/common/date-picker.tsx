@@ -2,16 +2,16 @@ import * as React from "react"
 import { CalendarIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@astoom/ui/button"
-import { Calendar } from "@astoom/ui/calendar"
+import { Button } from "@authsystem/ui/button"
+import { Calendar } from "@authsystem/ui/calendar"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@astoom/ui/popover"
-import { Separator } from "@astoom/ui/separator"
-import { formatDate, parseCalendarDate, toCalendarDate } from "@astoom/ui/format"
-import { cn } from "@astoom/ui/utils"
+} from "@authsystem/ui/popover"
+import { Separator } from "@authsystem/ui/separator"
+import { formatDate, parseCalendarDate, toCalendarDate } from "@authsystem/ui/format"
+import { cn } from "@authsystem/ui/utils"
 
 /** Default selectable span when a caller does not narrow it. */
 const DEFAULT_YEARS_BACK = 10

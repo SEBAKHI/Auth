@@ -1,15 +1,15 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@astoom/ui/button"
-import { Field, FieldDescription, FieldLabel } from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
+import { Button } from "@authsystem/ui/button"
+import { Field, FieldDescription, FieldLabel } from "@authsystem/ui/field"
+import { Input } from "@authsystem/ui/input"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@astoom/ui/popover"
-import { ToggleGroup, ToggleGroupItem } from "@astoom/ui/toggle-group"
+} from "@authsystem/ui/popover"
+import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
 
 import {
   clampDays,

@@ -6,9 +6,9 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { api } from "@astoom/api/client"
-import { Button } from "@astoom/ui/button"
-import { FieldGroup } from "@astoom/ui/field"
+import { api } from "@authsystem/api/client"
+import { Button } from "@authsystem/ui/button"
+import { FieldGroup } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -16,11 +16,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { Input } from "@astoom/ui/input"
-import { getErrorMessage } from "@astoom/api/errors"
-import { AuthLayout } from "@astoom/ui/auth-layout"
-import { Spinner } from "@astoom/ui/spinner"
+} from "@authsystem/ui/form"
+import { Input } from "@authsystem/ui/input"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { Spinner } from "@authsystem/ui/spinner"
 
 /**
  * Sets a new password from a reset link. The token in the query string is the

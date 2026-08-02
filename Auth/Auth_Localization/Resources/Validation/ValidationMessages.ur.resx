@@ -400,4 +400,10 @@
   <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
     <value>پالیسی ورژن کا فارمیٹ YYYY.MM ہونا چاہیے۔</value>
   </data>
+  <data name="Validation.SectionKey.Required" xml:space="preserve">
+    <value>سیکشن کلید درکار ہے۔</value>
+  </data>
+  <data name="Validation.SectionKey.MaxLength" xml:space="preserve">
+    <value>سیکشن کلید 64 حروف سے زیادہ نہیں ہونی چاہیے۔</value>
+  </data>
 </root>

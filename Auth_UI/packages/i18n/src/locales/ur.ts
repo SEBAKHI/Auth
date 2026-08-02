@@ -131,6 +131,7 @@ export const ur: TranslationResources = {
     auditLogs: "آڈٹ لاگز",
     secrets: "راز",
     platformSettings: "پلیٹ فارم کی ترتیبات",
+    systemSettings: "نظام کی ترتیبات",
     profile: "پروفائل",
     management: "انتظام",
     security: "سلامتی",
@@ -1039,6 +1040,8 @@ export const ur: TranslationResources = {
     globalVariables: "ہمیشہ دستیاب",
     globalVarPlatformName:
       "پلیٹ فارم کا نام، جیسا کہ پلیٹ فارم کی ترتیبات میں طے ہے۔",
+    globalVarPlatformLogoUrl:
+      "پلیٹ فارم لوگو کا پتہ، جیسا کہ پلیٹ فارم کی ترتیبات میں اپ لوڈ کیا گیا ہے۔ لوگو مقرر نہ ہونے پر خالی رہتا ہے — تب لے آؤٹ اس کی جگہ پلیٹ فارم کا نام دکھاتا ہے۔",
     globalVarApplicationName:
       "اس ایپلیکیشن کا نام جس سے پیغام متعلق ہے۔ عمومی پیغامات پلیٹ فارم کا نام استعمال کرتے ہیں۔",
     globalVarApplicationCode:
@@ -1079,6 +1082,381 @@ export const ur: TranslationResources = {
     logoDark: "تاریک موڈ",
     favicon: "ویب سائٹ آئیکن",
     updated: "پلیٹ فارم کی ترتیبات اپ ڈیٹ ہو گئیں۔",
+  },
+  systemSettings: {
+    title: "نظام کی ترتیبات",
+    subtitle:
+      "طے کریں کہ پلیٹ فارم کیسے کام کرے — پاس ورڈ پالیسی، ٹوکن، سیشنز اور مزید — کنفیگریشن فائلوں کو چھوئے بغیر۔",
+    restartBannerTitle: "دوبارہ آغاز درکار ہے",
+    restartBannerBody:
+      "کچھ محفوظ شدہ تبدیلیاں صرف API کے دوبارہ آغاز کے بعد نافذ ہوتی ہیں۔ وہ محفوظ طریقے سے ذخیرہ ہیں اور اگلے دوبارہ آغاز پر خودکار طور پر لاگو ہو جائیں گی۔",
+    dbUnavailableTitle: "ترتیبات کا ذخیرہ دستیاب نہیں",
+    dbUnavailableBody:
+      "ترتیبات کا ڈیٹا بیس پڑھا نہیں جا سکا۔ دکھائی گئی قدریں کنفیگریشن فائلوں سے لی گئی ہیں اور ممکن ہے ان میں محفوظ شدہ ترامیم شامل نہ ہوں۔",
+    restartRequired: "دوبارہ آغاز درکار ہے",
+    pendingRestart: "دوبارہ آغاز کا انتظار",
+    overridden: "ترمیم شدہ",
+    fileValue: "طے شدہ قدر: {{value}}",
+    notSet: "مقرر نہیں",
+    managedInSecrets:
+      "خفیہ قدر — خفیہ کاری کے ساتھ ذخیرہ ہوتی ہے اور اس کا انتظام راز کے صفحے پر ہوتا ہے، یہاں کبھی نہیں۔",
+    openSecrets: "راز کا صفحہ کھولیں",
+    readOnly: "صرف پڑھنے کے لیے",
+    resetSection: "طے شدہ ترتیبات پر واپس لائیں",
+    resetConfirmTitle: "یہ حصہ ری سیٹ کریں؟",
+    resetConfirmBody:
+      "اس حصے کی تمام ترمیم شدہ قدریں ہٹا دی جائیں گی اور طے شدہ قدریں دوبارہ لاگو ہو جائیں گی۔",
+    saved: "ترتیبات محفوظ ہو گئیں۔",
+    resetDone: "حصہ طے شدہ ترتیبات پر واپس آ گیا۔",
+    conflict:
+      "اسی دوران کسی اور نے یہ حصہ تبدیل کر دیا۔ اسے دوبارہ لوڈ کر دیا گیا ہے — براہ کرم اپنی تبدیلیاں دوبارہ لاگو کریں۔",
+    arrayFieldHint: "ہر سطر میں ایک اندراج۔",
+    sendTestEmail: "آزمائشی ای میل بھیجیں",
+    testEmailSent: "آزمائشی ای میل بھیج دی گئی — اپنا ان باکس دیکھیں۔",
+    groups: {
+      security: "سلامتی",
+      access: "رسائی",
+      communication: "مواصلات",
+      storage: "ذخیرہ اور میڈیا",
+      operations: "آپریشنز",
+      infrastructure: "بنیادی ڈھانچہ",
+    },
+    jwt: {
+      title: "ٹوکن (JWT)",
+      description:
+        "وہ دستخط شدہ ٹوکن جو صارفین کو سائن ان پر ملتے ہیں: انہیں کون جاری کرتا ہے، وہ کس کے لیے ہیں، اور کتنی دیر درست رہتے ہیں۔ کم مدت زیادہ محفوظ ہے؛ زیادہ مدت کا مطلب ہے کم بار دوبارہ سائن ان۔",
+      issuer: "جاری کنندہ URL",
+      issuerHint:
+        "اس تصدیقی سرور کا عوامی پتہ، جو ہر ٹوکن میں درج ہوتا ہے (مثلاً https://auth.example.com)۔ اسے تبدیل کرنے سے تبدیلی سے پہلے جاری شدہ ٹوکن غیر مؤثر ہو جاتے ہیں۔",
+      audience: "مخاطب URL",
+      audienceHint:
+        "ٹوکن کس کے لیے ہیں — عام طور پر وہی عوامی پتہ۔ کلائنٹ ایپلیکیشنز کو بالکل یہی قدر متوقع رکھنی چاہیے۔",
+      accessTokenLifetimeMinutes: "رسائی ٹوکن کی مدت (منٹ)",
+      accessTokenLifetimeMinutesHint:
+        "ایک سائن ان ٹوکن کتنی دیر درست رہتا ہے۔ تجویز: 5–15 منٹ (OAuth سلامتی کا بہترین معیار) — اس طرح لیک شدہ ٹوکن جلد ختم ہو جاتا ہے، جبکہ ریفریش صارفین کو سائن ان رکھتا ہے۔",
+      refreshTokenLifetimeDays: "ریفریش ٹوکن کی مدت (دن)",
+      refreshTokenLifetimeDaysHint:
+        "صارف پاس ورڈ دوبارہ لکھے بغیر کتنی دیر سائن ان رہ سکتا ہے۔ تجویز: 7–30 دن؛ حساس تنصیبات کے لیے کم مدت چنیں۔",
+      keyId: "دستخطی کلید کی شناخت",
+      keyIdHint:
+        "وہ شناخت کنندہ (kid) جو دستخطی کلید کے ساتھ شائع ہوتا ہے تاکہ کلائنٹ ایپس درست کلید چن سکیں۔ صرف کلید کی گردش کے حصے کے طور پر تبدیل کریں۔",
+      rotateRefreshTokens: "ریفریش ٹوکن کی گردش",
+      rotateRefreshTokensHint:
+        "ہر تجدید پر نیا ریفریش ٹوکن جاری کرتا ہے اور پرانا منسوخ کر دیتا ہے۔ تجویز: آن — اس طرح چوری شدہ ریفریش ٹوکن پہلی بار دوبارہ استعمال ہوتے ہی پکڑا اور کاٹ دیا جاتا ہے۔",
+      clockSkewSeconds: "گھڑی کا فرق (سیکنڈ)",
+      clockSkewSecondsHint:
+        "ٹوکن کی میعاد جانچتے وقت سرورز کی گھڑیوں کے فرق کی گنجائش۔ تجویز: 60 یا کم؛ 0 سخت ترین ہے۔",
+      privateKeyPath: "نجی کلید کا راستہ",
+      privateKeyPem: "نجی کلید (PEM)",
+      privateKeyEncrypted: "نجی کلید (خفیہ شدہ)",
+      refreshTokenEncryptedKey: "ریفریش ٹوکن HMAC کلید",
+    },
+    password: {
+      title: "پاس ورڈ پالیسی",
+      description:
+        "وہ اصول جن پر ہر پاس ورڈ کو پورا اترنا ہے، بار بار ناکام سائن ان کے بعد کیا ہوتا ہے، اور پاس ورڈ کتنی مضبوطی سے ہیش ہوتے ہیں۔ طے شدہ قدریں OWASP کی سفارشات کے مطابق ہیں۔",
+      minimumLength: "کم از کم لمبائی",
+      minimumLengthHint:
+        "تجویز: کم از کم 8 حروف (OWASP/NIST)؛ لمبائی پیچیدگی سے زیادہ حفاظت کرتی ہے، اس لیے جہاں سلامتی سب سے اہم ہو وہاں 12 یا زیادہ پر غور کریں۔",
+      requireUppercase: "بڑا حرف لازمی",
+      requireUppercaseHint:
+        "A–Z کے بغیر پاس ورڈ مسترد کرتا ہے۔ پیچیدگی کے اصول رکاوٹ بڑھاتے ہیں — لمبائی اور افشا شدہ پاس ورڈ کی جانچ زیادہ حفاظت کرتی ہے۔",
+      requireLowercase: "چھوٹا حرف لازمی",
+      requireLowercaseHint: "a–z کے بغیر پاس ورڈ مسترد کرتا ہے۔",
+      requireDigit: "ہندسہ لازمی",
+      requireDigitHint: "0–9 کے بغیر پاس ورڈ مسترد کرتا ہے۔",
+      requireSpecialCharacter: "خصوصی حرف لازمی",
+      requireSpecialCharacterHint:
+        "صرف حروف اور ہندسوں پر مشتمل پاس ورڈ مسترد کرتا ہے۔",
+      historyCount: "یاد رکھے گئے سابقہ پاس ورڈ",
+      historyCountHint:
+        "صارف کے کتنے پچھلے پاس ورڈ دوبارہ استعمال نہیں ہو سکتے۔ تجویز: 3–5۔ 0 اس جانچ کو بند کر دیتا ہے۔",
+      maxFailedAttempts: "لاک ہونے سے پہلے ناکام کوششیں",
+      maxFailedAttemptsHint:
+        "اتنے غلط پاس ورڈ کے بعد اکاؤنٹ عارضی طور پر لاک ہو جاتا ہے۔ تجویز: 5 — اندازے روکنے کے لیے کافی کم، اور سچی غلطیوں کی گنجائش کے لیے کافی زیادہ۔",
+      lockoutDurationMinutes: "لاک کی مدت (منٹ)",
+      lockoutDurationMinutesHint:
+        "اکاؤنٹ کتنی دیر لاک رہتا ہے۔ تجویز: 15 — حملہ آوروں پر مؤثر روک، صارف کے لیے کم زحمت کے ساتھ۔",
+      argon2MemorySize: "Argon2 میموری (KB)",
+      argon2MemorySizeHint:
+        "ہر پاس ورڈ کو ہیش کرنے میں استعمال ہونے والی میموری۔ تجویز: 19456 (یعنی 19 MiB، OWASP کی کم از کم حد)۔ زیادہ قدر مضبوط تر ہے مگر ہر سائن ان کو سست کرتی ہے۔",
+      argon2Iterations: "Argon2 تکرار",
+      argon2IterationsHint: "تجویز: 2 (اس میموری سائز کے لیے OWASP کی کم از کم حد)۔",
+      argon2Parallelism: "Argon2 متوازیت",
+      argon2ParallelismHint: "تجویز: 1 (OWASP)۔ تبدیلی کے بعد موجودہ پاس ورڈ کام کرتے رہتے ہیں — اگلے سائن ان پر انہیں اپ گریڈ کر دیا جاتا ہے۔",
+      saltSize: "سالٹ کا سائز (بائٹس)",
+      saltSizeHint: "OWASP کی تجویز کردہ قدر پر مقرر؛ قابلِ ترتیب نہیں۔",
+      hashSize: "ہیش کا سائز (بائٹس)",
+      hashSizeHint: "OWASP کی تجویز کردہ قدر پر مقرر؛ قابلِ ترتیب نہیں۔",
+      pepperEnabled: "سرور سائیڈ pepper",
+      pepperEnabledHint:
+        "ہر پاس ورڈ ہیش میں سرور کے پاس محفوظ ایک راز شامل کرتا ہے، تاکہ صرف چوری شدہ ڈیٹا بیس سے پاس ورڈ نہ توڑے جا سکیں۔ کلیدی مواد اگلے دوبارہ آغاز پر خودکار طور پر بن جاتا ہے۔",
+      breachedPasswordCheckEnabled: "افشا شدہ پاس ورڈ کی جانچ",
+      breachedPasswordCheckEnabledHint:
+        "نئے پاس ورڈز کو معلوم ڈیٹا افشاؤں سے جانچتا ہے (Have I Been Pwned، رازداری برقرار رکھنے والی k-anonymity)۔ تجویز: آن — یہ سب سے زیادہ اندازہ لگائے جانے والے پاس ورڈ روکتی ہے۔",
+      breachedPasswordCheckMode: "جب افشا شدہ پاس ورڈ ملے",
+      breachedPasswordCheckModeHint:
+        "Enforce پاس ورڈ مسترد کرتا ہے؛ Warn قبول کرتا ہے مگر صارف کو بتا دیتا ہے۔ تجویز: نئی تنصیبات کے لیے Enforce، نفاذ کے دوران Warn۔",
+      breachedPasswordCheckFailOpen: "جانچ دستیاب نہ ہو تو اجازت دیں",
+      breachedPasswordCheckFailOpenHint:
+        "اگر افشا جانچ کی سروس تک رسائی نہ ہو تو سائن اپ روکنے کے بجائے پاس ورڈ قبول کریں۔ تجویز: آن — خود ساختہ بندش سے بچاتا ہے؛ واقعات لاگ ہوتے ہیں۔",
+      breachedPasswordCheckRejectThreshold: "افشا کی تعداد کی حد",
+      breachedPasswordCheckRejectThresholdHint:
+        "پاس ورڈ کتنی بار افشاؤں میں ملے تو اسے افشا شدہ شمار کیا جائے۔ تجویز: 1 — ایک بار ملنا ہی کافی ہے۔",
+      breachedPasswordCheckTimeoutMs: "افشا جانچ کی مہلت (ms)",
+      breachedPasswordCheckTimeoutMsHint:
+        "افشا جانچ کی سروس کا کتنی دیر انتظار کیا جائے۔ تجویز: 2000۔",
+    },
+    session: {
+      title: "سیشنز",
+      description:
+        "پاس ورڈ تبدیل ہونے پر صارف کے دیگر سائن ان سیشنز کا کیا ہوتا ہے۔ فی ایپلیکیشن سیشن کی حدیں ہر ایپلیکیشن پر ترتیب دی جاتی ہیں، یہاں نہیں۔",
+      terminateSessionsOnPasswordChange: "پاس ورڈ کی تبدیلی پر ہر جگہ سائن آؤٹ",
+      terminateSessionsOnPasswordChangeHint:
+        "جب صارف اپنا پاس ورڈ تبدیل کرتا ہے تو اس کے باقی تمام سیشنز ختم ہو جاتے ہیں۔ تجویز: آن — بدلا ہوا پاس ورڈ عموماً اس بات کی علامت ہے کہ پرانے پر اب اعتماد نہیں۔",
+      terminateSessionsOnPasswordReset: "پاس ورڈ ری سیٹ پر ہر جگہ سائن آؤٹ",
+      terminateSessionsOnPasswordResetHint:
+        "جب پاس ورڈ ای میل لنک کے ذریعے ری سیٹ ہوتا ہے تو تمام موجودہ سیشنز ختم ہو جاتے ہیں۔ تجویز: آن — ری سیٹ اکثر کسی مشتبہ خلاف ورزی کے بعد ہوتا ہے۔",
+    },
+    gateway: {
+      title: "گیٹ وے تحفظ",
+      description:
+        "API عام طور پر صرف API گیٹ وے سے آنے والی درخواستیں قبول کرتا ہے، جس کا ثبوت ایک مشترکہ خفیہ ہیڈر ہے۔ یہ اندرونی API پتہ دریافت کرنے والے ہر شخص کو روکتا ہے۔",
+      validationEnabled: "گیٹ وے ہیڈر لازمی کریں",
+      validationEnabledHint:
+        "تجویز: پروڈکشن میں آن۔ صرف مقامی ڈیویلپمنٹ میں بند کریں جہاں کوئی گیٹ وے نہیں چلتا۔",
+      exemptPaths: "مستثنیٰ راستے",
+      exemptPathsHint:
+        "وہ راستے جو گیٹ وے ہیڈر کے بغیر فراہم کیے جاتے ہیں — ہیلتھ پروبس اور عوامی ڈسکوری دستاویزات۔ اندراجات کا آغاز '/' سے ہونا لازمی ہے؛ آخر میں '/' پورے سابقے سے مماثل ہوتا ہے۔",
+      tokenHeaderName: "ہیڈر کا نام",
+      tokenHeaderNameHint: "گیٹ وے کی جانب مقرر؛ یہاں صرف حوالے کے لیے دکھایا گیا ہے۔",
+      expectedToken: "گیٹ وے ٹوکن",
+    },
+    cors: {
+      title: "اجازت یافتہ ویب اوریجنز (CORS)",
+      description:
+        "کن ویب سائٹس کے براؤزر اس API کو کال کر سکتے ہیں۔ یہاں صرف کنسول اور اکاؤنٹس ایپس کے اپنے پتے ہونے چاہئیں — ہر اضافی اوریجن حملے کی سطح کو وسیع کرتا ہے۔",
+      allowedOrigins: "اجازت یافتہ اوریجنز",
+      allowedOriginsHint:
+        "صرف خالص اوریجنز، مثلاً https://console.example.com — نہ راستے، نہ آخر میں سلیش، نہ وائلڈ کارڈ۔",
+      allowCredentials: "اسناد کی اجازت",
+      allowCredentialsHint:
+        "براؤزرز کو کراس اوریجن کالز کے ساتھ کوکیز بھیجنے دیتا ہے۔ IdP سیشن کوکی کے لیے ضروری؛ صرف اس لیے محفوظ ہے کہ اوپر کی اوریجنز ایک واضح فہرست ہیں۔",
+    },
+    rateLimiting: {
+      title: "شرح کی حد بندی (API)",
+      description:
+        "فی کلائنٹ IP درخواستوں کی روک تھام۔ تہہ دار دفاع کی ایک تہہ: یہ خودکار غلط استعمال کو سست کرتی ہے جبکہ اکاؤنٹ لاک پاس ورڈ کے اندازے روکتا ہے۔ تبدیل شدہ حدیں نئی کلائنٹ ونڈوز پر فوراً لاگو ہوتی ہیں۔",
+      loginPermitLimit: "سائن ان کوششیں فی ونڈو",
+      loginPermitLimitHint:
+        "لاگ ان، رجسٹریشن اور دیگر تعاملی تصدیقی اینڈ پوائنٹس پر لاگو۔ تجویز: 20 فی IP۔",
+      loginWindowSeconds: "سائن ان ونڈو (سیکنڈ)",
+      loginWindowSecondsHint: "تجویز: 60۔",
+      passwordResetPermitLimit: "پاس ورڈ ری سیٹ درخواستیں فی ونڈو",
+      passwordResetPermitLimitHint: "تجویز: 10 — گمنام اینڈ پوائنٹ کے لیے احتیاطی حفاظت۔",
+      passwordResetWindowSeconds: "پاس ورڈ ری سیٹ ونڈو (سیکنڈ)",
+      passwordResetWindowSecondsHint: "تجویز: 60۔",
+    },
+    externalAuth: {
+      title: "بیرونی سائن ان (Google / Apple)",
+      description:
+        "سوشل سائن ان فراہم کنندگان۔ یہاں دیے گئے کلائنٹ ID عوامی شناختیں ہیں؛ نجی کلیدیں راز کے صفحے پر رہتی ہیں۔ بٹن ظاہر ہونے کے لیے فراہم کنندہ کو اس کی ڈائریکٹری قطار میں بھی فعال ہونا لازمی ہے۔",
+      googleEnabled: "Google سائن ان",
+      googleEnabledHint: "نیچے درست کلائنٹ ID درکار ہے۔",
+      googleClientId: "Google کلائنٹ ID",
+      googleClientIdHint:
+        "Google Cloud Console ← Credentials سے۔ عوامی قدر، یہاں محفوظ کرنا بے خطر ہے۔",
+      appleEnabled: "Apple سائن ان",
+      appleEnabledHint: "Services ID، Team ID، Key ID اور راز میں .p8 کلید درکار ہیں۔",
+      appleServicesId: "Apple Services ID",
+      appleServicesIdHint: "مثلاً com.example.accounts، Apple Developer پورٹل سے۔",
+      appleTeamId: "Apple Team ID",
+      appleTeamIdHint: "Apple Developer پورٹل سے 10 حرفی ٹیم شناخت کنندہ۔",
+      appleKeyId: "Apple Key ID",
+      appleKeyIdHint: ".p8 دستخطی کلید کا شناخت کنندہ؛ کلید خود راز میں رہتی ہے۔",
+      applePrivateKeyPem: "Apple دستخطی کلید (.p8)",
+    },
+    identityProvider: {
+      title: "شناختی فراہم کنندہ (SSO)",
+      description:
+        "یونیورسل لاگ ان کا بہاؤ: صارفین کہاں سائن ان کرتے ہیں، سنگل سائن آن کتنی دیر رہتا ہے، اور یک بارگی اجازت نامہ کوڈ کیسے کام کرتے ہیں۔",
+      accountsBaseUrl: "اکاؤنٹس ایپ URL",
+      accountsBaseUrlHint:
+        "اختتامی صارف اکاؤنٹس ایپ کا عوامی پتہ؛ سائن ان ری ڈائریکٹس وہیں جاتے ہیں۔ غلط قدر = ہر منسلک ایپ کے لیے ٹوٹا ہوا لاگ ان۔",
+      publicBaseUrl: "عوامی auth URL",
+      publicBaseUrlHint:
+        "اس سرور کا اپنا عوامی پتہ جیسا براؤزر اسے دیکھتے ہیں۔ ریورس پراکسی کے پیچھے لازمی؛ ری ڈائریکٹس اور ڈسکوری دستاویز میں استعمال ہوتا ہے۔",
+      authorizationCodeLifetimeSeconds: "اجازت نامہ کوڈ کی مدت (سیکنڈ)",
+      authorizationCodeLifetimeSecondsHint:
+        "ٹوکنز کے بدلے دیے جانے والے یک بارگی کوڈ۔ تجویز: 60 یا کم (OAuth 2.0 Security BCP)۔",
+      idpSessionCookieName: "SSO کوکی کا نام",
+      idpSessionCookieNameHint:
+        "نام بدلنے سے سب سنگل سائن آن سے سائن آؤٹ ہو جاتے ہیں (موجودہ کوکیز مماثل ہونا بند ہو جاتی ہیں)۔",
+      idpSessionLifetimeDays: "SSO سیشن کی مدت (دن)",
+      idpSessionLifetimeDaysHint:
+        "'ایک بار سائن ان، ہر ایپ استعمال' کتنی دیر چلتا ہے۔ تجویز: 7–30 دن۔",
+    },
+    email: {
+      title: "ای میل (SMTP)",
+      description:
+        "پلیٹ فارم ای میل کیسے بھیجتا ہے — تصدیقی کوڈ، پاس ورڈ ری سیٹ، دعوت نامے۔ سرور تبدیل کرنے کے بعد 'آزمائشی ای میل بھیجیں' سے کنکشن ثابت کریں، اس سے پہلے کہ حقیقی ٹریفک اس پر انحصار کرے۔",
+      enabled: "ای میل بھیجنا",
+      enabledHint:
+        "مرکزی سوئچ۔ بند ہونے پر وہ بہاؤ جنہیں ای میل درکار ہے (تصدیق، ری سیٹ) دستیاب نہیں رہتے۔",
+      smtpHost: "SMTP سرور",
+      smtpHostHint: "آپ کے میل سرور کا ہوسٹ نام، مثلاً mail.example.com۔",
+      smtpPort: "SMTP پورٹ",
+      smtpPortHint:
+        "587 = STARTTLS (تجویز کردہ)، 465 = براہِ راست TLS، 25 = عموماً ہوسٹس کی جانب سے بند۔",
+      useSsl: "TLS لازمی",
+      useSslHint: "تجویز: آن۔ بند صرف مقامی ڈیویلپمنٹ میں موقع پرستانہ TLS کی اجازت دیتا ہے۔",
+      username: "SMTP صارف نام",
+      usernameHint: "عموماً پورا میل باکس پتہ۔ غیر تصدیقی ریلے کے لیے خالی چھوڑیں۔",
+      password: "SMTP پاس ورڈ",
+      senderEmail: "بھیجنے والے کا پتہ",
+      senderEmailHint: "From پتہ۔ آپ کے ڈومین کے SPF/DKIM ریکارڈز سے مجاز ہونا لازمی ہے۔",
+      senderName: "بھیجنے والے کا نام",
+      senderNameHint: "وہ ظاہری نام جو وصول کنندگان دیکھتے ہیں؛ سانچوں میں پلیٹ فارم نام کا متبادل بھی۔",
+      frontendBaseUrl: "لنکس کا بنیادی URL",
+      frontendBaseUrlHint:
+        "اکاؤنٹس ایپ کا مکمل پتہ؛ ای میل میں بھیجا گیا ہر لنک (ری سیٹ، تصدیق) اسی پر بنتا ہے۔ جب تک بھیجنا فعال ہے لازمی۔",
+      otpExpirationMinutes: "تصدیقی کوڈ کی مدت (منٹ)",
+      otpExpirationMinutesHint: "تجویز: 5–15 — لکھنے کے لیے کافی، چوری کے لیے ناکافی۔",
+      resetTokenExpirationMinutes: "ری سیٹ لنک کی مدت (منٹ)",
+      resetTokenExpirationMinutesHint: "تجویز: 30–60۔",
+      rateLimitWindowSeconds: "بھیجنے کی شرح کی ونڈو (سیکنڈ)",
+      rateLimitWindowSecondsHint: "نیچے دی گئی فی پتہ بھیجنے کی حد کی ونڈو۔ تجویز: 60۔",
+      maxOtpRequestsPerWindow: "کوڈ فی ونڈو",
+      maxOtpRequestsPerWindowHint:
+        "ایک پتہ فی ونڈو زیادہ سے زیادہ کتنے تصدیقی کوڈ مانگ سکتا ہے۔ تجویز: 3 — میل بمباری روکتا ہے۔",
+    },
+    notificationsSection: {
+      title: "اطلاعات کی ترسیل",
+      description:
+        "جانے والی اطلاعات کیسے پہنچائی جاتی ہیں: براہِ راست، یا ایک پائیدار آؤٹ باکس کے ذریعے جو ناکامیوں پر دوبارہ کوشش کرتا ہے اور دوبارہ آغاز سے محفوظ رہتا ہے۔ مواد اور سانچوں کا انتظام اطلاعات کے صفحات پر ہوتا ہے۔",
+      useOutbox: "پائیدار آؤٹ باکس",
+      useOutboxHint:
+        "تجویز: پروڈکشن میں آن — پیغامات پہلے ذخیرہ ہوتے ہیں اور ناکامی پر گم ہونے کے بجائے دوبارہ آزمائے جاتے ہیں۔",
+      pollIntervalSeconds: "پول وقفہ (سیکنڈ)",
+      pollIntervalSecondsHint: "جب کوئی بھیجنے کا اشارہ نہ آئے تو متبادل بیداری۔ تجویز: 30۔",
+      batchSize: "بیچ کا سائز",
+      batchSizeHint: "فی ترسیلی چکر اٹھائے جانے والے پیغامات۔ تجویز: 20۔",
+      maxAttempts: "زیادہ سے زیادہ کوششیں",
+      maxAttemptsHint:
+        "پیغام کے ڈیڈ لیٹر ہونے سے پہلے ترسیل کی کوششیں (بڑھتے وقفوں کے ساتھ)۔ تجویز: 5۔",
+      staleClaimMinutes: "باسی دعویٰ (منٹ)",
+      staleClaimMinutesHint:
+        "کریش شدہ ورکر کے قبضے میں پھنسا پیغام اتنی دیر بعد دوبارہ آزمایا جاتا ہے۔ تجویز: 5۔",
+    },
+    imageStorage: {
+      title: "تصویری ذخیرہ",
+      description:
+        "اپ لوڈ شدہ لوگو اور پروفائل تصاویر: ڈسک پر کہاں محفوظ ہوتی ہیں، کیسے پیش کی جاتی ہیں، اور اپ لوڈ پر لاگو سائز کی حدیں۔",
+      provider: "ذخیرے کا فراہم کنندہ",
+      providerHint: "فائل سسٹم ذخیرہ؛ سرور تنصیب کا حصہ، یہاں قابلِ ترمیم نہیں۔",
+      physicalPath: "ذخیرے کا فولڈر",
+      physicalPathHint: "سرور ڈسک کا مقام؛ تبدیلی کے لیے فائلیں منتقل کرنا پڑتی ہیں — یہ تنصیب کا کام ہے۔",
+      publicBaseUrl: "عوامی بنیادی URL",
+      publicBaseUrlHint:
+        "ہر واپس کیے گئے تصویری URL کا سابقہ۔ API کے عوامی پتے (یا جڑ سے شروع ہونے والے راستے) پر مقرر کریں تاکہ لوگو گیٹ وے کے ذریعے نظر آئیں۔",
+      requestPath: "پیش کاری کا راستہ",
+      requestPathHint: "وہ URL راستہ جس کے تحت تصاویر پیش ہوتی ہیں؛ آغاز پر پائپ لائن میں شامل ہو جاتا ہے۔",
+      maxSizeBytes: "زیادہ سے زیادہ اپ لوڈ سائز (بائٹس)",
+      maxSizeBytesHint: "تجویز: 4194304 (4 MB) — لوگو اور اوتار کے لیے وافر۔",
+      maxMegapixels: "زیادہ سے زیادہ میگا پکسلز",
+      maxMegapixelsHint: "پروسیسنگ سے پہلے ڈی کمپریشن بم مسترد کرتا ہے۔ تجویز: 50۔",
+      maxEdgePx: "زیادہ سے زیادہ کنارہ (پکسلز)",
+      maxEdgePxHint: "بڑی تصاویر اس کنارے تک چھوٹی کر دی جاتی ہیں۔ تجویز: 1024۔",
+      webpQuality: "WebP معیار",
+      webpQualityHint: "اپ لوڈز اس معیار پر WebP میں دوبارہ انکوڈ ہوتی ہیں۔ تجویز: 90۔",
+      allowedContentTypes: "اجازت یافتہ مواد کی اقسام",
+      allowedContentTypesHint: "اپ لوڈ پر قبول کی جانے والی image/* MIME اقسام۔",
+    },
+    accountDeletionSection: {
+      title: "اکاؤنٹ کا حذف",
+      description:
+        "GDPR/KVKK حذف پائپ لائن: مستقل مٹانے سے پہلے مہلت، تصدیقی کوڈ، اور حذف انجام دینے والے پس منظر ورکر کی رفتار۔",
+      graceDays: "مہلت کی مدت (دن)",
+      graceDaysHint:
+        "مستقل حذف سے پہلے ارادہ بدلنے کا وقت۔ تجویز: 30 (عام ضابطہ جاتی رواج)۔",
+      workerPollMinutes: "ورکر پول (منٹ)",
+      workerPollMinutesHint: "واجب حذف کتنی بار انجام دیے جاتے ہیں۔ تجویز: 15۔",
+      workerBatchSize: "ورکر بیچ کا سائز",
+      workerBatchSizeHint: "فی چکر انجام دیے جانے والے حذف۔ تجویز: 25۔",
+      maxExecutionAttempts: "زیادہ سے زیادہ تنفیذی کوششیں",
+      maxExecutionAttemptsHint: "ناکام حذف کے تعمیل الارم اٹھانے سے پہلے دوبارہ کوششیں۔ تجویز: 5۔",
+      otpExpirationMinutes: "تصدیقی کوڈ کی مدت (منٹ)",
+      otpExpirationMinutesHint: "عوامی حذف درخواست کی تصدیق کرنے والا کوڈ۔ تجویز: 15۔",
+      identifierHmacKeyPlain: "شناخت کنندہ ہیش کلید",
+    },
+    dataRetention: {
+      title: "پرائیویسی اور ڈیٹا کی برقراری",
+      description:
+        "سیکیورٹی اور ترسیل کے ریکارڈ کتنے عرصے تک رکھے جائیں، اور ہر حذف پر کون سا شائع شدہ پرائیویسی پالیسی ورژن ثبت ہو۔ انہیں اپنی پرائیویسی پالیسی کے اصل وعدے کے مطابق رکھیں۔",
+      policyVersion: "رازداری پالیسی کا نسخہ",
+      policyVersionHint:
+        "ہر حذف کے ساتھ درج ہونے والا نسخہ (فارمیٹ YYYY.MM)۔ شائع شدہ پالیسی سے مماثل ہونا لازمی ہے۔",
+      loginAttemptRetentionDays: "لاگ ان کوششوں کی برقراری (دن)",
+      loginAttemptRetentionDaysHint:
+        "سلامتی لاگ کی برقراری؛ اپنی رازداری پالیسی سے ہم آہنگ رکھیں۔ تجویز: 365۔",
+      outboxRetentionDays: "آؤٹ باکس کی برقراری (دن)",
+      outboxRetentionDaysHint: "پہنچائی گئی اطلاعات کے لاگ کی برقراری۔ تجویز: 180۔",
+    },
+    maintenance: {
+      title: "دیکھ بھال",
+      description:
+        "آپریشنل سوئچ جو آغاز پر ایک بار چلتے ہیں۔ معمول کے آپریشن میں انہیں بند رکھیں اور صرف اسی وقت آن کریں جب رن بک کہے۔",
+      runEncryptionMigration: "خفیہ کاری منتقلی چلائیں",
+      runEncryptionMigrationHint:
+        "اگلے آغاز پر ایک بار چلنے والی بیک فل؛ جب تک رن بک نہ کہے بند رکھیں۔",
+    },
+    healthChecks: {
+      title: "ہیلتھ چیکس",
+      description:
+        "گیٹ وے اور نگرانی کے زیرِ استعمال عوامی /health اور /ready پروبس۔",
+      exposeErrorDetails: "خرابی کی تفصیلات ظاہر کریں",
+      exposeErrorDetailsHint:
+        "پروب جوابات میں ایکسیپشن پیغامات شامل کرتا ہے۔ تجویز: پروڈکشن میں بند — یہ اینڈ پوائنٹس عوامی طور پر قابلِ رسائی ہیں۔",
+    },
+    serilog: {
+      title: "لاگنگ",
+      description:
+        "API اپنی لاگ فائلوں میں کتنا لکھتا ہے۔ سطحیں فوراً لاگو ہوتی ہیں؛ لاگ فائلوں کے مقامات تنصیب کا حصہ ہیں۔",
+      minimumLevelDefault: "کم از کم سطح",
+      minimumLevelDefaultHint:
+        "معمول کے آپریشن کے لیے Information؛ صرف تفتیش کے دوران Debug (بہت تفصیلی اور درخواست کی مزید تفصیل شامل ہو سکتی ہے)؛ خاموش پروڈکشن لاگز کے لیے Warning۔",
+      minimumLevelOverrideMicrosoft: "Microsoft نیم اسپیس سطح",
+      minimumLevelOverrideMicrosoftHint: "فریم ورک کے شور کا فلٹر۔ تجویز: Warning۔",
+      minimumLevelOverrideMicrosoftHostingLifetime: "ہوسٹ لائف ٹائم سطح",
+      minimumLevelOverrideMicrosoftHostingLifetimeHint:
+        "آغاز/بندش کے پیغامات۔ تجویز: Information۔",
+      minimumLevelOverrideSystem: "System نیم اسپیس سطح",
+      minimumLevelOverrideSystemHint: "تجویز: Warning۔",
+    },
+    dataProtection: {
+      title: "ڈیٹا تحفظ کلیدیں",
+      description:
+        "وہ کلیدی حلقہ جو ذخیرہ شدہ رازوں کو خفیہ کرتا ہے (2FA بیج، محفوظ کلیدیں)۔ ڈیٹا بیس دستیاب ہونے سے پہلے پڑھا جاتا ہے — اور غلط فولڈر کی طرف موڑنے سے ہر خفیہ قدر ہمیشہ کے لیے ناقابلِ مطالعہ ہو جاتی ہے — اس لیے اس کا انتظام صرف سرور فائلوں میں ہوتا ہے۔",
+      keyPath: "کلیدی حلقے کا فولڈر",
+      certificatePfxPath: "سرٹیفکیٹ فائل",
+      certificateThumbprint: "سرٹیفکیٹ تھمب پرنٹ",
+      certificatePasswordEnvironmentVariable: "پاس ورڈ ماحولیاتی متغیر",
+    },
+    secretManagement: {
+      title: "راز کا انتظام",
+      description:
+        "خفیہ نگاری کے راز کیسے ذخیرہ ہوتے ہیں (خفیہ شدہ فائل / DPAPI / ڈیویلپمنٹ کے لیے سادہ متن)۔ ڈیٹا بیس سے پہلے شروع ہوتا ہے، اس لیے موڈ کا انتظام سرور فائلوں میں ہوتا ہے؛ راز کی قدروں کا انتظام راز کے صفحے پر ہوتا ہے۔",
+      storageMode: "ذخیرے کا موڈ",
+      secretFilePath: "راز کی فائل",
+      autoGenerateKeys: "کلیدیں خودکار بنائیں",
+      enableAdminApi: "ایڈمن API فعال",
+    },
+    connectionStrings: {
+      title: "ڈیٹا بیس کنکشن",
+      description:
+        "وہ SQL Server کنکشن جس پر یہ API چلتا ہے۔ اس میں اسناد شامل ہیں اور کسی بھی ترتیب کے لوڈ ہونے سے پہلے درکار ہے، اس لیے یہ صرف سرور فائلوں / راز کے ذخیرے میں رہتا ہے۔",
+      authDb: "AuthDb کنکشن سٹرنگ",
+    },
   },
   profile: {
     title: "میرا پروفائل",
@@ -1178,6 +1556,9 @@ export const ur: TranslationResources = {
     minLength: "کم از کم {{count}} حروف ہونے چاہئیں۔",
     passwordMismatch: "پاس ورڈ مماثل نہیں ہیں۔",
     url: "درست URL درج کریں۔",
+    wholeNumber: "مکمل عدد درج کریں۔",
+    min: "کم از کم {{min}} ہونا چاہیے۔",
+    max: "زیادہ سے زیادہ {{max}} ہونا چاہیے۔",
   },
   errors: {
     notFoundTitle: "صفحہ نہیں ملا",

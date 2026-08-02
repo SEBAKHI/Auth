@@ -25,7 +25,7 @@ public class AppleAuthProvider : IExternalAuthProvider
     private static readonly TimeSpan JwksCacheTtl = TimeSpan.FromHours(24);
 
     private readonly HttpClient _httpClient;
-    private readonly ExternalAuthSettings _settings;
+    private readonly IOptionsMonitor<ExternalAuthSettings> _settings;
     private readonly ILogger<AppleAuthProvider> _logger;
 
     // Benign race: concurrent refreshes fetch the same document twice at worst.
@@ -36,11 +36,11 @@ public class AppleAuthProvider : IExternalAuthProvider
 
     public AppleAuthProvider(
         HttpClient httpClient,
-        IOptions<ExternalAuthSettings> settings,
+        IOptionsMonitor<ExternalAuthSettings> settings,
         ILogger<AppleAuthProvider> logger)
     {
         _httpClient = httpClient;
-        _settings = settings.Value;
+        _settings = settings;
         _logger = logger;
     }
 
@@ -50,7 +50,7 @@ public class AppleAuthProvider : IExternalAuthProvider
         string? nonce,
         CancellationToken cancellationToken)
     {
-        var apple = _settings.Apple;
+        var apple = _settings.CurrentValue.Apple;
         if (apple == null || !apple.Enabled || string.IsNullOrEmpty(apple.ServicesId))
         {
             return ExternalAuthErrors.ProviderNotConfigured("apple");

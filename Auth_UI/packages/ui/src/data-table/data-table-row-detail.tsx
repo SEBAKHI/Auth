@@ -2,15 +2,15 @@ import * as React from "react"
 import { Pencil } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@astoom/ui/button"
+import { Button } from "@authsystem/ui/button"
 import {
   Field,
   FieldGroup,
   FieldLabel,
   FieldLegend,
   FieldSet,
-} from "@astoom/ui/field"
-import { ScrollArea } from "@astoom/ui/scroll-area"
+} from "@authsystem/ui/field"
+import { ScrollArea } from "@authsystem/ui/scroll-area"
 import {
   Sheet,
   SheetClose,
@@ -19,8 +19,8 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-} from "@astoom/ui/sheet"
-import { directionForLanguage } from "@astoom/i18n"
+} from "@authsystem/ui/sheet"
+import { directionForLanguage } from "@authsystem/i18n"
 import {
   DEFAULT_AUDIT_FIELD_KEYS,
   formatFieldValue,

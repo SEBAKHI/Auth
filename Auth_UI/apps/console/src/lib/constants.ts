@@ -9,6 +9,7 @@ import {
   ScrollText,
   Settings2,
   ShieldCheck,
+  SlidersHorizontal,
   Users,
   Webhook,
 } from "lucide-react"
@@ -71,6 +72,9 @@ export const PERMISSIONS = {
   },
   platformSettings: {
     manage: "platform-settings:manage",
+  },
+  systemSettings: {
+    manage: "system-settings:manage",
   },
   notificationTemplates: {
     read: "notification-templates:read",
@@ -169,6 +173,12 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Settings2,
     permission: PERMISSIONS.platformSettings.manage,
   },
+  {
+    titleKey: "systemSettings",
+    url: "/admin/system-settings",
+    icon: SlidersHorizontal,
+    permission: PERMISSIONS.systemSettings.manage,
+  },
 ]
 
-export { DEFAULT_PAGE_SIZE } from "@astoom/api/constants"
+export { DEFAULT_PAGE_SIZE } from "@authsystem/api/constants"

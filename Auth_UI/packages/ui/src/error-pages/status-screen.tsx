@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 
-import { Button } from "@astoom/ui/button"
+import { Button } from "@authsystem/ui/button"
 
 /** Centered full-page status screen used for 403 / 404. */
 export function StatusScreen({

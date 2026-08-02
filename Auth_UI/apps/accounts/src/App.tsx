@@ -1,16 +1,16 @@
-import "@astoom/i18n"
+import "@authsystem/i18n"
 
 import { QueryClientProvider } from "@tanstack/react-query"
 import { RouterProvider } from "react-router-dom"
 
-import { Toaster } from "@astoom/ui/sonner"
-import { AppVersionMonitor } from "@astoom/ui/common/app-version-monitor"
-import { ThemeSync } from "@astoom/ui/common/theme-sync"
-import { TooltipProvider } from "@astoom/ui/tooltip"
-import { AuthProvider } from "@astoom/auth/auth-context"
-import { BrandingProvider } from "@astoom/ui/branding"
-import { DirectionProvider } from "@astoom/i18n/direction"
-import { queryClient } from "@astoom/api/query"
+import { Toaster } from "@authsystem/ui/sonner"
+import { AppVersionMonitor } from "@authsystem/ui/common/app-version-monitor"
+import { ThemeSync } from "@authsystem/ui/common/theme-sync"
+import { TooltipProvider } from "@authsystem/ui/tooltip"
+import { AuthProvider } from "@authsystem/auth/auth-context"
+import { BrandingProvider } from "@authsystem/ui/branding"
+import { DirectionProvider } from "@authsystem/i18n/direction"
+import { queryClient } from "@authsystem/api/query"
 import { router } from "@/routes"
 
 export function App() {

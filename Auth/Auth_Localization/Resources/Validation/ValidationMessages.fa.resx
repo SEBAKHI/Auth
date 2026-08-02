@@ -400,4 +400,10 @@
   <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
     <value>نسخه سیاست باید در قالب YYYY.MM باشد.</value>
   </data>
+  <data name="Validation.SectionKey.Required" xml:space="preserve">
+    <value>کلید بخش الزامی است.</value>
+  </data>
+  <data name="Validation.SectionKey.MaxLength" xml:space="preserve">
+    <value>کلید بخش نباید از 64 نویسه بیشتر باشد.</value>
+  </data>
 </root>

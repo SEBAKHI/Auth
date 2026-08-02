@@ -23,8 +23,8 @@ public class AccountDeletionRequestedNotificationEventHandler
 
     public AccountDeletionRequestedNotificationEventHandler(
         INotificationService notificationService,
-        IOptions<AccountDeletionSettings> accountDeletionSettings,
-        IOptions<EmailSettings> emailSettings,
+        IOptionsSnapshot<AccountDeletionSettings> accountDeletionSettings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<AccountDeletionRequestedNotificationEventHandler> logger)
     {
         _notificationService = notificationService;

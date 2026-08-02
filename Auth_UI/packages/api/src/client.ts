@@ -1,14 +1,14 @@
 import createClient, { type Middleware } from "openapi-fetch"
 
-import { API_BASE_URL } from "@astoom/api/env"
-import i18n from "@astoom/i18n"
-import { decodeJwt, isTokenExpired } from "@astoom/api/jwt"
+import { API_BASE_URL } from "@authsystem/api/env"
+import i18n from "@authsystem/i18n"
+import { decodeJwt, isTokenExpired } from "@authsystem/api/jwt"
 import {
   clearTokens,
   getAccessToken,
   getRefreshToken,
   setTokens,
-} from "@astoom/api/token-store"
+} from "@authsystem/api/token-store"
 import type { paths, Schemas } from "./types"
 
 const REFRESH_PATH = "/api/v1/Auth/refresh"

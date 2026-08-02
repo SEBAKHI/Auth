@@ -3,23 +3,23 @@ import { useTranslation } from "react-i18next"
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { Button } from "@astoom/ui/button"
-import { Spinner } from "@astoom/ui/spinner"
-import { Field, FieldLabel } from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
+import { Button } from "@authsystem/ui/button"
+import { Spinner } from "@authsystem/ui/spinner"
+import { Field, FieldLabel } from "@authsystem/ui/field"
+import { Input } from "@authsystem/ui/input"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
   REGEXP_ONLY_DIGITS,
-} from "@astoom/ui/input-otp"
-import { AuthLayout } from "@astoom/ui/auth-layout"
-import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
+} from "@authsystem/ui/input-otp"
+import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import {
   clearPendingTwoFactorChallenge,
   getPendingTwoFactorChallenge,
   useAuth,
-} from "@astoom/auth/auth-context"
+} from "@authsystem/auth/auth-context"
 
 const CODE_LENGTH = 6
 

@@ -13,10 +13,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
-import { PresetField } from "@astoom/ui/common/preset-field"
-import { FieldGroup } from "@astoom/ui/field"
+} from "@authsystem/ui/dialog"
+import { DatePicker, monthsFromNow } from "@authsystem/ui/common/date-picker"
+import { PresetField } from "@authsystem/ui/common/preset-field"
+import { FieldGroup } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -25,13 +25,13 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
+} from "@authsystem/ui/form"
 import { ENVIRONMENTS } from "@/lib/presets"
-import { Button } from "@astoom/ui/button"
-import { Input } from "@astoom/ui/input"
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { Spinner } from "@astoom/ui/spinner"
+import { Button } from "@authsystem/ui/button"
+import { Input } from "@authsystem/ui/input"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { Spinner } from "@authsystem/ui/spinner"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null

@@ -6,9 +6,9 @@ import {
 } from "lucide-react"
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 
-import { activeDateLocale } from "@astoom/ui/format"
-import { cn } from "@astoom/ui/utils"
-import { Button, buttonVariants } from "@astoom/ui/button"
+import { activeDateLocale } from "@authsystem/ui/format"
+import { cn } from "@authsystem/ui/utils"
+import { Button, buttonVariants } from "@authsystem/ui/button"
 
 /**
  * Calendar built on react-day-picker, styled with the project's preset tokens

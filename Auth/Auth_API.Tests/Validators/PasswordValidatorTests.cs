@@ -3,6 +3,8 @@ using Auth.Application.Validators;
 using ErrorOr;
 using Microsoft.Extensions.Options;
 
+using Auth_API.Tests.Helpers;
+
 namespace Auth_API.Tests.Validators;
 
 public class PasswordValidatorTests
@@ -14,7 +16,7 @@ public class PasswordValidatorTests
         bool requireDigit = true,
         bool requireSpecialCharacter = true)
     {
-        var settings = Options.Create(new PasswordSettings
+        var settings = TestHelpers.CreateOptions(new PasswordSettings
         {
             MinimumLength = minimumLength,
             RequireUppercase = requireUppercase,

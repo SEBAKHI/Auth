@@ -262,3 +262,4 @@ END
 
 PRINT 'Created organization role permissions';
 PRINT 'Organization roles and permissions seed data complete';
+GO

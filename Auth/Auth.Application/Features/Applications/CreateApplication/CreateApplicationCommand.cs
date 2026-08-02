@@ -19,6 +19,7 @@ public record CreateApplicationCommand(
     bool RequireEmailVerification = false,
     int SessionTimeoutMinutes = 60,
     int MaxConcurrentSessions = 5,
+    IReadOnlyList<string>? RedirectUris = null,
     int? ReauthenticationMaxAgeMinutes = null) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>

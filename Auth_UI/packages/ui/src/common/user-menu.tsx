@@ -4,8 +4,8 @@ import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { EntityAvatar } from "@astoom/ui/common/entity-avatar"
-import { Button } from "@astoom/ui/button"
+import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
+import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,11 +14,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import { useAuth } from "@astoom/auth/auth-context"
-import { fullName } from "@astoom/ui/format"
+} from "@authsystem/ui/dropdown-menu"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import { useAuth } from "@authsystem/auth/auth-context"
+import { fullName } from "@authsystem/ui/format"
 
 export function UserMenu({
   profileHref = "/profile",

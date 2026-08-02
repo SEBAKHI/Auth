@@ -1,5 +1,5 @@
-import { useAuth } from "@astoom/auth/auth-context"
-import { AppShell as SharedAppShell } from "@astoom/ui/common/app-shell"
+import { useAuth } from "@authsystem/auth/auth-context"
+import { AppShell as SharedAppShell } from "@authsystem/ui/common/app-shell"
 import { NAV_ITEMS } from "@/lib/constants"
 
 /** Console shell: the shared sidebar layout with the permission-filtered admin nav. */

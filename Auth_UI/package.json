@@ -4,8 +4,8 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter @astoom/console dev",
-    "dev:accounts": "pnpm --filter @astoom/accounts dev",
+    "dev": "pnpm --filter @authsystem/console dev",
+    "dev:accounts": "pnpm --filter @authsystem/accounts dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",

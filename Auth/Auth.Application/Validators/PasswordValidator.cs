@@ -12,7 +12,7 @@ public partial class PasswordValidator
 {
     private readonly PasswordSettings _settings;
 
-    public PasswordValidator(IOptions<PasswordSettings> settings)
+    public PasswordValidator(IOptionsSnapshot<PasswordSettings> settings)
     {
         _settings = settings.Value;
     }

@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 
-import { toNumber } from "@astoom/api/helpers"
+import { toNumber } from "@authsystem/api/helpers"
 
 import { ActivityTableCard } from "../activity-table-card"
 import type { ActivityRow } from "../activity-table-card"

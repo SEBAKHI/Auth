@@ -3,16 +3,16 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 
-import "@astoom/i18n"
+import "@authsystem/i18n"
 
 const postMock = vi.fn()
-vi.mock("@astoom/api/client", () => ({
+vi.mock("@authsystem/api/client", () => ({
   api: { POST: (...args: unknown[]) => postMock(...args) },
 }))
 
 // The real AuthLayout is only chrome here, but it drags in the theme/language
 // toggles and their whole provider stack. Stub it down to the parts under test.
-vi.mock("@astoom/ui/auth-layout", () => ({
+vi.mock("@authsystem/ui/auth-layout", () => ({
   AuthLayout: ({
     title,
     subtitle,

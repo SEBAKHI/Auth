@@ -4,18 +4,18 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { unwrap } from "@astoom/api/helpers"
-import { ApplicationSelect } from "@astoom/ui/common/application-select"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { unwrap } from "@authsystem/api/helpers"
+import { ApplicationSelect } from "@authsystem/ui/common/application-select"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-} from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
+} from "@authsystem/ui/field"
+import { Input } from "@authsystem/ui/input"
 
 /**
  * A starter layout so the admin edits a working document rather than a blank

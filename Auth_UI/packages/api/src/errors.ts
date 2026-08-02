@@ -5,7 +5,7 @@
  * carry either an ErrorOr-style `errors: [{ code, description }]` array or an
  * ASP.NET validation `errors: { field: string[] }` dictionary.
  */
-import i18n from "@astoom/i18n"
+import i18n from "@authsystem/i18n"
 
 interface ErrorOrEntry {
   code?: string

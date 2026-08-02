@@ -13,7 +13,7 @@ public class GetDiscoveryDocumentQueryHandler
 {
     private readonly JwtSettings _jwtSettings;
 
-    public GetDiscoveryDocumentQueryHandler(IOptions<JwtSettings> jwtSettings)
+    public GetDiscoveryDocumentQueryHandler(IOptionsSnapshot<JwtSettings> jwtSettings)
     {
         _jwtSettings = jwtSettings.Value;
     }

@@ -4,8 +4,8 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { Button } from "@astoom/ui/button"
-import { Spinner } from "@astoom/ui/spinner"
+import { Button } from "@authsystem/ui/button"
+import { Spinner } from "@authsystem/ui/spinner"
 import {
   Dialog,
   DialogContent,
@@ -13,15 +13,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
+} from "@authsystem/ui/dialog"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
-} from "@astoom/ui/input-otp"
-import { useCountdown } from "@astoom/ui/hooks/use-countdown"
-import { api } from "@astoom/api/client"
-import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
+} from "@authsystem/ui/input-otp"
+import { useCountdown } from "@authsystem/ui/hooks/use-countdown"
+import { api } from "@authsystem/api/client"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 
 const OTP_LENGTH = 6
 

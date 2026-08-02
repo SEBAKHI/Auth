@@ -26,7 +26,7 @@ public class SetupTwoFactorCommandHandlerTests
         _totpServiceMock = new Mock<ITotpService>();
         _loggerMock = new Mock<ILogger<SetupTwoFactorCommandHandler>>();
 
-        var jwtSettings = Options.Create(new JwtSettings
+        var jwtSettings = TestHelpers.CreateOptions(new JwtSettings
         {
             Issuer = "TestIssuer"
         });
@@ -177,7 +177,7 @@ public class SetupTwoFactorCommandHandlerTests
         var user = TestHelpers.CreateUser(id: userId, email: "test@example.com");
         var secret = "ABCDEFGHIJKLMNOP";
 
-        var jwtSettingsNoIssuer = Options.Create(new JwtSettings { Issuer = null! });
+        var jwtSettingsNoIssuer = TestHelpers.CreateOptions(new JwtSettings { Issuer = null! });
         var handler = new SetupTwoFactorCommandHandler(
             _userRepositoryMock.Object,
             _twoFactorRepositoryMock.Object,

@@ -3,11 +3,11 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { getErrorMessage } from "@astoom/api/errors"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { DatePicker, monthsFromNow } from "@authsystem/ui/common/date-picker"
 import {
   Dialog,
   DialogContent,
@@ -15,10 +15,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
-import { useDirtyClose } from "@astoom/ui/hooks/use-dirty-close"
-import { Skeleton } from "@astoom/ui/skeleton"
+} from "@authsystem/ui/dialog"
+import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import { useDirtyClose } from "@authsystem/ui/hooks/use-dirty-close"
+import { Skeleton } from "@authsystem/ui/skeleton"
 
 /** One assignment as it exists on the server. */
 export interface AssignmentItem {

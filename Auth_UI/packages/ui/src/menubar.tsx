@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Menubar as MenubarPrimitive } from "radix-ui"
 
-import { cn } from "@astoom/ui/utils"
+import { cn } from "@authsystem/ui/utils"
 import { CheckIcon, ChevronRightIcon } from "lucide-react"
 
 function Menubar({

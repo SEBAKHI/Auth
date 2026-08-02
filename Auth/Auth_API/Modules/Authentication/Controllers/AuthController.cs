@@ -51,7 +51,7 @@ public class AuthController : ApiController
 
     public AuthController(
         ISender sender,
-        IOptions<IdentityProviderSettings> idpSettings,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<AuthController> logger)
     {
         _sender = sender;
@@ -230,7 +230,7 @@ public class AuthController : ApiController
     {
         // Rebuild the authorize URL from the CONFIGURED public origin, not from
         // Request.Host: behind the gateway the host is the internal destination
-        // (identity.astoom.com), and the accounts app rejects a returnTo whose
+        // (e.g. identity.example.com), and the accounts app rejects a returnTo whose
         // origin is not the public auth origin — which would break cold-start
         // SSO. Falls back to the request host only where no proxy exists (dev).
         var publicBaseUrl = _idpSettings.ResolvePublicBaseUrl($"{Request.Scheme}://{Request.Host}");

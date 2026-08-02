@@ -126,6 +126,7 @@ export const en = {
     auditLogs: "Audit Logs",
     secrets: "Secrets",
     platformSettings: "Platform Settings",
+    systemSettings: "System Settings",
     profile: "Profile",
     management: "Management",
     security: "Security",
@@ -1032,6 +1033,8 @@ export const en = {
       "Add a new variable only in coordination with your development team. The system must know its value at send time — a variable the system does not know is simply left empty in the message.",
     globalVariables: "Always available",
     globalVarPlatformName: "The platform name, as set in Platform settings.",
+    globalVarPlatformLogoUrl:
+      "The platform logo address, as uploaded in Platform settings. Empty when no logo is set — the layout then shows the platform name instead.",
     globalVarApplicationName:
       "The name of the application the message belongs to. Global messages use the platform name.",
     globalVarApplicationCode:
@@ -1073,6 +1076,382 @@ export const en = {
     logoDark: "Dark mode",
     favicon: "Favicon",
     updated: "Platform settings updated.",
+  },
+  systemSettings: {
+    title: "System settings",
+    subtitle:
+      "Configure how the platform behaves — password policy, tokens, sessions, and more — without touching configuration files.",
+    restartBannerTitle: "Restart required",
+    restartBannerBody:
+      "Some saved changes only take effect after the API restarts. They are stored safely and will apply automatically on the next restart.",
+    dbUnavailableTitle: "Settings storage unreachable",
+    dbUnavailableBody:
+      "The settings database could not be read. Values shown come from the configuration files and may not include saved customizations.",
+    restartRequired: "Restart required",
+    pendingRestart: "Waiting for restart",
+    overridden: "Customized",
+    fileValue: "Default: {{value}}",
+    notSet: "Not set",
+    managedInSecrets:
+      "Secret value — stored encrypted and managed on the Secrets page, never here.",
+    openSecrets: "Open Secrets",
+    readOnly: "Read-only",
+    resetSection: "Reset to defaults",
+    resetConfirmTitle: "Reset this section?",
+    resetConfirmBody:
+      "All customized values in this section will be removed and the default values will apply again.",
+    saved: "Settings saved.",
+    resetDone: "Section reset to defaults.",
+    conflict:
+      "Someone else changed this section in the meantime. It has been reloaded — please reapply your changes.",
+    arrayFieldHint: "One entry per line.",
+    sendTestEmail: "Send test email",
+    testEmailSent: "Test email sent — check your inbox.",
+    groups: {
+      security: "Security",
+      access: "Access",
+      communication: "Communication",
+      storage: "Storage & media",
+      operations: "Operations",
+      infrastructure: "Infrastructure",
+    },
+    jwt: {
+      title: "Tokens (JWT)",
+      description:
+        "The signed tokens users receive when they sign in: who issues them, who they are for, and how long they stay valid. Shorter lifetimes are safer; longer ones mean fewer re-logins.",
+      issuer: "Issuer URL",
+      issuerHint:
+        "The public address of this authentication server, stamped into every token (e.g. https://auth.example.com). Changing it invalidates tokens issued before the change.",
+      audience: "Audience URL",
+      audienceHint:
+        "Who the tokens are intended for — normally the same public address. Client applications must expect exactly this value.",
+      accessTokenLifetimeMinutes: "Access token lifetime (minutes)",
+      accessTokenLifetimeMinutesHint:
+        "How long one sign-in token stays valid. Recommended: 5–15 minutes (OAuth security best practice) — a leaked token then expires quickly, while refresh keeps users signed in.",
+      refreshTokenLifetimeDays: "Refresh token lifetime (days)",
+      refreshTokenLifetimeDaysHint:
+        "How long a user can stay signed in without typing a password again. Recommended: 7–30 days; choose the low end for sensitive deployments.",
+      keyId: "Signing key ID",
+      keyIdHint:
+        "The identifier (kid) published with the signing key so client apps can pick the right key. Change only as part of a key rotation.",
+      rotateRefreshTokens: "Rotate refresh tokens",
+      rotateRefreshTokensHint:
+        "Issues a fresh refresh token on every renewal and voids the old one. Recommended: on — a stolen refresh token is then detected and cut off on first reuse.",
+      clockSkewSeconds: "Clock skew (seconds)",
+      clockSkewSecondsHint:
+        "Tolerance for clock differences between servers when checking token expiry. Recommended: 60 or less; 0 is strictest.",
+      privateKeyPath: "Private key path",
+      privateKeyPem: "Private key (PEM)",
+      privateKeyEncrypted: "Private key (encrypted)",
+      refreshTokenEncryptedKey: "Refresh-token HMAC key",
+    },
+    password: {
+      title: "Password policy",
+      description:
+        "The rules every password must meet, what happens after repeated failed sign-ins, and how strongly passwords are hashed. The defaults follow OWASP recommendations.",
+      minimumLength: "Minimum length",
+      minimumLengthHint:
+        "Recommended: at least 8 characters (OWASP/NIST); length protects more than complexity, so consider 12+ where security matters most.",
+      requireUppercase: "Require an uppercase letter",
+      requireUppercaseHint:
+        "Rejects passwords without A–Z. Complexity rules add friction — length and the breached-password check protect more.",
+      requireLowercase: "Require a lowercase letter",
+      requireLowercaseHint: "Rejects passwords without a–z.",
+      requireDigit: "Require a digit",
+      requireDigitHint: "Rejects passwords without 0–9.",
+      requireSpecialCharacter: "Require a special character",
+      requireSpecialCharacterHint:
+        "Rejects passwords made only of letters and digits.",
+      historyCount: "Remembered previous passwords",
+      historyCountHint:
+        "How many of the user's past passwords cannot be reused. Recommended: 3–5. 0 disables the check.",
+      maxFailedAttempts: "Failed attempts before lockout",
+      maxFailedAttemptsHint:
+        "After this many wrong passwords the account locks temporarily. Recommended: 5 — low enough to stop guessing, high enough for honest typos.",
+      lockoutDurationMinutes: "Lockout duration (minutes)",
+      lockoutDurationMinutesHint:
+        "How long the account stays locked. Recommended: 15 — meaningful brake on attackers with limited user pain.",
+      argon2MemorySize: "Argon2 memory (KB)",
+      argon2MemorySizeHint:
+        "Memory used to hash each password. Recommended: 19456 (19 MiB, the OWASP minimum). Higher is stronger but slows every sign-in.",
+      argon2Iterations: "Argon2 iterations",
+      argon2IterationsHint: "Recommended: 2 (OWASP minimum for this memory size).",
+      argon2Parallelism: "Argon2 parallelism",
+      argon2ParallelismHint: "Recommended: 1 (OWASP). Existing passwords keep working after a change — they are upgraded on next sign-in.",
+      saltSize: "Salt size (bytes)",
+      saltSizeHint: "Fixed at the OWASP-recommended value; not configurable.",
+      hashSize: "Hash size (bytes)",
+      hashSizeHint: "Fixed at the OWASP-recommended value; not configurable.",
+      pepperEnabled: "Server-side pepper",
+      pepperEnabledHint:
+        "Mixes a server-held secret into every password hash, so a stolen database alone cannot crack passwords. Key material is created automatically on the next restart.",
+      breachedPasswordCheckEnabled: "Breached-password check",
+      breachedPasswordCheckEnabledHint:
+        "Checks new passwords against known data breaches (Have I Been Pwned, privacy-preserving k-anonymity). Recommended: on — it blocks the most commonly guessed passwords.",
+      breachedPasswordCheckMode: "When a breached password is found",
+      breachedPasswordCheckModeHint:
+        "Enforce rejects the password; Warn accepts it but tells the user. Recommended: Enforce for new deployments, Warn while rolling out.",
+      breachedPasswordCheckFailOpen: "Allow when the check is unavailable",
+      breachedPasswordCheckFailOpenHint:
+        "If the breach service cannot be reached, accept the password instead of blocking sign-ups. Recommended: on — avoids a self-inflicted outage; incidents are logged.",
+      breachedPasswordCheckRejectThreshold: "Breach count threshold",
+      breachedPasswordCheckRejectThresholdHint:
+        "How many times a password must appear in breaches before it counts as breached. Recommended: 1 — any appearance is enough.",
+      breachedPasswordCheckTimeoutMs: "Breach check timeout (ms)",
+      breachedPasswordCheckTimeoutMsHint:
+        "How long to wait for the breach service before giving up. Recommended: 2000.",
+    },
+    session: {
+      title: "Sessions",
+      description:
+        "What happens to a user's other signed-in sessions when their password changes. Per-application session limits are configured on each application, not here.",
+      terminateSessionsOnPasswordChange: "Sign out everywhere on password change",
+      terminateSessionsOnPasswordChangeHint:
+        "When a user changes their password, all their other sessions end. Recommended: on — a changed password usually means the old one is no longer trusted.",
+      terminateSessionsOnPasswordReset: "Sign out everywhere on password reset",
+      terminateSessionsOnPasswordResetHint:
+        "When a password is reset via email link, all existing sessions end. Recommended: on — resets often follow a suspected compromise.",
+    },
+    gateway: {
+      title: "Gateway protection",
+      description:
+        "The API normally accepts requests only from the API gateway, proven by a shared secret header. This blocks anyone who discovers the internal API address.",
+      validationEnabled: "Require the gateway header",
+      validationEnabledHint:
+        "Recommended: on in production. Turn off only in local development where no gateway runs.",
+      exemptPaths: "Exempt paths",
+      exemptPathsHint:
+        "Paths served without the gateway header — health probes and public discovery documents. Entries must start with '/'; a trailing '/' matches the whole prefix.",
+      tokenHeaderName: "Header name",
+      tokenHeaderNameHint:
+        "Fixed on the gateway side; shown here for reference.",
+      expectedToken: "Gateway token",
+    },
+    cors: {
+      title: "Allowed web origins (CORS)",
+      description:
+        "Which websites' browsers may call this API. Only the console and accounts apps' own addresses belong here — every extra origin widens the attack surface.",
+      allowedOrigins: "Allowed origins",
+      allowedOriginsHint:
+        "Bare origins only, e.g. https://console.example.com — no paths, no trailing slash, no wildcards.",
+      allowCredentials: "Allow credentials",
+      allowCredentialsHint:
+        "Lets browsers send cookies with cross-origin calls. Required for the IdP session cookie; only safe because origins above are an explicit list.",
+    },
+    rateLimiting: {
+      title: "Rate limiting (API)",
+      description:
+        "Per-client-IP request throttling. One layer of a layered defense: it slows automated abuse while account lockout stops password guessing. Changed limits apply to new client windows immediately.",
+      loginPermitLimit: "Sign-in attempts per window",
+      loginPermitLimitHint:
+        "Applies to login, registration, and other interactive auth endpoints. Recommended: 20 per IP.",
+      loginWindowSeconds: "Sign-in window (seconds)",
+      loginWindowSecondsHint: "Recommended: 60.",
+      passwordResetPermitLimit: "Password-reset requests per window",
+      passwordResetPermitLimitHint: "Recommended: 10 — hygiene for an anonymous endpoint.",
+      passwordResetWindowSeconds: "Password-reset window (seconds)",
+      passwordResetWindowSecondsHint: "Recommended: 60.",
+    },
+    externalAuth: {
+      title: "External sign-in (Google / Apple)",
+      description:
+        "Social sign-in providers. The client IDs here are public identifiers; private keys live on the Secrets page. The provider must ALSO be enabled in its directory row for the button to appear.",
+      googleEnabled: "Google sign-in",
+      googleEnabledHint: "Requires a valid client ID below.",
+      googleClientId: "Google client ID",
+      googleClientIdHint:
+        "From Google Cloud Console → Credentials. Public value, safe to store here.",
+      appleEnabled: "Apple sign-in",
+      appleEnabledHint: "Requires the Services ID, Team ID, Key ID, and the .p8 key in Secrets.",
+      appleServicesId: "Apple Services ID",
+      appleServicesIdHint: "e.g. com.example.accounts, from the Apple Developer portal.",
+      appleTeamId: "Apple Team ID",
+      appleTeamIdHint: "The 10-character team identifier from the Apple Developer portal.",
+      appleKeyId: "Apple Key ID",
+      appleKeyIdHint: "Identifier of the .p8 signing key; the key itself lives in Secrets.",
+      applePrivateKeyPem: "Apple signing key (.p8)",
+    },
+    identityProvider: {
+      title: "Identity provider (SSO)",
+      description:
+        "The universal-login flow: where users sign in, how long single sign-on lasts, and how one-time authorization codes behave.",
+      accountsBaseUrl: "Accounts app URL",
+      accountsBaseUrlHint:
+        "Public address of the end-user accounts app; sign-in redirects go there. Wrong value = broken login for every connected app.",
+      publicBaseUrl: "Public auth URL",
+      publicBaseUrlHint:
+        "This server's own public address as browsers see it. Required behind a reverse proxy; used in redirects and the discovery document.",
+      authorizationCodeLifetimeSeconds: "Authorization code lifetime (seconds)",
+      authorizationCodeLifetimeSecondsHint:
+        "One-time codes exchanged for tokens. Recommended: 60 or less (OAuth 2.0 Security BCP).",
+      idpSessionCookieName: "SSO cookie name",
+      idpSessionCookieNameHint:
+        "Renaming signs everyone out of single sign-on (existing cookies stop matching).",
+      idpSessionLifetimeDays: "SSO session lifetime (days)",
+      idpSessionLifetimeDaysHint:
+        "How long 'sign in once, use every app' lasts. Recommended: 7–30 days.",
+    },
+    email: {
+      title: "Email (SMTP)",
+      description:
+        "How the platform sends mail — verification codes, password resets, invitations. After changing the server, use 'Send test email' to prove the connection before real traffic depends on it.",
+      enabled: "Email sending",
+      enabledHint:
+        "Master switch. When off, flows that need email (verification, reset) are unavailable.",
+      smtpHost: "SMTP server",
+      smtpHostHint: "Hostname of your mail server, e.g. mail.example.com.",
+      smtpPort: "SMTP port",
+      smtpPortHint:
+        "587 = STARTTLS (recommended), 465 = implicit TLS, 25 = usually blocked by hosts.",
+      useSsl: "Require TLS",
+      useSslHint: "Recommended: on. Off allows opportunistic TLS only in local development.",
+      username: "SMTP username",
+      usernameHint: "Usually the full mailbox address. Leave empty for unauthenticated relays.",
+      password: "SMTP password",
+      senderEmail: "Sender address",
+      senderEmailHint: "The From address. Must be authorized by your domain's SPF/DKIM records.",
+      senderName: "Sender name",
+      senderNameHint: "The display name recipients see; also the fallback platform name in templates.",
+      frontendBaseUrl: "Links base URL",
+      frontendBaseUrlHint:
+        "Absolute address of the accounts app; every emailed link (reset, verify) is built on it. Required while sending is enabled.",
+      otpExpirationMinutes: "Verification code lifetime (minutes)",
+      otpExpirationMinutesHint: "Recommended: 5–15 — long enough to type, short enough to steal nothing.",
+      resetTokenExpirationMinutes: "Reset link lifetime (minutes)",
+      resetTokenExpirationMinutesHint: "Recommended: 30–60.",
+      rateLimitWindowSeconds: "Send-rate window (seconds)",
+      rateLimitWindowSecondsHint: "Window for the per-address send limit below. Recommended: 60.",
+      maxOtpRequestsPerWindow: "Codes per window",
+      maxOtpRequestsPerWindowHint:
+        "Max verification codes one address can request per window. Recommended: 3 — stops mail-bombing.",
+    },
+    notificationsSection: {
+      title: "Notification delivery",
+      description:
+        "How outgoing notifications are delivered: directly, or through a durable outbox that retries failures and survives restarts. Content and templates are managed on the Notifications pages.",
+      useOutbox: "Durable outbox",
+      useOutboxHint:
+        "Recommended: on in production — messages are stored first and retried on failure instead of being lost.",
+      pollIntervalSeconds: "Poll interval (seconds)",
+      pollIntervalSecondsHint: "Fallback wake-up when no send signal arrives. Recommended: 30.",
+      batchSize: "Batch size",
+      batchSizeHint: "Messages claimed per dispatch cycle. Recommended: 20.",
+      maxAttempts: "Max attempts",
+      maxAttemptsHint:
+        "Delivery attempts (with exponential backoff) before a message is dead-lettered. Recommended: 5.",
+      staleClaimMinutes: "Stale claim (minutes)",
+      staleClaimMinutesHint:
+        "A message claimed by a crashed worker is retried after this long. Recommended: 5.",
+    },
+    imageStorage: {
+      title: "Image storage",
+      description:
+        "Uploaded logos and profile pictures: where they are stored on disk, how they are served, and the size limits applied on upload.",
+      provider: "Storage provider",
+      providerHint: "Filesystem storage; part of the server deployment, not editable here.",
+      physicalPath: "Storage folder",
+      physicalPathHint: "Server disk location; changing it requires moving files — a deployment task.",
+      publicBaseUrl: "Public base URL",
+      publicBaseUrlHint:
+        "Prefix of every returned image URL. Set to the API's public address (or a rooted path) so logos render through the gateway.",
+      requestPath: "Serving path",
+      requestPathHint: "The URL path images are served under; baked into the pipeline at startup.",
+      maxSizeBytes: "Max upload size (bytes)",
+      maxSizeBytesHint: "Recommended: 4194304 (4 MB) — plenty for logos and avatars.",
+      maxMegapixels: "Max megapixels",
+      maxMegapixelsHint: "Rejects decompression bombs before processing. Recommended: 50.",
+      maxEdgePx: "Max edge (pixels)",
+      maxEdgePxHint: "Larger images are downscaled to this edge. Recommended: 1024.",
+      webpQuality: "WebP quality",
+      webpQualityHint: "Uploads are re-encoded to WebP at this quality. Recommended: 90.",
+      allowedContentTypes: "Allowed content types",
+      allowedContentTypesHint: "image/* MIME types accepted on upload.",
+    },
+    accountDeletionSection: {
+      title: "Account deletion",
+      description:
+        "The GDPR/KVKK deletion pipeline: the grace period before permanent erasure, the confirmation code, and the pace of the background worker that carries deletions out.",
+      graceDays: "Grace period (days)",
+      graceDaysHint:
+        "Time to change one's mind before permanent deletion. Recommended: 30 (common regulatory practice).",
+      workerPollMinutes: "Worker poll (minutes)",
+      workerPollMinutesHint: "How often due deletions are executed. Recommended: 15.",
+      workerBatchSize: "Worker batch size",
+      workerBatchSizeHint: "Deletions executed per cycle. Recommended: 25.",
+      maxExecutionAttempts: "Max execution attempts",
+      maxExecutionAttemptsHint: "Retries before a failed deletion raises the compliance alarm. Recommended: 5.",
+      otpExpirationMinutes: "Confirmation code lifetime (minutes)",
+      otpExpirationMinutesHint: "Code confirming a public deletion request. Recommended: 15.",
+      identifierHmacKeyPlain: "Identifier hash key",
+    },
+    dataRetention: {
+      title: "Privacy & data retention",
+      description:
+        "How long security and delivery records are kept, and which published privacy-policy version is stamped on each deletion. Keep these aligned with what your privacy policy actually promises.",
+      policyVersion: "Privacy policy version",
+      policyVersionHint:
+        "Version stamp recorded with each deletion (format YYYY.MM). Must match the published policy.",
+      loginAttemptRetentionDays: "Login-attempt retention (days)",
+      loginAttemptRetentionDaysHint:
+        "Security log retention; align with your privacy policy. Recommended: 365.",
+      outboxRetentionDays: "Outbox retention (days)",
+      outboxRetentionDaysHint: "Delivered-notification log retention. Recommended: 180.",
+    },
+    maintenance: {
+      title: "Maintenance",
+      description:
+        "One-off operational switches executed at startup. Leave them off during normal operation and turn one on only when a runbook tells you to.",
+      runEncryptionMigration: "Run encryption migration",
+      runEncryptionMigrationHint:
+        "One-shot backfill executed at the next startup; leave off unless the runbook says otherwise.",
+    },
+    healthChecks: {
+      title: "Health checks",
+      description:
+        "The public /health and /ready probes used by the gateway and monitoring.",
+      exposeErrorDetails: "Expose error details",
+      exposeErrorDetailsHint:
+        "Includes exception messages in probe responses. Recommended: off in production — the endpoints are publicly reachable.",
+    },
+    serilog: {
+      title: "Logging",
+      description:
+        "How much the API writes to its log files. Levels apply immediately; log file locations are part of the deployment.",
+      minimumLevelDefault: "Minimum level",
+      minimumLevelDefaultHint:
+        "Information for normal operation; Debug only while investigating (verbose and may include more request detail); Warning for quiet production logs.",
+      minimumLevelOverrideMicrosoft: "Microsoft namespace level",
+      minimumLevelOverrideMicrosoftHint: "Framework noise filter. Recommended: Warning.",
+      minimumLevelOverrideMicrosoftHostingLifetime: "Host lifetime level",
+      minimumLevelOverrideMicrosoftHostingLifetimeHint:
+        "Startup/shutdown messages. Recommended: Information.",
+      minimumLevelOverrideSystem: "System namespace level",
+      minimumLevelOverrideSystemHint: "Recommended: Warning.",
+    },
+    dataProtection: {
+      title: "Data protection keys",
+      description:
+        "The key ring that encrypts secrets at rest (2FA seeds, stored keys). Read before the database is available — and pointing it at the wrong folder makes every encrypted value permanently unreadable — so it is managed in server files only.",
+      keyPath: "Key ring folder",
+      certificatePfxPath: "Certificate file",
+      certificateThumbprint: "Certificate thumbprint",
+      certificatePasswordEnvironmentVariable: "Password environment variable",
+    },
+    secretManagement: {
+      title: "Secret management",
+      description:
+        "How cryptographic secrets are stored (encrypted file / DPAPI / plaintext for development). Bootstraps before the database, so the mode is managed in server files; the secret VALUES are managed on the Secrets page.",
+      storageMode: "Storage mode",
+      secretFilePath: "Secrets file",
+      autoGenerateKeys: "Auto-generate keys",
+      enableAdminApi: "Admin API enabled",
+    },
+    connectionStrings: {
+      title: "Database connection",
+      description:
+        "The SQL Server connection this API runs on. Contains credentials and is needed before any setting can load, so it lives in server files / the secret store only.",
+      authDb: "AuthDb connection string",
+    },
   },
   profile: {
     title: "My profile",
@@ -1171,6 +1550,9 @@ export const en = {
     minLength: "Must be at least {{count}} characters.",
     passwordMismatch: "Passwords do not match.",
     url: "Enter a valid URL.",
+    wholeNumber: "Enter a whole number.",
+    min: "Must be at least {{min}}.",
+    max: "Must be at most {{max}}.",
   },
   errors: {
     notFoundTitle: "Page not found",

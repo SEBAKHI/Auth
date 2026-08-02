@@ -20,7 +20,7 @@ public class AppleTokenRevocationService : IExternalTokenLifecycle
 
     private readonly HttpClient _httpClient;
     private readonly AppleClientSecretGenerator _clientSecretGenerator;
-    private readonly ExternalAuthSettings _settings;
+    private readonly IOptionsMonitor<ExternalAuthSettings> _settings;
     private readonly ILogger<AppleTokenRevocationService> _logger;
 
     public string ProviderName => "apple";
@@ -28,19 +28,19 @@ public class AppleTokenRevocationService : IExternalTokenLifecycle
     public AppleTokenRevocationService(
         HttpClient httpClient,
         AppleClientSecretGenerator clientSecretGenerator,
-        IOptions<ExternalAuthSettings> settings,
+        IOptionsMonitor<ExternalAuthSettings> settings,
         ILogger<AppleTokenRevocationService> logger)
     {
         _httpClient = httpClient;
         _clientSecretGenerator = clientSecretGenerator;
-        _settings = settings.Value;
+        _settings = settings;
         _logger = logger;
     }
 
     /// <inheritdoc />
     public async Task<string?> ExchangeCodeAsync(string authorizationCode, CancellationToken cancellationToken)
     {
-        var apple = _settings.Apple;
+        var apple = _settings.CurrentValue.Apple;
         if (apple is null || !apple.Enabled)
         {
             return null;
@@ -82,7 +82,7 @@ public class AppleTokenRevocationService : IExternalTokenLifecycle
     /// <inheritdoc />
     public async Task<bool> RevokeAsync(string refreshToken, CancellationToken cancellationToken)
     {
-        var apple = _settings.Apple;
+        var apple = _settings.CurrentValue.Apple;
         if (apple is null)
         {
             return false;

@@ -1,7 +1,7 @@
 import * as React from "react"
 
-import { useAuth } from "@astoom/auth/auth-context"
-import { isTheme, useTheme } from "@astoom/ui/theme-provider"
+import { useAuth } from "@authsystem/auth/auth-context"
+import { isTheme, useTheme } from "@authsystem/ui/theme-provider"
 
 /**
  * Adopts the profile's stored theme once per authenticated session — the

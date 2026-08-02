@@ -2,17 +2,17 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { uploadImage } from "@astoom/api/upload"
-import { getErrorMessage } from "@astoom/api/errors"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { Button } from "@astoom/ui/button"
+import { uploadImage } from "@authsystem/api/upload"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { Button } from "@authsystem/ui/button"
 import {
   Field,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-} from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
+} from "@authsystem/ui/field"
+import { Input } from "@authsystem/ui/input"
 
 /**
  * Uploads an image through the shared image endpoint (returns an absolute URL so

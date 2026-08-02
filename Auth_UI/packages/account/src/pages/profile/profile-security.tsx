@@ -7,19 +7,19 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { CopyButton } from "@astoom/ui/common/copy-button"
-import { QrCode } from "@astoom/ui/common/qr-code"
-import { SecretRevealDialog } from "@astoom/ui/common/secret-reveal-dialog"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { CopyButton } from "@authsystem/ui/common/copy-button"
+import { QrCode } from "@authsystem/ui/common/qr-code"
+import { SecretRevealDialog } from "@authsystem/ui/common/secret-reveal-dialog"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
+} from "@authsystem/ui/card"
+import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -27,13 +27,13 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { Input } from "@astoom/ui/input"
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { unwrap } from "@astoom/api/helpers"
-import type { Schemas } from "@astoom/api/types"
-import { Spinner } from "@astoom/ui/spinner"
+} from "@authsystem/ui/form"
+import { Input } from "@authsystem/ui/input"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { unwrap } from "@authsystem/api/helpers"
+import type { Schemas } from "@authsystem/api/types"
+import { Spinner } from "@authsystem/ui/spinner"
 
 function ChangePasswordCard() {
   const { t } = useTranslation()

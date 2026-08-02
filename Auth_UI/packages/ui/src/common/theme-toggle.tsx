@@ -1,8 +1,8 @@
 import { Monitor, Moon, Sun } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { useTheme, type Theme } from "@astoom/ui/theme-provider"
-import { Button } from "@astoom/ui/button"
+import { useTheme, type Theme } from "@authsystem/ui/theme-provider"
+import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,8 +10,8 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
-import { usePreferenceSync } from "@astoom/ui/common/use-preference-sync"
+} from "@authsystem/ui/dropdown-menu"
+import { usePreferenceSync } from "@authsystem/ui/common/use-preference-sync"
 
 export function ThemeToggle() {
   const { t } = useTranslation()

@@ -2,10 +2,10 @@ import { useQuery } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { useTheme, type ResolvedTheme } from "@astoom/ui/theme-provider"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import { API_BASE_URL } from "@astoom/api/env"
+import { useTheme, type ResolvedTheme } from "@authsystem/ui/theme-provider"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import { API_BASE_URL } from "@authsystem/api/env"
 
 export const BRANDING_QUERY_KEY = ["platform-branding"] as const
 

@@ -1,10 +1,10 @@
 {
-  "name": "@astoom/api",
+  "name": "@authsystem/api",
   "private": true,
   "version": "0.0.1",
   "type": "module",
   "dependencies": {
-    "@astoom/i18n": "workspace:*",
+    "@authsystem/i18n": "workspace:*",
     "@tanstack/react-query": "^5.101.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.2.6",

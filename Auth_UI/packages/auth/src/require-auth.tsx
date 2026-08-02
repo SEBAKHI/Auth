@@ -1,6 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom"
 
-import { Spinner } from "@astoom/ui/spinner"
+import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth } from "./auth-context"
 

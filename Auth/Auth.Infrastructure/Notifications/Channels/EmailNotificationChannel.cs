@@ -16,16 +16,16 @@ namespace Auth.Infrastructure.Notifications.Channels;
 /// </summary>
 public class EmailNotificationChannel : INotificationChannel
 {
-    private readonly EmailSettings _settings;
+    private readonly IOptionsMonitor<EmailSettings> _settings;
     private readonly SmtpEmailSender _sender;
     private readonly ILogger<EmailNotificationChannel> _logger;
 
     public EmailNotificationChannel(
-        IOptions<EmailSettings> settings,
+        IOptionsMonitor<EmailSettings> settings,
         SmtpEmailSender sender,
         ILogger<EmailNotificationChannel> logger)
     {
-        _settings = settings.Value;
+        _settings = settings;
         _sender = sender;
         _logger = logger;
     }
@@ -38,7 +38,7 @@ public class EmailNotificationChannel : INotificationChannel
         RenderedNotification notification,
         CancellationToken cancellationToken)
     {
-        if (!_settings.Enabled)
+        if (!_settings.CurrentValue.Enabled)
         {
             _logger.LogInformation(
                 "Email sending disabled. Would have sent to {Email} [{Language}]: {Subject}",

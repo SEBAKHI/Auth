@@ -1,6 +1,6 @@
 import * as React from "react"
 
-import { API_BASE_URL } from "@astoom/api/env"
+import { API_BASE_URL } from "@authsystem/api/env"
 
 export interface AppBranding {
   name: string

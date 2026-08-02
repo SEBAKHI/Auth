@@ -6,16 +6,16 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { unwrap } from "@astoom/api/helpers"
-import { useAuth } from "@astoom/auth/auth-context"
-import type { Schemas } from "@astoom/api/types"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { DataTable } from "@astoom/ui/data-table/data-table"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { unwrap } from "@authsystem/api/helpers"
+import { useAuth } from "@authsystem/auth/auth-context"
+import type { Schemas } from "@authsystem/api/types"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { DataTable } from "@authsystem/ui/data-table/data-table"
 import {
   Dialog,
   DialogContent,
@@ -23,16 +23,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { DatePicker, monthsFromNow } from "@astoom/ui/common/date-picker"
-import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
-import { formatDate, formatDateTime } from "@astoom/ui/format"
-import { Textarea } from "@astoom/ui/textarea"
+} from "@authsystem/ui/dialog"
+import { DatePicker, monthsFromNow } from "@authsystem/ui/common/date-picker"
+import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import { formatDate, formatDateTime } from "@authsystem/ui/format"
+import { Textarea } from "@authsystem/ui/textarea"
 import { PERMISSIONS } from "@/lib/constants"
 import { ClonePolicyDialog } from "./components/clone-policy-dialog"
 import { NotificationsTabs } from "./components/notifications-tabs"
 import { PolicyVersionField } from "./components/policy-version-field"
-import { Spinner } from "@astoom/ui/spinner"
+import { Spinner } from "@authsystem/ui/spinner"
 
 type PolicyVersionDto = Schemas["PrivacyPolicyVersionDto"]
 

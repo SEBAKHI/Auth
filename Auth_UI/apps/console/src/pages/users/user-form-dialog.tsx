@@ -6,22 +6,22 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { FormDialog } from "@astoom/ui/common/form-dialog"
-import { LanguageSelect } from "@astoom/ui/common/language-select"
-import { TimeZoneSelect } from "@astoom/ui/common/timezone-select"
-import { Field, FieldLabel } from "@astoom/ui/field"
+import { FormDialog } from "@authsystem/ui/common/form-dialog"
+import { LanguageSelect } from "@authsystem/ui/common/language-select"
+import { TimeZoneSelect } from "@authsystem/ui/common/timezone-select"
+import { Field, FieldLabel } from "@authsystem/ui/field"
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { Input } from "@astoom/ui/input"
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { fullName } from "@astoom/ui/format"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/form"
+import { Input } from "@authsystem/ui/input"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { fullName } from "@authsystem/ui/format"
+import type { Schemas } from "@authsystem/api/types"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

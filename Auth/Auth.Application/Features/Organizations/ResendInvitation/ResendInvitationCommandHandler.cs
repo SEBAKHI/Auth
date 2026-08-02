@@ -31,7 +31,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         IUserRepository userRepository,
         ISecureTokenGenerator tokenGenerator,
         INotificationService notificationService,
-        IOptions<EmailSettings> emailSettings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<ResendInvitationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;

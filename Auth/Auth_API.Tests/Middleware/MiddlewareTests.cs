@@ -12,6 +12,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Auth_API.Tests.Helpers;
+
 namespace Auth_API.Tests.Middleware;
 
 #region ExceptionHandlingMiddleware Tests
@@ -194,13 +196,13 @@ public class GatewayTokenValidationMiddlewareTests
         return new GatewayTokenValidationMiddleware(next, _loggerMock.Object);
     }
 
-    private static IOptions<GatewaySettings> CreateSettings(
+    private static TestHelpers.TestOptions<GatewaySettings> CreateSettings(
         bool validationEnabled = true,
         string expectedToken = "secret-token",
         string tokenHeaderName = "X-Gateway-Token",
         string[]? exemptPaths = null)
     {
-        return Options.Create(new GatewaySettings
+        return TestHelpers.CreateOptions(new GatewaySettings
         {
             ValidationEnabled = validationEnabled,
             ExpectedToken = expectedToken,

@@ -24,12 +24,23 @@ public class GatewaySettings
     public bool ValidationEnabled { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets paths that are exempt from gateway token validation.
+    /// The exempt paths used when configuration supplies none at all. Applied by
+    /// <see cref="SettingsArrayNormalizer"/> AFTER binding — never as the property
+    /// initializer, because the configuration binder APPENDS configured entries to
+    /// whatever array the property already holds, which would make these three
+    /// permanently unremovable from any layer (see SettingsArrayNormalizer).
     /// </summary>
-    public string[] ExemptPaths { get; set; } = new[]
-    {
+    public static readonly string[] DefaultExemptPaths =
+    [
         "/.well-known/",
         "/health",
         "/ready"
-    };
+    ];
+
+    /// <summary>
+    /// Gets or sets paths that are exempt from gateway token validation.
+    /// Starts empty on purpose; <see cref="DefaultExemptPaths"/> is substituted
+    /// after binding only when configuration provides nothing.
+    /// </summary>
+    public string[] ExemptPaths { get; set; } = [];
 }

@@ -16,21 +16,22 @@ namespace Auth.Infrastructure.Services;
 /// </summary>
 public sealed class FileSystemImageStorageService : IImageStorageService
 {
-    private readonly ImageStorageSettings _settings;
+    private readonly IOptionsMonitor<ImageStorageSettings> _settings;
     private readonly ILogger<FileSystemImageStorageService> _logger;
 
     public FileSystemImageStorageService(
-        IOptions<ImageStorageSettings> settings,
+        IOptionsMonitor<ImageStorageSettings> settings,
         ILogger<FileSystemImageStorageService> logger)
     {
-        _settings = settings.Value;
+        _settings = settings;
         _logger = logger;
     }
 
     public async Task<ErrorOr<string>> SaveImageAsync(
         Stream content, string contentType, CancellationToken cancellationToken)
     {
-        if (!_settings.AllowedContentTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase))
+        var settings = _settings.CurrentValue;
+        if (!settings.AllowedContentTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase))
         {
             return Error.Validation("Image.UnsupportedType", $"Unsupported image type '{contentType}'.");
         }
@@ -53,12 +54,12 @@ public sealed class FileSystemImageStorageService : IImageStorageService
             }
 
             var megapixels = (long)codec.Info.Width * codec.Info.Height;
-            var limit = (long)_settings.MaxMegapixels * 1_000_000;
+            var limit = (long)settings.MaxMegapixels * 1_000_000;
             if (limit > 0 && megapixels > limit)
             {
                 return Error.Validation(
                     "Image.DimensionsTooLarge",
-                    $"Image dimensions exceed the maximum of {_settings.MaxMegapixels} megapixels.");
+                    $"Image dimensions exceed the maximum of {settings.MaxMegapixels} megapixels.");
             }
         }
 
@@ -68,7 +69,7 @@ public sealed class FileSystemImageStorageService : IImageStorageService
             return Error.Validation("Image.Invalid", "The uploaded file is not a valid image.");
         }
 
-        var max = _settings.MaxEdgePx;
+        var max = settings.MaxEdgePx;
         SKBitmap? scaled = null;
         try
         {
@@ -87,13 +88,13 @@ public sealed class FileSystemImageStorageService : IImageStorageService
 
             using var image = SKImage.FromBitmap(source);
             // Re-encoding produces a clean WebP with no source metadata.
-            using var data = image.Encode(SKEncodedImageFormat.Webp, _settings.WebpQuality);
+            using var data = image.Encode(SKEncodedImageFormat.Webp, settings.WebpQuality);
             if (data is null)
             {
                 return Error.Validation("Image.Invalid", "The image could not be processed.");
             }
 
-            var root = ResolvedRoot();
+            var root = ResolvedRoot(settings);
             var key = $"{Guid.NewGuid():N}.webp";
             var fullPath = Path.Combine(root, key);
 
@@ -129,7 +130,7 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         {
             // Path.GetFileName collapses any directory traversal in a stored key.
             var safeName = Path.GetFileName(key);
-            var path = Path.Combine(ResolvedRoot(), safeName);
+            var path = Path.Combine(ResolvedRoot(_settings.CurrentValue), safeName);
             try
             {
                 if (File.Exists(path))
@@ -146,10 +147,10 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         return Task.CompletedTask;
     }
 
-    private string ResolvedRoot() =>
-        Path.IsPathRooted(_settings.PhysicalPath)
-            ? _settings.PhysicalPath
-            : Path.Combine(AppContext.BaseDirectory, _settings.PhysicalPath);
+    private static string ResolvedRoot(ImageStorageSettings settings) =>
+        Path.IsPathRooted(settings.PhysicalPath)
+            ? settings.PhysicalPath
+            : Path.Combine(AppContext.BaseDirectory, settings.PhysicalPath);
 
     private static bool IsAbsoluteUrl(string s) =>
         s.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||

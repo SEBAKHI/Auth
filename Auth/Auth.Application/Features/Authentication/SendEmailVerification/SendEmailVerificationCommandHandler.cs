@@ -32,7 +32,7 @@ public class SendEmailVerificationCommandHandler
         INotificationService notificationService,
         IOtpGenerator otpGenerator,
         IPasswordHasher passwordHasher,
-        IOptions<EmailSettings> emailSettings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<SendEmailVerificationCommandHandler> logger)
     {
         _userRepository = userRepository;

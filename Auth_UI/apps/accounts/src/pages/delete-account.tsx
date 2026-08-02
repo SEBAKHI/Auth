@@ -8,12 +8,12 @@ import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { Alert, AlertDescription, AlertTitle } from "@astoom/ui/alert"
-import { AuthLayout } from "@astoom/ui/auth-layout"
-import { Button } from "@astoom/ui/button"
-import { FieldGroup } from "@astoom/ui/field"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
+import { AuthLayout } from "@authsystem/ui/auth-layout"
+import { Button } from "@authsystem/ui/button"
+import { FieldGroup } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -21,16 +21,16 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { useCountdown } from "@astoom/ui/hooks/use-countdown"
-import { Input } from "@astoom/ui/input"
-import { Spinner } from "@astoom/ui/spinner"
+} from "@authsystem/ui/form"
+import { useCountdown } from "@authsystem/ui/hooks/use-countdown"
+import { Input } from "@authsystem/ui/input"
+import { Spinner } from "@authsystem/ui/spinner"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
   REGEXP_ONLY_DIGITS,
-} from "@astoom/ui/input-otp"
+} from "@authsystem/ui/input-otp"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const CODE_LENGTH = 6

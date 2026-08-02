@@ -39,7 +39,21 @@ public class ImageStorageSettings
     /// <summary>WebP encode quality (0-100) for the re-encoded image.</summary>
     public int WebpQuality { get; set; } = 90;
 
-    /// <summary>Accepted upload content types (SVG deliberately excluded — it is an XSS vector).</summary>
-    public string[] AllowedContentTypes { get; set; } =
+    /// <summary>
+    /// Accepted upload content types used when configuration supplies none at all
+    /// (SVG deliberately excluded — it is an XSS vector). Applied by
+    /// <see cref="SettingsArrayNormalizer"/> AFTER binding, never as the property
+    /// initializer: the configuration binder APPENDS configured entries to whatever
+    /// array the property already holds, so an initializer would make these four
+    /// types permanently unremovable from any configuration layer.
+    /// </summary>
+    public static readonly string[] DefaultAllowedContentTypes =
         ["image/png", "image/jpeg", "image/webp", "image/gif"];
+
+    /// <summary>
+    /// Accepted upload content types. Starts empty on purpose;
+    /// <see cref="DefaultAllowedContentTypes"/> is substituted after binding only
+    /// when configuration provides nothing.
+    /// </summary>
+    public string[] AllowedContentTypes { get; set; } = [];
 }

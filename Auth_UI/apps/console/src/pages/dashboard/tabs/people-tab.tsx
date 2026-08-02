@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 
-import { toNumber } from "@astoom/api/helpers"
-import { userStatusMeta } from "@astoom/ui/format"
+import { toNumber } from "@authsystem/api/helpers"
+import { userStatusMeta } from "@authsystem/ui/format"
 
 import { CountSeriesCard } from "../count-series-card"
 import { FunnelCard } from "../funnel-card"

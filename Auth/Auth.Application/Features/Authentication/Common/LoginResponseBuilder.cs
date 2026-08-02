@@ -41,8 +41,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         ILoginAttemptRepository loginAttemptRepository,
         IUserSessionRepository sessionRepository,
         IIdpSessionRepository idpSessionRepository,
-        IOptions<JwtSettings> jwtSettings,
-        IOptions<IdentityProviderSettings> idpSettings,
+        IOptionsSnapshot<JwtSettings> jwtSettings,
+        IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<LoginResponseBuilder> logger)
     {
         _roleRepository = roleRepository;

@@ -1,14 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { FormDialog } from "@astoom/ui/common/form-dialog"
-import { PresetField } from "@astoom/ui/common/preset-field"
-import { FieldContent } from "@astoom/ui/field"
+import { FormDialog } from "@authsystem/ui/common/form-dialog"
+import { PresetField } from "@authsystem/ui/common/preset-field"
+import { FieldContent } from "@authsystem/ui/field"
 import {
   FormControl,
   FormDescription,
@@ -16,13 +16,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { Input } from "@astoom/ui/input"
-import { Switch } from "@astoom/ui/switch"
-import { Textarea } from "@astoom/ui/textarea"
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/form"
+import { Input } from "@authsystem/ui/input"
+import { Switch } from "@authsystem/ui/switch"
+import { Textarea } from "@authsystem/ui/textarea"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { unwrap } from "@authsystem/api/helpers"
+import type { Schemas } from "@authsystem/api/types"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null
@@ -33,6 +34,14 @@ function emptyToNullNumber(value: string | undefined): number | null {
   if (!value || value.trim().length === 0) return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+/** One redirect URI per line; blank lines are not entries. */
+function toRedirectUriList(value: string | undefined): string[] {
+  return (value ?? "")
+    .split("\n")
+    .map((uri) => uri.trim())
+    .filter((uri) => uri.length > 0)
 }
 
 type ToggleName =
@@ -129,6 +138,7 @@ export function ApplicationCreateDialog({
     requireEmailVerification: z.boolean(),
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
     maxConcurrentSessions: z.string().min(1, t("validation.required")),
+    redirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
   })
   type Values = z.infer<typeof schema>
@@ -147,6 +157,7 @@ export function ApplicationCreateDialog({
       requireEmailVerification: false,
       sessionTimeoutMinutes: "60",
       maxConcurrentSessions: "5",
+      redirectUris: "",
       reauthMaxAgeMinutes: "",
     },
   })
@@ -170,6 +181,7 @@ export function ApplicationCreateDialog({
           requireEmailVerification: values.requireEmailVerification,
           sessionTimeoutMinutes: Number(values.sessionTimeoutMinutes) || 60,
           maxConcurrentSessions: Number(values.maxConcurrentSessions) || 5,
+          redirectUris: toRedirectUriList(values.redirectUris),
           reauthenticationMaxAgeMinutes: emptyToNullNumber(
             values.reauthMaxAgeMinutes,
           ),
@@ -280,6 +292,22 @@ export function ApplicationCreateDialog({
             </FormControl>
             <FormDescription>
               {t("applications.contactEmailHint")}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="redirectUris"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.redirectUris")}</FormLabel>
+            <FormControl>
+              <Textarea rows={3} placeholder="https://app.example.com/callback" dir="ltr" {...field} />
+            </FormControl>
+            <FormDescription>
+              {t("applications.redirectUrisHint")}
             </FormDescription>
             <FormMessage />
           </FormItem>
@@ -450,26 +478,56 @@ export function ApplicationEditDialog({
     },
   })
 
+  /**
+   * The form submits a full replacement, so it may only be seeded from a
+   * complete application. A row from the applications list is not one: the
+   * paged query reads neither the redirect-URI allowlist nor the step-up
+   * threshold, so seeding from it and saving would send both back empty and
+   * silently wipe them — an application would stop accepting its own OAuth
+   * callbacks because someone renamed it from the list.
+   *
+   * Same query key as the detail page, so opening it from there is a cache hit.
+   */
+  const detailQuery = useQuery({
+    queryKey: ["applications", application.id],
+    enabled: open && Boolean(application.id),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/Applications/{id}", {
+          params: { path: { id: application.id as string } },
+        })
+      ),
+  })
+  const detail = detailQuery.data
+
+  // Seeded once per opening: a background refetch must not overwrite edits in
+  // progress.
+  const seeded = React.useRef(false)
   React.useEffect(() => {
-    if (!open) return
+    if (!open) {
+      seeded.current = false
+      return
+    }
+    if (seeded.current || !detail) return
+    seeded.current = true
     form.reset({
-      name: application.name ?? "",
-      description: application.description ?? "",
-      baseUrl: application.baseUrl ?? "",
-      logoUrl: application.logoUrl ?? "",
-      contactEmail: application.contactEmail ?? "",
-      allowSelfRegistration: application.allowSelfRegistration ?? false,
-      requireTwoFactor: application.requireTwoFactor ?? false,
-      requireEmailVerification: application.requireEmailVerification ?? false,
-      sessionTimeoutMinutes: String(application.sessionTimeoutMinutes ?? 60),
-      maxConcurrentSessions: String(application.maxConcurrentSessions ?? 5),
-      redirectUris: (application.redirectUris ?? []).join("\n"),
+      name: detail.name ?? "",
+      description: detail.description ?? "",
+      baseUrl: detail.baseUrl ?? "",
+      logoUrl: detail.logoUrl ?? "",
+      contactEmail: detail.contactEmail ?? "",
+      allowSelfRegistration: detail.allowSelfRegistration ?? false,
+      requireTwoFactor: detail.requireTwoFactor ?? false,
+      requireEmailVerification: detail.requireEmailVerification ?? false,
+      sessionTimeoutMinutes: String(detail.sessionTimeoutMinutes ?? 60),
+      maxConcurrentSessions: String(detail.maxConcurrentSessions ?? 5),
+      redirectUris: (detail.redirectUris ?? []).join("\n"),
       reauthMaxAgeMinutes:
-        application.reauthenticationMaxAgeMinutes != null
-          ? String(application.reauthenticationMaxAgeMinutes)
+        detail.reauthenticationMaxAgeMinutes != null
+          ? String(detail.reauthenticationMaxAgeMinutes)
           : "",
     })
-  }, [open, application, form])
+  }, [open, detail, form])
 
   const mutation = useMutation({
     mutationFn: async (values: Values) => {
@@ -486,10 +544,7 @@ export function ApplicationEditDialog({
           requireEmailVerification: values.requireEmailVerification,
           sessionTimeoutMinutes: Number(values.sessionTimeoutMinutes) || 60,
           maxConcurrentSessions: Number(values.maxConcurrentSessions) || 5,
-          redirectUris: (values.redirectUris ?? "")
-            .split("\n")
-            .map((uri) => uri.trim())
-            .filter((uri) => uri.length > 0),
+          redirectUris: toRedirectUriList(values.redirectUris),
           reauthenticationMaxAgeMinutes: emptyToNullNumber(
             values.reauthMaxAgeMinutes,
           ),
@@ -516,6 +571,7 @@ export function ApplicationEditDialog({
       onSubmit={(values) => mutation.mutate(values)}
       submitLabel={t("common.save")}
       pending={mutation.isPending}
+      loading={!detail}
     >
       <FormField
         control={form.control}

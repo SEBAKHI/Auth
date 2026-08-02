@@ -6,20 +6,20 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { ApplicationSelect } from "@astoom/ui/common/application-select"
-import { FormDialog } from "@astoom/ui/common/form-dialog"
+import { ApplicationSelect } from "@authsystem/ui/common/application-select"
+import { FormDialog } from "@authsystem/ui/common/form-dialog"
 import {
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { Input } from "@astoom/ui/input"
-import { Textarea } from "@astoom/ui/textarea"
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/ui/form"
+import { Input } from "@authsystem/ui/input"
+import { Textarea } from "@authsystem/ui/textarea"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import type { Schemas } from "@authsystem/api/types"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null

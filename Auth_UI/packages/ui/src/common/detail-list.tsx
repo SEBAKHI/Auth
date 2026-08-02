@@ -1,7 +1,7 @@
 import type * as React from "react"
 
-import { Card, CardContent } from "@astoom/ui/card"
-import { cn } from "@astoom/ui/utils"
+import { Card, CardContent } from "@authsystem/ui/card"
+import { cn } from "@authsystem/ui/utils"
 
 export interface DetailItem {
   label: string

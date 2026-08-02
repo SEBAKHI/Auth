@@ -4,6 +4,8 @@ using Auth.Application.Configuration;
 using Auth.Application.Features.Discovery.GetDiscoveryDocument;
 using Microsoft.Extensions.Options;
 
+using Auth_API.Tests.Helpers;
+
 namespace Auth_API.Tests.Discovery;
 
 /// <summary>
@@ -19,7 +21,7 @@ public class GetDiscoveryDocumentQueryHandlerTests
     public GetDiscoveryDocumentQueryHandlerTests()
     {
         _handler = new GetDiscoveryDocumentQueryHandler(
-            Options.Create(new JwtSettings { Issuer = Issuer }));
+            TestHelpers.CreateOptions(new JwtSettings { Issuer = Issuer }));
     }
 
     [Fact]

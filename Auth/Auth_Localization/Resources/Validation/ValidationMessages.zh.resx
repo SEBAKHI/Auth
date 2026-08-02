@@ -400,4 +400,10 @@
   <data name="Validation.PolicyVersion.InvalidFormat" xml:space="preserve">
     <value>政策版本必须采用 YYYY.MM 格式。</value>
   </data>
+  <data name="Validation.SectionKey.Required" xml:space="preserve">
+    <value>分区键为必填项。</value>
+  </data>
+  <data name="Validation.SectionKey.MaxLength" xml:space="preserve">
+    <value>分区键不得超过 64 个字符。</value>
+  </data>
 </root>

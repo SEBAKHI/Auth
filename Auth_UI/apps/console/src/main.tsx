@@ -2,9 +2,9 @@ import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
 
 import "./index.css"
-import { initI18n } from "@astoom/i18n"
+import { initI18n } from "@authsystem/i18n"
 import App from "./App.tsx"
-import { ThemeProvider } from "@astoom/ui/theme-provider.tsx"
+import { ThemeProvider } from "@authsystem/ui/theme-provider.tsx"
 
 // Locale bundles load on demand, so the active language must be in place before the
 // first paint — otherwise the app renders a frame of raw translation keys.

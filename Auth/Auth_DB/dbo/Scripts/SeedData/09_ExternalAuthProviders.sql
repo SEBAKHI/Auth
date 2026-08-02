@@ -23,3 +23,4 @@ ELSE
 BEGIN
     PRINT 'Apple external auth provider already exists';
 END
+GO

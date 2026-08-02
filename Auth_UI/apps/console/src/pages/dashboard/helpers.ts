@@ -1,5 +1,5 @@
-import type { Schemas } from "@astoom/api/types"
-import { toNumber } from "@astoom/api/helpers"
+import type { Schemas } from "@authsystem/api/types"
+import { toNumber } from "@authsystem/api/helpers"
 
 type DailyLoginCount = Schemas["DailyLoginCountDto"]
 type DailyCount = Schemas["DailyCountDto"]

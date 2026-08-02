@@ -24,8 +24,8 @@ const API_BASE = "https://localhost:5101"
 const PASSWORD = "E2e!Passw0rd#2026"
 
 /** Dev SQL instance — the same one the local Auth API talks to. */
-const SQL_SERVER = "localhost\\SQLEXPRESS01"
-const SQL_DB = "Astoom_Auth"
+const SQL_SERVER = process.env.E2E_SQL_SERVER ?? "localhost\\SQLEXPRESS01"
+const SQL_DB = process.env.E2E_SQL_DB ?? "Astoom_Auth"
 
 const LOGS_DIR = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),

@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next"
 
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
-import { useAuth } from "@astoom/auth/auth-context"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
+import { useAuth } from "@authsystem/auth/auth-context"
 import {
   getTimeZoneOffsetLabel,
-} from "@astoom/i18n/timezone"
+} from "@authsystem/i18n/timezone"
 import { PERMISSIONS } from "@/lib/constants"
 
 import { WindowFilter } from "./window-filter"

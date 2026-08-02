@@ -1,6 +1,6 @@
 import { Building2, UserRound } from "lucide-react"
 
-import { AppShell, type AppNavItem } from "@astoom/ui/common/app-shell"
+import { AppShell, type AppNavItem } from "@authsystem/ui/common/app-shell"
 
 import { PolicyUpdateNotice } from "@/components/policy-update-notice"
 

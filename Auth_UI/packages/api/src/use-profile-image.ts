@@ -2,9 +2,9 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { uploadImage } from "@astoom/api/upload"
-import { getErrorMessage } from "@astoom/api/errors"
+import { api } from "@authsystem/api/client"
+import { uploadImage } from "@authsystem/api/upload"
+import { getErrorMessage } from "@authsystem/api/errors"
 
 /**
  * Change/Remove handlers for a user's profile image, for use with `AvatarMenu`.

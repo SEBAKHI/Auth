@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns"
 
-import { activeDateLocale } from "@astoom/ui/format"
+import { activeDateLocale } from "@authsystem/ui/format"
 
 /**
  * Axis and tooltip label for a series bucket keyed `yyyy-MM-dd`.

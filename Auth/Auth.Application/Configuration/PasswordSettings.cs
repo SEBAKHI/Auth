@@ -37,10 +37,10 @@ public class PasswordSettings
     /// </summary>
     public int HistoryCount { get; set; } = 3;
 
-    /// <summary>
-    /// Gets or sets the password expiration in days (0 = no expiration).
-    /// </summary>
-    public int ExpirationDays { get; set; } = 0;
+    // ExpirationDays was removed: nothing computed or enforced password age, so the
+    // property only made an unimplemented rotation policy look configurable. The
+    // Users.PasswordExpiresUtc column and UserErrors.PasswordExpired remain for the
+    // day the feature is actually built.
 
     /// <summary>
     /// Gets or sets the maximum failed login attempts before lockout.

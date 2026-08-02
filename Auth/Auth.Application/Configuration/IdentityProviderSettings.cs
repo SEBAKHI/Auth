@@ -10,16 +10,16 @@ public class IdentityProviderSettings
 
     /// <summary>
     /// Gets or sets the public base URL of the end-user accounts SPA
-    /// (e.g. https://accounts.astoom.com). The authorize endpoint redirects
+    /// (e.g. https://accounts.example.com). The authorize endpoint redirects
     /// unauthenticated users to its /login page.
     /// </summary>
     public string AccountsBaseUrl { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets this identity provider's own PUBLIC base URL as seen by
-    /// browsers and consuming apps (e.g. https://auth.astoom.com). Behind a
+    /// browsers and consuming apps (e.g. https://auth.example.com). Behind a
     /// reverse proxy the request's Host header is the INTERNAL destination
-    /// (e.g. identity.astoom.com), so any public URL the server emits — the
+    /// (e.g. identity.example.com), so any public URL the server emits — the
     /// authorize returnTo and the discovery-document endpoints — must be built
     /// from this configured value, never from Request.Host. Leave empty only
     /// where there is no proxy (local dev), where the request host is public.
@@ -45,7 +45,7 @@ public class IdentityProviderSettings
     /// <summary>
     /// Gets or sets the name of the HttpOnly IdP session cookie.
     /// </summary>
-    public string IdpSessionCookieName { get; set; } = "astoom_idp";
+    public string IdpSessionCookieName { get; set; } = "auth_idp";
 
     /// <summary>
     /// Gets or sets the absolute lifetime of an IdP session in days.

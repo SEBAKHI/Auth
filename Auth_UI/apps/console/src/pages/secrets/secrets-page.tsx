@@ -4,12 +4,12 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { SecretRevealDialog } from "@astoom/ui/common/secret-reveal-dialog"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@astoom/ui/card"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { SecretRevealDialog } from "@authsystem/ui/common/secret-reveal-dialog"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@authsystem/ui/card"
 import {
   Dialog,
   DialogContent,
@@ -17,16 +17,16 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
+} from "@authsystem/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
-import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
+} from "@authsystem/ui/dropdown-menu"
+import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import { Input } from "@authsystem/ui/input"
 import {
   Select,
   SelectContent,
@@ -34,14 +34,14 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@astoom/ui/select"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { Textarea } from "@astoom/ui/textarea"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import { getErrorMessage } from "@astoom/api/errors"
-import { formatDateTime, secretStatusMeta } from "@astoom/ui/format"
-import { Spinner } from "@astoom/ui/spinner"
+} from "@authsystem/ui/select"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { Textarea } from "@authsystem/ui/textarea"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { formatDateTime, secretStatusMeta } from "@authsystem/ui/format"
+import { Spinner } from "@authsystem/ui/spinner"
 
 const SECRET_STATUS_LABEL: Record<string, string> = {
   notConfigured: "Not configured",

@@ -3,20 +3,20 @@ import { FileText, Layers, MailCheck, MailWarning, ShieldCheck } from "lucide-re
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   Card,
   CardAction,
   CardContent,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { formatDate, formatDateTime } from "@astoom/ui/format"
-import { Skeleton } from "@astoom/ui/skeleton"
+} from "@authsystem/ui/card"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { formatDate, formatDateTime } from "@authsystem/ui/format"
+import { Skeleton } from "@authsystem/ui/skeleton"
 import { StatTile } from "@/pages/dashboard/stat-tile"
 import { NotificationsTabs } from "./components/notifications-tabs"
 

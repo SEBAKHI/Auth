@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 
-import { toNumber } from "@astoom/api/helpers"
-import type { Schemas } from "@astoom/api/types"
+import { toNumber } from "@authsystem/api/helpers"
+import type { Schemas } from "@authsystem/api/types"
 
 import { CountSeriesCard } from "../count-series-card"
 import { IpTableCard } from "../ip-table-card"

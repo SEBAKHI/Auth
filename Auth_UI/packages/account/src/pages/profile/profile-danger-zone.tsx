@@ -4,18 +4,18 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { api } from "@astoom/api/client"
-import { getErrorMessage } from "@astoom/api/errors"
-import { useAuth } from "@astoom/auth/auth-context"
-import { Button } from "@astoom/ui/button"
+import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { useAuth } from "@authsystem/auth/auth-context"
+import { Button } from "@authsystem/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
+} from "@authsystem/ui/card"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import {
   Dialog,
   DialogContent,
@@ -23,17 +23,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { Field, FieldGroup, FieldLabel } from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
+} from "@authsystem/ui/dialog"
+import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import { Input } from "@authsystem/ui/input"
 import {
   InputOTP,
   InputOTPGroup,
   InputOTPSlot,
   REGEXP_ONLY_DIGITS,
-} from "@astoom/ui/input-otp"
-import type { Schemas } from "@astoom/api/types"
-import { Spinner } from "@astoom/ui/spinner"
+} from "@authsystem/ui/input-otp"
+import type { Schemas } from "@authsystem/api/types"
+import { Spinner } from "@authsystem/ui/spinner"
 
 const CODE_LENGTH = 6
 /** Display-only mirror of the server's grace period (AccountDeletionSettings). */

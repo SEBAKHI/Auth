@@ -35,7 +35,7 @@ public class AccountDeletionRequestor
         OwnedOrganizationDeletionGuard organizationGuard,
         ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
-        IOptions<AccountDeletionSettings> settings,
+        IOptionsSnapshot<AccountDeletionSettings> settings,
         ILogger<AccountDeletionRequestor> logger)
     {
         _requestRepository = requestRepository;

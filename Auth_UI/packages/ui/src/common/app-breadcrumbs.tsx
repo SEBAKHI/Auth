@@ -9,9 +9,9 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@astoom/ui/breadcrumb"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { useBreadcrumbOverride, type CrumbHandle } from "@astoom/ui/crumbs"
+} from "@authsystem/ui/breadcrumb"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { useBreadcrumbOverride, type CrumbHandle } from "@authsystem/ui/crumbs"
 
 /**
  * Header breadcrumb trail: Home › … › section › record. Every matched route

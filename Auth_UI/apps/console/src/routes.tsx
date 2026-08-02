@@ -1,14 +1,14 @@
 import * as React from "react"
 import { createBrowserRouter, Navigate, useParams } from "react-router-dom"
 
-import { ACCOUNTS_URL } from "@astoom/api/env"
-import { RequireAnonymous, RequireAuth } from "@astoom/auth/require-auth"
-import { PermissionRoute } from "@astoom/auth/require-permission"
-import { LoginPage } from "@astoom/auth/pages/login"
-import { crumb } from "@astoom/ui/crumbs"
-import { ForbiddenPage } from "@astoom/ui/error-pages/forbidden"
-import { NotFoundPage } from "@astoom/ui/error-pages/not-found"
-import { lazyRoute, RouteFallback } from "@astoom/ui/lazy-route"
+import { ACCOUNTS_URL } from "@authsystem/api/env"
+import { RequireAnonymous, RequireAuth } from "@authsystem/auth/require-auth"
+import { PermissionRoute } from "@authsystem/auth/require-permission"
+import { LoginPage } from "@authsystem/auth/pages/login"
+import { crumb } from "@authsystem/ui/crumbs"
+import { ForbiddenPage } from "@authsystem/ui/error-pages/forbidden"
+import { NotFoundPage } from "@authsystem/ui/error-pages/not-found"
+import { lazyRoute, RouteFallback } from "@authsystem/ui/lazy-route"
 import { AppShell } from "@/components/layout/app-shell"
 import { PERMISSIONS } from "@/lib/constants"
 
@@ -74,7 +74,7 @@ export const router = createBrowserRouter([
       {
         path: "/forgot-password",
         lazy: lazyRoute(
-          () => import("@astoom/auth/pages/forgot-password"),
+          () => import("@authsystem/auth/pages/forgot-password"),
           (m) => m.ForgotPasswordPage
         ),
       },
@@ -87,7 +87,7 @@ export const router = createBrowserRouter([
       {
         path: "/force-password-change",
         lazy: lazyRoute(
-          () => import("@astoom/auth/pages/force-password-change"),
+          () => import("@authsystem/auth/pages/force-password-change"),
           (m) => m.ForcePasswordChangePage
         ),
       },
@@ -211,7 +211,7 @@ export const router = createBrowserRouter([
           {
             path: "profile",
             lazy: lazyRoute(
-              () => import("@astoom/account/pages/profile/profile-page"),
+              () => import("@authsystem/account/pages/profile/profile-page"),
               (m) => m.ProfilePage
             ),
             handle: crumb("profile", "/profile"),
@@ -435,6 +435,22 @@ export const router = createBrowserRouter([
               },
             ],
           },
+          {
+            element: (
+              <PermissionRoute permission={PERMISSIONS.systemSettings.manage} />
+            ),
+            children: [
+              {
+                path: "admin/system-settings/:sectionKey?",
+                lazy: lazyRoute(
+                  () =>
+                    import("@/pages/system-settings/system-settings-page"),
+                  (m) => m.SystemSettingsPage
+                ),
+                handle: crumb("systemSettings", "/admin/system-settings"),
+              },
+            ],
+          },
         ],
       },
     ],
@@ -444,7 +460,7 @@ export const router = createBrowserRouter([
   {
     path: "/two-factor",
     lazy: lazyRoute(
-      () => import("@astoom/auth/pages/two-factor-verify"),
+      () => import("@authsystem/auth/pages/two-factor-verify"),
       (m) => m.TwoFactorVerifyPage
     ),
   },
@@ -453,7 +469,7 @@ export const router = createBrowserRouter([
   {
     path: "/verify-email",
     lazy: lazyRoute(
-      () => import("@astoom/auth/pages/verify-email-page"),
+      () => import("@authsystem/auth/pages/verify-email-page"),
       (m) => m.VerifyEmailPage
     ),
   },

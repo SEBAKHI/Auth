@@ -37,7 +37,7 @@ public class NotifyPrivacyPolicyVersionCommandHandler
         IUserRepository userRepository,
         INotificationService notificationService,
         IAuditLogRepository auditLogRepository,
-        IOptions<EmailSettings> emailSettings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<NotifyPrivacyPolicyVersionCommandHandler> logger)
     {
         _versionRepository = versionRepository;

@@ -1,6 +1,6 @@
 import type { TFunction } from "i18next"
 
-import { formatDate, formatDateTime, numberLocale } from "@astoom/ui/format"
+import { formatDate, formatDateTime, numberLocale } from "@authsystem/ui/format"
 
 export const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/
 export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/

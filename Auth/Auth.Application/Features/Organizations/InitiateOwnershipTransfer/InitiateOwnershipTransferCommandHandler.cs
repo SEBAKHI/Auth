@@ -41,7 +41,7 @@ public class InitiateOwnershipTransferCommandHandler
         IPasswordHasher passwordHasher,
         INotificationService notificationService,
         IPublisher publisher,
-        IOptions<EmailSettings> emailSettings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<InitiateOwnershipTransferCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;

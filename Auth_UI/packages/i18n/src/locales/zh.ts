@@ -130,6 +130,7 @@ export const zh: TranslationResources = {
     auditLogs: "审计日志",
     secrets: "机密",
     platformSettings: "平台设置",
+    systemSettings: "系统设置",
     profile: "个人资料",
     management: "管理",
     security: "安全",
@@ -986,6 +987,8 @@ export const zh: TranslationResources = {
       "请仅在与开发团队协调后再添加新变量。系统必须在发送时知道它的值——系统不认识的变量在消息中将显示为空。",
     globalVariables: "始终可用",
     globalVarPlatformName: "平台名称，来自平台设置。",
+    globalVarPlatformLogoUrl:
+      "平台徽标的地址，来自平台设置中上传的徽标。未设置徽标时为空——此时布局会改为显示平台名称。",
     globalVarApplicationName: "消息所属应用的名称。全局消息使用平台名称。",
     globalVarApplicationCode: "应用的短代码；全局消息中为空。",
     globalVarApplicationBaseUrl: "应用的网站地址；可用于构建链接。",
@@ -1022,6 +1025,382 @@ export const zh: TranslationResources = {
     logoDark: "深色模式",
     favicon: "网站图标",
     updated: "平台设置已更新。",
+  },
+  systemSettings: {
+    title: "系统设置",
+    subtitle:
+      "配置平台的行为方式——密码策略、令牌、会话等——无需修改配置文件。",
+    restartBannerTitle: "需要重启",
+    restartBannerBody:
+      "部分已保存的更改只有在 API 重启后才会生效。这些更改已安全保存，并将在下次重启时自动应用。",
+    dbUnavailableTitle: "无法访问设置存储",
+    dbUnavailableBody:
+      "无法读取设置数据库。当前显示的值来自配置文件，可能不包含已保存的自定义设置。",
+    restartRequired: "需要重启",
+    pendingRestart: "等待重启",
+    overridden: "已自定义",
+    fileValue: "默认值：{{value}}",
+    notSet: "未设置",
+    managedInSecrets:
+      "机密值——加密存储并在机密页面管理，绝不在此处显示。",
+    openSecrets: "打开机密",
+    readOnly: "只读",
+    resetSection: "重置为默认值",
+    resetConfirmTitle: "重置此部分？",
+    resetConfirmBody:
+      "此部分中所有自定义的值将被移除，默认值将重新生效。",
+    saved: "设置已保存。",
+    resetDone: "该部分已重置为默认值。",
+    conflict:
+      "其他人在此期间修改了此部分。内容已重新加载——请重新应用您的更改。",
+    arrayFieldHint: "每行一个条目。",
+    sendTestEmail: "发送测试邮件",
+    testEmailSent: "测试邮件已发送——请查收您的收件箱。",
+    groups: {
+      security: "安全",
+      access: "访问",
+      communication: "通信",
+      storage: "存储与媒体",
+      operations: "运维",
+      infrastructure: "基础设施",
+    },
+    jwt: {
+      title: "令牌（JWT）",
+      description:
+        "用户登录时收到的签名令牌：由谁签发、面向谁、以及有效期多长。有效期越短越安全；越长则用户重新登录的次数越少。",
+      issuer: "签发者 URL",
+      issuerHint:
+        "此认证服务器的公开地址，会写入每个令牌（例如 https://auth.example.com）。修改后，之前签发的令牌将全部失效。",
+      audience: "受众 URL",
+      audienceHint:
+        "令牌的目标接收方——通常与公开地址相同。客户端应用必须精确匹配此值。",
+      accessTokenLifetimeMinutes: "访问令牌有效期（分钟）",
+      accessTokenLifetimeMinutesHint:
+        "单个登录令牌的有效时长。推荐：5–15 分钟（OAuth 安全最佳实践）——令牌一旦泄露会很快过期，而刷新机制可让用户保持登录状态。",
+      refreshTokenLifetimeDays: "刷新令牌有效期（天）",
+      refreshTokenLifetimeDaysHint:
+        "用户无需再次输入密码即可保持登录的时长。推荐：7–30 天；敏感环境请选择较低值。",
+      keyId: "签名密钥 ID",
+      keyIdHint:
+        "随签名密钥一起发布的标识符（kid），供客户端应用选择正确的密钥。仅应在密钥轮换时更改。",
+      rotateRefreshTokens: "轮换刷新令牌",
+      rotateRefreshTokensHint:
+        "每次续期时签发新的刷新令牌并作废旧令牌。推荐：开启——被盗的刷新令牌在首次被重复使用时即会被发现并切断。",
+      clockSkewSeconds: "时钟偏差（秒）",
+      clockSkewSecondsHint:
+        "校验令牌过期时间时，对服务器之间时钟差异的容忍度。推荐：不超过 60；0 为最严格。",
+      privateKeyPath: "私钥路径",
+      privateKeyPem: "私钥（PEM）",
+      privateKeyEncrypted: "私钥（已加密）",
+      refreshTokenEncryptedKey: "刷新令牌 HMAC 密钥",
+    },
+    password: {
+      title: "密码策略",
+      description:
+        "每个密码必须满足的规则、多次登录失败后的处理方式，以及密码哈希的强度。默认值遵循 OWASP 建议。",
+      minimumLength: "最小长度",
+      minimumLengthHint:
+        "推荐：至少 8 个字符（OWASP/NIST）；长度比复杂度更能保护安全，对安全要求最高的场景请考虑 12 个字符以上。",
+      requireUppercase: "要求包含大写字母",
+      requireUppercaseHint:
+        "拒绝不含 A–Z 的密码。复杂度规则会增加使用负担——长度和泄露密码检查的保护作用更大。",
+      requireLowercase: "要求包含小写字母",
+      requireLowercaseHint: "拒绝不含 a–z 的密码。",
+      requireDigit: "要求包含数字",
+      requireDigitHint: "拒绝不含 0–9 的密码。",
+      requireSpecialCharacter: "要求包含特殊字符",
+      requireSpecialCharacterHint:
+        "拒绝仅由字母和数字组成的密码。",
+      historyCount: "记住的历史密码数量",
+      historyCountHint:
+        "用户不能重复使用的历史密码数量。推荐：3–5。设为 0 则禁用此检查。",
+      maxFailedAttempts: "锁定前允许的失败次数",
+      maxFailedAttemptsHint:
+        "密码输错达到此次数后，账户将被临时锁定。推荐：5——既能阻止猜测攻击，又能容忍正常的输入失误。",
+      lockoutDurationMinutes: "锁定时长（分钟）",
+      lockoutDurationMinutesHint:
+        "账户保持锁定的时长。推荐：15——能有效遏制攻击者，同时对用户影响有限。",
+      argon2MemorySize: "Argon2 内存（KB）",
+      argon2MemorySizeHint:
+        "哈希每个密码所使用的内存。推荐：19456（19 MiB，OWASP 最低值）。数值越高越安全，但会拖慢每次登录。",
+      argon2Iterations: "Argon2 迭代次数",
+      argon2IterationsHint: "推荐：2（此内存大小下的 OWASP 最低值）。",
+      argon2Parallelism: "Argon2 并行度",
+      argon2ParallelismHint: "推荐：1（OWASP）。更改后现有密码仍然可用——将在下次登录时自动升级。",
+      saltSize: "盐长度（字节）",
+      saltSizeHint: "固定为 OWASP 推荐值；不可配置。",
+      hashSize: "哈希长度（字节）",
+      hashSizeHint: "固定为 OWASP 推荐值；不可配置。",
+      pepperEnabled: "服务器端 Pepper",
+      pepperEnabledHint:
+        "在每个密码哈希中混入服务器持有的机密，即使数据库被盗也无法单独破解密码。密钥材料将在下次重启时自动创建。",
+      breachedPasswordCheckEnabled: "泄露密码检查",
+      breachedPasswordCheckEnabledHint:
+        "将新密码与已知数据泄露进行比对（Have I Been Pwned，采用保护隐私的 k-anonymity）。推荐：开启——可拦截最常被猜中的密码。",
+      breachedPasswordCheckMode: "发现泄露密码时",
+      breachedPasswordCheckModeHint:
+        "Enforce 会拒绝该密码；Warn 会接受但提醒用户。推荐：新部署使用 Enforce，推广期间使用 Warn。",
+      breachedPasswordCheckFailOpen: "检查不可用时放行",
+      breachedPasswordCheckFailOpenHint:
+        "当无法连接泄露检查服务时，接受该密码而不是阻止注册。推荐：开启——避免自己造成服务中断；相关事件会被记录。",
+      breachedPasswordCheckRejectThreshold: "泄露次数阈值",
+      breachedPasswordCheckRejectThresholdHint:
+        "密码在泄露数据中出现多少次才算作已泄露。推荐：1——出现一次即算。",
+      breachedPasswordCheckTimeoutMs: "泄露检查超时（ms）",
+      breachedPasswordCheckTimeoutMsHint:
+        "等待泄露检查服务响应的最长时间，超时则放弃。推荐：2000。",
+    },
+    session: {
+      title: "会话",
+      description:
+        "用户修改密码时，其名下其他已登录会话会如何处理。每个应用的会话数量限制在各应用中单独配置，不在此处。",
+      terminateSessionsOnPasswordChange: "修改密码时退出所有设备",
+      terminateSessionsOnPasswordChangeHint:
+        "用户修改密码后，其所有其他会话都会结束。推荐：开启——修改密码通常意味着旧密码已不再可信。",
+      terminateSessionsOnPasswordReset: "重置密码时退出所有设备",
+      terminateSessionsOnPasswordResetHint:
+        "通过邮件链接重置密码后，所有现有会话都会结束。推荐：开启——重置操作往往发生在怀疑账户被盗之后。",
+    },
+    gateway: {
+      title: "网关保护",
+      description:
+        "API 通常只接受来自 API 网关的请求，并通过共享密钥请求头加以验证。这可以阻挡任何发现内部 API 地址的人。",
+      validationEnabled: "要求网关请求头",
+      validationEnabledHint:
+        "推荐：生产环境开启。仅在没有网关运行的本地开发环境中关闭。",
+      exemptPaths: "豁免路径",
+      exemptPathsHint:
+        "无需网关请求头即可访问的路径——健康探测和公开的发现文档。条目必须以 '/' 开头；结尾的 '/' 匹配整个前缀。",
+      tokenHeaderName: "请求头名称",
+      tokenHeaderNameHint:
+        "在网关侧固定；此处仅供参考。",
+      expectedToken: "网关令牌",
+    },
+    cors: {
+      title: "允许的网页来源（CORS）",
+      description:
+        "哪些网站的浏览器可以调用此 API。此处只应填写控制台和账户应用自身的地址——每多一个来源都会扩大攻击面。",
+      allowedOrigins: "允许的来源",
+      allowedOriginsHint:
+        "仅填写纯来源，例如 https://console.example.com——不带路径、不带结尾斜杠、不使用通配符。",
+      allowCredentials: "允许携带凭据",
+      allowCredentialsHint:
+        "允许浏览器在跨源调用中发送 Cookie。IdP 会话 Cookie 需要此项；正因为上方来源是明确列表，此设置才是安全的。",
+    },
+    rateLimiting: {
+      title: "速率限制（API）",
+      description:
+        "按客户端 IP 进行请求节流。这是分层防御中的一层：它能减缓自动化滥用，而账户锁定则负责阻止密码猜测。修改后的限制会立即应用于新的客户端窗口。",
+      loginPermitLimit: "每窗口登录尝试次数",
+      loginPermitLimitHint:
+        "适用于登录、注册及其他交互式认证端点。推荐：每个 IP 20 次。",
+      loginWindowSeconds: "登录窗口（秒）",
+      loginWindowSecondsHint: "推荐：60。",
+      passwordResetPermitLimit: "每窗口密码重置请求数",
+      passwordResetPermitLimitHint: "推荐：10——匿名端点的基本防护。",
+      passwordResetWindowSeconds: "密码重置窗口（秒）",
+      passwordResetWindowSecondsHint: "推荐：60。",
+    },
+    externalAuth: {
+      title: "外部登录（Google / Apple）",
+      description:
+        "社交登录提供方。此处的客户端 ID 是公开标识符；私钥保存在机密页面。提供方还必须在其目录条目中启用，登录按钮才会显示。",
+      googleEnabled: "Google 登录",
+      googleEnabledHint: "需要在下方填写有效的客户端 ID。",
+      googleClientId: "Google 客户端 ID",
+      googleClientIdHint:
+        "来自 Google Cloud Console → Credentials。公开值，可安全存储在此处。",
+      appleEnabled: "Apple 登录",
+      appleEnabledHint: "需要 Services ID、Team ID、Key ID，以及保存在机密中的 .p8 密钥。",
+      appleServicesId: "Apple Services ID",
+      appleServicesIdHint: "例如 com.example.accounts，来自 Apple 开发者门户。",
+      appleTeamId: "Apple Team ID",
+      appleTeamIdHint: "来自 Apple 开发者门户的 10 位团队标识符。",
+      appleKeyId: "Apple Key ID",
+      appleKeyIdHint: ".p8 签名密钥的标识符；密钥本身保存在机密中。",
+      applePrivateKeyPem: "Apple 签名密钥（.p8）",
+    },
+    identityProvider: {
+      title: "身份提供方（SSO）",
+      description:
+        "统一登录流程：用户在哪里登录、单点登录持续多久，以及一次性授权码的行为方式。",
+      accountsBaseUrl: "账户应用 URL",
+      accountsBaseUrlHint:
+        "最终用户账户应用的公开地址；登录重定向会跳转到那里。填错会导致所有已接入应用无法登录。",
+      publicBaseUrl: "公开认证 URL",
+      publicBaseUrlHint:
+        "此服务器在浏览器眼中的公开地址。位于反向代理之后时必填；用于重定向和发现文档。",
+      authorizationCodeLifetimeSeconds: "授权码有效期（秒）",
+      authorizationCodeLifetimeSecondsHint:
+        "用于兑换令牌的一次性授权码。推荐：不超过 60（OAuth 2.0 安全最佳实践）。",
+      idpSessionCookieName: "SSO Cookie 名称",
+      idpSessionCookieNameHint:
+        "重命名会使所有人退出单点登录（现有 Cookie 将不再匹配）。",
+      idpSessionLifetimeDays: "SSO 会话有效期（天）",
+      idpSessionLifetimeDaysHint:
+        "“登录一次，处处可用”的持续时长。推荐：7–30 天。",
+    },
+    email: {
+      title: "邮件（SMTP）",
+      description:
+        "平台发送邮件的方式——验证码、密码重置、邀请函。更换服务器后，请先使用“发送测试邮件”验证连接，再让真实业务依赖它。",
+      enabled: "邮件发送",
+      enabledHint:
+        "总开关。关闭后，需要邮件的流程（验证、重置）将不可用。",
+      smtpHost: "SMTP 服务器",
+      smtpHostHint: "邮件服务器的主机名，例如 mail.example.com。",
+      smtpPort: "SMTP 端口",
+      smtpPortHint:
+        "587 = STARTTLS（推荐），465 = 隐式 TLS，25 = 通常被主机商封锁。",
+      useSsl: "要求 TLS",
+      useSslHint: "推荐：开启。关闭后仅允许机会性 TLS，只应在本地开发中使用。",
+      username: "SMTP 用户名",
+      usernameHint: "通常是完整的邮箱地址。使用无需认证的中继时留空。",
+      password: "SMTP 密码",
+      senderEmail: "发件地址",
+      senderEmailHint: "邮件的 From 地址。必须获得您域名 SPF/DKIM 记录的授权。",
+      senderName: "发件人名称",
+      senderNameHint: "收件人看到的显示名称；也是模板中平台名称的后备值。",
+      frontendBaseUrl: "链接基础 URL",
+      frontendBaseUrlHint:
+        "账户应用的绝对地址；所有邮件中的链接（重置、验证）都基于它生成。启用邮件发送时必填。",
+      otpExpirationMinutes: "验证码有效期（分钟）",
+      otpExpirationMinutesHint: "推荐：5–15——足够用户输入，又短到无法被窃取利用。",
+      resetTokenExpirationMinutes: "重置链接有效期（分钟）",
+      resetTokenExpirationMinutesHint: "推荐：30–60。",
+      rateLimitWindowSeconds: "发送速率窗口（秒）",
+      rateLimitWindowSecondsHint: "下方按地址发送限制所用的时间窗口。推荐：60。",
+      maxOtpRequestsPerWindow: "每窗口验证码数量",
+      maxOtpRequestsPerWindowHint:
+        "单个地址在每个窗口内可请求的验证码上限。推荐：3——防止邮件轰炸。",
+    },
+    notificationsSection: {
+      title: "通知投递",
+      description:
+        "外发通知的投递方式：直接发送，或通过可靠发件箱——失败自动重试、重启后不丢失。内容和模板在通知页面管理。",
+      useOutbox: "可靠发件箱",
+      useOutboxHint:
+        "推荐：生产环境开启——消息会先存储再发送，失败时重试而不是丢失。",
+      pollIntervalSeconds: "轮询间隔（秒）",
+      pollIntervalSecondsHint: "未收到发送信号时的兜底唤醒间隔。推荐：30。",
+      batchSize: "批次大小",
+      batchSizeHint: "每个投递周期领取的消息数。推荐：20。",
+      maxAttempts: "最大尝试次数",
+      maxAttemptsHint:
+        "消息进入死信之前的投递尝试次数（采用指数退避）。推荐：5。",
+      staleClaimMinutes: "失效领取（分钟）",
+      staleClaimMinutesHint:
+        "被崩溃的工作进程领取的消息，将在此时长后重新尝试投递。推荐：5。",
+    },
+    imageStorage: {
+      title: "图片存储",
+      description:
+        "上传的徽标和头像：存储在磁盘的哪个位置、如何对外提供访问，以及上传时应用的大小限制。",
+      provider: "存储提供方",
+      providerHint: "文件系统存储；属于服务器部署的一部分，此处不可编辑。",
+      physicalPath: "存储文件夹",
+      physicalPathHint: "服务器磁盘位置；修改需要迁移文件——属于部署任务。",
+      publicBaseUrl: "公开基础 URL",
+      publicBaseUrlHint:
+        "所有返回的图片 URL 的前缀。请设为 API 的公开地址（或以根开头的路径），使徽标能通过网关正常显示。",
+      requestPath: "访问路径",
+      requestPathHint: "图片对外提供访问的 URL 路径；在启动时固化到处理管道中。",
+      maxSizeBytes: "上传大小上限（字节）",
+      maxSizeBytesHint: "推荐：4194304（4 MB）——对徽标和头像绰绰有余。",
+      maxMegapixels: "百万像素上限",
+      maxMegapixelsHint: "在处理前拦截解压炸弹。推荐：50。",
+      maxEdgePx: "最长边（像素）",
+      maxEdgePxHint: "更大的图片将被缩小到此边长。推荐：1024。",
+      webpQuality: "WebP 质量",
+      webpQualityHint: "上传的图片会按此质量重新编码为 WebP。推荐：90。",
+      allowedContentTypes: "允许的内容类型",
+      allowedContentTypesHint: "上传时接受的 image/* MIME 类型。",
+    },
+    accountDeletionSection: {
+      title: "账户删除",
+      description:
+        "GDPR/KVKK 删除流程：永久擦除前的宽限期、确认码，以及执行删除的后台任务节奏。",
+      graceDays: "宽限期（天）",
+      graceDaysHint:
+        "永久删除前允许反悔的时间。推荐：30（常见的合规实践）。",
+      workerPollMinutes: "工作进程轮询（分钟）",
+      workerPollMinutesHint: "到期删除的执行频率。推荐：15。",
+      workerBatchSize: "工作进程批次大小",
+      workerBatchSizeHint: "每个周期执行的删除数量。推荐：25。",
+      maxExecutionAttempts: "最大执行尝试次数",
+      maxExecutionAttemptsHint: "删除失败触发合规警报前的重试次数。推荐：5。",
+      otpExpirationMinutes: "确认码有效期（分钟）",
+      otpExpirationMinutesHint: "用于确认公开删除请求的验证码。推荐：15。",
+      identifierHmacKeyPlain: "标识符哈希密钥",
+    },
+    dataRetention: {
+      title: "隐私与数据保留",
+      description:
+        "安全和投递记录的保留时长，以及每次删除时标记的已发布隐私政策版本。请与隐私政策的实际承诺保持一致。",
+      policyVersion: "隐私政策版本",
+      policyVersionHint:
+        "随每次删除记录的版本标记（格式 YYYY.MM）。必须与已发布的政策一致。",
+      loginAttemptRetentionDays: "登录尝试保留（天）",
+      loginAttemptRetentionDaysHint:
+        "安全日志的保留时长；请与您的隐私政策保持一致。推荐：365。",
+      outboxRetentionDays: "发件箱保留（天）",
+      outboxRetentionDaysHint: "已投递通知日志的保留时长。推荐：180。",
+    },
+    maintenance: {
+      title: "维护",
+      description:
+        "在启动时执行一次的运维开关。正常运行期间请保持关闭，仅在运维手册要求时才开启。",
+      runEncryptionMigration: "运行加密迁移",
+      runEncryptionMigrationHint:
+        "下次启动时执行的一次性回填；除非运维手册要求，否则请保持关闭。",
+    },
+    healthChecks: {
+      title: "健康检查",
+      description:
+        "供网关和监控使用的公开 /health 和 /ready 探测端点。",
+      exposeErrorDetails: "暴露错误详情",
+      exposeErrorDetailsHint:
+        "在探测响应中包含异常消息。推荐：生产环境关闭——这些端点可被公开访问。",
+    },
+    serilog: {
+      title: "日志",
+      description:
+        "API 写入日志文件的详细程度。级别立即生效；日志文件位置属于部署的一部分。",
+      minimumLevelDefault: "最低级别",
+      minimumLevelDefaultHint:
+        "正常运行使用 Information；仅在排查问题时使用 Debug（非常详细，可能包含更多请求细节）；希望生产日志安静时使用 Warning。",
+      minimumLevelOverrideMicrosoft: "Microsoft 命名空间级别",
+      minimumLevelOverrideMicrosoftHint: "过滤框架噪音。推荐：Warning。",
+      minimumLevelOverrideMicrosoftHostingLifetime: "主机生命周期级别",
+      minimumLevelOverrideMicrosoftHostingLifetimeHint:
+        "启动/关闭消息。推荐：Information。",
+      minimumLevelOverrideSystem: "System 命名空间级别",
+      minimumLevelOverrideSystemHint: "推荐：Warning。",
+    },
+    dataProtection: {
+      title: "数据保护密钥",
+      description:
+        "用于静态加密机密（2FA 种子、存储的密钥）的密钥环。它在数据库可用之前就会被读取——而且一旦指向错误的文件夹，所有已加密的值将永久无法读取——因此只能在服务器文件中管理。",
+      keyPath: "密钥环文件夹",
+      certificatePfxPath: "证书文件",
+      certificateThumbprint: "证书指纹",
+      certificatePasswordEnvironmentVariable: "密码环境变量",
+    },
+    secretManagement: {
+      title: "机密管理",
+      description:
+        "加密机密的存储方式（加密文件 / DPAPI / 开发用明文）。它在数据库之前完成初始化，因此存储模式只能在服务器文件中管理；机密的具体值在机密页面管理。",
+      storageMode: "存储模式",
+      secretFilePath: "机密文件",
+      autoGenerateKeys: "自动生成密钥",
+      enableAdminApi: "启用管理 API",
+    },
+    connectionStrings: {
+      title: "数据库连接",
+      description:
+        "此 API 运行所依赖的 SQL Server 连接。它包含凭据，且在任何设置加载之前就已需要，因此只保存在服务器文件/机密存储中。",
+      authDb: "AuthDb 连接字符串",
+    },
   },
   profile: {
     title: "我的资料",
@@ -1117,6 +1496,9 @@ export const zh: TranslationResources = {
     minLength: "至少需要 {{count}} 个字符。",
     passwordMismatch: "两次输入的密码不一致。",
     url: "请输入有效的 URL。",
+    wholeNumber: "请输入整数。",
+    min: "不能小于 {{min}}。",
+    max: "不能大于 {{max}}。",
   },
   errors: {
     notFoundTitle: "页面未找到",

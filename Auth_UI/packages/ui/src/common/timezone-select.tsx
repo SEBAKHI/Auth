@@ -1,9 +1,9 @@
 import * as React from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { getTimeZoneOffsetLabel } from "@astoom/i18n/timezone"
+import { getTimeZoneOffsetLabel } from "@authsystem/i18n/timezone"
 
-import { Button } from "@astoom/ui/button"
+import { Button } from "@authsystem/ui/button"
 import {
   Command,
   CommandEmpty,
@@ -11,10 +11,10 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@astoom/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@astoom/ui/popover"
-import { ScrollArea } from "@astoom/ui/scroll-area"
-import { cn } from "@astoom/ui/utils"
+} from "@authsystem/ui/command"
+import { Popover, PopoverContent, PopoverTrigger } from "@authsystem/ui/popover"
+import { ScrollArea } from "@authsystem/ui/scroll-area"
+import { cn } from "@authsystem/ui/utils"
 
 /**
  * Stored profile value meaning "automatic": dates render in the browser's

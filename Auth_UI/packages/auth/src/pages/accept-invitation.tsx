@@ -7,9 +7,9 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { Button } from "@astoom/ui/button"
-import { Spinner } from "@astoom/ui/spinner"
-import { FieldGroup } from "@astoom/ui/field"
+import { Button } from "@authsystem/ui/button"
+import { Spinner } from "@authsystem/ui/spinner"
+import { FieldGroup } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -17,15 +17,15 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { Input } from "@astoom/ui/input"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import type { Schemas } from "@astoom/api/types"
-import { useAuth } from "@astoom/auth/auth-context"
-import { getErrorMessage } from "@astoom/api/errors"
-import { formatDateTime } from "@astoom/ui/format"
-import { AuthLayout } from "@astoom/ui/auth-layout"
+} from "@authsystem/ui/form"
+import { Input } from "@authsystem/ui/input"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import type { Schemas } from "@authsystem/api/types"
+import { useAuth } from "@authsystem/auth/auth-context"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { formatDateTime } from "@authsystem/ui/format"
+import { AuthLayout } from "@authsystem/ui/auth-layout"
 
 type InvitationPreview = Schemas["InvitationPreviewDto"]
 

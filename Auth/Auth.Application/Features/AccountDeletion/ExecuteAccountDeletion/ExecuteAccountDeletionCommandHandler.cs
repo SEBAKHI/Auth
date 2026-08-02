@@ -39,7 +39,7 @@ public class ExecuteAccountDeletionCommandHandler
         IPerUserCryptoService perUserCrypto,
         IImageStorageService imageStorage,
         IPublisher publisher,
-        IOptions<AccountDeletionSettings> settings,
+        IOptionsSnapshot<AccountDeletionSettings> settings,
         ILogger<ExecuteAccountDeletionCommandHandler> logger)
     {
         _requestRepository = requestRepository;

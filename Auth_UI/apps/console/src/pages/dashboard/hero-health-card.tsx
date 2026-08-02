@@ -8,17 +8,17 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
+} from "@authsystem/ui/card"
 import {
   ChartContainer,
   ChartLegend,
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-} from "@astoom/ui/chart"
-import type { ChartConfig } from "@astoom/ui/chart"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { numberLocale } from "@astoom/ui/format"
+} from "@authsystem/ui/chart"
+import type { ChartConfig } from "@authsystem/ui/chart"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { numberLocale } from "@authsystem/ui/format"
 
 import { SERIES } from "./chart-constants"
 import { formatBucket } from "./format-bucket"

@@ -140,7 +140,7 @@ strong { color:#141414; }
 <td>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" class="card">
 <tr><td class="top-accent" style="height:4px;line-height:4px;font-size:2px;">&nbsp;</td></tr>
-<tr><td class="logo"><img src="https://astoom.com/branding/sebakhi-email-logo.png" width="200" alt="{{ Platform.Name }}"></td></tr>
+<tr><td class="logo">{% if Platform.LogoUrl %}<img src="{{ Platform.LogoUrl }}" width="200" alt="{{ Platform.Name }}">{% else %}<div class="header" style="padding:0;"><h1>{{ Platform.Name }}</h1></div>{% endif %}</td></tr>
 <tr><td class="application">{{ Application.Name }}</td></tr>
 <tr><td class="brand-rule"><div>&nbsp;</div></td></tr>
 <tr><td class="content">

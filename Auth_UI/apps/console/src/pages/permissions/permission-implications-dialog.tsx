@@ -10,9 +10,9 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+} from "@authsystem/ui/dialog"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   Select,
   SelectContent,
@@ -20,13 +20,13 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@astoom/ui/select"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import { getErrorMessage } from "@astoom/api/errors"
-import type { Schemas } from "@astoom/api/types"
-import { Spinner } from "@astoom/ui/spinner"
+} from "@authsystem/ui/select"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import { getErrorMessage } from "@authsystem/api/errors"
+import type { Schemas } from "@authsystem/api/types"
+import { Spinner } from "@authsystem/ui/spinner"
 
 export function PermissionImplicationsDialog({
   open,

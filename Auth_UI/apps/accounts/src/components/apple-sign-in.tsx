@@ -3,13 +3,12 @@ import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
-import { APPLE_SERVICES_ID } from "@astoom/api/env"
-import { getErrorCodes, getErrorMessage } from "@astoom/api/errors"
-import { useAuth } from "@astoom/auth/auth-context"
-import { Button } from "@astoom/ui/button"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { useAuth } from "@authsystem/auth/auth-context"
+import { Button } from "@authsystem/ui/button"
 
 import { useExternalProviders } from "@/components/use-external-providers"
-import { Spinner } from "@astoom/ui/spinner"
+import { Spinner } from "@authsystem/ui/spinner"
 
 /** Minimal typings for the Sign in with Apple JS client. */
 interface AppleSignInResponse {
@@ -101,7 +100,7 @@ export function AppleSignIn() {
   const location = useLocation()
   const nonceRef = React.useRef<string>(crypto.randomUUID())
   const [pending, setPending] = React.useState(false)
-  const { appleEnabled } = useExternalProviders()
+  const { appleEnabled, appleServicesId } = useExternalProviders()
 
   const state = location.state as LocationState | null
   const from = state?.from?.pathname
@@ -116,7 +115,7 @@ export function AppleSignIn() {
       if (!window.AppleID) throw new Error("Failed to load Sign in with Apple")
 
       window.AppleID.auth.init({
-        clientId: APPLE_SERVICES_ID,
+        clientId: appleServicesId,
         scope: "name email",
         redirectURI: window.location.origin,
         nonce: nonceRef.current,
@@ -171,7 +170,7 @@ export function AppleSignIn() {
     } finally {
       setPending(false)
     }
-  }, [from, i18n.language, loginExternal, navigate, t])
+  }, [appleServicesId, from, i18n.language, loginExternal, navigate, t])
 
   if (!appleEnabled) return null
 

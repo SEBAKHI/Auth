@@ -111,6 +111,54 @@ public static class SharedValidationRules
     }
 
     /// <summary>
+    /// Upper bound on an application's redirect-URI allowlist. Deliberately
+    /// small: the allowlist is a security boundary, not a URL directory, and a
+    /// short list keeps the delete-and-reinsert sync cheap.
+    /// </summary>
+    public const int MaxRedirectUris = 20;
+
+    public static IRuleBuilderOptions<T, IReadOnlyList<string>> IsWithinRedirectUriLimit<T>(
+        this IRuleBuilder<T, IReadOnlyList<string>> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(uris => uris.Count <= MaxRedirectUris)
+            .WithMessage("Validation.RedirectUri.TooMany");
+    }
+
+    /// <summary>
+    /// A registered redirect URI must be absolute, fragment-free, at most 500
+    /// characters (DB column), and use https — plain http is allowed only for
+    /// localhost during development (OAuth 2.0 Security BCP).
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> IsValidRedirectUri<T>(
+        this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .Must(BeAValidRedirectUri)
+            .WithMessage("Validation.RedirectUri.Invalid");
+    }
+
+    private static bool BeAValidRedirectUri(string uri)
+    {
+        if (string.IsNullOrWhiteSpace(uri) || uri.Length > 500)
+        {
+            return false;
+        }
+
+        if (!Uri.TryCreate(uri, UriKind.Absolute, out var parsed) || parsed.Fragment.Length > 0)
+        {
+            return false;
+        }
+
+        if (parsed.Scheme == Uri.UriSchemeHttps)
+        {
+            return true;
+        }
+
+        return parsed.Scheme == Uri.UriSchemeHttp && parsed.IsLoopback;
+    }
+
+    /// <summary>
     /// The sort field must be null (server default order) or one of the
     /// endpoint's allow-listed field names (case-insensitive). The allow-list is
     /// what keeps client input away from SQL ORDER BY clauses.

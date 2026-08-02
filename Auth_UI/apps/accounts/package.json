@@ -1,5 +1,5 @@
 {
-  "name": "@astoom/accounts",
+  "name": "@authsystem/accounts",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -10,11 +10,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@astoom/account": "workspace:*",
-    "@astoom/api": "workspace:*",
-    "@astoom/auth": "workspace:*",
-    "@astoom/i18n": "workspace:*",
-    "@astoom/ui": "workspace:*",
+    "@authsystem/account": "workspace:*",
+    "@authsystem/api": "workspace:*",
+    "@authsystem/auth": "workspace:*",
+    "@authsystem/i18n": "workspace:*",
+    "@authsystem/ui": "workspace:*",
     "@fontsource-variable/ibm-plex-sans": "^5.2.8",
     "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
     "@hookform/resolvers": "^5.4.0",

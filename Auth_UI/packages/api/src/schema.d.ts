@@ -10532,6 +10532,273 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/system-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SystemSettingsDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system-settings/{sectionKey}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sectionKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateSystemSettingsRequest"];
+                    "text/json": components["schemas"]["UpdateSystemSettingsRequest"];
+                    "application/*+json": components["schemas"]["UpdateSystemSettingsRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SystemSettingsSectionDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system-settings/{sectionKey}/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    sectionKey: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SystemSettingsSectionDto"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/system-settings/email/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/.well-known/openid-configuration": {
         parameters: {
             query?: never;
@@ -10900,6 +11167,7 @@ export interface components {
              * @default 5
              */
             maxConcurrentSessions: number | string;
+            redirectUris?: null | string[];
             /** Format: int32 */
             reauthenticationMaxAgeMinutes?: null | number | string;
         };
@@ -11063,6 +11331,7 @@ export interface components {
             code: string;
             name: string;
             iconUrl: null | string;
+            clientId: string;
         };
         ExternalLoginRequest: {
             provider: string;
@@ -11180,6 +11449,7 @@ export interface components {
             /** Format: int32 */
             distinctUsernames?: number | string;
         };
+        JsonElement: unknown;
         KeyImportResponse: {
             success?: boolean;
             message?: string;
@@ -12240,6 +12510,42 @@ export interface components {
             value?: null | string;
             hasValue?: boolean;
         };
+        SystemSettingsDto: {
+            restartPending?: boolean;
+            dbOverridesUnavailable?: boolean;
+            sections?: components["schemas"]["SystemSettingsSectionDto"][];
+        };
+        SystemSettingsFieldDto: {
+            path?: string;
+            kind?: string;
+            effectiveValue?: unknown;
+            overrideValue?: unknown;
+            baselineValue?: unknown;
+            source?: string;
+            restartRequired?: boolean;
+            isPendingRestart?: boolean;
+            readOnly?: boolean;
+            sensitive?: boolean;
+            /** Format: int64 */
+            min?: null | number | string;
+            /** Format: int64 */
+            max?: null | number | string;
+            allowedValues?: null | string[];
+        };
+        SystemSettingsSectionDto: {
+            key?: string;
+            group?: string;
+            editable?: boolean;
+            /** Format: int32 */
+            version?: number | string;
+            rowVersion?: null | string;
+            /** Format: date-time */
+            modifiedAt?: null | string;
+            /** Format: uuid */
+            modifiedBy?: null | string;
+            modifiedByName?: null | string;
+            fields?: components["schemas"]["SystemSettingsFieldDto"][];
+        };
         TokenResponse: {
             accessToken: string;
             refreshToken: string;
@@ -12346,6 +12652,7 @@ export interface components {
         };
         UpdatePrivacyPolicyVersionRequest: {
             version?: string;
+            newVersion?: null | string;
             /** Format: date-time */
             effectiveDateUtc?: string;
             changeNote?: null | string;
@@ -12362,6 +12669,10 @@ export interface components {
         UpdateRoleRequest: {
             name: string;
             description?: null | string;
+        };
+        UpdateSystemSettingsRequest: {
+            overrides?: components["schemas"]["JsonElement"];
+            rowVersion?: null | string;
         };
         UpdateUserRequest: {
             firstName: string;

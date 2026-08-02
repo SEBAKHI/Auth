@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Progress as ProgressPrimitive } from "radix-ui"
 
-import { cn } from "@astoom/ui/utils"
+import { cn } from "@authsystem/ui/utils"
 
 /**
  * Determinate progress / meter.

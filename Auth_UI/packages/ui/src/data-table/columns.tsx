@@ -1,6 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table"
 
-import { EntityAvatar } from "@astoom/ui/common/entity-avatar"
+import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
 
 /**
  * Shared leading avatar column for user/organization/application tables.

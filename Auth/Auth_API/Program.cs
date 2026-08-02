@@ -10,11 +10,13 @@ using Auth_API.Common;
 using Auth_API.Common.Filters;
 using Auth_API.Common.HealthChecks;
 using Auth_API.Common.Middleware;
+using Auth_API.Modules.Media.Filters;
 using Auth_API.Tools;
 using Auth.Application.Interfaces;
 using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.Security;
+using Auth.Application.SystemSettings;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Infrastructure;
 using Auth.Infrastructure.Authentication;
@@ -57,11 +59,27 @@ var builder = WebApplication.CreateBuilder(args);
 // non-secret defaults. See LocalConfigurationExtensions for why the order matters.
 builder.Configuration.AddEnvironmentLocalJsonFile(builder.Environment.EnvironmentName);
 
-// Configure Serilog
-Log.Logger = new LoggerConfiguration()
+// Configure Serilog. Minimum levels route through LoggingLevelSwitchRegistry
+// so they stay hot (system-settings saves apply immediately); sinks and
+// enrichers stay file-owned and are built once here. A bootstrap logger is
+// deliberately NOT used: the temp BuildServiceProvider below would freeze it
+// before the real host build and abort startup.
+var loggingLevelSwitches = new Auth_API.Common.Logging.LoggingLevelSwitchRegistry();
+loggingLevelSwitches.ApplyFrom(builder.Configuration);
+
+var serilogConfiguration = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
-    .CreateLogger();
+    // Declared AFTER ReadFrom.Configuration so the switches win control of
+    // the default level and the known override namespaces.
+    .MinimumLevel.ControlledBy(loggingLevelSwitches.Default);
+
+foreach (var (overrideNamespace, levelSwitch) in loggingLevelSwitches.Overrides)
+{
+    serilogConfiguration.MinimumLevel.Override(overrideNamespace, levelSwitch);
+}
+
+Log.Logger = serilogConfiguration.CreateLogger();
 
 builder.Host.UseSerilog();
 
@@ -69,6 +87,12 @@ builder.Host.UseSerilog();
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection(JwtSettings.SectionName));
 builder.Services.Configure<PasswordSettings>(builder.Configuration.GetSection(PasswordSettings.SectionName));
 builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(GatewaySettings.SectionName));
+// Array settings need a post-bind pass: the binder APPENDS configured entries to a
+// non-empty property initializer (making the initializer unremovable), and the
+// database settings layer masks entries removed in the console with empty-string
+// tombstones. Both would otherwise keep a removed entry alive at runtime while the
+// console reports it gone. Runs on every rebind, so it also holds after a save.
+builder.Services.PostConfigure<GatewaySettings>(SettingsArrayNormalizer.Apply);
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
 builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSection(IdentityProviderSettings.SectionName));
 // Password reset and email verification links are built from FrontendBaseUrl. An
@@ -85,6 +109,10 @@ builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSectio
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
 builder.Services.Configure<AccountDeletionSettings>(builder.Configuration.GetSection(AccountDeletionSettings.SectionName));
 builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
+builder.Services.PostConfigure<ImageStorageSettings>(SettingsArrayNormalizer.Apply);
+// Scoped: it reads the image size limit through IOptionsSnapshot so a limit saved
+// in the console governs the very next upload (see ImageUploadSizeLimitFilter).
+builder.Services.AddScoped<ImageUploadSizeLimitFilter>();
 
 // ════════════════════════════════════════════════════════════════════════════
 // Secret Management - choose how the RSA signing key, HMAC key, and gateway token
@@ -240,6 +268,48 @@ var connectionString = builder.Configuration.GetConnectionString("AuthDb")
 
 builder.Services.AddSingleton<IDbConnectionFactory>(_ => new SqlConnectionFactory(connectionString));
 
+// ════════════════════════════════════════════════════════════════════════════
+// Dynamic system settings: a database-backed configuration layer over the
+// file/env layers (secret-owned keys are filtered on both the read and the
+// write path, so the secret provider stays authoritative for them). The
+// provider fails open — database down means file values, never a dead API.
+// Escape hatch: AUTH_DISABLE_DB_SETTINGS=true skips the layer entirely so a
+// bad override can always be bypassed and reset.
+// ════════════════════════════════════════════════════════════════════════════
+var disableDbSettings = string.Equals(
+    Environment.GetEnvironmentVariable("AUTH_DISABLE_DB_SETTINGS"), "true", StringComparison.OrdinalIgnoreCase);
+
+// Stamped into rate-limiter partition keys; bumps whenever a reload changed
+// the loaded overrides so new partitions pick up new limits.
+Func<int> settingsVersion = () => 0;
+
+// Baseline snapshot BEFORE the database layer: what every field falls back
+// to on reset (files/env). Captured here because files never change while
+// the process runs.
+var settingsBaseline = StartupValuesSnapshot.CaptureValues(builder.Configuration);
+
+if (!disableDbSettings)
+{
+    var dbSettingsSource = new DbSettingsConfigurationSource(
+        connectionString,
+        DbSettingsConfigurationProvider.CaptureBaselineArrayLengths(builder.Configuration));
+    ((IConfigurationBuilder)builder.Configuration).Add(dbSettingsSource);
+
+    builder.Services.AddSingleton<ISystemSettingsReloader>(_ => dbSettingsSource.Provider!);
+    builder.Services.AddHostedService<SystemSettingsRefreshService>();
+    settingsVersion = () => dbSettingsSource.Provider?.Version ?? 0;
+}
+else
+{
+    Log.Warning("AUTH_DISABLE_DB_SETTINGS=true - database system-settings overrides are DISABLED for this run.");
+    builder.Services.AddSingleton<ISystemSettingsReloader, NullSystemSettingsReloader>();
+}
+
+// Startup snapshot AFTER the database layer: what this process actually
+// booted with — the reference for "pending restart" badges.
+builder.Services.AddSingleton<IStartupValuesSnapshot>(
+    new StartupValuesSnapshot(settingsBaseline, StartupValuesSnapshot.CaptureValues(builder.Configuration)));
+
 // Repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserEncryptionKeyRepository, UserEncryptionKeyRepository>();
@@ -270,6 +340,7 @@ builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginReposi
 builder.Services.AddScoped<IWebhookKeyRepository, WebhookKeyRepository>();
 builder.Services.AddScoped<IDashboardStatsRepository, DashboardStatsRepository>();
 builder.Services.AddScoped<IPlatformSettingsRepository, PlatformSettingsRepository>();
+builder.Services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>();
 builder.Services.AddScoped<INotificationTypeRepository, NotificationTypeRepository>();
 builder.Services.AddScoped<INotificationTemplateRepository, NotificationTemplateRepository>();
 builder.Services.AddScoped<INotificationLayoutRepository, NotificationLayoutRepository>();
@@ -350,10 +421,13 @@ var jwtSettings = builder.Configuration.GetSection(JwtSettings.SectionName).Get<
 var tempServiceProvider = builder.Services.BuildServiceProvider();
 var jwtDataProtectionProvider = tempServiceProvider.GetRequiredService<IDataProtectionProvider>();
 
+// liveSettings makes token LIFETIMES hot (read per issue); issuer/audience/
+// keys stay on the startup snapshot to match the validation parameters below.
 var jwtTokenService = new JwtTokenService(
     Options.Create(jwtSettings),
     passwordHasher,
-    jwtDataProtectionProvider);
+    jwtDataProtectionProvider,
+    tempServiceProvider.GetRequiredService<IOptionsMonitor<JwtSettings>>());
 builder.Services.AddSingleton<IJwtTokenService>(jwtTokenService);
 
 // Token blacklist: one singleton behind both the interface and the concrete
@@ -387,6 +461,7 @@ builder.Services.AddSingleton<TemplateCache>();
 builder.Services.AddSingleton<ITemplateCache>(sp => sp.GetRequiredService<TemplateCache>());
 builder.Services.AddSingleton<ITemplateCacheInvalidator>(sp => sp.GetRequiredService<TemplateCache>());
 builder.Services.AddSingleton<SmtpEmailSender>();
+builder.Services.AddSingleton<IDirectEmailSender, DirectEmailSenderAdapter>();
 builder.Services.AddSingleton<INotificationChannel, EmailNotificationChannel>();
 builder.Services.AddSingleton<INotificationChannelFactory, NotificationChannelFactory>();
 builder.Services.AddScoped<INotificationRenderer, NotificationRenderingService>();
@@ -576,17 +651,19 @@ builder.Services.AddRateLimiter(options =>
     // single global one. A global bucket on an auth path is collective punishment
     // and a self-inflicted DoS — never do it here.
 
-    // Default policy — per client IP.
-    options.AddPolicy("fixed", httpContext =>
-        RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ClientIpResolver.Resolve(httpContext) ?? "unknown",
-            factory: _ => new FixedWindowRateLimiterOptions
-            {
-                PermitLimit = builder.Configuration.GetValue("RateLimiting:PermitLimit", 100),
-                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:WindowSeconds", 60)),
-                QueueLimit = builder.Configuration.GetValue("RateLimiting:QueueLimit", 10),
-                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
-            }));
+    // Partition keys are stamped with the system-settings version: limits are
+    // read live, but a partition caches its limiter on first hit — the stamp
+    // makes changed limits take effect via fresh partitions while old ones
+    // idle out.
+
+    // There is deliberately NO general/default policy. A "fixed" policy once
+    // existed here reading RateLimiting:PermitLimit/WindowSeconds/QueueLimit, but
+    // no endpoint was ever attached to it and no GlobalLimiter was set, so those
+    // three settings throttled nothing while the console offered them as live
+    // controls. Attaching it globally is not the fix — see the note above on why a
+    // shared bucket on an auth surface is a self-inflicted DoS. Limits are applied
+    // per endpoint group below; a new group gets its own named policy plus its own
+    // registry fields.
 
     // Interactive auth endpoints (login, register, external-login, verify-email,
     // forgot/reset-password submit, 2FA, invitation accept, token exchange) — per
@@ -596,7 +673,7 @@ builder.Services.AddRateLimiter(options =>
     // legitimate users never share a bucket.
     options.AddPolicy("login", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ClientIpResolver.Resolve(httpContext) ?? "unknown",
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = builder.Configuration.GetValue("RateLimiting:LoginPermitLimit", 20),
@@ -609,7 +686,7 @@ builder.Services.AddRateLimiter(options =>
     // guessing defence — a stricter per-client bucket than the login policy.
     options.AddPolicy("password-reset", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: ClientIpResolver.Resolve(httpContext) ?? "unknown",
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = builder.Configuration.GetValue("RateLimiting:PasswordResetPermitLimit", 10),
@@ -661,39 +738,20 @@ builder.Services.AddHealthChecks()
         failureStatus: HealthStatus.Unhealthy,
         tags: ["ready"]);
 
-// CORS - configured per environment (OWASP A02: Security Misconfiguration)
-var corsSettings = builder.Configuration.GetSection("Cors");
-var allowedOrigins = corsSettings.GetSection("AllowedOrigins").Get<string[]>() ?? [];
-var allowCredentials = corsSettings.GetValue("AllowCredentials", false);
-
-builder.Services.AddCors(options =>
+// CORS - configured per environment (OWASP A02: Security Misconfiguration).
+// The policy itself is served by DynamicCorsPolicyProvider from the LIVE
+// configuration so saved origin changes apply without a restart; this
+// startup check keeps the original production fail-fast.
+var startupAllowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+if (startupAllowedOrigins.Length == 0 && !builder.Environment.IsDevelopment())
 {
-    options.AddDefaultPolicy(policy =>
-    {
-        if (allowedOrigins.Length > 0 && !allowedOrigins.Contains("*"))
-        {
-            policy.WithOrigins(allowedOrigins)
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
+    throw new InvalidOperationException(
+        "CORS AllowedOrigins must be explicitly configured in production. " +
+        "Set Cors:AllowedOrigins in appsettings.json");
+}
 
-            if (allowCredentials)
-                policy.AllowCredentials();
-        }
-        else if (builder.Environment.IsDevelopment())
-        {
-            // Allow any origin in development only
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
-        }
-        else
-        {
-            throw new InvalidOperationException(
-                "CORS AllowedOrigins must be explicitly configured in production. " +
-                "Set Cors:AllowedOrigins in appsettings.json");
-        }
-    });
-});
+builder.Services.AddCors();
+builder.Services.AddSingleton<Microsoft.AspNetCore.Cors.Infrastructure.ICorsPolicyProvider, DynamicCorsPolicyProvider>();
 
 // HSTS - only configure for production (OWASP A02: Security Misconfiguration)
 if (!builder.Environment.IsDevelopment())
@@ -707,6 +765,14 @@ if (!builder.Environment.IsDevelopment())
 }
 
 var app = builder.Build();
+
+// Serilog levels: seed the switches from the effective configuration and
+// keep them following configuration changes (system-settings saves reload
+// the DB layer, which fires this token).
+loggingLevelSwitches.ApplyFrom(app.Configuration);
+Microsoft.Extensions.Primitives.ChangeToken.OnChange(
+    () => ((IConfiguration)app.Configuration).GetReloadToken(),
+    () => loggingLevelSwitches.ApplyFrom(app.Configuration));
 
 // Configure the HTTP request pipeline
 
@@ -789,11 +855,11 @@ app.UseAuthorization();
 // Health check endpoints (detailed JSON breakdown per check).
 // Exception messages are included only in Development, or when HealthChecks:ExposeErrorDetails is
 // explicitly enabled, because these endpoints are publicly reachable and could leak internal info.
-var exposeHealthErrors = app.Environment.IsDevelopment()
-    || app.Configuration.GetValue("HealthChecks:ExposeErrorDetails", false);
-
+// Read per request so the system-settings toggle applies without a restart.
 Task WriteHealthResponse(HttpContext httpContext, HealthReport report)
 {
+    var exposeHealthErrors = app.Environment.IsDevelopment()
+        || app.Configuration.GetValue("HealthChecks:ExposeErrorDetails", false);
     httpContext.Response.ContentType = "application/json; charset=utf-8";
     return httpContext.Response.WriteAsync(HealthCheckJsonFormatter.Serialize(report, exposeHealthErrors));
 }

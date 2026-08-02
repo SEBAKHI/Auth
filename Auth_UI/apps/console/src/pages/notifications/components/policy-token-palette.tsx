@@ -1,13 +1,13 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import { Button } from "@astoom/ui/button"
-import { POLICY_TOKENS } from "@astoom/ui/common/policy-document"
+import { Button } from "@authsystem/ui/button"
+import { POLICY_TOKENS } from "@authsystem/ui/common/policy-document"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@astoom/ui/tooltip"
+} from "@authsystem/ui/tooltip"
 
 type EditableField = HTMLInputElement | HTMLTextAreaElement
 

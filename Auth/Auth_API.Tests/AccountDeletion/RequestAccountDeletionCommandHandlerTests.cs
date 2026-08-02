@@ -39,7 +39,7 @@ public class RequestAccountDeletionCommandHandlerTests
             .Setup(r => r.TryCreateAsync(It.IsAny<AccountDeletionRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
-        var settings = Options.Create(new AccountDeletionSettings());
+        var settings = TestHelpers.CreateOptions(new AccountDeletionSettings());
         var requestor = new AccountDeletionRequestor(
             _requestRepositoryMock.Object,
             _userRepositoryMock.Object,
@@ -56,7 +56,7 @@ public class RequestAccountDeletionCommandHandlerTests
             new Mock<IOtpGenerator>().Object,
             _passwordHasherMock.Object,
             settings,
-            Options.Create(new EmailSettings()),
+            TestHelpers.CreateOptions(new EmailSettings()),
             new Mock<ILogger<DeletionOtpService>>().Object);
 
         _handler = new RequestAccountDeletionCommandHandler(

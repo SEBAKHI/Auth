@@ -1,4 +1,4 @@
-import { cn } from "@astoom/ui/utils"
+import { cn } from "@authsystem/ui/utils"
 
 function Skeleton({ className, ...props }: React.ComponentProps<"div">) {
   return (

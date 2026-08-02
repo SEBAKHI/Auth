@@ -30,7 +30,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         ISecureTokenGenerator tokenGenerator,
         IRefreshTokenKeyService tokenKeyService,
         INotificationService notificationService,
-        IOptions<EmailSettings> emailSettings,
+        IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<ForgotPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;

@@ -755,4 +755,28 @@
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>اس پالیسی ورژن کا نام تبدیل نہیں کیا جا سکتا: یہ شائع ہو چکا ہے یا اس کی تبدیلی کی اطلاع بھیجی جا چکی ہے۔</value>
   </data>
+  <data name="SystemSettings.SectionNotFound" xml:space="preserve">
+    <value>نامعلوم ترتیبات سیکشن: {0}۔</value>
+  </data>
+  <data name="SystemSettings.SectionReadOnly" xml:space="preserve">
+    <value>ترتیبات کا سیکشن '{0}' صرف پڑھنے کے لیے ہے اور کنسول سے تبدیل نہیں کیا جا سکتا۔</value>
+  </data>
+  <data name="SystemSettings.UnknownField" xml:space="preserve">
+    <value>فیلڈ '{0}' اس سیکشن کی قابلِ ترمیم ترتیب نہیں ہے۔</value>
+  </data>
+  <data name="SystemSettings.SecretManagedField" xml:space="preserve">
+    <value>فیلڈ '{0}' خفیہ مواد رکھتی ہے اور اس کا انتظام خفیہ کلیدوں کے انتظام میں ہوتا ہے، یہاں نہیں۔</value>
+  </data>
+  <data name="SystemSettings.InvalidFieldValue" xml:space="preserve">
+    <value>فیلڈ '{0}' کی قیمت درست نہیں: {1}</value>
+  </data>
+  <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
+    <value>آپ کے لوڈ کرنے کے بعد کسی اور نے یہ سیکشن تبدیل کر دیا ہے۔ دوبارہ لوڈ کریں اور اپنی تبدیلیاں دوبارہ لاگو کریں۔</value>
+  </data>
+  <data name="SystemSettings.EmailSendingDisabled" xml:space="preserve">
+    <value>ای میل بھیجنا غیر فعال ہے (Email:Enabled بند ہے)، لہٰذا جانچنے کے لیے کچھ نہیں۔</value>
+  </data>
+  <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
+    <value>آزمائشی ای میل نہیں بھیجی جا سکی: {0}</value>
+  </data>
 </root>

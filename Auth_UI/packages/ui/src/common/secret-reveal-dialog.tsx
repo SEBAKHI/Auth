@@ -1,7 +1,7 @@
 import { TriangleAlert } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-import { CopyButton } from "@astoom/ui/common/copy-button"
+import { CopyButton } from "@authsystem/ui/common/copy-button"
 import {
   Dialog,
   DialogContent,
@@ -9,10 +9,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@astoom/ui/dialog"
-import { Button } from "@astoom/ui/button"
-import { Input } from "@astoom/ui/input"
-import { Textarea } from "@astoom/ui/textarea"
+} from "@authsystem/ui/dialog"
+import { Button } from "@authsystem/ui/button"
+import { Input } from "@authsystem/ui/input"
+import { Textarea } from "@authsystem/ui/textarea"
 
 /**
  * One-time reveal of newly generated secret material (API key, webhook key,

@@ -2,14 +2,14 @@ import { Plus, Trash2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
-import type { PolicySection } from "@astoom/ui/common/policy-document"
-import { Button } from "@astoom/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@astoom/ui/card"
-import { ConfirmDialog } from "@astoom/ui/common/confirm-dialog"
-import { Field, FieldLabel } from "@astoom/ui/field"
-import { Input } from "@astoom/ui/input"
-import { Separator } from "@astoom/ui/separator"
-import { Textarea } from "@astoom/ui/textarea"
+import type { PolicySection } from "@authsystem/ui/common/policy-document"
+import { Button } from "@authsystem/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@authsystem/ui/card"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import { Field, FieldLabel } from "@authsystem/ui/field"
+import { Input } from "@authsystem/ui/input"
+import { Separator } from "@authsystem/ui/separator"
+import { Textarea } from "@authsystem/ui/textarea"
 
 /*
  * List items are keyed by index on purpose. The document is plain JSON with no

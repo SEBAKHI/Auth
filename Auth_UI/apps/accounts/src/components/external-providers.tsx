@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 
-import { Separator } from "@astoom/ui/separator"
+import { Separator } from "@authsystem/ui/separator"
 
 import { AppleSignIn } from "@/components/apple-sign-in"
 import { GoogleSignIn } from "@/components/google-sign-in"

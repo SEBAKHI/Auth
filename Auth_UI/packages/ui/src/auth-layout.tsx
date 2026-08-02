@@ -1,10 +1,10 @@
 import type * as React from "react"
 import { ShieldCheck } from "lucide-react"
 
-import { LanguageToggle } from "@astoom/ui/common/language-toggle"
-import { ThemeToggle } from "@astoom/ui/common/theme-toggle"
-import { Card, CardContent } from "@astoom/ui/card"
-import { BrandingLogo } from "@astoom/ui/branding"
+import { LanguageToggle } from "@authsystem/ui/common/language-toggle"
+import { ThemeToggle } from "@authsystem/ui/common/theme-toggle"
+import { Card, CardContent } from "@authsystem/ui/card"
+import { BrandingLogo } from "@authsystem/ui/branding"
 
 /** Centered card layout shared by all unauthenticated auth screens. */
 export function AuthLayout({
@@ -36,7 +36,7 @@ export function AuthLayout({
   appName?: string | null
   /** Logo of that application; falls back to the platform mark when absent. */
   appLogoUrl?: string | null
-  /** Trust marker under the card, e.g. "Secured by Astoom". */
+  /** Trust marker under the card, e.g. "Secured by Acme". */
   securedBy?: React.ReactNode
 }) {
   const platformFallback = (

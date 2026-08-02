@@ -23,6 +23,7 @@ namespace Auth.Infrastructure.Authentication;
 public class JwtTokenService : IJwtTokenService, IDisposable
 {
     private readonly JwtSettings _settings;
+    private readonly IOptionsMonitor<JwtSettings>? _liveSettings;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IDataProtectionProvider? _dataProtectionProvider;
     private readonly RSA _rsa;
@@ -34,9 +35,11 @@ public class JwtTokenService : IJwtTokenService, IDisposable
     public JwtTokenService(
         IOptions<JwtSettings> settings,
         IPasswordHasher passwordHasher,
-        IDataProtectionProvider? dataProtectionProvider = null)
+        IDataProtectionProvider? dataProtectionProvider = null,
+        IOptionsMonitor<JwtSettings>? liveSettings = null)
     {
         _settings = settings.Value;
+        _liveSettings = liveSettings;
         _passwordHasher = passwordHasher;
         _dataProtectionProvider = dataProtectionProvider;
         _rsa = LoadOrGenerateKey();
@@ -114,7 +117,11 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.Add(_settings.AccessTokenLifetime),
+            // Lifetime is read live so a settings change applies to the next
+            // issued token without a restart. Issuer/audience/keys stay on
+            // the startup snapshot: validation captured them at boot, and
+            // issuing with newer values would break every new token.
+            Expires = DateTime.UtcNow.Add((_liveSettings?.CurrentValue ?? _settings).AccessTokenLifetime),
             NotBefore = DateTime.UtcNow,
             IssuedAt = DateTime.UtcNow,
             Issuer = _settings.Issuer,

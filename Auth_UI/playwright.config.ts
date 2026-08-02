@@ -31,13 +31,13 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: "pnpm --filter @astoom/console dev",
+      command: "pnpm --filter @authsystem/console dev",
       url: "http://localhost:5173",
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
     {
-      command: "pnpm --filter @astoom/accounts dev",
+      command: "pnpm --filter @authsystem/accounts dev",
       url: "http://localhost:5174",
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,

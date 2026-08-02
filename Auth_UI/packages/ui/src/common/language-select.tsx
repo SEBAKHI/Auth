@@ -7,8 +7,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@astoom/ui/select"
-import { SUPPORTED_LANGUAGES } from "@astoom/i18n"
+} from "@authsystem/ui/select"
+import { SUPPORTED_LANGUAGES } from "@authsystem/i18n"
 
 /** Preferred-language picker restricted to the languages the console ships. */
 export function LanguageSelect({

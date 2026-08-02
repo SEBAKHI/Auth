@@ -49,7 +49,7 @@ export default defineConfig([
           // The native picker renders browser chrome the preset cannot reach.
           selector: 'JSXAttribute[name.name="type"] > Literal[value="date"]',
           message:
-            'Use DatePicker from @astoom/ui/common/date-picker instead of a native date input.',
+            'Use DatePicker from @authsystem/ui/common/date-picker instead of a native date input.',
         },
         {
           // `space-y-*` sets a margin on every child but the last, which collapses
@@ -69,7 +69,7 @@ export default defineConfig([
           selector:
             'CallExpression[callee.type="MemberExpression"][callee.object.name="i18n"][callee.property.name="dir"]',
           message:
-            'Use directionForLanguage(i18n.language) from @astoom/i18n — the same source DirectionProvider writes onto documentElement.dir. i18n.dir() reads resolvedLanguage, which is the fallback locale on a cold load.',
+            'Use directionForLanguage(i18n.language) from @authsystem/i18n — the same source DirectionProvider writes onto documentElement.dir. i18n.dir() reads resolvedLanguage, which is the fallback locale on a cold load.',
         },
         {
           // Chrome resolves `dir="auto"` from a control's VALUE, never from its
@@ -101,7 +101,7 @@ export default defineConfig([
               name: 'lucide-react',
               importNames: ['Loader2', 'Loader2Icon'],
               message:
-                'Use Spinner from @astoom/ui/spinner — it owns the spin animation and the status role.',
+                'Use Spinner from @authsystem/ui/spinner — it owns the spin animation and the status role.',
             },
           ],
         },

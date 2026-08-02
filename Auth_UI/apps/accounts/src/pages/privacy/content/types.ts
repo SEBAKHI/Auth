@@ -1,7 +1,7 @@
 /**
  * Contract for the bundled privacy-policy documents.
  *
- * The document model and renderer live in `@astoom/ui/common/policy-document`
+ * The document model and renderer live in `@authsystem/ui/common/policy-document`
  * so the public page and the console's editor preview share one implementation
  * — re-exported here to keep the locale files' imports stable.
  *
@@ -15,15 +15,15 @@ export type {
   PolicySection,
   PrivacyPolicyContent,
   RetentionRow,
-} from "@astoom/ui/common/policy-document"
+} from "@authsystem/ui/common/policy-document"
 
 export {
   LAW_LINKS,
   POLICY_TOKENS,
   interpolate,
-} from "@astoom/ui/common/policy-document"
+} from "@authsystem/ui/common/policy-document"
 
-import type { PolicyDisclosure } from "@astoom/ui/common/policy-document"
+import type { PolicyDisclosure } from "@authsystem/ui/common/policy-document"
 
 /**
  * Fallback version stamp, used only when the API is unreachable. The live

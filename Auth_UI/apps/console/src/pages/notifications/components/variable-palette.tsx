@@ -1,12 +1,12 @@
 import { useTranslation } from "react-i18next"
 
-import { Badge } from "@astoom/ui/badge"
-import { Button } from "@astoom/ui/button"
+import { Badge } from "@authsystem/ui/badge"
+import { Button } from "@authsystem/ui/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from "@astoom/ui/tooltip"
+} from "@authsystem/ui/tooltip"
 import type { TemplateVariable } from "../lib"
 
 /**

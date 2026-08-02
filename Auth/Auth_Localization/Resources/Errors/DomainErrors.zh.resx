@@ -755,4 +755,28 @@
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>此政策版本无法重命名：它已发布，或其变更通知已发送。</value>
   </data>
+  <data name="SystemSettings.SectionNotFound" xml:space="preserve">
+    <value>未知的设置分区：{0}。</value>
+  </data>
+  <data name="SystemSettings.SectionReadOnly" xml:space="preserve">
+    <value>设置分区'{0}'为只读，无法在控制台中更改。</value>
+  </data>
+  <data name="SystemSettings.UnknownField" xml:space="preserve">
+    <value>字段'{0}'不是此分区中可编辑的设置。</value>
+  </data>
+  <data name="SystemSettings.SecretManagedField" xml:space="preserve">
+    <value>字段'{0}'包含机密材料，应在机密管理中维护，而不是这里。</value>
+  </data>
+  <data name="SystemSettings.InvalidFieldValue" xml:space="preserve">
+    <value>字段'{0}'的值无效：{1}</value>
+  </data>
+  <data name="SystemSettings.ConcurrencyConflict" xml:space="preserve">
+    <value>该分区在您加载后已被他人修改。请重新加载并重新应用您的更改。</value>
+  </data>
+  <data name="SystemSettings.EmailSendingDisabled" xml:space="preserve">
+    <value>邮件发送已禁用（Email:Enabled 处于关闭状态），没有可测试的内容。</value>
+  </data>
+  <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
+    <value>测试邮件发送失败：{0}</value>
+  </data>
 </root>

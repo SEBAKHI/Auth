@@ -2,15 +2,15 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 
-import { EntityAvatar } from "@astoom/ui/common/entity-avatar"
-import { Dialog, DialogContent, DialogTitle } from "@astoom/ui/dialog"
+import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
+import { Dialog, DialogContent, DialogTitle } from "@authsystem/ui/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@astoom/ui/dropdown-menu"
+} from "@authsystem/ui/dropdown-menu"
 
 /** Mirrors the server's ImageStorage:MaxSizeBytes so oversized files fail fast with a clear message. */
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024

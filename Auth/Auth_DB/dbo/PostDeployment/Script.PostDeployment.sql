@@ -11,6 +11,7 @@ It creates all seed data in the correct order.
 -- them instead of re-inserting hardcoded primary keys.
 :r ..\Scripts\Upgrades\2026-07-20_PurgeInactiveUserAssignments.sql
 :r ..\Scripts\Upgrades\2026-07-26_RetirePlatformApplication.sql
+:r ..\Scripts\Upgrades\2026-07-31_EmailLayoutLogoPlatformDriven.sql
 
 PRINT 'Starting post-deployment seed data...';
 PRINT '======================================';
@@ -597,6 +598,15 @@ PRINT 'Step 12: Creating notification permissions...';
 :r ..\Scripts\SeedData\14_PrivacyPolicyVersions.sql
 :r ..\Scripts\SeedData\15_PrivacyPolicyPermissions.sql
 :r ..\Scripts\SeedData\16_PrivacyPolicyContent.sql
+GO
+
+-- ============================================
+-- STEP 13: SYSTEM SETTINGS PERMISSIONS
+-- ============================================
+PRINT '';
+PRINT 'Step 13: Creating system settings permissions...';
+
+:r ..\Scripts\SeedData\17_SystemSettingsPermissions.sql
 GO
 
 -- ============================================

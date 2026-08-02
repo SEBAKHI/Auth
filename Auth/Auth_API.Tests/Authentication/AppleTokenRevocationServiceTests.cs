@@ -14,7 +14,7 @@ namespace Auth_API.Tests.Authentication;
 /// </summary>
 public class AppleTokenRevocationServiceTests
 {
-    private static IOptions<ExternalAuthSettings> CreateSettings() => Options.Create(new ExternalAuthSettings
+    private static TestHelpers.TestOptions<ExternalAuthSettings> CreateSettings() => TestHelpers.CreateOptions(new ExternalAuthSettings
     {
         Apple = new AppleAuthSettings
         {
@@ -27,7 +27,7 @@ public class AppleTokenRevocationServiceTests
     });
 
     private static AppleTokenRevocationService CreateService(
-        FakeHttpMessageHandler handler, IOptions<ExternalAuthSettings>? settings = null)
+        FakeHttpMessageHandler handler, TestHelpers.TestOptions<ExternalAuthSettings>? settings = null)
     {
         settings ??= CreateSettings();
         return new AppleTokenRevocationService(

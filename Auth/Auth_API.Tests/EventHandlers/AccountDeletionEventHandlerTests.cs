@@ -12,6 +12,8 @@ using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
+using Auth_API.Tests.Helpers;
+
 namespace Auth_API.Tests.EventHandlers;
 
 public class AccountDeletionRequestedAuditEventHandlerTests
@@ -109,8 +111,8 @@ public class AccountDeletionNotificationEventHandlerTests
             .ReturnsAsync(Result.Success);
         var handler = new AccountDeletionRequestedNotificationEventHandler(
             _notificationServiceMock.Object,
-            Options.Create(new AccountDeletionSettings()),
-            Options.Create(new EmailSettings { FrontendBaseUrl = "https://accounts.example.com/" }),
+            TestHelpers.CreateOptions(new AccountDeletionSettings()),
+            TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://accounts.example.com/" }),
             new Mock<ILogger<AccountDeletionRequestedNotificationEventHandler>>().Object);
         var userId = Guid.NewGuid();
 

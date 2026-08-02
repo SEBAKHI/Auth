@@ -5,19 +5,19 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
-import { AvatarMenu } from "@astoom/ui/common/avatar-menu"
-import { LanguageSelect } from "@astoom/ui/common/language-select"
-import { PageHeader } from "@astoom/ui/common/page-header"
-import { TimeZoneSelect } from "@astoom/ui/common/timezone-select"
-import { Button } from "@astoom/ui/button"
+import { AvatarMenu } from "@authsystem/ui/common/avatar-menu"
+import { LanguageSelect } from "@authsystem/ui/common/language-select"
+import { PageHeader } from "@authsystem/ui/common/page-header"
+import { TimeZoneSelect } from "@authsystem/ui/common/timezone-select"
+import { Button } from "@authsystem/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@astoom/ui/card"
-import { FieldGroup } from "@astoom/ui/field"
+} from "@authsystem/ui/card"
+import { FieldGroup } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
@@ -25,8 +25,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@astoom/ui/form"
-import { Input } from "@astoom/ui/input"
+} from "@authsystem/ui/form"
+import { Input } from "@authsystem/ui/input"
 import {
   Select,
   SelectContent,
@@ -34,27 +34,27 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@astoom/ui/select"
-import { Skeleton } from "@astoom/ui/skeleton"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@astoom/ui/tabs"
-import { isTheme, useTheme } from "@astoom/ui/theme-provider"
-import { api } from "@astoom/api/client"
-import { unwrap } from "@astoom/api/helpers"
-import { useProfileImage } from "@astoom/api/use-profile-image"
-import { getErrorMessage } from "@astoom/api/errors"
-import { fullName } from "@astoom/ui/format"
+} from "@authsystem/ui/select"
+import { Skeleton } from "@authsystem/ui/skeleton"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
+import { isTheme, useTheme } from "@authsystem/ui/theme-provider"
+import { api } from "@authsystem/api/client"
+import { unwrap } from "@authsystem/api/helpers"
+import { useProfileImage } from "@authsystem/api/use-profile-image"
+import { getErrorMessage } from "@authsystem/api/errors"
+import { fullName } from "@authsystem/ui/format"
 import i18n, {
   applyLanguage,
   persistLanguage,
   SUPPORTED_LANGUAGES,
   type LanguageCode,
-} from "@astoom/i18n"
-import { setActiveTimeZone } from "@astoom/i18n/timezone"
-import type { Schemas } from "@astoom/api/types"
+} from "@authsystem/i18n"
+import { setActiveTimeZone } from "@authsystem/i18n/timezone"
+import type { Schemas } from "@authsystem/api/types"
 import { ProfileDangerZone } from "./profile-danger-zone"
 import { ProfileSecurity } from "./profile-security"
 import { ProfileSessions } from "./profile-sessions"
-import { Spinner } from "@astoom/ui/spinner"
+import { Spinner } from "@authsystem/ui/spinner"
 
 function emptyToNull(value: string | undefined): string | null {
   return value && value.trim().length > 0 ? value : null

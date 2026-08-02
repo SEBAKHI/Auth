@@ -1,8 +1,8 @@
 import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 
-import { uploadImage } from "@astoom/api/upload"
-import { getErrorMessage } from "@astoom/api/errors"
+import { uploadImage } from "@authsystem/api/upload"
+import { getErrorMessage } from "@authsystem/api/errors"
 
 /**
  * Change/Remove handlers for an entity logo (organization/application/platform),

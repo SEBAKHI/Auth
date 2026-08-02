@@ -171,12 +171,21 @@ public abstract class ApiController : ControllerBase
             }
         }
 
-        // 2. Try validation messages (keyed by error description as resource key)
+        // 2. Try validation messages (keyed by error description as resource key).
+        // Placeholders are filled here too: several validation messages quote a
+        // configured limit (e.g. the password minimum length), and skipping the
+        // format left users reading a literal "{0}" instead of the policy value.
         if (validationLocalizer is not null)
         {
             var localized = validationLocalizer[error.Description];
             if (!localized.ResourceNotFound)
             {
+                if (error.Metadata?.TryGetValue("args", out var argsObj) == true
+                    && argsObj is object[] args)
+                {
+                    return SafeFormat(localized.Value, args, error.Description, logger);
+                }
+
                 return localized.Value;
             }
         }
