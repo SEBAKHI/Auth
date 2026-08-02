@@ -779,4 +779,16 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>Test e-postası gönderilemedi: {0}</value>
   </data>
+  <data name="UiPreference.InvalidKey" xml:space="preserve">
+    <value>Bu görünüm tercihi anahtarı uygulamanın sakladığı türden değil.</value>
+  </data>
+  <data name="UiPreference.ValueTooLarge" xml:space="preserve">
+    <value>Bir görünüm tercihi en fazla {0} karakter olabilir.</value>
+  </data>
+  <data name="UiPreference.ValueNotJson" xml:space="preserve">
+    <value>Bir görünüm tercihi JSON belgesi olmalıdır.</value>
+  </data>
+  <data name="UiPreference.TooManyKeys" xml:space="preserve">
+    <value>Kayıtlı {0} görünüm tercihi sınırına ulaştınız.</value>
+  </data>
 </root>

@@ -1,10 +1,24 @@
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ColumnDef } from "@tanstack/react-table"
 
 import "@authsystem/i18n"
 import { DataTable } from "./data-table"
+import { __resetDataTableStorage, setDataTableScope } from "./storage"
+
+// The layout store syncs to the API; these cases are about the local half.
+vi.mock("@authsystem/api/ui-preferences", () => ({
+  fetchUiPreferences: vi.fn(async () => ({})),
+  putUiPreference: vi.fn(async () => true),
+  deleteUiPreference: vi.fn(async () => true),
+}))
+
+const SCOPE = "11111111-1111-1111-1111-111111111111"
+
+afterEach(() => {
+  __resetDataTableStorage()
+})
 
 interface Person {
   name: string
@@ -60,7 +74,15 @@ function stubLocalStorage(): Map<string, string> {
     configurable: true,
     writable: true,
   })
+  // Layouts are scoped to a user; without one nothing persists at all.
+  __resetDataTableStorage()
+  setDataTableScope(SCOPE)
   return store
+}
+
+/** The single stored document for one table, under the active scope. */
+function storedLayout(store: Map<string, string>, tableId: string): unknown {
+  return JSON.parse(store.get(`dt:${SCOPE}:${tableId}`) ?? "null")
 }
 
 describe("DataTable", () => {
@@ -185,9 +207,7 @@ describe("DataTable", () => {
 
     // "city" stays hidden, which is already the default, so it must not be
     // written — otherwise the blob grows by one entry per API field forever.
-    expect(JSON.parse(store.get("dt:cols:prune") ?? "{}")).toEqual({
-      email: true,
-    })
+    expect(storedLayout(store, "prune")).toMatchObject({ cols: { email: true } })
   })
 
   it("reorders columns from the menu, announces it and persists the order", async () => {
@@ -204,10 +224,9 @@ describe("DataTable", () => {
     await user.keyboard("{Escape}")
 
     expect(headerOrder()).toEqual(["Age", "Name"])
-    expect(JSON.parse(store.get("dt:order:order") ?? "[]")).toEqual([
-      "age",
-      "name",
-    ])
+    expect(storedLayout(store, "order")).toMatchObject({
+      order: ["age", "name"],
+    })
     // The move has no visual cue a screen reader can use, so it is narrated.
     expect(
       screen.getByText("Name moved to position 2 of 2")
@@ -216,16 +235,34 @@ describe("DataTable", () => {
 
   it("restores a persisted column order on mount", () => {
     const store = stubLocalStorage()
-    store.set("dt:order:restore", JSON.stringify(["age", "name"]))
+    store.set(
+      `dt:${SCOPE}:restore`,
+      JSON.stringify({ order: ["age", "name"] })
+    )
 
     render(<DataTable columns={columns} data={data} tableId="restore" />)
 
     expect(headerOrder()).toEqual(["Age", "Name"])
   })
 
+  it("does not apply another user's stored layout", () => {
+    const store = stubLocalStorage()
+    store.set(
+      "dt:22222222-2222-2222-2222-222222222222:scoped",
+      JSON.stringify({ order: ["age", "name"] })
+    )
+
+    render(<DataTable columns={columns} data={data} tableId="scoped" />)
+
+    expect(headerOrder()).toEqual(["Name", "Age"])
+  })
+
   it("keeps the actions column last whatever the persisted order says", () => {
     const store = stubLocalStorage()
-    store.set("dt:order:pinned", JSON.stringify(["actions", "age", "name"]))
+    store.set(
+      `dt:${SCOPE}:pinned`,
+      JSON.stringify({ order: ["actions", "age", "name"] })
+    )
     const withActions: ColumnDef<Person, unknown>[] = [
       ...columns,
       { id: "actions", enableSorting: false, enableHiding: false, header: () => null },

@@ -440,6 +440,9 @@ public class UserRepository : IUserRepository
             -- Notifications addressed to the user
             DELETE FROM [dbo].[NotificationOutbox] WHERE [RecipientUserId] = @Id;
 
+            -- Client display state (table column layouts); no audit value
+            DELETE FROM [dbo].[UserUiPreferences] WHERE [UserId] = @Id;
+
             -- Class B/C: the audit and login-attempt history is anonymized,
             -- never deleted — the security record survives with identity and
             -- PII payloads stripped.

@@ -779,4 +779,16 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>ایمیل آزمایشی ارسال نشد: {0}</value>
   </data>
+  <data name="UiPreference.InvalidKey" xml:space="preserve">
+    <value>این کلید ترجیح نمایش از آن‌هایی نیست که این برنامه ذخیره می‌کند.</value>
+  </data>
+  <data name="UiPreference.ValueTooLarge" xml:space="preserve">
+    <value>هر ترجیح نمایش حداکثر می‌تواند {0} نویسه باشد.</value>
+  </data>
+  <data name="UiPreference.ValueNotJson" xml:space="preserve">
+    <value>ترجیح نمایش باید یک سند JSON باشد.</value>
+  </data>
+  <data name="UiPreference.TooManyKeys" xml:space="preserve">
+    <value>به سقف {0} ترجیح نمایش ذخیره‌شده رسیده‌اید.</value>
+  </data>
 </root>

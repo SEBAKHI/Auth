@@ -779,4 +779,16 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>آزمائشی ای میل نہیں بھیجی جا سکی: {0}</value>
   </data>
+  <data name="UiPreference.InvalidKey" xml:space="preserve">
+    <value>یہ ڈسپلے ترجیح کی کلید ایسی نہیں جسے یہ ایپلیکیشن محفوظ کرتی ہے۔</value>
+  </data>
+  <data name="UiPreference.ValueTooLarge" xml:space="preserve">
+    <value>ڈسپلے ترجیح زیادہ سے زیادہ {0} حروف کی ہو سکتی ہے۔</value>
+  </data>
+  <data name="UiPreference.ValueNotJson" xml:space="preserve">
+    <value>ڈسپلے ترجیح ایک JSON دستاویز ہونی چاہیے۔</value>
+  </data>
+  <data name="UiPreference.TooManyKeys" xml:space="preserve">
+    <value>آپ محفوظ شدہ {0} ڈسپلے ترجیحات کی حد تک پہنچ چکے ہیں۔</value>
+  </data>
 </root>

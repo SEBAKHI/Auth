@@ -779,4 +779,16 @@
   <data name="SystemSettings.TestEmailFailed" xml:space="preserve">
     <value>The test email could not be sent: {0}</value>
   </data>
+  <data name="UiPreference.InvalidKey" xml:space="preserve">
+    <value>That display preference key is not one this application stores.</value>
+  </data>
+  <data name="UiPreference.ValueTooLarge" xml:space="preserve">
+    <value>A display preference may be at most {0} characters.</value>
+  </data>
+  <data name="UiPreference.ValueNotJson" xml:space="preserve">
+    <value>A display preference must be a JSON document.</value>
+  </data>
+  <data name="UiPreference.TooManyKeys" xml:space="preserve">
+    <value>You have reached the limit of {0} saved display preferences.</value>
+  </data>
 </root>

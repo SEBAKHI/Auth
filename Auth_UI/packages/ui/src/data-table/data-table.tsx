@@ -66,6 +66,12 @@ import {
   resolveColumnOrder,
 } from "./column-order"
 import { buildExportColumns, exportRowsToCsv } from "./csv"
+import {
+  readTableLayout,
+  subscribeTableLayout,
+  writeTableLayout,
+  type TableLayout,
+} from "./storage"
 import { DataTableRowDetail } from "./data-table-row-detail"
 import { humanizeKey } from "./field-format"
 import { facetedFilterFn } from "./filters"
@@ -143,38 +149,11 @@ interface DataTableProps<TData> {
   onSortingChange?: (sorting: SortingState) => void
 }
 
-function readPersistedVisibility(tableId?: string): VisibilityState {
-  if (!tableId || typeof window === "undefined") return {}
-  try {
-    const raw = window.localStorage.getItem(`dt:cols:${tableId}`)
-    return raw ? (JSON.parse(raw) as VisibilityState) : {}
-  } catch {
-    return {}
-  }
-}
-
-function readPersistedSizing(tableId?: string): ColumnSizingState {
-  if (!tableId || typeof window === "undefined") return {}
-  try {
-    const raw = window.localStorage.getItem(`dt:size:${tableId}`)
-    return raw ? (JSON.parse(raw) as ColumnSizingState) : {}
-  } catch {
-    return {}
-  }
-}
-
-function readPersistedOrder(tableId?: string): string[] {
-  if (!tableId || typeof window === "undefined") return []
-  try {
-    const raw = window.localStorage.getItem(`dt:order:${tableId}`)
-    const parsed = raw ? (JSON.parse(raw) as unknown) : null
-    // A hand-edited or half-written value must not take the grid down.
-    return Array.isArray(parsed)
-      ? parsed.filter((id): id is string => typeof id === "string")
-      : []
-  } catch {
-    return []
-  }
+function readPersistedOrder(layout: TableLayout): string[] {
+  // A hand-edited or half-written value must not take the grid down.
+  return Array.isArray(layout.order)
+    ? layout.order.filter((id): id is string => typeof id === "string")
+    : []
 }
 
 /** The id TanStack will derive for a column definition. */
@@ -188,16 +167,33 @@ function columnIdOf(column: ColumnDef<unknown, unknown>): string {
  * blob stays proportional to the user's actual choices. Without it every toggle
  * rewrites the whole auto-discovered set, and the stored object gains an entry
  * for every field the API ever adds to its response — permanently.
+ *
+ * An entry is only dropped when its default is actually known. Auto-discovered
+ * columns do not exist until a row has arrived, so before the first fetch every
+ * such id would otherwise look like "visible, same as the default" and the
+ * user's choice to show it would be pruned away and written back as a loss.
  */
 function pruneVisibility(
   visibility: VisibilityState,
-  defaults: VisibilityState
+  defaults: VisibilityState,
+  knownIds: ReadonlySet<string>
 ): VisibilityState {
   const pruned: VisibilityState = {}
   for (const [id, visible] of Object.entries(visibility)) {
-    if (visible !== (defaults[id] ?? true)) pruned[id] = visible
+    if (!knownIds.has(id) || visible !== (defaults[id] ?? true)) {
+      pruned[id] = visible
+    }
   }
   return pruned
+}
+
+/** Stable shape for change detection, so equal layouts serialize identically. */
+function serializeLayout(layout: TableLayout): string {
+  return JSON.stringify({
+    cols: layout.cols ?? {},
+    size: layout.size ?? {},
+    order: layout.order ?? [],
+  })
 }
 
 /**
@@ -263,14 +259,28 @@ export function DataTable<TData>({
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = React.useState("")
+  // One stored document per table, read synchronously so the first paint is
+  // already the user's layout rather than the default rearranging itself.
+  const [initialLayout] = React.useState<TableLayout>(() =>
+    readTableLayout(tableId)
+  )
   const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
-    () => readPersistedVisibility(tableId)
+    () => initialLayout.cols ?? {}
   )
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>(
-    () => readPersistedSizing(tableId)
+    () => initialLayout.size ?? {}
   )
   const [columnOrder, setColumnOrder] = React.useState<string[]>(() =>
-    readPersistedOrder(tableId)
+    readPersistedOrder(initialLayout)
+  )
+  // What the store already holds, so a render that changes nothing does not
+  // rewrite it — and does not push an identical document to the server.
+  const lastWrittenRef = React.useRef(
+    serializeLayout({
+      cols: initialLayout.cols ?? {},
+      size: initialLayout.size ?? {},
+      order: readPersistedOrder(initialLayout),
+    })
   )
   const [draggedColumnId, setDraggedColumnId] = React.useState<string | null>(
     null
@@ -281,28 +291,23 @@ export function DataTable<TData>({
   const [detailRow, setDetailRow] = React.useState<TData | null>(null)
   const [isExporting, setIsExporting] = React.useState(false)
 
+  // Adopt a layout that arrived from elsewhere: the server copy landing after
+  // first paint, or a different user signing in on this browser.
   React.useEffect(() => {
-    if (!tableId || typeof window === "undefined") return
-    try {
-      window.localStorage.setItem(`dt:size:${tableId}`, JSON.stringify(columnSizing))
-    } catch {
-      // Ignore storage failures (private mode / quota); sizing stays in-memory.
-    }
-  }, [tableId, columnSizing])
-
-  React.useEffect(() => {
-    if (!tableId || typeof window === "undefined" || columnOrder.length === 0) {
-      return
-    }
-    try {
-      window.localStorage.setItem(
-        `dt:order:${tableId}`,
-        JSON.stringify(columnOrder)
-      )
-    } catch {
-      // Ignore storage failures (private mode / quota); order stays in-memory.
-    }
-  }, [tableId, columnOrder])
+    if (!tableId) return
+    return subscribeTableLayout(tableId, () => {
+      const layout = readTableLayout(tableId)
+      const order = readPersistedOrder(layout)
+      lastWrittenRef.current = serializeLayout({
+        cols: layout.cols ?? {},
+        size: layout.size ?? {},
+        order,
+      })
+      setColumnVisibility(layout.cols ?? {})
+      setColumnSizing(layout.size ?? {})
+      setColumnOrder(order)
+    })
+  }, [tableId])
 
   // Server-controlled sorting is active when the page lifts the sort state.
   const isManualSorting =
@@ -365,19 +370,32 @@ export function DataTable<TData>({
     [naturalColumnIds, columnOrder]
   )
 
-  // Persisted after `autoHiddenDefaults` exists, so only genuine departures
-  // from the default are written (see `pruneVisibility`).
+  const knownColumnIds = React.useMemo(
+    () => new Set(naturalColumnIds),
+    [naturalColumnIds]
+  )
+
+  // Persisted after `autoHiddenDefaults` and the column set exist, so only
+  // genuine departures from the default are written (see `pruneVisibility`).
   React.useEffect(() => {
-    if (!tableId || typeof window === "undefined") return
-    try {
-      window.localStorage.setItem(
-        `dt:cols:${tableId}`,
-        JSON.stringify(pruneVisibility(columnVisibility, autoHiddenDefaults))
-      )
-    } catch {
-      // Ignore storage failures (private mode / quota); visibility stays in-memory.
+    if (!tableId) return
+    const next: TableLayout = {
+      cols: pruneVisibility(columnVisibility, autoHiddenDefaults, knownColumnIds),
+      size: columnSizing,
+      order: columnOrder,
     }
-  }, [tableId, columnVisibility, autoHiddenDefaults])
+    const serialized = serializeLayout(next)
+    if (serialized === lastWrittenRef.current) return
+    lastWrittenRef.current = serialized
+    writeTableLayout(tableId, next)
+  }, [
+    tableId,
+    columnVisibility,
+    autoHiddenDefaults,
+    knownColumnIds,
+    columnSizing,
+    columnOrder,
+  ])
 
   const table = useReactTable({
     data,

@@ -95,6 +95,7 @@
     <Build Include="dbo\Tables\Core\UserRoles.sql" />
     <Build Include="dbo\Tables\Core\RolePermissions.sql" />
     <Build Include="dbo\Tables\Core\UserPermissions.sql" />
+    <Build Include="dbo\Tables\Core\UserUiPreferences.sql" />
     <Build Include="dbo\Tables\Core\PermissionImplications.sql" />
     <Build Include="dbo\Tables\Authentication\RefreshTokens.sql" />
     <Build Include="dbo\Tables\Authentication\UserSessions.sql" />

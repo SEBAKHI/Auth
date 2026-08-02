@@ -16,6 +16,7 @@ import i18n, {
   type LanguageCode,
 } from "@authsystem/i18n"
 import { setActiveTimeZone } from "@authsystem/i18n/timezone"
+import { setDataTableScope } from "@authsystem/ui/data-table/storage"
 import type { UserInfo } from "@authsystem/api/types"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
@@ -126,6 +127,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const applyProfilePreferences = React.useCallback(
     (profile: UserInfo | null | undefined) => {
       setActiveTimeZone(profile?.timeZone)
+      // Binds stored table layouts to this account and pulls the server copy.
+      // Without it, two accounts on one browser share one set of layouts.
+      setDataTableScope(profile?.id ?? null)
 
       if (languageAdoptedRef.current) return
       languageAdoptedRef.current = true
@@ -165,6 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null)
       setStatus("unauthenticated")
       setActiveTimeZone(null)
+      setDataTableScope(null)
     }
     window.addEventListener(SESSION_EXPIRED_EVENT, handler)
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handler)
@@ -338,6 +343,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null)
     setStatus("unauthenticated")
     setActiveTimeZone(null)
+    // Stops further persistence; the stored layouts stay put so signing back
+    // in restores them. Only the *next* account is prevented from inheriting.
+    setDataTableScope(null)
     languageAdoptedRef.current = false
   }, [])
 

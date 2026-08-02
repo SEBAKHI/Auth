@@ -22,6 +22,7 @@ using Auth.Application.Features.Users.RemoveProfileImage;
 using Auth.Application.Features.Users.RemoveUserRole;
 using Auth.Application.Features.Users.RevokeUserPermission;
 using Auth.Application.Features.Users.SetProfileImage;
+using Auth.Application.Features.Users.UiPreferences;
 using Auth.Application.Features.Users.UnlockAccount;
 using Auth.Application.Features.Users.UpdateProfile;
 using Auth.Application.Features.Users.UpdateUser;
@@ -568,6 +569,76 @@ public class UsersController : ApiController
 
         var result = await _sender.Send(
             new RemoveProfileImageCommand(userId, userId), cancellationToken);
+
+        return result.Match(_ => NoContent(), errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Gets the current user's client display preferences, as a key → value map.
+    /// Self-service and unpermissioned: these are the caller's own view settings
+    /// (table column layouts today), never anyone else's.
+    /// </summary>
+    [HttpGet("me/ui-preferences")]
+    [ProducesResponseType(typeof(IReadOnlyDictionary<string, string>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetMyUiPreferences(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(new GetMyUiPreferencesQuery(userId), cancellationToken);
+
+        return result.Match(
+            preferences => Ok(preferences),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Stores or replaces one of the current user's display preferences. The key
+    /// is namespace-restricted and both key and value are length-capped, so the
+    /// endpoint cannot be used as general-purpose storage.
+    /// </summary>
+    [HttpPut("me/ui-preferences/{key}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SetMyUiPreference(
+        string key,
+        [FromBody] SetUiPreferenceRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(
+            new SetMyUiPreferenceCommand(userId, key, request.Value), cancellationToken);
+
+        return result.Match(_ => NoContent(), errors => Problem(errors));
+    }
+
+    /// <summary>Removes one of the current user's display preferences.</summary>
+    [HttpDelete("me/ui-preferences/{key}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> DeleteMyUiPreference(
+        string key,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _sender.Send(
+            new DeleteMyUiPreferenceCommand(userId, key), cancellationToken);
 
         return result.Match(_ => NoContent(), errors => Problem(errors));
     }
