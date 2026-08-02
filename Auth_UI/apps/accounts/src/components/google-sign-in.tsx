@@ -205,5 +205,29 @@ export function GoogleSignIn() {
 
   if (!googleEnabled) return null
 
-  return <div ref={containerRef} className="flex justify-center" />
+  /*
+   * `scheme-light` (color-scheme: light) is load-bearing, not cosmetic.
+   *
+   * renderButton has two rendering paths. Normally it emits plain DOM into our
+   * page; once the visitor has a Google session that has approved this app it
+   * switches to the PERSONALIZED button, which shows the account name and email
+   * and therefore has to be an accounts.google.com/gsi/button iframe. That is
+   * why the defect only surfaces after signing in with Google at least once.
+   *
+   * The iframe's document declares a LIGHT color scheme. Our dark theme sets
+   * `color-scheme: dark` on the root (preset.css) and the iframe element
+   * inherits it, so the two disagree — and css-color-adjust-1 then requires the
+   * UA to "use an opaque canvas of the Canvas color appropriate to the embedded
+   * document's root element's element color scheme instead of a transparent
+   * canvas". That opaque canvas is the white rectangle painted around Google's
+   * filled_black pill, and no stylesheet of ours can reach it: the canvas
+   * belongs to Google's document.
+   *
+   * Declaring light on the container makes frame and content agree, so the
+   * canvas stays transparent and the pill sits on our own background. It is a
+   * no-op in light mode, and it does NOT lighten the button: the button's
+   * colours come from the `theme` argument above, which stays filled_black in
+   * dark mode per Google's branding guidelines.
+   */
+  return <div ref={containerRef} className="flex justify-center scheme-light" />
 }
