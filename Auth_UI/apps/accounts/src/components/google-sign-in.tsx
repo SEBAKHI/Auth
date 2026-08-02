@@ -21,6 +21,18 @@ interface GsiButtonConfiguration {
   theme: "outline" | "filled_black"
   size: "large"
   text: "continue_with"
+  /**
+   * Google's SDK always renders the CURRENT branding, so the button only looks
+   * dated when we ask for a dated variant. "pill" is the rounded shape Google's
+   * own sign-in surfaces use; the default is the older square-cornered
+   * "rectangular".
+   *
+   * logo_alignment stays "left": "center" packs logo and label together and, at
+   * a fixed width, a longer translation ("Continuer avec Google") slides under
+   * the logo and loses its first character.
+   */
+  shape?: "rectangular" | "pill" | "circle" | "square"
+  logo_alignment?: "left" | "center"
   width?: number
   locale?: string
 }
@@ -43,26 +55,45 @@ declare global {
 
 const GSI_SRC = "https://accounts.google.com/gsi/client"
 
-let gsiScriptPromise: Promise<void> | null = null
+/**
+ * The GSI library resolves the button language from the `hl` parameter on its
+ * own script URL. The `locale` field passed to renderButton alone is not
+ * enough — without `hl` Google falls back to "the browser's default locale or
+ * the Google session user's preference", which is why the button used to read
+ * in whatever language the visitor's Google account happened to use while the
+ * rest of the page was in ours.
+ *
+ * That parameter is fixed once the script is fetched, so switching language has
+ * to fetch a new one. The promise is therefore keyed BY LANGUAGE rather than
+ * cached once per page: each language loads at most one script, and the button
+ * follows the site instead of the Google session.
+ */
+const gsiScriptPromises = new Map<string, Promise<void>>()
 
-/** Loads the GSI script once per page; resolves when window.google is ready. */
-function loadGsiScript(): Promise<void> {
-  gsiScriptPromise ??= new Promise((resolve, reject) => {
-    if (window.google?.accounts?.id) {
-      resolve()
-      return
-    }
+/** Maps an i18n tag ("ar", "zh-CN") to the ISO-639 code GSI expects. */
+function gsiLocale(language: string): string {
+  return language.split("-")[0].toLowerCase()
+}
+
+function loadGsiScript(language: string): Promise<void> {
+  const locale = gsiLocale(language)
+  const existing = gsiScriptPromises.get(locale)
+  if (existing) return existing
+
+  const promise = new Promise<void>((resolve, reject) => {
     const script = document.createElement("script")
-    script.src = GSI_SRC
+    script.src = `${GSI_SRC}?hl=${encodeURIComponent(locale)}`
     script.async = true
     script.onload = () => resolve()
     script.onerror = () => {
-      gsiScriptPromise = null
+      gsiScriptPromises.delete(locale)
       reject(new Error("Failed to load Google Identity Services"))
     }
     document.head.appendChild(script)
   })
-  return gsiScriptPromise
+
+  gsiScriptPromises.set(locale, promise)
+  return promise
 }
 
 interface LocationState {
@@ -141,7 +172,7 @@ export function GoogleSignIn() {
     if (!googleEnabled) return
     let cancelled = false
 
-    void loadGsiScript()
+    void loadGsiScript(i18n.language)
       .then(() => {
         if (cancelled || !containerRef.current || !window.google) return
         window.google.accounts.id.initialize({
@@ -155,8 +186,12 @@ export function GoogleSignIn() {
           theme: resolvedTheme === "dark" ? "filled_black" : "outline",
           size: "large",
           text: "continue_with",
+          shape: "pill",
+          logo_alignment: "left",
           width: 320,
-          locale: i18n.language,
+          // Sent as well as `hl`: the script parameter selects the library's
+          // language bundle, this selects the label within it.
+          locale: gsiLocale(i18n.language),
         })
       })
       .catch(() => {
