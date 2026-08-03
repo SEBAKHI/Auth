@@ -149,6 +149,7 @@ export const fr: TranslationResources = {
     account: "Compte",
   },
   auth: {
+    continueWithGoogle: "Continuer avec Google",
     continueWithApple: "Continuer avec Apple",
     privacyPolicy: "Politique de confidentialité",
     policyUpdatedNotice: "Notre politique de confidentialité a été mise à jour.",

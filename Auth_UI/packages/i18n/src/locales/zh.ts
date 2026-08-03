@@ -148,6 +148,7 @@ export const zh: TranslationResources = {
     account: "账户",
   },
   auth: {
+    continueWithGoogle: "通过 Google 继续",
     continueWithApple: "通过 Apple 继续",
     privacyPolicy: "隐私政策",
     policyUpdatedNotice: "我们的隐私政策已更新。",

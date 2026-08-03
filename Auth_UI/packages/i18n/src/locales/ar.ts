@@ -148,6 +148,7 @@ export const ar: TranslationResources = {
     account: "الحساب",
   },
   auth: {
+    continueWithGoogle: "المتابعة باستخدام Google",
     continueWithApple: "المتابعة باستخدام Apple",
     privacyPolicy: "سياسة الخصوصية",
     policyUpdatedNotice: "تم تحديث سياسة الخصوصية لدينا.",
