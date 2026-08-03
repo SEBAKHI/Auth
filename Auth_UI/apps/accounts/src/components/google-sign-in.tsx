@@ -19,25 +19,7 @@ interface GsiIdConfiguration {
 interface GsiButtonConfiguration {
   type: "standard"
   theme: "outline" | "filled_black"
-  /**
-   * "medium" rather than "large" is a deliberate trade.
-   *
-   * Google exposes no switch to turn off the PERSONALIZED button — the variant
-   * that greets a returning visitor by name and email, and that keeps doing so
-   * after they sign out of THIS app, because it follows the browser's Google
-   * session and not ours. What its UX guide does document is that the
-   * personalized button is not displayed when size is "medium" or "small".
-   *
-   * Verified against a live Google session: at "large" the button reads
-   * "Continue as <name>" over the address; at "medium" it reads plain
-   * "Continue with Google". The cost is 8px of height (40 -> 32) with the width
-   * unchanged, which also brings it closer to the Apple button's h-9.
-   *
-   * This is a documented side effect, not an API, so Google could drop it. To
-   * go back to the personalized button, put "large" here and at the call site;
-   * nothing else depends on it.
-   */
-  size: "large" | "medium" | "small"
+  size: "large"
   text: "continue_with"
   /**
    * Google's SDK always renders the CURRENT branding, so the button only looks
@@ -202,8 +184,7 @@ export function GoogleSignIn() {
         window.google.accounts.id.renderButton(containerRef.current, {
           type: "standard",
           theme: resolvedTheme === "dark" ? "filled_black" : "outline",
-          // Suppresses the personalized button — see GsiButtonConfiguration.
-          size: "medium",
+          size: "large",
           text: "continue_with",
           shape: "pill",
           logo_alignment: "left",
@@ -227,12 +208,11 @@ export function GoogleSignIn() {
   /*
    * `scheme-light` (color-scheme: light) is load-bearing, not cosmetic.
    *
-   * renderButton has two rendering paths: plain DOM in our page, or an
-   * accounts.google.com/gsi/button iframe. It takes the iframe path once the
-   * visitor has an active Google session, which is why the defect only
-   * surfaces after signing in with Google at least once. Verified against a
-   * live session that it takes that path for the generic label too, so this
-   * stays load-bearing even with the personalized button suppressed above.
+   * renderButton has two rendering paths. Normally it emits plain DOM into our
+   * page; once the visitor has a Google session that has approved this app it
+   * switches to the PERSONALIZED button, which shows the account name and email
+   * and therefore has to be an accounts.google.com/gsi/button iframe. That is
+   * why the defect only surfaces after signing in with Google at least once.
    *
    * The iframe's document declares a LIGHT color scheme. Our dark theme sets
    * `color-scheme: dark` on the root (preset.css) and the iframe element
