@@ -149,7 +149,6 @@ export const tr: TranslationResources = {
     account: "Hesap",
   },
   auth: {
-    continueWithGoogle: "Google ile devam et",
     continueWithApple: "Apple ile devam et",
     privacyPolicy: "Gizlilik politikası",
     policyUpdatedNotice: "Gizlilik politikamız güncellendi.",

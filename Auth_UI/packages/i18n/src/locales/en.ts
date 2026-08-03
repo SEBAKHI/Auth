@@ -144,8 +144,6 @@ export const en = {
     account: "Account",
   },
   auth: {
-    // One of the labels Google's branding guidelines allow. Do not reword.
-    continueWithGoogle: "Continue with Google",
     continueWithApple: "Continue with Apple",
     privacyPolicy: "Privacy policy",
     policyUpdatedNotice: "Our privacy policy has been updated.",

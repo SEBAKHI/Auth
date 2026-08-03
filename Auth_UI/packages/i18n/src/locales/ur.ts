@@ -149,7 +149,6 @@ export const ur: TranslationResources = {
     account: "اکاؤنٹ",
   },
   auth: {
-    continueWithGoogle: "Google کے ساتھ جاری رکھیں",
     continueWithApple: "Apple کے ساتھ جاری رکھیں",
     privacyPolicy: "رازداری کی پالیسی",
     policyUpdatedNotice: "ہماری رازداری کی پالیسی اپ ڈیٹ ہو گئی ہے۔",

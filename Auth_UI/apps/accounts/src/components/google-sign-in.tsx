@@ -5,37 +5,9 @@ import { toast } from "sonner"
 
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
-import { Button } from "@authsystem/ui/button"
+import { useTheme } from "@authsystem/ui/theme-provider"
 
 import { useExternalProviders } from "@/components/use-external-providers"
-
-/**
- * Google's official "G", copied from the mark their own SDK renders. Their
- * branding guidelines require this exact artwork, so it does not follow
- * `currentColor` the way our other icons do.
- */
-function GoogleLogo(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 48 48" aria-hidden="true" {...props}>
-      <path
-        fill="#EA4335"
-        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
-      />
-      <path
-        fill="#4285F4"
-        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"
-      />
-      <path
-        fill="#34A853"
-        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
-      />
-    </svg>
-  )
-}
 
 /** Minimal typings for the Google Identity Services (GSI) client. */
 interface GsiIdConfiguration {
@@ -44,17 +16,39 @@ interface GsiIdConfiguration {
   nonce?: string
 }
 
-/**
- * Everything here sizes Google's button rather than styling it: the visitor
- * never sees it (see the render below), so only its HIT AREA matters. "large"
- * at width 320 gives a 320x40 target over our own 320x36 button, covering it
- * with 2px to spare on each edge.
- */
 interface GsiButtonConfiguration {
   type: "standard"
   theme: "outline" | "filled_black"
-  size: "large"
+  /**
+   * "medium" rather than "large" is a deliberate trade.
+   *
+   * Google exposes no switch to turn off the PERSONALIZED button — the variant
+   * that greets a returning visitor by name and email, and that keeps doing so
+   * after they sign out of THIS app, because it follows the browser's Google
+   * session and not ours. What its UX guide does document is that the
+   * personalized button is not displayed when size is "medium" or "small".
+   *
+   * Verified against a live Google session: at "large" the button reads
+   * "Continue as <name>" over the address; at "medium" it reads plain
+   * "Continue with Google". The cost is 8px of height (40 -> 32) with the width
+   * unchanged, which also brings it closer to the Apple button's h-9.
+   *
+   * This is a documented side effect, not an API, so Google could drop it. To
+   * go back to the personalized button, put "large" here and at the call site;
+   * nothing else depends on it.
+   */
+  size: "large" | "medium" | "small"
   text: "continue_with"
+  /**
+   * Google's SDK always renders the CURRENT branding, so the button only looks
+   * dated when we ask for a dated variant. "pill" is the rounded shape Google's
+   * own sign-in surfaces use; the default is the older square-cornered
+   * "rectangular".
+   *
+   * logo_alignment stays "left": "center" packs logo and label together and, at
+   * a fixed width, a longer translation ("Continuer avec Google") slides under
+   * the logo and loses its first character.
+   */
   shape?: "rectangular" | "pill" | "circle" | "square"
   logo_alignment?: "left" | "center"
   width?: number
@@ -137,10 +131,10 @@ interface LocationState {
 export function GoogleSignIn() {
   const { i18n, t } = useTranslation()
   const { loginExternal } = useAuth()
+  const { resolvedTheme } = useTheme()
   const navigate = useNavigate()
   const location = useLocation()
   const containerRef = React.useRef<HTMLDivElement>(null)
-  const [ready, setReady] = React.useState(false)
   const nonceRef = React.useRef<string>(crypto.randomUUID())
   const { googleEnabled, googleClientId } = useExternalProviders()
 
@@ -207,78 +201,53 @@ export function GoogleSignIn() {
         containerRef.current.replaceChildren()
         window.google.accounts.id.renderButton(containerRef.current, {
           type: "standard",
-          // Invisible, so this is arbitrary — see GsiButtonConfiguration.
-          theme: "outline",
-          size: "large",
+          theme: resolvedTheme === "dark" ? "filled_black" : "outline",
+          // Suppresses the personalized button — see GsiButtonConfiguration.
+          size: "medium",
           text: "continue_with",
           shape: "pill",
           logo_alignment: "left",
           width: 320,
           // Sent as well as `hl`: the script parameter selects the library's
-          // language bundle, this selects the label within it. Google still
-          // reads the label out to assistive tech, so it has to stay in ours.
+          // language bundle, this selects the label within it.
           locale: gsiLocale(i18n.language),
         })
-        setReady(true)
       })
       .catch(() => {
-        /* Script blocked/offline: nothing renders, as before. */
+        /* Script blocked/offline: the button simply doesn't render. */
       })
 
     return () => {
       cancelled = true
     }
-  }, [googleEnabled, googleClientId, i18n.language, onCredential])
+  }, [googleEnabled, googleClientId, i18n.language, resolvedTheme, onCredential])
 
   if (!googleEnabled) return null
 
   /*
-   * Two stacked buttons: ours is seen, Google's is clicked.
+   * `scheme-light` (color-scheme: light) is load-bearing, not cosmetic.
    *
-   * renderButton is the only way GSI hands us an ID token — there is no API to
-   * start the flow from a button of our own — but what it draws is not ours to
-   * control. It is locked to 20/32/40px (our Button is 36), it is drawn inside
-   * an accounts.google.com iframe as soon as the visitor has a Google session,
-   * and at 40px that iframe shows the PERSONALIZED button, greeting a returning
-   * visitor by name and email long after they signed out of this app — the
-   * button follows the browser's Google session, not ours.
+   * renderButton has two rendering paths: plain DOM in our page, or an
+   * accounts.google.com/gsi/button iframe. It takes the iframe path once the
+   * visitor has an active Google session, which is why the defect only
+   * surfaces after signing in with Google at least once. Verified against a
+   * live session that it takes that path for the generic label too, so this
+   * stays load-bearing even with the personalized button suppressed above.
    *
-   * So Google's button is kept at full size, made transparent, and laid over a
-   * Button of ours. Every click still lands on Google's real button inside its
-   * own frame, which is what keeps the ID-token flow and the `external-login`
-   * endpoint untouched; only the pixels are ours. This also retires the
-   * `color-scheme` workaround the visible iframe needed in dark mode, since
-   * nothing of Google's is painted any more.
+   * The iframe's document declares a LIGHT color scheme. Our dark theme sets
+   * `color-scheme: dark` on the root (preset.css) and the iframe element
+   * inherits it, so the two disagree — and css-color-adjust-1 then requires the
+   * UA to "use an opaque canvas of the Canvas color appropriate to the embedded
+   * document's root element's element color scheme instead of a transparent
+   * canvas". That opaque canvas is the white rectangle painted around Google's
+   * filled_black pill, and no stylesheet of ours can reach it: the canvas
+   * belongs to Google's document.
    *
-   * Consequences that have to be honoured for this to stay correct:
-   *   - Ours is decorative: aria-hidden and untabbable, so assistive tech and
-   *     the keyboard reach Google's real button and its label instead. The
-   *     focus ring is mirrored through focus-within, otherwise tabbing would
-   *     land on an invisible control with nothing to show for it.
-   *   - It renders only once renderButton has succeeded. Drawn eagerly, a
-   *     blocked GSI script would leave a button that looks alive and does
-   *     nothing.
-   *   - The overlay must stay at least as large as ours, or clicks near the
-   *     edges would fall through to the page.
+   * Declaring light on the container makes frame and content agree, so the
+   * canvas stays transparent and the pill sits on our own background. It is a
+   * no-op in light mode, and it does NOT lighten the button: the button's
+   * colours come from the `theme` argument above, which stays filled_black in
+   * dark mode per Google's branding guidelines.
    */
-  return (
-    <div className="group/google relative flex justify-center">
-      {ready ? (
-        <Button
-          type="button"
-          variant="outline"
-          aria-hidden="true"
-          tabIndex={-1}
-          className="pointer-events-none w-80 group-focus-within/google:border-ring group-focus-within/google:ring-3 group-focus-within/google:ring-ring/30"
-        >
-          <GoogleLogo data-icon="inline-start" />
-          {t("auth.continueWithGoogle")}
-        </Button>
-      ) : null}
-      <div
-        ref={containerRef}
-        className="absolute inset-0 flex items-center justify-center opacity-0"
-      />
-    </div>
-  )
+  return <div ref={containerRef} className="flex justify-center scheme-light" />
 }

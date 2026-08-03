@@ -149,7 +149,6 @@ export const fa: TranslationResources = {
     account: "حساب",
   },
   auth: {
-    continueWithGoogle: "ادامه با Google",
     continueWithApple: "ادامه با Apple",
     privacyPolicy: "سیاست حریم خصوصی",
     policyUpdatedNotice: "سیاست حریم خصوصی ما به‌روزرسانی شد.",
