@@ -41,14 +41,25 @@ export function AppBreadcrumbs({
   const isDetail = Boolean(last?.detail)
 
   return (
-    <Breadcrumb className="min-w-0">
+    // `min-w-0` lets the trail give way to the header controls beside it, and
+    // `overflow-hidden` is what makes that safe: without it the list keeps its
+    // own width and simply paints outside the box, over whatever sits next to
+    // it. The separators cannot shrink, so per-crumb truncation alone still
+    // leaves a long trail spilling on the narrowest phones.
+    <Breadcrumb className="min-w-0 overflow-hidden">
       <BreadcrumbList className="flex-nowrap">
-        <BreadcrumbItem>
+        {/* Every crumb truncates, this one included: on the home page it is the
+            only crumb there is, and it carries the page title. */}
+        <BreadcrumbItem className="min-w-0">
           {isHome ? (
-            <BreadcrumbPage>{t(`nav.${homeKey}`)}</BreadcrumbPage>
+            <BreadcrumbPage className="truncate">
+              {t(`nav.${homeKey}`)}
+            </BreadcrumbPage>
           ) : (
             <BreadcrumbLink asChild>
-              <Link to="/">{t(`nav.${homeKey}`)}</Link>
+              <Link to="/" className="truncate">
+                {t(`nav.${homeKey}`)}
+              </Link>
             </BreadcrumbLink>
           )}
         </BreadcrumbItem>

@@ -126,6 +126,27 @@ describe("AppShell mobile navigation", () => {
     await waitFor(() => expect(drawer()).toBeNull())
   })
 
+  it("keeps the breadcrumb trail inside its own box", () => {
+    renderShell("/")
+
+    // jsdom lays nothing out, so the guard is the containment contract itself:
+    // the trail may shrink to nothing beside the header controls, and when it
+    // does it has to clip and ellipsize instead of painting over them.
+    const trail = document.querySelector<HTMLElement>('[data-slot="breadcrumb"]')
+    expect(trail?.className).toContain("min-w-0")
+    expect(trail?.className).toContain("overflow-hidden")
+
+    // The home crumb carries the page title on the landing page, and it is the
+    // one crumb that used to be rendered without a clamp.
+    const page = document.querySelector<HTMLElement>(
+      '[data-slot="breadcrumb-page"]'
+    )
+    expect(page?.className).toContain("truncate")
+    expect(page?.closest('[data-slot="breadcrumb-item"]')?.className).toContain(
+      "min-w-0"
+    )
+  })
+
   it("leaves the page reachable around the open drawer", async () => {
     const user = userEvent.setup()
     renderShell("/")

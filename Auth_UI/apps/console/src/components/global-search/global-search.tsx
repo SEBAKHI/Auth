@@ -474,10 +474,17 @@ export function GlobalSearch() {
         onClick={() => setOpen(true)}
         // Reads as the search field it stands in for, so it carries the
         // weight and colour of placeholder text rather than of a button.
-        className="w-48 justify-start font-normal text-muted-foreground lg:w-64"
+        // The width is claimed from `md` up only: every other control in the
+        // header is `shrink-0`, so a fixed width on a phone comes straight out
+        // of the breadcrumb's share and leaves the page title nowhere to go.
+        // Below that it collapses to the icon alone, as the table's column
+        // button does.
+        className="justify-start font-normal text-muted-foreground md:w-48 lg:w-64"
       >
         <Search data-icon="inline-start" />
-        <span className="truncate">{t("globalSearch.placeholder")}</span>
+        <span className="hidden truncate md:inline">
+          {t("globalSearch.placeholder")}
+        </span>
         <Kbd className="ms-auto hidden lg:inline-flex">{commandKey}</Kbd>
       </Button>
 
