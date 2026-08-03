@@ -16,6 +16,7 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from "@authsystem/ui/sidebar"
 import { useActiveTimeZone } from "@authsystem/i18n/timezone"
 import { useLanguage } from "@authsystem/i18n/direction"
@@ -73,6 +74,21 @@ function AppSidebar({
   const { pathname } = useLocation()
   const { dir } = useLanguage()
   const branding = useBranding()
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  // On a phone the sidebar is a Sheet drawn over the page, so a link followed
+  // from inside it lands on the new page with the nav still covering it.
+  const closeOnMobile = React.useCallback(() => {
+    if (isMobile) setOpenMobile(false)
+  }, [isMobile, setOpenMobile])
+
+  // Closing on the route change covers navigation that does not start with a
+  // tap on a link here — the browser's Back button, most of all. The handler
+  // below covers the opposite case: tapping the entry for the page you are
+  // already on, where the route never changes.
+  React.useEffect(() => {
+    closeOnMobile()
+  }, [pathname, closeOnMobile])
 
   return (
     <Sidebar collapsible="icon" side={dir === "rtl" ? "right" : "left"}>
@@ -80,7 +96,7 @@ function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild>
-              <NavLink to="/">
+              <NavLink to="/" onClick={closeOnMobile}>
                 <BrandingLogo
                   className="h-9 w-auto max-w-40 object-contain group-data-[collapsible=icon]:size-8"
                   fallback={
@@ -115,7 +131,7 @@ function AppSidebar({
               return (
                 <SidebarMenuItem key={item.url}>
                   <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
-                    <NavLink to={item.url}>
+                    <NavLink to={item.url} onClick={closeOnMobile}>
                       <Icon />
                       <span>{label}</span>
                     </NavLink>

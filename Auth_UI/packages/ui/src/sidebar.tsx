@@ -186,7 +186,13 @@ function Sidebar({
           data-sidebar="sidebar"
           data-slot="sidebar"
           data-mobile="true"
-          className="w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
+          // House sheets are full-bleed below `sm` and this one hides its close
+          // button, so at full width a phone has no overlay to tap, no close
+          // button and no Escape key: opening the nav was a dead end. `size`
+          // is nulled out so the variant's `sm:max-w-*` cannot outrank the cap
+          // (it is the more specific selector) and re-widen the drawer.
+          size={null}
+          className="w-(--sidebar-width) max-w-(--sidebar-width) bg-sidebar p-0 text-sidebar-foreground [&>button]:hidden"
           style={
             {
               "--sidebar-width": SIDEBAR_WIDTH_MOBILE,
