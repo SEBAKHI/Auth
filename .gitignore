@@ -257,6 +257,12 @@ ClientBin/
 *.jfm
 *.pfx
 *.publishsettings
+
+# TLS material. The dev servers read a locally trusted cert/key whose paths live
+# in .env.development.local; nothing of the sort ever belongs in the repo.
+*.pem
+*.key
+*.crt
 orleans.codegen.cs
 
 # Including strong name files can present a security risk

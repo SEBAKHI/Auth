@@ -3177,13 +3177,48 @@ To use: Import the collection into Postman and update the `baseUrl` variable if 
 - Development: Ensure `appsettings.Development.json` has `"AllowedOrigins": ["*"]`
 - Production: Add your frontend origin explicitly to `Cors:AllowedOrigins`
 
+### OAuth Sign-In Loops Between /login and /authorize
+
+**Symptom:** Credentials are accepted, yet `/auth/authorize` redirects straight
+back to the login page — with no error in the console or the server log.
+
+**Cause 1 — scheme mismatch.** The IdP session cookie is `SameSite=Lax; Secure`
+and is set on the response to a `fetch` (`POST /auth/login`). Chrome's schemeful
+same-site rule counts `http://localhost` and `https://localhost` as different
+sites, so from an http SPA that response is a cross-site subresource and the
+cookie is **discarded rather than stored**. Without it there is no SSO session
+to resume. Fix: serve the SPAs over https — see `Auth_UI/README.md` › *Dev TLS*
+— and run the API on its `https` launch profile.
+
+**Cause 2 — origin mismatch.** `IdentityProvider:PublicBaseUrl` must equal the
+origin the SPA is built against (`VITE_API_BASE_URL`). The authorize endpoint
+builds `returnTo` from `PublicBaseUrl`, and `getValidReturnTo` in
+`packages/auth` rejects any other origin as an open-redirect attempt, dropping
+the post-login resume silently. Check the `returnTo` value in the address bar
+on the login page: its origin must match `VITE_API_BASE_URL` character for
+character.
+
+**If editing `appsettings.Development.json` changes nothing**, something later
+in the configuration chain is winning. In order of precedence:
+
+1. `appsettings.Development.local.json` — gitignored, and on most machines it
+   already carries its own `IdentityProvider`, `Email` and `ImageStorage`
+   blocks copied from an older setup. **Check here first**; the committed file
+   cannot override it.
+2. DB-backed system settings (Settings → Access in the console) — these beat
+   both files. Start the API with `AUTH_DISABLE_DB_SETTINGS=true` to bypass
+   the layer, or fix the value in the console.
+
 ### Port Conflicts
 
 **Default ports:**
 - Auth_API: `http://localhost:5100`, `https://localhost:5101`
 - API_Gateway: `http://localhost:5034`, `https://localhost:7159`
+- Console SPA: `https://localhost:5173` — Accounts SPA: `https://localhost:5174`
+  (both pinned with `strictPort`, and both listed in `Cors:AllowedOrigins`)
 
-If ports are in use, modify `Properties/launchSettings.json` in the respective project.
+If ports are in use, modify `Properties/launchSettings.json` in the respective
+project, or the `server.port` in the app's `vite.config.ts`.
 
 ### JWT Token Expired Header
 

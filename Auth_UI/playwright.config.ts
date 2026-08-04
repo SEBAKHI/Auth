@@ -13,32 +13,37 @@ export default defineConfig({
   reporter: "list",
   use: {
     trace: "on-first-retry",
-    // The local Auth API runs on the self-signed dev certificate
-    // (https://localhost:5101); browser XHR must not reject it.
+    // The Auth API and both dev servers run on the local dev certificate;
+    // browser navigation and XHR must not reject it.
     ignoreHTTPSErrors: true,
   },
   projects: [
     {
       name: "console",
       testDir: "./e2e/console",
-      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:5173" },
+      use: { ...devices["Desktop Chrome"], baseURL: "https://localhost:5173" },
     },
     {
       name: "accounts",
       testDir: "./e2e/accounts",
-      use: { ...devices["Desktop Chrome"], baseURL: "http://localhost:5174" },
+      use: { ...devices["Desktop Chrome"], baseURL: "https://localhost:5174" },
     },
   ],
+  // https because the dev servers do (Auth_UI/dev-https.ts). Without
+  // DEV_HTTPS_CERT/DEV_HTTPS_KEY they fall back to http and these URLs never
+  // come up — the failure names the missing variables.
   webServer: [
     {
       command: "pnpm --filter @authsystem/console dev",
-      url: "http://localhost:5173",
+      url: "https://localhost:5173",
+      ignoreHTTPSErrors: true,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },
     {
       command: "pnpm --filter @authsystem/accounts dev",
-      url: "http://localhost:5174",
+      url: "https://localhost:5174",
+      ignoreHTTPSErrors: true,
       reuseExistingServer: !process.env.CI,
       timeout: 120_000,
     },

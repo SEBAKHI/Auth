@@ -39,28 +39,61 @@ A pnpm workspace hosting the frontend apps of the Auth system, built with
 ## Prerequisites
 
 - Node.js 20+ and **pnpm** (`corepack enable` or `npm i -g pnpm`)
-- The Auth API running locally (default `http://localhost:5100`)
+- The Auth API running locally on its **`https` launch profile**
+  (`https://localhost:5101`)
+- A dev TLS certificate for the Vite servers — see below
+
+### Dev TLS (one-time, per machine)
+
+Both dev servers serve **https**, because the API does. Chrome's *schemeful
+same-site* rule counts `http://localhost` and `https://localhost` as different
+sites, so from an http SPA the browser refuses to store the `SameSite=Lax` IdP
+session cookie the API sets at login: sign-in appears to succeed, then
+`/auth/authorize` bounces back to `/login` forever. Serving https makes dev
+match production, where both origins sit on one domain over https.
+
+Export the ASP.NET dev certificate — already trusted by your machine, so Chrome
+shows no warning and no extra tool is needed:
+
+```bash
+dotnet dev-certs https --export-path "$env:USERPROFILE\.aspnet\https\localhost.pem" --format PEM --no-password
+```
+
+Then point each app at it in `apps/<app>/.env.development.local` (gitignored):
+
+```
+DEV_HTTPS_CERT=C:\Users\<you>\.aspnet\https\localhost.pem
+DEV_HTTPS_KEY=C:\Users\<you>\.aspnet\https\localhost.key
+```
+
+Without these the servers still start on http and print a warning saying so —
+everything works except OAuth sign-in. The logic lives in `dev-https.ts`.
 
 ## Getting started
 
 ```bash
 pnpm install      # once, at the workspace root
 pnpm gen:api      # regenerate the typed client (requires the API running)
-pnpm dev          # console app on http://localhost:5173
+pnpm dev          # console app on https://localhost:5173
 ```
 
 Configure the API origin via each app's Vite env files:
 
-- `apps/console/.env.development` → `VITE_API_BASE_URL=http://localhost:5100`
+- `apps/console/.env.development` → `VITE_API_BASE_URL=https://localhost:5101`
 - `apps/console/.env.production` → the deployed API origin (keep in sync with
   the CSP in `apps/console/public/web.config`)
+
+`VITE_API_BASE_URL` must match the API's `IdentityProvider:PublicBaseUrl`
+exactly. The authorize endpoint builds its `returnTo` from that setting, and
+`getValidReturnTo` rejects any other origin as an open-redirect attempt — a
+mismatch silently drops the post-login resume.
 
 ## Scripts (run at the workspace root)
 
 | Script | Purpose |
 |--------|---------|
-| `pnpm dev` | Start the console dev server (5173) |
-| `pnpm dev:accounts` | Start the accounts dev server (5174) |
+| `pnpm dev` | Start the console dev server (https://localhost:5173) |
+| `pnpm dev:accounts` | Start the accounts dev server (https://localhost:5174) |
 | `pnpm build` | Type-check (`tsc -b`) and build every app to its `dist/` |
 | `pnpm typecheck` | Type-check only |
 | `pnpm gen:api` | Regenerate `packages/api/src/schema.d.ts` from `/openapi/v1.json` |

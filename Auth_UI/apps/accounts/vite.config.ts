@@ -3,15 +3,18 @@ import tailwindcss from "@tailwindcss/vite"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vite"
 
+import { devHttps } from "../../dev-https"
 import { vendorChunk } from "../../vendor-chunks"
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig((config) => ({
   plugins: [react(), tailwindcss()],
   server: {
     // The console dev server owns 5173; accounts runs alongside it.
     port: 5174,
     strictPort: true,
+    // https so the browser keeps the IdP session cookie — see dev-https.ts.
+    https: devHttps(config, __dirname),
   },
   resolve: {
     alias: {
@@ -33,4 +36,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

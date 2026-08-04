@@ -3179,13 +3179,28 @@ Auth/Auth_API/Postman/AuthSystem.postman_collection.json
 - التطوير: تأكد أن `appsettings.Development.json` يحتوي على `"AllowedOrigins": ["*"]`
 - الإنتاج: أضف أصل الواجهة الأمامية صراحة إلى `Cors:AllowedOrigins`
 
+### دورة تسجيل الدخول تدور بين ‎/login و‎/authorize
+
+**العَرَض:** بيانات الاعتماد تُقبل، ومع ذلك يعيد `/auth/authorize` التوجيه فورًا إلى صفحة الدخول — بلا خطأ في الطرفية ولا في سجلّ الخادم.
+
+**السبب الأول — اختلاف المخطَّط (scheme).** كوكي جلسة الـIdP يُكتب بـ`SameSite=Lax; Secure` على استجابة نداء `fetch` هو `POST /auth/login`. وقاعدة Chrome المسمّاة schemeful same-site تَعُدّ `http://localhost` و`https://localhost` موقعين مختلفين، فتصبح تلك الاستجابة — من واجهة تعمل على http — مورِدًا فرعيًا عابرًا للمواقع، فيُهمَل الكوكي بدل تخزينه. وبلا الكوكي لا توجد جلسة دخول موحّد تُستأنف. الحل: تشغيل الواجهتين على https — راجع `Auth_UI/README.md` › *Dev TLS* — وتشغيل الـAPI على profile الـ`https`.
+
+**السبب الثاني — اختلاف الأصل (origin).** يجب أن يساوي `IdentityProvider:PublicBaseUrl` الأصلَ الذي بُنيت عليه الواجهة (`VITE_API_BASE_URL`). فنقطة authorize تبني `returnTo` من `PublicBaseUrl`، بينما ترفض `getValidReturnTo` في `packages/auth` أي أصل آخر بوصفه محاولة إعادة توجيه مفتوحة، فتُسقط استئناف ما بعد الدخول بصمت. تحقّق من قيمة `returnTo` في شريط العنوان على صفحة الدخول: يجب أن يطابق أصلُها `VITE_API_BASE_URL` حرفًا بحرف.
+
+**إن لم يُحدث تعديل `appsettings.Development.json` أي أثر**، فثمة طبقة لاحقة في سلسلة الإعداد تعلو عليه. بترتيب الأسبقية:
+
+1. `appsettings.Development.local.json` — مُتجاهَل في git، وعلى أغلب الأجهزة يحمل نسخته الخاصة من أقسام `IdentityProvider` و`Email` و`ImageStorage` منقولةً عن إعداد أقدم. **ابدأ التحقّق من هنا**؛ فالملف المتعقَّب في git لا يستطيع تجاوزه.
+2. إعدادات النظام المدعومة بقاعدة البيانات (Settings → Access في الـconsole) — وهي تعلو على الملفين معًا. شغّل الـAPI بـ`AUTH_DISABLE_DB_SETTINGS=true` لتخطّي الطبقة، أو صحّح القيمة من الـconsole.
+
 ### تعارض المنافذ
 
 **المنافذ الافتراضية:**
 - Auth_API: `http://localhost:5100`، `https://localhost:5101`
 - API_Gateway: `http://localhost:5034`، `https://localhost:7159`
+- واجهة console: `https://localhost:5173` — واجهة accounts: `https://localhost:5174`
+  (كلاهما مثبَّت بـ`strictPort`، وكلاهما مدرَج في `Cors:AllowedOrigins`)
 
-إذا كانت المنافذ مستخدمة، عدّل `Properties/launchSettings.json` في المشروع المعني.
+إذا كانت المنافذ مستخدمة، عدّل `Properties/launchSettings.json` في المشروع المعني، أو `server.port` في ملف `vite.config.ts` الخاص بالتطبيق.
 
 ### رأس انتهاء صلاحية رمز JWT
 
