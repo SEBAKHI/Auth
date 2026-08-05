@@ -18,7 +18,7 @@ vi.mock("@authsystem/ui/common/language-toggle", () => ({
 }))
 vi.mock("@authsystem/ui/common/theme-toggle", () => ({ ThemeToggle: () => null }))
 vi.mock("@authsystem/ui/branding", () => ({
-  useBranding: () => ({ name: "Auth", logoUrl: null }),
+  useBranding: () => ({ name: "Auth", logoUrl: null, isPending: false }),
   BrandingLogo: ({ fallback }: { fallback: ReactNode }) => fallback,
 }))
 

@@ -105,8 +105,11 @@ function AppSidebar({
                     </div>
                   }
                 />
-                {/* A logo usually carries the brand name; avoid repeating it. */}
-                {branding.logoUrl ? null : (
+                {/* A logo usually carries the brand name; avoid repeating it.
+                    While branding is still unknown neither is shown: rendering
+                    the name meant every cold load flashed the compiled-in
+                    product name before the real logo replaced it. */}
+                {branding.isPending || branding.logoUrl ? null : (
                   <span className="truncate font-semibold">
                     {branding.name}
                   </span>

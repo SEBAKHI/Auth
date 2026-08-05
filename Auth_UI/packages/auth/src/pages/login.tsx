@@ -62,7 +62,13 @@ export function LoginPage({
   // only the auth origin's authorize endpoint is ever a legal destination.
   const returnTo = getValidReturnTo(location.search)
   const appBranding = useAppBranding(getReturnToClientId(returnTo))
-  const { name: platformName } = useBranding()
+  const { name: platformName, isPending: brandingPending } = useBranding()
+
+  // A trust marker naming the wrong platform is worse than no marker at all:
+  // until the branding resolves, `platformName` is the compiled-in default.
+  const securedBy = brandingPending
+    ? null
+    : t("auth.securedBy", { name: platformName })
 
   const schema = z.object({
     email: z
@@ -132,7 +138,7 @@ export function LoginPage({
       pageFooter={pageFooter}
       appName={appBranding?.name}
       appLogoUrl={appBranding?.logoUrl}
-      securedBy={t("auth.securedBy", { name: platformName })}
+      securedBy={securedBy}
     >
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
