@@ -229,6 +229,26 @@ async function openDeleteDialog(page: Page): Promise<void> {
   await expect(page.getByRole("dialog")).toBeVisible()
 }
 
+/**
+ * Requests the emailed code and types it in. This is the ONLY re-auth factor
+ * the in-app dialog offers — password holders and external-only accounts take
+ * the identical path, so the assertion that no password field exists belongs
+ * to every journey, not just the passwordless one.
+ */
+async function completeCodeReauth(page: Page, email: string): Promise<void> {
+  await expect(page.getByLabel("Current password")).toHaveCount(0)
+
+  const since = logOffset()
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Email me a code" })
+    .click()
+  await expect(page.getByText("Verification code sent.")).toBeVisible()
+
+  const otp = await waitForLogMatch(deletionOtpPattern(email), since)
+  await page.getByRole("textbox", { name: "Verification code" }).fill(otp)
+}
+
 /** Re-auth "Continue" → typed-email confirmation → "Schedule deletion". */
 async function confirmScheduleDeletion(page: Page, email: string): Promise<void> {
   await page.getByRole("dialog").getByRole("button", { name: "Continue" }).click()
@@ -273,7 +293,7 @@ test.describe("account deletion", () => {
     await api.dispose()
   })
 
-  test("journey 1: in-app request with password, recovery via login, cancellation email", async ({
+  test("journey 1: in-app request by emailed code, recovery via login, cancellation email", async ({
     page,
   }) => {
     test.setTimeout(120_000)
@@ -281,7 +301,9 @@ test.describe("account deletion", () => {
 
     await signInExpectingProfile(page, email)
     await openDeleteDialog(page)
-    await page.getByLabel("Current password").fill(PASSWORD)
+    // Holding a password does not change the factor — the account still
+    // confirms by mailbox possession, exactly like an external-only one.
+    await completeCodeReauth(page, email)
     await confirmScheduleDeletion(page, email)
 
     // Acknowledgment email (R6) went out at request time.

@@ -382,9 +382,6 @@
   </data>
 
   <!-- ==================== Account Deletion ==================== -->
-  <data name="Validation.Reauthentication.Required" xml:space="preserve">
-    <value>请使用当前密码或验证码确认。</value>
-  </data>
   <data name="Validation.OtpCode.Required" xml:space="preserve">
     <value>验证码为必填项。</value>
   </data>

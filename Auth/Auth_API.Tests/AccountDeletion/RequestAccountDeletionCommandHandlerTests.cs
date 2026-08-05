@@ -17,10 +17,14 @@ namespace Auth_API.Tests.AccountDeletion;
 
 /// <summary>
 /// Unit tests for the in-app deletion request: mandatory fresh
-/// re-authentication (password or OTP) before the shared pipeline runs.
+/// re-authentication by emailed code — the same single factor for every
+/// account, whether or not it has a password.
 /// </summary>
 public class RequestAccountDeletionCommandHandlerTests
 {
+    private const string OtpHash = "otp-hash";
+    private const string ValidOtp = "123456";
+
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IAccountDeletionRequestRepository> _requestRepositoryMock = new();
     private readonly Mock<IOrganizationRepository> _organizationRepositoryMock = new();
@@ -60,85 +64,52 @@ public class RequestAccountDeletionCommandHandlerTests
             new Mock<ILogger<DeletionOtpService>>().Object);
 
         _handler = new RequestAccountDeletionCommandHandler(
-            _userRepositoryMock.Object,
-            _passwordHasherMock.Object,
-            otpService,
-            requestor);
+            _userRepositoryMock.Object, otpService, requestor);
     }
 
     [Fact]
-    public async Task Handle_CorrectPassword_SchedulesDeletionAndReturnsGraceDeadline()
+    public async Task Handle_ValidOtp_SchedulesDeletionAndReturnsGraceDeadline()
     {
-        var user = TestHelpers.CreateUser();
-        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
-        _passwordHasherMock.Setup(h => h.VerifyPassword("correct", user.PasswordHash!)).Returns(true);
+        var user = TestHelpers.CreateUser(passwordHash: null);
+        var verification = ArrangeOutstandingCode(user, matches: true);
 
         var result = await _handler.Handle(
-            new RequestAccountDeletionCommand(user.Id, "correct", null), CancellationToken.None);
+            new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         result.Value.GraceEndsAtUtc.Should().BeCloseTo(DateTime.UtcNow.AddDays(30), TimeSpan.FromMinutes(1));
         _userRepositoryMock.Verify(r => r.DeleteAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _verificationRepositoryMock.Verify(
+            r => r.MarkAsUsedAsync(verification.Id, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_WrongPassword_RefusesWithoutSideEffects()
+    public async Task Handle_AccountWithPassword_ConfirmsWithTheEmailedCodeAndIsNeverAskedForItsPassword()
     {
+        // The whole point of the unified flow: holding a password no longer
+        // changes the factor, so an external-only account and a password
+        // account travel the exact same path.
         var user = TestHelpers.CreateUser();
-        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
-        _passwordHasherMock.Setup(h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>())).Returns(false);
+        ArrangeOutstandingCode(user, matches: true);
 
         var result = await _handler.Handle(
-            new RequestAccountDeletionCommand(user.Id, "wrong", null), CancellationToken.None);
-
-        result.FirstError.Should().Be(UserErrors.InvalidCurrentPassword);
-        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task Handle_PasswordAccountWithoutPassword_RefusesEvenWithOtp()
-    {
-        // A stolen session must not sidestep the password by supplying an OTP.
-        var user = TestHelpers.CreateUser();
-        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
-
-        var result = await _handler.Handle(
-            new RequestAccountDeletionCommand(user.Id, null, "123456"), CancellationToken.None);
-
-        result.FirstError.Should().Be(UserErrors.InvalidCurrentPassword);
-    }
-
-    [Fact]
-    public async Task Handle_PasswordlessAccountWithValidOtp_SchedulesDeletion()
-    {
-        var user = CreatePasswordlessUser();
-        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
-        var verification = AccountDeletionVerification.Create(user.Id, user.Email, "otp-hash");
-        _verificationRepositoryMock
-            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(verification);
-        _passwordHasherMock.Setup(h => h.VerifyPassword("123456", "otp-hash")).Returns(true);
-
-        var result = await _handler.Handle(
-            new RequestAccountDeletionCommand(user.Id, null, "123456"), CancellationToken.None);
+            new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        _verificationRepositoryMock.Verify(r => r.MarkAsUsedAsync(verification.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _userRepositoryMock.Verify(r => r.DeleteAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
+        _passwordHasherMock.Verify(
+            h => h.VerifyPassword(It.IsAny<string>(), user.PasswordHash!), Times.Never,
+            "the stored password hash must never be consulted by the deletion flow");
     }
 
     [Fact]
-    public async Task Handle_PasswordlessAccountWithWrongOtp_RefusesGenerically()
+    public async Task Handle_WrongOtp_RefusesGenericallyWithoutSideEffects()
     {
-        var user = CreatePasswordlessUser();
-        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
-        var verification = AccountDeletionVerification.Create(user.Id, user.Email, "otp-hash");
-        _verificationRepositoryMock
-            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(verification);
-        _passwordHasherMock.Setup(h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>())).Returns(false);
+        var user = TestHelpers.CreateUser();
+        var verification = ArrangeOutstandingCode(user, matches: false);
 
         var result = await _handler.Handle(
-            new RequestAccountDeletionCommand(user.Id, null, "000000"), CancellationToken.None);
+            new RequestAccountDeletionCommand(user.Id, "000000"), CancellationToken.None);
 
         result.FirstError.Should().Be(AccountDeletionErrors.InvalidOtp);
         _verificationRepositoryMock.Verify(
@@ -146,16 +117,106 @@ public class RequestAccountDeletionCommandHandlerTests
         _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
-    private static User CreatePasswordlessUser()
+    [Fact]
+    public async Task Handle_NoOutstandingCode_RefusesWithoutSideEffects()
     {
-        var id = Guid.NewGuid();
-        return new User(
-            id: id, email: $"external-{id:N}@test.com", normalizedEmail: $"EXTERNAL-{id:N}@TEST.COM",
-            passwordHash: null, firstName: "Ext", lastName: "User", displayName: null, phoneNumber: null,
-            status: Auth.Domain.Enums.UserStatus.Active, emailConfirmed: true, phoneConfirmed: false,
-            twoFactorEnabled: false, twoFactorSecret: null, failedLoginAttempts: 0, lockoutEnd: null,
-            lastLoginAt: null, passwordChangedAt: null, mustChangePassword: false,
-            preferredLanguage: "en", timeZone: "UTC", metadata: null, isSystemUser: false,
-            createdAt: DateTime.UtcNow, createdBy: Guid.NewGuid(), modifiedAt: null, modifiedBy: null);
+        // A session alone is not re-authentication: without a code that was
+        // delivered to the mailbox there is nothing to verify.
+        var user = TestHelpers.CreateUser();
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        _verificationRepositoryMock
+            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<AccountDeletionVerification>());
+
+        var result = await _handler.Handle(
+            new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
+
+        result.FirstError.Should().Be(AccountDeletionErrors.InvalidOtp);
+        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_CodeBoundToAnotherAccount_RefusesWithoutSideEffects()
+    {
+        // A row left behind by a hard-deleted account whose address was later
+        // re-registered must never confirm the new owner's deletion.
+        var user = TestHelpers.CreateUser();
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+        var strayVerification = AccountDeletionVerification.Create(Guid.NewGuid(), user.Email, OtpHash);
+        _verificationRepositoryMock
+            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { strayVerification });
+        _passwordHasherMock.Setup(h => h.VerifyPassword(ValidOtp, OtpHash)).Returns(true);
+
+        var result = await _handler.Handle(
+            new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
+
+        result.FirstError.Should().Be(AccountDeletionErrors.InvalidOtp);
+        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_NewerCodeIssuedForTheSameAddress_DoesNotOrphanTheCodeTheUserIsHolding()
+    {
+        // Anyone who knows an address can mint a newer code for it through the
+        // anonymous public endpoint. If only the newest row were redeemable,
+        // that would remotely deny a signed-in user their own deletion.
+        var user = TestHelpers.CreateUser();
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+
+        var held = AccountDeletionVerification.Create(user.Id, user.Email, OtpHash);
+        var newer = AccountDeletionVerification.Create(user.Id, user.Email, "someone-elses-hash");
+        _verificationRepositoryMock
+            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { newer, held });
+        _passwordHasherMock.Setup(h => h.VerifyPassword(ValidOtp, OtpHash)).Returns(true);
+        _passwordHasherMock.Setup(h => h.VerifyPassword(ValidOtp, "someone-elses-hash")).Returns(false);
+
+        var result = await _handler.Handle(
+            new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _verificationRepositoryMock.Verify(
+            r => r.MarkAsUsedAsync(held.Id, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_OwnedOrganizationBlocksDeletion_RefusesBeforeSpendingTheCode()
+    {
+        // The conflict is deterministic and knowable up front, so discovering
+        // it must not cost the user their single-use code.
+        var user = TestHelpers.CreateUser();
+        ArrangeOutstandingCode(user, matches: true);
+        var organization = TestHelpers.CreateOrganization(ownerId: user.Id);
+        _organizationRepositoryMock
+            .Setup(r => r.GetByOwnerAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Organization> { organization });
+        _organizationRepositoryMock
+            .Setup(r => r.GetMemberCountsAsync(It.IsAny<List<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, int> { [organization.Id] = 3 });
+
+        var result = await _handler.Handle(
+            new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        _verificationRepositoryMock.Verify(
+            r => r.MarkAsUsedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _userRepositoryMock.Verify(r => r.DeleteAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    /// <summary>Arranges the user lookup plus an outstanding code that does (or does not) match.</summary>
+    private AccountDeletionVerification ArrangeOutstandingCode(User user, bool matches)
+    {
+        _userRepositoryMock.Setup(r => r.GetByIdAsync(user.Id, It.IsAny<CancellationToken>())).ReturnsAsync(user);
+
+        var verification = AccountDeletionVerification.Create(user.Id, user.Email, OtpHash);
+        _verificationRepositoryMock
+            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { verification });
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword(It.IsAny<string>(), OtpHash))
+            .Returns(matches);
+
+        return verification;
     }
 }

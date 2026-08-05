@@ -1,5 +1,4 @@
 using Auth.Application.Features.AccountDeletion.Common;
-using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
@@ -16,18 +15,15 @@ public class RequestAccountDeletionCommandHandler
     : IRequestHandler<RequestAccountDeletionCommand, ErrorOr<AccountDeletionRequestedResult>>
 {
     private readonly IUserRepository _userRepository;
-    private readonly IPasswordHasher _passwordHasher;
     private readonly DeletionOtpService _otpService;
     private readonly AccountDeletionRequestor _requestor;
 
     public RequestAccountDeletionCommandHandler(
         IUserRepository userRepository,
-        IPasswordHasher passwordHasher,
         DeletionOtpService otpService,
         AccountDeletionRequestor requestor)
     {
         _userRepository = userRepository;
-        _passwordHasher = passwordHasher;
         _otpService = otpService;
         _requestor = requestor;
     }
@@ -41,28 +37,27 @@ public class RequestAccountDeletionCommandHandler
             return UserErrors.NotFound(request.UserId);
         }
 
-        // Fresh re-authentication: a stolen session alone must never be able
-        // to schedule an account's destruction.
-        if (user.PasswordHash is not null)
+        // Refuse the foreseeable conflicts before the code is spent. Verifying
+        // consumes it, so discovering "you still own an organization with
+        // members" afterwards would leave the user holding a dead code and one
+        // fewer issuance in the rate-limit window. Safe to disclose here: the
+        // caller is already authenticated as this account.
+        var requestable = await _requestor.EnsureRequestableAsync(user, cancellationToken);
+        if (requestable.IsError)
         {
-            if (string.IsNullOrEmpty(request.Password)
-                || !_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
-            {
-                return UserErrors.InvalidCurrentPassword;
-            }
+            return requestable.Errors;
         }
-        else
-        {
-            if (string.IsNullOrEmpty(request.OtpCode))
-            {
-                return AccountDeletionErrors.InvalidOtp;
-            }
 
-            var otpResult = await _otpService.VerifyAsync(user.Email, request.OtpCode, cancellationToken);
-            if (otpResult.IsError)
-            {
-                return otpResult.Errors;
-            }
+        // Fresh re-authentication: a stolen session alone must never be able to
+        // schedule an account's destruction. The factor is possession of the
+        // account's mailbox — one code path for every account, the same one the
+        // public wizard uses. The password is deliberately not accepted: it
+        // does not exist for external-only accounts, and mailbox possession
+        // already outranks it (it is what password reset itself trusts).
+        var otpResult = await _otpService.VerifyForUserAsync(user, request.OtpCode, cancellationToken);
+        if (otpResult.IsError)
+        {
+            return otpResult.Errors;
         }
 
         var result = await _requestor.RequestAsync(user, AccountDeletionSource.InApp, cancellationToken);

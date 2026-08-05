@@ -1562,9 +1562,7 @@ export const en = {
       "Your account will be deactivated immediately and permanently deleted after {{days}} days. During that period you can restore it by signing in.",
     reauthTitle: "Confirm it's you",
     reauthSubtitle: "For your security, confirm your identity to continue.",
-    reauthPasswordLabel: "Current password",
-    noPasswordHint:
-      "Your account has no password — we'll email you a verification code instead.",
+    codeHint: "We'll email a verification code to {{email}}.",
     sendCode: "Email me a code",
     codeSent: "Verification code sent. Check your inbox.",
     verificationCode: "Verification code",

@@ -12,14 +12,22 @@ using Microsoft.Extensions.Options;
 namespace Auth.Application.Features.AccountDeletion.Common;
 
 /// <summary>
-/// Issues and verifies deletion re-authentication OTPs — shared by the
-/// passwordless in-app flow and the public no-login flow. Mirrors the email
+/// Issues and verifies deletion re-authentication OTPs — the single factor
+/// behind both the in-app flow and the public no-login flow. Mirrors the email
 /// verification semantics: Argon2id-hashed 6-digit code, short expiry, capped
 /// attempts, issuance rate limiting. Every verification failure shape maps to
 /// the single generic InvalidOtp error (anti-enumeration).
 /// </summary>
 public class DeletionOtpService
 {
+    /// <summary>
+    /// Outstanding codes examined per verification. Bounds the Argon2id work a
+    /// single request can provoke while staying well above what a legitimate
+    /// user can hold at once (issuance is rate limited per address).
+    /// </summary>
+    private const int MaxVerificationCandidates = 5;
+
+
     private readonly IAccountDeletionVerificationRepository _verificationRepository;
     private readonly INotificationService _notificationService;
     private readonly IOtpGenerator _otpGenerator;
@@ -103,6 +111,33 @@ public class DeletionOtpService
     }
 
     /// <summary>
+    /// Verifies a deletion code for an already-identified user and consumes it.
+    /// Adds the owner binding an address lookup alone cannot give: a code is
+    /// only ever valid for the account it was issued to, so a row left behind
+    /// by a hard-deleted account whose address was later re-registered can
+    /// never confirm the new owner's deletion.
+    /// </summary>
+    public async Task<ErrorOr<AccountDeletionVerification>> VerifyForUserAsync(
+        User user, string otpCode, CancellationToken cancellationToken)
+    {
+        var result = await VerifyAsync(user.Email, otpCode, cancellationToken);
+        if (result.IsError)
+        {
+            return result.Errors;
+        }
+
+        if (result.Value.UserId != user.Id)
+        {
+            _logger.LogWarning(
+                "Deletion code for {Email} is bound to a different account; refused",
+                EmailMasking.Mask(user.Email));
+            return AccountDeletionErrors.InvalidOtp;
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Verifies a deletion code for an email address and consumes it. Unknown
     /// email, wrong code, expired code and exhausted attempts are all the same
     /// generic error.
@@ -110,25 +145,39 @@ public class DeletionOtpService
     public async Task<ErrorOr<AccountDeletionVerification>> VerifyAsync(
         string email, string otpCode, CancellationToken cancellationToken)
     {
-        var verification = await _verificationRepository.GetValidForEmailAsync(email, cancellationToken);
-        if (verification is null || !verification.IsValid)
+        // Every outstanding code is redeemable, not just the newest: issuance is
+        // reachable anonymously (the public wizard), so matching the newest row
+        // alone would let anyone who knows an address orphan the code its owner
+        // is holding, simply by asking for another one.
+        var candidates = await _verificationRepository.GetValidForEmailAsync(
+            email, MaxVerificationCandidates, cancellationToken);
+
+        foreach (var candidate in candidates)
         {
-            return AccountDeletionErrors.InvalidOtp;
+            if (!candidate.IsValid || !_passwordHasher.VerifyPassword(otpCode, candidate.OtpHash))
+            {
+                continue;
+            }
+
+            var used = candidate.MarkAsUsed();
+            if (used.IsError)
+            {
+                return used.Errors;
+            }
+
+            await _verificationRepository.MarkAsUsedAsync(candidate.Id, cancellationToken);
+            return candidate;
         }
 
-        if (!_passwordHasher.VerifyPassword(otpCode, verification.OtpHash))
+        // Nothing matched. The failed attempt is charged to the newest code
+        // only — charging every candidate would let one caller's wrong guesses
+        // exhaust the attempt budget of a code someone else is holding.
+        var newest = candidates.FirstOrDefault(candidate => candidate.IsValid);
+        if (newest is not null)
         {
-            await _verificationRepository.IncrementAttemptCountAsync(verification.Id, cancellationToken);
-            return AccountDeletionErrors.InvalidOtp;
+            await _verificationRepository.IncrementAttemptCountAsync(newest.Id, cancellationToken);
         }
 
-        var used = verification.MarkAsUsed();
-        if (used.IsError)
-        {
-            return used.Errors;
-        }
-
-        await _verificationRepository.MarkAsUsedAsync(verification.Id, cancellationToken);
-        return verification;
+        return AccountDeletionErrors.InvalidOtp;
     }
 }

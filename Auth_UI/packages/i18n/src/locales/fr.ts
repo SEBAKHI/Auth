@@ -1640,9 +1640,7 @@ export const fr: TranslationResources = {
       "Votre compte sera immédiatement désactivé puis définitivement supprimé après {{days}} jours. Pendant cette période, vous pouvez le restaurer en vous connectant.",
     reauthTitle: "Confirmez votre identité",
     reauthSubtitle: "Pour votre sécurité, confirmez votre identité pour continuer.",
-    reauthPasswordLabel: "Mot de passe actuel",
-    noPasswordHint:
-      "Votre compte n'a pas de mot de passe — nous vous enverrons un code de vérification par e-mail.",
+    codeHint: "Nous enverrons un code de vérification à {{email}}.",
     sendCode: "M'envoyer un code",
     codeSent: "Code de vérification envoyé. Consultez votre boîte de réception.",
     verificationCode: "Code de vérification",

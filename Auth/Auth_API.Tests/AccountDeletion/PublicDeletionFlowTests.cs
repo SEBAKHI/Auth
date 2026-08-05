@@ -42,6 +42,11 @@ public class PublicDeletionFlowTests
             .Setup(r => r.TryCreateAsync(It.IsAny<AccountDeletionRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _otpGeneratorMock.Setup(g => g.GenerateNumericOtp(6)).Returns("123456");
+        // No outstanding codes unless a test arranges some — the repository
+        // contract is an empty list, never null.
+        _verificationRepositoryMock
+            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<AccountDeletionVerification>());
         _notificationServiceMock
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success);
@@ -131,8 +136,8 @@ public class PublicDeletionFlowTests
         {
             var verification = AccountDeletionVerification.Create(Guid.NewGuid(), "a@b.com", "otp-hash");
             _verificationRepositoryMock
-                .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-                .ReturnsAsync(verification);
+                .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new[] { verification });
             _passwordHasherMock.Setup(h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>())).Returns(false);
         }
 
@@ -148,8 +153,8 @@ public class PublicDeletionFlowTests
         var user = TestHelpers.CreateUser(email: "a@b.com");
         var verification = AccountDeletionVerification.Create(user.Id, "a@b.com", "otp-hash");
         _verificationRepositoryMock
-            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(verification);
+            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { verification });
         _passwordHasherMock.Setup(h => h.VerifyPassword("123456", "otp-hash")).Returns(true);
         _userRepositoryMock
             .Setup(r => r.GetByIdIncludeDeletedAsync(user.Id, It.IsAny<CancellationToken>()))
@@ -172,8 +177,8 @@ public class PublicDeletionFlowTests
         var user = TestHelpers.CreateUser(email: "a@b.com", isDeleted: true, deletedAt: DateTime.UtcNow);
         var verification = AccountDeletionVerification.Create(user.Id, "a@b.com", "otp-hash");
         _verificationRepositoryMock
-            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(verification);
+            .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { verification });
         _passwordHasherMock.Setup(h => h.VerifyPassword("123456", "otp-hash")).Returns(true);
         _userRepositoryMock
             .Setup(r => r.GetByIdIncludeDeletedAsync(user.Id, It.IsAny<CancellationToken>()))

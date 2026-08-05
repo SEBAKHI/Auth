@@ -1,5 +1,4 @@
 import { useMutation } from "@tanstack/react-query"
-import { REGEXP_ONLY_DIGITS } from "input-otp"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -14,16 +13,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@authsystem/ui/dialog"
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@authsystem/ui/input-otp"
+import { OTP_CODE_LENGTH, OtpInput } from "@authsystem/ui/common/otp-input"
 import { useCountdown } from "@authsystem/ui/hooks/use-countdown"
 import { api } from "@authsystem/api/client"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
-
-const OTP_LENGTH = 6
 
 /**
  * Email-verification OTP dialog. Auto-requests a code when opened, shows a
@@ -119,7 +112,7 @@ export function VerifyEmailDialog({
   }, [open, expiresAt, requestCode])
 
   const canVerify =
-    otp.length === OTP_LENGTH &&
+    otp.length === OTP_CODE_LENGTH &&
     Boolean(expiresAt) &&
     !countdown.expired &&
     !verifyMutation.isPending
@@ -138,10 +131,7 @@ export function VerifyEmailDialog({
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4 py-2">
-          <InputOTP
-            dir="ltr"
-            maxLength={OTP_LENGTH}
-            pattern={REGEXP_ONLY_DIGITS}
+          <OtpInput
             value={otp}
             onChange={(value) => {
               setOtp(value)
@@ -150,17 +140,11 @@ export function VerifyEmailDialog({
             onComplete={(code: string) => {
               if (!countdown.expired) verifyMutation.mutate(code)
             }}
+            label={t("auth.verifyEmailCodeLabel")}
             disabled={
               !expiresAt || countdown.expired || verifyMutation.isPending
             }
-            aria-label={t("auth.verifyEmailCodeLabel")}
-          >
-            <InputOTPGroup>
-              {Array.from({ length: OTP_LENGTH }).map((_, index) => (
-                <InputOTPSlot key={index} index={index} />
-              ))}
-            </InputOTPGroup>
-          </InputOTP>
+          />
 
           {expiresAt ? (
             countdown.expired ? (

@@ -123,7 +123,7 @@ DATA FLOW PIPELINE (R7, step-by-step, deterministic):
 
  [A] In-app request                      [B] Public no-login request
  user (bearer) → Danger Zone            email → POST /auth/deletion/request
- → re-auth (password | OTP)             → (account exists?) enqueue OTP email → 202 always
+ → re-auth (emailed OTP)                → (account exists?) enqueue OTP email → 202 always
  → typed AlertDialog confirm            → POST /auth/deletion/confirm {email, otp}
  → POST /users/me/deletion              → Argon2id verify + attempt cap
         │                                        │
@@ -255,7 +255,7 @@ All endpoints ride existing gateway prefixes (`auth-route`, `users-route`) — *
 
 | Method | Route | Auth | Request | Response | Errors |
 |---|---|---|---|---|---|
-| POST | `/api/v1/users/me/deletion` | Bearer (self) | `{ password?, otpCode? }` (password accounts: `password`; passwordless: `otpCode` from send-code) | `202 { graceEndsAtUtc }` | 400 validation; 401; 403 `User.CannotDeleteSystemUser`, `User.InvalidCurrentPassword`; 400 invalid OTP; 409 `User.DeletionAlreadyRequested`, `User.CannotDeleteOrganizationOwner`, `User.CannotDeletePersonalOrganizationWithMembers` |
+| POST | `/api/v1/users/me/deletion` | Bearer (self) | `{ otpCode }` (every account: the code from send-code — the password is never a factor here, external-only accounts have none) | `202 { graceEndsAtUtc }` | 400 validation; 401; 403 `User.CannotDeleteSystemUser`; 400 `AccountDeletion.InvalidOtp`; 409 `User.DeletionAlreadyRequested`, `User.CannotDeleteOrganizationOwner`, `User.CannotDeletePersonalOrganizationWithMembers`; 429 |
 | POST | `/api/v1/users/me/deletion/send-code` | Bearer (self) | `{}` | `202` (always) | 401; 429 via attempt/rate caps |
 | POST | `/api/v1/auth/deletion/request` | Anonymous | `{ email }` | `202` (always — anti-enumeration; OTP email sent only if the account exists) | 400 validation only |
 | POST | `/api/v1/auth/deletion/confirm` | Anonymous | `{ email, otpCode }` | `202` (also when a request is already pending — idempotent) | 400 `AccountDeletion.InvalidOtp` (identical for unknown email / wrong code / expired); 409 owned-org conflicts (as above) |
@@ -305,7 +305,7 @@ All in `Auth_UI` (accounts app + shared packages). **Workflow per the `shadcn` s
 | Screen | Element | Exact shadcn component | State & interaction |
 |---|---|---|---|
 | Profile → Account tab (`packages/account/src/pages/profile/` ● `profile-danger-zone.tsx`) | Danger Zone section | `Card` + `CardHeader`/`CardTitle`/`CardDescription`/`CardContent` (destructive accent via semantic tokens), `Button` `variant="destructive"` | Visible to every user (R6 prominence); explains 30-day grace; button opens re-auth step; `Skeleton` while `me` loads |
-| Deletion flow — step 1: re-authentication | Modal | `Dialog` (with `DialogTitle`) + `Form` (`react-hook-form` + zod) + `FieldGroup`/`Field` + `Input type="password"` — passwordless accounts: `Button` "send code" then `InputOTP` (6 digits) | Submit disabled until valid; spinner icon `data-icon` + `disabled` while pending; server errors via `getErrorMessage` under the field (`data-invalid`/`aria-invalid`); focus-trapped |
+| Deletion flow — step 1: re-authentication | Modal | `Dialog` (with `DialogTitle`) + `Button` "Email me a code" then shared `OtpInput` (6 digits) + `ResendCodeButton` (60s cooldown) — identical for every account, no password field | Continue disabled until the code is complete; spinner + `disabled` while pending; server errors via `getErrorMessage` in a toast; focus-trapped |
 | Deletion flow — step 2: typed confirmation | Destructive confirm | `AlertDialog` (`AlertDialogContent/Title/Description/Footer`) + `Field` + `Label` + `Input` | User must type their email exactly; confirm `Button` `variant="destructive"` disabled until match, loading state during POST; on 202 → `sonner` toast, client token purge, navigate to scheduled screen |
 | `/deletion-scheduled` (● route, top-level like `/two-factor`) | Grace acknowledgment | ● `Alert` `[TO BE CREATED: pnpm dlx shadcn@latest add alert → packages/ui/src/alert.tsx]` + `Badge` + `Button` (link to `/login`) | Shows `graceEndsAtUtc` (locale/timezone-formatted) and recovery instructions from navigation state; direct visit → redirect `/login` |
 | Login page (`apps/accounts/src/pages/auth/login.tsx`) *(modified)* | Pending-deletion branch | existing form; on `Auth.AccountPendingDeletion` → navigate `/account-recovery` with `{email, graceEndsAtUtc}` | No inline leak; unchanged behavior for all other errors |

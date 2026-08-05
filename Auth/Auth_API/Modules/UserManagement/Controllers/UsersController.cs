@@ -31,6 +31,7 @@ using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Auth_API.Modules.UserManagement.Controllers;
 
@@ -671,15 +672,18 @@ public class UsersController : ApiController
     /// <summary>
     /// Requests deletion of the current authenticated user's account (two-phase:
     /// a 30-day recoverable grace window, then irreversible destruction).
-    /// Requires fresh re-authentication — the current password, or a
-    /// verification code for passwordless accounts. On success the account is
+    /// Requires fresh re-authentication with the verification code emailed by
+    /// <see cref="SendMyDeletionCode"/> — the same mailbox-possession factor the
+    /// public no-login wizard uses, for every account. On success the account is
     /// deactivated immediately and every session is revoked.
     /// </summary>
     [HttpPost("me/deletion")]
+    [EnableRateLimiting("login")]
     [ProducesResponseType(typeof(AccountDeletionRequestedResult), StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> RequestMyAccountDeletion(
         [FromBody] RequestAccountDeletionRequest request, CancellationToken cancellationToken)
     {
@@ -690,7 +694,7 @@ public class UsersController : ApiController
         }
 
         var result = await _sender.Send(
-            new RequestAccountDeletionCommand(userId, request.Password, request.OtpCode), cancellationToken);
+            new RequestAccountDeletionCommand(userId, request.OtpCode), cancellationToken);
 
         return result.Match<IActionResult>(
             response => Accepted(response),
@@ -698,13 +702,15 @@ public class UsersController : ApiController
     }
 
     /// <summary>
-    /// Emails a deletion verification code to the current authenticated user
-    /// (passwordless accounts confirming an in-app deletion request).
+    /// Emails a deletion verification code to the current authenticated user —
+    /// step one of every in-app deletion request.
     /// </summary>
     [HttpPost("me/deletion/send-code")]
+    [EnableRateLimiting("login")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> SendMyDeletionCode(CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();

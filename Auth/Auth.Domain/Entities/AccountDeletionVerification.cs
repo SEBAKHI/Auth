@@ -6,8 +6,8 @@ using ErrorOr;
 namespace Auth.Domain.Entities;
 
 /// <summary>
-/// Represents a deletion re-authentication OTP: used by passwordless in-app
-/// requests and by the public no-login deletion flow. Mirrors
+/// Represents a deletion re-authentication OTP: the single factor behind both
+/// entry points — in-app requests and the public no-login flow. Mirrors
 /// <see cref="EmailVerificationToken"/> semantics (Argon2id hash, short expiry,
 /// capped attempts). UserId is a loose reference: these rows belong to accounts
 /// that are about to be deleted, so nothing may block or outlive the purge.

@@ -1577,9 +1577,7 @@ export const tr: TranslationResources = {
       "Hesabınız hemen devre dışı bırakılacak ve {{days}} gün sonra kalıcı olarak silinecektir. Bu süre içinde giriş yaparak geri yükleyebilirsiniz.",
     reauthTitle: "Kimliğinizi doğrulayın",
     reauthSubtitle: "Güvenliğiniz için devam etmeden önce kimliğinizi doğrulayın.",
-    reauthPasswordLabel: "Mevcut parola",
-    noPasswordHint:
-      "Hesabınızın parolası yok — bunun yerine e-postayla bir doğrulama kodu göndereceğiz.",
+    codeHint: "{{email}} adresine bir doğrulama kodu göndereceğiz.",
     sendCode: "Bana kod gönder",
     codeSent: "Doğrulama kodu gönderildi. Gelen kutunuzu kontrol edin.",
     verificationCode: "Doğrulama kodu",

@@ -382,9 +382,6 @@
   </data>
 
   <!-- ==================== Account Deletion ==================== -->
-  <data name="Validation.Reauthentication.Required" xml:space="preserve">
-    <value>Mevcut parolanızla veya bir doğrulama koduyla onaylayın.</value>
-  </data>
   <data name="Validation.OtpCode.Required" xml:space="preserve">
     <value>Doğrulama kodu gereklidir.</value>
   </data>

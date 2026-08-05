@@ -1565,9 +1565,7 @@ export const ur: TranslationResources = {
     reauthTitle: "اپنی شناخت کی تصدیق کریں",
     reauthSubtitle:
       "آپ کی حفاظت کے لیے، جاری رکھنے سے پہلے اپنی شناخت کی تصدیق کریں۔",
-    reauthPasswordLabel: "موجودہ پاس ورڈ",
-    noPasswordHint:
-      "آپ کے اکاؤنٹ کا کوئی پاس ورڈ نہیں ہے — اس کے بجائے ہم آپ کو ای میل سے تصدیقی کوڈ بھیجیں گے۔",
+    codeHint: "ہم {{email}} پر ایک تصدیقی کوڈ بھیجیں گے۔",
     sendCode: "مجھے کوڈ بھیجیں",
     codeSent: "تصدیقی کوڈ بھیج دیا گیا ہے۔ اپنا اِن باکس دیکھیں۔",
     verificationCode: "تصدیقی کوڈ",

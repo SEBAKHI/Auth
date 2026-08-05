@@ -22,19 +22,16 @@ import {
   FormLabel,
   FormMessage,
 } from "@authsystem/ui/form"
-import { useCountdown } from "@authsystem/ui/hooks/use-countdown"
+import {
+  OTP_CODE_LENGTH,
+  OtpInput,
+  RESEND_COOLDOWN_MS,
+} from "@authsystem/ui/common/otp-input"
+import { ResendCodeButton } from "@authsystem/ui/common/resend-code-button"
 import { Input } from "@authsystem/ui/input"
 import { Spinner } from "@authsystem/ui/spinner"
-import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-  REGEXP_ONLY_DIGITS,
-} from "@authsystem/ui/input-otp"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const CODE_LENGTH = 6
-const RESEND_COOLDOWN_MS = 60_000
 
 /**
  * Public no-login deletion wizard (compliance surface): email → emailed code →
@@ -48,7 +45,6 @@ export function DeleteAccountPage() {
   const [email, setEmail] = React.useState("")
   const [otp, setOtp] = React.useState("")
   const [cooldownUntil, setCooldownUntil] = React.useState<Date | null>(null)
-  const cooldown = useCountdown(cooldownUntil)
 
   const schema = z.object({
     email: z
@@ -153,26 +149,17 @@ export function DeleteAccountPage() {
           <p className="text-center text-sm text-muted-foreground">
             {t("accountDeletion.publicCodeBody", { email })}
           </p>
-          <InputOTP
-            dir="ltr"
-            maxLength={CODE_LENGTH}
-            pattern={REGEXP_ONLY_DIGITS}
+          <OtpInput
             value={otp}
             onChange={setOtp}
+            label={t("accountDeletion.verificationCode")}
             disabled={confirmMutation.isPending}
             autoFocus
-            aria-label={t("accountDeletion.verificationCode")}
-          >
-            <InputOTPGroup>
-              {Array.from({ length: CODE_LENGTH }).map((_, index) => (
-                <InputOTPSlot key={index} index={index} />
-              ))}
-            </InputOTPGroup>
-          </InputOTP>
+          />
           <Button
             variant="destructive"
             className="w-full"
-            disabled={otp.length < CODE_LENGTH || confirmMutation.isPending}
+            disabled={otp.length < OTP_CODE_LENGTH || confirmMutation.isPending}
             onClick={() => confirmMutation.mutate()}
           >
             {confirmMutation.isPending ? (
@@ -180,22 +167,11 @@ export function DeleteAccountPage() {
             ) : null}
             {t("accountDeletion.confirmDeletion")}
           </Button>
-          <Button
-            type="button"
-            variant="link"
-            className="text-muted-foreground"
-            disabled={!cooldown.expired || requestMutation.isPending}
-            onClick={() => requestMutation.mutate(email)}
-          >
-            {requestMutation.isPending ? (
-              <Spinner />
-            ) : null}
-            {cooldown.expired
-              ? t("accountDeletion.resendCode")
-              : t("accountDeletion.resendIn", {
-                  seconds: cooldown.totalSeconds,
-                })}
-          </Button>
+          <ResendCodeButton
+            availableAt={cooldownUntil}
+            pending={requestMutation.isPending}
+            onResend={() => requestMutation.mutate(email)}
+          />
         </div>
       ) : null}
 

@@ -1,3 +1,4 @@
+using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -28,6 +29,20 @@ public class OwnedOrganizationDeletionGuard
     }
 
     /// <summary>
+    /// Reports whether an owned organization blocks deletion, without changing
+    /// anything. Callers that must not cause side effects yet — a precheck run
+    /// before a single-use re-authentication code is consumed — use this;
+    /// <see cref="EnsureDeletableAsync"/> then re-evaluates authoritatively.
+    /// </summary>
+    /// <param name="userId">The account being deleted.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    public async Task<ErrorOr<Success>> CheckBlockingAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var (_, blocking) = await EvaluateAsync(userId, cancellationToken);
+        return blocking is null ? Result.Success : blocking.Value;
+    }
+
+    /// <summary>
     /// Blocks when an owned organization still has other members; deletes
     /// sole-member owned organizations (the caller is warned of this in the UI).
     /// </summary>
@@ -35,23 +50,10 @@ public class OwnedOrganizationDeletionGuard
     /// <param name="cancellationToken">Cancellation token.</param>
     public async Task<ErrorOr<Success>> EnsureDeletableAsync(Guid userId, CancellationToken cancellationToken)
     {
-        var ownedOrganizations = await _organizationRepository.GetByOwnerAsync(userId, cancellationToken);
-        if (ownedOrganizations.Count == 0)
+        var (ownedOrganizations, blocking) = await EvaluateAsync(userId, cancellationToken);
+        if (blocking is not null)
         {
-            return Result.Success;
-        }
-
-        var ownedOrgIds = ownedOrganizations.Select(o => o.Id).ToList();
-        var memberCounts = await _organizationRepository.GetMemberCountsAsync(ownedOrgIds, cancellationToken);
-
-        // A count > 1 means members beyond the owner's own membership.
-        var blockingOrg = ownedOrganizations
-            .FirstOrDefault(o => memberCounts.GetValueOrDefault(o.Id) > 1);
-        if (blockingOrg is not null)
-        {
-            return blockingOrg.IsAutoCreated
-                ? UserErrors.CannotDeletePersonalOrganizationWithMembers
-                : UserErrors.CannotDeleteOrganizationOwner;
+            return blocking.Value;
         }
 
         // All owned organizations are sole-member: remove them with the
@@ -65,5 +67,35 @@ public class OwnedOrganizationDeletionGuard
         }
 
         return Result.Success;
+    }
+
+    /// <summary>
+    /// The rule itself, evaluated once: the organizations the user owns and the
+    /// error that blocks deletion, if any. Kept private so the read-only and
+    /// side-effecting entry points can never drift apart.
+    /// </summary>
+    private async Task<(IReadOnlyList<Organization> Owned, Error? Blocking)> EvaluateAsync(
+        Guid userId, CancellationToken cancellationToken)
+    {
+        var ownedOrganizations = await _organizationRepository.GetByOwnerAsync(userId, cancellationToken);
+        if (ownedOrganizations.Count == 0)
+        {
+            return (ownedOrganizations, null);
+        }
+
+        var ownedOrgIds = ownedOrganizations.Select(o => o.Id).ToList();
+        var memberCounts = await _organizationRepository.GetMemberCountsAsync(ownedOrgIds, cancellationToken);
+
+        // A count > 1 means members beyond the owner's own membership.
+        var blockingOrg = ownedOrganizations
+            .FirstOrDefault(o => memberCounts.GetValueOrDefault(o.Id) > 1);
+        if (blockingOrg is null)
+        {
+            return (ownedOrganizations, null);
+        }
+
+        return (ownedOrganizations, blockingOrg.IsAutoCreated
+            ? UserErrors.CannotDeletePersonalOrganizationWithMembers
+            : UserErrors.CannotDeleteOrganizationOwner);
     }
 }

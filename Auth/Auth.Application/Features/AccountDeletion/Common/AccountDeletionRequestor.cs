@@ -48,6 +48,34 @@ public class AccountDeletionRequestor
     }
 
     /// <summary>
+    /// The deterministic, side-effect-free reasons a deletion request would be
+    /// refused: the system account, one already in flight, or an owned
+    /// organization that still has other members. A caller about to consume a
+    /// single-use re-authentication code runs this FIRST, so a foreseeable
+    /// conflict refuses the request without burning the user's code.
+    /// <para>
+    /// Only for callers that have already identified the account by some means
+    /// other than the code — these errors reveal account state, so an anonymous
+    /// caller must prove email possession before it may learn any of them.
+    /// </para>
+    /// </summary>
+    public async Task<ErrorOr<Success>> EnsureRequestableAsync(
+        User user, CancellationToken cancellationToken)
+    {
+        if (user.IsSystemUser || user.Id == WellKnownUserIds.System)
+        {
+            return UserErrors.CannotDeleteSystemUser;
+        }
+
+        if (await _requestRepository.GetActiveByUserIdAsync(user.Id, cancellationToken) is not null)
+        {
+            return UserErrors.DeletionAlreadyRequested;
+        }
+
+        return await _organizationGuard.CheckBlockingAsync(user.Id, cancellationToken);
+    }
+
+    /// <summary>
     /// Starts the two-phase deletion for an already re-authenticated user:
     /// creates the grace-period request, hides the account everywhere
     /// (IsDeleted), revokes every session/token/SSO cookie and publishes
@@ -56,6 +84,10 @@ public class AccountDeletionRequestor
     public async Task<ErrorOr<AccountDeletionRequest>> RequestAsync(
         User user, AccountDeletionSource source, CancellationToken cancellationToken)
     {
+        // Re-checked here even when a caller already ran EnsureRequestableAsync:
+        // that precheck exists to save the user's code, not to be trusted as the
+        // gate. This is the authoritative evaluation, inside the operation.
+        //
         // The well-known id check is the effective system guard: no query
         // populates IsSystemUser (the Users table has no such column).
         if (user.IsSystemUser || user.Id == WellKnownUserIds.System)

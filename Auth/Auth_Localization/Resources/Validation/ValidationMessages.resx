@@ -382,9 +382,6 @@
   </data>
 
   <!-- ==================== Account Deletion ==================== -->
-  <data name="Validation.Reauthentication.Required" xml:space="preserve">
-    <value>Confirm with your current password or a verification code.</value>
-  </data>
   <data name="Validation.OtpCode.Required" xml:space="preserve">
     <value>Verification code is required.</value>
   </data>

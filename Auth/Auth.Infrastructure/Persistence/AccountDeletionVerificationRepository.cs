@@ -42,18 +42,20 @@ public class AccountDeletionVerificationRepository : IAccountDeletionVerificatio
     }
 
     /// <inheritdoc />
-    public async Task<AccountDeletionVerification?> GetValidForEmailAsync(string email, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<AccountDeletionVerification>> GetValidForEmailAsync(
+        string email, int maxCandidates, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        var dto = await connection.QueryFirstOrDefaultAsync<VerificationDto>(@"
-            SELECT TOP 1 [Id], [UserId], [Email], [OtpHash], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt]
+        var dtos = await connection.QueryAsync<VerificationDto>(@"
+            SELECT TOP (@MaxCandidates)
+                   [Id], [UserId], [Email], [OtpHash], [ExpiresAt], [UsedAt], [AttemptCount], [CreatedAt]
             FROM [dbo].[AccountDeletionVerifications]
             WHERE [Email] = @Email AND [UsedAt] IS NULL AND [ExpiresAt] > GETUTCDATE()
             ORDER BY [CreatedAt] DESC",
-            new { Email = email.ToLowerInvariant() });
+            new { Email = email.ToLowerInvariant(), MaxCandidates = maxCandidates });
 
-        return dto?.ToEntity();
+        return dtos.Select(dto => dto.ToEntity()).ToList();
     }
 
     /// <inheritdoc />

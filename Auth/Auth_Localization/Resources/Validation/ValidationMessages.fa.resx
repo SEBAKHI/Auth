@@ -382,9 +382,6 @@
   </data>
 
   <!-- ==================== Account Deletion ==================== -->
-  <data name="Validation.Reauthentication.Required" xml:space="preserve">
-    <value>با گذرواژه فعلی یا یک کد تأیید، عملیات را تأیید کنید.</value>
-  </data>
   <data name="Validation.OtpCode.Required" xml:space="preserve">
     <value>کد تأیید الزامی است.</value>
   </data>
