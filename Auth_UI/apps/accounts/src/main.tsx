@@ -4,7 +4,12 @@ import { createRoot } from "react-dom/client"
 import "./index.css"
 import { initI18n } from "@authsystem/i18n"
 import App from "./App.tsx"
+import { installChunkLoadRecovery } from "@authsystem/ui/common/chunk-recovery"
 import { ThemeProvider } from "@authsystem/ui/theme-provider.tsx"
+
+// Registered before anything is imported on demand: a chunk removed by a deploy
+// can fail during preload, which never reaches a route error boundary.
+installChunkLoadRecovery()
 
 // Locale bundles load on demand, so the active language must be in place before the
 // first paint — otherwise the app renders a frame of raw translation keys.

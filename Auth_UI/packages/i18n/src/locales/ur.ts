@@ -1644,6 +1644,8 @@ export const ur: TranslationResources = {
     forbiddenBody: "آپ کو یہ صفحہ دیکھنے کی اجازت نہیں ہے۔",
     goHome: "ڈیش بورڈ پر جائیں",
     generic: "کچھ غلط ہو گیا۔ براہ کرم دوبارہ کوشش کریں۔",
+    unexpectedTitle: "کچھ غلط ہو گیا",
+    reload: "صفحہ دوبارہ لوڈ کریں",
     uploadFailed: "تصویر اپ لوڈ ناکام (HTTP {{status}})۔",
   },
 }

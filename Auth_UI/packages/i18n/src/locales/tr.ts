@@ -1656,6 +1656,8 @@ export const tr: TranslationResources = {
     forbiddenBody: "Bu sayfayı görüntüleme izniniz yok.",
     goHome: "Kontrol paneline git",
     generic: "Bir şeyler ters gitti. Lütfen tekrar deneyin.",
+    unexpectedTitle: "Bir şeyler ters gitti",
+    reload: "Sayfayı yeniden yükle",
     uploadFailed: "Görsel yükleme başarısız (HTTP {{status}}).",
   },
 }

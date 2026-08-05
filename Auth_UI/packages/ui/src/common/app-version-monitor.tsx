@@ -1,29 +1,14 @@
 import * as React from "react"
 
-import { detectAvailableAppUpdate, normalizeAppEntryUrl } from "./app-version"
+import {
+  clearCacheBustParameter,
+  currentModuleEntry,
+  detectAvailableAppUpdate,
+  reloadWithCacheBust,
+} from "./app-version"
 
 const DEFAULT_CHECK_INTERVAL_MS = 60_000
 const UPDATE_TARGET_STORAGE_KEY = "auth.ui.update-target"
-
-function currentModuleEntry(origin: string): string | null {
-  const source = document.querySelector<HTMLScriptElement>(
-    'script[type="module"][src]'
-  )?.src
-  return source ? normalizeAppEntryUrl(source, origin) : null
-}
-
-function reloadWithCacheBust(): void {
-  const url = new URL(window.location.href)
-  url.searchParams.set("__app_update", Date.now().toString())
-  window.location.replace(url.href)
-}
-
-function clearCacheBustParameter(): void {
-  const url = new URL(window.location.href)
-  if (!url.searchParams.has("__app_update")) return
-  url.searchParams.delete("__app_update")
-  window.history.replaceState(window.history.state, "", url.href)
-}
 
 function readAttemptedTarget(): string | null {
   try {

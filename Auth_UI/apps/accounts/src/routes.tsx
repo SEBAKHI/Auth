@@ -3,6 +3,7 @@ import { createBrowserRouter, Navigate } from "react-router-dom"
 import { RequireAnonymous, RequireAuth } from "@authsystem/auth/require-auth"
 import { crumb } from "@authsystem/ui/crumbs"
 import { NotFoundPage } from "@authsystem/ui/error-pages/not-found"
+import { RouteErrorBoundary } from "@authsystem/ui/error-pages/route-error"
 import { lazyRoute, RouteFallback } from "@authsystem/ui/lazy-route"
 
 import { AccountShell } from "@/components/account-shell"
@@ -21,6 +22,9 @@ export const router = createBrowserRouter([
     // Pathless root purely to own the hydrate fallback, so a cold load of any lazy
     // route shows a spinner instead of nothing. Matching is unaffected.
     HydrateFallback: RouteFallback,
+    // Every descendant bubbles its errors here. Without it a chunk that a deploy
+    // removed took the whole tab blank, silently.
+    errorElement: <RouteErrorBoundary />,
     children: [
   {
     element: <RequireAnonymous />,

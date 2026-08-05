@@ -1581,6 +1581,8 @@ export const zh: TranslationResources = {
     forbiddenBody: "您没有权限查看此页面。",
     goHome: "前往仪表盘",
     generic: "出了点问题，请重试。",
+    unexpectedTitle: "出了点问题",
+    reload: "重新加载页面",
     uploadFailed: "图片上传失败（HTTP {{status}}）。",
   },
 }

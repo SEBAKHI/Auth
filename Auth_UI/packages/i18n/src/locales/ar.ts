@@ -1626,6 +1626,8 @@ export const ar: TranslationResources = {
     forbiddenBody: "ليس لديك صلاحية لعرض هذه الصفحة.",
     goHome: "الذهاب إلى لوحة التحكم",
     generic: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
+    unexpectedTitle: "حدث خطأ غير متوقع",
+    reload: "أعد تحميل الصفحة",
     uploadFailed: "فشل رفع الصورة (HTTP {{status}}).",
   },
 }

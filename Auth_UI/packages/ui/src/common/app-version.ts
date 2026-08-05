@@ -3,6 +3,37 @@ export function normalizeAppEntryUrl(value: string, origin: string): string {
   return `${url.origin}${url.pathname}${url.search}`
 }
 
+/**
+ * The fingerprinted module entry this document is currently running.
+ *
+ * Doubles as a deployment identity: it changes on every build, so "am I still on
+ * the entry I already tried to recover from?" is answerable without a counter.
+ */
+export function currentModuleEntry(origin: string): string | null {
+  const source = document.querySelector<HTMLScriptElement>(
+    'script[type="module"][src]'
+  )?.src
+  return source ? normalizeAppEntryUrl(source, origin) : null
+}
+
+/**
+ * Same-page navigation carrying a cache-busting parameter, so an intermediary
+ * holding the old shell cannot answer the reload with the same stale document.
+ */
+export function reloadWithCacheBust(): void {
+  const url = new URL(window.location.href)
+  url.searchParams.set("__app_update", Date.now().toString())
+  window.location.replace(url.href)
+}
+
+/** Removes the cache-busting parameter once the reload has landed. */
+export function clearCacheBustParameter(): void {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has("__app_update")) return
+  url.searchParams.delete("__app_update")
+  window.history.replaceState(window.history.state, "", url.href)
+}
+
 /** Returns the JavaScript entry referenced by a Vite index document. */
 export function moduleEntryFromHtml(
   html: string,

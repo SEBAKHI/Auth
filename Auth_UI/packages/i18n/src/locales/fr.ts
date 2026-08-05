@@ -1719,6 +1719,8 @@ export const fr: TranslationResources = {
     forbiddenBody: "Vous n'avez pas la permission de voir cette page.",
     goHome: "Aller au tableau de bord",
     generic: "Une erreur est survenue. Veuillez réessayer.",
+    unexpectedTitle: "Une erreur est survenue",
+    reload: "Recharger la page",
     uploadFailed: "Échec du téléversement de l'image (HTTP {{status}}).",
   },
 }

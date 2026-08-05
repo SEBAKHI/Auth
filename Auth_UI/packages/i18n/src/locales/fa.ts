@@ -1666,6 +1666,8 @@ export const fa: TranslationResources = {
     forbiddenBody: "شما اجازه مشاهده این صفحه را ندارید.",
     goHome: "رفتن به داشبورد",
     generic: "مشکلی پیش آمد. لطفاً دوباره تلاش کنید.",
+    unexpectedTitle: "مشکلی پیش آمد",
+    reload: "بارگذاری مجدد صفحه",
     uploadFailed: "بارگذاری تصویر ناموفق بود (HTTP {{status}}).",
   },
 }

@@ -1641,6 +1641,8 @@ export const en = {
     forbiddenBody: "You don't have permission to view this page.",
     goHome: "Go to dashboard",
     generic: "Something went wrong. Please try again.",
+    unexpectedTitle: "Something went wrong",
+    reload: "Reload the page",
     uploadFailed: "Image upload failed (HTTP {{status}}).",
   },
 }
