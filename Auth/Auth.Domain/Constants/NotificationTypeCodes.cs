@@ -16,8 +16,26 @@ public static class NotificationTypeCodes
     public const string AccountDeletionVerification = "account-deletion-verification";
     public const string AccountDeletionCancelled = "account-deletion-cancelled";
     public const string AccountDeletionCompleted = "account-deletion-completed";
+
+    /// <summary>
+    /// An administrator permanently destroyed the account. Deliberately a
+    /// SEPARATE type from <see cref="AccountDeletionCompleted"/>, whose copy
+    /// says "as you requested" — true of the self-service path and false here.
+    /// Telling someone their own deletion request was honoured when an admin
+    /// deleted them is a worse disclosure than sending nothing.
+    /// </summary>
+    public const string AccountDeletedByAdmin = "account-deleted-by-admin";
     public const string PrivacyPolicyUpdated = "privacy-policy-updated";
     public const string NewDeviceSignIn = "new-device-sign-in";
+
+    /// <summary>
+    /// A spent refresh token was presented a second time, so every token and
+    /// session the account held was revoked. Distinct from a voluntary
+    /// "sign out everywhere": the owner did not ask for this and was signed out
+    /// of every device on the strength of a suspicion, which is precisely why
+    /// they have to hear about it.
+    /// </summary>
+    public const string SessionsRevokedTokenReuse = "sessions-revoked-token-reuse";
 
     /// <summary>
     /// System types that back critical auth flows; their global templates must
@@ -27,10 +45,14 @@ public static class NotificationTypeCodes
         [
             EmailVerification, PasswordReset, OrganizationInvitation, OwnershipTransferCode, OwnershipTransferred,
             AccountDeletionRequested, AccountDeletionVerification, AccountDeletionCancelled, AccountDeletionCompleted,
+            AccountDeletedByAdmin,
             PrivacyPolicyUpdated,
             // A security notice: if its template were ever unpublished, the
             // account owner would silently stop hearing about new sign-ins.
-            NewDeviceSignIn
+            NewDeviceSignIn,
+            // Likewise: unpublishing this one would mean accounts get signed
+            // out of every device over a suspected theft, in silence.
+            SessionsRevokedTokenReuse
         ];
 
     /// <summary>

@@ -752,6 +752,9 @@
   <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
     <value>این زبان برای سیاست حریم خصوصی پشتیبانی نمی‌شود.</value>
   </data>
+  <data name="PrivacyPolicy.ControllerDetailsIncomplete" xml:space="preserve">
+    <value>تا زمانی که اطلاعات کنترل‌کننده داده تکمیل نشود، سیاست حریم خصوصی منتشر نمی‌شود.</value>
+  </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>نام این نسخه سیاست قابل تغییر نیست: منتشر شده یا اعلان تغییر آن ارسال شده است.</value>
   </data>

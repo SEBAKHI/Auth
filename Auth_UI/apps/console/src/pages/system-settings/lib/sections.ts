@@ -35,6 +35,7 @@ export const SECTION_I18N: Record<string, string> = {
   ImageStorage: "imageStorage",
   AccountDeletion: "accountDeletionSection",
   DataRetention: "dataRetention",
+  DataController: "dataController",
   Maintenance: "maintenance",
   HealthChecks: "healthChecks",
   Serilog: "serilog",

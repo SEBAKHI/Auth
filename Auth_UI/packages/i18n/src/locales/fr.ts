@@ -1016,6 +1016,14 @@ export const fr: TranslationResources = {
     "policyToken_otpValidityMinutes": "Durée de validité du code de vérification de suppression, en minutes.",
     "policyToken_loginAttemptRetentionDays": "Durée de conservation des tentatives de connexion, en jours.",
     "policyToken_outboxRetentionDays": "Durée de conservation des e-mails envoyés, en jours.",
+    "policyToken_identifierReservationDays":
+      "Durée pendant laquelle un e-mail supprimé reste bloqué au réenregistrement, en jours.",
+    "policyToken_legalName": "Dénomination sociale du responsable du traitement.",
+    "policyToken_address": "Adresse enregistrée du responsable du traitement.",
+    "policyToken_privacyEmail": "Boîte surveillée pour les demandes de confidentialité et de droits.",
+    "policyToken_emailProvider": "Fournisseur d'envoi d'e-mails nommé dans la section partage.",
+    "policyToken_hostingProvider": "Hébergeur nommé dans la section partage.",
+    "policyToken_hostingCountry": "Pays d'hébergement du service (nom seul).",
     "overviewPolicy": "Versions de la politique",
     "overviewViewPolicy": "Voir la politique",
     "overviewPolicyHint": "{{count}} langues rédigées",
@@ -1467,6 +1475,34 @@ export const fr: TranslationResources = {
         "Code confirmant une demande de suppression publique. Recommandé : 15.",
       identifierHmacKeyPlain: "Clé de hachage des identifiants",
     },
+    dataController: {
+      title: "Responsable du traitement",
+      description:
+        "L'identité légale publiée dans votre politique de confidentialité. Une politique ne peut pas être publiée tant que les champs obligatoires ne sont pas renseignés — une information qui ne nomme pas son responsable ne satisfait ni l'art. 10 de la KVKK ni l'art. 13 du RGPD.",
+      legalName: "Dénomination sociale",
+      legalNameHint: "Raison sociale enregistrée, exactement telle qu'elle doit apparaître.",
+      address: "Adresse enregistrée",
+      addressHint: "Adresse postale complète telle qu'elle doit figurer dans la politique.",
+      privacyEmail: "E-mail de contact confidentialité",
+      privacyEmailHint:
+        "Une boîte SURVEILLÉE — les demandes d'exercice de droits y arrivent et doivent être traitées sous 30 jours.",
+      emailProvider: "Fournisseur d'envoi d'e-mails",
+      emailProviderHint: "Nommé dans « avec qui nous partageons les données ».",
+      hostingProvider: "Hébergeur",
+      hostingProviderHint: "Nommé dans « avec qui nous partageons les données ».",
+      hostingCountry: "Pays d'hébergement",
+      hostingCountryHint:
+        "Nom du pays seul, sans préposition — les phrases turque et française ajoutent la leur.",
+      dpoContact: "Délégué à la protection des données",
+      dpoContactHint:
+        "Facultatif. Laisser vide pour omettre la ligne ; le RGPD ne l'exige que dans certains cas.",
+      verbisNo: "Numéro d'enregistrement VERBİS",
+      verbisNoHint:
+        "Facultatif. À renseigner uniquement si le responsable atteint les seuils d'enregistrement turcs.",
+      kepAddress: "Courriel enregistré (KEP)",
+      kepAddressHint:
+        "Facultatif. Adresse électronique enregistrée turque, l'un des canaux de demande prévus par la KVKK.",
+    },
     dataRetention: {
       title: "Confidentialité et conservation des données",
       description:
@@ -1481,6 +1517,12 @@ export const fr: TranslationResources = {
       outboxRetentionDays: "Conservation de la boîte d'envoi (jours)",
       outboxRetentionDaysHint:
         "Conservation du journal des notifications livrées. Recommandé : 180.",
+      auditLogRetentionDays: "Conservation du journal d'audit (jours)",
+      auditLogRetentionDaysHint:
+        "Conservation de l'historique d'audit. Le minimum correspond aux trois ans promis par la politique publiée. Recommandé : 1095.",
+      identifierReservationDays: "Réservation de l'identifiant (jours)",
+      identifierReservationDaysHint:
+        "Durée pendant laquelle un e-mail supprimé reste bloqué au réenregistrement. Jamais appliquée plus courte que la conservation du journal d'audit. Recommandé : 1095.",
     },
     maintenance: {
       title: "Maintenance",

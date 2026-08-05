@@ -1,10 +1,23 @@
 namespace Auth.Application.Interfaces;
 
 /// <summary>
-/// Computes stable, keyed one-way hashes of account identifiers for the
-/// zero-PII tombstone registry (HMAC-SHA256 with a dedicated permanent key).
-/// The hashes must remain comparable forever — identifier reservations never
-/// expire — so the underlying key is never rotated.
+/// Computes stable, keyed one-way digests of account identifiers for the
+/// destruction registry (HMAC-SHA256 with a dedicated key).
+///
+/// <para>
+/// The key is not rotatable in place: a digest written under one key cannot be
+/// compared against a digest computed under another, so every live reservation
+/// depends on the key staying available. Rotation is possible only alongside
+/// the tombstone's KeyVersion column, and only for rows whose reservation
+/// window has already elapsed.
+/// </para>
+///
+/// <para>
+/// Because the key is retained, these digests are pseudonymous — not anonymous.
+/// Anyone holding the key can test a candidate address against one, which is
+/// precisely what the reservation check does on every registration. The
+/// registry is therefore swept on a schedule like any other personal data.
+/// </para>
 /// </summary>
 public interface IIdentifierHasher
 {
@@ -12,9 +25,4 @@ public interface IIdentifierHasher
     /// Hashes an email address (case- and whitespace-insensitive).
     /// </summary>
     string HashEmail(string email);
-
-    /// <summary>
-    /// Hashes a username (case- and whitespace-insensitive).
-    /// </summary>
-    string HashUsername(string username);
 }

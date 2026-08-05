@@ -89,12 +89,20 @@ if (storageMode != SecretStorageMode.PlainText)
 // Gateway Configuration
 var gatewayToken = builder.Configuration["Gateway:Token"];
 
-// In production, gateway token must be configured (via DPAPI secrets file)
-if (string.IsNullOrEmpty(gatewayToken) && !builder.Environment.IsDevelopment())
+// In production, gateway token must be configured (via DPAPI secrets file).
+// Driven by the shared RequiredSecretsRegistry so this process and the Auth API
+// declare their secrets in one place: the token the gateway stamps and the one
+// the API expects are the same secret, and drift between them rejects every
+// proxied request while both processes look healthy.
+var missingGatewaySecrets = RequiredSecretsRegistry.FindMissing(
+    key => builder.Configuration[key], RequiredSecretsRegistry.Gateway);
+
+if (missingGatewaySecrets.Count > 0 && !builder.Environment.IsDevelopment())
 {
     throw new InvalidOperationException(
-        "Gateway token is not configured. In production, ensure the DPAPI secrets file " +
-        "contains the GatewayToken. File location: " + SecretConfigurationExtensions.GetDefaultSecretFilePath());
+        $"Refusing to start: missing required secret(s) [{string.Join(", ", missingGatewaySecrets.Select(s => s.ConfigurationKey))}]. " +
+        "Ensure the encrypted secrets file contains the GatewayToken. File location: " +
+        SecretConfigurationExtensions.GetDefaultSecretFilePath());
 }
 
 // YARP Reverse Proxy

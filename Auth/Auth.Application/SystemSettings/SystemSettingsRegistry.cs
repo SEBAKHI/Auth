@@ -287,7 +287,42 @@ public static class SystemSettingsRegistry
             [
                 new SettingFieldDefinition("PolicyVersion", SettingKind.String, DefaultValue: "2026.07"),
                 new SettingFieldDefinition("LoginAttemptRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 365),
-                new SettingFieldDefinition("OutboxRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 180)
+                new SettingFieldDefinition("OutboxRetentionDays", SettingKind.Int, Min: 30, Max: 3650, DefaultValue: 180),
+                // Floor of 1095, not 30: the published privacy policy commits to
+                // keeping the security record for at least three years, so the
+                // console must not be able to shorten it below what users were
+                // told. The Max is the ceiling the same policy owes them.
+                new SettingFieldDefinition("AuditLogRetentionDays", SettingKind.Int, Min: 1095, Max: 3650, DefaultValue: 1095),
+                // How long a destroyed e-mail stays blocked from re-registration.
+                // The sweep raises whatever is set here to at least
+                // AuditLogRetentionDays, so a shorter value cannot release an
+                // address while records still keyed to it survive.
+                new SettingFieldDefinition("IdentifierReservationDays", SettingKind.Int, Min: 1095, Max: 3650, DefaultValue: 1095)
+            ]),
+
+        // The legal identity published in the privacy policy. A settings section
+        // rather than a code constant because the values differ per deployment
+        // and are quoted verbatim in a document that must name the controller.
+        // ConfigRoot is its own, not AccountDeletion: every full key must belong
+        // to exactly one section (SystemSettingsRegistryTests enforces it).
+        new SettingSectionDefinition(
+            Key: "DataController",
+            ConfigRoot: "DataController",
+            Group: SettingGroups.Operations,
+            Editable: true,
+            Fields:
+            [
+                new SettingFieldDefinition("LegalName", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("Address", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("PrivacyEmail", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("EmailProvider", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("HostingProvider", SettingKind.String, DefaultValue: ""),
+                // Bare country name: the Turkish and French policy sentences
+                // supply their own preposition and case suffix around it.
+                new SettingFieldDefinition("HostingCountry", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("DpoContact", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("VerbisNo", SettingKind.String, DefaultValue: ""),
+                new SettingFieldDefinition("KepAddress", SettingKind.String, DefaultValue: "")
             ]),
 
         new SettingSectionDefinition(

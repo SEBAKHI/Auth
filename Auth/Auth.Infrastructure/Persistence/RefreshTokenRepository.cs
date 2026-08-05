@@ -87,7 +87,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task RevokeAllForUserAsync(
+    public async Task<int> RevokeAllForUserAsync(
         Guid userId,
         Guid? revokedBy,
         string reason,
@@ -95,7 +95,7 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(
+        return await connection.ExecuteScalarAsync<int>(
             "EXEC [dbo].[sp_RevokeAllUserTokens] @UserId, @RevokedBy, @ReasonRevoked",
             new
             {

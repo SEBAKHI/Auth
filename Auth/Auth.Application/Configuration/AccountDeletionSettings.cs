@@ -45,6 +45,58 @@ public class AccountDeletionSettings
     public int OutboxRetentionDays { get; set; } = 180;
 
     /// <summary>
+    /// Retention of AuditLogs rows before the sweep purges them. Default 1095
+    /// days = the three years the published privacy policy commits to; the
+    /// settings registry floors it there so an operator cannot shorten the
+    /// period below what users were told.
+    /// <para>
+    /// A ceiling is mandatory, not optional: an unbounded audit log is an
+    /// undisclosed indefinite retention period, and it also makes any finite
+    /// identifier-reservation window unsound — an address can only be safely
+    /// released once every record still keyed to it has expired.
+    /// </para>
+    /// </summary>
+    public int AuditLogRetentionDays { get; set; } = 1095;
+
+    /// <summary>
+    /// How long a destroyed identifier stays reserved before the sweep deletes
+    /// its tombstone and the address becomes registrable again.
+    /// <para>
+    /// This is a quarantine period, not a punishment, and its length is derived
+    /// rather than chosen: an address may only be released once every record
+    /// still keyed to it has expired. The effective window is therefore never
+    /// shorter than <see cref="AuditLogRetentionDays"/> — see
+    /// <c>EffectiveIdentifierReservationDays</c>, which enforces that at the
+    /// sweep so no console value can break the invariant.
+    /// </para>
+    /// <para>
+    /// The previous behaviour was "permanent", which could not be reconciled
+    /// with the published claim that the record is anonymous: a keyed digest is
+    /// reversible by anyone holding the key, and the key must be kept for the
+    /// reservation to work at all. A bounded window is what makes the promise
+    /// and the implementation the same statement.
+    /// </para>
+    /// </summary>
+    public int IdentifierReservationDays { get; set; } = 1095;
+
+    /// <summary>
+    /// Version stamped on tombstones written by this process, recording which
+    /// identifier HMAC key produced the digest. Deliberately NOT exposed in the
+    /// settings console: it is meaningless on its own and only ever changes
+    /// together with the key material itself.
+    /// </summary>
+    public byte IdentifierKeyVersion { get; set; } = 1;
+
+    /// <summary>
+    /// The reservation window actually applied by the sweep: never shorter than
+    /// the audit-log retention period, because releasing an address while
+    /// records still keyed to it survive is what lets a new holder inherit the
+    /// previous one's history.
+    /// </summary>
+    public int EffectiveIdentifierReservationDays =>
+        Math.Max(IdentifierReservationDays, AuditLogRetentionDays);
+
+    /// <summary>
     /// Retention-policy version stamped on tombstones and deletion requests
     /// (format "YYYY.MM"). Bump when the documented retention policy changes.
     /// </summary>

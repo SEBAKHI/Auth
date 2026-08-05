@@ -37,5 +37,20 @@ export const FALLBACK_DISCLOSURE: PolicyDisclosure = {
   otpValidityMinutes: 15,
   loginAttemptRetentionDays: 365,
   outboxRetentionDays: 180,
+  identifierReservationDays: 1095,
   policyVersion: POLICY_VERSION,
+  // Controller identity now comes from the API. These bracketed values are the
+  // OFFLINE fallback only: they keep the sentence self-describing when the API
+  // is unreachable, and hasUnfilledControllerDetails() treats the "[" as
+  // unfilled so the draft banner shows rather than a silent hole in a legal
+  // document. The real values live in System Settings -> Data controller.
+  legalName: "[LEGAL ENTITY NAME]",
+  address: "[REGISTERED ADDRESS]",
+  privacyEmail: "[PRIVACY CONTACT EMAIL]",
+  emailProvider: "[EMAIL DELIVERY PROVIDER]",
+  hostingProvider: "[HOSTING PROVIDER]",
+  hostingCountry: "[HOSTING COUNTRY]",
+  dpoContact: "",
+  verbisNo: "",
+  kepAddress: "",
 }

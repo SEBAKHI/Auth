@@ -26,9 +26,14 @@ export async function uploadImage(
       body,
     })
 
-  let res = await send(await ensureFreshAccessToken())
+  const token = await ensureFreshAccessToken()
+  let res = await send(token)
 
-  if (res.status === 401 && getRefreshToken() && (await sharedRefresh())) {
+  // Retry only when we actually presented a token. A 401 on a request that
+  // carried none is a foregone conclusion, and refreshing here would spend the
+  // same dead refresh token a second time — which the server reports as reuse
+  // and answers by revoking every session the account has.
+  if (res.status === 401 && token && getRefreshToken() && (await sharedRefresh())) {
     res = await send(await ensureFreshAccessToken())
   }
 

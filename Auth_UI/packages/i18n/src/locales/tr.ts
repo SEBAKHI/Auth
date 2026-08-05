@@ -1001,6 +1001,14 @@ export const tr: TranslationResources = {
     "policyToken_otpValidityMinutes": "Silme doğrulama kodunun geçerlilik süresi (dakika).",
     "policyToken_loginAttemptRetentionDays": "Oturum açma denemesi kayıtlarının saklanma süresi (gün).",
     "policyToken_outboxRetentionDays": "Gönderilen e-posta kayıtlarının saklanma süresi (gün).",
+    "policyToken_identifierReservationDays":
+      "Silinen bir e-postanın yeniden kayda kapalı kalma süresi (gün).",
+    "policyToken_legalName": "Veri sorumlusunun tescilli unvanı.",
+    "policyToken_address": "Veri sorumlusunun tescilli adresi.",
+    "policyToken_privacyEmail": "Gizlilik ve hak talepleri için izlenen e-posta kutusu.",
+    "policyToken_emailProvider": "Paylaşım bölümünde adı geçen e-posta gönderim sağlayıcısı.",
+    "policyToken_hostingProvider": "Paylaşım bölümünde adı geçen barındırma sağlayıcısı.",
+    "policyToken_hostingCountry": "Hizmetin barındırıldığı ülke (yalnızca ad).",
     "overviewPolicy": "Gizlilik politikası sürümleri",
     "overviewViewPolicy": "Politikayı görüntüle",
     "overviewPolicyHint": "{{count}} dil yazıldı",
@@ -1414,6 +1422,30 @@ export const tr: TranslationResources = {
       otpExpirationMinutesHint: "Genel bir silme talebini onaylayan kod. Önerilen: 15.",
       identifierHmacKeyPlain: "Tanımlayıcı karma anahtarı",
     },
+    dataController: {
+      title: "Veri sorumlusu",
+      description:
+        "Gizlilik politikanızda yayımlanan yasal kimlik. Zorunlu alanlar doldurulmadan politika yayımlanamaz — veri sorumlusunu adıyla belirtmeyen bir aydınlatma metni KVKK m.10 ve GDPR m.13 gereğini karşılamaz.",
+      legalName: "Tüzel kişilik unvanı",
+      legalNameHint: "Tescilli unvan, görünmesi gerektiği şekliyle.",
+      address: "Tescilli adres",
+      addressHint: "Politikada görünecek tam posta adresi.",
+      privacyEmail: "Gizlilik iletişim e-postası",
+      privacyEmailHint: "İZLENEN bir kutu — hak talepleri buraya ulaşır ve 30 gün içinde yanıtlanmalıdır.",
+      emailProvider: "E-posta gönderim sağlayıcısı",
+      emailProviderHint: "\"Verileri kimlerle paylaşıyoruz\" bölümünde adı geçer.",
+      hostingProvider: "Barındırma sağlayıcısı",
+      hostingProviderHint: "\"Verileri kimlerle paylaşıyoruz\" bölümünde adı geçer.",
+      hostingCountry: "Barındırma ülkesi",
+      hostingCountryHint:
+        "Yalnızca ülke adı, ek veya edat olmadan — Türkçe ve Fransızca cümleler kendi ekini ekler.",
+      dpoContact: "Veri koruma görevlisi",
+      dpoContactHint: "İsteğe bağlı. Boş bırakılırsa satır gösterilmez; GDPR yalnızca belirli hâllerde zorunlu kılar.",
+      verbisNo: "VERBİS kayıt numarası",
+      verbisNoHint: "İsteğe bağlı. Yalnızca veri sorumlusu VERBİS kayıt eşiklerini karşılıyorsa doldurun.",
+      kepAddress: "Kayıtlı e-posta (KEP)",
+      kepAddressHint: "İsteğe bağlı. KVKK başvuru kanallarından biri olan kayıtlı elektronik posta adresi.",
+    },
     dataRetention: {
       title: "Gizlilik ve veri saklama",
       description:
@@ -1426,6 +1458,12 @@ export const tr: TranslationResources = {
         "Güvenlik günlüğü saklama süresi; gizlilik politikanızla uyumlu tutun. Önerilen: 365.",
       outboxRetentionDays: "Giden kutusu saklama (gün)",
       outboxRetentionDaysHint: "Teslim edilen bildirim günlüğünün saklama süresi. Önerilen: 180.",
+      auditLogRetentionDays: "Denetim kaydı saklama (gün)",
+      auditLogRetentionDaysHint:
+        "Denetim geçmişinin saklama süresi. Alt sınır, yayımlanan politikanın taahhüt ettiği üç yıldır. Önerilen: 1095.",
+      identifierReservationDays: "Tanımlayıcı rezervasyonu (gün)",
+      identifierReservationDaysHint:
+        "Silinen bir e-postanın yeniden kayda kapalı kalma süresi. Denetim kaydı saklama süresinden kısa uygulanmaz. Önerilen: 1095.",
     },
     maintenance: {
       title: "Bakım",

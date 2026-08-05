@@ -1,4 +1,3 @@
-import { CONTROLLER } from "./details"
 import type { PrivacyPolicyContent } from "./types"
 
 export const zh: PrivacyPolicyContent = {
@@ -11,7 +10,7 @@ export const zh: PrivacyPolicyContent = {
   contactVerbisLabel: "VERBİS 登记号",
   contactKepLabel: "注册电子邮箱（KEP）",
   intro: [
-    `本政策说明 ${CONTROLLER.legalName} 账户服务收集哪些个人数据、收集原因、保存期限，以及您对这些数据享有的权利——包括如何删除您的账户及其所有关联数据。`,
+    `本政策说明 {{legalName}} 账户服务收集哪些个人数据、收集原因、保存期限，以及您对这些数据享有的权利——包括如何删除您的账户及其所有关联数据。`,
     "本政策同时履行土耳其第 6698 号《个人数据保护法》（KVKK，我们的首要合规框架）第 10 条规定的告知义务，并按照欧盟/欧洲经济区《通用数据保护条例》（GDPR）及经修订的《加州消费者隐私法》（CCPA/CPRA）的要求撰写。本政策所述的各项控制权面向每一位用户提供，与所在地无关。",
   ],
   sections: [
@@ -59,15 +58,15 @@ export const zh: PrivacyPolicyContent = {
       ],
       bullets: [
         "Google（Google 登录）和 Apple（Apple 登录）——仅当您选择使用它们登录时；相关交换受其各自隐私政策约束。",
-        `我们的邮件发送服务商 ${CONTROLLER.emailProvider}，用于发送上述服务邮件。`,
-        `我们的托管服务商 ${CONTROLLER.hostingProvider}，负责存储服务数据。`,
+        `我们的邮件发送服务商 {{emailProvider}}，用于发送上述服务邮件。`,
+        `我们的托管服务商 {{hostingProvider}}，负责存储服务数据。`,
         "公共机关——仅在有效的法律要求强制我们时。",
       ],
     },
     {
       heading: "跨境传输",
       paragraphs: [
-        `本服务托管于 ${CONTROLLER.hostingCountry}。个人数据传出土耳其时，依照 KVKK 第 9 条进行：存在个人数据保护委员会充分性决定的，依据该决定；否则依据该条规定的适当保障措施（例如委员会发布的标准合同，并按要求向监管机构备案）。数据传出欧洲经济区或英国时，我们另行依据充分性决定或欧盟委员会的标准合同条款。下述安全措施在任何情况下均适用。`,
+        `本服务托管于 {{hostingCountry}}。个人数据传出土耳其时，依照 KVKK 第 9 条进行：存在个人数据保护委员会充分性决定的，依据该决定；否则依据该条规定的适当保障措施（例如委员会发布的标准合同，并按要求向监管机构备案）。数据传出欧洲经济区或英国时，我们另行依据充分性决定或欧盟委员会的标准合同条款。下述安全措施在任何情况下均适用。`,
       ],
     },
     {
@@ -125,9 +124,9 @@ export const zh: PrivacyPolicyContent = {
       },
       {
         category: "删除记录（哈希化标识符）",
-        retention: "永久",
+        retention: "{{identifierReservationDays}} 天",
         detail:
-          "被删除邮箱和用户名的单向 HMAC 摘要，保留的目的是确保这些标识符永远不会被他人重新注册。不含任何可读的个人数据。",
+          "被删除邮箱的带密钥单向 HMAC 摘要，保留的目的是在保留期内确保任何人（包括您本人）都无法重新注册该地址。无法从摘要还原出地址，但我们保留着可用于验证某个已知地址的密钥，因此该记录属于假名化数据，而非匿名数据。保留期结束后即被删除，该地址重新可用。",
       },
       {
         category: "备份",
@@ -194,7 +193,7 @@ export const zh: PrivacyPolicyContent = {
     {
       heading: "联系与投诉",
       paragraphs: [
-        `数据控制者：${CONTROLLER.legalName}，${CONTROLLER.address}。隐私联系方式：${CONTROLLER.privacyEmail}。我们在 30 天内（KVKK/GDPR）或 45 天内（CCPA）答复权利请求。如对结果不满意，您可向监管机构投诉：在土耳其为个人数据保护局，在欧洲经济区/英国为您所在国的数据保护机构，在加州为加州隐私保护局或总检察长。`,
+        `数据控制者：{{legalName}}，{{address}}。隐私联系方式：{{privacyEmail}}。我们在 30 天内（KVKK/GDPR）或 45 天内（CCPA）答复权利请求。如对结果不满意，您可向监管机构投诉：在土耳其为个人数据保护局，在欧洲经济区/英国为您所在国的数据保护机构，在加州为加州隐私保护局或总检察长。`,
       ],
     },
   ],

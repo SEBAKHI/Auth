@@ -277,6 +277,30 @@ public class DpapiSecretService : IDpapiSecretService
             result.SkippedKeys.Add("GatewayToken (already exists)");
         }
 
+        // Generate the account-deletion identifier HMAC key if missing.
+        // PERMANENT once generated: the deletion registry's stored digests are
+        // derived from it, so a second key silently orphans every reservation.
+        // Its absence here is what broke registration in production — the
+        // PlainText generator had it, this one never did, so Development was
+        // green while Certificate/Dpapi deployments had no key at all.
+        // RequiredSecretsRegistry is the shared declaration both generators are
+        // tested against; add new secrets there first.
+        if (string.IsNullOrEmpty(secrets.AccountDeletionIdentifierHmacKey))
+        {
+            secrets.AccountDeletionIdentifierHmacKey =
+                Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
+            result.GeneratedKeys.Add(nameof(secrets.AccountDeletionIdentifierHmacKey));
+            modified = true;
+            _logger.LogWarning(
+                "Auto-generated the account-deletion identifier HMAC key. This key is PERMANENT: " +
+                "back it up with the secrets file and never rotate it — identifier reservations and " +
+                "restore re-application are derived from it.");
+        }
+        else
+        {
+            result.SkippedKeys.Add("AccountDeletionIdentifierHmacKey (already exists)");
+        }
+
         if (modified)
         {
             if (isNewFile)
@@ -360,6 +384,7 @@ public class DpapiSecretService : IDpapiSecretService
                 ["RefreshTokenHmacKey"] = SecretStatus.NotConfigured,
                 ["SmtpPassword"] = SecretStatus.NotConfigured,
                 ["GatewayToken"] = SecretStatus.NotConfigured,
+                ["AccountDeletionIdentifierHmacKey"] = SecretStatus.NotConfigured,
                 ["ConnectionStrings.AuthDb"] = SecretStatus.NotConfigured
             };
             return result;
@@ -377,6 +402,7 @@ public class DpapiSecretService : IDpapiSecretService
             ["RefreshTokenHmacKey"] = GetStatus(secrets.RefreshTokenHmacKey),
             ["SmtpPassword"] = GetStatus(secrets.SmtpPassword),
             ["GatewayToken"] = GetStatus(secrets.GatewayToken),
+            ["AccountDeletionIdentifierHmacKey"] = GetStatus(secrets.AccountDeletionIdentifierHmacKey),
             ["PasswordPepper"] = secrets.PasswordPeppers.Count > 0 ? SecretStatus.Configured : SecretStatus.NotConfigured,
             ["ConnectionStrings.AuthDb"] = GetStatus(secrets.ConnectionStrings?.AuthDb)
         };
@@ -408,6 +434,11 @@ public class DpapiSecretService : IDpapiSecretService
             "refreshtokenhmackey" => secrets.RefreshTokenHmacKey,
             "smtppassword" => secrets.SmtpPassword,
             "gatewaytoken" => secrets.GatewayToken,
+            // Readable so the one PERMANENT key in the system can actually be
+            // backed up. It cannot be regenerated: losing it orphans every
+            // identifier reservation, and nothing fails loudly when that
+            // happens. A key an operator cannot export is a key they will lose.
+            "accountdeletionidentifierhmackey" => secrets.AccountDeletionIdentifierHmacKey,
             "connectionstrings.authdb" => secrets.ConnectionStrings?.AuthDb,
             _ when key.StartsWith("custom:", StringComparison.OrdinalIgnoreCase) =>
                 secrets.Custom.TryGetValue(key.Substring(7), out var value) ? value : null,
@@ -433,6 +464,16 @@ public class DpapiSecretService : IDpapiSecretService
                 return true;
             case "gatewaytoken":
                 secrets.GatewayToken = value;
+                return true;
+            // Settable for ONE legitimate reason: restoring the key from a
+            // backup after a secrets-file loss. Setting a DIFFERENT value while
+            // the deletion registry holds rows silently orphans every
+            // reservation — deleted addresses become registrable again with
+            // nothing failing anywhere. IdentifierKeyRegenerationGuard catches
+            // the accidental case at startup; this path is a deliberate
+            // operator action and is audited by the controller above it.
+            case "accountdeletionidentifierhmackey":
+                secrets.AccountDeletionIdentifierHmacKey = value;
                 return true;
             case "connectionstrings.authdb":
                 secrets.ConnectionStrings.AuthDb = value;

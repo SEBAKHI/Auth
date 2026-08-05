@@ -4,9 +4,11 @@ using Auth.Application.Features.Authentication.RefreshToken;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using RefreshTokenEntity = Auth.Domain.Entities.RefreshToken;
 
@@ -23,6 +25,7 @@ public class RefreshTokenCommandHandlerTests
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
     private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock;
     private readonly Mock<ILogger<RefreshTokenCommandHandler>> _loggerMock;
+    private readonly Mock<IPublisher> _publisherMock;
     private readonly JwtSettings _jwtSettings;
     private readonly RefreshTokenCommandHandler _handler;
 
@@ -37,6 +40,7 @@ public class RefreshTokenCommandHandlerTests
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
         _refreshTokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
         _loggerMock = new Mock<ILogger<RefreshTokenCommandHandler>>();
+        _publisherMock = new Mock<IPublisher>();
 
         _jwtSettings = new JwtSettings
         {
@@ -55,6 +59,7 @@ public class RefreshTokenCommandHandlerTests
             _jwtTokenServiceMock.Object,
             _refreshTokenKeyServiceMock.Object,
             new Mock<IUserSessionRepository>().Object,
+            _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _loggerMock.Object);
     }
@@ -332,6 +337,13 @@ public class RefreshTokenCommandHandlerTests
         _refreshTokenRepositoryMock
             .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
             .ReturnsAsync(storedToken);
+        // Stated rather than left to the loose mock's default: the count decides
+        // whether the account owner is emailed, so a test that silently rides
+        // "0" would look like coverage of the notify path while never entering it.
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForUserAsync(
+                userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
 
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
@@ -342,6 +354,166 @@ public class RefreshTokenCommandHandlerTests
         _refreshTokenRepositoryMock.Verify(
             r => r.RevokeAllForUserAsync(userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_RevokedToken_WhenLiveSessionsWereEnded_NotifiesTheAccountOwner()
+    {
+        // Arrange
+        var command = CreateCommand(ipAddress: "31.223.57.26");
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId, email: "victim@test.com");
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            revokedAt: DateTime.UtcNow.AddMinutes(-5),
+            revokedBy: userId,
+            reasonRevoked: "Rotated");
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForUserAsync(
+                userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(2);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        _publisherMock.Verify(
+            p => p.Publish(
+                It.Is<RefreshTokenReuseDetectedEvent>(e =>
+                    e.UserId == userId &&
+                    e.Email == "victim@test.com" &&
+                    e.IpAddress == "31.223.57.26"),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_RevokedToken_WhenNothingWasLeftToRevoke_SendsNoNotice()
+    {
+        // One incident produces many detections: the mass revocation kills every
+        // other tab's and device's token, and each of those reports reuse in turn.
+        // Only the first finds anything live, so this is what keeps a single
+        // incident from becoming a burst of security emails.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            revokedAt: DateTime.UtcNow.AddMinutes(-5),
+            revokedBy: null,
+            reasonRevoked: "Detected refresh token reuse");
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForUserAsync(
+                userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<RefreshTokenReuseDetectedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _userRepositoryMock.Verify(
+            r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_RevokedToken_WhenTheAccountIsGone_StillRevokesAndDoesNotThrow()
+    {
+        // A hard-deleted account can still have a lingering revoked token pointed
+        // at it. There is then no address to write to — and no reason to fail.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            revokedAt: DateTime.UtcNow.AddMinutes(-5),
+            revokedBy: userId,
+            reasonRevoked: "Rotated");
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForUserAsync(
+                userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeAllForUserAsync(userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<RefreshTokenReuseDetectedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_RevokedToken_WhenTheNoticeFails_StillReturnsTokenRevoked()
+    {
+        // The revocation has already committed. Turning a clean 403 into a 500
+        // because an email could not be raised would be strictly worse.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            revokedAt: DateTime.UtcNow.AddMinutes(-5),
+            revokedBy: userId,
+            reasonRevoked: "Rotated");
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForUserAsync(
+                userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(1);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: userId));
+        _publisherMock
+            .Setup(p => p.Publish(
+                It.IsAny<RefreshTokenReuseDetectedEvent>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("notification pipeline down"));
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
     }
 
     [Fact]

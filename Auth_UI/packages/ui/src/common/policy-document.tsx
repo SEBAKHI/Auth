@@ -1,5 +1,8 @@
 import type * as React from "react"
+import { TriangleAlert } from "lucide-react"
 
+import { Alert, AlertDescription } from "@authsystem/ui/alert"
+import { Separator } from "@authsystem/ui/separator"
 import {
   Table,
   TableBody,
@@ -66,16 +69,67 @@ export interface PolicyDisclosure {
   otpValidityMinutes: number
   loginAttemptRetentionDays: number
   outboxRetentionDays: number
+  identifierReservationDays: number
   policyVersion: string
+  /**
+   * Data-controller identity, served from settings. These are legal facts, so
+   * they are never optional at the type level: a missing value must render as a
+   * visible placeholder that trips `hasUnfilledControllerDetails`, never as
+   * `undefined` (which `interpolate` leaves as a raw `{{token}}` on a public
+   * page) or `null` (which stringifies to the word "null").
+   */
+  legalName: string
+  address: string
+  privacyEmail: string
+  emailProvider: string
+  hostingProvider: string
+  hostingCountry: string
+  /** Optional by law; blank omits its line entirely rather than rendering empty. */
+  dpoContact: string
+  verbisNo: string
+  kepAddress: string
 }
 
-/** Tokens an editor may insert; kept beside the type they populate. */
+/**
+ * Tokens an editor may insert; kept beside the type they populate.
+ *
+ * The three optional controller fields are deliberately absent: they have no
+ * host sentence, they are rendered as whole label/value lines that disappear
+ * when blank, and a flat token cannot remove the label it sits next to.
+ */
 export const POLICY_TOKENS = [
   "{{graceDays}}",
   "{{otpValidityMinutes}}",
   "{{loginAttemptRetentionDays}}",
   "{{outboxRetentionDays}}",
+  "{{identifierReservationDays}}",
+  "{{legalName}}",
+  "{{address}}",
+  "{{privacyEmail}}",
+  "{{emailProvider}}",
+  "{{hostingProvider}}",
+  "{{hostingCountry}}",
 ] as const
+
+/**
+ * True while the policy cannot name its own controller — blank or still a
+ * bracketed placeholder in any legally required field.
+ *
+ * This deliberately inspects the DISCLOSURE being rendered rather than a
+ * compiled-in constant. The previous check tested a build-time value in the
+ * accounts bundle, so it stayed silent about the document actually served from
+ * the database, which is the one users read.
+ */
+export function hasUnfilledControllerDetails(disclosure: PolicyDisclosure): boolean {
+  return [
+    disclosure.legalName,
+    disclosure.address,
+    disclosure.privacyEmail,
+    disclosure.emailProvider,
+    disclosure.hostingProvider,
+    disclosure.hostingCountry,
+  ].some((value) => !value || value.includes("["))
+}
 
 /** Official sources for every law the policy names. */
 export const LAW_LINKS: ReadonlyArray<{ term: string; url: string }> = [
@@ -187,8 +241,25 @@ export function PolicyDocument({
 }) {
   const render = (text: string) => withLawLinks(interpolate(text, disclosure))
 
+  // Conditionally-required by law, so the system cannot decide for the operator
+  // whether they apply. Rendered as whole lines that disappear when blank —
+  // "DPO: " with nothing after it is worse than no line at all.
+  const optionalContact: Array<[string, string]> = [
+    [content.contactDpoLabel, disclosure.dpoContact],
+    [content.contactVerbisLabel, disclosure.verbisNo],
+    [content.contactKepLabel, disclosure.kepAddress],
+  ]
+  const shownContact = optionalContact.filter(([, value]) => value)
+
   return (
     <>
+      {hasUnfilledControllerDetails(disclosure) ? (
+        <Alert variant="destructive">
+          <TriangleAlert />
+          <AlertDescription>{content.unfilledWarning}</AlertDescription>
+        </Alert>
+      ) : null}
+
       <div className="flex flex-col gap-3">
         {content.intro.map((paragraph, index) => (
           <p
@@ -286,6 +357,19 @@ export function PolicyDocument({
           disclosure={disclosure}
         />
       ))}
+
+      {shownContact.length > 0 ? (
+        <>
+          <Separator />
+          <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+            {shownContact.map(([label, value]) => (
+              <p key={label}>
+                {label}: {value}
+              </p>
+            ))}
+          </div>
+        </>
+      ) : null}
     </>
   )
 }

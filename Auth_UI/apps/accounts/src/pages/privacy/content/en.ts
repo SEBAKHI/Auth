@@ -1,4 +1,3 @@
-import { CONTROLLER } from "./details"
 import type { PrivacyPolicyContent } from "./types"
 
 export const en: PrivacyPolicyContent = {
@@ -11,7 +10,7 @@ export const en: PrivacyPolicyContent = {
   contactVerbisLabel: "VERBİS registration number",
   contactKepLabel: "Registered e-mail (KEP)",
   intro: [
-    `This policy explains what personal data the ${CONTROLLER.legalName} account service collects, why we collect it, how long we keep it, and the rights you have over it — including how to delete your account and everything attached to it.`,
+    `This policy explains what personal data the {{legalName}} account service collects, why we collect it, how long we keep it, and the rights you have over it — including how to delete your account and everything attached to it.`,
     "It also serves as the disclosure required by Article 10 of Türkiye's Personal Data Protection Law No. 6698 (KVKK) — our primary compliance framework — and is written to meet the EU/EEA General Data Protection Regulation (GDPR) and the California Consumer Privacy Act as amended (CCPA/CPRA). The controls described in this policy are available to every user, regardless of location.",
   ],
   sections: [
@@ -59,15 +58,15 @@ export const en: PrivacyPolicyContent = {
       ],
       bullets: [
         "Google (Sign in with Google) and Apple (Sign in with Apple) — only when you choose to sign in with them; the exchange is governed by their own privacy policies.",
-        `Our email delivery provider, ${CONTROLLER.emailProvider}, to send the service emails described above.`,
-        `Our hosting provider, ${CONTROLLER.hostingProvider}, which stores the service's data.`,
+        `Our email delivery provider, {{emailProvider}}, to send the service emails described above.`,
+        `Our hosting provider, {{hostingProvider}}, which stores the service's data.`,
         "Public authorities, if and only if a valid legal demand compels us.",
       ],
     },
     {
       heading: "International transfers",
       paragraphs: [
-        `The service is hosted in ${CONTROLLER.hostingCountry}. Where personal data is transferred out of Türkiye, we do so under KVKK Article 9: an adequacy decision of the Personal Data Protection Board where one exists, and otherwise the appropriate safeguards that Article provides for (such as the Board's standard contract, notified to the Authority as required). For data leaving the EEA or the UK we additionally rely on adequacy decisions or the European Commission's Standard Contractual Clauses. The security measures below apply in every case.`,
+        `The service is hosted in {{hostingCountry}}. Where personal data is transferred out of Türkiye, we do so under KVKK Article 9: an adequacy decision of the Personal Data Protection Board where one exists, and otherwise the appropriate safeguards that Article provides for (such as the Board's standard contract, notified to the Authority as required). For data leaving the EEA or the UK we additionally rely on adequacy decisions or the European Commission's Standard Contractual Clauses. The security measures below apply in every case.`,
       ],
     },
     {
@@ -127,10 +126,10 @@ export const en: PrivacyPolicyContent = {
           "Stored only as hashes; expired entries are removed by the daily cleanup job.",
       },
       {
-        category: "Deletion record (hashed identifiers)",
-        retention: "Permanent",
+        category: "Deletion record (hashed identifier)",
+        retention: "{{identifierReservationDays}} days",
         detail:
-          "One-way HMAC digests of the deleted email and username, kept so deleted identifiers can never be re-registered by someone else. Contains no readable personal data.",
+          "A keyed one-way digest of the deleted email, kept so nobody — including you — can re-register that address while the reservation lasts. An address cannot be read out of a digest, but we keep the key that can test one, so this is a pseudonymous record rather than an anonymous one. It is deleted when the window ends, and the address becomes available again.",
       },
       {
         category: "Backups",
@@ -198,7 +197,7 @@ export const en: PrivacyPolicyContent = {
     {
       heading: "Contact and complaints",
       paragraphs: [
-        `Data controller: ${CONTROLLER.legalName}, ${CONTROLLER.address}. Privacy contact: ${CONTROLLER.privacyEmail}. We answer rights requests within 30 days (GDPR/KVKK) and 45 days (CCPA). If you are unsatisfied, you may complain to your supervisory authority: in the EEA/UK your national data protection authority, in Türkiye the Kişisel Verileri Koruma Kurumu, in California the California Privacy Protection Agency or Attorney General.`,
+        `Data controller: {{legalName}}, {{address}}. Privacy contact: {{privacyEmail}}. We answer rights requests within 30 days (GDPR/KVKK) and 45 days (CCPA). If you are unsatisfied, you may complain to your supervisory authority: in the EEA/UK your national data protection authority, in Türkiye the Kişisel Verileri Koruma Kurumu, in California the California Privacy Protection Agency or Attorney General.`,
       ],
     },
   ],

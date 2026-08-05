@@ -2,11 +2,21 @@ import createClient, { type Middleware } from "openapi-fetch"
 
 import { API_BASE_URL } from "@authsystem/api/env"
 import i18n from "@authsystem/i18n"
-import { decodeJwt, isTokenExpired } from "@authsystem/api/jwt"
 import {
+  emitSessionExpired,
+  hasFreshAccessToken,
+  publishAccessToken,
+  startTabSync,
+  waitForBroadcastAccessToken,
+  withRefreshLock,
+} from "@authsystem/api/tab-sync"
+import {
+  clearRefreshPending,
   clearTokens,
+  currentGeneration,
   getAccessToken,
   getRefreshToken,
+  markRefreshPending,
   setTokens,
 } from "@authsystem/api/token-store"
 import type { paths, Schemas } from "./types"
@@ -15,24 +25,59 @@ const REFRESH_PATH = "/api/v1/Auth/refresh"
 const LOGIN_PATH = "/api/v1/Auth/login"
 const TWO_FACTOR_VERIFY_PATH = "/api/v1/auth/2fa/verify"
 
-/** Event dispatched when the session can no longer be refreshed. */
-export const SESSION_EXPIRED_EVENT = "auth:session-expired"
+export { SESSION_EXPIRED_EVENT } from "@authsystem/api/tab-sync"
 
-/** De-duplicates concurrent refreshes into a single in-flight request. */
+/**
+ * Error codes that mean the refresh token itself is finished, so keeping it can
+ * only lead to replaying it. Keyed on the code (ProblemDetails.title) and never
+ * on the status class: `Auth.ApplicationInactive` is also a 403 but leaves the
+ * token perfectly valid, and a 429 from a CDN or WAF is indistinguishable from
+ * an application 4xx by status alone — treating those as final would sign the
+ * whole fleet out during a traffic spike. Anything not listed here (unparseable
+ * body, 429, 5xx, transport failure) is "unknown": keep the token, do not
+ * replay it.
+ */
+const FINAL_REFRESH_REJECTIONS = new Set([
+  "Auth.TokenRevoked",
+  "Auth.RefreshTokenRevoked",
+  "Auth.RefreshTokenNotFound",
+  "Auth.RefreshTokenExpired",
+  "User.NotFound",
+  "User.AccountLocked",
+  "User.AccountLockedUntil",
+])
+
+/** De-duplicates concurrent refreshes within this tab into one lock acquisition. */
 let refreshPromise: Promise<boolean> | null = null
 
-function emitSessionExpired(): void {
-  clearTokens()
-  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT))
+async function isFinalRejection(response: Response): Promise<boolean> {
+  try {
+    const problem = (await response.json()) as { title?: string } | null
+    return (
+      typeof problem?.title === "string" &&
+      FINAL_REFRESH_REJECTIONS.has(problem.title)
+    )
+  } catch {
+    return false
+  }
 }
 
-/** Exchange the refresh token for a new token pair. Returns success. */
-export async function refreshAccessToken(): Promise<boolean> {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) return false
+/**
+ * Spends `refreshToken` for a new pair. Only ever called while holding the
+ * cross-tab refresh lock, with a token read from storage inside that lock.
+ */
+async function performRefresh(
+  refreshToken: string,
+  generation: number
+): Promise<boolean> {
+  // Recorded before the request so that a context which dies mid-flight can
+  // tell, on its next load, that it spent this token without learning the
+  // outcome — see reconcilePendingRefresh().
+  markRefreshPending(refreshToken)
 
+  let res: Response
   try {
-    const res = await fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
+    res = await fetch(`${API_BASE_URL}${REFRESH_PATH}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -41,29 +86,76 @@ export async function refreshAccessToken(): Promise<boolean> {
       credentials: "include",
       body: JSON.stringify({ refreshToken }),
     })
-    if (!res.ok) return false
+  } catch {
+    // Transport failure: the network failed, not the credential. Keep the token.
+    return false
+  } finally {
+    // Any settled fetch means this context is alive and has handled the
+    // outcome. The marker exists only for the case where no handler ever ran.
+    clearRefreshPending()
+  }
 
-    const data = (await res.json()) as Schemas["TokenResponse"]
-    if (!data?.accessToken || !data?.refreshToken) return false
+  if (!res.ok) {
+    if (await isFinalRejection(res)) clearTokens()
+    return false
+  }
 
-    setTokens(data.accessToken, data.refreshToken)
-    return true
+  let data: Schemas["TokenResponse"] | null = null
+  try {
+    data = (await res.json()) as Schemas["TokenResponse"]
   } catch {
     return false
   }
+  if (!data?.accessToken || !data?.refreshToken) return false
+
+  // Drops the result if the session was torn down while we held the lock,
+  // rather than resurrecting a session the user just ended.
+  if (!setTokens(data.accessToken, data.refreshToken, generation)) return false
+
+  publishAccessToken(data.accessToken)
+  return true
 }
 
 /**
- * Refresh the token pair, de-duplicating concurrent callers into one request.
- * The refresh token ROTATES on use, so callers must never race their own
- * refresh — always go through this.
+ * Refreshes the token pair, serialised across every tab of this origin.
+ *
+ * The refresh token ROTATES on use and the server treats a second presentation
+ * as theft, so callers must never race their own refresh — always go through
+ * this. The in-tab promise below collapses a burst of 401s; the lock inside
+ * withRefreshLock() collapses the tabs.
  */
 export function sharedRefresh(): Promise<boolean> {
-  if (!refreshPromise) {
-    refreshPromise = refreshAccessToken().finally(() => {
-      refreshPromise = null
-    })
-  }
+  if (refreshPromise) return refreshPromise
+
+  // Captured before queueing so that, once we hold the lock, we can tell
+  // whether another context rotated while we waited.
+  const observed = getRefreshToken()
+  const generation = currentGeneration()
+
+  refreshPromise = withRefreshLock(async () => {
+    // A tab that rotated while we queued broadcasts its access token; adopting
+    // it is what makes concurrent tabs cost one network refresh, not N.
+    if (hasFreshAccessToken()) return true
+
+    let current = getRefreshToken()
+    if (!current) return false
+
+    if (current !== observed) {
+      // Someone rotated under us, so their access token is already in flight.
+      // Missing it is not a failure — we simply spend the CURRENT token below,
+      // which is a legitimate rotation rather than a reuse.
+      await waitForBroadcastAccessToken()
+      if (hasFreshAccessToken()) return true
+
+      current = getRefreshToken()
+      if (!current) return false
+    }
+
+    return performRefresh(current, generation)
+  }).finally(() => {
+    refreshPromise = null
+  })
+
   return refreshPromise
 }
 
@@ -71,19 +163,22 @@ export function sharedRefresh(): Promise<boolean> {
  * Returns an access token that is not known to be expired, refreshing first
  * when needed. Non-client callers (raw fetch, e.g. multipart uploads) must use
  * this instead of reading the token store directly, or they will send stale
- * tokens after the ~15-minute access-token lifetime.
+ * tokens after the access-token lifetime.
+ *
+ * Ends the session when the refresh fails, instead of returning null and
+ * leaving the caller to fire an unauthenticated request whose 401 would trigger
+ * a second refresh with the same dead token.
  */
 export async function ensureFreshAccessToken(): Promise<string | null> {
-  let token = getAccessToken()
-  const claims = token ? decodeJwt(token) : null
+  if (hasFreshAccessToken()) return getAccessToken()
+  if (!getRefreshToken()) return null
 
-  const needsRefresh = !token || (claims !== null && isTokenExpired(claims))
-  if (needsRefresh && getRefreshToken()) {
-    await sharedRefresh()
-    token = getAccessToken()
+  if (!(await sharedRefresh())) {
+    emitSessionExpired()
+    return null
   }
 
-  return token
+  return getAccessToken()
 }
 
 function isAuthFlow(url: string): boolean {
@@ -114,7 +209,16 @@ const authMiddleware: Middleware = {
   async onResponse({ request, response }) {
     if (response.status !== 401 || isAuthFlow(request.url)) return response
 
-    // Token was rejected (e.g. revoked). Try one refresh so a query retry
+    // We presented no token, so this 401 was a foregone conclusion and there is
+    // nothing to retry. Refreshing here would spend the same dead token a
+    // second time — the exact pattern the server reports as reuse, and the
+    // reason a single failed refresh used to produce two "reuse" warnings.
+    if (!request.headers.has("Authorization")) {
+      emitSessionExpired()
+      return response
+    }
+
+    // The token was rejected (e.g. revoked). Try one refresh so a query retry
     // succeeds; if refresh is impossible, end the session.
     if (getRefreshToken()) {
       const ok = await sharedRefresh()
@@ -136,3 +240,8 @@ export const api = createClient<paths>({
   credentials: "include",
 })
 api.use(authMiddleware)
+
+// Must run before anything reads the token store: it recovers from a refresh
+// whose context died mid-flight, and asks the other tabs for a live access
+// token so this one can skip its startup refresh entirely.
+startTabSync()

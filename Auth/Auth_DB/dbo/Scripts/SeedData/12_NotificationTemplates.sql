@@ -1079,7 +1079,7 @@ N'<div class="header">
 <p class="message">Your account and its personal data have been permanently deleted, as you requested. This address will receive no further messages from us.</p>
 <div class="notice">
     <p class="notice-title">Please note</p>
-    <p class="notice-text">For legal and security reasons, a minimal anonymized destruction record is retained in line with our retention policy. Thank you for having been with {{ Platform.Name }}.</p>
+    <p class="notice-text">For legal and security reasons, a minimal destruction record is retained in line with our retention policy: keyed one-way digests of your email and username, and nothing else. Thank you for having been with {{ Platform.Name }}.</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000002', '43000000-0000-0000-0000-000000000010', N'ar', N'تم حذف حسابك',
 N'<div class="header">
@@ -1090,7 +1090,7 @@ N'<div class="header">
 <p class="message">تم حذف حسابك وبياناتك الشخصية نهائيًا بناءً على طلبك. لن يتلقى هذا العنوان أي رسائل أخرى منا.</p>
 <div class="notice">
     <p class="notice-title">يرجى الملاحظة</p>
-    <p class="notice-text">لأسباب قانونية وأمنية، نحتفظ بحد أدنى من سجل إتلاف مجهول الهوية وفقًا لسياسة الاحتفاظ لدينا. شكرًا لأنك كنت معنا في {{ Platform.Name }}.</p>
+    <p class="notice-text">لأسباب قانونية وأمنية، نحتفظ بحدّ أدنى من سجل الإتلاف وفقًا لسياسة الاحتفاظ لدينا: ملخّصات أحادية الاتجاه بمفتاح لبريدك واسم المستخدم، ولا شيء غير ذلك. شكرًا لأنك كنت معنا في {{ Platform.Name }}.</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000003', '43000000-0000-0000-0000-000000000010', N'tr', N'Hesabınız Silindi',
 N'<div class="header">
@@ -1101,7 +1101,7 @@ N'<div class="header">
 <p class="message">Talebiniz üzerine hesabınız ve kişisel verileriniz kalıcı olarak silindi. Bu adres bizden başka mesaj almayacaktır.</p>
 <div class="notice">
     <p class="notice-title">Lütfen dikkat</p>
-    <p class="notice-text">Yasal ve güvenlik nedenleriyle, saklama politikamız doğrultusunda asgari düzeyde anonimleştirilmiş bir imha kaydı tutulur. {{ Platform.Name }} ile olduğunuz için teşekkür ederiz.</p>
+    <p class="notice-text">Yasal ve güvenlik nedenleriyle, saklama politikamız doğrultusunda asgari düzeyde bir imha kaydı tutulur: e-postanızın ve kullanıcı adınızın anahtarlı tek yönlü özetleri, başka hiçbir şey değil. {{ Platform.Name }} ile olduğunuz için teşekkür ederiz.</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000004', '43000000-0000-0000-0000-000000000010', N'fr', N'Votre compte a été supprimé',
 N'<div class="header">
@@ -1112,7 +1112,7 @@ N'<div class="header">
 <p class="message">Votre compte et ses données personnelles ont été définitivement supprimés, conformément à votre demande. Cette adresse ne recevra plus aucun message de notre part.</p>
 <div class="notice">
     <p class="notice-title">À noter</p>
-    <p class="notice-text">Pour des raisons légales et de sécurité, un enregistrement de destruction minimal et anonymisé est conservé conformément à notre politique de rétention. Merci d''avoir fait partie de {{ Platform.Name }}.</p>
+    <p class="notice-text">Pour des raisons légales et de sécurité, un enregistrement de destruction minimal est conservé conformément à notre politique de rétention : des condensats unidirectionnels à clé de votre e-mail et de votre nom d''utilisateur, rien de plus. Merci d''avoir fait partie de {{ Platform.Name }}.</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000005', '43000000-0000-0000-0000-000000000010', N'zh', N'您的账户已被删除',
 N'<div class="header">
@@ -1123,7 +1123,7 @@ N'<div class="header">
 <p class="message">应您的请求，您的账户及其个人数据已被永久删除。此地址将不会再收到我们的任何消息。</p>
 <div class="notice">
     <p class="notice-title">请注意</p>
-    <p class="notice-text">出于法律和安全原因，我们将按照保留政策保留最少量的匿名销毁记录。感谢您曾与 {{ Platform.Name }} 同行。</p>
+    <p class="notice-text">出于法律和安全原因，我们将按照保留政策保留最少量的销毁记录：您的邮箱和用户名的带密钥单向摘要，仅此而已。感谢您曾与 {{ Platform.Name }} 同行。</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000006', '43000000-0000-0000-0000-000000000010', N'ur', N'آپ کا اکاؤنٹ حذف کر دیا گیا ہے',
 N'<div class="header">
@@ -1134,7 +1134,7 @@ N'<div class="header">
 <p class="message">آپ کی درخواست کے مطابق آپ کا اکاؤنٹ اور اس کا ذاتی ڈیٹا مستقل طور پر حذف کر دیا گیا ہے۔ اس پتے پر ہماری طرف سے مزید کوئی پیغام موصول نہیں ہوگا۔</p>
 <div class="notice">
     <p class="notice-title">براہ کرم نوٹ کریں</p>
-    <p class="notice-text">قانونی اور حفاظتی وجوہات کی بنا پر، ہماری برقراری پالیسی کے مطابق کم سے کم گمنام شدہ اتلاف کا ریکارڈ محفوظ رکھا جاتا ہے۔ {{ Platform.Name }} کے ساتھ رہنے کا شکریہ۔</p>
+    <p class="notice-text">قانونی اور حفاظتی وجوہات کی بنا پر، ہماری برقراری پالیسی کے مطابق کم سے کم اتلاف کا ریکارڈ محفوظ رکھا جاتا ہے: آپ کے ای میل اور صارف نام کے کلید والے یک طرفہ ڈائجسٹ، اس کے سوا کچھ نہیں۔ {{ Platform.Name }} کے ساتھ رہنے کا شکریہ۔</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000007', '43000000-0000-0000-0000-000000000010', N'fa', N'حساب شما حذف شد',
 N'<div class="header">
@@ -1145,7 +1145,7 @@ N'<div class="header">
 <p class="message">بنا به درخواست شما، حساب و داده‌های شخصی آن برای همیشه حذف شد. این آدرس دیگر هیچ پیامی از ما دریافت نخواهد کرد.</p>
 <div class="notice">
     <p class="notice-title">لطفاً توجه کنید</p>
-    <p class="notice-text">به دلایل قانونی و امنیتی، حداقلی از سابقه امحای ناشناس‌شده مطابق با سیاست نگهداری ما حفظ می‌شود. از این‌که با {{ Platform.Name }} بودید سپاسگزاریم.</p>
+    <p class="notice-text">به دلایل قانونی و امنیتی، حداقلی از سابقه امحا مطابق با سیاست نگهداری ما حفظ می‌شود: چکیده‌های یک‌طرفه با کلید از ایمیل و نام کاربری شما، و نه چیز دیگری. از این‌که با {{ Platform.Name }} بودید سپاسگزاریم.</p>
 </div>');
 
     UPDATE [dbo].[NotificationTemplates]
@@ -1428,5 +1428,280 @@ END
 ELSE
 BEGIN
     PRINT 'new-device-sign-in template already exists';
+END
+GO
+
+-- ============================================================
+-- Template 13: account-deleted-by-admin (global, Email channel)
+--
+-- Separate from account-deletion-completed on purpose: that copy says "as you
+-- requested", which is false when an administrator did it. Silence was the
+-- previous behaviour and is the least defensible option at the moment personal
+-- data is destroyed irreversibly.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000013')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000013', '40000000-0000-0000-0000-000000000013', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000013', '42000000-0000-0000-0000-000000000013', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0013-000000000001', '43000000-0000-0000-0000-000000000013', N'en', N'Your Account Has Been Deleted by an Administrator',
+N'<div class="header">
+    <p class="eyebrow">Account deletion</p>
+    <h1>Your account was deleted</h1>
+</div>
+<p class="message">An administrator of {{ Platform.Name }} has permanently deleted your account and its personal data. This was not initiated by you, and it cannot be undone.</p>
+<p class="message">This address will receive no further messages from us.</p>
+<div class="notice">
+    <p class="notice-title">Please note</p>
+    <p class="notice-text">For legal and security reasons, a minimal destruction record is retained in line with our retention policy: keyed one-way digests of your email and username, and nothing else. If you believe this was a mistake, contact us using the privacy contact published in our privacy policy.</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000002', '43000000-0000-0000-0000-000000000013', N'ar', N'تم حذف حسابك من قِبَل أحد المسؤولين',
+N'<div class="header">
+    <p class="eyebrow">حذف الحساب</p>
+    <h1>تم حذف حسابك</h1>
+</div>
+<p class="message">قام أحد مسؤولي {{ Platform.Name }} بحذف حسابك وبياناتك الشخصية نهائيًا. لم يصدر هذا الإجراء عنك، ولا يمكن التراجع عنه.</p>
+<p class="message">لن يصلك أي بريد آخر منا على هذا العنوان.</p>
+<div class="notice">
+    <p class="notice-title">تنبيه</p>
+    <p class="notice-text">لأسباب قانونية وأمنية، نحتفظ بحدّ أدنى من سجل الإتلاف وفقًا لسياسة الاحتفاظ لدينا: ملخّصات أحادية الاتجاه بمفتاح لبريدك واسم المستخدم، ولا شيء غير ذلك. وإن كنت ترى أن هذا خطأ، فتواصل معنا عبر جهة التواصل بشأن الخصوصية المنشورة في سياستنا.</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000003', '43000000-0000-0000-0000-000000000013', N'tr', N'Hesabınız bir yönetici tarafından silindi',
+N'<div class="header">
+    <p class="eyebrow">Hesap silme</p>
+    <h1>Hesabınız silindi</h1>
+</div>
+<p class="message">{{ Platform.Name }} yöneticilerinden biri hesabınızı ve kişisel verilerinizi kalıcı olarak sildi. Bu işlem sizin tarafınızdan başlatılmadı ve geri alınamaz.</p>
+<p class="message">Bu adrese bizden başka ileti gönderilmeyecek.</p>
+<div class="notice">
+    <p class="notice-title">Bilginize</p>
+    <p class="notice-text">Yasal ve güvenlik nedenleriyle, saklama politikamız doğrultusunda asgari düzeyde bir imha kaydı tutulur: e-postanızın ve kullanıcı adınızın anahtarlı tek yönlü özetleri, başka hiçbir şey değil. Bunun bir hata olduğunu düşünüyorsanız, gizlilik politikamızda yayımlanan gizlilik iletişim adresinden bize ulaşın.</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000004', '43000000-0000-0000-0000-000000000013', N'fr', N'Votre compte a été supprimé par un administrateur',
+N'<div class="header">
+    <p class="eyebrow">Suppression de compte</p>
+    <h1>Votre compte a été supprimé</h1>
+</div>
+<p class="message">Un administrateur de {{ Platform.Name }} a définitivement supprimé votre compte et vos données personnelles. Cette action n''a pas été engagée par vous et elle est irréversible.</p>
+<p class="message">Cette adresse ne recevra plus aucun message de notre part.</p>
+<div class="notice">
+    <p class="notice-title">À noter</p>
+    <p class="notice-text">Pour des raisons légales et de sécurité, un enregistrement de destruction minimal est conservé conformément à notre politique de rétention : des condensats unidirectionnels à clé de votre e-mail et de votre nom d''utilisateur, rien de plus. Si vous pensez qu''il s''agit d''une erreur, contactez-nous à l''adresse de contact confidentialité publiée dans notre politique.</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000005', '43000000-0000-0000-0000-000000000013', N'zh', N'您的账户已被管理员删除',
+N'<div class="header">
+    <p class="eyebrow">账户删除</p>
+    <h1>您的账户已被删除</h1>
+</div>
+<p class="message">{{ Platform.Name }} 的管理员已永久删除您的账户及其个人数据。此操作并非由您发起，且无法撤销。</p>
+<p class="message">此地址将不再收到我们的任何邮件。</p>
+<div class="notice">
+    <p class="notice-title">请注意</p>
+    <p class="notice-text">出于法律和安全原因，我们将按照保留政策保留最少量的销毁记录：您的邮箱和用户名的带密钥单向摘要，仅此而已。如果您认为这是误操作，请通过我们隐私政策中公布的隐私联系方式与我们联系。</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000006', '43000000-0000-0000-0000-000000000013', N'ur', N'آپ کا اکاؤنٹ ایک منتظم کے ذریعے حذف کر دیا گیا',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کا حذف</p>
+    <h1>آپ کا اکاؤنٹ حذف کر دیا گیا</h1>
+</div>
+<p class="message">{{ Platform.Name }} کے ایک منتظم نے آپ کا اکاؤنٹ اور آپ کا ذاتی ڈیٹا مستقل طور پر حذف کر دیا ہے۔ یہ عمل آپ کی جانب سے شروع نہیں کیا گیا اور اسے واپس نہیں لیا جا سکتا۔</p>
+<p class="message">اس پتے پر ہماری جانب سے مزید کوئی پیغام نہیں آئے گا۔</p>
+<div class="notice">
+    <p class="notice-title">نوٹ</p>
+    <p class="notice-text">قانونی اور حفاظتی وجوہات کی بنا پر، ہماری برقراری پالیسی کے مطابق کم سے کم اتلاف کا ریکارڈ محفوظ رکھا جاتا ہے: آپ کے ای میل اور صارف نام کے کلید والے یک طرفہ ڈائجسٹ، اس کے سوا کچھ نہیں۔ اگر آپ سمجھتے ہیں کہ یہ غلطی ہے تو ہماری پرائیویسی پالیسی میں شائع کردہ رازداری رابطہ پر ہم سے رجوع کریں۔</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000007', '43000000-0000-0000-0000-000000000013', N'fa', N'حساب شما توسط یکی از مدیران حذف شد',
+N'<div class="header">
+    <p class="eyebrow">حذف حساب</p>
+    <h1>حساب شما حذف شد</h1>
+</div>
+<p class="message">یکی از مدیران {{ Platform.Name }} حساب شما و داده‌های شخصی‌تان را برای همیشه حذف کرد. این اقدام از سوی شما آغاز نشده و قابل بازگشت نیست.</p>
+<p class="message">از این پس پیامی از ما به این نشانی ارسال نخواهد شد.</p>
+<div class="notice">
+    <p class="notice-title">توجه</p>
+    <p class="notice-text">به دلایل قانونی و امنیتی، حداقلی از سابقه امحا مطابق با سیاست نگهداری ما حفظ می‌شود: چکیده‌های یک‌طرفه با کلید از ایمیل و نام کاربری شما، و نه چیز دیگری. اگر گمان می‌کنید این یک اشتباه است، از طریق نشانی تماس حریم خصوصی که در سیاست ما منتشر شده با ما تماس بگیرید.</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000013'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000013';
+
+    PRINT 'Created account-deleted-by-admin template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'account-deleted-by-admin template already exists';
+END
+GO
+
+-- ============================================================
+-- Template 14: sessions-revoked-token-reuse (global, Email channel)
+--
+-- Sent at the one moment the account may already be under someone else's
+-- control, so the only action offered is the ordinary password-reset page. A
+-- link that restored a session would hand it straight to whoever triggered
+-- this, and a tokenized one-click action would fire in a mail scanner's
+-- prefetch before any human read the message.
+--
+-- The copy refuses to guess. Refresh-token reuse is a genuine theft signal AND
+-- something an unlucky browser reload can produce, and the server cannot tell
+-- the two apart - so the message says exactly that instead of announcing a
+-- breach or promising there was none.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000014')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000014', '40000000-0000-0000-0000-000000000014', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000014', '42000000-0000-0000-0000-000000000014', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0014-000000000001', '43000000-0000-0000-0000-000000000014', N'en', N'You were signed out of every device',
+N'<div class="header">
+    <p class="eyebrow">Security alert</p>
+    <h1>You were signed out of every device</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">One of the tokens that keeps you signed in to {{ Platform.Name }} was presented a second time. Those tokens are single-use, so we ended every session on your account rather than let a possibly-copied one keep working.</p>
+<div class="notice">
+    <p class="notice-title">What we saw</p>
+    <p class="notice-text">Where from: {{ IpAddress }}<br />When: {{ DetectedAt }}</p>
+</div>
+<p class="message">This does not prove anyone attacked your account: a browser that loses its connection at the wrong moment produces the same signal. It can also mean someone else holds a copy of your token. We cannot tell which from here.</p>
+<p class="message">If you are not certain it was you, change your password now. That is what makes a copied token worthless.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">Change your password</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000002', '43000000-0000-0000-0000-000000000014', N'ar', N'تم إخراجك من كل الأجهزة',
+N'<div class="header">
+    <p class="eyebrow">تنبيه أمني</p>
+    <h1>تم إخراجك من كل الأجهزة</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">قُدِّم أحد الرموز التي تُبقيك مسجَّل الدخول إلى {{ Platform.Name }} مرةً ثانية. وهذه الرموز تُستعمل مرة واحدة فقط، فأنهينا كل الجلسات على حسابك بدلًا من أن نترك رمزًا يُحتمل أن تكون نسخة منه قد أُخذت يواصل العمل.</p>
+<div class="notice">
+    <p class="notice-title">ما الذي رصدناه</p>
+    <p class="notice-text">من العنوان: {{ IpAddress }}<br />الوقت: {{ DetectedAt }}</p>
+</div>
+<p class="message">هذا لا يُثبت أن أحدًا هاجم حسابك؛ فمتصفح يفقد اتصاله في اللحظة غير المناسبة يُنتج الإشارة نفسها. وقد يعني كذلك أن نسخة من رمزك بحوزة شخص آخر. ولا سبيل لنا إلى التمييز بين الأمرين من هنا.</p>
+<p class="message">إن لم تكن على يقين أن ذلك صدر عنك، فغيّر كلمة مرورك الآن؛ فهذا ما يجعل أي نسخة مأخوذة من الرمز بلا قيمة.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">تغيير كلمة المرور</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000003', '43000000-0000-0000-0000-000000000014', N'tr', N'Tüm cihazlardaki oturumunuz kapatıldı',
+N'<div class="header">
+    <p class="eyebrow">Güvenlik uyarısı</p>
+    <h1>Tüm cihazlardaki oturumunuz kapatıldı</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{{ Platform.Name }} hesabınızda oturumunuzu açık tutan belirteçlerden biri ikinci kez sunuldu. Bu belirteçler yalnızca bir kez kullanılabilir; kopyalanmış olabilecek bir belirtecin çalışmaya devam etmesine izin vermek yerine hesabınızdaki tüm oturumları sonlandırdık.</p>
+<div class="notice">
+    <p class="notice-title">Gördüklerimiz</p>
+    <p class="notice-text">Nereden: {{ IpAddress }}<br />Ne zaman: {{ DetectedAt }}</p>
+</div>
+<p class="message">Bu, hesabınıza saldırıldığını kanıtlamaz: bağlantısını yanlış anda kaybeden bir tarayıcı da aynı sinyali üretir. Ancak belirtecinizin bir kopyasının başkasının elinde olduğu anlamına da gelebilir. Buradan hangisi olduğunu ayırt edemiyoruz.</p>
+<p class="message">Bunun siz olduğunuzdan emin değilseniz parolanızı hemen değiştirin. Kopyalanmış bir belirteci değersiz kılan şey budur.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">Parolanızı değiştirin</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı kopyalayıp tarayıcınıza yapıştırın:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000004', '43000000-0000-0000-0000-000000000014', N'fr', N'Vous avez été déconnecté de tous vos appareils',
+N'<div class="header">
+    <p class="eyebrow">Alerte de sécurité</p>
+    <h1>Vous avez été déconnecté de tous vos appareils</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">L''un des jetons qui vous maintiennent connecté à {{ Platform.Name }} a été présenté une seconde fois. Ces jetons sont à usage unique : nous avons donc mis fin à toutes les sessions de votre compte plutôt que de laisser fonctionner un jeton peut-être copié.</p>
+<div class="notice">
+    <p class="notice-title">Ce que nous avons observé</p>
+    <p class="notice-text">Origine : {{ IpAddress }}<br />Date : {{ DetectedAt }}</p>
+</div>
+<p class="message">Cela ne prouve pas que votre compte a été attaqué : un navigateur qui perd sa connexion au mauvais moment produit exactement le même signal. Cela peut aussi vouloir dire qu''une copie de votre jeton se trouve entre d''autres mains. Nous ne pouvons pas trancher d''ici.</p>
+<p class="message">Si vous n''êtes pas certain qu''il s''agissait de vous, changez votre mot de passe maintenant. C''est ce qui rend un jeton copié sans valeur.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">Changer votre mot de passe</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000005', '43000000-0000-0000-0000-000000000014', N'zh', N'您已从所有设备退出登录',
+N'<div class="header">
+    <p class="eyebrow">安全提醒</p>
+    <h1>您已从所有设备退出登录</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">用于让您保持登录 {{ Platform.Name }} 的令牌之一被第二次使用。此类令牌只能使用一次，因此我们结束了您账户上的所有会话，而不是让一个可能已被复制的令牌继续有效。</p>
+<div class="notice">
+    <p class="notice-title">我们观察到的情况</p>
+    <p class="notice-text">来源：{{ IpAddress }}<br />时间：{{ DetectedAt }}</p>
+</div>
+<p class="message">这并不能证明有人攻击了您的账户：浏览器在不恰当的时刻断开连接也会产生同样的信号。但它也可能意味着他人持有您令牌的副本。我们在此无法区分这两种情况。</p>
+<p class="message">如果您不能确定这是您本人的操作，请立即修改密码。这正是让被复制的令牌失效的方法。</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">修改密码</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请复制此链接到浏览器打开：</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000006', '43000000-0000-0000-0000-000000000014', N'ur', N'آپ کو تمام آلات سے سائن آؤٹ کر دیا گیا',
+N'<div class="header">
+    <p class="eyebrow">سیکیورٹی انتباہ</p>
+    <h1>آپ کو تمام آلات سے سائن آؤٹ کر دیا گیا</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">{{ Platform.Name }} میں آپ کو سائن اِن رکھنے والے ٹوکنوں میں سے ایک دوسری بار پیش کیا گیا۔ یہ ٹوکن صرف ایک بار استعمال ہو سکتے ہیں، اس لیے ہم نے آپ کے اکاؤنٹ کے تمام سیشن ختم کر دیے، بجائے اس کے کہ ممکنہ طور پر نقل شدہ ٹوکن کام کرتا رہے۔</p>
+<div class="notice">
+    <p class="notice-title">ہم نے کیا دیکھا</p>
+    <p class="notice-text">کہاں سے: {{ IpAddress }}<br />کب: {{ DetectedAt }}</p>
+</div>
+<p class="message">اس سے یہ ثابت نہیں ہوتا کہ کسی نے آپ کے اکاؤنٹ پر حملہ کیا ہے: غلط وقت پر رابطہ منقطع ہونے والا براؤزر بھی یہی اشارہ پیدا کرتا ہے۔ لیکن اس کا مطلب یہ بھی ہو سکتا ہے کہ آپ کے ٹوکن کی نقل کسی اور کے پاس ہے۔ ہم یہاں سے دونوں میں فرق نہیں کر سکتے۔</p>
+<p class="message">اگر آپ کو یقین نہیں کہ یہ آپ تھے تو ابھی اپنا پاس ورڈ تبدیل کریں۔ یہی وہ چیز ہے جو نقل شدہ ٹوکن کو بےکار بنا دیتی ہے۔</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">پاس ورڈ تبدیل کریں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک کاپی کرکے اپنے براؤزر میں کھولیں:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000007', '43000000-0000-0000-0000-000000000014', N'fa', N'از همهٔ دستگاه‌ها خارج شدید',
+N'<div class="header">
+    <p class="eyebrow">هشدار امنیتی</p>
+    <h1>از همهٔ دستگاه‌ها خارج شدید</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">یکی از توکن‌هایی که شما را در {{ Platform.Name }} وارد نگه می‌دارد، بار دوم ارائه شد. این توکن‌ها فقط یک‌بار مصرف‌اند، بنابراین به‌جای آنکه بگذاریم توکنی که شاید از آن نسخه‌برداری شده باشد به کار خود ادامه دهد، همهٔ نشست‌های حساب شما را پایان دادیم.</p>
+<div class="notice">
+    <p class="notice-title">آنچه دیدیم</p>
+    <p class="notice-text">از نشانی: {{ IpAddress }}<br />زمان: {{ DetectedAt }}</p>
+</div>
+<p class="message">این ثابت نمی‌کند کسی به حساب شما حمله کرده است: مرورگری که در لحظهٔ نامناسب اتصالش را از دست بدهد نیز همین نشانه را می‌سازد. اما می‌تواند به این معنا هم باشد که نسخه‌ای از توکن شما نزد شخص دیگری است. از اینجا نمی‌توانیم میان این دو تمایز بگذاریم.</p>
+<p class="message">اگر مطمئن نیستید که خودتان بوده‌اید، همین حالا گذرواژه‌تان را تغییر دهید؛ همین کار است که نسخهٔ کپی‌شدهٔ توکن را بی‌ارزش می‌کند.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">تغییر گذرواژه</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را کپی کرده و در مرورگر خود باز کنید:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000014'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000014';
+
+    PRINT 'Created sessions-revoked-token-reuse template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'sessions-revoked-token-reuse template already exists';
 END
 GO

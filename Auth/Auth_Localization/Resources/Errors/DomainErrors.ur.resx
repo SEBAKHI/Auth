@@ -752,6 +752,9 @@
   <data name="PrivacyPolicy.UnsupportedLanguage" xml:space="preserve">
     <value>یہ زبان رازداری کی پالیسی کے لیے معاون نہیں ہے۔</value>
   </data>
+  <data name="PrivacyPolicy.ControllerDetailsIncomplete" xml:space="preserve">
+    <value>ڈیٹا کنٹرولر کی تفصیلات مکمل ہوئے بغیر رازداری کی پالیسی شائع نہیں کی جا سکتی۔</value>
+  </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>اس پالیسی ورژن کا نام تبدیل نہیں کیا جا سکتا: یہ شائع ہو چکا ہے یا اس کی تبدیلی کی اطلاع بھیجی جا چکی ہے۔</value>
   </data>

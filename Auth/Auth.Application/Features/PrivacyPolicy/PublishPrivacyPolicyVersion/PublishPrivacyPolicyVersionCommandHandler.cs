@@ -1,9 +1,11 @@
+using Auth.Application.Configuration;
 using Auth.Application.Features.PrivacyPolicy.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.PrivacyPolicy.PublishPrivacyPolicyVersion;
 
@@ -17,13 +19,16 @@ public class PublishPrivacyPolicyVersionCommandHandler
 {
     private readonly IPrivacyPolicyVersionRepository _repository;
     private readonly IAuditLogRepository _auditLogRepository;
+    private readonly DataControllerSettings _controller;
 
     public PublishPrivacyPolicyVersionCommandHandler(
         IPrivacyPolicyVersionRepository repository,
-        IAuditLogRepository auditLogRepository)
+        IAuditLogRepository auditLogRepository,
+        IOptionsSnapshot<DataControllerSettings> controller)
     {
         _repository = repository;
         _auditLogRepository = auditLogRepository;
+        _controller = controller.Value;
     }
 
     public async Task<ErrorOr<Success>> Handle(
@@ -41,6 +46,18 @@ public class PublishPrivacyPolicyVersionCommandHandler
         {
             return PrivacyPolicyErrors.InvalidContent(
                 $"the '{PolicyLanguages.Fallback}' document must exist before publishing");
+        }
+
+        // A privacy policy that does not name its controller is not a valid
+        // disclosure: KVKK Art. 10 and GDPR Art. 13(1)(a) both require the
+        // controller's identity, and Art. 12(2) requires a reachable channel
+        // for rights requests. This used to be guarded only by a banner in the
+        // accounts SPA, which could not stop anything and did not even see the
+        // published document — it tested a build-time constant.
+        var missing = _controller.MissingRequired();
+        if (missing.Count > 0)
+        {
+            return PrivacyPolicyErrors.ControllerDetailsIncomplete(string.Join(", ", missing));
         }
 
         await _repository.PublishAsync(version.Id, cancellationToken);

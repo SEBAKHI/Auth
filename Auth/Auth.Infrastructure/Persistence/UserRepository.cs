@@ -386,26 +386,31 @@ public class UserRepository : IUserRepository
         }
 
         var emailHash = _identifierHasher.HashEmail(identifiers.NormalizedEmail);
-        var usernameHash = _identifierHasher.HashUsername(identifiers.Username);
 
         // Staged destruction. Every table below either references Users
-        // through a non-cascading foreign key or carries a loose user
-        // reference (AuditLogs, NotificationOutbox, RevokedTokens). Rows the
+        // through a non-cascading foreign key, carries a loose user reference
+        // (AuditLogs, NotificationOutbox, RevokedTokens), or is bound to the
+        // account by IDENTIFIER rather than by id (OrganizationInvitations.Email,
+        // NotificationOutbox.Recipient, LoginAttempts.Username) — that last
+        // class has no foreign key to drift-check, so it is enumerated
+        // explicitly and guarded by UserHardDeleteSqlTests. Rows the
         // user owns are deleted; the audit/login history is anonymized in
         // place; actor references on records that belong to other entities are
         // reattributed to the system account so those rows keep resolving.
         // AccountDeletionRequests rows are retained untouched as destruction
         // evidence. UserHardDeleteSqlTests guards this list against schema drift.
         await connection.ExecuteAsync(@"
-            -- Permanent zero-PII tombstone (idempotent MERGE): the identifier
+            -- Destruction tombstone (idempotent MERGE): the identifier
             -- reservation and the restore re-apply anchor. Written before
             -- anything is destroyed so a mid-purge failure never loses it.
+            -- The row is retained for IdentifierReservationDays, then swept —
+            -- a keyed digest of an address is pseudonymous, not anonymous.
             MERGE [dbo].[AccountDeletionTombstones] WITH (HOLDLOCK) AS [target]
             USING (SELECT @EmailHash AS [EmailHash]) AS [source]
             ON [target].[EmailHash] = [source].[EmailHash]
             WHEN NOT MATCHED THEN
-                INSERT ([EmailHash], [UsernameHash], [DeletedAtUtc], [PolicyVersion])
-                VALUES (@EmailHash, @UsernameHash, GETUTCDATE(), @PolicyVersion);
+                INSERT ([EmailHash], [DeletedAtUtc], [PolicyVersion], [KeyVersion])
+                VALUES (@EmailHash, GETUTCDATE(), @PolicyVersion, @KeyVersion);
 
             -- Crypto-shred: destroying the per-user DEK renders every
             -- ciphertext under it (phone number, TOTP secret, provider refresh
@@ -434,11 +439,22 @@ public class UserRepository : IUserRepository
             DELETE FROM [dbo].[OrganizationUserRoles] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[OrganizationUserPermissions] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[OrganizationUsers] WHERE [UserId] = @Id;
-            DELETE FROM [dbo].[OrganizationInvitations] WHERE [InvitedBy] = @Id;
+            -- Invitations the user authored, AND every invitation addressed to
+            -- the destroyed identifier. The second predicate is not optional:
+            -- the row stores the address in clear text and the accept path binds
+            -- on that string, not on a user id, so an untouched Pending row is
+            -- both surviving PII and a membership that the next holder of the
+            -- address would inherit the moment the reservation lapses.
+            DELETE FROM [dbo].[OrganizationInvitations]
+            WHERE [InvitedBy] = @Id OR [Email] = @Email;
             DELETE FROM [dbo].[OwnershipTransferCodes] WHERE [TargetUserId] = @Id OR [InitiatedBy] = @Id;
 
-            -- Notifications addressed to the user
-            DELETE FROM [dbo].[NotificationOutbox] WHERE [RecipientUserId] = @Id;
+            -- Mail addressed to the user. RecipientUserId is deliberately a soft
+            -- reference and is NULL for everything queued before the account
+            -- existed (invitation, e-mail verification), so the address is
+            -- matched too: Recipient, Subject and BodyHtml hold rendered PII.
+            DELETE FROM [dbo].[NotificationOutbox]
+            WHERE [RecipientUserId] = @Id OR [Recipient] = @Email;
 
             -- Client display state (table column layouts); no audit value
             DELETE FROM [dbo].[UserUiPreferences] WHERE [UserId] = @Id;
@@ -457,9 +473,24 @@ public class UserRepository : IUserRepository
             UPDATE [dbo].[AuditLogs]
             SET [PerformedBy] = @SystemUserId, [IpAddress] = NULL, [UserAgent] = NULL
             WHERE [PerformedBy] = @Id;
+            -- Matched by identifier as well as by id. Username holds the
+            -- ATTEMPTED identifier, so every attempt that never resolved to an
+            -- account — a wrong password before the first sign-in, credential
+            -- stuffing against the address — carries the e-mail in clear text
+            -- under a NULL UserId and would otherwise survive the purge.
+            -- Username is the one identifier column storing raw user input
+            -- rather than a normalized form, so this predicate (alone in the
+            -- purge) relies on the database's case-insensitive collation.
+            -- IpAddress is NOT NULL, so it is overwritten with a sentinel rather
+            -- than nulled: the published policy promises these rows are
+            -- de-identified immediately on deletion, and leaving the IP and
+            -- user-agent in place kept identifying data of an erased account
+            -- alive for a further LoginAttemptRetentionDays. The AuditLogs
+            -- statement above already strips both.
             UPDATE [dbo].[LoginAttempts]
-            SET [UserId] = NULL, [Username] = N'[deleted]'
-            WHERE [UserId] = @Id;
+            SET [UserId] = NULL, [Username] = N'[deleted]',
+                [IpAddress] = N'0.0.0.0', [UserAgent] = NULL
+            WHERE [UserId] = @Id OR [Username] = @Email OR [Username] = @Username;
 
             -- Actor references on surviving records of other entities
             UPDATE [dbo].[OrganizationApplications] SET [EnabledBy] = @SystemUserId WHERE [EnabledBy] = @Id;
@@ -475,7 +506,12 @@ public class UserRepository : IUserRepository
                 Id = id,
                 SystemUserId = WellKnownUserIds.System,
                 EmailHash = emailHash,
-                UsernameHash = usernameHash,
+                KeyVersion = _accountDeletionSettings.IdentifierKeyVersion,
+                // Email.Value is stored lower-invariant and NormalizedEmail is its
+                // upper-invariant form, so this reproduces exactly what the
+                // identifier-bearing columns hold.
+                Email = identifiers.NormalizedEmail.ToLowerInvariant(),
+                Username = identifiers.Username,
                 PolicyVersion = _accountDeletionSettings.PolicyVersion
             },
             transaction);
