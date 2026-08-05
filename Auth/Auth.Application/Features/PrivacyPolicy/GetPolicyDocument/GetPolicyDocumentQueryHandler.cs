@@ -51,6 +51,7 @@ public class GetPolicyDocumentQueryHandler
         {
             Html = artifact.Html,
             ContentHash = artifact.ContentHash,
+            StyleHash = artifact.StyleHash,
             LanguageCode = artifact.LanguageCode,
             SourceLanguageCode = artifact.SourceLanguageCode,
             RenderedAt = artifact.RenderedAt

@@ -179,6 +179,7 @@ public class PublishPrivacyPolicyVersionCommandHandler
                 source.LanguageCode,
                 result.Value.Html,
                 result.Value.ContentHash,
+                result.Value.StyleHash,
                 disclosureJson));
         }
 

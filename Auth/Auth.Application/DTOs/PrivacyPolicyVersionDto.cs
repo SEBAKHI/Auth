@@ -56,6 +56,13 @@ public class PolicyDocumentDto
     /// <summary>SHA-256 of <see cref="Html"/>; used as the strong ETag.</summary>
     public string ContentHash { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Base64 SHA-256 of the document's inline stylesheet, sent as
+    /// <c>style-src 'sha256-…'</c> so the page can style itself under a policy
+    /// that otherwise permits nothing.
+    /// </summary>
+    public string StyleHash { get; set; } = string.Empty;
+
     /// <summary>The language this document is served as.</summary>
     public string LanguageCode { get; set; } = string.Empty;
 

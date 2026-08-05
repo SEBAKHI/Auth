@@ -100,7 +100,7 @@ public partial class PolicyDocumentRenderer : IPolicyDocumentRenderer
         }
 
         var html = Wrap(request, Text(request.Content.Title), body.ToString());
-        return new RenderedPolicyDocument(html, Sha256(html));
+        return new RenderedPolicyDocument(html, Sha256(html), StyleHash);
     }
 
     private static void AppendHeader(
@@ -353,6 +353,13 @@ public partial class PolicyDocumentRenderer : IPolicyDocumentRenderer
 
     private static string Sha256(string value) =>
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
+
+    /// <summary>
+    /// CSP source expression for the inline stylesheet this renderer emits.
+    /// Base64, not hex: that is the encoding the CSP hash grammar requires.
+    /// </summary>
+    private static readonly string StyleHash =
+        Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(Styles)));
 
     private static string Wrap(PolicyRenderRequest request, string title, string body)
     {

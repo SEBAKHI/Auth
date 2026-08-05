@@ -34,6 +34,13 @@ public class PrivacyPolicyArtifact : EntityBase
     public string ContentHash { get; private set; } = string.Empty;
 
     /// <summary>
+    /// Gets the base64 SHA-256 of this document's inline stylesheet, sent as
+    /// <c>style-src 'sha256-…'</c> so the page may style itself while the
+    /// response otherwise permits nothing at all.
+    /// </summary>
+    public string StyleHash { get; private set; } = string.Empty;
+
+    /// <summary>
     /// Gets the disclosure values frozen into <see cref="Html"/>, so the console
     /// can tell an operator the published document no longer describes the
     /// running system. Recorded, never re-applied: silently rewriting a
@@ -58,6 +65,7 @@ public class PrivacyPolicyArtifact : EntityBase
         string sourceLanguageCode,
         string html,
         string contentHash,
+        string styleHash,
         string disclosureJson,
         DateTime renderedAt) : base(id)
     {
@@ -66,6 +74,7 @@ public class PrivacyPolicyArtifact : EntityBase
         SourceLanguageCode = sourceLanguageCode;
         Html = html;
         ContentHash = contentHash;
+        StyleHash = styleHash;
         DisclosureJson = disclosureJson;
         RenderedAt = renderedAt;
     }
@@ -77,6 +86,7 @@ public class PrivacyPolicyArtifact : EntityBase
         string sourceLanguageCode,
         string html,
         string contentHash,
+        string styleHash,
         string disclosureJson)
     {
         return new PrivacyPolicyArtifact
@@ -86,6 +96,7 @@ public class PrivacyPolicyArtifact : EntityBase
             SourceLanguageCode = sourceLanguageCode,
             Html = html,
             ContentHash = contentHash,
+            StyleHash = styleHash,
             DisclosureJson = disclosureJson,
             RenderedAt = DateTime.UtcNow
         };

@@ -47,7 +47,17 @@ public sealed record PolicyRenderRequest(
     bool IsFallbackLanguage,
     string AccountsBaseUrl);
 
-/// <summary>The bytes to serve and the hash that identifies them.</summary>
+/// <summary>The bytes to serve and the hashes that identify them.</summary>
 /// <param name="Html">A complete document: own head, inline styles, no script.</param>
 /// <param name="ContentHash">Lowercase hex SHA-256 of <paramref name="Html"/>.</param>
-public sealed record RenderedPolicyDocument(string Html, string ContentHash);
+/// <param name="StyleHash">
+/// Base64 SHA-256 of the inline stylesheet, for the response's
+/// <c>style-src 'sha256-…'</c>.
+///
+/// Travels with the document rather than being recomputed from the current
+/// template: an artifact published by an earlier build carries that build's
+/// stylesheet, and a hash taken from today's constant would not match it — the
+/// browser would silently drop the styling of an already-published document.
+/// </param>
+public sealed record RenderedPolicyDocument(
+    string Html, string ContentHash, string StyleHash);

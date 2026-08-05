@@ -32,8 +32,20 @@ public class SecurityHeadersMiddleware
             // Control referrer information leakage
             headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
 
-            // Content Security Policy - prevent XSS and data injection
-            headers.ContentSecurityPolicy = "default-src 'self'; frame-ancestors 'none'";
+            // Content Security Policy - prevent XSS and data injection.
+            //
+            // Applied only when the endpoint has not already stated its own.
+            // This runs in OnStarting, i.e. after the action, so an
+            // unconditional assignment silently overwrote anything a controller
+            // set — which is how the privacy notice ended up served with its
+            // inline stylesheet blocked and no way for the endpoint to say
+            // otherwise. Endpoints that return a document rather than JSON can
+            // now set a policy that is stricter AND permits exactly what that
+            // document contains.
+            if (string.IsNullOrEmpty(headers.ContentSecurityPolicy))
+            {
+                headers.ContentSecurityPolicy = "default-src 'self'; frame-ancestors 'none'";
+            }
 
             // Restrict browser features
             headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()";

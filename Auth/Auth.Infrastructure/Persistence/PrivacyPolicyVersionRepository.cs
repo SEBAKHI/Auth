@@ -16,7 +16,7 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
 
     private const string ArtifactColumns = @"
         [Id], [VersionId], [LanguageCode], [SourceLanguageCode], [Html],
-        [ContentHash], [DisclosureJson], [RenderedAt]";
+        [ContentHash], [StyleHash], [DisclosureJson], [RenderedAt]";
 
     private readonly IDbConnectionFactory _connectionFactory;
 
@@ -218,10 +218,10 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[PrivacyPolicyArtifacts]
                 ([Id], [VersionId], [LanguageCode], [SourceLanguageCode], [Html],
-                 [ContentHash], [DisclosureJson], [RenderedAt])
+                 [ContentHash], [StyleHash], [DisclosureJson], [RenderedAt])
             VALUES
                 (@Id, @VersionId, @LanguageCode, @SourceLanguageCode, @Html,
-                 @ContentHash, @DisclosureJson, @RenderedAt)",
+                 @ContentHash, @StyleHash, @DisclosureJson, @RenderedAt)",
             artifacts.Select(a => new
             {
                 a.Id,
@@ -230,6 +230,7 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
                 a.SourceLanguageCode,
                 a.Html,
                 a.ContentHash,
+                a.StyleHash,
                 a.DisclosureJson,
                 a.RenderedAt
             }),
@@ -265,7 +266,7 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
         var row = await connection.QuerySingleOrDefaultAsync<ArtifactDto>(@"
             SELECT TOP 1
                 a.[Id], a.[VersionId], a.[LanguageCode], a.[SourceLanguageCode],
-                a.[Html], a.[ContentHash], a.[DisclosureJson], a.[RenderedAt]
+                a.[Html], a.[ContentHash], a.[StyleHash], a.[DisclosureJson], a.[RenderedAt]
             FROM [dbo].[PrivacyPolicyArtifacts] a
             INNER JOIN [dbo].[PrivacyPolicyVersions] v ON v.[Id] = a.[VersionId]
             WHERE v.[IsPublished] = 1 AND a.[LanguageCode] = @LanguageCode",
@@ -315,11 +316,12 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
         public string SourceLanguageCode { get; init; } = string.Empty;
         public string Html { get; init; } = string.Empty;
         public string ContentHash { get; init; } = string.Empty;
+        public string StyleHash { get; init; } = string.Empty;
         public string DisclosureJson { get; init; } = string.Empty;
         public DateTime RenderedAt { get; init; }
 
         public PrivacyPolicyArtifact ToEntity() => new(
             Id, VersionId, LanguageCode, SourceLanguageCode, Html, ContentHash,
-            DisclosureJson, RenderedAt);
+            StyleHash, DisclosureJson, RenderedAt);
     }
 }

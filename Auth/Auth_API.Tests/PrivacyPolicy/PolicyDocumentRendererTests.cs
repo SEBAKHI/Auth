@@ -155,6 +155,29 @@ public class PolicyDocumentRendererTests
     }
 
     [Fact]
+    public void TheStyleHashMatchesTheStylesheetTheDocumentActuallyCarries()
+    {
+        // The document is served under "default-src 'none'", so the only thing
+        // that lets it style itself is style-src naming this exact hash. It is
+        // computed here from the emitted markup rather than trusted, because a
+        // mismatch does not fail anything — the browser silently drops the
+        // stylesheet and the notice renders as unstyled text, which is how this
+        // shipped the first time.
+        var result = Renderer.Render(Request(Sentinels()));
+
+        var html = result.Value.Html;
+        var open = html.IndexOf("<style>", StringComparison.Ordinal) + "<style>".Length;
+        var close = html.IndexOf("</style>", StringComparison.Ordinal);
+        var stylesheet = html[open..close];
+
+        var expected = Convert.ToBase64String(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(stylesheet)));
+
+        result.Value.StyleHash.Should().Be(expected);
+    }
+
+    [Fact]
     public void TheSameInputProducesTheSameHash()
     {
         // The hash is the ETag and the evidence of what a user was shown, so it

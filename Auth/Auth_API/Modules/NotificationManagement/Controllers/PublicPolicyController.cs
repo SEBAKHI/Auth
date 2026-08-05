@@ -100,6 +100,16 @@ public class PublicPolicyController : ControllerBase
         var document = result.Value;
         var etag = $"\"{document.ContentHash}\"";
 
+        // Stricter than the API-wide policy, not looser: this document loads no
+        // script, no font, no image and makes no request of any kind, so
+        // everything is denied and the one exception is its own stylesheet,
+        // named by hash. Without this the site-wide "default-src 'self'" blocked
+        // the inline <style> and the notice rendered as unstyled text.
+        Response.Headers.ContentSecurityPolicy =
+            "default-src 'none'; " +
+            $"style-src 'sha256-{document.StyleHash}'; " +
+            "base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+
         Response.Headers.CacheControl = CachePolicy;
         Response.Headers.ETag = etag;
         Response.Headers.LastModified =

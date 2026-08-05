@@ -10,6 +10,10 @@ CREATE TABLE [dbo].[PrivacyPolicyArtifacts]
                                                 -- styles, no script, no bundle reference
     [ContentHash] CHAR(64) NOT NULL,            -- SHA-256 of Html; the ETag, and the value an
                                                 -- acknowledgement record should cite as evidence
+    [StyleHash] NVARCHAR(100) NOT NULL,         -- base64 SHA-256 of the inline stylesheet, sent as
+                                                -- style-src 'sha256-...'. Stored rather than
+                                                -- recomputed: an older artifact carries an older
+                                                -- stylesheet, and today's hash would not match it
     [DisclosureJson] NVARCHAR(MAX) NOT NULL,    -- the values frozen into Html, so the console can
                                                 -- report drift instead of silently re-rendering
     [RenderedAt] DATETIME2 NOT NULL CONSTRAINT [DF_PrivacyPolicyArtifacts_RenderedAt] DEFAULT GETUTCDATE(),

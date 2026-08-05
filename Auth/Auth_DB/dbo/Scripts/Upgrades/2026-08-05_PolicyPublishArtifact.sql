@@ -28,6 +28,7 @@ BEGIN
         [SourceLanguageCode] NVARCHAR(10) NOT NULL,
         [Html] NVARCHAR(MAX) NOT NULL,
         [ContentHash] CHAR(64) NOT NULL,
+        [StyleHash] NVARCHAR(100) NOT NULL,
         [DisclosureJson] NVARCHAR(MAX) NOT NULL,
         [RenderedAt] DATETIME2 NOT NULL CONSTRAINT [DF_PrivacyPolicyArtifacts_RenderedAt] DEFAULT GETUTCDATE(),
 
@@ -42,6 +43,19 @@ END
 ELSE
 BEGIN
     PRINT 'dbo.PrivacyPolicyArtifacts already exists';
+END
+GO
+
+-- StyleHash arrived after the table did, on a deployment that had already been
+-- run against development databases.
+IF COL_LENGTH('dbo.PrivacyPolicyArtifacts', 'StyleHash') IS NULL
+BEGIN
+    -- The rows are regenerated wholesale by the next publish, so an empty
+    -- default is enough to add the column; it is never read from an old row.
+    ALTER TABLE [dbo].[PrivacyPolicyArtifacts]
+        ADD [StyleHash] NVARCHAR(100) NOT NULL
+            CONSTRAINT [DF_PrivacyPolicyArtifacts_StyleHash] DEFAULT '';
+    PRINT 'Added PrivacyPolicyArtifacts.StyleHash';
 END
 GO
 
