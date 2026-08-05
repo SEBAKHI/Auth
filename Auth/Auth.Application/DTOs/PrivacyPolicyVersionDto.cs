@@ -5,6 +5,14 @@ namespace Auth.Application.DTOs;
 /// </summary>
 public class PrivacyPolicyVersionDto
 {
+    /// <summary>
+    /// True when this revision is published but the values frozen into its
+    /// document no longer match the running configuration — so the console can
+    /// prompt a re-publish instead of the system silently amending a notice
+    /// people have already been shown.
+    /// </summary>
+    public bool DisclosureOutOfDate { get; set; }
+
     public Guid Id { get; set; }
     public string Version { get; set; } = string.Empty;
     public DateTime EffectiveDateUtc { get; set; }
@@ -37,9 +45,37 @@ public class PrivacyPolicyContentDto
 }
 
 /// <summary>
-/// The published policy as the accounts app consumes it: the document for the
-/// requested language plus the LIVE numeric disclosures, so the rendered text
-/// can never contradict the running configuration.
+/// The document actually served to the public: bytes rendered when the revision
+/// was published, plus the identity needed to serve them correctly.
+/// </summary>
+public class PolicyDocumentDto
+{
+    /// <summary>Complete standalone HTML — own head, inline styles, no script.</summary>
+    public string Html { get; set; } = string.Empty;
+
+    /// <summary>SHA-256 of <see cref="Html"/>; used as the strong ETag.</summary>
+    public string ContentHash { get; set; } = string.Empty;
+
+    /// <summary>The language this document is served as.</summary>
+    public string LanguageCode { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The language the body was written in. Differs from
+    /// <see cref="LanguageCode"/> on a disclosed fallback, which the document
+    /// states in the reader's own language.
+    /// </summary>
+    public string SourceLanguageCode { get; set; } = string.Empty;
+
+    public DateTime RenderedAt { get; set; }
+}
+
+/// <summary>
+/// The published policy as the console's editor preview consumes it: the
+/// authored document for a language plus the LIVE disclosures.
+///
+/// Not the public read path — that serves <see cref="PolicyDocumentDto"/>.
+/// Preview needs the live values precisely so an operator can see how the next
+/// publish would differ from the one currently served.
 /// </summary>
 public class PublishedPrivacyPolicyDto
 {

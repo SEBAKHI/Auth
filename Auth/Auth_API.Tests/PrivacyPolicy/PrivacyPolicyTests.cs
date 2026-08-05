@@ -383,19 +383,11 @@ public class PrivacyPolicyTests
         // Publishing without the fallback language would leave visitors whose
         // language is unwritten with nothing to read.
         var version = PublishedVersion();
-        var repository = new Mock<IPrivacyPolicyVersionRepository>();
-        repository
-            .Setup(r => r.GetByVersionAsync("2026.09", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(version);
-        repository
-            .Setup(r => r.GetTranslationAsync(version.Id, "en", It.IsAny<CancellationToken>()))
-            .ReturnsAsync((PrivacyPolicyTranslation?)null);
-
-        var handler = new PublishPrivacyPolicyVersionCommandHandler(
-            repository.Object, new Mock<IAuditLogRepository>().Object, TestHelpers.CreateOptions(Controller()));
+        var (handler, repository, _, _) = PolicyPublishHarness.Create(
+            version, Controller(), translations: []);
 
         var result = await handler.Handle(
-            new PublishPrivacyPolicyVersionCommand("2026.09") { RequestedBy = AdminId },
+            new PublishPrivacyPolicyVersionCommand(version.Version) { RequestedBy = AdminId },
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
@@ -408,20 +400,13 @@ public class PrivacyPolicyTests
     public async Task Publish_WithNeutralDocument_Publishes()
     {
         var version = PublishedVersion();
-        var repository = new Mock<IPrivacyPolicyVersionRepository>();
-        repository
-            .Setup(r => r.GetByVersionAsync("2026.09", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(version);
-        repository
-            .Setup(r => r.GetTranslationAsync(version.Id, "en", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(PrivacyPolicyTranslation.Create(version.Id, "en", "{}", AdminId));
-
-        var audit = new Mock<IAuditLogRepository>();
-        var handler = new PublishPrivacyPolicyVersionCommandHandler(
-            repository.Object, audit.Object, TestHelpers.CreateOptions(Controller()));
+        var (handler, repository, audit, _) = PolicyPublishHarness.Create(
+            version,
+            Controller(),
+            [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);
 
         var result = await handler.Handle(
-            new PublishPrivacyPolicyVersionCommand("2026.09") { RequestedBy = AdminId },
+            new PublishPrivacyPolicyVersionCommand(version.Version) { RequestedBy = AdminId },
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();

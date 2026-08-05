@@ -184,4 +184,7 @@
   <data name="Secrets.GatewayTokenImported" xml:space="preserve">
     <value>تم استيراد رمز البوابة بنجاح. حدّث إعدادات بوابة الـ API بالرمز نفسه.</value>
   </data>
+  <data name="PolicyLanguageFallbackNotice" xml:space="preserve">
+    <value>سياسة الخصوصية هذه غير متاحة بلغتك بعد. أنت تقرأ النسخة الإنجليزية.</value>
+  </data>
 </root>

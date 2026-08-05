@@ -184,4 +184,7 @@
   <data name="Secrets.GatewayTokenImported" xml:space="preserve">
     <value>Jeton de passerelle importé avec succès. Mettez à jour la configuration de l'API Gateway avec le même jeton.</value>
   </data>
+  <data name="PolicyLanguageFallbackNotice" xml:space="preserve">
+    <value>Cette politique de confidentialité n'est pas encore disponible dans votre langue. Vous lisez la version anglaise.</value>
+  </data>
 </root>

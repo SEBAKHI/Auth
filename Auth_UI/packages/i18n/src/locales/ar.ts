@@ -904,6 +904,12 @@ export const ar: TranslationResources = {
     policyPublished: "منشور",
     policyDraft: "مسودة",
     policyPublish: "نشر",
+    policyMissingLanguagesTitle: "لم تُترجم كل اللغات بعد",
+    policyMissingLanguagesBody:
+      "سيُعرض على قرّاء {{languages}} المستندُ الإنجليزي، مع إشعار بلغتهم يوضّح ذلك. انشر على أي حال، أو أضف الترجمات أولًا.",
+    policyDisclosureDriftTitle: "السياسة المنشورة لم تعد تطابق الإعدادات",
+    policyDisclosureDriftBody:
+      "تغيّرت إعدادات النظام بعد نشر هذا الإصدار، فما زال المستند المخدوم يقتبس القيم السابقة. لا يُعاد تصييره تلقائيًا لأن ذلك تعديل لإشعار عُرض على الناس بالفعل. أعد النشر لتحديثه.",
     policyPublishTitle: "نشر هذا الإصدار من السياسة؟",
     policyPublishBody: "سيصبح السياسة المعروضة لكل المستخدمين. يجب أن يوجد المستند الإنجليزي أولًا.",
     policyPublishedToast: "تم نشر إصدار السياسة.",

@@ -943,6 +943,13 @@ export const fr: TranslationResources = {
     policyPublished: "Publiée",
     policyDraft: "Brouillon",
     policyPublish: "Publier",
+    policyMissingLanguagesTitle: "Toutes les langues ne sont pas encore traduites",
+    policyMissingLanguagesBody:
+      "Les lecteurs en {{languages}} recevront le document anglais, accompagné d'un avis dans leur propre langue le précisant. Publiez quand même, ou ajoutez d'abord les traductions.",
+    policyDisclosureDriftTitle:
+      "La politique publiée ne correspond plus aux paramètres",
+    policyDisclosureDriftBody:
+      "Les paramètres système ont changé après la publication de cette version : le document servi cite encore les valeurs précédentes. Il n'est pas régénéré automatiquement — cela modifierait un avis déjà présenté aux utilisateurs. Republiez pour le mettre à jour.",
     policyPublishTitle: "Publier cette version de la politique ?",
     policyPublishBody: "Elle devient la politique affichée à tous les utilisateurs. Le document anglais doit exister d'abord.",
     policyPublishedToast: "Version de la politique publiée.",

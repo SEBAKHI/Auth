@@ -62,4 +62,30 @@ public interface IPrivacyPolicyVersionRepository
     /// </summary>
     Task UpsertTranslationAsync(
         PrivacyPolicyTranslation translation, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Replaces a revision's whole set of served documents in one transaction.
+    ///
+    /// All-or-nothing on purpose: a partial set would leave some languages on
+    /// the previous revision's text while others moved, which is a version skew
+    /// across locales rather than a slow rollout.
+    /// </summary>
+    Task ReplaceArtifactsAsync(
+        Guid versionId,
+        IReadOnlyList<PrivacyPolicyArtifact> artifacts,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the served document for a revision and language, or null when that
+    /// revision has never been published.
+    /// </summary>
+    Task<PrivacyPolicyArtifact?> GetArtifactAsync(
+        Guid versionId, string languageCode, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the served document of the currently published revision — a single
+    /// round-trip, because this is the public read path.
+    /// </summary>
+    Task<PrivacyPolicyArtifact?> GetPublishedArtifactAsync(
+        string languageCode, CancellationToken cancellationToken);
 }

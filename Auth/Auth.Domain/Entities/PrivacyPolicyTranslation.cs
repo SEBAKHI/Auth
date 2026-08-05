@@ -17,10 +17,10 @@ public class PrivacyPolicyTranslation : EntityBase
     public string LanguageCode { get; private set; } = string.Empty;
 
     /// <summary>
-    /// Gets the document as JSON, matching the frontend's
-    /// <c>PrivacyPolicyContent</c> contract. Numeric disclosures are written
-    /// as <c>{{token}}</c> placeholders and interpolated at render time from
-    /// the running configuration, so the text can never contradict the system.
+    /// Gets the AUTHORED document as JSON, matching the frontend's
+    /// <c>PrivacyPolicyContent</c> contract. Disclosures are written as
+    /// <c>{{token}}</c> placeholders; they are resolved when the version is
+    /// published, not when the policy is read.
     /// </summary>
     public string ContentJson { get; private set; } = string.Empty;
 
@@ -66,7 +66,12 @@ public class PrivacyPolicyTranslation : EntityBase
         };
     }
 
-    /// <summary>Replaces the document content.</summary>
+    /// <summary>
+    /// Replaces the authored document.
+    ///
+    /// No artifact is touched: editing is not publishing, and a saved edit must
+    /// not change what the public is currently being served.
+    /// </summary>
     public void UpdateContent(string contentJson, Guid modifiedBy)
     {
         ContentJson = contentJson;

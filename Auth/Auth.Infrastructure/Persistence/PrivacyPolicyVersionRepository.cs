@@ -14,6 +14,10 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
         [Id], [Version], [EffectiveDateUtc], [IsPublished], [ChangeNote], [NotifiedAtUtc],
         [NotifiedCount], [CreatedAt], [CreatedBy]";
 
+    private const string ArtifactColumns = @"
+        [Id], [VersionId], [LanguageCode], [SourceLanguageCode], [Html],
+        [ContentHash], [DisclosureJson], [RenderedAt]";
+
     private readonly IDbConnectionFactory _connectionFactory;
 
     public PrivacyPolicyVersionRepository(IDbConnectionFactory connectionFactory)
@@ -196,6 +200,80 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
             });
     }
 
+    /// <inheritdoc />
+    public async Task ReplaceArtifactsAsync(
+        Guid versionId,
+        IReadOnlyList<PrivacyPolicyArtifact> artifacts,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        // Delete-then-insert inside one transaction: readers either see the old
+        // set or the new one, never a half-published mixture of two revisions.
+        await connection.ExecuteAsync(
+            "DELETE FROM [dbo].[PrivacyPolicyArtifacts] WHERE [VersionId] = @VersionId",
+            new { VersionId = versionId }, transaction);
+
+        await connection.ExecuteAsync(@"
+            INSERT INTO [dbo].[PrivacyPolicyArtifacts]
+                ([Id], [VersionId], [LanguageCode], [SourceLanguageCode], [Html],
+                 [ContentHash], [DisclosureJson], [RenderedAt])
+            VALUES
+                (@Id, @VersionId, @LanguageCode, @SourceLanguageCode, @Html,
+                 @ContentHash, @DisclosureJson, @RenderedAt)",
+            artifacts.Select(a => new
+            {
+                a.Id,
+                a.VersionId,
+                a.LanguageCode,
+                a.SourceLanguageCode,
+                a.Html,
+                a.ContentHash,
+                a.DisclosureJson,
+                a.RenderedAt
+            }),
+            transaction);
+
+        transaction.Commit();
+    }
+
+    /// <inheritdoc />
+    public async Task<PrivacyPolicyArtifact?> GetArtifactAsync(
+        Guid versionId, string languageCode, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var row = await connection.QuerySingleOrDefaultAsync<ArtifactDto>($@"
+            SELECT {ArtifactColumns}
+            FROM [dbo].[PrivacyPolicyArtifacts]
+            WHERE [VersionId] = @VersionId AND [LanguageCode] = @LanguageCode",
+            new { VersionId = versionId, LanguageCode = languageCode });
+
+        return row?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<PrivacyPolicyArtifact?> GetPublishedArtifactAsync(
+        string languageCode, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // One join rather than "find the published version, then fetch its
+        // document": this is the anonymous public path, so it gets one
+        // round-trip and no window between the two reads.
+        var row = await connection.QuerySingleOrDefaultAsync<ArtifactDto>(@"
+            SELECT TOP 1
+                a.[Id], a.[VersionId], a.[LanguageCode], a.[SourceLanguageCode],
+                a.[Html], a.[ContentHash], a.[DisclosureJson], a.[RenderedAt]
+            FROM [dbo].[PrivacyPolicyArtifacts] a
+            INNER JOIN [dbo].[PrivacyPolicyVersions] v ON v.[Id] = a.[VersionId]
+            WHERE v.[IsPublished] = 1 AND a.[LanguageCode] = @LanguageCode",
+            new { LanguageCode = languageCode });
+
+        return row?.ToEntity();
+    }
+
     // Internal DTOs for mapping from database
     private record VersionDto
     {
@@ -227,5 +305,21 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
 
         public PrivacyPolicyTranslation ToEntity() => new(
             Id, VersionId, LanguageCode, ContentJson, CreatedAt, CreatedBy, ModifiedAt, ModifiedBy);
+    }
+
+    private record ArtifactDto
+    {
+        public Guid Id { get; init; }
+        public Guid VersionId { get; init; }
+        public string LanguageCode { get; init; } = string.Empty;
+        public string SourceLanguageCode { get; init; } = string.Empty;
+        public string Html { get; init; } = string.Empty;
+        public string ContentHash { get; init; } = string.Empty;
+        public string DisclosureJson { get; init; } = string.Empty;
+        public DateTime RenderedAt { get; init; }
+
+        public PrivacyPolicyArtifact ToEntity() => new(
+            Id, VersionId, LanguageCode, SourceLanguageCode, Html, ContentHash,
+            DisclosureJson, RenderedAt);
     }
 }

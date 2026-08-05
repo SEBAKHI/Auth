@@ -184,4 +184,7 @@
   <data name="Secrets.GatewayTokenImported" xml:space="preserve">
     <value>网关令牌导入成功。请使用相同令牌更新 API 网关配置。</value>
   </data>
+  <data name="PolicyLanguageFallbackNotice" xml:space="preserve">
+    <value>本隐私政策尚无您所用语言的版本。您正在阅读英文版。</value>
+  </data>
 </root>

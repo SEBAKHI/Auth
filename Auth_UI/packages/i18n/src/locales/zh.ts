@@ -871,6 +871,12 @@ export const zh: TranslationResources = {
     policyPublished: "已发布",
     policyDraft: "草稿",
     policyPublish: "发布",
+    policyMissingLanguagesTitle: "尚未翻译全部语言",
+    policyMissingLanguagesBody:
+      "{{languages}} 的读者将看到英文文档，并附有以其语言显示的说明。可以照常发布，也可以先补齐翻译。",
+    policyDisclosureDriftTitle: "已发布的政策与当前设置不再一致",
+    policyDisclosureDriftBody:
+      "此版本发布后系统设置发生了变更，所服务的文档仍引用旧值。系统不会自动重新生成——那等于擅自修改已向用户展示过的告知。请重新发布以更新。",
     policyPublishTitle: "发布此政策版本？",
     policyPublishBody: "它将成为向所有用户展示的政策。必须先存在英文文档。",
     policyPublishedToast: "政策版本已发布。",

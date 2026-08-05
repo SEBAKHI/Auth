@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { api } from "@authsystem/api/client"
+import { privacyPolicyUrl } from "@authsystem/api/env"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
@@ -99,6 +100,20 @@ export function RegisterPage() {
             {t("auth.signIn")}
           </Link>
         </span>
+      }
+      // GDPR Art. 13(1) fixes the disclosure at the moment personal data is
+      // obtained, and registration is that moment — this page offered no route
+      // to the notice at all. A bare link, not a combined "I have read and
+      // agree" box: KVKK principle decision 2026/347 requires the disclosure to
+      // be separate from consent, and permits asking only for confirmation of
+      // reading, never approval of its content.
+      pageFooter={
+        <a
+          href={privacyPolicyUrl(i18n.language)}
+          className="underline-offset-4 hover:underline"
+        >
+          {t("auth.privacyPolicy")}
+        </a>
       }
     >
       <Form {...form}>

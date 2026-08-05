@@ -3,8 +3,9 @@ CREATE TABLE [dbo].[PrivacyPolicyTranslations]
     [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_PrivacyPolicyTranslations_Id] DEFAULT NEWID(),
     [VersionId] UNIQUEIDENTIFIER NOT NULL,
     [LanguageCode] NVARCHAR(10) NOT NULL,
-    [ContentJson] NVARCHAR(MAX) NOT NULL,      -- the policy document; {{token}} placeholders are
-                                               -- interpolated from live config at read time
+    [ContentJson] NVARCHAR(MAX) NOT NULL,      -- the authored document; {{token}} placeholders are
+                                               -- interpolated when the version is PUBLISHED, into
+                                               -- RenderedHtml below — never on the read path
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_PrivacyPolicyTranslations_CreatedAt] DEFAULT GETUTCDATE(),
     [CreatedBy] UNIQUEIDENTIFIER NOT NULL,
     [ModifiedAt] DATETIME2 NULL,
@@ -17,6 +18,11 @@ CREATE TABLE [dbo].[PrivacyPolicyTranslations]
 );
 GO
 
--- The privacy-policy document per (version, language). Content is data, not
--- code: it is authored in the console and served to the accounts app, so legal
--- wording changes need no deployment. Rows carry no personal data.
+-- The AUTHORED privacy-policy document per (version, language). Content is
+-- data, not code: it is written in the console, so legal wording changes need
+-- no deployment. Rows carry no personal data.
+--
+-- A row here means "this language has been written". What the public is served
+-- lives in PrivacyPolicyArtifacts, produced at publish time — keeping the two
+-- apart is what lets the console still say which languages are actually
+-- translated after every language has become servable.

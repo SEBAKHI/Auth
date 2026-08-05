@@ -184,4 +184,7 @@
   <data name="Secrets.GatewayTokenImported" xml:space="preserve">
     <value>Gateway token imported successfully. Update the API Gateway configuration with the same token.</value>
   </data>
+  <data name="PolicyLanguageFallbackNotice" xml:space="preserve">
+    <value>This privacy policy is not available in your language yet. You are reading the English version.</value>
+  </data>
 </root>

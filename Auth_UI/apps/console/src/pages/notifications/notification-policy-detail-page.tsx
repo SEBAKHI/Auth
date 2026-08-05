@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, CheckCircle2, Plus, Save, Trash2 } from "lucide-react"
+import { Check, CheckCircle2, Plus, Save, Trash2, TriangleAlert } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
@@ -10,7 +10,7 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { directionForLanguage, SUPPORTED_LANGUAGES } from "@authsystem/i18n"
-import { Alert, AlertDescription } from "@authsystem/ui/alert"
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@authsystem/ui/card"
@@ -33,6 +33,7 @@ import {
   SectionListEditor,
   StringListEditor,
 } from "./components/policy-field-editors"
+import { PolicyLanguageGapNotice } from "./components/policy-language-gap-notice"
 import { PolicyPreviewPane } from "./components/policy-preview-pane"
 import { PolicyVersionField } from "./components/policy-version-field"
 import { Spinner } from "@authsystem/ui/spinner"
@@ -94,6 +95,7 @@ export function NotificationPolicyDetailPage() {
   const [dirty, setDirty] = React.useState(false)
   const [parseError, setParseError] = React.useState<string | null>(null)
   const [pendingLanguage, setPendingLanguage] = React.useState<string | null>(null)
+  const [confirmingPublish, setConfirmingPublish] = React.useState(false)
   const [versionName, setVersionName] = React.useState("")
   const [effectiveDate, setEffectiveDate] = React.useState("")
   const [changeNote, setChangeNote] = React.useState("")
@@ -208,6 +210,7 @@ export function NotificationPolicyDetailPage() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
       toast.success(t("notifications.policyPublishedToast"))
+      setConfirmingPublish(false)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -310,7 +313,7 @@ export function NotificationPolicyDetailPage() {
               {versionRow && !versionRow.isPublished ? (
                 <Button
                   disabled={dirty || metaDirty || publishMutation.isPending}
-                  onClick={() => publishMutation.mutate()}
+                  onClick={() => setConfirmingPublish(true)}
                 >
                   <CheckCircle2 data-icon="inline-start" />
                   {t("notifications.policyPublish")}
@@ -320,6 +323,20 @@ export function NotificationPolicyDetailPage() {
           ) : undefined
         }
       />
+
+      {/* Reported, not repaired. Re-rendering a published notice because a
+          setting moved would amend the text people were shown with no version
+          and no effective date to mark it — so the operator is told, and
+          re-publishing stays their decision. */}
+      {versionRow?.disclosureOutOfDate ? (
+        <Alert>
+          <TriangleAlert />
+          <AlertTitle>{t("notifications.policyDisclosureDriftTitle")}</AlertTitle>
+          <AlertDescription>
+            {t("notifications.policyDisclosureDriftBody")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="flex flex-wrap items-center gap-2">
         {versionRow?.isPublished ? (
@@ -374,6 +391,22 @@ export function NotificationPolicyDetailPage() {
       </Tabs>
 
       <PolicyTokenPalette onInsert={insert} disabled={!canManage} />
+
+      {/* Publishing turns this text into the notice of record and renders the
+          document every reader is then served, so it is confirmed rather than
+          fired from a single click — and the confirmation names the languages
+          that will fall back to English. */}
+      <ConfirmDialog
+        open={confirmingPublish}
+        onOpenChange={setConfirmingPublish}
+        title={t("notifications.policyPublishTitle")}
+        description={t("notifications.policyPublishBody")}
+        confirmLabel={t("notifications.policyPublish")}
+        loading={publishMutation.isPending}
+        onConfirm={() => publishMutation.mutate()}
+      >
+        <PolicyLanguageGapNotice languages={versionRow?.languages} />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={pendingLanguage !== null}
@@ -850,6 +883,11 @@ export function NotificationPolicyDetailPage() {
               disclosure={disclosure}
               dir={dir}
               version={version}
+              // The disclosure fields default to "" while this query is in
+              // flight, which reads as "unfilled" and flashed the red banner on
+              // every load of the editor. The page's own skeleton gate watches
+              // the content query, not this one.
+              controllerStatus={publishedQuery.isPending ? "pending" : "known"}
             />
           </div>
         </div>

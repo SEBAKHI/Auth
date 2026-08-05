@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 
+import { privacyPolicyUrl } from "@authsystem/api/env"
 import { LoginPage } from "@authsystem/auth/pages/login"
 
 import { ExternalProviders } from "@/components/external-providers"
@@ -16,7 +17,7 @@ import { ExternalProviders } from "@/components/external-providers"
  * disclosure + the store listing's data-deletion URL field).
  */
 export function AccountsLoginPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   return (
     <LoginPage
       subtitle={t("auth.signInSubtitleAccounts")}
@@ -30,9 +31,12 @@ export function AccountsLoginPage() {
         </span>
       }
       pageFooter={
-        <Link to="/privacy" className="underline-offset-4 hover:underline">
+        <a
+          href={privacyPolicyUrl(i18n.language)}
+          className="underline-offset-4 hover:underline"
+        >
           {t("auth.privacyPolicy")}
-        </Link>
+        </a>
       }
     />
   )

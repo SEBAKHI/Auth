@@ -231,6 +231,7 @@ export function PolicyDocument({
   disclosure,
   dir,
   deletionAction,
+  controllerStatus = "known",
 }: {
   content: PrivacyPolicyContent
   disclosure: PolicyDisclosure
@@ -238,6 +239,16 @@ export function PolicyDocument({
   dir: "ltr" | "rtl"
   /** Rendered under the deletion bullets (the "Delete my account" button). */
   deletionAction?: React.ReactNode
+  /**
+   * Whether `disclosure` reflects a settled answer.
+   *
+   * Defaults to "known" so no caller changes behaviour by accident. Pass
+   * "pending" while the disclosure is still loading: the unfilled banner is a
+   * statement about the operator's configuration, and asserting it before the
+   * answer arrives makes it flash on every load of a page whose configuration
+   * is in fact complete.
+   */
+  controllerStatus?: "known" | "pending"
 }) {
   const render = (text: string) => withLawLinks(interpolate(text, disclosure))
 
@@ -253,7 +264,12 @@ export function PolicyDocument({
 
   return (
     <>
-      {hasUnfilledControllerDetails(disclosure) ? (
+      {/* `content.unfilledWarning` guards an empty alert: a brand-new language
+          document has no warning text yet, which used to render a red box with
+          nothing in it. */}
+      {controllerStatus === "known" &&
+      hasUnfilledControllerDetails(disclosure) &&
+      content.unfilledWarning ? (
         <Alert variant="destructive">
           <TriangleAlert />
           <AlertDescription>{content.unfilledWarning}</AlertDescription>

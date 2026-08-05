@@ -18,21 +18,27 @@ import {
 
 /**
  * Rendered-output pane for the policy editor, mirroring the notification
- * PreviewPane: mode tabs at the row start, device-width toggles at the row
- * end. The rendered mode uses the SAME PolicyDocument component the public
- * page uses, so the preview cannot drift from what users see; the JSON mode
- * exposes the stored document for anyone who needs the raw shape.
+ * PreviewPane: mode tabs at the row start, device-width toggles at the row end.
+ * The JSON mode exposes the stored document for anyone who needs the raw shape.
+ *
+ * This is an authoring aid over unsaved local state, which is why it still
+ * renders in React while the public notice is HTML produced at publish time.
+ * The unfilled-controller banner belongs here for the same reason: here it
+ * describes a draft an operator can still fix.
  */
 export function PolicyPreviewPane({
   content,
   disclosure,
   dir,
   version,
+  controllerStatus,
 }: {
   content: PrivacyPolicyContent
   disclosure: PolicyDisclosure
   dir: "ltr" | "rtl"
   version: string
+  /** "pending" while the served disclosure is still loading. */
+  controllerStatus?: "known" | "pending"
 }) {
   const { t } = useTranslation()
   const [mode, setMode] = React.useState<"preview" | "json">("preview")
@@ -114,6 +120,7 @@ export function PolicyPreviewPane({
                 content={content}
                 disclosure={disclosure}
                 dir={dir}
+                controllerStatus={controllerStatus}
               />
             </div>
           </div>

@@ -14,6 +14,8 @@ import type { Schemas } from "@authsystem/api/types"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+
+import { PolicyLanguageGapNotice } from "./components/policy-language-gap-notice"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import {
@@ -371,7 +373,9 @@ export function NotificationPolicyPage() {
         onConfirm={() => {
           if (publishTarget?.version) publishMutation.mutate(publishTarget.version)
         }}
-      />
+      >
+        <PolicyLanguageGapNotice languages={publishTarget?.languages} />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={notifyTarget !== null}
@@ -385,7 +389,12 @@ export function NotificationPolicyPage() {
         onConfirm={() => {
           if (notifyTarget?.version) notifyMutation.mutate(notifyTarget.version)
         }}
-      />
+      >
+        {/* The notice tells every user their policy changed, so the same gap
+            matters here: readers of an untranslated language will follow that
+            mail to the English document. */}
+        <PolicyLanguageGapNotice languages={notifyTarget?.languages} />
+      </ConfirmDialog>
     </div>
   )
 }

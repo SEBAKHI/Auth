@@ -184,4 +184,7 @@
   <data name="Secrets.GatewayTokenImported" xml:space="preserve">
     <value>گیٹ وے ٹوکن کامیابی سے درآمد ہو گیا۔ API گیٹ وے کی ترتیب کو اسی ٹوکن سے اپ ڈیٹ کریں۔</value>
   </data>
+  <data name="PolicyLanguageFallbackNotice" xml:space="preserve">
+    <value>یہ رازداری کی پالیسی ابھی آپ کی زبان میں دستیاب نہیں ہے۔ آپ انگریزی نسخہ پڑھ رہے ہیں۔</value>
+  </data>
 </root>

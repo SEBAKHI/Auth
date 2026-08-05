@@ -28,10 +28,12 @@ using Auth.Infrastructure.Notifications.Channels;
 using Auth.Infrastructure.Notifications.Outbox;
 using Microsoft.Extensions.FileProviders;
 using Auth.Infrastructure.Configuration;
+using Auth.Infrastructure.PrivacyPolicy;
 using Auth.Infrastructure.Security;
 using Auth.Shared.Configuration;
 using Auth.Shared.Diagnostics;
 using Auth.Application.Features.Authentication.Common;
+using Auth.Application.Features.PrivacyPolicy.Common;
 using Auth.Application.Validators;
 using FluentValidation;
 using MediatR;
@@ -538,6 +540,11 @@ builder.Services.AddHostedService<NotificationTemplateStartupCheck>();
 builder.Services.AddHostedService<NotificationOutboxDispatcher>();
 builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageService>();
 builder.Services.AddSingleton<IImageUrlComposer, ImageUrlComposer>();
+// Privacy policy: rendered once when a revision is published, then served from
+// memory. Both are stateless/thread-safe singletons — the cache holds the seven
+// published documents so the anonymous public notice costs no database read.
+builder.Services.AddSingleton<IPolicyDocumentRenderer, PolicyDocumentRenderer>();
+builder.Services.AddSingleton<IPolicyArtifactCache, PolicyArtifactCache>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
 // Account deletion: the shared credential-kill primitive, the shared

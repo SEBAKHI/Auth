@@ -21,6 +21,23 @@ const rawAccountsUrl =
 export const ACCOUNTS_URL = rawAccountsUrl.replace(/\/+$/, "")
 
 /**
+ * The public privacy notice.
+ *
+ * A document served by the API, not a route in this app: it is rendered when an
+ * operator publishes a revision and returned as complete HTML, so it stays
+ * readable with scripting unavailable and cannot be affected by a frontend
+ * deploy. Links to it are therefore plain anchors, never client-side routes.
+ *
+ * Passing a language is optional — without one the server redirects to the best
+ * match for the reader's Accept-Language.
+ */
+export function privacyPolicyUrl(language?: string): string {
+  return language
+    ? `${API_BASE_URL}/privacy/${encodeURIComponent(language)}`
+    : `${API_BASE_URL}/privacy`
+}
+
+/**
  * Google OAuth client id for "Continue with Google" (must match the API's
  * Google audience). Empty disables the button.
  */

@@ -184,4 +184,7 @@
   <data name="Secrets.GatewayTokenImported" xml:space="preserve">
     <value>Ağ geçidi jetonu başarıyla içe aktarıldı. API Gateway yapılandırmasını aynı jetonla güncelleyin.</value>
   </data>
+  <data name="PolicyLanguageFallbackNotice" xml:space="preserve">
+    <value>Bu gizlilik politikası henüz sizin dilinizde mevcut değil. İngilizce sürümünü okuyorsunuz.</value>
+  </data>
 </root>

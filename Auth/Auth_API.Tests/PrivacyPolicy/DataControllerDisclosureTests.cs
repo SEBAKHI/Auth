@@ -147,18 +147,10 @@ public class DataControllerDisclosureTests
     {
         var version = PrivacyPolicyVersion.Create("2026.09", DateTime.UtcNow, null, AdminId);
 
-        var repository = new Mock<IPrivacyPolicyVersionRepository>();
-        repository
-            .Setup(r => r.GetByVersionAsync("2026.09", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(version);
-        repository
-            .Setup(r => r.GetTranslationAsync(version.Id, "en", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(PrivacyPolicyTranslation.Create(version.Id, "en", "{}", AdminId));
-
-        var handler = new PublishPrivacyPolicyVersionCommandHandler(
-            repository.Object,
-            new Mock<IAuditLogRepository>().Object,
-            TestHelpers.CreateOptions(controller));
+        var (handler, repository, _, _) = PolicyPublishHarness.Create(
+            version,
+            controller,
+            [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);
 
         return (handler, repository);
     }

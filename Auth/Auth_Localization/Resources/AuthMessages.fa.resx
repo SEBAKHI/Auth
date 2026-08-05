@@ -184,4 +184,7 @@
   <data name="Secrets.GatewayTokenImported" xml:space="preserve">
     <value>توکن درگاه با موفقیت درون‌ریزی شد. پیکربندی API Gateway را با همان توکن به‌روزرسانی کنید.</value>
   </data>
+  <data name="PolicyLanguageFallbackNotice" xml:space="preserve">
+    <value>این سیاست حریم خصوصی هنوز به زبان شما در دسترس نیست. شما نسخه انگلیسی را می‌خوانید.</value>
+  </data>
 </root>

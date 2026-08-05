@@ -928,6 +928,12 @@ export const tr: TranslationResources = {
     policyPublished: "Yayımlandı",
     policyDraft: "Taslak",
     policyPublish: "Yayımla",
+    policyMissingLanguagesTitle: "Her dil henüz çevrilmedi",
+    policyMissingLanguagesBody:
+      "{{languages}} okuyucularına İngilizce belge sunulacak; kendi dillerinde bunu belirten bir bildirim eşlik edecek. Yine de yayımlayın ya da önce çevirileri ekleyin.",
+    policyDisclosureDriftTitle: "Yayımlanan politika artık ayarlarla eşleşmiyor",
+    policyDisclosureDriftBody:
+      "Bu sürüm yayımlandıktan sonra sistem ayarları değişti; sunulan belge hâlâ önceki değerleri aktarıyor. Otomatik olarak yeniden oluşturulmaz — bu, insanlara zaten gösterilmiş bir bildirimi değiştirmek olurdu. Güncellemek için yeniden yayımlayın.",
     policyPublishTitle: "Bu politika sürümü yayımlansın mı?",
     policyPublishBody: "Tüm kullanıcılara gösterilen politika olur. Önce İngilizce belge bulunmalıdır.",
     policyPublishedToast: "Politika sürümü yayımlandı.",

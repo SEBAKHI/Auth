@@ -150,16 +150,11 @@ export const router = createBrowserRouter([
       (m) => m.DeletionScheduledPage
     ),
   },
-  // Top-level on purpose: the public compliance surface (KVKK Art. 10
-  // disclosure + store-listing data-deletion entry point) must be readable
-  // both signed out and signed in.
-  {
-    path: "/privacy",
-    lazy: lazyRoute(
-      () => import("@/pages/privacy/privacy-policy"),
-      (m) => m.PrivacyPolicyPage
-    ),
-  },
+  // No /privacy route. The public notice is a document the API serves as
+  // complete HTML, rendered when a revision is published — so it survives a
+  // frontend deploy, prints, and needs no script to be readable. Links to it
+  // are plain anchors built with privacyPolicyUrl(); IIS redirects the legacy
+  // /privacy path there so store listings and old links keep working.
   { path: "*", element: <NotFoundPage /> },
     ],
   },

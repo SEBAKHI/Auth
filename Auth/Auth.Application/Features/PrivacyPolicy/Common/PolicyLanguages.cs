@@ -9,11 +9,17 @@ public static class PolicyLanguages
 {
     public const string Fallback = "en";
 
-    public static readonly IReadOnlySet<string> Supported = new HashSet<string>(
-        StringComparer.OrdinalIgnoreCase)
-    {
-        "en", "ar", "tr", "fr", "zh", "ur", "fa"
-    };
+    /// <summary>
+    /// Every published language, in the order the switcher lists them. Ordered
+    /// rather than a bare set because it drives rendered output: a set's
+    /// enumeration order would let the same content produce a different
+    /// document — and therefore a different content hash — between runs.
+    /// </summary>
+    public static readonly IReadOnlyList<string> Ordered =
+        ["en", "ar", "tr", "fr", "zh", "ur", "fa"];
+
+    public static readonly IReadOnlySet<string> Supported =
+        new HashSet<string>(Ordered, StringComparer.OrdinalIgnoreCase);
 
     public static bool IsSupported(string? languageCode) =>
         !string.IsNullOrWhiteSpace(languageCode) && Supported.Contains(languageCode);

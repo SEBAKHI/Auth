@@ -911,6 +911,12 @@ export const en = {
     policyPublished: "Published",
     policyDraft: "Draft",
     policyPublish: "Publish",
+    policyMissingLanguagesTitle: "Not every language is translated yet",
+    policyMissingLanguagesBody:
+      "Readers of {{languages}} will be served the English document, with a notice in their own language saying so. Publish anyway, or add the translations first.",
+    policyDisclosureDriftTitle: "The published policy no longer matches settings",
+    policyDisclosureDriftBody:
+      "System settings changed after this version was published, so the served document still quotes the previous values. It is not rewritten automatically — that would amend a notice people were already shown. Publish again to update it.",
     policyPublishTitle: "Publish this policy version?",
     policyPublishBody: "It becomes the policy shown to every user. The English document must exist first.",
     policyPublishedToast: "Policy version published.",
