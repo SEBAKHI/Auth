@@ -28,9 +28,16 @@ public interface IRefreshTokenRepository
     Task UpdateAsync(RefreshToken token, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Revokes all tokens for a user.
+    /// Revokes all tokens for a user and ends their active sessions.
     /// </summary>
-    Task RevokeAllForUserAsync(Guid userId, Guid? revokedBy, string reason, CancellationToken cancellationToken);
+    /// <returns>
+    /// The number of tokens that were still LIVE when this ran - unrevoked and
+    /// unexpired. Expired-but-unrevoked rows are swept up too, but are excluded
+    /// from the count so that callers can tell whether the account owner
+    /// actually lost anything. Zero means everything was already gone, which is
+    /// what a repeated revocation of the same incident looks like.
+    /// </returns>
+    Task<int> RevokeAllForUserAsync(Guid userId, Guid? revokedBy, string reason, CancellationToken cancellationToken);
 
     /// <summary>
     /// Revokes all tokens for a user on a specific device.

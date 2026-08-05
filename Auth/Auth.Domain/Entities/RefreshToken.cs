@@ -195,7 +195,7 @@ public class RefreshToken : EntityBase
             DeviceInfo,
             SessionId);
 
-        Revoke(revokedBy, "Rotated", newTokenHash);
+        Revoke(revokedBy, Constants.TokenRevocationReasons.Rotated, newTokenHash);
         return newRefreshToken;
     }
 }

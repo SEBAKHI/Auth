@@ -4,7 +4,9 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using RefreshTokenEntity = Auth.Domain.Entities.RefreshToken;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
@@ -25,6 +27,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IUserSessionRepository _sessionRepository;
+    private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<RefreshTokenCommandHandler> _logger;
 
@@ -38,6 +41,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserSessionRepository sessionRepository,
+        IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         ILogger<RefreshTokenCommandHandler> logger)
     {
@@ -50,6 +54,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _sessionRepository = sessionRepository;
+        _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
@@ -74,11 +79,14 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 "Attempted reuse of revoked refresh token for user {UserId}. Revoking all tokens. IP: {IpAddress}",
                 storedToken.UserId, request.IpAddress);
 
-            await _refreshTokenRepository.RevokeAllForUserAsync(
+            var revokedCount = await _refreshTokenRepository.RevokeAllForUserAsync(
                 storedToken.UserId,
                 null, // revokedBy - system action
-                "Detected refresh token reuse",
+                TokenRevocationReasons.RefreshTokenReuse,
                 cancellationToken);
+
+            await NotifyReuseDetectedAsync(
+                storedToken.UserId, revokedCount, request.IpAddress, cancellationToken);
 
             return AuthErrors.TokenRevoked;
         }
@@ -190,7 +198,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             await _refreshTokenRepository.CreateAsync(newRefreshTokenEntity, cancellationToken);
 
             // Revoke old token (pass the new token hash for tracking, not plain token)
-            storedToken.Revoke(user.Id, "Rotated", newTokenHash);
+            storedToken.Revoke(user.Id, TokenRevocationReasons.Rotated, newTokenHash);
             await _refreshTokenRepository.UpdateAsync(storedToken, cancellationToken);
 
             refreshExpiresIn = (int)_jwtSettings.RefreshTokenLifetime.TotalSeconds;
@@ -211,5 +219,59 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             ExpiresIn = (int)_jwtSettings.AccessTokenLifetime.TotalSeconds,
             RefreshExpiresIn = refreshExpiresIn
         };
+    }
+
+    /// <summary>
+    /// Tells the account owner that every one of their sessions was revoked -
+    /// but only when the revocation actually took a live session away.
+    ///
+    /// One incident produces many detections. The mass revocation kills the
+    /// tokens held by every other tab and device, and each of those reports
+    /// reuse in turn on its next refresh, so the warning can appear dozens of
+    /// times for a single event. Only the first of them finds anything live to
+    /// revoke; gating on the count therefore yields exactly one notice per
+    /// incident, with no timer and no rate-limit table to keep correct.
+    ///
+    /// Nothing here may propagate. The revocation has already committed, and
+    /// turning a clean 403 into a 500 because an email could not be raised
+    /// would be strictly worse for the caller.
+    /// </summary>
+    private async Task NotifyReuseDetectedAsync(
+        Guid userId,
+        int revokedCount,
+        string? ipAddress,
+        CancellationToken cancellationToken)
+    {
+        if (revokedCount <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
+
+            // A hard-deleted account can still have a lingering revoked token
+            // pointed at it. There is then no address left to write to, and no
+            // owner left to warn.
+            if (user is null)
+            {
+                return;
+            }
+
+            await _publisher.Publish(
+                new RefreshTokenReuseDetectedEvent(
+                    user.Id,
+                    user.Email,
+                    user.DisplayName ?? user.FirstName,
+                    ipAddress,
+                    DateTime.UtcNow),
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to raise the refresh-token reuse notice for user {UserId}", userId);
+        }
     }
 }

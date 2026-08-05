@@ -1540,3 +1540,168 @@ BEGIN
     PRINT 'account-deleted-by-admin template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 14: sessions-revoked-token-reuse (global, Email channel)
+--
+-- Sent at the one moment the account may already be under someone else's
+-- control, so the only action offered is the ordinary password-reset page. A
+-- link that restored a session would hand it straight to whoever triggered
+-- this, and a tokenized one-click action would fire in a mail scanner's
+-- prefetch before any human read the message.
+--
+-- The copy refuses to guess. Refresh-token reuse is a genuine theft signal AND
+-- something an unlucky browser reload can produce, and the server cannot tell
+-- the two apart - so the message says exactly that instead of announcing a
+-- breach or promising there was none.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000014')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000014', '40000000-0000-0000-0000-000000000014', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000014', '42000000-0000-0000-0000-000000000014', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0014-000000000001', '43000000-0000-0000-0000-000000000014', N'en', N'You were signed out of every device',
+N'<div class="header">
+    <p class="eyebrow">Security alert</p>
+    <h1>You were signed out of every device</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">One of the tokens that keeps you signed in to {{ Platform.Name }} was presented a second time. Those tokens are single-use, so we ended every session on your account rather than let a possibly-copied one keep working.</p>
+<div class="notice">
+    <p class="notice-title">What we saw</p>
+    <p class="notice-text">Where from: {{ IpAddress }}<br />When: {{ DetectedAt }}</p>
+</div>
+<p class="message">This does not prove anyone attacked your account: a browser that loses its connection at the wrong moment produces the same signal. It can also mean someone else holds a copy of your token. We cannot tell which from here.</p>
+<p class="message">If you are not certain it was you, change your password now. That is what makes a copied token worthless.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">Change your password</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000002', '43000000-0000-0000-0000-000000000014', N'ar', N'تم إخراجك من كل الأجهزة',
+N'<div class="header">
+    <p class="eyebrow">تنبيه أمني</p>
+    <h1>تم إخراجك من كل الأجهزة</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">قُدِّم أحد الرموز التي تُبقيك مسجَّل الدخول إلى {{ Platform.Name }} مرةً ثانية. وهذه الرموز تُستعمل مرة واحدة فقط، فأنهينا كل الجلسات على حسابك بدلًا من أن نترك رمزًا يُحتمل أن تكون نسخة منه قد أُخذت يواصل العمل.</p>
+<div class="notice">
+    <p class="notice-title">ما الذي رصدناه</p>
+    <p class="notice-text">من العنوان: {{ IpAddress }}<br />الوقت: {{ DetectedAt }}</p>
+</div>
+<p class="message">هذا لا يُثبت أن أحدًا هاجم حسابك؛ فمتصفح يفقد اتصاله في اللحظة غير المناسبة يُنتج الإشارة نفسها. وقد يعني كذلك أن نسخة من رمزك بحوزة شخص آخر. ولا سبيل لنا إلى التمييز بين الأمرين من هنا.</p>
+<p class="message">إن لم تكن على يقين أن ذلك صدر عنك، فغيّر كلمة مرورك الآن؛ فهذا ما يجعل أي نسخة مأخوذة من الرمز بلا قيمة.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">تغيير كلمة المرور</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000003', '43000000-0000-0000-0000-000000000014', N'tr', N'Tüm cihazlardaki oturumunuz kapatıldı',
+N'<div class="header">
+    <p class="eyebrow">Güvenlik uyarısı</p>
+    <h1>Tüm cihazlardaki oturumunuz kapatıldı</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{{ Platform.Name }} hesabınızda oturumunuzu açık tutan belirteçlerden biri ikinci kez sunuldu. Bu belirteçler yalnızca bir kez kullanılabilir; kopyalanmış olabilecek bir belirtecin çalışmaya devam etmesine izin vermek yerine hesabınızdaki tüm oturumları sonlandırdık.</p>
+<div class="notice">
+    <p class="notice-title">Gördüklerimiz</p>
+    <p class="notice-text">Nereden: {{ IpAddress }}<br />Ne zaman: {{ DetectedAt }}</p>
+</div>
+<p class="message">Bu, hesabınıza saldırıldığını kanıtlamaz: bağlantısını yanlış anda kaybeden bir tarayıcı da aynı sinyali üretir. Ancak belirtecinizin bir kopyasının başkasının elinde olduğu anlamına da gelebilir. Buradan hangisi olduğunu ayırt edemiyoruz.</p>
+<p class="message">Bunun siz olduğunuzdan emin değilseniz parolanızı hemen değiştirin. Kopyalanmış bir belirteci değersiz kılan şey budur.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">Parolanızı değiştirin</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı kopyalayıp tarayıcınıza yapıştırın:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000004', '43000000-0000-0000-0000-000000000014', N'fr', N'Vous avez été déconnecté de tous vos appareils',
+N'<div class="header">
+    <p class="eyebrow">Alerte de sécurité</p>
+    <h1>Vous avez été déconnecté de tous vos appareils</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">L''un des jetons qui vous maintiennent connecté à {{ Platform.Name }} a été présenté une seconde fois. Ces jetons sont à usage unique : nous avons donc mis fin à toutes les sessions de votre compte plutôt que de laisser fonctionner un jeton peut-être copié.</p>
+<div class="notice">
+    <p class="notice-title">Ce que nous avons observé</p>
+    <p class="notice-text">Origine : {{ IpAddress }}<br />Date : {{ DetectedAt }}</p>
+</div>
+<p class="message">Cela ne prouve pas que votre compte a été attaqué : un navigateur qui perd sa connexion au mauvais moment produit exactement le même signal. Cela peut aussi vouloir dire qu''une copie de votre jeton se trouve entre d''autres mains. Nous ne pouvons pas trancher d''ici.</p>
+<p class="message">Si vous n''êtes pas certain qu''il s''agissait de vous, changez votre mot de passe maintenant. C''est ce qui rend un jeton copié sans valeur.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">Changer votre mot de passe</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000005', '43000000-0000-0000-0000-000000000014', N'zh', N'您已从所有设备退出登录',
+N'<div class="header">
+    <p class="eyebrow">安全提醒</p>
+    <h1>您已从所有设备退出登录</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">用于让您保持登录 {{ Platform.Name }} 的令牌之一被第二次使用。此类令牌只能使用一次，因此我们结束了您账户上的所有会话，而不是让一个可能已被复制的令牌继续有效。</p>
+<div class="notice">
+    <p class="notice-title">我们观察到的情况</p>
+    <p class="notice-text">来源：{{ IpAddress }}<br />时间：{{ DetectedAt }}</p>
+</div>
+<p class="message">这并不能证明有人攻击了您的账户：浏览器在不恰当的时刻断开连接也会产生同样的信号。但它也可能意味着他人持有您令牌的副本。我们在此无法区分这两种情况。</p>
+<p class="message">如果您不能确定这是您本人的操作，请立即修改密码。这正是让被复制的令牌失效的方法。</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">修改密码</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请复制此链接到浏览器打开：</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000006', '43000000-0000-0000-0000-000000000014', N'ur', N'آپ کو تمام آلات سے سائن آؤٹ کر دیا گیا',
+N'<div class="header">
+    <p class="eyebrow">سیکیورٹی انتباہ</p>
+    <h1>آپ کو تمام آلات سے سائن آؤٹ کر دیا گیا</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">{{ Platform.Name }} میں آپ کو سائن اِن رکھنے والے ٹوکنوں میں سے ایک دوسری بار پیش کیا گیا۔ یہ ٹوکن صرف ایک بار استعمال ہو سکتے ہیں، اس لیے ہم نے آپ کے اکاؤنٹ کے تمام سیشن ختم کر دیے، بجائے اس کے کہ ممکنہ طور پر نقل شدہ ٹوکن کام کرتا رہے۔</p>
+<div class="notice">
+    <p class="notice-title">ہم نے کیا دیکھا</p>
+    <p class="notice-text">کہاں سے: {{ IpAddress }}<br />کب: {{ DetectedAt }}</p>
+</div>
+<p class="message">اس سے یہ ثابت نہیں ہوتا کہ کسی نے آپ کے اکاؤنٹ پر حملہ کیا ہے: غلط وقت پر رابطہ منقطع ہونے والا براؤزر بھی یہی اشارہ پیدا کرتا ہے۔ لیکن اس کا مطلب یہ بھی ہو سکتا ہے کہ آپ کے ٹوکن کی نقل کسی اور کے پاس ہے۔ ہم یہاں سے دونوں میں فرق نہیں کر سکتے۔</p>
+<p class="message">اگر آپ کو یقین نہیں کہ یہ آپ تھے تو ابھی اپنا پاس ورڈ تبدیل کریں۔ یہی وہ چیز ہے جو نقل شدہ ٹوکن کو بےکار بنا دیتی ہے۔</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">پاس ورڈ تبدیل کریں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک کاپی کرکے اپنے براؤزر میں کھولیں:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>'),
+    ('44000000-0000-0000-0014-000000000007', '43000000-0000-0000-0000-000000000014', N'fa', N'از همهٔ دستگاه‌ها خارج شدید',
+N'<div class="header">
+    <p class="eyebrow">هشدار امنیتی</p>
+    <h1>از همهٔ دستگاه‌ها خارج شدید</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">یکی از توکن‌هایی که شما را در {{ Platform.Name }} وارد نگه می‌دارد، بار دوم ارائه شد. این توکن‌ها فقط یک‌بار مصرف‌اند، بنابراین به‌جای آنکه بگذاریم توکنی که شاید از آن نسخه‌برداری شده باشد به کار خود ادامه دهد، همهٔ نشست‌های حساب شما را پایان دادیم.</p>
+<div class="notice">
+    <p class="notice-title">آنچه دیدیم</p>
+    <p class="notice-text">از نشانی: {{ IpAddress }}<br />زمان: {{ DetectedAt }}</p>
+</div>
+<p class="message">این ثابت نمی‌کند کسی به حساب شما حمله کرده است: مرورگری که در لحظهٔ نامناسب اتصالش را از دست بدهد نیز همین نشانه را می‌سازد. اما می‌تواند به این معنا هم باشد که نسخه‌ای از توکن شما نزد شخص دیگری است. از اینجا نمی‌توانیم میان این دو تمایز بگذاریم.</p>
+<p class="message">اگر مطمئن نیستید که خودتان بوده‌اید، همین حالا گذرواژه‌تان را تغییر دهید؛ همین کار است که نسخهٔ کپی‌شدهٔ توکن را بی‌ارزش می‌کند.</p>
+<div class="button-container">
+    <a class="button" href="{{ SecureAccountLink }}">تغییر گذرواژه</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را کپی کرده و در مرورگر خود باز کنید:</p>
+<div class="link-box"><a href="{{ SecureAccountLink }}">{{ SecureAccountLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000014'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000014';
+
+    PRINT 'Created sessions-revoked-token-reuse template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'sessions-revoked-token-reuse template already exists';
+END
+GO

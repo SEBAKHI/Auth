@@ -29,6 +29,15 @@ public static class NotificationTypeCodes
     public const string NewDeviceSignIn = "new-device-sign-in";
 
     /// <summary>
+    /// A spent refresh token was presented a second time, so every token and
+    /// session the account held was revoked. Distinct from a voluntary
+    /// "sign out everywhere": the owner did not ask for this and was signed out
+    /// of every device on the strength of a suspicion, which is precisely why
+    /// they have to hear about it.
+    /// </summary>
+    public const string SessionsRevokedTokenReuse = "sessions-revoked-token-reuse";
+
+    /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
@@ -40,7 +49,10 @@ public static class NotificationTypeCodes
             PrivacyPolicyUpdated,
             // A security notice: if its template were ever unpublished, the
             // account owner would silently stop hearing about new sign-ins.
-            NewDeviceSignIn
+            NewDeviceSignIn,
+            // Likewise: unpublishing this one would mean accounts get signed
+            // out of every device over a suspected theft, in silence.
+            SessionsRevokedTokenReuse
         ];
 
     /// <summary>

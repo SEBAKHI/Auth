@@ -215,4 +215,23 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created account-deleted-by-admin notification type';
 END
+
+-- sessions-revoked-token-reuse (security notice; a spent refresh token was
+-- presented a second time, so every token and session the account held was
+-- revoked. Distinct from a voluntary "sign out everywhere": the owner did not
+-- ask for this, which is exactly why they have to be told)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000014')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000014',
+        N'sessions-revoked-token-reuse',
+        N'Sessions Revoked After Token Reuse',
+        N'Security notice that all sessions were revoked because an already-used refresh token was presented again',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"IpAddress","description":"Address the replayed token arrived from, or an em dash when unavailable","example":"203.0.113.42","required":false},{"name":"DetectedAt","description":"When the replay was seen (UTC, yyyy-MM-dd HH:mm:ssZ)","example":"2026-08-05 09:14:00Z","required":true},{"name":"SecureAccountLink","description":"Absolute URL of the password-reset page. MUST NOT be a link that restores a session: this notice is sent at the one moment the account may already be under someone else''s control","example":"https://example.com/forgot-password","required":true}]',
+        N'{"UserName":"Jane Doe","IpAddress":"203.0.113.42","DetectedAt":"2026-08-05 09:14:00Z","SecureAccountLink":"https://example.com/forgot-password"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created sessions-revoked-token-reuse notification type';
+END
 GO
