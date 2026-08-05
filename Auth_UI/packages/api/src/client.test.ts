@@ -378,6 +378,28 @@ describe("replayed refresh", () => {
     expect(tab.tokenStore.getRefreshToken()).toBeNull()
   })
 
+  it("signs out cleanly when the server says this session was already ended", async () => {
+    // What another device now receives after a mass revocation elsewhere. It is
+    // NOT reported as reuse any more, so the tab must simply end the session
+    // rather than keep a dead token around to replay.
+    storage.set(REFRESH_KEY, "R0")
+    const fetchMock = vi.fn(async () =>
+      json(403, { title: "Auth.RefreshTokenRevoked" })
+    )
+    vi.stubGlobal("fetch", fetchMock)
+
+    const tab = await openTab()
+    const expired = vi.fn()
+    window.addEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
+
+    expect(await tab.client.ensureFreshAccessToken()).toBeNull()
+
+    window.removeEventListener(tab.tabSync.SESSION_EXPIRED_EVENT, expired)
+    expect(tab.tokenStore.getRefreshToken()).toBeNull()
+    expect(expired).toHaveBeenCalled()
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it("keeps the refresh token when the rejection is not about the token", async () => {
     storage.set(REFRESH_KEY, "R0")
     // A CDN/WAF 429 and an inactive-application 403 both leave the credential

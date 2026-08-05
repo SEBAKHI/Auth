@@ -74,6 +74,29 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
         // Check if token is revoked
         if (storedToken.IsRevoked)
         {
+            // A token that a bulk revocation killed is NOT evidence of theft.
+            // Its holder never spent it - this is the account owner's other
+            // device finding out that its session was ended elsewhere, whether
+            // by a reuse cascade, a "sign out everywhere", a lockout or a
+            // deletion. Answer it as what it is: the session is over, sign in
+            // again.
+            //
+            // Treating it as a fresh attack is what made one incident
+            // self-perpetuating. Every innocent device that refreshed after a
+            // mass revocation triggered ANOTHER mass revocation, which killed
+            // whatever session the user had just signed back in to - so signing
+            // in on one device knocked out the other, forever, with an alarming
+            // e-mail each time. Reproduced end to end against a live API before
+            // this branch existed.
+            if (storedToken.WasTerminatedInBulk)
+            {
+                _logger.LogInformation(
+                    "Refresh rejected for user {UserId}: this session was already ended ({Reason}). IP: {IpAddress}",
+                    storedToken.UserId, storedToken.ReasonRevoked, request.IpAddress);
+
+                return AuthErrors.RefreshTokenRevoked;
+            }
+
             // Possible token reuse attack - revoke all tokens for this user
             _logger.LogWarning(
                 "Attempted reuse of revoked refresh token for user {UserId}. Revoking all tokens. IP: {IpAddress}",

@@ -2,6 +2,7 @@ using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.RefreshToken;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
@@ -325,11 +326,13 @@ public class RefreshTokenCommandHandlerTests
         // Arrange
         var command = CreateCommand();
         var userId = Guid.NewGuid();
+        // "Rotated" is what makes a replay suspicious: the token was SPENT and
+        // superseded, so a second presentation means two parties hold it.
         var storedToken = TestHelpers.CreateRefreshToken(
             userId: userId,
             revokedAt: DateTime.UtcNow.AddMinutes(-5),
             revokedBy: Guid.NewGuid(),
-            reasonRevoked: "Test revoke");
+            reasonRevoked: TokenRevocationReasons.Rotated);
 
         _refreshTokenKeyServiceMock
             .Setup(s => s.ComputeTokenHash(command.RefreshToken))
@@ -401,17 +404,16 @@ public class RefreshTokenCommandHandlerTests
     [Fact]
     public async Task Handle_RevokedToken_WhenNothingWasLeftToRevoke_SendsNoNotice()
     {
-        // One incident produces many detections: the mass revocation kills every
-        // other tab's and device's token, and each of those reports reuse in turn.
-        // Only the first finds anything live, so this is what keeps a single
-        // incident from becoming a burst of security emails.
+        // A rotated token replayed after everything was already revoked: the
+        // detection is genuine, but nothing live was taken away, so there is
+        // nothing to tell the owner that they have not already been told.
         var command = CreateCommand();
         var userId = Guid.NewGuid();
         var storedToken = TestHelpers.CreateRefreshToken(
             userId: userId,
             revokedAt: DateTime.UtcNow.AddMinutes(-5),
             revokedBy: null,
-            reasonRevoked: "Detected refresh token reuse");
+            reasonRevoked: TokenRevocationReasons.Rotated);
 
         _refreshTokenKeyServiceMock
             .Setup(s => s.ComputeTokenHash(command.RefreshToken))
@@ -435,6 +437,86 @@ public class RefreshTokenCommandHandlerTests
         _userRepositoryMock.Verify(
             r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never());
+    }
+
+    [Theory]
+    [InlineData(TokenRevocationReasons.RefreshTokenReuse)]
+    [InlineData("User initiated logout from all devices")]
+    [InlineData("User account locked")]
+    [InlineData("Account permanently deleted")]
+    public async Task Handle_TokenKilledInBulk_EndsTheSessionWithoutRaisingAnAlarm(string reason)
+    {
+        // The device holding this token never spent it - a server-side mass
+        // revocation killed it. Presenting it is the account owner's other
+        // device finding out its session ended elsewhere, NOT evidence of theft.
+        //
+        // Treating it as a fresh attack is what made one incident
+        // self-perpetuating: every innocent device triggered another mass
+        // revocation, which killed whatever session the user had just signed
+        // back in to. Signing in on one device knocked out the other, forever,
+        // with an alarming e-mail each time.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            revokedAt: DateTime.UtcNow.AddMinutes(-5),
+            revokedBy: null,
+            reasonRevoked: reason);
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert — a plain "this session is over", and nothing else happens.
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(AuthErrors.RefreshTokenRevoked.Code);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeAllForUserAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _publisherMock.Verify(
+            p => p.Publish(It.IsAny<RefreshTokenReuseDetectedEvent>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task Handle_RevokedTokenWithNoStatedReason_StillTreatedAsReuse(string? reason)
+    {
+        // The conservative default. An unknown reason must never be the thing
+        // that makes detection fall silent.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            revokedAt: DateTime.UtcNow.AddMinutes(-5),
+            revokedBy: null,
+            reasonRevoked: reason);
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _refreshTokenRepositoryMock
+            .Setup(r => r.RevokeAllForUserAsync(
+                userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.FirstError.Code.Should().Be(AuthErrors.TokenRevoked.Code);
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeAllForUserAsync(userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once());
     }
 
     [Fact]

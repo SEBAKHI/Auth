@@ -80,6 +80,29 @@ public class RefreshToken : EntityBase
     /// </summary>
     public bool IsRevoked => RevokedAt.HasValue;
 
+    /// <summary>
+    /// Gets whether a deliberate server-side revocation ended this token — a
+    /// reuse cascade, "sign out everywhere", a lockout, or account deletion —
+    /// rather than an ordinary rotation superseding it.
+    ///
+    /// The distinction decides whether presenting the token again is evidence
+    /// of theft. A ROTATED token was spent by whoever held it, so a second
+    /// presentation means two parties hold it. A token killed in bulk was never
+    /// spent by its holder at all: seeing it again is the account owner's other
+    /// device discovering that its session was ended elsewhere. Treating that
+    /// as a fresh attack is what turned a single incident into a
+    /// self-perpetuating cascade, because each innocent device triggered
+    /// another mass revocation that killed whatever session the user had just
+    /// signed back in to.
+    ///
+    /// An unknown or missing reason counts as a rotation, deliberately: the
+    /// conservative default is to keep detecting, never to fall silent.
+    /// </summary>
+    public bool WasTerminatedInBulk =>
+        IsRevoked
+        && !string.IsNullOrWhiteSpace(ReasonRevoked)
+        && !string.Equals(ReasonRevoked, Constants.TokenRevocationReasons.Rotated, StringComparison.Ordinal);
+
     private RefreshToken() : base()
     {
     }
