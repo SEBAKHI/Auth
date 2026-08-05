@@ -1,4 +1,3 @@
-import { CONTROLLER } from "./details"
 import type { PrivacyPolicyContent } from "./types"
 
 export const tr: PrivacyPolicyContent = {
@@ -11,7 +10,7 @@ export const tr: PrivacyPolicyContent = {
   contactVerbisLabel: "VERBİS kayıt numarası",
   contactKepLabel: "Kayıtlı elektronik posta (KEP)",
   intro: [
-    `Bu metin, ${CONTROLLER.legalName} hesap hizmetinin hangi kişisel verileri topladığını, bunları neden işlediğini, ne kadar süreyle sakladığını ve verileriniz üzerindeki haklarınızı — hesabınızı ve hesabınıza bağlı her şeyi nasıl sileceğiniz dahil — açıklar.`,
+    `Bu metin, {{legalName}} hesap hizmetinin hangi kişisel verileri topladığını, bunları neden işlediğini, ne kadar süreyle sakladığını ve verileriniz üzerindeki haklarınızı — hesabınızı ve hesabınıza bağlı her şeyi nasıl sileceğiniz dahil — açıklar.`,
     "Bu metin, birincil uyum çerçevemiz olan 6698 sayılı Kişisel Verilerin Korunması Kanunu'nun (KVKK) 10. maddesi uyarınca veri sorumlusunun aydınlatma yükümlülüğünü yerine getirmek üzere hazırlanmış olup ayrıca AB/AEA Genel Veri Koruma Tüzüğü (GDPR) ve değişik haliyle Kaliforniya Tüketici Gizliliği Yasası (CCPA/CPRA) gerekliliklerini karşılayacak şekilde kaleme alınmıştır. Bu metinde açıklanan kontroller, konumdan bağımsız olarak her kullanıcıya sunulur.",
   ],
   sections: [
@@ -59,15 +58,15 @@ export const tr: PrivacyPolicyContent = {
       ],
       bullets: [
         "Google (Google ile oturum açma) ve Apple (Apple ile oturum açma) — yalnızca onlarla oturum açmayı seçtiğinizde; bu alışveriş, ilgili sağlayıcının kendi gizlilik politikasına tabidir.",
-        `E-posta gönderim sağlayıcımız ${CONTROLLER.emailProvider} — yukarıda açıklanan hizmet e-postalarını göndermek için.`,
-        `Barındırma sağlayıcımız ${CONTROLLER.hostingProvider} — hizmetin verilerini saklar.`,
+        `E-posta gönderim sağlayıcımız {{emailProvider}} — yukarıda açıklanan hizmet e-postalarını göndermek için.`,
+        `Barındırma sağlayıcımız {{hostingProvider}} — hizmetin verilerini saklar.`,
         "Kamu makamları — yalnızca geçerli bir hukuki talep bizi buna zorlarsa.",
       ],
     },
     {
       heading: "Yurt dışına aktarım",
       paragraphs: [
-        `Hizmet ${CONTROLLER.hostingCountry} ülkesinde barındırılmaktadır. Kişisel verilerin Türkiye dışına aktarılması hâlinde bu aktarım KVKK'nın 9. maddesi kapsamında yapılır: Kişisel Verileri Koruma Kurulunca yeterlilik kararı bulunan hâllerde bu karara, bulunmayan hâllerde ise maddenin öngördüğü uygun güvencelere (Kuruma bildirilmesi kaydıyla Kurulca ilan edilen standart sözleşme gibi) dayanırız. AEA veya Birleşik Krallık'tan çıkan veriler için ayrıca yeterlilik kararlarına veya Avrupa Komisyonu'nun Standart Sözleşme Maddelerine dayanırız. Aşağıdaki güvenlik önlemleri her durumda uygulanır.`,
+        `Hizmet {{hostingCountry}} ülkesinde barındırılmaktadır. Kişisel verilerin Türkiye dışına aktarılması hâlinde bu aktarım KVKK'nın 9. maddesi kapsamında yapılır: Kişisel Verileri Koruma Kurulunca yeterlilik kararı bulunan hâllerde bu karara, bulunmayan hâllerde ise maddenin öngördüğü uygun güvencelere (Kuruma bildirilmesi kaydıyla Kurulca ilan edilen standart sözleşme gibi) dayanırız. AEA veya Birleşik Krallık'tan çıkan veriler için ayrıca yeterlilik kararlarına veya Avrupa Komisyonu'nun Standart Sözleşme Maddelerine dayanırız. Aşağıdaki güvenlik önlemleri her durumda uygulanır.`,
       ],
     },
     {
@@ -128,10 +127,10 @@ export const tr: PrivacyPolicyContent = {
           "Yalnızca özet olarak saklanır; süresi dolan kayıtlar günlük temizlik işiyle silinir.",
       },
       {
-        category: "Silme kaydı (özetlenmiş tanımlayıcılar)",
-        retention: "Kalıcı",
+        category: "Silme kaydı (özetlenmiş tanımlayıcı)",
+        retention: "{{identifierReservationDays}} gün",
         detail:
-          "Silinen e-posta ve kullanıcı adının tek yönlü HMAC özetleri; silinen tanımlayıcıların bir başkası tarafından asla yeniden kaydedilememesi için tutulur. Okunabilir hiçbir kişisel veri içermez.",
+          "Silinen e-postanın anahtarlı tek yönlü HMAC özeti; rezervasyon sürdüğü sürece o adresi hiç kimsenin — siz dahil — yeniden kaydedememesi için tutulur. Özetten adres geri okunamaz, ancak bilinen bir adresi sınayabilen anahtar bizde kaldığından bu kayıt anonim değil, takma adlıdır. Süre dolduğunda silinir ve adres yeniden kullanılabilir hâle gelir.",
       },
       {
         category: "Yedekler",
@@ -199,7 +198,7 @@ export const tr: PrivacyPolicyContent = {
     {
       heading: "İletişim ve şikâyet",
       paragraphs: [
-        `Veri sorumlusu: ${CONTROLLER.legalName}, ${CONTROLLER.address}. Gizlilik iletişimi: ${CONTROLLER.privacyEmail}. Hak taleplerini KVKK/GDPR kapsamında 30 gün, CCPA kapsamında 45 gün içinde yanıtlarız. Sonuçtan memnun kalmazsanız denetim makamına şikâyette bulunabilirsiniz: Türkiye'de Kişisel Verileri Koruma Kurumu, AEA/Birleşik Krallık'ta ulusal veri koruma makamınız, Kaliforniya'da California Privacy Protection Agency veya Başsavcılık.`,
+        `Veri sorumlusu: {{legalName}}, {{address}}. Gizlilik iletişimi: {{privacyEmail}}. Hak taleplerini KVKK/GDPR kapsamında 30 gün, CCPA kapsamında 45 gün içinde yanıtlarız. Sonuçtan memnun kalmazsanız denetim makamına şikâyette bulunabilirsiniz: Türkiye'de Kişisel Verileri Koruma Kurumu, AEA/Birleşik Krallık'ta ulusal veri koruma makamınız, Kaliforniya'da California Privacy Protection Agency veya Başsavcılık.`,
       ],
     },
   ],

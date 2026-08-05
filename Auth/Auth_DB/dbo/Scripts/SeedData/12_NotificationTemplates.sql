@@ -1079,7 +1079,7 @@ N'<div class="header">
 <p class="message">Your account and its personal data have been permanently deleted, as you requested. This address will receive no further messages from us.</p>
 <div class="notice">
     <p class="notice-title">Please note</p>
-    <p class="notice-text">For legal and security reasons, a minimal anonymized destruction record is retained in line with our retention policy. Thank you for having been with {{ Platform.Name }}.</p>
+    <p class="notice-text">For legal and security reasons, a minimal destruction record is retained in line with our retention policy: keyed one-way digests of your email and username, and nothing else. Thank you for having been with {{ Platform.Name }}.</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000002', '43000000-0000-0000-0000-000000000010', N'ar', N'تم حذف حسابك',
 N'<div class="header">
@@ -1090,7 +1090,7 @@ N'<div class="header">
 <p class="message">تم حذف حسابك وبياناتك الشخصية نهائيًا بناءً على طلبك. لن يتلقى هذا العنوان أي رسائل أخرى منا.</p>
 <div class="notice">
     <p class="notice-title">يرجى الملاحظة</p>
-    <p class="notice-text">لأسباب قانونية وأمنية، نحتفظ بحد أدنى من سجل إتلاف مجهول الهوية وفقًا لسياسة الاحتفاظ لدينا. شكرًا لأنك كنت معنا في {{ Platform.Name }}.</p>
+    <p class="notice-text">لأسباب قانونية وأمنية، نحتفظ بحدّ أدنى من سجل الإتلاف وفقًا لسياسة الاحتفاظ لدينا: ملخّصات أحادية الاتجاه بمفتاح لبريدك واسم المستخدم، ولا شيء غير ذلك. شكرًا لأنك كنت معنا في {{ Platform.Name }}.</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000003', '43000000-0000-0000-0000-000000000010', N'tr', N'Hesabınız Silindi',
 N'<div class="header">
@@ -1101,7 +1101,7 @@ N'<div class="header">
 <p class="message">Talebiniz üzerine hesabınız ve kişisel verileriniz kalıcı olarak silindi. Bu adres bizden başka mesaj almayacaktır.</p>
 <div class="notice">
     <p class="notice-title">Lütfen dikkat</p>
-    <p class="notice-text">Yasal ve güvenlik nedenleriyle, saklama politikamız doğrultusunda asgari düzeyde anonimleştirilmiş bir imha kaydı tutulur. {{ Platform.Name }} ile olduğunuz için teşekkür ederiz.</p>
+    <p class="notice-text">Yasal ve güvenlik nedenleriyle, saklama politikamız doğrultusunda asgari düzeyde bir imha kaydı tutulur: e-postanızın ve kullanıcı adınızın anahtarlı tek yönlü özetleri, başka hiçbir şey değil. {{ Platform.Name }} ile olduğunuz için teşekkür ederiz.</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000004', '43000000-0000-0000-0000-000000000010', N'fr', N'Votre compte a été supprimé',
 N'<div class="header">
@@ -1112,7 +1112,7 @@ N'<div class="header">
 <p class="message">Votre compte et ses données personnelles ont été définitivement supprimés, conformément à votre demande. Cette adresse ne recevra plus aucun message de notre part.</p>
 <div class="notice">
     <p class="notice-title">À noter</p>
-    <p class="notice-text">Pour des raisons légales et de sécurité, un enregistrement de destruction minimal et anonymisé est conservé conformément à notre politique de rétention. Merci d''avoir fait partie de {{ Platform.Name }}.</p>
+    <p class="notice-text">Pour des raisons légales et de sécurité, un enregistrement de destruction minimal est conservé conformément à notre politique de rétention : des condensats unidirectionnels à clé de votre e-mail et de votre nom d''utilisateur, rien de plus. Merci d''avoir fait partie de {{ Platform.Name }}.</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000005', '43000000-0000-0000-0000-000000000010', N'zh', N'您的账户已被删除',
 N'<div class="header">
@@ -1123,7 +1123,7 @@ N'<div class="header">
 <p class="message">应您的请求，您的账户及其个人数据已被永久删除。此地址将不会再收到我们的任何消息。</p>
 <div class="notice">
     <p class="notice-title">请注意</p>
-    <p class="notice-text">出于法律和安全原因，我们将按照保留政策保留最少量的匿名销毁记录。感谢您曾与 {{ Platform.Name }} 同行。</p>
+    <p class="notice-text">出于法律和安全原因，我们将按照保留政策保留最少量的销毁记录：您的邮箱和用户名的带密钥单向摘要，仅此而已。感谢您曾与 {{ Platform.Name }} 同行。</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000006', '43000000-0000-0000-0000-000000000010', N'ur', N'آپ کا اکاؤنٹ حذف کر دیا گیا ہے',
 N'<div class="header">
@@ -1134,7 +1134,7 @@ N'<div class="header">
 <p class="message">آپ کی درخواست کے مطابق آپ کا اکاؤنٹ اور اس کا ذاتی ڈیٹا مستقل طور پر حذف کر دیا گیا ہے۔ اس پتے پر ہماری طرف سے مزید کوئی پیغام موصول نہیں ہوگا۔</p>
 <div class="notice">
     <p class="notice-title">براہ کرم نوٹ کریں</p>
-    <p class="notice-text">قانونی اور حفاظتی وجوہات کی بنا پر، ہماری برقراری پالیسی کے مطابق کم سے کم گمنام شدہ اتلاف کا ریکارڈ محفوظ رکھا جاتا ہے۔ {{ Platform.Name }} کے ساتھ رہنے کا شکریہ۔</p>
+    <p class="notice-text">قانونی اور حفاظتی وجوہات کی بنا پر، ہماری برقراری پالیسی کے مطابق کم سے کم اتلاف کا ریکارڈ محفوظ رکھا جاتا ہے: آپ کے ای میل اور صارف نام کے کلید والے یک طرفہ ڈائجسٹ، اس کے سوا کچھ نہیں۔ {{ Platform.Name }} کے ساتھ رہنے کا شکریہ۔</p>
 </div>'),
     ('44000000-0000-0000-0010-000000000007', '43000000-0000-0000-0000-000000000010', N'fa', N'حساب شما حذف شد',
 N'<div class="header">
@@ -1145,7 +1145,7 @@ N'<div class="header">
 <p class="message">بنا به درخواست شما، حساب و داده‌های شخصی آن برای همیشه حذف شد. این آدرس دیگر هیچ پیامی از ما دریافت نخواهد کرد.</p>
 <div class="notice">
     <p class="notice-title">لطفاً توجه کنید</p>
-    <p class="notice-text">به دلایل قانونی و امنیتی، حداقلی از سابقه امحای ناشناس‌شده مطابق با سیاست نگهداری ما حفظ می‌شود. از این‌که با {{ Platform.Name }} بودید سپاسگزاریم.</p>
+    <p class="notice-text">به دلایل قانونی و امنیتی، حداقلی از سابقه امحا مطابق با سیاست نگهداری ما حفظ می‌شود: چکیده‌های یک‌طرفه با کلید از ایمیل و نام کاربری شما، و نه چیز دیگری. از این‌که با {{ Platform.Name }} بودید سپاسگزاریم.</p>
 </div>');
 
     UPDATE [dbo].[NotificationTemplates]
@@ -1428,5 +1428,115 @@ END
 ELSE
 BEGIN
     PRINT 'new-device-sign-in template already exists';
+END
+GO
+
+-- ============================================================
+-- Template 13: account-deleted-by-admin (global, Email channel)
+--
+-- Separate from account-deletion-completed on purpose: that copy says "as you
+-- requested", which is false when an administrator did it. Silence was the
+-- previous behaviour and is the least defensible option at the moment personal
+-- data is destroyed irreversibly.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000013')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000013', '40000000-0000-0000-0000-000000000013', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000013', '42000000-0000-0000-0000-000000000013', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0013-000000000001', '43000000-0000-0000-0000-000000000013', N'en', N'Your Account Has Been Deleted by an Administrator',
+N'<div class="header">
+    <p class="eyebrow">Account deletion</p>
+    <h1>Your account was deleted</h1>
+</div>
+<p class="message">An administrator of {{ Platform.Name }} has permanently deleted your account and its personal data. This was not initiated by you, and it cannot be undone.</p>
+<p class="message">This address will receive no further messages from us.</p>
+<div class="notice">
+    <p class="notice-title">Please note</p>
+    <p class="notice-text">For legal and security reasons, a minimal destruction record is retained in line with our retention policy: keyed one-way digests of your email and username, and nothing else. If you believe this was a mistake, contact us using the privacy contact published in our privacy policy.</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000002', '43000000-0000-0000-0000-000000000013', N'ar', N'تم حذف حسابك من قِبَل أحد المسؤولين',
+N'<div class="header">
+    <p class="eyebrow">حذف الحساب</p>
+    <h1>تم حذف حسابك</h1>
+</div>
+<p class="message">قام أحد مسؤولي {{ Platform.Name }} بحذف حسابك وبياناتك الشخصية نهائيًا. لم يصدر هذا الإجراء عنك، ولا يمكن التراجع عنه.</p>
+<p class="message">لن يصلك أي بريد آخر منا على هذا العنوان.</p>
+<div class="notice">
+    <p class="notice-title">تنبيه</p>
+    <p class="notice-text">لأسباب قانونية وأمنية، نحتفظ بحدّ أدنى من سجل الإتلاف وفقًا لسياسة الاحتفاظ لدينا: ملخّصات أحادية الاتجاه بمفتاح لبريدك واسم المستخدم، ولا شيء غير ذلك. وإن كنت ترى أن هذا خطأ، فتواصل معنا عبر جهة التواصل بشأن الخصوصية المنشورة في سياستنا.</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000003', '43000000-0000-0000-0000-000000000013', N'tr', N'Hesabınız bir yönetici tarafından silindi',
+N'<div class="header">
+    <p class="eyebrow">Hesap silme</p>
+    <h1>Hesabınız silindi</h1>
+</div>
+<p class="message">{{ Platform.Name }} yöneticilerinden biri hesabınızı ve kişisel verilerinizi kalıcı olarak sildi. Bu işlem sizin tarafınızdan başlatılmadı ve geri alınamaz.</p>
+<p class="message">Bu adrese bizden başka ileti gönderilmeyecek.</p>
+<div class="notice">
+    <p class="notice-title">Bilginize</p>
+    <p class="notice-text">Yasal ve güvenlik nedenleriyle, saklama politikamız doğrultusunda asgari düzeyde bir imha kaydı tutulur: e-postanızın ve kullanıcı adınızın anahtarlı tek yönlü özetleri, başka hiçbir şey değil. Bunun bir hata olduğunu düşünüyorsanız, gizlilik politikamızda yayımlanan gizlilik iletişim adresinden bize ulaşın.</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000004', '43000000-0000-0000-0000-000000000013', N'fr', N'Votre compte a été supprimé par un administrateur',
+N'<div class="header">
+    <p class="eyebrow">Suppression de compte</p>
+    <h1>Votre compte a été supprimé</h1>
+</div>
+<p class="message">Un administrateur de {{ Platform.Name }} a définitivement supprimé votre compte et vos données personnelles. Cette action n''a pas été engagée par vous et elle est irréversible.</p>
+<p class="message">Cette adresse ne recevra plus aucun message de notre part.</p>
+<div class="notice">
+    <p class="notice-title">À noter</p>
+    <p class="notice-text">Pour des raisons légales et de sécurité, un enregistrement de destruction minimal est conservé conformément à notre politique de rétention : des condensats unidirectionnels à clé de votre e-mail et de votre nom d''utilisateur, rien de plus. Si vous pensez qu''il s''agit d''une erreur, contactez-nous à l''adresse de contact confidentialité publiée dans notre politique.</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000005', '43000000-0000-0000-0000-000000000013', N'zh', N'您的账户已被管理员删除',
+N'<div class="header">
+    <p class="eyebrow">账户删除</p>
+    <h1>您的账户已被删除</h1>
+</div>
+<p class="message">{{ Platform.Name }} 的管理员已永久删除您的账户及其个人数据。此操作并非由您发起，且无法撤销。</p>
+<p class="message">此地址将不再收到我们的任何邮件。</p>
+<div class="notice">
+    <p class="notice-title">请注意</p>
+    <p class="notice-text">出于法律和安全原因，我们将按照保留政策保留最少量的销毁记录：您的邮箱和用户名的带密钥单向摘要，仅此而已。如果您认为这是误操作，请通过我们隐私政策中公布的隐私联系方式与我们联系。</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000006', '43000000-0000-0000-0000-000000000013', N'ur', N'آپ کا اکاؤنٹ ایک منتظم کے ذریعے حذف کر دیا گیا',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کا حذف</p>
+    <h1>آپ کا اکاؤنٹ حذف کر دیا گیا</h1>
+</div>
+<p class="message">{{ Platform.Name }} کے ایک منتظم نے آپ کا اکاؤنٹ اور آپ کا ذاتی ڈیٹا مستقل طور پر حذف کر دیا ہے۔ یہ عمل آپ کی جانب سے شروع نہیں کیا گیا اور اسے واپس نہیں لیا جا سکتا۔</p>
+<p class="message">اس پتے پر ہماری جانب سے مزید کوئی پیغام نہیں آئے گا۔</p>
+<div class="notice">
+    <p class="notice-title">نوٹ</p>
+    <p class="notice-text">قانونی اور حفاظتی وجوہات کی بنا پر، ہماری برقراری پالیسی کے مطابق کم سے کم اتلاف کا ریکارڈ محفوظ رکھا جاتا ہے: آپ کے ای میل اور صارف نام کے کلید والے یک طرفہ ڈائجسٹ، اس کے سوا کچھ نہیں۔ اگر آپ سمجھتے ہیں کہ یہ غلطی ہے تو ہماری پرائیویسی پالیسی میں شائع کردہ رازداری رابطہ پر ہم سے رجوع کریں۔</p>
+</div>'),
+    ('44000000-0000-0000-0013-000000000007', '43000000-0000-0000-0000-000000000013', N'fa', N'حساب شما توسط یکی از مدیران حذف شد',
+N'<div class="header">
+    <p class="eyebrow">حذف حساب</p>
+    <h1>حساب شما حذف شد</h1>
+</div>
+<p class="message">یکی از مدیران {{ Platform.Name }} حساب شما و داده‌های شخصی‌تان را برای همیشه حذف کرد. این اقدام از سوی شما آغاز نشده و قابل بازگشت نیست.</p>
+<p class="message">از این پس پیامی از ما به این نشانی ارسال نخواهد شد.</p>
+<div class="notice">
+    <p class="notice-title">توجه</p>
+    <p class="notice-text">به دلایل قانونی و امنیتی، حداقلی از سابقه امحا مطابق با سیاست نگهداری ما حفظ می‌شود: چکیده‌های یک‌طرفه با کلید از ایمیل و نام کاربری شما، و نه چیز دیگری. اگر گمان می‌کنید این یک اشتباه است، از طریق نشانی تماس حریم خصوصی که در سیاست ما منتشر شده با ما تماس بگیرید.</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000013'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000013';
+
+    PRINT 'Created account-deleted-by-admin template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'account-deleted-by-admin template already exists';
 END
 GO

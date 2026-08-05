@@ -205,6 +205,17 @@ public class PrivacyPolicyTests
         PolicyVersion = "2026.07"
     };
 
+    /// <summary>A fully identified controller — the publishable state.</summary>
+    private static DataControllerSettings Controller() => new()
+    {
+        LegalName = "Acme Corp LLC",
+        Address = "1 Example Street, Istanbul",
+        PrivacyEmail = "privacy@example.com",
+        EmailProvider = "Example Mail",
+        HostingProvider = "Example Hosting",
+        HostingCountry = "Türkiye"
+    };
+
     [Fact]
     public async Task GetPublished_ReturnsDocumentWithLiveConfigurationValues()
     {
@@ -225,7 +236,7 @@ public class PrivacyPolicyTests
                 version.Id, "tr", "{\"title\":\"Gizlilik\"}", AdminId));
 
         var handler = new GetPublishedPrivacyPolicyQueryHandler(
-            repository.Object, TestHelpers.CreateOptions(settings));
+            repository.Object, TestHelpers.CreateOptions(settings), TestHelpers.CreateOptions(Controller()));
 
         var result = await handler.Handle(
             new GetPublishedPrivacyPolicyQuery("tr-TR"), CancellationToken.None);
@@ -255,7 +266,7 @@ public class PrivacyPolicyTests
                 version.Id, "en", "{\"title\":\"Privacy\"}", AdminId));
 
         var handler = new GetPublishedPrivacyPolicyQueryHandler(
-            repository.Object, TestHelpers.CreateOptions(Settings()));
+            repository.Object, TestHelpers.CreateOptions(Settings()), TestHelpers.CreateOptions(Controller()));
 
         var result = await handler.Handle(
             new GetPublishedPrivacyPolicyQuery("fr"), CancellationToken.None);
@@ -273,7 +284,7 @@ public class PrivacyPolicyTests
             .ReturnsAsync((PrivacyPolicyVersion?)null);
 
         var handler = new GetPublishedPrivacyPolicyQueryHandler(
-            repository.Object, TestHelpers.CreateOptions(Settings()));
+            repository.Object, TestHelpers.CreateOptions(Settings()), TestHelpers.CreateOptions(Controller()));
 
         var result = await handler.Handle(
             new GetPublishedPrivacyPolicyQuery(null), CancellationToken.None);
@@ -381,7 +392,7 @@ public class PrivacyPolicyTests
             .ReturnsAsync((PrivacyPolicyTranslation?)null);
 
         var handler = new PublishPrivacyPolicyVersionCommandHandler(
-            repository.Object, new Mock<IAuditLogRepository>().Object);
+            repository.Object, new Mock<IAuditLogRepository>().Object, TestHelpers.CreateOptions(Controller()));
 
         var result = await handler.Handle(
             new PublishPrivacyPolicyVersionCommand("2026.09") { RequestedBy = AdminId },
@@ -406,7 +417,8 @@ public class PrivacyPolicyTests
             .ReturnsAsync(PrivacyPolicyTranslation.Create(version.Id, "en", "{}", AdminId));
 
         var audit = new Mock<IAuditLogRepository>();
-        var handler = new PublishPrivacyPolicyVersionCommandHandler(repository.Object, audit.Object);
+        var handler = new PublishPrivacyPolicyVersionCommandHandler(
+            repository.Object, audit.Object, TestHelpers.CreateOptions(Controller()));
 
         var result = await handler.Handle(
             new PublishPrivacyPolicyVersionCommand("2026.09") { RequestedBy = AdminId },

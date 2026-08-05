@@ -29,6 +29,7 @@ public class AccountDeletionWorkerTests
     private readonly Mock<ILoginAttemptRepository> _loginAttemptRepositoryMock = new();
     private readonly Mock<INotificationOutboxRepository> _outboxRepositoryMock = new();
     private readonly Mock<IAuditLogRepository> _auditLogRepositoryMock = new();
+    private readonly Mock<IAccountDeletionTombstoneRepository> _tombstoneRepositoryMock = new();
     private readonly Mock<ISender> _senderMock = new();
     private readonly Mock<ILogger<AccountDeletionWorker>> _loggerMock = new();
     private readonly AccountDeletionSettings _settings = new();
@@ -54,6 +55,7 @@ public class AccountDeletionWorkerTests
         provider.Setup(p => p.GetService(typeof(ILoginAttemptRepository))).Returns(_loginAttemptRepositoryMock.Object);
         provider.Setup(p => p.GetService(typeof(INotificationOutboxRepository))).Returns(_outboxRepositoryMock.Object);
         provider.Setup(p => p.GetService(typeof(IAuditLogRepository))).Returns(_auditLogRepositoryMock.Object);
+        provider.Setup(p => p.GetService(typeof(IAccountDeletionTombstoneRepository))).Returns(_tombstoneRepositoryMock.Object);
         provider.Setup(p => p.GetService(typeof(ISender))).Returns(_senderMock.Object);
         var scope = new Mock<IServiceScope>();
         scope.SetupGet(s => s.ServiceProvider).Returns(provider.Object);
@@ -159,8 +161,46 @@ public class AccountDeletionWorkerTests
                 It.Is<DateTime>(cutoff => Math.Abs((cutoff - DateTime.UtcNow.AddDays(-180)).TotalMinutes) < 5),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+        // The audit history must have an end of life. CleanupOldLogsAsync existed
+        // with no caller anywhere in the solution, so AuditLogs grew without any
+        // ceiling — an undisclosed indefinite retention period, and the record
+        // class that would outlive any finite identifier-reservation window.
+        _auditLogRepositoryMock.Verify(
+            r => r.CleanupOldLogsAsync(
+                It.Is<DateTime>(cutoff => Math.Abs((cutoff - DateTime.UtcNow.AddDays(-1095)).TotalMinutes) < 5),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        // Identifier reservations expire. The tombstone is a keyed digest of an
+        // e-mail address under a key the system keeps, so deleting the row is the
+        // only erasure route available — a permanent registry could not be
+        // reconciled with the published policy.
+        _tombstoneRepositoryMock.Verify(
+            r => r.DeleteExpiredAsync(
+                It.Is<DateTime>(cutoff => Math.Abs((cutoff - DateTime.UtcNow.AddDays(-1095)).TotalMinutes) < 5),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
         _auditLogRepositoryMock.Verify(
             r => r.CreateAsync(It.Is<AuditLog>(log => log.Action == "system.retention_sweep"), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task RunSweepAsync_NeverReleasesAnIdentifierWhileRecordsKeyedToItSurvive()
+    {
+        // The window is derived, not chosen: an address may only be released
+        // once every record still keyed to it has expired. An operator who
+        // shortens the reservation below the audit-log retention must not be
+        // able to release addresses early — the sweep raises the floor itself
+        // rather than trusting the saved value.
+        _settings.IdentifierReservationDays = 1095;
+        _settings.AuditLogRetentionDays = 3650;
+
+        await _worker.RunSweepAsync(CancellationToken.None);
+
+        _tombstoneRepositoryMock.Verify(
+            r => r.DeleteExpiredAsync(
+                It.Is<DateTime>(cutoff => Math.Abs((cutoff - DateTime.UtcNow.AddDays(-3650)).TotalMinutes) < 5),
+                It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

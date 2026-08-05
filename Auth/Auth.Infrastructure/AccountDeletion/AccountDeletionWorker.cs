@@ -154,6 +154,7 @@ public class AccountDeletionWorker : BackgroundService
         var loginAttemptRepository = scope.ServiceProvider.GetRequiredService<ILoginAttemptRepository>();
         var outboxRepository = scope.ServiceProvider.GetRequiredService<INotificationOutboxRepository>();
         var auditLogRepository = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
+        var tombstoneRepository = scope.ServiceProvider.GetRequiredService<IAccountDeletionTombstoneRepository>();
 
         // 1) Restore re-apply: a Completed request with a live user row means
         //    a backup restore resurrected destroyed data (R5).
@@ -206,17 +207,39 @@ public class AccountDeletionWorker : BackgroundService
         var purgedOutbox = await outboxRepository.DeleteSentOlderThanAsync(
             DateTime.UtcNow.AddDays(-_settings.CurrentValue.OutboxRetentionDays), cancellationToken);
 
+        // 5) Audit history past its retention. Runs LAST so the sweep's own
+        //    audit entry below is never inside the window it just purged.
+        //    Without this call the table had no end of life at all: the
+        //    published policy states a three-year floor and never a ceiling,
+        //    and an identifier released after a finite reservation window
+        //    could still be linked through audit rows that outlive it.
+        var auditCutoff = DateTime.UtcNow.AddDays(-_settings.CurrentValue.AuditLogRetentionDays);
+        await auditLogRepository.CleanupOldLogsAsync(auditCutoff, cancellationToken);
+
+        // 6) Identifier reservations whose window has elapsed. Deleting the row
+        //    IS the erasure of a keyed digest that no key destruction can reach
+        //    while live reservations still need that key. EffectiveIdentifier-
+        //    ReservationDays is never shorter than the audit retention, so an
+        //    address is never released while records keyed to it survive.
+        var reservationCutoff = DateTime.UtcNow.AddDays(
+            -_settings.CurrentValue.EffectiveIdentifierReservationDays);
+        var releasedReservations = await tombstoneRepository.DeleteExpiredAsync(
+            reservationCutoff, cancellationToken);
+
         await auditLogRepository.CreateAsync(
             Auth.Domain.Entities.AuditLog.CreateSuccess(
                 actionType: "System",
                 action: "system.retention_sweep",
                 userId: WellKnownUserIds.System,
-                additionalData: $"{{\"reappliedDeletions\":{reapplied},\"purgedOutboxRows\":{purgedOutbox}}}"),
+                additionalData:
+                    $"{{\"reappliedDeletions\":{reapplied},\"purgedOutboxRows\":{purgedOutbox}," +
+                    $"\"auditCutoffUtc\":\"{auditCutoff:O}\"," +
+                    $"\"releasedReservations\":{releasedReservations}}}"),
             cancellationToken);
 
         _logger.LogInformation(
-            "Retention sweep complete: {Reapplied} re-applied destructions, {PurgedOutbox} delivered outbox rows purged",
-            reapplied, purgedOutbox);
+            "Retention sweep complete: {Reapplied} re-applied destructions, {PurgedOutbox} delivered outbox rows purged, audit history trimmed before {AuditCutoff:u}, {Released} identifier reservations released",
+            reapplied, purgedOutbox, auditCutoff, releasedReservations);
     }
 
     private async Task SafeReclaimAsync(CancellationToken cancellationToken)

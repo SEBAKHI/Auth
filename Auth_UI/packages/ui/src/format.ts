@@ -126,18 +126,31 @@ export function userStatusMeta(status: number | string | undefined): {
 }
 
 // ─── SecretStatus (enum: NotConfigured=0, Configured=1, Empty=2) ──────────────
-const SECRET_STATUS: Record<number, { key: string; variant: BadgeVariant }> = {
+//
+// Keyed by BOTH the numeric value and the serialized name. The API serializes
+// enums as string names, so the previous number-only lookup ran
+// Number("Configured") -> NaN and fell through to "unknown" for every secret on
+// the page — a status display that could never once show a real status.
+const SECRET_STATUS: Record<string, { key: string; variant: BadgeVariant }> = {
   0: { key: "notConfigured", variant: "destructive" },
   1: { key: "configured", variant: "default" },
   2: { key: "empty", variant: "secondary" },
+  notconfigured: { key: "notConfigured", variant: "destructive" },
+  configured: { key: "configured", variant: "default" },
+  empty: { key: "empty", variant: "secondary" },
 }
 
 export function secretStatusMeta(status: number | string | undefined): {
   key: string
   variant: BadgeVariant
 } {
-  const code = typeof status === "string" ? Number(status) : status
-  return SECRET_STATUS[code ?? -1] ?? { key: "unknown", variant: "outline" }
+  if (status === undefined || status === null) {
+    return { key: "unknown", variant: "outline" }
+  }
+
+  // Accept the numeric form, a numeric string, and the enum name in any casing.
+  const lookup = typeof status === "number" ? String(status) : status.trim().toLowerCase()
+  return SECRET_STATUS[lookup] ?? { key: "unknown", variant: "outline" }
 }
 
 /** Build a "First Last" display name with sensible fallbacks. */

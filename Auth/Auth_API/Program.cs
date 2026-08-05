@@ -108,6 +108,7 @@ builder.Services.AddOptions<EmailSettings>()
 builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSection(NotificationSettings.SectionName));
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
 builder.Services.Configure<AccountDeletionSettings>(builder.Configuration.GetSection(AccountDeletionSettings.SectionName));
+builder.Services.Configure<DataControllerSettings>(builder.Configuration.GetSection(DataControllerSettings.SectionName));
 builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
 builder.Services.PostConfigure<ImageStorageSettings>(SettingsArrayNormalizer.Apply);
 // Scoped: it reads the image size limit through IOptionsSnapshot so a limit saved
@@ -155,7 +156,16 @@ var dataProtectionKeyPath = AuthDataProtectionExtensions.ResolveKeyRingPath(
 // Fail fast if the crown-jewel secrets are sitting in plaintext in a Production
 // config file. Runs BEFORE the DPAPI provider injects the decrypted key below,
 // so it inspects the appsettings/env value, not the decrypted one.
-ProductionSecretGuard.EnsureNoPlaintextSecrets(builder.Configuration, builder.Environment.IsProduction());
+StartupStep.Run(
+    "production plaintext-secret check",
+    () => ProductionSecretGuard.EnsureNoPlaintextSecrets(
+        builder.Configuration, builder.Environment.IsProduction()));
+
+// Set when this startup wrote a NEW permanent identifier HMAC key into an
+// already-existing secrets file. Verified against the deletion registry once
+// the connection string is resolved: a new key over a non-empty registry
+// orphans every reservation, silently.
+var identifierKeyWasMinted = false;
 
 builder.Services.AddDataProtection()
     .SetApplicationName("AuthSystem")
@@ -246,8 +256,53 @@ else
     else if (File.Exists(secretManagementSettings.SecretFilePath))
     {
         Log.Debug("Loading existing secrets from {Path}", secretManagementSettings.SecretFilePath);
+
+        // Top up ONLY secrets introduced after this file was created.
+        //
+        // The first-startup gate above stays deliberately. A blanket top-up
+        // here would re-mint whichever of the JWT / refresh / gateway secrets
+        // happened to read empty — a restored pre-fix backup, a renamed
+        // property, a changed SecretFilePath — invalidating every issued token,
+        // or leaving the API Gateway holding a token this process no longer
+        // accepts: a total outage that repeats on every restart, logged at
+        // Information. This path therefore provisions the late-added permanent
+        // identifier key and nothing else, logs at Warning, and is verified
+        // against the deletion registry once the database is reachable
+        // (IdentifierKeyRegenerationGuard, below).
+        if (secretManagementSettings.AutoGenerateKeys
+            && string.IsNullOrWhiteSpace(builder.Configuration["AccountDeletion:IdentifierHmacKeyPlain"]))
+        {
+            var topUpService = new DpapiSecretService(
+                dpapiProvider,
+                Options.Create(secretManagementSettings),
+                new Microsoft.Extensions.Logging.Abstractions.NullLogger<DpapiSecretService>());
+
+            var existingSecrets = topUpService.LoadSecretsAsync(CancellationToken.None).GetAwaiter().GetResult();
+            existingSecrets.AccountDeletionIdentifierHmacKey =
+                Auth.Shared.Configuration.KeyMaterialGenerator.GenerateHmacKeyBase64();
+            topUpService.SaveSecretsAsync(existingSecrets, CancellationToken.None).GetAwaiter().GetResult();
+
+            identifierKeyWasMinted = true;
+
+            // Re-layer so this process uses the key it just wrote.
+            Auth.Infrastructure.Configuration.SecretConfigurationExtensions.AddDpapiSecrets(
+                builder.Configuration, dpapiProvider, secretManagementSettings.SecretFilePath);
+
+            Log.Warning(
+                "Provisioned the missing account-deletion identifier HMAC key into the existing secrets " +
+                "file (fingerprint {Fingerprint}). This key is PERMANENT: back it up with the secrets file " +
+                "and never rotate it. If this message appears on a later restart, the secrets file is not " +
+                "persisting and identifier reservations are being silently orphaned.",
+                IdentifierKeyRegenerationGuard.Fingerprint(existingSecrets.AccountDeletionIdentifierHmacKey));
+        }
     }
 }
+
+// Every secret the process cannot serve a request without must exist NOW, not
+// at the first request that happens to touch it. See RequiredSecretsGuard.
+StartupStep.Run(
+    "required-secrets check",
+    () => RequiredSecretsGuard.EnsureAllPresent(builder.Configuration, storageMode.ToString()));
 
 // Register SecretManagementSettings
 builder.Services.Configure<SecretManagementSettings>(
@@ -265,6 +320,16 @@ builder.Services.AddSingleton<IDpapiSecretService>(sp =>
 // Database
 var connectionString = builder.Configuration.GetConnectionString("AuthDb")
     ?? throw new InvalidOperationException("Connection string 'AuthDb' not found.");
+
+// A permanent key minted over a populated registry is a silent data-integrity
+// failure, so it is verified here — the first point where the database is
+// reachable — and never merely trusted.
+if (identifierKeyWasMinted)
+{
+    StartupStep.Run(
+        "identifier-key regeneration check",
+        () => IdentifierKeyRegenerationGuard.EnsureRegistryIsEmpty(connectionString));
+}
 
 builder.Services.AddSingleton<IDbConnectionFactory>(_ => new SqlConnectionFactory(connectionString));
 
@@ -734,7 +799,15 @@ builder.Services.AddOpenApi("v1", options =>
 //                                       AND the JWT signing key is loaded.
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy("Auth API process is running."), tags: ["live"])
-    .AddSqlServer(connectionString, name: "database", tags: ["ready"])
+    // Bounded explicitly: the database is on a remote host, and a probe that
+    // hangs on a network stall is worse than one that reports Degraded — an
+    // unbounded readiness check turns a slow link into an apparent outage.
+    .AddSqlServer(
+        connectionString,
+        name: "database",
+        failureStatus: HealthStatus.Degraded,
+        tags: ["ready"],
+        timeout: TimeSpan.FromSeconds(5))
     .AddTypeActivatedCheck<SigningKeyHealthCheck>(
         "signing-key",
         failureStatus: HealthStatus.Unhealthy,

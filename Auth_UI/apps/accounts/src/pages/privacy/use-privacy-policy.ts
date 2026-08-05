@@ -55,6 +55,8 @@ export function usePrivacyPolicy(): { policy: ResolvedPolicy; isLoading: boolean
       // the boundary so the rendered document always shows a real number.
       const asNumber = (value: number | string | undefined, fallback: number) =>
         value === undefined ? fallback : Number(value)
+      const asText = (value: string | null | undefined, fallback: string) =>
+        value == null || value === "" ? fallback : value
       const served = query.data.disclosure
 
       return {
@@ -74,6 +76,29 @@ export function usePrivacyPolicy(): { policy: ResolvedPolicy; isLoading: boolean
               served?.outboxRetentionDays,
               FALLBACK_DISCLOSURE.outboxRetentionDays
             ),
+            identifierReservationDays: asNumber(
+              served?.identifierReservationDays,
+              FALLBACK_DISCLOSURE.identifierReservationDays
+            ),
+            // Controller identity. A field missing from the payload must never
+            // reach interpolate() as undefined — interpolate leaves an unknown
+            // token untouched, so the literal "{{legalName}}" would render on a
+            // public legal page. asText() collapses null/undefined/"" to the
+            // bracketed fallback, which also trips the draft banner.
+            legalName: asText(served?.legalName, FALLBACK_DISCLOSURE.legalName),
+            address: asText(served?.address, FALLBACK_DISCLOSURE.address),
+            privacyEmail: asText(served?.privacyEmail, FALLBACK_DISCLOSURE.privacyEmail),
+            emailProvider: asText(served?.emailProvider, FALLBACK_DISCLOSURE.emailProvider),
+            hostingProvider: asText(
+              served?.hostingProvider,
+              FALLBACK_DISCLOSURE.hostingProvider
+            ),
+            hostingCountry: asText(served?.hostingCountry, FALLBACK_DISCLOSURE.hostingCountry),
+            // Optional by law: an empty value must stay empty so its whole line
+            // is omitted, never replaced by a placeholder.
+            dpoContact: served?.dpoContact ?? "",
+            verbisNo: served?.verbisNo ?? "",
+            kepAddress: served?.kepAddress ?? "",
             policyVersion: served?.policyVersion ?? FALLBACK_DISCLOSURE.policyVersion,
           },
           version: query.data.version ?? POLICY_VERSION,

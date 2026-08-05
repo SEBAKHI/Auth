@@ -35,20 +35,18 @@ public class IdentifierHasherTests
     }
 
     [Fact]
-    public void HashUsername_IsDeterministicAndCaseWhitespaceInsensitive()
+    public void HashEmail_KeepsItsDomainSeparationPrefix()
     {
+        // The "email:" prefix is retained even though the username hash space
+        // is gone, so digests written before its removal still match. Dropping
+        // the prefix would silently invalidate every live reservation.
         var hasher = CreateHasher(Key());
 
-        hasher.HashUsername("JohnDoe").Should().Be(hasher.HashUsername(" johndoe "));
-    }
-
-    [Fact]
-    public void EmailAndUsernameHashSpaces_AreDomainSeparated()
-    {
-        var hasher = CreateHasher(Key());
-
-        hasher.HashEmail("same-value").Should().NotBe(hasher.HashUsername("same-value"),
-            "a username equal to an email string must never produce a matching hash across columns");
+        hasher.HashEmail("user@example.com")
+            .Should().NotBe(Convert.ToBase64String(
+                System.Security.Cryptography.HMACSHA256.HashData(
+                    Key(), System.Text.Encoding.UTF8.GetBytes("USER@EXAMPLE.COM"))),
+                "the hashed input is prefixed, not the bare identifier");
     }
 
     [Fact]

@@ -984,6 +984,14 @@ export const en = {
     "policyToken_otpValidityMinutes": "How long a deletion verification code stays valid, in minutes.",
     "policyToken_loginAttemptRetentionDays": "How long sign-in attempt records are kept, in days.",
     "policyToken_outboxRetentionDays": "How long sent-email records are kept, in days.",
+    "policyToken_identifierReservationDays":
+      "How long a deleted email stays blocked from re-registration, in days.",
+    "policyToken_legalName": "Registered legal name of the data controller.",
+    "policyToken_address": "Registered address of the data controller.",
+    "policyToken_privacyEmail": "Monitored inbox for privacy and rights requests.",
+    "policyToken_emailProvider": "Email delivery provider named in the sharing section.",
+    "policyToken_hostingProvider": "Hosting provider named in the sharing section.",
+    "policyToken_hostingCountry": "Country where the service is hosted (bare name).",
     "overviewPolicy": "Privacy policy versions",
     "overviewViewPolicy": "View policy",
     "overviewPolicyHint": "{{count}} languages written",
@@ -1399,6 +1407,30 @@ export const en = {
       otpExpirationMinutesHint: "Code confirming a public deletion request. Recommended: 15.",
       identifierHmacKeyPlain: "Identifier hash key",
     },
+    dataController: {
+      title: "Data controller",
+      description:
+        "The legal identity published in your privacy policy. A policy cannot be published until the required fields are filled — a disclosure that does not name its controller does not satisfy KVKK Art. 10 or GDPR Art. 13.",
+      legalName: "Legal entity name",
+      legalNameHint: "Registered name, exactly as it should appear (e.g. Acme Corp LLC).",
+      address: "Registered address",
+      addressHint: "Full postal address as it should appear in the policy.",
+      privacyEmail: "Privacy contact email",
+      privacyEmailHint: "A MONITORED inbox — rights requests arrive here and are due within 30 days.",
+      emailProvider: "Email delivery provider",
+      emailProviderHint: "Named in \"who we share data with\" (e.g. your SMTP vendor).",
+      hostingProvider: "Hosting provider",
+      hostingProviderHint: "Named in \"who we share data with\".",
+      hostingCountry: "Hosting country",
+      hostingCountryHint:
+        "Bare country name only, no preposition — the Turkish and French sentences add their own.",
+      dpoContact: "Data protection officer",
+      dpoContactHint: "Optional. Leave empty to omit the line; GDPR only requires a DPO in specific cases.",
+      verbisNo: "VERBİS registration number",
+      verbisNoHint: "Optional. Fill only if the controller meets Türkiye's registration thresholds.",
+      kepAddress: "Registered email (KEP)",
+      kepAddressHint: "Optional. A Turkish registered e-mail address, one of the KVKK application channels.",
+    },
     dataRetention: {
       title: "Privacy & data retention",
       description:
@@ -1411,6 +1443,12 @@ export const en = {
         "Security log retention; align with your privacy policy. Recommended: 365.",
       outboxRetentionDays: "Outbox retention (days)",
       outboxRetentionDaysHint: "Delivered-notification log retention. Recommended: 180.",
+      auditLogRetentionDays: "Audit-log retention (days)",
+      auditLogRetentionDaysHint:
+        "Audit history retention. The floor is the three years the published policy promises. Recommended: 1095.",
+      identifierReservationDays: "Identifier reservation (days)",
+      identifierReservationDaysHint:
+        "How long a deleted email stays blocked from re-registration. Never applied shorter than audit-log retention. Recommended: 1095.",
     },
     maintenance: {
       title: "Maintenance",

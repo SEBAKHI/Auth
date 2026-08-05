@@ -20,13 +20,16 @@ public class GetPublishedPrivacyPolicyQueryHandler
 {
     private readonly IPrivacyPolicyVersionRepository _repository;
     private readonly AccountDeletionSettings _settings;
+    private readonly DataControllerSettings _controller;
 
     public GetPublishedPrivacyPolicyQueryHandler(
         IPrivacyPolicyVersionRepository repository,
-        IOptionsSnapshot<AccountDeletionSettings> settings)
+        IOptionsSnapshot<AccountDeletionSettings> settings,
+        IOptionsSnapshot<DataControllerSettings> controller)
     {
         _repository = repository;
         _settings = settings.Value;
+        _controller = controller.Value;
     }
 
     public async Task<ErrorOr<PublishedPrivacyPolicyDto>> Handle(
@@ -60,17 +63,32 @@ public class GetPublishedPrivacyPolicyQueryHandler
             EffectiveDateUtc = version.EffectiveDateUtc,
             LanguageCode = translation.LanguageCode,
             ContentJson = translation.ContentJson,
-            Disclosure = BuildDisclosure(_settings)
+            Disclosure = BuildDisclosure(_settings, _controller)
         };
     }
 
     /// <summary>Projects the configuration values the policy quotes.</summary>
-    public static PrivacyPolicyDisclosureDto BuildDisclosure(AccountDeletionSettings settings) => new()
+    public static PrivacyPolicyDisclosureDto BuildDisclosure(
+        AccountDeletionSettings settings,
+        DataControllerSettings controller) => new()
     {
+        LegalName = controller.LegalName,
+        Address = controller.Address,
+        PrivacyEmail = controller.PrivacyEmail,
+        EmailProvider = controller.EmailProvider,
+        HostingProvider = controller.HostingProvider,
+        HostingCountry = controller.HostingCountry,
+        DpoContact = controller.DpoContact,
+        VerbisNo = controller.VerbisNo,
+        KepAddress = controller.KepAddress,
         GraceDays = settings.GraceDays,
         OtpValidityMinutes = settings.OtpExpirationMinutes,
         LoginAttemptRetentionDays = settings.LoginAttemptRetentionDays,
         OutboxRetentionDays = settings.OutboxRetentionDays,
+        // Effective, not raw: the sweep floors the reservation at the audit-log
+        // retention, so the raw setting would publish a shorter window than the
+        // one actually enforced.
+        IdentifierReservationDays = settings.EffectiveIdentifierReservationDays,
         PolicyVersion = settings.PolicyVersion
     };
 }

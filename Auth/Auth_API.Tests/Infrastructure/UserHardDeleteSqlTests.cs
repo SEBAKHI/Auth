@@ -93,9 +93,11 @@ public class UserHardDeleteSqlTests
         "audit rows about the user must be anonymized in place (identity and PII payloads stripped), never deleted")]
     [InlineData(@"UPDATE\s+\[dbo\]\.\[AuditLogs\]\s+SET\s+\[PerformedBy\]\s*=\s*@SystemUserId,\s*\[IpAddress\]\s*=\s*NULL,\s*\[UserAgent\]\s*=\s*NULL\s+WHERE\s+\[PerformedBy\]\s*=\s*@Id",
         "audit rows the user performed must be reattributed to the system account with their IP/agent stripped")]
-    [InlineData(@"UPDATE\s+\[dbo\]\.\[LoginAttempts\]\s+SET\s+\[UserId\]\s*=\s*NULL,\s*\[Username\]\s*=\s*N'\[deleted\]'\s+WHERE\s+\[UserId\]\s*=\s*@Id",
-        "login attempts must be anonymized (fraud signal retained within retention, identity stripped)")]
-    [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[NotificationOutbox\]\s+WHERE\s+\[RecipientUserId\]\s*=\s*@Id",
+    [InlineData(@"UPDATE\s+\[dbo\]\.\[LoginAttempts\]\s+SET\s+\[UserId\]\s*=\s*NULL,\s*\[Username\]\s*=\s*N'\[deleted\]',\s*\[IpAddress\]\s*=\s*N'0\.0\.0\.0',\s*\[UserAgent\]\s*=\s*NULL\s+WHERE\s+\[UserId\]\s*=\s*@Id\s+OR\s+\[Username\]\s*=\s*@Email\s+OR\s+\[Username\]\s*=\s*@Username",
+        "login attempts must be anonymized (fraud signal retained within retention, identity stripped) — " +
+        "including IpAddress and UserAgent, which the published policy promises are de-identified " +
+        "immediately and which a UserId/Username-only update left intact for a further 365 days")]
+    [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[NotificationOutbox\]\s+WHERE\s+\[RecipientUserId\]\s*=\s*@Id\s+OR\s+\[Recipient\]\s*=\s*@Email",
         "queued notifications addressed to the user must be purged")]
     [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[RevokedTokens\]\s+WHERE\s+\[RevocationKey\]",
         "denylist entries keyed by the user id must be purged")]
@@ -107,15 +109,81 @@ public class UserHardDeleteSqlTests
             .Should().BeTrue(because);
     }
 
+    /// <summary>
+    /// Rows bound to the account by IDENTIFIER rather than by user id. They have
+    /// no foreign key, so the schema-drift guard above cannot see them: each one
+    /// is asserted explicitly here.
+    ///
+    /// This class is the reason a finite identifier-reservation window is unsafe
+    /// without them. While a deleted address can never be re-registered, an
+    /// untouched row is "only" surviving PII; the moment the reservation is
+    /// bounded, the next holder of that address inherits it — a pending
+    /// organization invitation binds on the e-mail string, not on a user id, so
+    /// inheriting one is a membership grant, not a privacy leak.
+    /// </summary>
+    [Theory]
+    [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[OrganizationInvitations\]\s+WHERE\s+\[InvitedBy\]\s*=\s*@Id\s+OR\s+\[Email\]\s*=\s*@Email",
+        "invitations ADDRESSED TO the destroyed identifier must be purged, not only those the user sent: " +
+        "RegisterWithInvitation creates the account from invitation.Email, so a surviving Pending row is an " +
+        "organization membership waiting for whoever next holds that address")]
+    [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[NotificationOutbox\]\s+WHERE\s+\[RecipientUserId\]\s*=\s*@Id\s+OR\s+\[Recipient\]\s*=\s*@Email",
+        "outbox rows queued before the account existed carry a NULL RecipientUserId, so the address must be " +
+        "matched too — Recipient, Subject and BodyHtml hold rendered personal data")]
+    [InlineData(@"\[Username\]\s*=\s*@Email\s+OR\s+\[Username\]\s*=\s*@Username",
+        "LoginAttempts.Username holds the ATTEMPTED identifier: attempts that never resolved to an account " +
+        "keep the e-mail in clear text under a NULL UserId and are missed by a UserId-only predicate")]
+    public void IdentifierBoundRows_AreCoveredByThePurge(string pattern, string because)
+    {
+        new Regex(pattern, RegexOptions.IgnoreCase).IsMatch(HardDeleteSql())
+            .Should().BeTrue(because);
+    }
+
     [Fact]
-    public void Purge_WritesTheTombstoneWithReservationHashes()
+    public void Purge_PassesTheIdentifiersItMatchesOn()
+    {
+        var purgeSql = HardDeleteSql();
+
+        purgeSql.Should().Contain("@Email",
+            "the identifier-bound predicates need the account's own e-mail as a parameter");
+        purgeSql.Should().Contain("@Username",
+            "the LoginAttempts predicate needs the account's own username as a parameter");
+
+        new Regex(@"Email\s*=\s*identifiers\.NormalizedEmail\.ToLowerInvariant\(\)")
+            .IsMatch(purgeSql).Should().BeTrue(
+                "the e-mail parameter must be the lower-invariant form, which is what Email.Value stores in " +
+                "OrganizationInvitations.Email and NotificationOutbox.Recipient — passing NormalizedEmail " +
+                "(upper-invariant) would silently match nothing under a case-sensitive collation");
+    }
+
+    [Fact]
+    public void Purge_WritesTheTombstoneWithTheReservationDigestAndKeyVersion()
     {
         var purgeSql = HardDeleteSql();
 
         new Regex(@"MERGE\s+\[dbo\]\.\[AccountDeletionTombstones\]", RegexOptions.IgnoreCase)
             .IsMatch(purgeSql).Should().BeTrue(
-                "destruction must write the zero-PII tombstone idempotently before anything is removed");
-        purgeSql.Should().ContainAll("@EmailHash", "@UsernameHash", "@PolicyVersion");
+                "destruction must write the tombstone idempotently before anything is removed");
+        purgeSql.Should().ContainAll("@EmailHash", "@PolicyVersion", "@KeyVersion");
+
+        purgeSql.Should().NotContain("@UsernameHash",
+            "the username reservation was removed: nothing ever read it, the username is derived rather " +
+            "than chosen by the user, and writing it stored a second identifier of a person for a check " +
+            "that did not exist");
+    }
+
+    [Fact]
+    public void Tombstone_CarriesAKeyVersion_SoTheIdentifierKeyCanEverBeRotated()
+    {
+        var ddl = File.ReadAllText(Path.Combine(
+            SolutionDirectory(), "Auth_DB", "dbo", "Tables", "Security", "AccountDeletionTombstones.sql"));
+
+        ddl.Should().Contain("[KeyVersion]",
+            "without a key version, digests written under an old key are indistinguishable from current " +
+            "ones, so the permanent-by-necessity key could never be rotated");
+        ddl.Should().NotContain("[UsernameHash]",
+            "the column and its index were removed along with the unread username reservation");
+        ddl.Should().Contain("IX_AccountDeletionTombstones_DeletedAtUtc",
+            "the retention sweep deletes by DeletedAtUtc and needs an index to do it");
     }
 
     [Fact]
@@ -126,8 +194,10 @@ public class UserHardDeleteSqlTests
         new Regex(@"DELETE\s+FROM\s+\[dbo\]\.\[(AuditLogs|LoginAttempts|AccountDeletionRequests|AccountDeletionTombstones)\]",
                 RegexOptions.IgnoreCase)
             .IsMatch(purgeSql).Should().BeFalse(
-                "the audit/login history is anonymized (Class B/C), and deletion requests and " +
-                "tombstones are destruction evidence retained >= 3 years — none may ever be deleted");
+                "the audit/login history is anonymized (Class B/C), and deletion requests and tombstones " +
+                "are destruction evidence. Their disposal belongs to the retention sweep on a declared " +
+                "schedule, never to the purge — a tombstone deleted here would release the identifier at " +
+                "the very moment it is supposed to start being reserved");
     }
 
     [Fact]

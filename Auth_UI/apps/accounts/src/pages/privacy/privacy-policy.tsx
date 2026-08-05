@@ -1,19 +1,16 @@
-import { ShieldCheck, TriangleAlert } from "lucide-react"
+import { ShieldCheck } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 
 import { useAuth } from "@authsystem/auth/auth-context"
 import { directionForLanguage } from "@authsystem/i18n"
-import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { Badge } from "@authsystem/ui/badge"
 import { BrandingLogo } from "@authsystem/ui/branding"
 import { Button } from "@authsystem/ui/button"
 import { LanguageToggle } from "@authsystem/ui/common/language-toggle"
 import { PolicyDocument } from "@authsystem/ui/common/policy-document"
 import { ThemeToggle } from "@authsystem/ui/common/theme-toggle"
-import { Separator } from "@authsystem/ui/separator"
 
-import { CONTROLLER, hasUnfilledDetails } from "./content/details"
 import { usePrivacyPolicy } from "./use-privacy-policy"
 
 /**
@@ -38,11 +35,10 @@ export function PrivacyPolicyPage() {
   const { content, disclosure } = policy
   const dir = directionForLanguage(i18n.language)
 
-  const optionalContact: Array<[string, string]> = [
-    [content.contactDpoLabel, CONTROLLER.dpoContact],
-    [content.contactVerbisLabel, CONTROLLER.verbisNo],
-    [content.contactKepLabel, CONTROLLER.kepAddress],
-  ]
+  // The draft banner and the optional-contact lines moved into PolicyDocument
+  // so the console's editor preview renders them too. They were built here from
+  // a compiled-in constant, which meant they described the bundle rather than
+  // the document actually served from the database.
 
   return (
     <div className="relative min-h-svh">
@@ -74,13 +70,6 @@ export function PrivacyPolicyPage() {
           </div>
         </header>
 
-        {hasUnfilledDetails() ? (
-          <Alert variant="destructive">
-            <TriangleAlert />
-            <AlertDescription>{content.unfilledWarning}</AlertDescription>
-          </Alert>
-        ) : null}
-
         <PolicyDocument
           content={content}
           disclosure={disclosure}
@@ -103,20 +92,6 @@ export function PrivacyPolicyPage() {
             </div>
           }
         />
-
-        <Separator />
-
-        {optionalContact.some(([, value]) => value) ? (
-          <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-            {optionalContact
-              .filter(([, value]) => value)
-              .map(([label, value]) => (
-                <p key={label}>
-                  {label}: {value}
-                </p>
-              ))}
-          </div>
-        ) : null}
 
         {status !== "authenticated" ? (
           <div className="text-center text-sm text-muted-foreground">

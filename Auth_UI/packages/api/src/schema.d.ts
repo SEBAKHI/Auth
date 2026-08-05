@@ -12387,7 +12387,18 @@ export interface components {
             loginAttemptRetentionDays?: number | string;
             /** Format: int32 */
             outboxRetentionDays?: number | string;
+            /** Format: int32 */
+            identifierReservationDays?: number | string;
             policyVersion?: string;
+            legalName?: string;
+            address?: string;
+            privacyEmail?: string;
+            emailProvider?: string;
+            hostingProvider?: string;
+            hostingCountry?: string;
+            dpoContact?: string;
+            verbisNo?: string;
+            kepAddress?: string;
         };
         PrivacyPolicyNotifyResultDto: {
             /** Format: int32 */

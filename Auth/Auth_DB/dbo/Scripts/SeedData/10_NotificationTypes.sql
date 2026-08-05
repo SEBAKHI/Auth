@@ -197,4 +197,22 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created new-device-sign-in notification type';
 END
+
+-- account-deleted-by-admin (an administrator destroyed the account; the person
+-- did not ask for it, so this is NOT account-deletion-completed, whose copy
+-- says "as you requested")
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000013')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000013',
+        N'account-deleted-by-admin',
+        N'Account Deleted by Administrator',
+        N'Notice that an administrator permanently deleted the account and its personal data',
+        1,
+        N'[]',
+        N'{}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created account-deleted-by-admin notification type';
+END
 GO

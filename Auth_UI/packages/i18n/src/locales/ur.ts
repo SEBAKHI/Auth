@@ -989,6 +989,14 @@ export const ur: TranslationResources = {
     "policyToken_otpValidityMinutes": "حذف کے تصدیقی کوڈ کی میعاد (منٹ)۔",
     "policyToken_loginAttemptRetentionDays": "سائن اِن کوششوں کے ریکارڈ کی مدتِ حفاظت (دن)۔",
     "policyToken_outboxRetentionDays": "بھیجی گئی ای میلز کے ریکارڈ کی مدتِ حفاظت (دن)۔",
+    "policyToken_identifierReservationDays":
+      "حذف شدہ ای میل کتنے دن دوبارہ رجسٹریشن سے بند رہتی ہے (دن)۔",
+    "policyToken_legalName": "ڈیٹا کنٹرولر کا رجسٹرڈ قانونی نام۔",
+    "policyToken_address": "ڈیٹا کنٹرولر کا رجسٹرڈ پتہ۔",
+    "policyToken_privacyEmail": "رازداری اور حقوق کی درخواستوں کے لیے زیرِ نگرانی ان باکس۔",
+    "policyToken_emailProvider": "اشتراک کے حصے میں مذکور ای میل ترسیل فراہم کنندہ۔",
+    "policyToken_hostingProvider": "اشتراک کے حصے میں مذکور ہوسٹنگ فراہم کنندہ۔",
+    "policyToken_hostingCountry": "وہ ملک جہاں سروس ہوسٹ ہے (صرف نام)۔",
     "overviewPolicy": "رازداری پالیسی کے ورژن",
     "overviewViewPolicy": "پالیسی دیکھیں",
     "overviewPolicyHint": "{{count}} زبانیں لکھی گئیں",
@@ -1402,6 +1410,29 @@ export const ur: TranslationResources = {
       otpExpirationMinutesHint: "عوامی حذف درخواست کی تصدیق کرنے والا کوڈ۔ تجویز: 15۔",
       identifierHmacKeyPlain: "شناخت کنندہ ہیش کلید",
     },
+    dataController: {
+      title: "ڈیٹا کنٹرولر",
+      description:
+        "وہ قانونی شناخت جو آپ کی رازداری پالیسی میں شائع ہوتی ہے۔ لازمی خانے مکمل ہوئے بغیر پالیسی شائع نہیں ہو سکتی — جو اطلاع نامہ اپنے ڈیٹا کنٹرولر کا نام نہ بتائے وہ KVKK دفعہ 10 اور GDPR دفعہ 13 پر پورا نہیں اترتا۔",
+      legalName: "قانونی ادارے کا نام",
+      legalNameHint: "رجسٹرڈ نام، بعینہٖ اسی شکل میں جیسے ظاہر ہونا چاہیے۔",
+      address: "رجسٹرڈ پتہ",
+      addressHint: "مکمل ڈاک کا پتہ جیسا پالیسی میں ظاہر ہونا چاہیے۔",
+      privacyEmail: "رازداری رابطہ ای میل",
+      privacyEmailHint: "ایسا ان باکس جس کی نگرانی ہوتی ہو — حقوق کی درخواستیں یہاں آتی ہیں اور 30 دن میں جواب لازم ہے۔",
+      emailProvider: "ای میل ترسیل فراہم کنندہ",
+      emailProviderHint: "«ہم ڈیٹا کس کے ساتھ شیئر کرتے ہیں» میں اس کا نام آتا ہے۔",
+      hostingProvider: "ہوسٹنگ فراہم کنندہ",
+      hostingProviderHint: "«ہم ڈیٹا کس کے ساتھ شیئر کرتے ہیں» میں اس کا نام آتا ہے۔",
+      hostingCountry: "ہوسٹنگ کا ملک",
+      hostingCountryHint: "صرف ملک کا نام، کوئی حرفِ جار نہیں — ترکی اور فرانسیسی جملے اپنا خود شامل کرتے ہیں۔",
+      dpoContact: "ڈیٹا پروٹیکشن آفیسر",
+      dpoContactHint: "اختیاری۔ خالی چھوڑنے پر یہ سطر ظاہر نہیں ہوتی؛ GDPR صرف مخصوص صورتوں میں لازم کرتا ہے۔",
+      verbisNo: "VERBİS رجسٹریشن نمبر",
+      verbisNoHint: "اختیاری۔ صرف اُس وقت بھریں جب کنٹرولر ترکیہ کی رجسٹریشن حدود پر پورا اترتا ہو۔",
+      kepAddress: "رجسٹرڈ ای میل (KEP)",
+      kepAddressHint: "اختیاری۔ ترکیہ کا رجسٹرڈ ای میل پتہ، جو KVKK درخواست کے ذرائع میں سے ایک ہے۔",
+    },
     dataRetention: {
       title: "پرائیویسی اور ڈیٹا کی برقراری",
       description:
@@ -1414,6 +1445,12 @@ export const ur: TranslationResources = {
         "سلامتی لاگ کی برقراری؛ اپنی رازداری پالیسی سے ہم آہنگ رکھیں۔ تجویز: 365۔",
       outboxRetentionDays: "آؤٹ باکس کی برقراری (دن)",
       outboxRetentionDaysHint: "پہنچائی گئی اطلاعات کے لاگ کی برقراری۔ تجویز: 180۔",
+      auditLogRetentionDays: "آڈٹ لاگ کی برقراری (دن)",
+      auditLogRetentionDaysHint:
+        "آڈٹ ہسٹری کی برقراری۔ کم سے کم حد وہی تین سال ہیں جن کا شائع شدہ پالیسی میں وعدہ کیا گیا ہے۔ تجویز: 1095۔",
+      identifierReservationDays: "شناخت کی ریزرویشن (دن)",
+      identifierReservationDaysHint:
+        "حذف شدہ ای میل کتنے دن دوبارہ رجسٹریشن سے بند رہتی ہے۔ آڈٹ لاگ کی مدت سے کم کبھی لاگو نہیں ہوتی۔ تجویز: 1095۔",
     },
     maintenance: {
       title: "دیکھ بھال",

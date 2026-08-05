@@ -990,6 +990,14 @@ export const fa: TranslationResources = {
     "policyToken_otpValidityMinutes": "مدت اعتبار کد تأیید حذف (دقیقه).",
     "policyToken_loginAttemptRetentionDays": "مدت نگهداری سوابق تلاش ورود (روز).",
     "policyToken_outboxRetentionDays": "مدت نگهداری سوابق ایمیل‌های ارسال‌شده (روز).",
+    "policyToken_identifierReservationDays":
+      "مدتی که ایمیل حذف‌شده از ثبت مجدد مسدود می‌ماند (روز).",
+    "policyToken_legalName": "نام حقوقی ثبت‌شده کنترل‌کننده داده.",
+    "policyToken_address": "نشانی ثبت‌شده کنترل‌کننده داده.",
+    "policyToken_privacyEmail": "صندوق پایش‌شده برای درخواست‌های حریم خصوصی و حقوق.",
+    "policyToken_emailProvider": "ارائه‌دهنده ارسال ایمیل که در بخش اشتراک نام برده شده.",
+    "policyToken_hostingProvider": "ارائه‌دهنده میزبانی که در بخش اشتراک نام برده شده.",
+    "policyToken_hostingCountry": "کشور میزبانی سرویس (فقط نام).",
     "overviewPolicy": "نسخه‌های سیاست حریم خصوصی",
     "overviewViewPolicy": "مشاهده سیاست",
     "overviewPolicyHint": "{{count}} زبان نوشته شده",
@@ -1423,6 +1431,29 @@ export const fa: TranslationResources = {
         "کدی که درخواست حذف عمومی را تأیید می‌کند. پیشنهاد: ۱۵.",
       identifierHmacKeyPlain: "کلید هش شناسه",
     },
+    dataController: {
+      title: "کنترل‌کننده داده",
+      description:
+        "هویت حقوقی که در سیاست حریم خصوصی شما منتشر می‌شود. تا زمانی که فیلدهای الزامی پر نشوند سیاست منتشر نمی‌شود — اطلاعیه‌ای که کنترل‌کننده داده را نام نبرد، ماده ۱۰ KVKK و ماده ۱۳ GDPR را برآورده نمی‌کند.",
+      legalName: "نام شخصیت حقوقی",
+      legalNameHint: "نام ثبت‌شده، دقیقاً به همان شکلی که باید نمایش داده شود.",
+      address: "نشانی ثبت‌شده",
+      addressHint: "نشانی پستی کامل، همان‌گونه که باید در سیاست بیاید.",
+      privacyEmail: "ایمیل تماس حریم خصوصی",
+      privacyEmailHint: "صندوقی که پایش می‌شود — درخواست‌های حقوقی به اینجا می‌رسد و باید ظرف ۳۰ روز پاسخ داده شود.",
+      emailProvider: "ارائه‌دهنده ارسال ایمیل",
+      emailProviderHint: "در بخش «داده را با چه کسانی به اشتراک می‌گذاریم» نام برده می‌شود.",
+      hostingProvider: "ارائه‌دهنده میزبانی",
+      hostingProviderHint: "در بخش «داده را با چه کسانی به اشتراک می‌گذاریم» نام برده می‌شود.",
+      hostingCountry: "کشور میزبانی",
+      hostingCountryHint: "فقط نام کشور، بدون حرف اضافه — جمله‌های ترکی و فرانسوی حرف خود را می‌افزایند.",
+      dpoContact: "افسر حفاظت از داده",
+      dpoContactHint: "اختیاری. خالی بگذارید تا این سطر حذف شود؛ GDPR تنها در موارد مشخصی آن را الزامی می‌کند.",
+      verbisNo: "شماره ثبت VERBİS",
+      verbisNoHint: "اختیاری. تنها در صورتی پر کنید که کنترل‌کننده مشمول آستانه‌های ثبت ترکیه باشد.",
+      kepAddress: "ایمیل ثبت‌شده (KEP)",
+      kepAddressHint: "اختیاری. نشانی ایمیل ثبت‌شده ترکیه، یکی از کانال‌های درخواست بر پایه KVKK.",
+    },
     dataRetention: {
       title: "حریم خصوصی و نگهداشت داده",
       description:
@@ -1436,6 +1467,12 @@ export const fa: TranslationResources = {
       outboxRetentionDays: "نگهداری صندوق خروجی (روز)",
       outboxRetentionDaysHint:
         "مدت نگهداری سابقه اعلان‌های تحویل‌شده. پیشنهاد: ۱۸۰.",
+      auditLogRetentionDays: "نگهداری گزارش ممیزی (روز)",
+      auditLogRetentionDaysHint:
+        "مدت نگهداری تاریخچه ممیزی. کف آن همان سه سالی است که سیاست منتشرشده تعهد کرده است. پیشنهاد: ۱۰۹۵.",
+      identifierReservationDays: "رزرو شناسه (روز)",
+      identifierReservationDaysHint:
+        "مدتی که ایمیل حذف‌شده از ثبت مجدد مسدود می‌ماند. هرگز کوتاه‌تر از نگهداری گزارش ممیزی اعمال نمی‌شود. پیشنهاد: ۱۰۹۵.",
     },
     maintenance: {
       title: "نگهداری",

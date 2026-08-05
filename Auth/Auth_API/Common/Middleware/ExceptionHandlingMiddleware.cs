@@ -35,6 +35,23 @@ public class ExceptionHandlingMiddleware
         {
             await _next(context);
         }
+        catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
+        {
+            // The CLIENT hung up mid-request — a monitoring probe with a short
+            // timeout, a browser navigating away, a closed tab. Nothing failed
+            // on our side, and there is no longer a connection to write a
+            // response to.
+            //
+            // Treated as an error before this, it produced a stack trace at
+            // [ERR] plus a "responded 500" line for a request that was simply
+            // abandoned. On /health that was actively harmful: the endpoint
+            // runs only the trivial "self" check, so a 500 there reads as "the
+            // API is dead" to whatever automation polls it, and the noise
+            // buries real failures in the same log.
+            _logger.LogDebug(
+                "Request aborted by the client: {Method} {Path}",
+                context.Request.Method, context.Request.Path);
+        }
         catch (Exception ex)
         {
             await HandleExceptionAsync(context, ex);

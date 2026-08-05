@@ -25,6 +25,31 @@ describe("secretStatusMeta", () => {
     expect(secretStatusMeta(0).key).toBe("notConfigured")
     expect(secretStatusMeta(1).key).toBe("configured")
   })
+
+  // The API serializes enums as string NAMES, which is the only form the
+  // secrets page ever receives. The original lookup ran Number("Configured")
+  // -> NaN and fell through to "unknown", so every row on the page showed
+  // "Unknown" regardless of the real state — and this test suite missed it by
+  // only ever passing numbers, a shape production never produces.
+  it("maps the serialized enum names the API actually sends", () => {
+    expect(secretStatusMeta("Configured").key).toBe("configured")
+    expect(secretStatusMeta("NotConfigured").key).toBe("notConfigured")
+    expect(secretStatusMeta("Empty").key).toBe("empty")
+  })
+
+  it("is insensitive to casing", () => {
+    expect(secretStatusMeta("configured").key).toBe("configured")
+    expect(secretStatusMeta("NOTCONFIGURED").key).toBe("notConfigured")
+  })
+
+  it("still accepts a numeric string", () => {
+    expect(secretStatusMeta("1").key).toBe("configured")
+  })
+
+  it("falls back to unknown for absent or unrecognised values", () => {
+    expect(secretStatusMeta(undefined).key).toBe("unknown")
+    expect(secretStatusMeta("Nonsense").key).toBe("unknown")
+  })
 })
 
 describe("formatDate", () => {

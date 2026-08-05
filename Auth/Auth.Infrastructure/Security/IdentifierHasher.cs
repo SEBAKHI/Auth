@@ -26,9 +26,6 @@ public class IdentifierHasher : IIdentifierHasher
     /// <inheritdoc />
     public string HashEmail(string email) => Hash("email:" + Normalize(email));
 
-    /// <inheritdoc />
-    public string HashUsername(string username) => Hash("username:" + Normalize(username));
-
     private static string Normalize(string value) => value.Trim().ToUpperInvariant();
 
     private string Hash(string value)

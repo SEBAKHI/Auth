@@ -229,7 +229,22 @@ export function NotificationPolicyDetailPage() {
     outboxRetentionDays: Number(
       publishedQuery.data?.disclosure?.outboxRetentionDays ?? 180
     ),
+    identifierReservationDays: Number(
+      publishedQuery.data?.disclosure?.identifierReservationDays ?? 1095
+    ),
     policyVersion: publishedQuery.data?.disclosure?.policyVersion ?? version,
+    // Controller identity is edited in System Settings -> Data controller, not
+    // here. The preview renders the live values so an unfilled controller shows
+    // its draft banner in the editor, which is where it can still be fixed.
+    legalName: publishedQuery.data?.disclosure?.legalName ?? "",
+    address: publishedQuery.data?.disclosure?.address ?? "",
+    privacyEmail: publishedQuery.data?.disclosure?.privacyEmail ?? "",
+    emailProvider: publishedQuery.data?.disclosure?.emailProvider ?? "",
+    hostingProvider: publishedQuery.data?.disclosure?.hostingProvider ?? "",
+    hostingCountry: publishedQuery.data?.disclosure?.hostingCountry ?? "",
+    dpoContact: publishedQuery.data?.disclosure?.dpoContact ?? "",
+    verbisNo: publishedQuery.data?.disclosure?.verbisNo ?? "",
+    kepAddress: publishedQuery.data?.disclosure?.kepAddress ?? "",
   }
 
   // The retention table's cells are rendered from index/key loops, so their

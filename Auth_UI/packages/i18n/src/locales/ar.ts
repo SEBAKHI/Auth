@@ -976,6 +976,14 @@ export const ar: TranslationResources = {
     "policyToken_otpValidityMinutes": "مدة صلاحية رمز التحقق من الحذف، بالدقائق.",
     "policyToken_loginAttemptRetentionDays": "مدة الاحتفاظ بسجلات محاولات تسجيل الدخول، بالأيام.",
     "policyToken_outboxRetentionDays": "مدة الاحتفاظ بسجلات الرسائل المرسلة، بالأيام.",
+    "policyToken_identifierReservationDays":
+      "المدة التي يظل فيها البريد المحذوف ممنوعًا من إعادة التسجيل، بالأيام.",
+    "policyToken_legalName": "الاسم القانوني المسجَّل للمتحكم بالبيانات.",
+    "policyToken_address": "العنوان المسجَّل للمتحكم بالبيانات.",
+    "policyToken_privacyEmail": "صندوق البريد المُراقَب لطلبات الخصوصية والحقوق.",
+    "policyToken_emailProvider": "مزود إرسال البريد المذكور في قسم المشاركة.",
+    "policyToken_hostingProvider": "مزود الاستضافة المذكور في قسم المشاركة.",
+    "policyToken_hostingCountry": "بلد استضافة الخدمة (الاسم مجردًا).",
     "overviewPolicy": "إصدارات سياسة الخصوصية",
     "overviewViewPolicy": "عرض السياسة",
     "overviewPolicyHint": "{{count}} لغات مكتوبة",
@@ -1386,6 +1394,30 @@ export const ar: TranslationResources = {
       otpExpirationMinutesHint: "الرمز الذي يؤكد طلب حذف علنيًا. الموصى به: 15.",
       identifierHmacKeyPlain: "مفتاح تجزئة المعرّفات",
     },
+    dataController: {
+      title: "المتحكم بالبيانات",
+      description:
+        "الهوية القانونية المنشورة في سياسة الخصوصية. لا يمكن نشر السياسة قبل تعبئة الحقول المطلوبة — فبيان إفصاح لا يسمّي المتحكم بالبيانات لا يفي بالمادة 10 من KVKK ولا بالمادة 13 من GDPR.",
+      legalName: "الاسم القانوني للكيان",
+      legalNameHint: "الاسم المسجَّل كما يجب أن يظهر تمامًا.",
+      address: "العنوان المسجَّل",
+      addressHint: "العنوان البريدي الكامل كما يجب أن يظهر في السياسة.",
+      privacyEmail: "بريد التواصل بشأن الخصوصية",
+      privacyEmailHint: "صندوق بريد مُراقَب — تصل إليه طلبات الحقوق ويجب الرد خلال 30 يومًا.",
+      emailProvider: "مزود إرسال البريد الإلكتروني",
+      emailProviderHint: "يُذكر في قسم «مع من نشارك البيانات».",
+      hostingProvider: "مزود الاستضافة",
+      hostingProviderHint: "يُذكر في قسم «مع من نشارك البيانات».",
+      hostingCountry: "بلد الاستضافة",
+      hostingCountryHint:
+        "اسم البلد مجردًا بلا حرف جر — الجملتان التركية والفرنسية تضيفان حرفهما الخاص.",
+      dpoContact: "مسؤول حماية البيانات",
+      dpoContactHint: "اختياري. اتركه فارغًا لحذف السطر؛ لا يشترط GDPR تعيينه إلا في حالات محددة.",
+      verbisNo: "رقم التسجيل في سجل VERBİS",
+      verbisNoHint: "اختياري. يُملأ فقط إذا انطبقت عتبات التسجيل التركية على المتحكم.",
+      kepAddress: "البريد الإلكتروني المسجل (KEP)",
+      kepAddressHint: "اختياري. عنوان بريد مسجَّل تركي، وهو أحد قنوات تقديم الطلبات بموجب KVKK.",
+    },
     dataRetention: {
       title: "الخصوصية والاحتفاظ بالبيانات",
       description:
@@ -1398,6 +1430,12 @@ export const ar: TranslationResources = {
         "مدة الاحتفاظ بالسجل الأمني؛ وائمها مع سياسة الخصوصية لديك. الموصى به: 365.",
       outboxRetentionDays: "الاحتفاظ بالصندوق الصادر (أيام)",
       outboxRetentionDaysHint: "مدة الاحتفاظ بسجل الإشعارات المسلَّمة. الموصى به: 180.",
+      auditLogRetentionDays: "الاحتفاظ بسجل التدقيق (أيام)",
+      auditLogRetentionDaysHint:
+        "مدة الاحتفاظ بسجل التدقيق. الحد الأدنى هو السنوات الثلاث التي تعِد بها السياسة المنشورة. الموصى به: 1095.",
+      identifierReservationDays: "حجز المعرّف (أيام)",
+      identifierReservationDaysHint:
+        "المدة التي يظل فيها البريد المحذوف ممنوعًا من إعادة التسجيل. لا تُطبَّق أقصر من مدة الاحتفاظ بسجل التدقيق. الموصى به: 1095.",
     },
     maintenance: {
       title: "الصيانة",

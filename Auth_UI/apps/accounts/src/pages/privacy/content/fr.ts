@@ -1,4 +1,3 @@
-import { CONTROLLER } from "./details"
 import type { PrivacyPolicyContent } from "./types"
 
 export const fr: PrivacyPolicyContent = {
@@ -11,7 +10,7 @@ export const fr: PrivacyPolicyContent = {
   contactVerbisLabel: "Numéro d'enregistrement VERBİS",
   contactKepLabel: "Courriel enregistré (KEP)",
   intro: [
-    `Cette politique explique quelles données personnelles le service de comptes de ${CONTROLLER.legalName} collecte, pourquoi nous les collectons, combien de temps nous les conservons et les droits dont vous disposez — y compris la manière de supprimer votre compte et tout ce qui s'y rattache.`,
+    `Cette politique explique quelles données personnelles le service de comptes de {{legalName}} collecte, pourquoi nous les collectons, combien de temps nous les conservons et les droits dont vous disposez — y compris la manière de supprimer votre compte et tout ce qui s'y rattache.`,
     "Elle vaut également information au titre de l'article 10 de la loi turque n° 6698 sur la protection des données personnelles (KVKK) — notre cadre de conformité principal — et est rédigée pour satisfaire au Règlement général sur la protection des données de l'UE/EEE (RGPD) ainsi qu'au California Consumer Privacy Act tel que modifié (CCPA/CPRA). Les contrôles décrits dans cette politique sont offerts à chaque utilisateur, quel que soit son lieu de résidence.",
   ],
   sections: [
@@ -59,15 +58,15 @@ export const fr: PrivacyPolicyContent = {
       ],
       bullets: [
         "Google (connexion avec Google) et Apple (connexion avec Apple) — uniquement lorsque vous choisissez de vous connecter avec eux ; l'échange est régi par leurs propres politiques de confidentialité.",
-        `Notre fournisseur d'envoi d'e-mails, ${CONTROLLER.emailProvider}, pour envoyer les e-mails de service décrits ci-dessus.`,
-        `Notre hébergeur, ${CONTROLLER.hostingProvider}, qui stocke les données du service.`,
+        `Notre fournisseur d'envoi d'e-mails, {{emailProvider}}, pour envoyer les e-mails de service décrits ci-dessus.`,
+        `Notre hébergeur, {{hostingProvider}}, qui stocke les données du service.`,
         "Les autorités publiques, si et seulement si une demande légale valable nous y contraint.",
       ],
     },
     {
       heading: "Transferts internationaux",
       paragraphs: [
-        `Le service est hébergé en/au ${CONTROLLER.hostingCountry}. Lorsque des données personnelles quittent la Türkiye, le transfert s'effectue au titre de l'article 9 de la KVKK : une décision d'adéquation du Conseil de protection des données personnelles lorsqu'elle existe, sinon les garanties appropriées prévues par cet article (comme le contrat type du Conseil, notifié à l'Autorité comme requis). Pour les données quittant l'EEE ou le Royaume-Uni, nous nous appuyons en outre sur des décisions d'adéquation ou sur les clauses contractuelles types de la Commission européenne. Les mesures de sécurité ci-dessous s'appliquent dans tous les cas.`,
+        `Le service est hébergé en/au {{hostingCountry}}. Lorsque des données personnelles quittent la Türkiye, le transfert s'effectue au titre de l'article 9 de la KVKK : une décision d'adéquation du Conseil de protection des données personnelles lorsqu'elle existe, sinon les garanties appropriées prévues par cet article (comme le contrat type du Conseil, notifié à l'Autorité comme requis). Pour les données quittant l'EEE ou le Royaume-Uni, nous nous appuyons en outre sur des décisions d'adéquation ou sur les clauses contractuelles types de la Commission européenne. Les mesures de sécurité ci-dessous s'appliquent dans tous les cas.`,
       ],
     },
     {
@@ -110,11 +109,11 @@ export const fr: PrivacyPolicyContent = {
         category: "Journaux de tentatives de connexion (adresse IP incluse)",
         retention: "{{loginAttemptRetentionDays}} jours",
         detail:
-          "Purgés automatiquement ; anonymisés immédiatement à la suppression du compte.",
+          "Purgés automatiquement ; dépersonnalisés immédiatement à la suppression du compte.",
       },
       {
         category: "Journal d'audit de sécurité",
-        retention: "Anonymisé à la suppression du compte",
+        retention: "Dépersonnalisé à la suppression du compte",
         detail:
           "Tous les champs personnels sont retirés ; le fait qu'une suppression a été exécutée (type d'événement et horodatage uniquement) est conservé au moins 3 ans comme preuve légale.",
       },
@@ -130,10 +129,10 @@ export const fr: PrivacyPolicyContent = {
           "Stockés uniquement sous forme d'empreintes ; les entrées expirées sont supprimées par le nettoyage quotidien.",
       },
       {
-        category: "Trace de suppression (identifiants hachés)",
-        retention: "Permanente",
+        category: "Trace de suppression (identifiant haché)",
+        retention: "{{identifierReservationDays}} jours",
         detail:
-          "Condensats HMAC à sens unique de l'e-mail et du nom d'utilisateur supprimés, conservés pour que ces identifiants ne puissent jamais être réenregistrés par quelqu'un d'autre. Ne contient aucune donnée personnelle lisible.",
+          "Condensat HMAC à sens unique et à clé de l'e-mail supprimé, conservé pour que personne — vous y compris — ne puisse réenregistrer cette adresse tant que la réservation dure. Une adresse ne peut pas être lue à partir d'un condensat, mais nous conservons la clé qui permet de tester une adresse connue : cet enregistrement est donc pseudonymisé, et non anonyme. Il est supprimé à l'expiration du délai et l'adresse redevient disponible.",
       },
       {
         category: "Sauvegardes",
@@ -151,7 +150,7 @@ export const fr: PrivacyPolicyContent = {
     bullets: [
       "Votre compte est désactivé sur-le-champ et déconnecté de tous les appareils ; toutes les sessions, tous les jetons et toutes les autorisations de connexion sont révoqués immédiatement.",
       "Pendant {{graceDays}} jours, vous pouvez changer d'avis — vous reconnecter restaure le compte et annule la suppression. Vous recevez un e-mail de confirmation à chaque étape.",
-      "Passé ce délai de {{graceDays}} jours, la suppression s'exécute automatiquement et est irréversible : les données de profil sont effacées, les journaux de sécurité sont anonymisés, les clés de chiffrement propres au compte sont détruites (destruction cryptographique, couvrant les sauvegardes), et — si vous utilisiez la connexion avec Apple — Apple est invité à révoquer l'autorisation de connexion.",
+      "Passé ce délai de {{graceDays}} jours, la suppression s'exécute automatiquement et est irréversible : les données de profil sont effacées, les journaux de sécurité sont dépersonnalisés, les clés de chiffrement propres au compte sont détruites (destruction cryptographique, couvrant les sauvegardes), et — si vous utilisiez la connexion avec Apple — Apple est invité à révoquer l'autorisation de connexion.",
       "Votre adresse e-mail et votre nom d'utilisateur ne sont jamais recyclés : seuls des condensats à sens unique subsistent, si bien que personne d'autre ne pourra jamais les enregistrer.",
     ],
     button: "Supprimer mon compte",
@@ -201,7 +200,7 @@ export const fr: PrivacyPolicyContent = {
     {
       heading: "Contact et réclamations",
       paragraphs: [
-        `Responsable du traitement : ${CONTROLLER.legalName}, ${CONTROLLER.address}. Contact confidentialité : ${CONTROLLER.privacyEmail}. Nous répondons aux demandes d'exercice de droits sous 30 jours (KVKK/RGPD) et 45 jours (CCPA). Si la réponse ne vous satisfait pas, vous pouvez saisir l'autorité de contrôle compétente : en Türkiye l'Autorité de protection des données personnelles, dans l'EEE/au Royaume-Uni votre autorité nationale de protection des données, en Californie la California Privacy Protection Agency ou le procureur général.`,
+        `Responsable du traitement : {{legalName}}, {{address}}. Contact confidentialité : {{privacyEmail}}. Nous répondons aux demandes d'exercice de droits sous 30 jours (KVKK/RGPD) et 45 jours (CCPA). Si la réponse ne vous satisfait pas, vous pouvez saisir l'autorité de contrôle compétente : en Türkiye l'Autorité de protection des données personnelles, dans l'EEE/au Royaume-Uni votre autorité nationale de protection des données, en Californie la California Privacy Protection Agency ou le procureur général.`,
       ],
     },
   ],
