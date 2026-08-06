@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Cors.Infrastructure;
 using Auth_Localization.Extensions;
 using Auth.Shared.Configuration;
 using Auth.Shared.Diagnostics;
+using Auth.Shared.Http;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;

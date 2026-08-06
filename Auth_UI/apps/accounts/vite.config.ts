@@ -15,6 +15,14 @@ export default defineConfig((config) => ({
     strictPort: true,
     // https so the browser keeps the IdP session cookie — see dev-https.ts.
     https: devHttps(config, __dirname),
+    // Mirror the production same-origin reverse proxy during local verification.
+    proxy: {
+      "/privacy": {
+        target: "https://localhost:5101",
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   resolve: {
     alias: {

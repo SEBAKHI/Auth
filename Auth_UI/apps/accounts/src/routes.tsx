@@ -153,8 +153,8 @@ export const router = createBrowserRouter([
   // No /privacy route. The public notice is a document the API serves as
   // complete HTML, rendered when a revision is published — so it survives a
   // frontend deploy, prints, and needs no script to be readable. Links to it
-  // are plain anchors built with privacyPolicyUrl(); IIS redirects the legacy
-  // /privacy path there so store listings and old links keep working.
+  // are plain anchors built with privacyPolicyUrl(); IIS reverse-proxies the
+  // path so store listings and old links keep the accounts origin.
   { path: "*", element: <NotFoundPage /> },
     ],
   },

@@ -26,15 +26,17 @@ export const ACCOUNTS_URL = rawAccountsUrl.replace(/\/+$/, "")
  * A document served by the API, not a route in this app: it is rendered when an
  * operator publishes a revision and returned as complete HTML, so it stays
  * readable with scripting unavailable and cannot be affected by a frontend
- * deploy. Links to it are therefore plain anchors, never client-side routes.
+ * deploy. Its public address remains on the accounts origin; that host proxies
+ * the request to the API without redirecting the reader to the gateway. Links
+ * to it are therefore plain anchors, never client-side routes.
  *
  * Passing a language is optional — without one the server redirects to the best
  * match for the reader's Accept-Language.
  */
 export function privacyPolicyUrl(language?: string): string {
   return language
-    ? `${API_BASE_URL}/privacy/${encodeURIComponent(language)}`
-    : `${API_BASE_URL}/privacy`
+    ? `${ACCOUNTS_URL}/privacy/${encodeURIComponent(language)}`
+    : `${ACCOUNTS_URL}/privacy`
 }
 
 /**

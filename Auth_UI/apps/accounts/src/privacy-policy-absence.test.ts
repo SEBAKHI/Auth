@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest"
 
+import webConfig from "../public/web.config?raw"
+
 /**
  * The accounts app must ship no privacy-policy prose of its own.
  *
@@ -57,5 +59,27 @@ describe("the accounts app ships no policy document", () => {
 
     expect(routes).toBeDefined()
     expect(routes).not.toContain('path: "/privacy"')
+  })
+
+  it("keeps /privacy on the accounts origin through an internal proxy", () => {
+    const configuration = new DOMParser().parseFromString(
+      webConfig,
+      "application/xml"
+    )
+    const parseError = configuration.querySelector("parsererror")
+    const action = configuration.querySelector(
+      'rule[name="Privacy Notice"] > action'
+    )
+    const privacyCspRemoval = configuration.querySelector(
+      'location[path="privacy"] customHeaders > remove[name="Content-Security-Policy"]'
+    )
+
+    expect(parseError).toBeNull()
+    expect(action?.getAttribute("type")).toBe("Rewrite")
+    expect(action?.getAttribute("url")).toBe(
+      "https://auth.astoom.com/privacy{R:1}"
+    )
+    expect(action?.hasAttribute("redirectType")).toBe(false)
+    expect(privacyCspRemoval).not.toBeNull()
   })
 })

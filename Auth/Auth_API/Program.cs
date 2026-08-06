@@ -32,6 +32,7 @@ using Auth.Infrastructure.PrivacyPolicy;
 using Auth.Infrastructure.Security;
 using Auth.Shared.Configuration;
 using Auth.Shared.Diagnostics;
+using Auth.Shared.Http;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.PrivacyPolicy.Common;
 using Auth.Application.Validators;

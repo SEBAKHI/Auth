@@ -156,6 +156,31 @@ allow-list. `web.config` provides SPA fallback routing and security headers.
 Update the CSP `connect-src` and `VITE_API_BASE_URL` to match your API origin.
 Invitation/reset emails link to the accounts origin (`Email:FrontendBaseUrl`).
 
+### Privacy notice on the accounts origin
+
+`https://accounts.astoom.com/privacy` is the canonical public address. The
+accounts site's `web.config` reverse-proxies `/privacy` to the API Gateway while
+the browser remains on the accounts origin. The IIS server therefore requires:
+
+- URL Rewrite 2;
+- Application Request Routing (ARR);
+- **Enable Proxy** turned on at the IIS server node.
+
+Roll out in this order so the public route never points at an incompatible
+header pipeline:
+
+1. deploy the Auth API;
+2. deploy the API Gateway and verify `/privacy/ar` returns the hash-bound
+   `style-src` CSP;
+3. verify ARR with a temporary internal rewrite or server-level check;
+4. deploy the accounts site;
+5. verify `accounts.astoom.com/privacy/ar` returns `200` without a cross-origin
+   redirect and that the browser reports one applied stylesheet.
+
+Rollback is the reverse: restore the previous accounts `web.config` first,
+then roll back the gateway/API if needed. If ARR is unavailable, do not deploy
+the accounts rewrite; it would replace the current redirect with a proxy error.
+
 ## Known constraints
 
 - **2FA at login**: the API exposes 2FA only for setup/enable/disable; there is

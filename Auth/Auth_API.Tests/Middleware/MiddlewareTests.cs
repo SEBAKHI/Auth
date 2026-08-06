@@ -3,11 +3,13 @@ using System.Text.Json;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
+using Auth.Shared.Http;
 using Auth_API.Common.Middleware;
 using FluentValidation;
 using FluentValidation.Results;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -157,29 +159,83 @@ public class ExceptionHandlingMiddlewareTests
 public class SecurityHeadersMiddlewareTests
 {
     [Fact]
-    public async Task InvokeAsync_AddsSecurityHeaders()
+    public async Task InvokeAsync_WithoutEndpointPolicy_AddsBaselineHeaders()
     {
-        var context = new DefaultHttpContext();
+        var (context, responseFeature) = CreateContext();
         var nextCalled = false;
         var middleware = new SecurityHeadersMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
 
         await middleware.InvokeAsync(context);
+        await responseFeature.FireOnStartingAsync();
 
-        // Trigger OnStarting callbacks by flushing
-        // SecurityHeaders are added via OnStarting, so we need to fire the response
         nextCalled.Should().BeTrue();
+        context.Response.Headers.ContentSecurityPolicy.ToString().Should().Be(
+            "default-src 'self'; frame-ancestors 'none'");
+        context.Response.Headers.XFrameOptions.ToString().Should().Be("DENY");
+        context.Response.Headers.XContentTypeOptions.ToString().Should().Be("nosniff");
     }
 
     [Fact]
-    public async Task InvokeAsync_CallsNext()
+    public async Task InvokeAsync_WithEndpointPolicy_PreservesTheEndpointPolicy()
     {
-        var context = new DefaultHttpContext();
-        var nextCalled = false;
-        var middleware = new SecurityHeadersMiddleware(_ => { nextCalled = true; return Task.CompletedTask; });
+        var (context, responseFeature) = CreateContext();
+        const string documentPolicy =
+            "default-src 'none'; style-src 'sha256-document'; frame-ancestors 'none'";
+        var middleware = new SecurityHeadersMiddleware(nextContext =>
+        {
+            nextContext.Response.Headers.ContentSecurityPolicy = documentPolicy;
+            return Task.CompletedTask;
+        });
 
         await middleware.InvokeAsync(context);
+        await responseFeature.FireOnStartingAsync();
 
-        nextCalled.Should().BeTrue();
+        context.Response.Headers.ContentSecurityPolicy.ToString().Should().Be(documentPolicy,
+            "a gateway must not replace the policy set by the document-producing endpoint");
+    }
+
+    private static (DefaultHttpContext Context, CallbackResponseFeature ResponseFeature)
+        CreateContext()
+    {
+        var responseFeature = new CallbackResponseFeature();
+        var features = new FeatureCollection();
+        features.Set<IHttpResponseFeature>(responseFeature);
+        return (new DefaultHttpContext(features), responseFeature);
+    }
+
+    /// <summary>
+    /// Minimal response feature that exposes the server's OnStarting boundary.
+    /// DefaultHttpContext does not execute those callbacks when isolated from a
+    /// server, while this middleware's correctness is specifically about which
+    /// header exists at that final boundary.
+    /// </summary>
+    private sealed class CallbackResponseFeature : IHttpResponseFeature
+    {
+        private readonly List<(Func<object, Task> Callback, object State)> _onStarting = [];
+
+        public int StatusCode { get; set; } = StatusCodes.Status200OK;
+        public string? ReasonPhrase { get; set; }
+        public IHeaderDictionary Headers { get; set; } = new HeaderDictionary();
+        public Stream Body { get; set; } = Stream.Null;
+        public bool HasStarted { get; private set; }
+
+        public void OnStarting(Func<object, Task> callback, object state) =>
+            _onStarting.Add((callback, state));
+
+        public void OnCompleted(Func<object, Task> callback, object state)
+        {
+        }
+
+        public async Task FireOnStartingAsync()
+        {
+            for (var index = _onStarting.Count - 1; index >= 0; index--)
+            {
+                var (callback, state) = _onStarting[index];
+                await callback(state);
+            }
+
+            HasStarted = true;
+        }
     }
 }
 
