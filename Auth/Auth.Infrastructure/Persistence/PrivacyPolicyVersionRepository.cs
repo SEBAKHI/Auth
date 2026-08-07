@@ -123,20 +123,6 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
     }
 
     /// <inheritdoc />
-    public async Task PublishAsync(Guid versionId, CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        // Single statement: exactly one row ends up published, with no window
-        // in which none is (the public page would 404 during that gap).
-        await connection.ExecuteAsync(@"
-            UPDATE [dbo].[PrivacyPolicyVersions]
-            SET [IsPublished] = CASE WHEN [Id] = @VersionId THEN 1 ELSE 0 END
-            WHERE [IsPublished] = 1 OR [Id] = @VersionId",
-            new { VersionId = versionId });
-    }
-
-    /// <inheritdoc />
     public async Task<IReadOnlyList<PrivacyPolicyTranslation>> GetTranslationsAsync(
         Guid versionId, CancellationToken cancellationToken)
     {
@@ -201,7 +187,7 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
     }
 
     /// <inheritdoc />
-    public async Task ReplaceArtifactsAsync(
+    public async Task PublishArtifactsAsync(
         Guid versionId,
         IReadOnlyList<PrivacyPolicyArtifact> artifacts,
         CancellationToken cancellationToken)
@@ -235,6 +221,15 @@ public class PrivacyPolicyVersionRepository : IPrivacyPolicyVersionRepository
                 a.RenderedAt
             }),
             transaction);
+
+        // The artifact set and the published pointer are one fact. Committing
+        // them together prevents the public version from ever referring to a
+        // half-written or stale set of language documents.
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[PrivacyPolicyVersions]
+            SET [IsPublished] = CASE WHEN [Id] = @VersionId THEN 1 ELSE 0 END
+            WHERE [IsPublished] = 1 OR [Id] = @VersionId",
+            new { VersionId = versionId }, transaction);
 
         transaction.Commit();
     }

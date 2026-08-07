@@ -15,7 +15,9 @@ export default defineConfig((config) => ({
     strictPort: true,
     // https so the browser keeps the IdP session cookie — see dev-https.ts.
     https: devHttps(config, __dirname),
-    // Mirror the production same-origin reverse proxy during local verification.
+    // Development can still inspect the API-rendered artifact without copying
+    // files into Vite's root. Production serves the same rendered bytes from
+    // the persistent /privacy virtual directory instead of proxying this path.
     proxy: {
       "/privacy": {
         target: "https://localhost:5101",

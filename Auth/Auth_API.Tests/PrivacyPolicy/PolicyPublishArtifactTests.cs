@@ -1,7 +1,10 @@
 using Auth.Application.Configuration;
+using Auth.Application.Features.PrivacyPolicy.Common;
 using Auth.Application.Features.PrivacyPolicy.PublishPrivacyPolicyVersion;
 using Auth.Domain.Entities;
+using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using ErrorOr;
 using Moq;
 
 namespace Auth_API.Tests.PrivacyPolicy;
@@ -20,12 +23,12 @@ public class PolicyPublishArtifactTests
         // Every language becomes readable, not only the written ones — the read
         // path has no fallback logic precisely because publishing resolved it.
         var version = Version();
-        var (handler, repository, _, _) = PolicyPublishHarness.Create(
+        var (handler, repository, _, _, _, _) = PolicyPublishHarness.Create(
             version, Complete(), [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);
 
         IReadOnlyList<PrivacyPolicyArtifact> captured = [];
         repository
-            .Setup(r => r.ReplaceArtifactsAsync(
+            .Setup(r => r.PublishArtifactsAsync(
                 version.Id, It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(), It.IsAny<CancellationToken>()))
             .Callback<Guid, IReadOnlyList<PrivacyPolicyArtifact>, CancellationToken>(
                 (_, artifacts, _) => captured = artifacts)
@@ -44,7 +47,7 @@ public class PolicyPublishArtifactTests
     public async Task AnUnwrittenLanguage_IsRecordedAsServingTheNeutralDocument()
     {
         var version = Version();
-        var (handler, repository, _, _) = PolicyPublishHarness.Create(
+        var (handler, repository, _, _, _, _) = PolicyPublishHarness.Create(
             version,
             Complete(),
             [
@@ -54,7 +57,7 @@ public class PolicyPublishArtifactTests
 
         IReadOnlyList<PrivacyPolicyArtifact> captured = [];
         repository
-            .Setup(r => r.ReplaceArtifactsAsync(
+            .Setup(r => r.PublishArtifactsAsync(
                 version.Id, It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(), It.IsAny<CancellationToken>()))
             .Callback<Guid, IReadOnlyList<PrivacyPolicyArtifact>, CancellationToken>(
                 (_, artifacts, _) => captured = artifacts)
@@ -75,7 +78,7 @@ public class PolicyPublishArtifactTests
         // Ordering matters more than the error: rendering runs before the flag
         // moves, so a broken document cannot take the live policy down with it.
         var version = Version();
-        var (handler, repository, _, _) = PolicyPublishHarness.Create(
+        var (handler, repository, _, _, _, _) = PolicyPublishHarness.Create(
             version,
             Complete(),
             [
@@ -88,9 +91,7 @@ public class PolicyPublishArtifactTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("PrivacyPolicy.InvalidContent");
         repository.Verify(
-            r => r.PublishAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
-        repository.Verify(
-            r => r.ReplaceArtifactsAsync(
+            r => r.PublishArtifactsAsync(
                 It.IsAny<Guid>(), It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
@@ -103,7 +104,7 @@ public class PolicyPublishArtifactTests
         // data-deletion policies; publishing without an origin publishes a dead
         // link into a legal document.
         var version = Version();
-        var (handler, repository, _, _) = PolicyPublishHarness.Create(
+        var (handler, repository, _, _, _, _) = PolicyPublishHarness.Create(
             version,
             Complete(),
             [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)],
@@ -114,7 +115,10 @@ public class PolicyPublishArtifactTests
         result.IsError.Should().BeTrue();
         result.FirstError.Description.Should().Contain("AccountsBaseUrl");
         repository.Verify(
-            r => r.PublishAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+            r => r.PublishArtifactsAsync(
+                It.IsAny<Guid>(), It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
@@ -123,7 +127,7 @@ public class PolicyPublishArtifactTests
         // Evicting would make the first reader after a publish go to the
         // database, turning a database blip at that moment into a broken page.
         var version = Version();
-        var (handler, _, _, cache) = PolicyPublishHarness.Create(
+        var (handler, _, _, cache, _, _) = PolicyPublishHarness.Create(
             version, Complete(), [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);
 
         await handler.Handle(Command(version), CancellationToken.None);
@@ -139,12 +143,12 @@ public class PolicyPublishArtifactTests
         // What was frozen has to be recoverable, or the console cannot tell an
         // operator that the published text no longer describes the system.
         var version = Version();
-        var (handler, repository, _, _) = PolicyPublishHarness.Create(
+        var (handler, repository, _, _, _, _) = PolicyPublishHarness.Create(
             version, Complete(), [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);
 
         IReadOnlyList<PrivacyPolicyArtifact> captured = [];
         repository
-            .Setup(r => r.ReplaceArtifactsAsync(
+            .Setup(r => r.PublishArtifactsAsync(
                 version.Id, It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(), It.IsAny<CancellationToken>()))
             .Callback<Guid, IReadOnlyList<PrivacyPolicyArtifact>, CancellationToken>(
                 (_, artifacts, _) => captured = artifacts)
@@ -157,6 +161,86 @@ public class PolicyPublishArtifactTests
             a.DisclosureJson.Should().Contain("Acme Corp LLC");
             a.ContentHash.Should().HaveLength(64);
         });
+    }
+
+    [Fact]
+    public async Task FileStagingFailure_LeavesTheDatabaseAndPublicFilesUntouched()
+    {
+        var version = Version();
+        var (handler, repository, _, _, publicationStore, publication) =
+            PolicyPublishHarness.Create(
+                version, Complete(), [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);
+        publicationStore
+            .Setup(store => store.StageAsync(
+                version.Version,
+                It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(
+                (ErrorOr<IPolicyFilePublication>)PrivacyPolicyErrors.PublicationStorageUnavailable);
+
+        var result = await handler.Handle(Command(version), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("PrivacyPolicy.PublicationStorageUnavailable");
+        publication.Verify(candidate => candidate.Activate(), Times.Never);
+        repository.Verify(repository => repository.PublishArtifactsAsync(
+            It.IsAny<Guid>(),
+            It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task FileActivationFailure_LeavesTheDatabaseUnpublished()
+    {
+        var version = Version();
+        var (handler, repository, _, _, _, publication) = PolicyPublishHarness.Create(
+            version, Complete(), [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);
+        publication
+            .Setup(candidate => candidate.Activate())
+            .Returns(PrivacyPolicyErrors.PublicationStorageUnavailable);
+
+        var result = await handler.Handle(Command(version), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        repository.Verify(repository => repository.PublishArtifactsAsync(
+            It.IsAny<Guid>(),
+            It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        publication.Verify(candidate => candidate.Complete(), Times.Never);
+    }
+
+    [Fact]
+    public async Task DatabaseFailure_DisposesTheUncommittedFilePublication()
+    {
+        var version = Version();
+        var (handler, repository, _, _, _, publication) = PolicyPublishHarness.Create(
+            version, Complete(), [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);
+        repository
+            .Setup(candidate => candidate.PublishArtifactsAsync(
+                version.Id,
+                It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(),
+                It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new IOException("database unavailable"));
+
+        var act = () => handler.Handle(Command(version), CancellationToken.None);
+
+        await act.Should().ThrowAsync<IOException>();
+        publication.Verify(candidate => candidate.Complete(), Times.Never);
+        publication.Verify(candidate => candidate.Dispose(), Times.Once);
+    }
+
+    [Fact]
+    public async Task SuccessfulDatabasePublish_CommitsTheFilePublication()
+    {
+        var version = Version();
+        var (handler, _, _, _, _, publication) = PolicyPublishHarness.Create(
+            version, Complete(), [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);
+
+        var result = await handler.Handle(Command(version), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        publication.Verify(candidate => candidate.Complete(), Times.Once);
+        publication.Verify(candidate => candidate.Dispose(), Times.Once);
     }
 
     private static PrivacyPolicyVersion Version() =>

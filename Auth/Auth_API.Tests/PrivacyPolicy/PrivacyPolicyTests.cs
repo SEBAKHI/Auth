@@ -383,7 +383,7 @@ public class PrivacyPolicyTests
         // Publishing without the fallback language would leave visitors whose
         // language is unwritten with nothing to read.
         var version = PublishedVersion();
-        var (handler, repository, _, _) = PolicyPublishHarness.Create(
+        var (handler, repository, _, _, _, _) = PolicyPublishHarness.Create(
             version, Controller(), translations: []);
 
         var result = await handler.Handle(
@@ -393,14 +393,17 @@ public class PrivacyPolicyTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("PrivacyPolicy.InvalidContent");
         repository.Verify(
-            r => r.PublishAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+            r => r.PublishArtifactsAsync(
+                It.IsAny<Guid>(), It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]
     public async Task Publish_WithNeutralDocument_Publishes()
     {
         var version = PublishedVersion();
-        var (handler, repository, audit, _) = PolicyPublishHarness.Create(
+        var (handler, repository, audit, _, _, _) = PolicyPublishHarness.Create(
             version,
             Controller(),
             [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);
@@ -410,7 +413,10 @@ public class PrivacyPolicyTests
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        repository.Verify(r => r.PublishAsync(version.Id, It.IsAny<CancellationToken>()), Times.Once);
+        repository.Verify(r => r.PublishArtifactsAsync(
+            version.Id,
+            It.Is<IReadOnlyList<PrivacyPolicyArtifact>>(artifacts => artifacts.Count == 7),
+            It.IsAny<CancellationToken>()), Times.Once);
         audit.Verify(a => a.CreateAsync(
             It.Is<AuditLog>(log => log.Action == "system.privacy_policy_published"),
             It.IsAny<CancellationToken>()), Times.Once);

@@ -755,6 +755,9 @@
   <data name="PrivacyPolicy.ControllerDetailsIncomplete" xml:space="preserve">
     <value>La politique de confidentialité ne peut pas être publiée tant que les coordonnées du responsable du traitement ne sont pas renseignées.</value>
   </data>
+  <data name="PrivacyPolicy.PublicationStorageUnavailable" xml:space="preserve">
+    <value>La publication de la politique de confidentialité a échoué. La politique publiée précédemment reste disponible.</value>
+  </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>Cette version ne peut pas être renommée : elle est publiée ou son avis de modification a déjà été envoyé.</value>
   </data>

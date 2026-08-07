@@ -31,6 +31,7 @@ public class PublishPrivacyPolicyVersionCommandHandler
     private readonly IAuditLogRepository _auditLogRepository;
     private readonly IPolicyDocumentRenderer _renderer;
     private readonly IPolicyArtifactCache _cache;
+    private readonly IPolicyPublicationStore _publicationStore;
     private readonly DataControllerSettings _controller;
     private readonly AccountDeletionSettings _deletionSettings;
     private readonly IdentityProviderSettings _idpSettings;
@@ -40,6 +41,7 @@ public class PublishPrivacyPolicyVersionCommandHandler
         IAuditLogRepository auditLogRepository,
         IPolicyDocumentRenderer renderer,
         IPolicyArtifactCache cache,
+        IPolicyPublicationStore publicationStore,
         IOptionsSnapshot<DataControllerSettings> controller,
         IOptionsSnapshot<AccountDeletionSettings> deletionSettings,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings)
@@ -48,6 +50,7 @@ public class PublishPrivacyPolicyVersionCommandHandler
         _auditLogRepository = auditLogRepository;
         _renderer = renderer;
         _cache = cache;
+        _publicationStore = publicationStore;
         _controller = controller.Value;
         _deletionSettings = deletionSettings.Value;
         _idpSettings = idpSettings.Value;
@@ -101,8 +104,25 @@ public class PublishPrivacyPolicyVersionCommandHandler
             return rendered.Errors;
         }
 
-        await _repository.ReplaceArtifactsAsync(version.Id, rendered.Value, cancellationToken);
-        await _repository.PublishAsync(version.Id, cancellationToken);
+        // Prepare the static files before either public surface changes. The
+        // publication object keeps backups until the SQL transaction succeeds;
+        // disposing it early restores the previous files automatically.
+        var staged = await _publicationStore.StageAsync(
+            version.Version, rendered.Value, cancellationToken);
+        if (staged.IsError)
+        {
+            return staged.Errors;
+        }
+
+        using var publication = staged.Value;
+        var activated = publication.Activate();
+        if (activated.IsError)
+        {
+            return activated.Errors;
+        }
+
+        await _repository.PublishArtifactsAsync(version.Id, rendered.Value, cancellationToken);
+        publication.Complete();
 
         // Replaced, not evicted: the documents are already in hand, so no reader
         // after this point has to reach the database to be served correctly.

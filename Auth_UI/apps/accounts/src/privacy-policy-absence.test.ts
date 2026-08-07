@@ -16,8 +16,9 @@ import webConfig from "../public/web.config?raw"
  * frontend deploy leaving a tab asking for a chunk that no longer exists) took
  * the fallback down with the page it was meant to replace.
  *
- * The notice is now rendered when an operator publishes a revision and served
- * as complete HTML by the API. This test fails if any of it comes back.
+ * The notice is now rendered when an operator publishes a revision and written
+ * as complete HTML to persistent storage outside this application's deployment
+ * root. This test fails if any policy prose comes back into the bundle.
  */
 const applicationSources = import.meta.glob("./**/*.{ts,tsx}", {
   eager: true,
@@ -52,34 +53,42 @@ describe("the accounts app ships no policy document", () => {
   )
 
   it("routes nothing at /privacy", () => {
-    // The notice is a document the API serves, so links to it are plain
-    // anchors. A client route would reintroduce a version of the page that
-    // cannot render without the bundle.
+    // The notice is a static document, so links to it are plain anchors. A
+    // client route would reintroduce a page that cannot render without a bundle.
     const routes = applicationSources["./routes.tsx"]
 
     expect(routes).toBeDefined()
     expect(routes).not.toContain('path: "/privacy"')
   })
 
-  it("keeps /privacy on the accounts origin through an internal proxy", () => {
+  it("serves /privacy from local static files without ARR or a CSP exception", () => {
     const configuration = new DOMParser().parseFromString(
       webConfig,
       "application/xml"
     )
     const parseError = configuration.querySelector("parsererror")
-    const action = configuration.querySelector(
-      'rule[name="Privacy Notice"] > action'
+    const languageAction = configuration.querySelector(
+      'rule[name="Privacy Language Document"] > action'
+    )
+    const archiveAction = configuration.querySelector(
+      'rule[name="Privacy Archive Language Document"] > action'
+    )
+    const unknownAction = configuration.querySelector(
+      'rule[name="Privacy Unknown Document"] > action'
     )
     const privacyCspRemoval = configuration.querySelector(
       'location[path="privacy"] customHeaders > remove[name="Content-Security-Policy"]'
     )
 
     expect(parseError).toBeNull()
-    expect(action?.getAttribute("type")).toBe("Rewrite")
-    expect(action?.getAttribute("url")).toBe(
-      "https://auth.astoom.com/privacy{R:1}"
+    expect(languageAction?.getAttribute("type")).toBe("Rewrite")
+    expect(languageAction?.getAttribute("url")).toBe("/privacy/{R:1}.html")
+    expect(archiveAction?.getAttribute("url")).toBe(
+      "/privacy/v{R:1}/{R:2}.html"
     )
-    expect(action?.hasAttribute("redirectType")).toBe(false)
-    expect(privacyCspRemoval).not.toBeNull()
+    expect(unknownAction?.getAttribute("statusCode")).toBe("404")
+    expect(webConfig).not.toContain("ApplicationRequestRouting")
+    expect(webConfig).not.toContain("https://auth.astoom.com/privacy")
+    expect(privacyCspRemoval).toBeNull()
   })
 })

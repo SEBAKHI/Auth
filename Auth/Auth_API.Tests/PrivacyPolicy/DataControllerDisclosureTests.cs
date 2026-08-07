@@ -92,7 +92,10 @@ public class DataControllerDisclosureTests
             "the operator must be told which fields to fill, not just that something is wrong");
 
         repository.Verify(
-            r => r.PublishAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            r => r.PublishArtifactsAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(),
+                It.IsAny<CancellationToken>()),
             Times.Never,
             "refusing must actually prevent the publish, not merely warn about it");
     }
@@ -108,7 +111,11 @@ public class DataControllerDisclosureTests
 
         result.IsError.Should().BeFalse();
         repository.Verify(
-            r => r.PublishAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Once);
+            r => r.PublishArtifactsAsync(
+                It.IsAny<Guid>(),
+                It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -147,7 +154,7 @@ public class DataControllerDisclosureTests
     {
         var version = PrivacyPolicyVersion.Create("2026.09", DateTime.UtcNow, null, AdminId);
 
-        var (handler, repository, _, _) = PolicyPublishHarness.Create(
+        var (handler, repository, _, _, _, _) = PolicyPublishHarness.Create(
             version,
             controller,
             [PolicyPublishHarness.NeutralDocument(version.Id, AdminId)]);

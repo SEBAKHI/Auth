@@ -159,27 +159,47 @@ Invitation/reset emails link to the accounts origin (`Email:FrontendBaseUrl`).
 ### Privacy notice on the accounts origin
 
 `https://accounts.astoom.com/privacy` is the canonical public address. The
-accounts site's `web.config` reverse-proxies `/privacy` to the API Gateway while
-the browser remains on the accounts origin. The IIS server therefore requires:
+accounts site serves it as static HTML from persistent storage, without the SPA,
+JavaScript, the API Gateway, or ARR. Publishing a revision renders all seven
+languages and writes them to the persistent directory before the database marks
+the revision as published. A storage failure stops the publish command and leaves
+the previous public files and database state intact.
 
-- URL Rewrite 2;
-- Application Request Routing (ARR);
-- **Enable Proxy** turned on at the IIS server node.
+One-time Plesk setup for production:
 
-Roll out in this order so the public route never points at an incompatible
-header pipeline:
+- physical directory:
+  `C:\Inetpub\vhosts\etrack-76706.package\astoom-privacy-policy-public`;
+- virtual directory on `accounts.astoom.com`: `/privacy`;
+- Read permission on; Write permission and directory browsing off;
+- **Create application** off; execute permissions: **None**.
 
-1. deploy the Auth API;
-2. deploy the API Gateway and verify `/privacy/ar` returns the hash-bound
-   `style-src` CSP;
-3. verify ARR with a temporary internal rewrite or server-level check;
-4. deploy the accounts site;
-5. verify `accounts.astoom.com/privacy/ar` returns `200` without a cross-origin
-   redirect and that the browser reports one applied stylesheet.
+Set the Auth API production configuration to the same physical directory:
 
-Rollback is the reverse: restore the previous accounts `web.config` first,
-then roll back the gateway/API if needed. If ARR is unavailable, do not deploy
-the accounts rewrite; it would replace the current redirect with a proxy error.
+```json
+"PrivacyPolicyPublication": {
+  "PhysicalPath": "C:\\Inetpub\\vhosts\\etrack-76706.package\\astoom-privacy-policy-public"
+}
+```
+
+The Windows identity running the Auth API application pool needs Modify access
+to that physical directory. The virtual directory itself remains read-only to
+HTTP visitors. Accounts builds and deployments do not touch this directory,
+because it is outside the Accounts document root.
+
+First rollout order:
+
+1. create the physical and virtual directories as above;
+2. deploy the Auth API with `PrivacyPolicyPublication:PhysicalPath` configured;
+3. publish the current revision once from the console and verify that the seven
+   `.html` files and the version directory were created;
+4. deploy the Accounts build containing this `web.config`;
+5. verify `accounts.astoom.com/privacy/ar` stays on the Accounts origin, returns
+   `200`, is styled, and remains readable while the API application is stopped.
+
+If step 3 fails, fix the Auth API application's filesystem permission and try
+the user-initiated publish again; there is no background retry. Do not deploy
+step 4 until step 3 succeeds. For rollback, restore the previous Accounts
+`web.config`; the persistent policy files are not removed.
 
 ## Known constraints
 

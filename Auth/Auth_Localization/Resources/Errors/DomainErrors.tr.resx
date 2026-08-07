@@ -755,6 +755,9 @@
   <data name="PrivacyPolicy.ControllerDetailsIncomplete" xml:space="preserve">
     <value>Veri sorumlusu bilgileri doldurulmadan gizlilik politikası yayımlanamaz.</value>
   </data>
+  <data name="PrivacyPolicy.PublicationStorageUnavailable" xml:space="preserve">
+    <value>Gizlilik politikasının yayımlanması başarısız oldu. Daha önce yayımlanan politika erişilebilir durumda kalır.</value>
+  </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>Bu politika sürümünün adı değiştirilemez: yayımlanmış ya da değişiklik bildirimi zaten gönderilmiş.</value>
   </data>

@@ -5,6 +5,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Infrastructure.PrivacyPolicy;
 using Auth_API.Tests.Helpers;
+using ErrorOr;
 using Moq;
 
 namespace Auth_API.Tests.PrivacyPolicy;
@@ -27,7 +28,9 @@ internal static class PolicyPublishHarness
     internal static (PublishPrivacyPolicyVersionCommandHandler Handler,
         Mock<IPrivacyPolicyVersionRepository> Repository,
         Mock<IAuditLogRepository> Audit,
-        Mock<IPolicyArtifactCache> Cache) Create(
+        Mock<IPolicyArtifactCache> Cache,
+        Mock<IPolicyPublicationStore> PublicationStore,
+        Mock<IPolicyFilePublication> Publication) Create(
             PrivacyPolicyVersion version,
             DataControllerSettings controller,
             IReadOnlyList<PrivacyPolicyTranslation>? translations = null,
@@ -43,12 +46,22 @@ internal static class PolicyPublishHarness
 
         var audit = new Mock<IAuditLogRepository>();
         var cache = new Mock<IPolicyArtifactCache>();
+        var publication = new Mock<IPolicyFilePublication>();
+        publication.Setup(candidate => candidate.Activate()).Returns(Result.Success);
+        var publicationStore = new Mock<IPolicyPublicationStore>();
+        publicationStore
+            .Setup(store => store.StageAsync(
+                version.Version,
+                It.IsAny<IReadOnlyList<PrivacyPolicyArtifact>>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ErrorOrFactory.From<IPolicyFilePublication>(publication.Object));
 
         var handler = new PublishPrivacyPolicyVersionCommandHandler(
             repository.Object,
             audit.Object,
             new PolicyDocumentRenderer(),
             cache.Object,
+            publicationStore.Object,
             TestHelpers.CreateOptions(controller),
             TestHelpers.CreateOptions(new AccountDeletionSettings()),
             TestHelpers.CreateOptions(new IdentityProviderSettings
@@ -56,7 +69,7 @@ internal static class PolicyPublishHarness
                 AccountsBaseUrl = accountsBaseUrl
             }));
 
-        return (handler, repository, audit, cache);
+        return (handler, repository, audit, cache, publicationStore, publication);
     }
 
     /// <summary>The neutral document, which publishing requires.</summary>

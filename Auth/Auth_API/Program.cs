@@ -114,6 +114,12 @@ builder.Services.Configure<AccountDeletionSettings>(builder.Configuration.GetSec
 builder.Services.Configure<DataControllerSettings>(builder.Configuration.GetSection(DataControllerSettings.SectionName));
 builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
 builder.Services.PostConfigure<ImageStorageSettings>(SettingsArrayNormalizer.Apply);
+builder.Services.AddOptions<PrivacyPolicyPublicationSettings>()
+    .Bind(builder.Configuration.GetSection(PrivacyPolicyPublicationSettings.SectionName))
+    .Validate(
+        settings => !string.IsNullOrWhiteSpace(settings.PhysicalPath),
+        "PrivacyPolicyPublication:PhysicalPath must not be empty.")
+    .ValidateOnStart();
 // Scoped: it reads the image size limit through IOptionsSnapshot so a limit saved
 // in the console governs the very next upload (see ImageUploadSizeLimitFilter).
 builder.Services.AddScoped<ImageUploadSizeLimitFilter>();
@@ -541,11 +547,12 @@ builder.Services.AddHostedService<NotificationTemplateStartupCheck>();
 builder.Services.AddHostedService<NotificationOutboxDispatcher>();
 builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageService>();
 builder.Services.AddSingleton<IImageUrlComposer, ImageUrlComposer>();
-// Privacy policy: rendered once when a revision is published, then served from
-// memory. Both are stateless/thread-safe singletons — the cache holds the seven
-// published documents so the anonymous public notice costs no database read.
+// Privacy policy: rendered once when a revision is published. The file store
+// writes the canonical Accounts-origin documents; the cache keeps the existing
+// API read endpoint database-free. All three services are thread-safe singletons.
 builder.Services.AddSingleton<IPolicyDocumentRenderer, PolicyDocumentRenderer>();
 builder.Services.AddSingleton<IPolicyArtifactCache, PolicyArtifactCache>();
+builder.Services.AddSingleton<IPolicyPublicationStore, FileSystemPolicyPublicationStore>();
 builder.Services.AddScoped<PasswordValidator>();
 builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
 // Account deletion: the shared credential-kill primitive, the shared

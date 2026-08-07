@@ -40,12 +40,6 @@ public interface IPrivacyPolicyVersionRepository
     Task<PrivacyPolicyVersion?> GetPublishedAsync(CancellationToken cancellationToken);
 
     /// <summary>
-    /// Publishes <paramref name="versionId"/> and clears the flag from every
-    /// other revision in one statement (exactly one published version).
-    /// </summary>
-    Task PublishAsync(Guid versionId, CancellationToken cancellationToken);
-
-    /// <summary>
     /// Gets every stored language document of a revision.
     /// </summary>
     Task<IReadOnlyList<PrivacyPolicyTranslation>> GetTranslationsAsync(
@@ -64,13 +58,14 @@ public interface IPrivacyPolicyVersionRepository
         PrivacyPolicyTranslation translation, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Replaces a revision's whole set of served documents in one transaction.
+    /// Replaces a revision's whole set of served documents and makes that
+    /// revision the published one in a single transaction.
     ///
     /// All-or-nothing on purpose: a partial set would leave some languages on
     /// the previous revision's text while others moved, which is a version skew
     /// across locales rather than a slow rollout.
     /// </summary>
-    Task ReplaceArtifactsAsync(
+    Task PublishArtifactsAsync(
         Guid versionId,
         IReadOnlyList<PrivacyPolicyArtifact> artifacts,
         CancellationToken cancellationToken);

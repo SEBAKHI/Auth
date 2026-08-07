@@ -755,6 +755,9 @@
   <data name="PrivacyPolicy.ControllerDetailsIncomplete" xml:space="preserve">
     <value>The privacy policy cannot be published until the data-controller details are filled in.</value>
   </data>
+  <data name="PrivacyPolicy.PublicationStorageUnavailable" xml:space="preserve">
+    <value>Privacy policy publication failed. The previously published policy remains available.</value>
+  </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>This policy version cannot be renamed: it is published or its change notice was already sent.</value>
   </data>

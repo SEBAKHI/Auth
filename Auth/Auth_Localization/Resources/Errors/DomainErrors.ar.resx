@@ -755,6 +755,9 @@
   <data name="PrivacyPolicy.ControllerDetailsIncomplete" xml:space="preserve">
     <value>لا يمكن نشر سياسة الخصوصية قبل استكمال بيانات المتحكم بالبيانات.</value>
   </data>
+  <data name="PrivacyPolicy.PublicationStorageUnavailable" xml:space="preserve">
+    <value>فشل نشر سياسة الخصوصية. تظل السياسة المنشورة سابقًا متاحة.</value>
+  </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>لا يمكن إعادة تسمية إصدار السياسة هذا: فهو منشور أو تم إرسال إشعار تغييره بالفعل.</value>
   </data>

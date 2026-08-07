@@ -755,6 +755,9 @@
   <data name="PrivacyPolicy.ControllerDetailsIncomplete" xml:space="preserve">
     <value>在填写数据控制者信息之前，无法发布隐私政策。</value>
   </data>
+  <data name="PrivacyPolicy.PublicationStorageUnavailable" xml:space="preserve">
+    <value>隐私政策发布失败。之前发布的政策仍然可用。</value>
+  </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>此政策版本无法重命名：它已发布，或其变更通知已发送。</value>
   </data>

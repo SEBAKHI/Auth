@@ -32,6 +32,11 @@ public static class PrivacyPolicyErrors
         code: "PrivacyPolicy.UnsupportedLanguage",
         description: $"Language '{languageCode}' is not a supported policy language.");
 
+    public static Error PublicationStorageUnavailable => Error.Unexpected(
+        code: "PrivacyPolicy.PublicationStorageUnavailable",
+        description:
+            "The published policy files could not be written. The previous published policy remains active.");
+
     /// <summary>
     /// Publishing is refused while the policy cannot name its own controller.
     /// KVKK Art. 10 and GDPR Art. 13(1)(a) require the controller's identity,

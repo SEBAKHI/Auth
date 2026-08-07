@@ -150,11 +150,10 @@ export const router = createBrowserRouter([
       (m) => m.DeletionScheduledPage
     ),
   },
-  // No /privacy route. The public notice is a document the API serves as
-  // complete HTML, rendered when a revision is published — so it survives a
-  // frontend deploy, prints, and needs no script to be readable. Links to it
-  // are plain anchors built with privacyPolicyUrl(); IIS reverse-proxies the
-  // path so store listings and old links keep the accounts origin.
+  // No /privacy route. Publishing writes complete HTML to the persistent IIS
+  // virtual directory, so the notice survives frontend deploys and API outages
+  // and needs no script to be readable. Links to it are plain anchors built
+  // with privacyPolicyUrl(); IIS serves the path on the Accounts origin.
   { path: "*", element: <NotFoundPage /> },
     ],
   },

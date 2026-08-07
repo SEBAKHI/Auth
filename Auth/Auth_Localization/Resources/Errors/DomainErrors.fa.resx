@@ -755,6 +755,9 @@
   <data name="PrivacyPolicy.ControllerDetailsIncomplete" xml:space="preserve">
     <value>تا زمانی که اطلاعات کنترل‌کننده داده تکمیل نشود، سیاست حریم خصوصی منتشر نمی‌شود.</value>
   </data>
+  <data name="PrivacyPolicy.PublicationStorageUnavailable" xml:space="preserve">
+    <value>انتشار سیاست حفظ حریم خصوصی ناموفق بود. سیاستی که قبلاً منتشر شده است همچنان در دسترس می‌ماند.</value>
+  </data>
   <data name="PrivacyPolicy.VersionLocked" xml:space="preserve">
     <value>نام این نسخه سیاست قابل تغییر نیست: منتشر شده یا اعلان تغییر آن ارسال شده است.</value>
   </data>
