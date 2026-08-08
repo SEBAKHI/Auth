@@ -181,12 +181,36 @@ export async function ensureFreshAccessToken(): Promise<string | null> {
   return getAccessToken()
 }
 
-function isAuthFlow(url: string): boolean {
-  return (
-    url.includes(REFRESH_PATH) ||
-    url.includes(LOGIN_PATH) ||
-    url.includes(TWO_FACTOR_VERIFY_PATH)
+/**
+ * The endpoints that establish a session and therefore carry no bearer token.
+ *
+ * Matched on the whole path, case-insensitively — NOT as a substring. A
+ * substring test made "/api/v1/Auth/login-history" an auth-flow request because
+ * it starts with the login path, so the client sent it with no Authorization
+ * header, took the inevitable 401, and skipped the retry as well. Any future
+ * route beginning with one of these words would have hit the same trap, and it
+ * fails as a bare 401 with nothing pointing at the cause.
+ *
+ * Case-insensitive because the API's own routes are inconsistent: the login and
+ * refresh paths capitalise the controller ("/api/v1/Auth/…") while the
+ * two-factor ones do not ("/api/v1/auth/2fa/…"). Under the old exact-case
+ * substring test the two-factor constant never matched anything at all.
+ */
+const ANONYMOUS_PATHS = new Set(
+  [REFRESH_PATH, LOGIN_PATH, TWO_FACTOR_VERIFY_PATH].map((path) =>
+    path.toLowerCase()
   )
+)
+
+function isAuthFlow(url: string): boolean {
+  let pathname: string
+  try {
+    pathname = new URL(url, API_BASE_URL).pathname
+  } catch {
+    return false
+  }
+
+  return ANONYMOUS_PATHS.has(pathname.toLowerCase())
 }
 
 const authMiddleware: Middleware = {

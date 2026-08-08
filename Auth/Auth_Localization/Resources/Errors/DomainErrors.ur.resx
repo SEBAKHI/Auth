@@ -403,6 +403,12 @@
   </data>
 
   <!-- ==================== Session Errors ==================== -->
+  <data name="Device.NotFound" xml:space="preserve">
+    <value>ڈیوائس نہیں ملی۔</value>
+  </data>
+  <data name="Device.CannotForgetCurrent" xml:space="preserve">
+    <value>آپ اُس براؤزر کو نہیں بھلا سکتے جس پر آپ اِس وقت سائن اِن ہیں۔ اس کے بجائے سائن آؤٹ کریں۔</value>
+  </data>
   <data name="Session.NotFound" xml:space="preserve">
     <value>سیشن نہیں ملا۔</value>
   </data>

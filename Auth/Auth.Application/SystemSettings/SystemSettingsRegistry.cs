@@ -224,6 +224,20 @@ public static class SystemSettingsRegistry
             ]),
 
         new SettingSectionDefinition(
+            Key: "GeoIp",
+            ConfigRoot: "GeoIp",
+            Group: SettingGroups.Security,
+            Editable: true,
+            Fields:
+            [
+                new SettingFieldDefinition("Enabled", SettingKind.Bool, RestartRequired: true, DefaultValue: false),
+                // Both need a restart: the reader memory-maps the file once at
+                // startup, so changing either at runtime would leave the loaded
+                // database and the configured one describing different things.
+                new SettingFieldDefinition("DatabasePath", SettingKind.String, RestartRequired: true, DefaultValue: "")
+            ]),
+
+        new SettingSectionDefinition(
             Key: "ImageStorage",
             ConfigRoot: "ImageStorage",
             Group: SettingGroups.Storage,

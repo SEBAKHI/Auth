@@ -14,7 +14,13 @@ public interface ILoginResponseBuilder
     /// </summary>
     /// <param name="user">The authenticated user.</param>
     /// <param name="ipAddress">The client's IP address.</param>
-    /// <param name="deviceInfo">The client's device info (user agent + device ID).</param>
+    /// <param name="userAgent">The client's raw user-agent header, if it sent one.</param>
+    /// <param name="deviceId">
+    /// The client-supplied per-browser identifier, if it sent one. Recognition
+    /// only — it is forgeable and is never read as an authorization input. Null
+    /// for callers that have no browser storage to keep it in, such as the OAuth
+    /// token endpoint.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <param name="establishIdpSession">
     /// Whether to also mint an IdP SSO session (carried on
@@ -32,7 +38,8 @@ public interface ILoginResponseBuilder
     Task<LoginResponse> BuildAsync(
         User user,
         string? ipAddress,
-        string? deviceInfo,
+        string? userAgent,
+        string? deviceId,
         CancellationToken cancellationToken,
         bool establishIdpSession = true,
         string? audience = null,

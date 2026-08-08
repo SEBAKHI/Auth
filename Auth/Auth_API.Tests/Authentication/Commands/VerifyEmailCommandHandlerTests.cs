@@ -66,6 +66,7 @@ public class VerifyEmailCommandHandlerTests
                 It.IsAny<User>(),
                 It.IsAny<string>(),
                 It.IsAny<string>(),
+                It.IsAny<string?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateLoginResponse());
     }
@@ -103,7 +104,7 @@ public class VerifyEmailCommandHandlerTests
             r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
             Times.Once());
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never());
     }
 
@@ -139,7 +140,7 @@ public class VerifyEmailCommandHandlerTests
             r => r.ConfirmEmailAsync(userId, userId, It.IsAny<CancellationToken>()),
             Times.Once());
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Once());
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(user, It.IsAny<CancellationToken>()),
@@ -179,7 +180,7 @@ public class VerifyEmailCommandHandlerTests
         result.Value.Login!.TwoFactorChallengeToken.Should().Be("challenge-token");
         result.Value.Login!.Token.Should().BeNull();
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never());
     }
 

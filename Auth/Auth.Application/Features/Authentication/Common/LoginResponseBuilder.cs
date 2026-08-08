@@ -30,6 +30,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private readonly IUserSessionRepository _sessionRepository;
     private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly IUserKnownDeviceRepository _knownDeviceRepository;
+    private readonly IGeoIpLookup _geoIpLookup;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly IdentityProviderSettings _idpSettings;
@@ -48,6 +49,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         IUserSessionRepository sessionRepository,
         IIdpSessionRepository idpSessionRepository,
         IUserKnownDeviceRepository knownDeviceRepository,
+        IGeoIpLookup geoIpLookup,
         IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
@@ -65,6 +67,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _sessionRepository = sessionRepository;
         _idpSessionRepository = idpSessionRepository;
         _knownDeviceRepository = knownDeviceRepository;
+        _geoIpLookup = geoIpLookup;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _idpSettings = idpSettings.Value;
@@ -76,7 +79,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     public async Task<LoginResponse> BuildAsync(
         User user,
         string? ipAddress,
-        string? deviceInfo,
+        string? userAgent,
+        string? deviceId,
         CancellationToken cancellationToken,
         bool establishIdpSession = true,
         string? audience = null,
@@ -96,6 +100,15 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         // session row and all of its refresh tokens together (carried as "sid").
         var sessionId = Guid.NewGuid();
 
+        // Parsed once, here, and handed to both the session row and the device
+        // ledger below. Two parses would be two chances to disagree, and the two
+        // consumers are the session list the user reads and the security email
+        // they receive — "Chrome on Windows" in one and "Edge" in the other reads
+        // as a second, unexplained sign-in.
+        var parsedAgent = UserAgentParser.Parse(userAgent);
+        var deviceName = parsedAgent.Describe();
+        var deviceHash = UserKnownDevice.ComputeHash(deviceId, parsedAgent.Browser, parsedAgent.Os);
+
         // Generate tokens
         var accessToken = _jwtTokenService.GenerateAccessToken(
             user, permissions, roleNames, sessionId, organizationPermissions, audience);
@@ -113,7 +126,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             applicationId,
             _jwtSettings.RefreshTokenLifetime,
             ipAddress,
-            deviceInfo,
+            userAgent,
             sessionId);
 
         await _refreshTokenRepository.CreateAsync(refreshTokenEntity, cancellationToken);
@@ -128,14 +141,16 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             var session = new UserSession(
                 sessionId,
                 user.Id,
-                null,                                        // applicationId — not app-scoped
+                applicationId,                               // which app this sign-in belongs to
                 refreshTokenEntity.Id,                       // refreshTokenId
                 refreshTokenHash,                            // sessionTokenHash
                 ipAddress ?? "unknown",                      // IpAddress is NOT NULL
-                deviceInfo,                                  // userAgent
-                null,                                        // deviceId
-                null,                                        // deviceName
-                null,                                        // location
+                userAgent,
+                parsedAgent.DeviceType,
+                deviceId,
+                deviceName,
+                deviceHash,
+                _geoIpLookup.Resolve(ipAddress),
                 now,                                         // createdAt
                 now.Add(_jwtSettings.RefreshTokenLifetime),  // expiresAt
                 now,                                         // lastActivityAt
@@ -144,7 +159,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
                 null);                                       // terminationReason
             await _sessionRepository.CreateAsync(session, cancellationToken);
 
-            await TrackDeviceAsync(user, ipAddress, deviceInfo, cancellationToken);
+            await TrackDeviceAsync(user, ipAddress, deviceHash, deviceName, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -155,7 +170,10 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         // Record successful login
         await _userRepository.RecordSuccessfulLoginAsync(user.Id, ipAddress, cancellationToken);
 
-        var loginAttempt = LoginAttempt.CreateSuccess(user.Id, user.Email, ipAddress, null);
+        // The agent is recorded so the user's own sign-in history can name the
+        // client. It used to be dropped here, which left every successful entry
+        // in that history describing nothing.
+        var loginAttempt = LoginAttempt.CreateSuccess(user.Id, user.Email, ipAddress, userAgent);
         await _loginAttemptRepository.CreateAsync(loginAttempt, cancellationToken);
 
         _logger.LogInformation("User {UserId} logged in successfully from {IpAddress}",
@@ -175,7 +193,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
                     _refreshTokenKeyService.ComputeTokenHash(plainIdpToken),
                     _idpSettings.IdpSessionLifetime,
                     ipAddress,
-                    deviceInfo);
+                    userAgent);
                 await _idpSessionRepository.CreateAsync(idpSession, cancellationToken);
                 idpSessionToken = plainIdpToken;
             }
@@ -225,6 +243,10 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     /// Records the device this sign-in came from and, when it is one the user
     /// has not been seen on before, raises the event that tells them so.
     ///
+    /// Takes the signature and label already computed for the session row rather
+    /// than deriving its own: the ledger's key must be the same key the session
+    /// carries, or the two can never be joined.
+    ///
     /// Called from inside the session-tracking try/catch on purpose: every
     /// successful sign-in passes through here — password, external provider,
     /// two-factor completion, email verification, account recovery — and none
@@ -233,18 +255,14 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private async Task TrackDeviceAsync(
         User user,
         string? ipAddress,
-        string? deviceInfo,
+        string deviceHash,
+        string? deviceName,
         CancellationToken cancellationToken)
     {
         if (!_notificationSettings.NewDeviceAlertEnabled)
         {
             return;
         }
-
-        var (userAgent, deviceId) = AuthenticationHelper.ParseDeviceInfo(deviceInfo);
-        var parsed = UserAgentParser.Parse(userAgent);
-        var deviceHash = UserKnownDevice.ComputeHash(deviceId, parsed.Browser, parsed.Os);
-        var deviceName = parsed.Describe();
 
         var known = await _knownDeviceRepository.GetAsync(user.Id, deviceHash, cancellationToken);
         if (known is not null)

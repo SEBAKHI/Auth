@@ -403,6 +403,12 @@
   </data>
 
   <!-- ==================== Session Errors ==================== -->
+  <data name="Device.NotFound" xml:space="preserve">
+    <value>Cihaz bulunamadı.</value>
+  </data>
+  <data name="Device.CannotForgetCurrent" xml:space="preserve">
+    <value>Şu anda oturum açtığınız tarayıcıyı unutamazsınız. Bunun yerine oturumu kapatın.</value>
+  </data>
   <data name="Session.NotFound" xml:space="preserve">
     <value>Oturum bulunamadı.</value>
   </data>

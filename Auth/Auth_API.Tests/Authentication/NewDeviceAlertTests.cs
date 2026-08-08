@@ -2,6 +2,7 @@ using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
@@ -64,6 +65,7 @@ public class NewDeviceAlertTests
             _sessionsMock.Object,
             new Mock<IIdpSessionRepository>().Object,
             _devicesMock.Object,
+            new Mock<IGeoIpLookup>().Object,
             _publisherMock.Object,
             TestHelpers.CreateOptions(new JwtSettings
             {
@@ -76,9 +78,13 @@ public class NewDeviceAlertTests
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 
-    private Task Sign(string? deviceInfo = ChromeOnWindows, NotificationSettings? notifications = null) =>
+    private Task Sign(
+        string? userAgent = ChromeOnWindows,
+        NotificationSettings? notifications = null,
+        string? deviceId = null) =>
         CreateBuilder(notifications).BuildAsync(
-            _user, "203.0.113.10", deviceInfo, CancellationToken.None, establishIdpSession: false);
+            _user, "203.0.113.10", userAgent, deviceId, CancellationToken.None,
+            establishIdpSession: false);
 
     private void GivenDeviceIsUnknown(bool userHasOtherDevices, bool insertWins = true)
     {
@@ -208,7 +214,8 @@ public class NewDeviceAlertTests
             .ThrowsAsync(new InvalidOperationException("database unavailable"));
 
         var response = await CreateBuilder().BuildAsync(
-            _user, "203.0.113.10", ChromeOnWindows, CancellationToken.None, establishIdpSession: false);
+            _user, "203.0.113.10", ChromeOnWindows, deviceId: null, CancellationToken.None,
+            establishIdpSession: false);
 
         response.Token!.AccessToken.Should().Be("access-token");
         VerifyAlerted(Times.Never());
@@ -226,5 +233,80 @@ public class NewDeviceAlertTests
                 It.Is<NewDeviceSignInEvent>(e => e.DeviceName == null),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task SessionCarriesTheSameSignatureTheLedgerWasKeyedOn()
+    {
+        // The whole point of the linkage: if these two ever derive the signature
+        // separately they can drift, and a session could never be attributed to
+        // the browser that started it. Captured from both sides and compared.
+        GivenDeviceIsUnknown(userHasOtherDevices: true);
+
+        UserKnownDevice? ledgerRow = null;
+        _devicesMock
+            .Setup(r => r.UpsertAsync(It.IsAny<UserKnownDevice>(), It.IsAny<CancellationToken>()))
+            .Callback<UserKnownDevice, CancellationToken>((d, _) => ledgerRow = d)
+            .ReturnsAsync(true);
+
+        UserSession? sessionRow = null;
+        _sessionsMock
+            .Setup(r => r.CreateAsync(It.IsAny<UserSession>(), It.IsAny<CancellationToken>()))
+            .Callback<UserSession, CancellationToken>((s, _) => sessionRow = s)
+            .ReturnsAsync((UserSession s, CancellationToken _) => s);
+
+        await Sign(deviceId: "device-abc");
+
+        sessionRow.Should().NotBeNull();
+        ledgerRow.Should().NotBeNull();
+        sessionRow!.DeviceHash.Should().Be(ledgerRow!.DeviceHash);
+        sessionRow.DeviceName.Should().Be("Chrome on Windows");
+        sessionRow.DeviceId.Should().Be("device-abc");
+        sessionRow.DeviceType.Should().Be(DeviceType.Desktop);
+    }
+
+    [Fact]
+    public async Task DifferentBrowsersOnOneMachineAreDifferentSignatures()
+    {
+        // The signature covers the browser family as well as the client id, so
+        // "device" here means a browser profile — which is why the UI must not
+        // promise the row is a machine.
+        GivenDeviceIsUnknown(userHasOtherDevices: true);
+
+        var hashes = new List<string>();
+        _devicesMock
+            .Setup(r => r.UpsertAsync(It.IsAny<UserKnownDevice>(), It.IsAny<CancellationToken>()))
+            .Callback<UserKnownDevice, CancellationToken>((d, _) => hashes.Add(d.DeviceHash))
+            .ReturnsAsync(true);
+
+        await Sign(ChromeOnWindows, deviceId: "same-id");
+        await Sign("Mozilla/5.0 (Windows NT 10.0; rv:121.0) Gecko/20100101 Firefox/121.0",
+            deviceId: "same-id");
+
+        hashes.Should().HaveCount(2);
+        hashes[0].Should().NotBe(hashes[1]);
+    }
+
+    [Fact]
+    public async Task AUserAgentLongerThanItsColumnStillProducesASession()
+    {
+        // The combined "{ua} | DeviceId: {id}" string used to overflow
+        // UserAgent's 500 characters; the insert threw, the guard swallowed it,
+        // and the user was signed in with nothing to manage. The two halves are
+        // separate columns now, and over-long input is truncated rather than
+        // rejected. Truncation itself is the repository's job — this asserts the
+        // builder hands the row over at all.
+        GivenDeviceIsUnknown(userHasOtherDevices: true);
+
+        UserSession? sessionRow = null;
+        _sessionsMock
+            .Setup(r => r.CreateAsync(It.IsAny<UserSession>(), It.IsAny<CancellationToken>()))
+            .Callback<UserSession, CancellationToken>((s, _) => sessionRow = s)
+            .ReturnsAsync((UserSession s, CancellationToken _) => s);
+
+        await Sign(ChromeOnWindows + new string('x', 600), deviceId: new string('d', 100));
+
+        sessionRow.Should().NotBeNull();
+        sessionRow!.DeviceHash.Should().NotBeNullOrEmpty();
     }
 }

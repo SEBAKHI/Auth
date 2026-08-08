@@ -402,6 +402,14 @@
     <value>تم إبطال مفتاح Webhook بالفعل.</value>
   </data>
 
+  <!-- ==================== Device Errors ==================== -->
+  <data name="Device.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على الجهاز.</value>
+  </data>
+  <data name="Device.CannotForgetCurrent" xml:space="preserve">
+    <value>لا يمكنك نسيان المتصفّح الذي تستخدمه الآن. سجّل الخروج بدلًا من ذلك.</value>
+  </data>
+
   <!-- ==================== Session Errors ==================== -->
   <data name="Session.NotFound" xml:space="preserve">
     <value>لم يتم العثور على الجلسة.</value>

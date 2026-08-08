@@ -109,6 +109,7 @@ builder.Services.AddOptions<EmailSettings>()
         "Email:FrontendBaseUrl must be an absolute URL when Email:Enabled is true.")
     .ValidateOnStart();
 builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSection(NotificationSettings.SectionName));
+builder.Services.Configure<GeoIpSettings>(builder.Configuration.GetSection(GeoIpSettings.SectionName));
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
 builder.Services.Configure<AccountDeletionSettings>(builder.Configuration.GetSection(AccountDeletionSettings.SectionName));
 builder.Services.Configure<DataControllerSettings>(builder.Configuration.GetSection(DataControllerSettings.SectionName));
@@ -401,6 +402,9 @@ builder.Services.AddScoped<IPasswordHistoryRepository, PasswordHistoryRepository
 builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
 builder.Services.AddScoped<IUserUiPreferenceRepository, UserUiPreferenceRepository>();
 builder.Services.AddScoped<IUserKnownDeviceRepository, UserKnownDeviceRepository>();
+// Singleton: the GeoLite2 reader memory-maps its file once and is thread-safe
+// for reads, so opening it per request would only add I/O to the sign-in path.
+builder.Services.AddSingleton<IGeoIpLookup, GeoIpLookup>();
 builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
 builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 builder.Services.AddScoped<IAuthorizationCodeRepository, AuthorizationCodeRepository>();

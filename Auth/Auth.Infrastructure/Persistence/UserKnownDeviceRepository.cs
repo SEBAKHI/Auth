@@ -61,6 +61,58 @@ public class UserKnownDeviceRepository : IUserKnownDeviceRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<UserKnownDevice>> GetForUserAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var rows = await connection.QueryAsync<UserKnownDeviceDto>($@"
+            SELECT {SelectColumns}
+            FROM [dbo].[UserKnownDevices]
+            WHERE [UserId] = @UserId
+            ORDER BY [LastSeenAt] DESC, [Id]",
+            new { UserId = userId });
+
+        return rows.Select(r => r.ToEntity()).ToList().AsReadOnly();
+    }
+
+    /// <inheritdoc />
+    public async Task<UserKnownDevice?> GetByIdAsync(
+        Guid userId,
+        Guid deviceId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var dto = await connection.QueryFirstOrDefaultAsync<UserKnownDeviceDto>($@"
+            SELECT {SelectColumns}
+            FROM [dbo].[UserKnownDevices]
+            WHERE [Id] = @Id AND [UserId] = @UserId",
+            new { Id = deviceId, UserId = userId });
+
+        return dto?.ToEntity();
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> DeleteAsync(
+        Guid userId,
+        Guid deviceId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The UserId predicate is the authorization check, not a convenience:
+        // it must be impossible to delete another user's row by guessing an id.
+        var affected = await connection.ExecuteAsync(@"
+            DELETE FROM [dbo].[UserKnownDevices]
+            WHERE [Id] = @Id AND [UserId] = @UserId",
+            new { Id = deviceId, UserId = userId });
+
+        return affected > 0;
+    }
+
+    /// <inheritdoc />
     public async Task<bool> UpsertAsync(UserKnownDevice device, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

@@ -22,6 +22,22 @@ public interface ICredentialRevocationService
     Task<int> TerminateSessionsAsync(Guid userId, Guid? exceptSessionId, Guid? revokedBy, string reason, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Terminates every active session started from one browser, with the same
+    /// refresh-token revocation and session-id blacklisting as the other paths.
+    ///
+    /// This is the sanctioned direction of the cascade. Forgetting a browser may
+    /// end its sessions; ending a session must never forget a browser, or an
+    /// ordinary sign-out would make the next sign-in look like an intrusion and
+    /// send the user a security email about themselves.
+    /// </summary>
+    /// <param name="userId">The user whose sessions to terminate.</param>
+    /// <param name="deviceHash">Signature of the browser whose sessions to end.</param>
+    /// <param name="reason">Human-readable reason recorded on the terminations/revocations.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of sessions terminated.</returns>
+    Task<int> TerminateSessionsByDeviceAsync(Guid userId, string deviceHash, string reason, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Full credential wipe for account deletion/deactivation: terminates every
     /// session, revokes ALL refresh tokens (including session-less ones) and
     /// removes the user's IdP SSO sessions.

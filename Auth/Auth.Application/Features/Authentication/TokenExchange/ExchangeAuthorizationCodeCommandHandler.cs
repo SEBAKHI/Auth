@@ -125,7 +125,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         // replayed against another first-party app; the applicationId records that on
         // the refresh token so refreshes keep the same audience.
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, cancellationToken,
+            user, request.IpAddress, request.UserAgent, deviceId: null, cancellationToken,
             establishIdpSession: false, audience: application.Code, applicationId: application.Id);
 
         _logger.LogInformation(

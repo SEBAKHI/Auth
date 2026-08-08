@@ -586,3 +586,60 @@ describe("without Web Locks", () => {
     expect(server.reuseDetections()).toBe(0)
   })
 })
+
+/**
+ * Which endpoints are treated as anonymous.
+ *
+ * The fake server answers any non-refresh request 200 when an Authorization
+ * header is present and 401 when it is not, so "did the client authenticate
+ * this?" is readable straight off the status.
+ */
+describe("deciding which requests carry a token", () => {
+  it("authenticates a path that merely starts with the login path", async () => {
+    // The defect: isAuthFlow() used url.includes(LOGIN_PATH), so
+    // "/api/v1/Auth/login-history" counted as the login endpoint. The client
+    // sent it with no token, took the 401 as expected, and skipped the refresh
+    // retry too — a signed-in user saw a permanently failing panel with nothing
+    // in the logs pointing at the cause.
+    storage.set(REFRESH_KEY, "R0")
+    installServer()
+    const tab = await openTab()
+
+    const { response } = await tab.client.api.GET(
+      "/api/v1/Auth/login-history" as never,
+      {} as never
+    )
+
+    expect(response.status).toBe(200)
+  })
+
+  it("still sends the login endpoint itself anonymously", async () => {
+    // The other half of the same guard: tightening the match must not start
+    // attaching tokens to the endpoints that mint them.
+    storage.set(REFRESH_KEY, "R0")
+    installServer()
+    const tab = await openTab()
+
+    const { response } = await tab.client.api.POST("/api/v1/Auth/login", {
+      body: { email: "user@example.com", password: "x" },
+    })
+
+    expect(response.status).toBe(401)
+  })
+
+  it("recognises the two-factor verify path despite its lower-case controller", async () => {
+    // The API spells this route "/api/v1/auth/2fa/verify" while login and
+    // refresh use "/api/v1/Auth/…". Under the old case-sensitive test the
+    // constant never matched, so the check silently covered two paths, not three.
+    storage.set(REFRESH_KEY, "R0")
+    installServer()
+    const tab = await openTab()
+
+    const { response } = await tab.client.api.POST(
+      "/api/v1/auth/2fa/verify" as never,
+      { body: { code: "000000" } } as never
+    )
+
+    expect(response.status).toBe(401)
+  })
+})

@@ -7,7 +7,10 @@ using Auth.Application.Features.AccountDeletion.ConfirmPublicDeletion;
 using Auth.Application.Features.AccountDeletion.PublicRequestDeletion;
 using Auth.Application.Features.AccountDeletion.RecoverAccount;
 using Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
+using Auth.Application.Features.Authentication.ForgetKnownDevice;
 using Auth.Application.Features.Authentication.ForgotPassword;
+using Auth.Application.Features.Authentication.GetKnownDevices;
+using Auth.Application.Features.Authentication.GetLoginHistory;
 using Auth.Application.Features.Authentication.IntrospectToken;
 using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.Logout;
@@ -489,7 +492,7 @@ public class AuthController : ApiController
     /// <returns>Number of sessions terminated</returns>
     [HttpDelete("sessions")]
     [Authorize]
-    [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(TerminatedCountResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> TerminateAllSessions(CancellationToken cancellationToken)
     {
@@ -504,7 +507,90 @@ public class AuthController : ApiController
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            count => Ok(new { terminatedCount = count }),
+            count => Ok(new TerminatedCountResponse(count)),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Gets the browsers the current user has signed in from.
+    /// </summary>
+    /// <returns>List of known devices</returns>
+    [HttpGet("devices")]
+    [Authorize]
+    [ProducesResponseType(typeof(IReadOnlyList<KnownDeviceDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetKnownDevices(CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var query = new GetKnownDevicesQuery(userId, GetCurrentSessionId());
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match<IActionResult>(
+            devices => Ok(devices),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Forgets a browser: removes its recognition record and ends every session
+    /// it still holds. The browser carrying the current session cannot be
+    /// forgotten — signing out is what ends that one.
+    /// </summary>
+    /// <param name="deviceId">The ID of the device to forget.</param>
+    /// <returns>Number of sessions ended</returns>
+    [HttpDelete("devices/{deviceId:guid}")]
+    [Authorize]
+    [ProducesResponseType(typeof(TerminatedCountResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ForgetKnownDevice(Guid deviceId, CancellationToken cancellationToken)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var command = new ForgetKnownDeviceCommand(userId, deviceId, GetCurrentSessionId());
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            count => Ok(new TerminatedCountResponse(count)),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Gets the current user's recent sign-in attempts, successful and failed.
+    /// Read-only: this is the record of what happened, not a set of live
+    /// credentials, so nothing here can be revoked.
+    /// </summary>
+    /// <param name="take">How many entries to return (1-100).</param>
+    /// <returns>List of recent login attempts</returns>
+    [HttpGet("login-history")]
+    [Authorize]
+    [ProducesResponseType(typeof(IReadOnlyList<LoginAttemptDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetLoginHistory(
+        [FromQuery] int take = 20,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = GetCurrentUserId();
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized();
+        }
+
+        var query = new GetLoginHistoryQuery(userId, take);
+        var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match<IActionResult>(
+            attempts => Ok(attempts),
             errors => Problem(errors));
     }
 

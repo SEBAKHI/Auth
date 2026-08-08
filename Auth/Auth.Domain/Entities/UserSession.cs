@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using Auth.Domain.Primitives;
 
 namespace Auth.Domain.Entities;
@@ -39,14 +40,34 @@ public class UserSession : EntityBase
     public string? UserAgent { get; private set; }
 
     /// <summary>
-    /// Gets the device identifier.
+    /// Gets the form factor the sign-in came from.
+    /// </summary>
+    public DeviceType DeviceType { get; private set; }
+
+    /// <summary>
+    /// Gets the client-supplied per-browser identifier, if the client sent one.
+    /// Null for callers with no browser storage to keep it in, such as the OAuth
+    /// token endpoint.
     /// </summary>
     public string? DeviceId { get; private set; }
 
     /// <summary>
-    /// Gets the device name/description.
+    /// Gets the human label for the client, e.g. "Chrome on Windows".
     /// </summary>
     public string? DeviceName { get; private set; }
+
+    /// <summary>
+    /// Gets the signature of the browser this session was started from — the
+    /// join key into <see cref="UserKnownDevice"/>.
+    ///
+    /// Denormalised rather than a foreign key on purpose. The ledger row is
+    /// written on a best-effort path that is allowed to fail, it can lose an
+    /// insert race, and the user may later forget it; a constraint would turn
+    /// any of those into either a failed sign-in or a deleted session record.
+    /// Null means the session cannot be attributed to a browser, which is the
+    /// honest state for a client that sent no identifier.
+    /// </summary>
+    public string? DeviceHash { get; private set; }
 
     /// <summary>
     /// Gets the approximate location based on IP.
@@ -95,8 +116,10 @@ public class UserSession : EntityBase
         string sessionTokenHash,
         string? ipAddress,
         string? userAgent,
+        DeviceType deviceType,
         string? deviceId,
         string? deviceName,
+        string? deviceHash,
         string? location,
         DateTime createdAt,
         DateTime expiresAt,
@@ -111,8 +134,10 @@ public class UserSession : EntityBase
         SessionTokenHash = sessionTokenHash;
         IpAddress = ipAddress;
         UserAgent = userAgent;
+        DeviceType = deviceType;
         DeviceId = deviceId;
         DeviceName = deviceName;
+        DeviceHash = deviceHash;
         Location = location;
         CreatedAt = createdAt;
         ExpiresAt = expiresAt;
@@ -130,8 +155,10 @@ public class UserSession : EntityBase
         TimeSpan lifetime,
         string? ipAddress,
         string? userAgent,
+        DeviceType deviceType = DeviceType.Unknown,
         string? deviceId = null,
         string? deviceName = null,
+        string? deviceHash = null,
         string? location = null)
     {
         var now = DateTime.UtcNow;
@@ -143,8 +170,10 @@ public class UserSession : EntityBase
             SessionTokenHash = sessionTokenHash,
             IpAddress = ipAddress,
             UserAgent = userAgent,
+            DeviceType = deviceType,
             DeviceId = deviceId,
             DeviceName = deviceName,
+            DeviceHash = deviceHash,
             Location = location,
             CreatedAt = now,
             ExpiresAt = now.Add(lifetime),

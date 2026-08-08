@@ -12,16 +12,23 @@ namespace Auth_API.Tests.Authentication.Queries;
 public class GetActiveSessionsQueryHandlerTests
 {
     private readonly Mock<IUserSessionRepository> _sessionRepositoryMock;
+    private readonly Mock<IUserKnownDeviceRepository> _deviceRepositoryMock;
     private readonly Mock<ILogger<GetUserSessionsQueryHandler>> _loggerMock;
     private readonly GetUserSessionsQueryHandler _handler;
 
     public GetActiveSessionsQueryHandlerTests()
     {
         _sessionRepositoryMock = new Mock<IUserSessionRepository>();
+        _deviceRepositoryMock = new Mock<IUserKnownDeviceRepository>();
         _loggerMock = new Mock<ILogger<GetUserSessionsQueryHandler>>();
+
+        _deviceRepositoryMock
+            .Setup(r => r.GetForUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
 
         _handler = new GetUserSessionsQueryHandler(
             _sessionRepositoryMock.Object,
+            _deviceRepositoryMock.Object,
             _loggerMock.Object);
     }
 

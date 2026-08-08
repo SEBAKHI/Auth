@@ -169,6 +169,7 @@
     <None Include="dbo\Scripts\Upgrades\2026-07-31_EmailLayoutLogoPlatformDriven.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-08-04_BoundedIdentifierReservation.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-08-05_PolicyPublishArtifact.sql" />
+    <None Include="dbo\Scripts\Upgrades\2026-08-08_SessionDeviceColumns.sql" />
     <None Include="dbo\Scripts\ALTER_Users_PasswordHash_Nullable.sql" />
     <None Include="dbo\Scripts\RECONCILE_prod_constraint_names.sql" />
     <None Include="PublishLocations\Astoom_Auth.publish.xml" />

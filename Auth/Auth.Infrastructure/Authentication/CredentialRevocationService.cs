@@ -80,6 +80,31 @@ public class CredentialRevocationService : ICredentialRevocationService
     }
 
     /// <inheritdoc />
+    public async Task<int> TerminateSessionsByDeviceAsync(
+        Guid userId,
+        string deviceHash,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        var sessions = await _sessionRepository.GetActiveByDeviceHashAsync(
+            userId, deviceHash, cancellationToken);
+
+        foreach (var session in sessions)
+        {
+            await _sessionRepository.TerminateAsync(session.Id, reason, cancellationToken);
+            await _refreshTokenRepository.RevokeBySessionIdAsync(
+                session.Id, userId, reason, cancellationToken);
+            _blacklistService.BlacklistSession(session.Id.ToString(), session.ExpiresAt);
+        }
+
+        _logger.LogInformation(
+            "Terminated {SessionCount} sessions for user {UserId} on one device",
+            sessions.Count, userId);
+
+        return sessions.Count;
+    }
+
+    /// <inheritdoc />
     public async Task<int> RevokeAllCredentialsAsync(
         Guid userId,
         Guid? revokedBy,

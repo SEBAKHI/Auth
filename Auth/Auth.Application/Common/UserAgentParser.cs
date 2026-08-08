@@ -1,22 +1,27 @@
 using System.Text.RegularExpressions;
+using Auth.Domain.Enums;
 
 namespace Auth.Application.Common;
 
 /// <summary>
-/// Minimal user-agent classifier: turns a raw UA string into a browser/OS pair.
-/// Heuristic by design — an unrecognised agent yields nulls rather than a guess.
+/// Minimal user-agent classifier: turns a raw UA string into a browser/OS pair
+/// and a form factor. Heuristic by design — an unrecognised agent yields nulls
+/// rather than a guess.
 ///
-/// This is a deliberate port of <c>Auth_UI/packages/ui/src/user-agent.ts</c>,
-/// pattern for pattern and in the same order, and the two must stay in step. A
-/// general-purpose UA library was rejected precisely because it would disagree:
-/// the profile's session list is labelled by the client parser and the
-/// new-device email by this one, and "Edge" in one place with "Chrome" in the
-/// other reads as a second, unexplained sign-in.
+/// The only parser in the system. There was a second one in the browser
+/// (<c>Auth_UI/packages/ui/src/user-agent.ts</c>) that labelled the session list
+/// while this one labelled the new-device email, with a comment on each asking
+/// the next author to keep them in step by hand — "Edge" in one place and
+/// "Chrome" in the other reads to a user as a second, unexplained sign-in. Both
+/// labels are now derived here and persisted, so there is nothing left to drift.
+///
+/// A general-purpose UA library is still declined: the value is a short label a
+/// non-technical reader has to recognise, not a taxonomy.
 /// </summary>
 public static partial class UserAgentParser
 {
-    /// <summary>A browser/OS pair; either half may be unknown.</summary>
-    public readonly record struct ParsedUserAgent(string? Browser, string? Os)
+    /// <summary>A browser/OS pair plus a form factor; either name may be unknown.</summary>
+    public readonly record struct ParsedUserAgent(string? Browser, string? Os, DeviceType DeviceType)
     {
         /// <summary>
         /// Human-readable label for the email body, e.g. "Chrome on Windows".
@@ -59,7 +64,10 @@ public static partial class UserAgentParser
     {
         if (string.IsNullOrWhiteSpace(userAgent))
         {
-            return new ParsedUserAgent(null, null);
+            // Not Desktop: an absent agent is a caller we cannot classify at all
+            // (a script, a health probe), and guessing "computer" in the session
+            // list would be a claim we have no evidence for.
+            return new ParsedUserAgent(null, null, DeviceType.Unknown);
         }
 
         string? browser = null;
@@ -82,7 +90,15 @@ public static partial class UserAgentParser
             }
         }
 
-        return new ParsedUserAgent(browser, os);
+        // Tablet before mobile: an Android tablet's agent satisfies both tests,
+        // and the tablet pattern is the more specific one.
+        var deviceType = TabletRegex().IsMatch(userAgent)
+            ? DeviceType.Tablet
+            : MobileRegex().IsMatch(userAgent)
+                ? DeviceType.Mobile
+                : DeviceType.Desktop;
+
+        return new ParsedUserAgent(browser, os, deviceType);
     }
 
     [GeneratedRegex(@"\bEdg(?:e|A|iOS)?/")]
@@ -120,4 +136,10 @@ public static partial class UserAgentParser
 
     [GeneratedRegex("Linux")]
     private static partial Regex LinuxRegex();
+
+    [GeneratedRegex(@"\biPad\b|\bTablet\b|Android(?!.*Mobile)")]
+    private static partial Regex TabletRegex();
+
+    [GeneratedRegex(@"\bMobi|iPhone|iPod|Android.*Mobile")]
+    private static partial Regex MobileRegex();
 }

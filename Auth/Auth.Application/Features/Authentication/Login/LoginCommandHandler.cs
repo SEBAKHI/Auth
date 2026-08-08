@@ -166,9 +166,9 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         // Record successful login on entity (raises UserLoggedInEvent)
         user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
 
-        // Build device info and delegate token generation to shared builder
-        var deviceInfo = AuthenticationHelper.BuildDeviceInfo(request.UserAgent, request.DeviceId);
-        var loginResponse = await _loginResponseBuilder.BuildAsync(user, request.IpAddress, deviceInfo, cancellationToken);
+        // Delegate token generation to shared builder
+        var loginResponse = await _loginResponseBuilder.BuildAsync(
+            user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
 
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 

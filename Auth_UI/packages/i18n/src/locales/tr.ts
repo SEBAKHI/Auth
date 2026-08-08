@@ -1552,7 +1552,38 @@ export const tr: TranslationResources = {
       desktop: "Bilgisayar",
       mobile: "Mobil",
       tablet: "Tablet",
+      unknown: "Bilinmiyor",
     },
+    browsers: "Tarayıcılar",
+    browsersSubtitle:
+      "Oturum açtığınız yerler. Oturumu kapatmak tek bir oturumu sonlandırır; bir tarayıcıyı unutmak onu kaldırır ve üzerindeki tüm oturumları sonlandırır.",
+    groupingCaveat:
+      "Bir tarayıcı, kendi sakladığı verilerle tanınır. Bu veriler temizlendiğinde aynı tarayıcı burada yeni bir tarayıcı gibi görünür.",
+    activeSessionsCount: "Etkin oturumlar: {{n}}",
+    firstSeen: "İlk görülme {{date}}",
+    showSessions: "Oturumlar",
+    forgetBrowser: "Unut",
+    forgetBrowserTitle: "Bu tarayıcı unutulsun mu?",
+    forgetBrowserBody:
+      "{{name}} kaldırılacak ve üzerinde açık kalan her oturum kapatılacak. Buradan yeniden oturum açtığınızda yeni bir cihaz olarak değerlendirilecek.",
+    browserForgotten: "Tarayıcı unutuldu.",
+    unattributedSessions: "Diğer oturumlar",
+    unattributedHelp:
+      "Bağlı uygulamalar gibi, hiçbir tarayıcı belirtmeyen oturumlar.",
+    noBrowsers: "Açık oturum yok",
+    noBrowsersBody: "Oturum açtığınız tarayıcılar burada görünecek.",
+    loadFailed: "Bu yüklenemedi",
+    loadFailedBody: "Sunucuya giderken bir sorun oluştu.",
+    retry: "Yeniden dene",
+    approximateLocation: "IP adresine dayalı yaklaşık konum",
+    loginActivity: "Son oturum açma etkinliği",
+    loginActivitySubtitle:
+      "Hesabınızdaki son denemeler, başarılı ve başarısız.",
+    loginSucceeded: "Oturum açıldı",
+    loginFailed: "Başarısız oturum açma",
+    noLoginActivity: "Henüz kayıt yok",
+    unrecognisedActivity:
+      "Buradaki bir şeyi tanımıyor musunuz? Parolanızı değiştirin.",
     browserOnOs: "{{os}} üzerinde {{browser}}",
     unknownBrowser: "Bilinmeyen tarayıcı",
     ipAddress: "IP adresi",

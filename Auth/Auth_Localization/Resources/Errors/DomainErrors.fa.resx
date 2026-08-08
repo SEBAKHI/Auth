@@ -403,6 +403,12 @@
   </data>
 
   <!-- ==================== Session Errors ==================== -->
+  <data name="Device.NotFound" xml:space="preserve">
+    <value>دستگاه یافت نشد.</value>
+  </data>
+  <data name="Device.CannotForgetCurrent" xml:space="preserve">
+    <value>نمی‌توانید مرورگری را که هم‌اکنون با آن وارد شده‌اید فراموش کنید. به‌جای آن خارج شوید.</value>
+  </data>
   <data name="Session.NotFound" xml:space="preserve">
     <value>نشست یافت نشد.</value>
   </data>

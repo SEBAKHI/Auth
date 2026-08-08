@@ -403,6 +403,12 @@
   </data>
 
   <!-- ==================== Session Errors ==================== -->
+  <data name="Device.NotFound" xml:space="preserve">
+    <value>L'appareil est introuvable.</value>
+  </data>
+  <data name="Device.CannotForgetCurrent" xml:space="preserve">
+    <value>Vous ne pouvez pas oublier le navigateur sur lequel vous êtes actuellement connecté. Déconnectez-vous à la place.</value>
+  </data>
   <data name="Session.NotFound" xml:space="preserve">
     <value>La session est introuvable.</value>
   </data>

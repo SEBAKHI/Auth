@@ -26,6 +26,24 @@ public interface IUserKnownDeviceRepository
     Task<DateTime?> GetLastAlertAtAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Every browser this user has signed in from, most recently seen first.
+    /// </summary>
+    Task<IReadOnlyList<UserKnownDevice>> GetForUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Finds one of the user's devices by its row id. Scoped to the user on
+    /// purpose: an id belonging to someone else must read as absent, not as
+    /// forbidden, so the endpoint cannot be used to test whether an id exists.
+    /// </summary>
+    Task<UserKnownDevice?> GetByIdAsync(Guid userId, Guid deviceId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Removes one of the user's devices. Returns false when nothing matched,
+    /// which covers both a bad id and a concurrent delete.
+    /// </summary>
+    Task<bool> DeleteAsync(Guid userId, Guid deviceId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Records a sighting, inserting the device or refreshing an existing row.
     /// Returns true only when a row was inserted — concurrent sign-ins from the
     /// same new device race here, and this is what decides which one is the

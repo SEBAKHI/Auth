@@ -1,4 +1,5 @@
 using Auth.Application.Common;
+using Auth.Domain.Enums;
 
 namespace Auth_API.Tests.Common;
 
@@ -65,7 +66,42 @@ public class UserAgentParserTests
     public void Describe_UsesWhicheverHalfIsKnown()
     {
         // Naming half a device beats naming none of it, and beats inventing one.
-        new UserAgentParser.ParsedUserAgent("Chrome", null).Describe().Should().Be("Chrome");
-        new UserAgentParser.ParsedUserAgent(null, "Windows").Describe().Should().Be("Windows");
+        new UserAgentParser.ParsedUserAgent("Chrome", null, DeviceType.Desktop)
+            .Describe().Should().Be("Chrome");
+        new UserAgentParser.ParsedUserAgent(null, "Windows", DeviceType.Desktop)
+            .Describe().Should().Be("Windows");
+    }
+
+    [Theory]
+    // Tablets are tested before phones because an Android tablet satisfies both
+    // patterns; the iPad's agent also claims Macintosh, so the OS is macOS-ish
+    // while the form factor is not.
+    [InlineData("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1",
+        DeviceType.Tablet)]
+    [InlineData("Mozilla/5.0 (Linux; Android 13; SM-X710) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+        DeviceType.Tablet)]
+    [InlineData("Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 Chrome/120.0 Mobile Safari/537.36",
+        DeviceType.Mobile)]
+    [InlineData("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/120.0 Mobile/15E148 Safari/604.1",
+        DeviceType.Mobile)]
+    [InlineData("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36",
+        DeviceType.Desktop)]
+    // Parses to nothing recognisable, but it is still a client of some kind, so
+    // the form factor falls back to desktop rather than claiming a phone.
+    [InlineData("curl/8.4.0", DeviceType.Desktop)]
+    public void Parse_ClassifiesTheFormFactor(string userAgent, DeviceType expected)
+    {
+        UserAgentParser.Parse(userAgent).DeviceType.Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Parse_CallsAnAbsentAgentUnknownRatherThanADesktop(string? userAgent)
+    {
+        // No agent at all is a caller we cannot classify — a script, a probe.
+        // "Computer" would be a claim with no evidence behind it.
+        UserAgentParser.Parse(userAgent).DeviceType.Should().Be(DeviceType.Unknown);
     }
 }

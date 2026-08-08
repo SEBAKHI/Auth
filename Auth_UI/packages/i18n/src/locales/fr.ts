@@ -1615,7 +1615,38 @@ export const fr: TranslationResources = {
       desktop: "Ordinateur",
       mobile: "Mobile",
       tablet: "Tablette",
+      unknown: "Inconnu",
     },
+    browsers: "Navigateurs",
+    browsersSubtitle:
+      "D'où vous vous êtes connecté. Se déconnecter met fin à une session ; oublier un navigateur le supprime et met fin à toutes ses sessions.",
+    groupingCaveat:
+      "Un navigateur est reconnu grâce aux données qu'il stocke. Effacer ces données fait apparaître le même navigateur comme un nouveau.",
+    activeSessionsCount: "Sessions actives : {{n}}",
+    firstSeen: "Vu pour la première fois {{date}}",
+    showSessions: "Sessions",
+    forgetBrowser: "Oublier",
+    forgetBrowserTitle: "Oublier ce navigateur ?",
+    forgetBrowserBody:
+      "{{name}} sera supprimé et toute session encore ouverte dessus sera déconnectée. Une nouvelle connexion depuis ce navigateur sera traitée comme un nouvel appareil.",
+    browserForgotten: "Navigateur oublié.",
+    unattributedSessions: "Autres sessions",
+    unattributedHelp:
+      "Sessions n'ayant identifié aucun navigateur, comme les applications connectées.",
+    noBrowsers: "Aucune connexion",
+    noBrowsersBody: "Les navigateurs depuis lesquels vous vous connectez apparaîtront ici.",
+    loadFailed: "Chargement impossible",
+    loadFailedBody: "Un problème est survenu en chemin vers le serveur.",
+    retry: "Réessayer",
+    approximateLocation: "Approximatif, d'après l'adresse IP",
+    loginActivity: "Activité de connexion récente",
+    loginActivitySubtitle:
+      "Les dernières tentatives sur votre compte, réussies et échouées.",
+    loginSucceeded: "Connexion réussie",
+    loginFailed: "Échec de connexion",
+    noLoginActivity: "Rien d'enregistré pour l'instant",
+    unrecognisedActivity:
+      "Vous ne reconnaissez pas quelque chose ici ? Changez votre mot de passe.",
     browserOnOs: "{{browser}} sur {{os}}",
     unknownBrowser: "Navigateur inconnu",
     ipAddress: "Adresse IP",

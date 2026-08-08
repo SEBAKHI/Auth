@@ -103,7 +103,7 @@ public class AccountDeletionRecoverer
             return UserErrors.NotFound(user.Id);
         }
 
-        var deviceInfo = AuthenticationHelper.BuildDeviceInfo(userAgent, null);
-        return await _loginResponseBuilder.BuildAsync(restored, ipAddress, deviceInfo, cancellationToken);
+        return await _loginResponseBuilder.BuildAsync(
+            restored, ipAddress, userAgent, deviceId: null, cancellationToken);
     }
 }

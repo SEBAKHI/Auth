@@ -282,7 +282,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             r => r.CreateAsync(It.IsAny<LoginAttempt>(), It.IsAny<CancellationToken>()),
             Times.Once);
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -299,7 +299,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             .Returns(true);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -337,7 +337,7 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             .Returns<string, string>((_, hash) => hash == "hash-2");
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(loginResponse);
 
         // Act

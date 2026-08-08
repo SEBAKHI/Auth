@@ -403,6 +403,12 @@
   </data>
 
   <!-- ==================== Session Errors ==================== -->
+  <data name="Device.NotFound" xml:space="preserve">
+    <value>未找到该设备。</value>
+  </data>
+  <data name="Device.CannotForgetCurrent" xml:space="preserve">
+    <value>无法移除您当前登录所用的浏览器。请改为退出登录。</value>
+  </data>
   <data name="Session.NotFound" xml:space="preserve">
     <value>未找到会话。</value>
   </data>

@@ -13,6 +13,9 @@ CREATE TABLE [dbo].[UserSessions]
     [ExpiresAt] DATETIME2 NOT NULL,
     [EndedAt] DATETIME2 NULL,
     [EndReason] NVARCHAR(100) NULL,
+    [DeviceName] NVARCHAR(100) NULL,
+    [DeviceId] NVARCHAR(64) NULL,
+    [DeviceHash] CHAR(64) NULL,
 
     CONSTRAINT [PK_UserSessions] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [FK_UserSessions_Users] FOREIGN KEY ([UserId]) REFERENCES [dbo].[Users]([Id]),
@@ -20,8 +23,32 @@ CREATE TABLE [dbo].[UserSessions]
 );
 GO
 
--- EndReason values: 'logout', 'timeout', 'forced', 'security', 'password_changed'
--- DeviceType values: 'desktop', 'mobile', 'tablet', 'unknown'
+-- EndReason: written by the code, not constrained. Current writers are 'logout',
+-- 'User terminated', 'User terminated all sessions', 'User terminated all other
+-- sessions', 'Password changed', 'device_forgotten', 'Account deleted' and
+-- "Account locked: {reason}". CleanupExpiredAsync would write 'timeout' but has
+-- no caller, so expired rows are never stamped — they simply stop matching the
+-- active-session filter.
+--
+-- DeviceType values: 'desktop', 'mobile', 'tablet', 'unknown'. The form factor,
+-- parsed from the user agent — NOT a reference to a UserKnownDevices row. The
+-- two answer different questions: "is this a phone?" and "have I seen this
+-- browser before?".
+--
+-- DeviceName: the human label, e.g. "Chrome on Windows". Parsed server-side by
+-- UserAgentParser so this column and the new-device email cannot disagree.
+--
+-- DeviceId: the client-supplied per-browser identifier. NULL for clients with no
+-- browser storage to keep it in, such as the OAuth token endpoint. Forgeable, and
+-- never read as an authorization input.
+--
+-- DeviceHash: the UserKnownDevices signature for the browser this session came
+-- from — SHA-256 over the same (DeviceId, browser family, OS family) material, so
+-- the join is a key match rather than a guess. Denormalised rather than a foreign
+-- key: the ledger row is written on a path allowed to fail, can lose an insert
+-- race, and may later be forgotten by the user; a constraint would turn any of
+-- those into a failed sign-in or a deleted session record. NULL means the session
+-- cannot be attributed to a browser.
 
 -- Indexes
 CREATE NONCLUSTERED INDEX [IX_UserSessions_UserId]
@@ -45,5 +72,12 @@ GO
 
 CREATE NONCLUSTERED INDEX [IX_UserSessions_LastActivityAt]
 ON [dbo].[UserSessions] ([LastActivityAt] DESC)
+WHERE [EndedAt] IS NULL;
+GO
+
+-- Serves the forget-browser cascade: find every live session started from one
+-- browser so they can be terminated with the ledger row that names it.
+CREATE NONCLUSTERED INDEX [IX_UserSessions_DeviceHash]
+ON [dbo].[UserSessions] ([UserId], [DeviceHash])
 WHERE [EndedAt] IS NULL;
 GO

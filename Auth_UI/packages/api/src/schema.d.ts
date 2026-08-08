@@ -7846,7 +7846,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": number | string;
+                        "application/json": components["schemas"]["TerminatedCountResponse"];
                     };
                 };
                 /** @description Unauthorized */
@@ -7915,6 +7915,169 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["KnownDeviceDto"][];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/devices/{deviceId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    deviceId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TerminatedCountResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/login-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    take?: number | string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LoginAttemptDto"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -11637,6 +11800,8 @@ export interface components {
             /** Format: int32 */
             failureCount?: number | string;
         };
+        /** @enum {unknown} */
+        DeviceType: "unknown" | "desktop" | "mobile" | "tablet";
         DiscoveryDocumentDto: {
             issuer: string;
             jwks_uri: string;
@@ -11833,10 +11998,35 @@ export interface components {
             message?: string;
             publicKeyPem?: null | string;
         };
+        KnownDeviceDto: {
+            /** Format: uuid */
+            id?: string;
+            deviceName?: null | string;
+            deviceType?: components["schemas"]["DeviceType"];
+            /** Format: date-time */
+            firstSeenAt?: string;
+            /** Format: date-time */
+            lastSeenAt?: string;
+            /** Format: int32 */
+            activeSessionCount?: number | string;
+            isCurrent?: boolean;
+        };
         LockAccountRequest: {
             reason: string;
             /** Format: int32 */
             lockDurationMinutes?: null | number | string;
+        };
+        LoginAttemptDto: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: date-time */
+            attemptedAt?: string;
+            isSuccess?: boolean;
+            failureReason?: null | string;
+            ipAddress?: null | string;
+            location?: null | string;
+            deviceName?: null | string;
+            deviceType?: components["schemas"]["DeviceType"];
         };
         LoginRequest: {
             email: string;
@@ -12853,6 +13043,9 @@ export interface components {
             ipAddress?: null | string;
             userAgent?: null | string;
             deviceName?: null | string;
+            deviceType?: components["schemas"]["DeviceType"];
+            /** Format: uuid */
+            knownDeviceId?: null | string;
             location?: null | string;
             /** Format: date-time */
             createdAt?: string;
@@ -12937,6 +13130,10 @@ export interface components {
             modifiedBy?: null | string;
             modifiedByName?: null | string;
             fields?: components["schemas"]["SystemSettingsFieldDto"][];
+        };
+        TerminatedCountResponse: {
+            /** Format: int32 */
+            terminatedCount: number | string;
         };
         TokenResponse: {
             accessToken: string;

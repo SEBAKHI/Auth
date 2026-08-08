@@ -157,7 +157,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         result.FirstError.Should().Be(AuthErrors.AuthorizationCodeInvalid);
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(),
-                It.IsAny<CancellationToken>(), It.IsAny<bool>()),
+                It.IsAny<string?>(), It.IsAny<CancellationToken>(), It.IsAny<bool>()),
             Times.Never);
     }
 
@@ -262,6 +262,9 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.Is<User>(u => u.Id == userId),
                 "127.0.0.1",
                 "TestAgent/1.0",
+                // No device id: an OAuth token call has no browser storage to
+                // have kept one in.
+                null,
                 It.IsAny<CancellationToken>(),
                 false,
                 It.IsAny<string?>(),
@@ -301,6 +304,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
         _loginResponseBuilderMock.Verify(
             b => b.BuildAsync(
                 It.IsAny<User>(),
+                It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<string?>(),
                 It.IsAny<CancellationToken>(),

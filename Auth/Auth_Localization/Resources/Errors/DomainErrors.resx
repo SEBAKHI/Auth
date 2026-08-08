@@ -402,6 +402,14 @@
     <value>The webhook key has already been revoked.</value>
   </data>
 
+  <!-- ==================== Device Errors ==================== -->
+  <data name="Device.NotFound" xml:space="preserve">
+    <value>The device was not found.</value>
+  </data>
+  <data name="Device.CannotForgetCurrent" xml:space="preserve">
+    <value>You cannot forget the browser you are currently signed in on. Sign out instead.</value>
+  </data>
+
   <!-- ==================== Session Errors ==================== -->
   <data name="Session.NotFound" xml:space="preserve">
     <value>The session was not found.</value>

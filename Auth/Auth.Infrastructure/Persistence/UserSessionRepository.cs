@@ -13,8 +13,19 @@ public class UserSessionRepository : IUserSessionRepository
 {
     private readonly IDbConnectionFactory _connectionFactory;
 
-    // SQL SELECT clause with column aliases for direct entity mapping
-    // Database columns are aliased to match C# entity property names
+    // Mirrors the column widths in UserSessions.sql.
+    private const int UserAgentMaxLength = 500;
+    private const int DeviceNameMaxLength = 100;
+    private const int DeviceIdMaxLength = 64;
+
+    private static string? Truncate(string? value, int maxLength) =>
+        value is not null && value.Length > maxLength ? value[..maxLength] : value;
+
+    // SQL SELECT clause with column aliases for direct entity mapping.
+    // Only genuinely differently-named columns are aliased; every device column
+    // maps to the property of the same name. [DeviceType] used to be aliased to
+    // [DeviceName], which made the entity's DeviceName always null and its
+    // DeviceType unreadable — two properties fed by one column that held neither.
     private const string SelectColumns = @"
         [Id],
         [UserId],
@@ -22,7 +33,13 @@ public class UserSessionRepository : IUserSessionRepository
         [SessionToken] AS [SessionTokenHash],
         [IpAddress],
         [UserAgent],
-        [DeviceType] AS [DeviceName],
+        -- Rows written before the column was populated hold NULL, and the entity
+        -- maps this to a non-nullable enum; 'unknown' is the member that means
+        -- exactly that.
+        COALESCE([DeviceType], 'unknown') AS [DeviceType],
+        [DeviceName],
+        [DeviceId],
+        [DeviceHash],
         [Location],
         [StartedAt] AS [CreatedAt],
         [LastActivityAt],
@@ -71,12 +88,14 @@ public class UserSessionRepository : IUserSessionRepository
                 [Id], [UserId], [ApplicationId], [SessionToken],
                 [IpAddress], [UserAgent], [DeviceType], [Location],
                 [StartedAt], [LastActivityAt], [ExpiresAt],
-                [EndedAt], [EndReason]
+                [EndedAt], [EndReason],
+                [DeviceName], [DeviceId], [DeviceHash]
             ) VALUES (
                 @Id, @UserId, @ApplicationId, @SessionTokenHash,
-                @IpAddress, @UserAgent, @DeviceName, @Location,
+                @IpAddress, @UserAgent, @DeviceType, @Location,
                 @CreatedAt, @LastActivityAt, @ExpiresAt,
-                @TerminatedAt, @TerminationReason
+                @TerminatedAt, @TerminationReason,
+                @DeviceName, @DeviceId, @DeviceHash
             )",
             new
             {
@@ -85,14 +104,24 @@ public class UserSessionRepository : IUserSessionRepository
                 session.ApplicationId,
                 session.SessionTokenHash,
                 session.IpAddress,
-                session.UserAgent,
-                DeviceName = session.DeviceName ?? session.DeviceId,
+                // A user agent longer than the column costs the whole row: the
+                // insert throws and the caller's catch swallows it, leaving a
+                // signed-in user with no session to manage. Truncating loses the
+                // tail of a string we only ever parse the head of.
+                UserAgent = Truncate(session.UserAgent, UserAgentMaxLength),
+                // Dapper sends an enum as its numeric value; the column holds the
+                // documented lowercase vocabulary, which is what the member names
+                // lowercase to.
+                DeviceType = session.DeviceType.ToString().ToLowerInvariant(),
                 session.Location,
                 session.CreatedAt,
                 session.LastActivityAt,
                 session.ExpiresAt,
                 session.TerminatedAt,
-                session.TerminationReason
+                session.TerminationReason,
+                DeviceName = Truncate(session.DeviceName, DeviceNameMaxLength),
+                DeviceId = Truncate(session.DeviceId, DeviceIdMaxLength),
+                session.DeviceHash
             });
 
         return session;
@@ -121,15 +150,15 @@ public class UserSessionRepository : IUserSessionRepository
             });
     }
 
-    // Column names are the real table columns ([StartedAt], [DeviceType]), not
-    // the SELECT aliases, to stay unambiguous.
+    // Column names are the real table columns ([StartedAt]), not the SELECT
+    // aliases, to stay unambiguous.
     private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
         (SortFields.Sessions.CreatedAt, ["[StartedAt]"]),
         (SortFields.Sessions.LastActivityAt, ["[LastActivityAt]"]),
         (SortFields.Sessions.ExpiresAt, ["[ExpiresAt]"]),
         (SortFields.Sessions.IpAddress, ["[IpAddress]"]),
         (SortFields.Sessions.UserAgent, ["[UserAgent]"]),
-        (SortFields.Sessions.DeviceName, ["[DeviceType]"]),
+        (SortFields.Sessions.DeviceName, ["[DeviceName]"]),
         (SortFields.Sessions.Location, ["[Location]"]));
 
     /// <inheritdoc />
@@ -151,6 +180,26 @@ public class UserSessionRepository : IUserSessionRepository
               AND [ExpiresAt] > GETUTCDATE()
             ORDER BY {orderBy}",
             new { UserId = userId });
+
+        return sessions.ToList().AsReadOnly();
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<UserSession>> GetActiveByDeviceHashAsync(
+        Guid userId,
+        string deviceHash,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var sessions = await connection.QueryAsync<UserSession>($@"
+            SELECT {SelectColumns}
+            FROM [dbo].[UserSessions]
+            WHERE [UserId] = @UserId
+              AND [DeviceHash] = @DeviceHash
+              AND [EndedAt] IS NULL
+              AND [ExpiresAt] > GETUTCDATE()",
+            new { UserId = userId, DeviceHash = deviceHash });
 
         return sessions.ToList().AsReadOnly();
     }

@@ -170,7 +170,7 @@ public class ExternalLoginCommandHandlerTests
             .Setup(r => r.GetByIdAsync(externalLogin.UserId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -218,7 +218,7 @@ public class ExternalLoginCommandHandlerTests
         result.Value.User.Should().BeNull();
 
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -243,7 +243,7 @@ public class ExternalLoginCommandHandlerTests
             .Setup(r => r.GetByEmailAsync(externalUser.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(It.IsAny<User>(), command.IpAddress, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(It.IsAny<User>(), command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -282,7 +282,7 @@ public class ExternalLoginCommandHandlerTests
             .Setup(r => r.GetByEmailAsync(externalUser.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingUser);
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(existingUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(existingUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -319,7 +319,7 @@ public class ExternalLoginCommandHandlerTests
             .Setup(r => r.GetByEmailAsync(externalUser.Email, It.IsAny<CancellationToken>()))
             .ReturnsAsync((User?)null);
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(It.IsAny<User>(), command.IpAddress, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(It.IsAny<User>(), command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(loginResponse);
 
         // Act

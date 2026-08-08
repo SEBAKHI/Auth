@@ -234,9 +234,9 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         // Record successful login on entity (raises UserLoggedInEvent)
         user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
 
-        // Build device info and return login response
-        var deviceInfo = AuthenticationHelper.BuildDeviceInfo(request.UserAgent, request.DeviceId);
-        var loginResponse = await _loginResponseBuilder.BuildAsync(user, request.IpAddress, deviceInfo, cancellationToken);
+        // Return login response
+        var loginResponse = await _loginResponseBuilder.BuildAsync(
+            user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
 
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 

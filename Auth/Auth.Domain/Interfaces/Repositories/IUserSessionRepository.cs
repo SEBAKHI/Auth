@@ -39,6 +39,15 @@ public interface IUserSessionRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Gets the user's active sessions that were started from one browser.
+    /// Used to end them all when that browser is forgotten.
+    /// </summary>
+    Task<IReadOnlyList<UserSession>> GetActiveByDeviceHashAsync(
+        Guid userId,
+        string deviceHash,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Terminates all sessions for a user.
     /// </summary>
     Task TerminateAllForUserAsync(Guid userId, string reason, CancellationToken cancellationToken);
