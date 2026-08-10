@@ -1,42 +1,47 @@
-﻿-- Notification Layouts Seed Data
--- Global Email layout: SEBAKHI-brand design (monochrome, 600px table layout, dark-mode aware).
--- Styles cover both the current template classes and the legacy ones (.warning, .link-fallback)
--- so older custom templates keep rendering correctly.
--- Liquid placeholders: {{ dir }}, {{ lang }}, {{ content | raw }}, {{ strings.footer | raw }},
--- plus renderer globals ({{ Platform.Name }}, {{ Application.Name }}, {{ Year }}).
--- The per-language chrome strings live in StringsJson; string values are themselves Liquid
--- templates (the renderer resolves {{ SenderName }} before injecting them).
---
--- DARK MODE, HONESTLY SCOPED (verified against caniemail.com, 2026-08-10):
---   * @media (prefers-color-scheme: dark) reaches Apple Mail 13+, Outlook.com/macOS/iOS/Android,
---     Samsung Email 6.1+, Fastmail. It does NOT reach Gmail on ANY platform, Yahoo, AOL,
---     ProtonMail, Outlook for Windows or HEY.
---   * Gmail instead applies its own transformation (full inversion on iOS, partial on Android)
---     and offers no way to opt in or out. The LIGHT palette is therefore designed to survive
---     being machine-inverted: every surface is opaque, so the client always has a defined
---     colour to convert instead of guessing.
---   * The logo is the one element no client recolours, which is why the light/dark plates are
---     baked into the PNG rather than painted with CSS. See EmailLogoRendition in the API.
---
--- BASE DIRECTION (RTL/LTR) - READ BEFORE EDITING ANY dir= OR direction:
---   Gmail and most webmail do NOT render the email as a document: they strip <html>/<head>,
---   replace <body> with a <div>, and graft the result into their own LTR page. So
---   `<html dir>` never exists there and a `body { direction }` rule in <style> matches
---   nothing - which is exactly why Arabic used to render with an LTR base and throw
---   sentence-final punctuation to the far side of the line.
---   Direction therefore rides on carriers INSIDE <body>, repeated on every container:
---     1. the dir attribute   (caniemail: full support in Gmail web/iOS/Android)
---     2. an inline direction: declaration (survives <style> being dropped entirely)
---     3. align= on the centred cells (survives even inline CSS being stripped)
---   It is deliberately redundant because you cannot predict where a sanitiser cuts.
---   `<html dir>` and the body rule stay: they are the only carriers Outlook for Windows
---   honours, and they cost nothing.
---   NEVER use text-align:start/end here - unsupported in all Outlook for Windows, Yahoo,
---   AOL, Orange, GMX and Web.de. Write right/left through the {{ dir }} conditional.
---   Interpolated identity values sit in <span dir="auto"> so a tenant name ending in a
---   neutral ("Astoom Inc.") cannot drag the punctuation out of the run.
+/*
+  2026-08-10 - Email layout: base direction that survives webmail sanitisers
 
-DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+  Arabic, Urdu and Persian mail rendered with an LTR base direction in Gmail (web) and
+  MailEnable webmail: sentence-final punctuation detached from the Arabic run and the
+  footer read back-to-front. Outlook for Windows and the console preview were correct,
+  which is what made the defect hard to see.
+
+  Cause: the layout declared direction in exactly two places, and both are destroyed by
+  webmail. Gmail strips <html>/<head> and REPLACES <body> with a <div> before grafting the
+  message into its own LTR page (caniemail html-body: "Partial. Replaced by a <div> with
+  supported attributes."), so `<html dir>` never exists and the `body { direction }` rule in
+  <style> matches nothing. Outlook for Windows hands the whole document to the Word engine,
+  which honours <html dir> - hence the split behaviour. Nothing else in the message declared
+  direction: all 45 RTL translations carry zero dir attributes.
+
+  Fix: direction now rides on carriers INSIDE <body>, repeated on every container - the dir
+  attribute, an inline direction: declaration, and align= on centred cells - so it survives
+  <body> replacement, <style> loss, and clients that strip dir from <table>/<td>. Absolute
+  text-align keywords only; start/end are unsupported in all Outlook for Windows, Yahoo, AOL,
+  Orange, GMX and Web.de. Interpolated identity values are wrapped in <span dir="auto"> so a
+  tenant name ending in a neutral ("Astoom Inc.") cannot drag punctuation out of its run.
+
+  This is a LAYOUT-ONLY fix: template bodies are untouched, so it reaches all 15 templates in
+  all 7 languages at once. NotificationTemplateTranslations is pointer-versioned and a blanket
+  rewrite there would corrupt retained version history.
+
+  Idempotent. The fingerprint is the <body> tag of the 2026-08-10 dark-mode generation, which
+  this script consumes; it must therefore run AFTER 2026-08-10_EmailLayoutDarkModeAndLogo.sql.
+  That earlier script's own fingerprint is already spent on every database that ran it, so its
+  literal is frozen and this is a new script rather than an edit - editing it in place would
+  reach fresh dev databases and no production one.
+
+  Fresh databases get the new layout straight from SeedData\11_NotificationLayouts.sql and
+  this script is a no-op there.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET NOCOUNT ON;
+
+PRINT 'Upgrade 2026-08-10 (RTL): moving base direction onto carriers webmail preserves...';
+
+-- Present only in the 2026-08-10 dark-mode generation; absent once this script has run.
+DECLARE @OldBody NVARCHAR(200) = N'<body bgcolor="#F1F1EF" style="background-color:#F1F1EF;">';
+DECLARE @NewMarker NVARCHAR(200) = N'<body bgcolor="#F1F1EF" dir="{{ dir }}"';
 
 DECLARE @LayoutContent NVARCHAR(MAX) = N'<!DOCTYPE html>
 <html lang="{{ lang }}" dir="{{ dir }}">
@@ -240,28 +245,39 @@ strong { color:#141414; }
 </body>
 </html>';
 
-DECLARE @LayoutStrings NVARCHAR(MAX) = N'{
-"en": {"footer": "This is an automated message from {{ SenderName }}. Please do not reply to this email."},
-"ar": {"footer": "هذه رسالة تلقائية من {{ SenderName }}. يرجى عدم الرد على هذا البريد الإلكتروني."},
-"tr": {"footer": "Bu, {{ SenderName }} tarafından gönderilen otomatik bir mesajdır. Lütfen bu e-postayı yanıtlamayın."},
-"fr": {"footer": "Ceci est un message automatique de {{ SenderName }}. Veuillez ne pas répondre à cet e-mail."},
-"zh": {"footer": "这是来自{{ SenderName }}的自动消息，请勿回复此邮件。"},
-"ur": {"footer": "یہ {{ SenderName }} کی طرف سے ایک خودکار پیغام ہے۔ براہ کرم اس ای میل کا جواب نہ دیں۔"},
-"fa": {"footer": "این یک پیام خودکار از {{ SenderName }} است. لطفاً به این ایمیل پاسخ ندهید."}
-}';
+-- Published copy. Channel 1 = Email; the sweep covers application-scoped layouts too.
+UPDATE [dbo].[NotificationLayouts]
+SET [PublishedContent] = @LayoutContent
+WHERE [Channel] = 1
+  AND [PublishedContent] IS NOT NULL
+  AND CHARINDEX(@OldBody, [PublishedContent]) > 0
+  AND CHARINDEX(@NewMarker, [PublishedContent]) = 0;
 
-IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationLayouts] WHERE [Id] = '41000000-0000-0000-0000-000000000001')
+PRINT '  PublishedContent rows updated: ' + CAST(@@ROWCOUNT AS NVARCHAR(10));
+
+-- Draft copy, kept in step so the console shows no phantom "unpublished changes" diff.
+UPDATE [dbo].[NotificationLayouts]
+SET [DraftContent] = @LayoutContent
+WHERE [Channel] = 1
+  AND CHARINDEX(@OldBody, [DraftContent]) > 0
+  AND CHARINDEX(@NewMarker, [DraftContent]) = 0;
+
+PRINT '  DraftContent rows updated: ' + CAST(@@ROWCOUNT AS NVARCHAR(10));
+
+-- Report, never touch, any Email layout an admin customised away from the fingerprint.
+-- Those keep the LTR-base bug in RTL languages and must be updated by hand.
+DECLARE @Customised INT = (
+    SELECT COUNT(*) FROM [dbo].[NotificationLayouts]
+    WHERE [Channel] = 1 AND CHARINDEX(@NewMarker, ISNULL([PublishedContent], N'')) = 0);
+
+IF @Customised > 0
 BEGIN
-    INSERT INTO [dbo].[NotificationLayouts]
-        ([Id], [ApplicationId], [Channel], [Name], [DraftContent], [DraftStringsJson], [PublishedContent], [PublishedStringsJson], [PublishedAt], [PublishedBy], [CreatedAt], [CreatedBy])
-    VALUES
-        ('41000000-0000-0000-0000-000000000001', NULL, 1, N'Default Email Layout',
-         @LayoutContent, @LayoutStrings, @LayoutContent, @LayoutStrings,
-         GETUTCDATE(), @SystemUserId, GETUTCDATE(), @SystemUserId);
-    PRINT 'Created default global email layout (published)';
+    PRINT '  WARNING: ' + CAST(@Customised AS NVARCHAR(10)) +
+          ' customised Email layout(s) were left untouched and still set direction only on <html>/body.';
+    SELECT [Id], [ApplicationId], [Name]
+    FROM [dbo].[NotificationLayouts]
+    WHERE [Channel] = 1 AND CHARINDEX(@NewMarker, ISNULL([PublishedContent], N'')) = 0;
 END
-ELSE
-BEGIN
-    PRINT 'Default email layout already exists';
-END
+
+PRINT '  Note: sends use the new layout within 15 minutes (TemplateCache absolute TTL).';
 GO

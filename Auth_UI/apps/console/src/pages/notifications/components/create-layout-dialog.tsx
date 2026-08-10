@@ -21,6 +21,14 @@ import { Input } from "@authsystem/ui/input"
  * A starter layout so the admin edits a working document rather than a blank
  * one. Only application-specific layouts are created here — the global layout is
  * seeded and always present as the fallback.
+ *
+ * The direction carriers are deliberately repeated on every container inside the
+ * body. Gmail and most webmail strip `<html>`/`<head>` and replace `<body>` with a
+ * `<div>` before grafting the message into their own LTR page, so a `dir` on
+ * `<html>` and a `direction` in a `body {}` rule — the obvious places — both reach
+ * nothing, and Arabic/Urdu/Persian render with an LTR base. Layouts created from
+ * this template live only in the database, so no migration can retrofit them: the
+ * starter has to be right on the first save.
  */
 const STARTER_CONTENT = `<!DOCTYPE html>
 <html dir="{{ dir }}" lang="{{ lang }}">
@@ -34,22 +42,24 @@ const STARTER_CONTENT = `<!DOCTYPE html>
         .footer { text-align: center; margin-top: 30px; color: #9ca3af; font-size: 14px; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="card">
+<body dir="{{ dir }}" style="direction: {{ dir }};">
+    <div class="container" dir="{{ dir }}" style="direction: {{ dir }};">
+        <div class="card" dir="{{ dir }}" style="direction: {{ dir }};">
 {{ content | raw }}
         </div>
-        <div class="footer">
-            <p>{{ strings.footer | raw }}</p>
+        <div class="footer" dir="{{ dir }}" style="direction: {{ dir }}; text-align: center;">
+            <p dir="{{ dir }}" style="direction: {{ dir }}; text-align: center;">{{ strings.footer | raw }}</p>
         </div>
     </div>
 </body>
 </html>`
 
+// The sender name is tenant-supplied: one ending in a neutral ("Astoom Inc.") would
+// otherwise drag the sentence's period out of its run and render as ".Astoom Inc".
 const STARTER_STRINGS = JSON.stringify(
   {
-    en: { footer: "This is an automated message from {{ SenderName }}." },
-    ar: { footer: "هذه رسالة تلقائية من {{ SenderName }}." },
+    en: { footer: 'This is an automated message from <span dir="auto">{{ SenderName }}</span>.' },
+    ar: { footer: 'هذه رسالة تلقائية من <span dir="auto">{{ SenderName }}</span>.' },
   },
   null,
   2

@@ -15,6 +15,9 @@ It creates all seed data in the correct order.
 -- Supersedes the logo block the 2026-07-31 script installs: that one pointed the layout at
 -- the raw uploaded logo (alpha WebP), which Gmail flattens onto black. Must run after it.
 :r ..\Scripts\Upgrades\2026-08-10_EmailLayoutDarkModeAndLogo.sql
+-- Consumes the layout the previous script installs (its fingerprint is that generation's
+-- <body> tag), so this ordering is load-bearing, not cosmetic.
+:r ..\Scripts\Upgrades\2026-08-10_EmailLayoutRtlHardening.sql
 
 PRINT 'Starting post-deployment seed data...';
 PRINT '======================================';

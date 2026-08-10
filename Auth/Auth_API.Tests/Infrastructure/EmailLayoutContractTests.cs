@@ -15,7 +15,18 @@ namespace Auth_API.Tests.Infrastructure;
 /// </summary>
 public class EmailLayoutContractTests
 {
-    private const string UpgradeScript = "2026-08-10_EmailLayoutDarkModeAndLogo.sql";
+    // The layout is carried by a CHAIN of upgrade scripts, each fingerprinting the previous
+    // one's output. Only the newest still matches the seed; older ones are frozen historical
+    // steps whose fingerprints are already spent on every database that ran them.
+    private const string UpgradeScript = "2026-08-10_EmailLayoutRtlHardening.sql";
+
+    private static readonly string[] UpgradeChain =
+    [
+        "2026-07-31_EmailLayoutLogoPlatformDriven.sql",
+        "2026-08-10_EmailLayoutDarkModeAndLogo.sql",
+        "2026-08-10_EmailLayoutRtlHardening.sql"
+    ];
+
     private const string SeedScript = "11_NotificationLayouts.sql";
     private const string LayoutDeclaration = "DECLARE @LayoutContent NVARCHAR(MAX) = N'";
 
@@ -31,21 +42,35 @@ public class EmailLayoutContractTests
     }
 
     [Fact]
-    public void UpgradeScript_IsIncludedInPostDeploymentAfterTheLogoMigration()
+    public void UpgradeChain_RunsInOrderInPostDeployment()
     {
+        // Each script fingerprints the previous one's OUTPUT, so the order is load-bearing:
+        // run them out of sequence and every UPDATE silently matches zero rows.
         var postDeployment = File.ReadAllText(Path.Combine(
             DbScriptsDirectory(), "..", "PostDeployment", "Script.PostDeployment.sql"));
 
-        var thisIndex = postDeployment.IndexOf(UpgradeScript, StringComparison.OrdinalIgnoreCase);
-        thisIndex.Should().BeGreaterThan(-1,
-            "an upgrade script only runs because of its :r include - a <None> entry in the " +
-            "sqlproj is project visibility, not execution");
+        var previousIndex = -1;
+        foreach (var script in UpgradeChain)
+        {
+            var index = postDeployment.IndexOf(script, StringComparison.OrdinalIgnoreCase);
+            index.Should().BeGreaterThan(-1,
+                $"'{script}' only runs because of its :r include - a <None> entry in the " +
+                "sqlproj is project visibility, not execution");
+            index.Should().BeGreaterThan(previousIndex,
+                $"'{script}' consumes the output of the script before it in the chain");
+            previousIndex = index;
+        }
+    }
 
-        var predecessorIndex = postDeployment.IndexOf(
-            "2026-07-31_EmailLayoutLogoPlatformDriven.sql", StringComparison.OrdinalIgnoreCase);
-        predecessorIndex.Should().BeGreaterThan(-1);
-        thisIndex.Should().BeGreaterThan(predecessorIndex,
-            "this script supersedes the logo block the 2026-07-31 script installs, so it must run after it");
+    [Fact]
+    public void SupersededUpgradeScripts_AreMarkedFrozen()
+    {
+        // Editing a spent literal in place applies to fresh developer databases and to no
+        // production database at all - a no-op that reads like a fix in review.
+        var superseded = File.ReadAllText(UpgradePath("2026-08-10_EmailLayoutDarkModeAndLogo.sql"));
+
+        superseded.Should().Contain("FROZEN",
+            "a superseded layout script must say so, or the next person edits its dead literal");
     }
 
     [Fact]
@@ -229,6 +254,63 @@ public class EmailLayoutContractTests
             darkBlock.Should().Contain($".{firstClass}",
                 $"'.{firstClass}' paints a surface in light mode and needs a dark override");
         }
+    }
+
+    [Fact]
+    public void BaseDirection_SurvivesWithoutTheHtmlTagOrTheStyleBlock()
+    {
+        // Gmail strips <html>/<head> and replaces <body> with a <div> before grafting the
+        // message into its own LTR page, so `<html dir>` never exists there and a
+        // `body { direction }` rule matches nothing. Direction must therefore be carried by
+        // elements INSIDE <body>. This test simulates that amputation.
+        var layout = SeedLayout();
+        var markup = layout[layout.IndexOf("<body", StringComparison.Ordinal)..];
+        var afterBodyTag = markup[(markup.IndexOf('>') + 1)..];
+
+        afterBodyTag.Should().Contain("dir=\"{{ dir }}\"",
+            "with <html> and <body> gone, direction only survives on elements inside the body");
+
+        // Every text-bearing container must carry it, not just the outermost one: some
+        // clients strip dir from <table>/<td> specifically.
+        System.Text.RegularExpressions.Regex.Matches(afterBodyTag, @"dir=""\{\{ dir \}\}""")
+            .Count.Should().BeGreaterThanOrEqualTo(6,
+                "direction is deliberately redundant - you cannot predict where a sanitiser cuts");
+
+        // A non-table carrier is required: the content wrapper div and the footer paragraphs.
+        afterBodyTag.Should().Contain("<div dir=\"{{ dir }}\"",
+            "clients that strip dir from table/td leave the content unanchored without a div carrier");
+        afterBodyTag.Should().Contain("<p dir=\"{{ dir }}\"",
+            "the footer paragraphs need their own carrier for the same reason");
+
+        // Inline direction survives even total <style> loss.
+        afterBodyTag.Should().Contain("direction:{{ dir }};",
+            "an inline declaration is the belt to the dir attribute's braces");
+    }
+
+    [Fact]
+    public void Layout_NeverUsesFlowRelativeTextAlign()
+    {
+        // start/end are unsupported in every Outlook for Windows, Yahoo, AOL, Orange, GMX
+        // and Web.de. Direction-aware alignment must be written through the {{ dir }}
+        // conditional as an absolute keyword.
+        var layout = WithoutCssComments(SeedLayout());
+
+        layout.Should().NotContain("text-align:start",
+            "flow-relative alignment silently falls back to left in a large share of clients");
+        layout.Should().NotContain("text-align:end");
+        layout.Should().NotContain("text-align: start");
+    }
+
+    [Fact]
+    public void InterpolatedIdentityValues_AreBidiIsolated()
+    {
+        // A tenant name ending in a neutral ("Astoom Inc.") merges its own period with the
+        // sentence's, and the pair gets ejected from the Latin run - rendering ".Astoom Inc".
+        // dir="auto" gives the span first-strong detection plus UA unicode-bidi:isolate.
+        var markup = SeedLayout();
+
+        markup.Should().Contain("<span dir=\"auto\">{{ Application.Name }}</span>");
+        markup.Should().Contain("<span dir=\"auto\">{{ Platform.Name }}</span>");
     }
 
     [Fact]

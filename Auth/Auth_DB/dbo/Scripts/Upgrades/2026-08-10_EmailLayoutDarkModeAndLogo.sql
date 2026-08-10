@@ -1,4 +1,12 @@
 /*
+  FROZEN - HISTORICAL STEP. Do NOT edit the @LayoutContent literal below.
+
+  Its fingerprint (@OldFrame) is already spent on every database that has run it, so an
+  in-place edit would apply to fresh developer databases and to NO production database -
+  a silent no-op that looks like a fix. The layout has since been superseded by
+  2026-08-10_EmailLayoutRtlHardening.sql, which takes this script's output as ITS input
+  fingerprint. Carry any further layout change in a NEW upgrade script.
+
   2026-08-10 - Email layout: dark-mode parity + email-safe logo renditions
 
   Two user-reported defects, both living entirely in the global email layout:

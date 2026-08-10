@@ -285,7 +285,12 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         surface.Canvas.Clear(PlateColor(variant));
         using (var mark = SKImage.FromBitmap(scaled))
         {
-            surface.Canvas.DrawImage(mark, PlatePaddingPx, PlatePaddingPx);
+            // The bitmap was already resampled by Resize above, so this draw is 1:1 and the
+            // sampling mode is immaterial - but the parameterless overload is obsolete.
+            surface.Canvas.DrawImage(
+                mark,
+                new SKPoint(PlatePaddingPx, PlatePaddingPx),
+                new SKSamplingOptions(SKCubicResampler.Mitchell));
         }
         surface.Canvas.Flush();
 
