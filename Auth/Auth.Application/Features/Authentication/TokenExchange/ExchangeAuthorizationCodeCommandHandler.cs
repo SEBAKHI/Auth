@@ -124,9 +124,20 @@ public class ExchangeAuthorizationCodeCommandHandler
         // The token is scoped to THIS app (aud = client id) so it cannot be
         // replayed against another first-party app; the applicationId records that on
         // the refresh token so refreshes keep the same audience.
-        var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, deviceId: null, cancellationToken,
+        var built = await _loginResponseBuilder.BuildAsync(
+            user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken,
             establishIdpSession: false, audience: application.Code, applicationId: application.Id);
+
+        if (built.IsError)
+        {
+            // At the concurrent session limit. The authorization code has already
+            // been consumed single-use; that is correct — the code was spent, and
+            // the client must start a fresh authorize round after the user frees
+            // a session.
+            return built.Errors;
+        }
+
+        var loginResponse = built.Value;
 
         _logger.LogInformation(
             "Authorization code exchanged for tokens: client {ClientId}, user {UserId}",

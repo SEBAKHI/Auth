@@ -3,8 +3,10 @@ using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
+using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -31,11 +33,19 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly IUserKnownDeviceRepository _knownDeviceRepository;
     private readonly IGeoIpLookup _geoIpLookup;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
     private readonly IdentityProviderSettings _idpSettings;
     private readonly NotificationSettings _notificationSettings;
+    private readonly SessionSettings _sessionSettings;
     private readonly ILogger<LoginResponseBuilder> _logger;
+
+    /// <summary>
+    /// Recorded on sessions ended to stay within the concurrent session limit.
+    /// Documented alongside the other EndReason writers in UserSessions.sql.
+    /// </summary>
+    private const string SessionLimitEndReason = "session_limit";
 
     public LoginResponseBuilder(
         IRoleRepository roleRepository,
@@ -50,10 +60,12 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         IIdpSessionRepository idpSessionRepository,
         IUserKnownDeviceRepository knownDeviceRepository,
         IGeoIpLookup geoIpLookup,
+        ICredentialRevocationService credentialRevocation,
         IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         IOptionsSnapshot<NotificationSettings> notificationSettings,
+        IOptionsSnapshot<SessionSettings> sessionSettings,
         ILogger<LoginResponseBuilder> logger)
     {
         _roleRepository = roleRepository;
@@ -68,15 +80,17 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         _idpSessionRepository = idpSessionRepository;
         _knownDeviceRepository = knownDeviceRepository;
         _geoIpLookup = geoIpLookup;
+        _credentialRevocation = credentialRevocation;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
         _idpSettings = idpSettings.Value;
         _notificationSettings = notificationSettings.Value;
+        _sessionSettings = sessionSettings.Value;
         _logger = logger;
     }
 
     /// <inheritdoc />
-    public async Task<LoginResponse> BuildAsync(
+    public async Task<ErrorOr<LoginResponse>> BuildAsync(
         User user,
         string? ipAddress,
         string? userAgent,
@@ -86,6 +100,40 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         string? audience = null,
         Guid? applicationId = null)
     {
+        // The refusal branch of the concurrent session limit, and the first thing
+        // this method does. Once past here a refresh token row exists and an
+        // access token has been signed; refusing after that would hand out
+        // credentials for a sign-in that was rejected.
+        var limit = _sessionSettings.MaxConcurrentSessions;
+        if (limit > 0 && !_sessionSettings.TerminateOldestOnMax)
+        {
+            var activeCount = await _sessionRepository.CountActiveForUserAsync(
+                user.Id, cancellationToken);
+
+            if (activeCount >= limit)
+            {
+                // Without this the user opens their own sign-in history and finds
+                // nothing where their rejected attempt should be. The reason is
+                // written as prose because FailureReason holds text a person
+                // reads, not a code.
+                await _loginAttemptRepository.CreateAsync(
+                    LoginAttempt.CreateFailure(
+                        user.Email,
+                        "Maximum concurrent sessions reached",
+                        ipAddress,
+                        userAgent,
+                        user.Id,
+                        applicationId: applicationId),
+                    cancellationToken);
+
+                _logger.LogInformation(
+                    "Refused sign-in for user {UserId}: {ActiveCount} active sessions at a limit of {Limit}",
+                    user.Id, activeCount, limit);
+
+                return SessionErrors.MaxSessionsReached;
+            }
+        }
+
         // Get roles and permissions
         var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
         var roleNames = roles.Select(r => r.Code).ToList();
@@ -108,6 +156,16 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         var parsedAgent = UserAgentParser.Parse(userAgent);
         var deviceName = parsedAgent.Describe();
         var deviceHash = UserKnownDevice.ComputeHash(deviceId, parsedAgent.Browser, parsedAgent.Os);
+
+        // What this browser's signature would have been before the client sent
+        // its identifier on every request. Accounts created while verify-email
+        // omitted it hold a row under exactly this value, and the ledger would
+        // otherwise record the same browser a second time — with a "new device"
+        // email announcing it. Null when there is nothing to reconcile: no id
+        // was sent, so the current signature already IS the legacy one.
+        var legacySignature = string.IsNullOrWhiteSpace(deviceId)
+            ? null
+            : UserKnownDevice.ComputeHash(null, parsedAgent.Browser, parsedAgent.Os);
 
         // Generate tokens
         var accessToken = _jwtTokenService.GenerateAccessToken(
@@ -159,12 +217,53 @@ public class LoginResponseBuilder : ILoginResponseBuilder
                 null);                                       // terminationReason
             await _sessionRepository.CreateAsync(session, cancellationToken);
 
-            await TrackDeviceAsync(user, ipAddress, deviceHash, deviceName, cancellationToken);
+            await TrackDeviceAsync(
+                user, ipAddress, deviceHash, legacySignature, deviceName, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex,
                 "Failed to create session record for user {UserId}", user.Id);
+        }
+
+        // The eviction branch of the limit. A separate try/catch from the block
+        // above, in both directions: a session row that failed to insert must not
+        // skip enforcement (the account can already be over the limit from
+        // earlier sign-ins), and a failed eviction must not discard a session that
+        // was written successfully. Running after the insert is what guarantees
+        // the sign-in happening right now is the most recently used session and
+        // therefore always survives.
+        //
+        // Failure here is logged and swallowed like the rest of session tracking:
+        // the user is authenticated, and TerminateBeyondLimitAsync ends everything
+        // past the limit rather than one row, so the next sign-in corrects it.
+        if (limit > 0 && _sessionSettings.TerminateOldestOnMax)
+        {
+            try
+            {
+                var evicted = await _credentialRevocation.EnforceConcurrentSessionLimitAsync(
+                    user.Id, limit, SessionLimitEndReason, cancellationToken);
+
+                if (evicted.Count > 0)
+                {
+                    await _publisher.Publish(
+                        new SessionLimitEnforcedEvent(
+                            user.Id,
+                            user.Email,
+                            user.DisplayName ?? user.FirstName,
+                            [.. evicted.Select(s => new EndedSession(
+                                s.Id, s.DeviceName, s.IpAddress, s.LastActivityAt))],
+                            deviceName,
+                            limit,
+                            DateTime.UtcNow),
+                        cancellationToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to enforce the concurrent session limit for user {UserId}", user.Id);
+            }
         }
 
         // Record successful login
@@ -256,6 +355,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         User user,
         string? ipAddress,
         string deviceHash,
+        string? legacySignature,
         string? deviceName,
         CancellationToken cancellationToken)
     {
@@ -269,6 +369,28 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         {
             known.Touch(deviceName);
             await _knownDeviceRepository.UpsertAsync(known, cancellationToken);
+            return;
+        }
+
+        // Before treating this as a browser we have never seen, check whether it
+        // is one we recorded under its pre-header signature. Only reached on a
+        // miss, so a recognised browser still costs a single lookup.
+        if (legacySignature is not null
+            && await _knownDeviceRepository.AdoptLegacySignatureAsync(
+                user.Id, legacySignature, deviceHash, cancellationToken))
+        {
+            var adopted = await _knownDeviceRepository.GetAsync(
+                user.Id, deviceHash, cancellationToken);
+
+            if (adopted is not null)
+            {
+                adopted.Touch(deviceName);
+                await _knownDeviceRepository.UpsertAsync(adopted, cancellationToken);
+            }
+
+            // Deliberately no alert: the same browser under a better name is not
+            // a new device, and saying so would be the false alarm this whole
+            // reconciliation exists to prevent.
             return;
         }
 

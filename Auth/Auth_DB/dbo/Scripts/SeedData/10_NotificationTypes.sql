@@ -234,4 +234,25 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created sessions-revoked-token-reuse notification type';
 END
+
+-- session-limit-enforced (a sign-in put the account past
+-- Session:MaxConcurrentSessions, so its least recently used sessions were
+-- ended. NOT sessions-revoked-token-reuse: nothing is suspected here, this is
+-- ordinary policy, and copy that implies a breach would be a false alarm. The
+-- owner is told anyway — a device dropping out of a signed-in account with no
+-- explanation looks exactly like a hijacking)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000015')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000015',
+        N'session-limit-enforced',
+        N'Signed Out by the Session Limit',
+        N'Notice that older sessions were ended because the account reached its concurrent session limit',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"EndedCount","description":"How many sessions were ended","example":"1","required":true},{"name":"EndedDevices","description":"Comma-separated labels of the ended sessions; an em dash stands in for any that could not be named","example":"Safari on iPhone, Firefox on Ubuntu","required":true},{"name":"NewDeviceName","description":"The device that just signed in and triggered the limit, or an em dash when unrecognised","example":"Chrome on Windows","required":false},{"name":"SessionLimit","description":"The configured maximum number of concurrent sessions","example":"5","required":true},{"name":"SignedOutAt","description":"When the sessions were ended (UTC, yyyy-MM-dd HH:mm:ssZ)","example":"2026-08-10 11:42:00Z","required":true},{"name":"ManageSessionsLink","description":"Absolute URL of the profile page where the user can review their sessions. MUST NOT be a one-click action link: mail scanners prefetch links, so anything that ended a session would fire before a human read it","example":"https://example.com/profile","required":true}]',
+        N'{"UserName":"Jane Doe","EndedCount":"1","EndedDevices":"Safari on iPhone","NewDeviceName":"Chrome on Windows","SessionLimit":"5","SignedOutAt":"2026-08-10 11:42:00Z","ManageSessionsLink":"https://example.com/profile"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created session-limit-enforced notification type';
+END
 GO

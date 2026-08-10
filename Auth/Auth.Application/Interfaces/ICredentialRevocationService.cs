@@ -1,3 +1,5 @@
+using Auth.Domain.Entities;
+
 namespace Auth.Application.Interfaces;
 
 /// <summary>
@@ -36,6 +38,27 @@ public interface ICredentialRevocationService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of sessions terminated.</returns>
     Task<int> TerminateSessionsByDeviceAsync(Guid userId, string deviceHash, string reason, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Brings the user back within <paramref name="maxSessions"/> by killing their
+    /// least recently used sessions — ending the rows, revoking each one's refresh
+    /// tokens and blacklisting its session id, exactly as the user-initiated paths
+    /// do. Ending the row alone would evict nobody: the access token stays valid
+    /// until it expires and the refresh token puts the device straight back.
+    ///
+    /// Called after the new session exists, so the sign-in that triggered the
+    /// limit is itself the most recent and always survives.
+    /// </summary>
+    /// <param name="userId">The user whose sessions to trim.</param>
+    /// <param name="maxSessions">How many sessions the user may keep. 0 or less does nothing.</param>
+    /// <param name="reason">Reason recorded on the terminations/revocations.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The sessions that were ended, for the caller to report on.</returns>
+    Task<IReadOnlyList<UserSession>> EnforceConcurrentSessionLimitAsync(
+        Guid userId,
+        int maxSessions,
+        string reason,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Full credential wipe for account deletion/deactivation: terminates every

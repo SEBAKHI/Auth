@@ -105,6 +105,44 @@ public class CredentialRevocationService : ICredentialRevocationService
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Auth.Domain.Entities.UserSession>> EnforceConcurrentSessionLimitAsync(
+        Guid userId,
+        int maxSessions,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        if (maxSessions <= 0)
+        {
+            return [];
+        }
+
+        // The repository decides which sessions lose and ends them in one
+        // statement; only the rows it actually changed come back, so the kill
+        // loop below cannot run twice for the same session when two sign-ins
+        // race.
+        var evicted = await _sessionRepository.TerminateBeyondLimitAsync(
+            userId, maxSessions, reason, cancellationToken);
+
+        foreach (var session in evicted)
+        {
+            // revokedBy is the user themselves: no administrator asked for this,
+            // it is the account's own policy catching up with its own sign-in.
+            await _refreshTokenRepository.RevokeBySessionIdAsync(
+                session.Id, userId, reason, cancellationToken);
+            _blacklistService.BlacklistSession(session.Id.ToString(), session.ExpiresAt);
+        }
+
+        if (evicted.Count > 0)
+        {
+            _logger.LogInformation(
+                "Terminated {SessionCount} sessions for user {UserId} over the concurrent session limit of {MaxSessions}",
+                evicted.Count, userId, maxSessions);
+        }
+
+        return evicted;
+    }
+
+    /// <inheritdoc />
     public async Task<int> RevokeAllCredentialsAsync(
         Guid userId,
         Guid? revokedBy,

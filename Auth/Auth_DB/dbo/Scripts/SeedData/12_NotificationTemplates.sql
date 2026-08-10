@@ -1705,3 +1705,171 @@ BEGIN
     PRINT 'sessions-revoked-token-reuse template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 15: session-limit-enforced (global, Email channel)
+--
+-- The copy's whole job is to remove alarm without removing attention. A device
+-- that stops being signed in looks identical to a hijacking from the outside,
+-- so the message names the cause in its first line - the account's own limit,
+-- reached by the reader's own sign-in - and names the device that caused it.
+--
+-- Deliberately NOT written as a security alert: no red eyebrow, no "if this
+-- wasn't you". Nothing suspicious happened, and copy that implies otherwise
+-- teaches the reader to discount the alerts that do matter. The one line about
+-- an unrecognised sign-in comes last and stays conditional in tone.
+--
+-- The button goes to the ordinary profile page, never a one-click action:
+-- mail scanners prefetch links, so any link that ended a session would fire
+-- before a human read the message.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000015')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000015', '40000000-0000-0000-0000-000000000015', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000015', '42000000-0000-0000-0000-000000000015', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0015-000000000001', '43000000-0000-0000-0000-000000000015', N'en', N'An older session was signed out',
+N'<div class="header">
+    <p class="eyebrow">Session activity</p>
+    <h1>An older session was signed out</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">You just signed in on {{ NewDeviceName }}. Your {{ Platform.Name }} account is limited to {{ SessionLimit }} signed-in sessions at a time, so we ended the {{ EndedCount }} you had gone longest without using to make room.</p>
+<div class="notice">
+    <p class="notice-title">Signed out</p>
+    <p class="notice-text">Devices: {{ EndedDevices }}<br />When: {{ SignedOutAt }}</p>
+</div>
+<p class="message">Nothing is wrong with your account, and you can sign back in on any of those devices whenever you like — doing so will simply retire whichever session is then the oldest.</p>
+<p class="message">If you do not recognise the sign-in on {{ NewDeviceName }}, review your sessions and change your password.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSessionsLink }}">Review your sessions</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ ManageSessionsLink }}">{{ ManageSessionsLink }}</a></div>'),
+    ('44000000-0000-0000-0015-000000000002', '43000000-0000-0000-0000-000000000015', N'ar', N'أُنهيت جلسة أقدم على حسابك',
+N'<div class="header">
+    <p class="eyebrow">نشاط الجلسات</p>
+    <h1>أُنهيت جلسة أقدم على حسابك</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">سجّلت دخولك للتوّ من {{ NewDeviceName }}. وحسابك على {{ Platform.Name }} محدود بـ {{ SessionLimit }} جلسة مفتوحة في الوقت نفسه، فأنهينا {{ EndedCount }} من الجلسات التي مضى على استعمالك لها أطول مدة لإفساح المجال.</p>
+<div class="notice">
+    <p class="notice-title">ما أُنهي</p>
+    <p class="notice-text">الأجهزة: {{ EndedDevices }}<br />الوقت: {{ SignedOutAt }}</p>
+</div>
+<p class="message">لا خلل في حسابك، ويمكنك تسجيل الدخول من تلك الأجهزة متى شئت؛ وسيؤدي ذلك ببساطة إلى إنهاء الجلسة الأقدم حينها.</p>
+<p class="message">وإن كنت لا تعرف تسجيل الدخول الذي جرى من {{ NewDeviceName }}، فراجع جلساتك وغيّر كلمة مرورك.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSessionsLink }}">مراجعة الجلسات</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ ManageSessionsLink }}">{{ ManageSessionsLink }}</a></div>'),
+    ('44000000-0000-0000-0015-000000000003', '43000000-0000-0000-0000-000000000015', N'tr', N'Daha eski bir oturum kapatıldı',
+N'<div class="header">
+    <p class="eyebrow">Oturum etkinliği</p>
+    <h1>Daha eski bir oturum kapatıldı</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">Az önce {{ NewDeviceName }} üzerinden oturum açtınız. {{ Platform.Name }} hesabınızda aynı anda en fazla {{ SessionLimit }} açık oturum bulunabilir; yer açmak için en uzun süredir kullanmadığınız {{ EndedCount }} oturumu sonlandırdık.</p>
+<div class="notice">
+    <p class="notice-title">Kapatılanlar</p>
+    <p class="notice-text">Cihazlar: {{ EndedDevices }}<br />Ne zaman: {{ SignedOutAt }}</p>
+</div>
+<p class="message">Hesabınızda bir sorun yok; dilediğiniz zaman o cihazlarda yeniden oturum açabilirsiniz — bu yalnızca o an en eski olan oturumu sonlandırır.</p>
+<p class="message">{{ NewDeviceName }} üzerindeki oturum açma işlemini tanımıyorsanız oturumlarınızı gözden geçirin ve parolanızı değiştirin.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSessionsLink }}">Oturumlarınızı inceleyin</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı kopyalayıp tarayıcınıza yapıştırın:</p>
+<div class="link-box"><a href="{{ ManageSessionsLink }}">{{ ManageSessionsLink }}</a></div>'),
+    ('44000000-0000-0000-0015-000000000004', '43000000-0000-0000-0000-000000000015', N'fr', N'Une session plus ancienne a été fermée',
+N'<div class="header">
+    <p class="eyebrow">Activité des sessions</p>
+    <h1>Une session plus ancienne a été fermée</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Vous venez de vous connecter depuis {{ NewDeviceName }}. Votre compte {{ Platform.Name }} est limité à {{ SessionLimit }} sessions ouvertes simultanément : nous avons donc fermé les {{ EndedCount }} que vous n''aviez pas utilisées depuis le plus longtemps pour faire de la place.</p>
+<div class="notice">
+    <p class="notice-title">Sessions fermées</p>
+    <p class="notice-text">Appareils : {{ EndedDevices }}<br />Date : {{ SignedOutAt }}</p>
+</div>
+<p class="message">Votre compte ne présente aucun problème et vous pouvez vous reconnecter sur ces appareils quand vous le souhaitez — cela mettra simplement fin à la session alors la plus ancienne.</p>
+<p class="message">Si vous ne reconnaissez pas la connexion depuis {{ NewDeviceName }}, examinez vos sessions et changez votre mot de passe.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSessionsLink }}">Examiner vos sessions</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ ManageSessionsLink }}">{{ ManageSessionsLink }}</a></div>'),
+    ('44000000-0000-0000-0015-000000000005', '43000000-0000-0000-0000-000000000015', N'zh', N'一个较早的会话已退出登录',
+N'<div class="header">
+    <p class="eyebrow">会话动态</p>
+    <h1>一个较早的会话已退出登录</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">您刚刚在 {{ NewDeviceName }} 上登录。您的 {{ Platform.Name }} 账户同时最多只能保持 {{ SessionLimit }} 个已登录会话，因此我们结束了您最久未使用的 {{ EndedCount }} 个会话以腾出位置。</p>
+<div class="notice">
+    <p class="notice-title">已退出登录</p>
+    <p class="notice-text">设备：{{ EndedDevices }}<br />时间：{{ SignedOutAt }}</p>
+</div>
+<p class="message">您的账户一切正常，您随时可以在这些设备上重新登录——那样只会结束当时最早的那个会话。</p>
+<p class="message">如果您不认识在 {{ NewDeviceName }} 上的这次登录，请查看您的会话并修改密码。</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSessionsLink }}">查看您的会话</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请复制此链接到浏览器打开：</p>
+<div class="link-box"><a href="{{ ManageSessionsLink }}">{{ ManageSessionsLink }}</a></div>'),
+    ('44000000-0000-0000-0015-000000000006', '43000000-0000-0000-0000-000000000015', N'ur', N'ایک پرانا سیشن سائن آؤٹ کر دیا گیا',
+N'<div class="header">
+    <p class="eyebrow">سیشن سرگرمی</p>
+    <h1>ایک پرانا سیشن سائن آؤٹ کر دیا گیا</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">آپ نے ابھی {{ NewDeviceName }} پر سائن اِن کیا۔ آپ کے {{ Platform.Name }} اکاؤنٹ پر بیک وقت زیادہ سے زیادہ {{ SessionLimit }} سیشن کھلے رہ سکتے ہیں، اس لیے جگہ بنانے کے واسطے ہم نے وہ {{ EndedCount }} سیشن ختم کر دیے جنہیں آپ نے سب سے زیادہ عرصے سے استعمال نہیں کیا تھا۔</p>
+<div class="notice">
+    <p class="notice-title">جو ختم ہوئے</p>
+    <p class="notice-text">آلات: {{ EndedDevices }}<br />کب: {{ SignedOutAt }}</p>
+</div>
+<p class="message">آپ کے اکاؤنٹ میں کوئی خرابی نہیں، اور آپ جب چاہیں ان آلات پر دوبارہ سائن اِن کر سکتے ہیں — ایسا کرنے سے محض وہ سیشن ختم ہوگا جو اُس وقت سب سے پرانا ہوگا۔</p>
+<p class="message">اگر آپ {{ NewDeviceName }} پر ہونے والے اس سائن اِن کو نہیں پہچانتے تو اپنے سیشن دیکھیں اور پاس ورڈ تبدیل کریں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSessionsLink }}">اپنے سیشن دیکھیں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک کاپی کرکے اپنے براؤزر میں کھولیں:</p>
+<div class="link-box"><a href="{{ ManageSessionsLink }}">{{ ManageSessionsLink }}</a></div>'),
+    ('44000000-0000-0000-0015-000000000007', '43000000-0000-0000-0000-000000000015', N'fa', N'یک نشست قدیمی‌تر بسته شد',
+N'<div class="header">
+    <p class="eyebrow">فعالیت نشست‌ها</p>
+    <h1>یک نشست قدیمی‌تر بسته شد</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">هم‌اکنون از {{ NewDeviceName }} وارد شدید. حساب شما در {{ Platform.Name }} هم‌زمان تنها {{ SessionLimit }} نشست باز می‌پذیرد، بنابراین برای باز شدن جا، {{ EndedCount }} نشستی را که بیش از همه بی‌استفاده مانده بود پایان دادیم.</p>
+<div class="notice">
+    <p class="notice-title">آنچه بسته شد</p>
+    <p class="notice-text">دستگاه‌ها: {{ EndedDevices }}<br />زمان: {{ SignedOutAt }}</p>
+</div>
+<p class="message">هیچ اشکالی در حساب شما نیست و هر وقت بخواهید می‌توانید دوباره روی همان دستگاه‌ها وارد شوید — این کار صرفاً نشستی را که آن‌گاه قدیمی‌ترین است پایان می‌دهد.</p>
+<p class="message">اگر ورود انجام‌شده از {{ NewDeviceName }} را نمی‌شناسید، نشست‌هایتان را بررسی کنید و گذرواژه‌تان را تغییر دهید.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSessionsLink }}">بررسی نشست‌ها</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را کپی کرده و در مرورگر خود باز کنید:</p>
+<div class="link-box"><a href="{{ ManageSessionsLink }}">{{ ManageSessionsLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000015'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000015';
+
+    PRINT 'Created session-limit-enforced template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'session-limit-enforced template already exists';
+END
+GO

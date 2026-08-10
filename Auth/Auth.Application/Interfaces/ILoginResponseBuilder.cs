@@ -1,5 +1,6 @@
 using Auth.Application.DTOs;
 using Auth.Domain.Entities;
+using ErrorOr;
 
 namespace Auth.Application.Interfaces;
 
@@ -34,8 +35,15 @@ public interface ILoginResponseBuilder
     /// (via <paramref name="applicationId"/>) so refreshes keep the same audience.
     /// </param>
     /// <param name="applicationId">The application the tokens are scoped to, if any.</param>
-    /// <returns>The login response with tokens and user info.</returns>
-    Task<LoginResponse> BuildAsync(
+    /// <returns>
+    /// The login response with tokens and user info, or
+    /// <c>Session.MaxSessionsReached</c> when the account is at its concurrent
+    /// session limit and the limit is configured to refuse rather than evict.
+    /// That refusal is the reason this returns <see cref="ErrorOr{T}"/> at all:
+    /// it has to be decided before a single token is minted, which no caller can
+    /// do on its own without duplicating the check six times.
+    /// </returns>
+    Task<ErrorOr<LoginResponse>> BuildAsync(
         User user,
         string? ipAddress,
         string? userAgent,

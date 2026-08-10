@@ -23,14 +23,20 @@ public class SessionSettings
     public int ExtensionHours { get; set; } = 1;
 
     /// <summary>
-    /// Gets or sets the maximum number of concurrent sessions per user.
-    /// 0 = unlimited.
+    /// Gets or sets the maximum number of concurrent sessions per user, counted
+    /// across every application. 0 = unlimited, and that is the default: the
+    /// major identity providers (Google, Okta, Auth0, Keycloak) all ship without
+    /// a cap and treat one as a compliance control an operator turns on, not a
+    /// security baseline. Enforced in
+    /// <c>LoginResponseBuilder.BuildAsync</c>.
     /// </summary>
-    public int MaxConcurrentSessions { get; set; } = 5;
+    public int MaxConcurrentSessions { get; set; } = 0;
 
     /// <summary>
-    /// Gets or sets whether to terminate oldest session when max is reached.
-    /// If false, new login will be rejected.
+    /// Gets or sets whether reaching <see cref="MaxConcurrentSessions"/> ends the
+    /// user's least recently used sessions (true) or rejects the new sign-in
+    /// (false, returning <c>Session.MaxSessionsReached</c>). Has no effect while
+    /// <see cref="MaxConcurrentSessions"/> is 0.
     /// </summary>
     public bool TerminateOldestOnMax { get; set; } = true;
 

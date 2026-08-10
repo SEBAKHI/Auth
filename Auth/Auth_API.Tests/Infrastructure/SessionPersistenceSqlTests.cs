@@ -100,6 +100,121 @@ public class SessionPersistenceSqlTests
             "deviceName must sort by the column that holds the device name");
     }
 
+    [Fact]
+    public void EvictionRanksByLastActivity_NotByStartTime()
+    {
+        // Ordering by [StartedAt] would end the session created first, which for
+        // most people is the phone they picked up an hour ago. The session nobody
+        // has touched in a week is the one they will not miss, and that is
+        // [LastActivityAt]. Getting this wrong evicts sessions that are in use
+        // and looks, to their owner, exactly like being hijacked.
+        var method = EvictionMethod();
+
+        var ordering = Match(
+            method, @"ROW_NUMBER\(\)\s*OVER\s*\((?<order>.*?)\)", "order");
+
+        ordering.Should().Contain("[LastActivityAt] DESC");
+        Regex.IsMatch(ordering, @"ORDER\s+BY\s+\[StartedAt\]", RegexOptions.IgnoreCase)
+            .Should().BeFalse("start time must not be the primary ranking key");
+        ordering.Should().Contain("[Id]",
+            "the ranking needs a deterministic tie-break: two sessions opened in " +
+            "one request share a LastActivityAt to the tick");
+    }
+
+    [Fact]
+    public void EvictionCountsOnlyLiveSessions()
+    {
+        // An ended or expired row still sitting in the table must not occupy a
+        // slot — CleanupExpiredAsync has no caller, so expired rows accumulate
+        // indefinitely and would otherwise evict live sessions on their behalf.
+        var method = EvictionMethod();
+
+        method.Should().Contain("[EndedAt] IS NULL");
+        method.Should().Contain("[ExpiresAt] > GETUTCDATE()");
+    }
+
+    [Fact]
+    public void EvictionIsOneStatementThatReportsWhatItChanged()
+    {
+        // Read-then-write would let two concurrent sign-ins both decide to end
+        // the same session, and the caller would revoke, blacklist and email
+        // twice for it. A single UPDATE guarded by [EndedAt] IS NULL settles it
+        // on the row lock, and OUTPUT returns only the rows this execution
+        // actually changed.
+        var method = EvictionMethod();
+
+        Regex.Matches(method, @"\bUPDATE\b", RegexOptions.IgnoreCase).Count
+            .Should().Be(1, "the eviction must be a single statement");
+        method.Should().Contain("OUTPUT",
+            "the caller needs the ended rows to revoke their tokens and name them in the email");
+        Regex.IsMatch(method, @"OUTPUT[^;]*\bdeleted\.", RegexOptions.IgnoreCase)
+            .Should().BeFalse(
+                "OUTPUT must read `inserted` — the post-update image — so the returned " +
+                "entities describe the session as ended rather than as it was a moment before");
+
+        // The predicate that makes the statement idempotent under concurrency.
+        Regex.IsMatch(
+            method,
+            @"WHERE\s+\[r\]\.\[rn\]\s*>\s*@KeepNewest\s+AND\s+\[s\]\.\[EndedAt\]\s+IS\s+NULL",
+            RegexOptions.IgnoreCase | RegexOptions.Singleline)
+            .Should().BeTrue("the UPDATE must re-check EndedAt so a lost race changes nothing");
+    }
+
+    [Fact]
+    public void EvictionOutputsEveryColumnTheSelectProjectionDoes()
+    {
+        // Two projections of one table drift. The OUTPUT list feeds the same
+        // UserSession entity as SELECT, so a column added to one and forgotten in
+        // the other silently hands the notification and audit handlers a session
+        // with a null DeviceName or a default ExpiresAt — the first names the
+        // wrong device in an email, the second blacklists for the wrong window.
+        var repository = ReadRepository();
+
+        var selectAliases = ProjectionTargets(repository, "SelectColumns");
+        var outputAliases = ProjectionTargets(repository, "OutputInsertedColumns");
+
+        // Two empty lists would compare equal and prove nothing.
+        selectAliases.Should().Contain(
+            ["Id", "UserId", "DeviceName", "ExpiresAt", "LastActivityAt", "TerminationReason"]);
+
+        outputAliases.Should().BeEquivalentTo(selectAliases,
+            "the OUTPUT projection and the SELECT projection must map the same columns");
+    }
+
+    [Fact]
+    public void EvictionRefusesANonPositiveLimit()
+    {
+        // 0 is the "unlimited" sentinel and a negative rank window would match
+        // every row, so an unguarded statement would turn a misconfiguration
+        // into a platform-wide sign-out.
+        var method = EvictionMethod();
+
+        Regex.IsMatch(method, @"if\s*\(\s*keepNewest\s*<=\s*0\s*\)")
+            .Should().BeTrue("TerminateBeyondLimitAsync must return early for a non-positive limit");
+    }
+
+    /// <summary>
+    /// The property names each projection maps onto: an explicit alias where one
+    /// is given, otherwise the column's own name.
+    /// </summary>
+    private static List<string> ProjectionTargets(string source, string constantName)
+    {
+        var block = Match(
+            source, $@"{constantName}\s*=\s*@""(?<body>[^""]*)""", "body");
+
+        return Regex.Matches(block, @"AS\s+\[(?<alias>\w+)\]|\[(?<column>\w+)\](?!\s*(AS|\.))")
+            .Select(match => match.Groups["alias"].Success
+                ? match.Groups["alias"].Value
+                : match.Groups["column"].Value)
+            .Distinct()
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static string EvictionMethod() => MethodBody(
+        "public async Task<IReadOnlyList<UserSession>> TerminateBeyondLimitAsync",
+        "public async Task TerminateAllForUserAsync");
+
     private static string ColumnClause(string method) =>
         Match(method, @"INSERT\s+INTO\s+\[dbo\]\.\[UserSessions\]\s*\((?<columns>[^)]*)\)", "columns");
 

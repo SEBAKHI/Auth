@@ -56,6 +56,7 @@ public class AccountDeletionRecoverer
         string? twoFactorCode,
         string? ipAddress,
         string? userAgent,
+        string? deviceId,
         CancellationToken cancellationToken)
     {
         // The user opted into 2FA; recovery must not be a bypass. Verified in
@@ -104,6 +105,6 @@ public class AccountDeletionRecoverer
         }
 
         return await _loginResponseBuilder.BuildAsync(
-            restored, ipAddress, userAgent, deviceId: null, cancellationToken);
+            restored, ipAddress, userAgent, deviceId, cancellationToken);
     }
 }

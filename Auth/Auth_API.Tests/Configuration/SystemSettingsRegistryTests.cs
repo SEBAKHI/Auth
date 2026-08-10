@@ -93,18 +93,47 @@ public class SystemSettingsRegistryTests
         field.Editable.Should().BeFalse();
     }
 
+    /// <summary>
+    /// The Session section is held to the registry's own rule — a field appears
+    /// only where a consumer reads it — by naming the permitted set. Adding a
+    /// Session:* key that nothing consumes fails here rather than shipping an
+    /// operator a control that does nothing, which is exactly what
+    /// MaxConcurrentSessions was before it was enforced.
+    /// </summary>
     [Fact]
-    public void SessionSection_ExposesOnlyTheTwoTerminationToggles()
+    public void SessionSection_ExposesOnlyTheConsumedFields()
     {
         var session = SystemSettingsRegistry.TryGet("Session");
         session.Should().NotBeNull();
 
         session!.Fields.Select(f => f.Path).Should().BeEquivalentTo(
         [
+            "MaxConcurrentSessions",
+            "TerminateOldestOnMax",
             "TerminateSessionsOnPasswordChange",
             "TerminateSessionsOnPasswordReset"
         ]);
-        session.Fields.Should().OnlyContain(f => f.Kind == SettingKind.Bool && f.Editable);
+        session.Fields.Should().OnlyContain(f => f.Editable);
+        // No restart: every one of them is read per sign-in or per password
+        // change through IOptionsSnapshot.
+        session.Fields.Should().OnlyContain(f => !f.RestartRequired);
+    }
+
+    /// <summary>
+    /// 0 is the "unlimited" sentinel the enforcement path checks for, so the
+    /// lower bound has to admit it. A Min of 1 would make the limit
+    /// unremovable once an operator ever set one.
+    /// </summary>
+    [Fact]
+    public void MaxConcurrentSessions_AllowsZeroForUnlimited()
+    {
+        var session = SystemSettingsRegistry.TryGet("Session");
+        var field = SystemSettingsRegistry.TryGetField(session!, "MaxConcurrentSessions");
+
+        field.Should().NotBeNull();
+        field!.Kind.Should().Be(SettingKind.Int);
+        field.Min.Should().Be(0);
+        field.DefaultValue.Should().Be(0);
     }
 
     [Fact]

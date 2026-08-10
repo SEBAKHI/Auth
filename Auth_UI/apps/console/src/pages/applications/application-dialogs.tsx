@@ -71,16 +71,23 @@ function useToggles(): { name: ToggleName; label: string; hint: string }[] {
 }
 
 /**
- * Preset choices for the three numeric session settings, so the common cases are
+ * Preset choices for the two numeric session settings, so the common cases are
  * one click and nobody has to reason in raw minutes.
  *
  * Shared by the create and edit dialogs, which is the point: the two forms
  * previously duplicated every field definition and could drift apart.
  *
- * Bounds mirror the server. `SessionTimeoutMinutes` and `MaxConcurrentSessions`
- * are `GreaterThan(0)`, so neither offers an "unlimited" choice — it would be
- * rejected. `ReauthenticationMaxAgeMinutes` is null-or-1..10080, so its "off"
- * choice is the empty string and its largest preset is exactly the 10080 cap.
+ * Bounds mirror the server. `SessionTimeoutMinutes` is `GreaterThan(0)`, so it
+ * offers no "unlimited" choice — it would be rejected.
+ * `ReauthenticationMaxAgeMinutes` is null-or-1..10080, so its "off" choice is
+ * the empty string and its largest preset is exactly the 10080 cap.
+ *
+ * `MaxConcurrentSessions` used to be here too. It is not enforced anywhere —
+ * the column is written and read and never consulted by a sign-in — so the
+ * control was promising a limit that did not exist. The real one is
+ * Session:MaxConcurrentSessions under System settings, and it applies per user
+ * across every application. The column and its API field survive so no
+ * integration breaks; the edit dialog round-trips the stored value untouched.
  */
 function useSessionPresets() {
   const { t } = useTranslation()
@@ -95,13 +102,6 @@ function useSessionPresets() {
       { value: "60", label: hours(1) },
       { value: "480", label: hours(8) },
       { value: "1440", label: hours(24) },
-    ],
-    maxSessions: [
-      { value: "1", label: "1" },
-      { value: "3", label: "3" },
-      { value: "5", label: "5" },
-      { value: "10", label: "10" },
-      { value: "25", label: "25" },
     ],
     reauthMaxAge: [
       { value: "", label: t("common.off") },
@@ -137,7 +137,6 @@ export function ApplicationCreateDialog({
     requireTwoFactor: z.boolean(),
     requireEmailVerification: z.boolean(),
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
-    maxConcurrentSessions: z.string().min(1, t("validation.required")),
     redirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
   })
@@ -156,7 +155,6 @@ export function ApplicationCreateDialog({
       requireTwoFactor: false,
       requireEmailVerification: false,
       sessionTimeoutMinutes: "60",
-      maxConcurrentSessions: "5",
       redirectUris: "",
       reauthMaxAgeMinutes: "",
     },
@@ -180,7 +178,10 @@ export function ApplicationCreateDialog({
           requireTwoFactor: values.requireTwoFactor,
           requireEmailVerification: values.requireEmailVerification,
           sessionTimeoutMinutes: Number(values.sessionTimeoutMinutes) || 60,
-          maxConcurrentSessions: Number(values.maxConcurrentSessions) || 5,
+          // Not editable here — the control was removed because nothing
+          // enforces this value. The contract still requires the field, and its
+          // validator rejects 0, so the column's own default goes on the wire.
+          maxConcurrentSessions: 5,
           redirectUris: toRedirectUriList(values.redirectUris),
           reauthenticationMaxAgeMinutes: emptyToNullNumber(
             values.reauthMaxAgeMinutes,
@@ -344,35 +345,6 @@ export function ApplicationCreateDialog({
       />
       <FormField
         control={form.control}
-        name="maxConcurrentSessions"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t("applications.maxSessions")}</FormLabel>
-            <FormControl>
-              <PresetField
-                presets={presets.maxSessions}
-                value={field.value}
-                onChange={field.onChange}
-              >
-                {({ value, onChange }) => (
-                  <Input
-                    type="number"
-                    min={1}
-                    value={value}
-                    onChange={(event) => onChange(event.target.value)}
-                  />
-                )}
-              </PresetField>
-            </FormControl>
-            <FormDescription>
-              {t("applications.maxSessionsHint")}
-            </FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
         name="reauthMaxAgeMinutes"
         render={({ field }) => (
           <FormItem>
@@ -454,7 +426,6 @@ export function ApplicationEditDialog({
     requireTwoFactor: z.boolean(),
     requireEmailVerification: z.boolean(),
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
-    maxConcurrentSessions: z.string().min(1, t("validation.required")),
     redirectUris: z.string().optional(),
     reauthMaxAgeMinutes: z.string().optional(),
   })
@@ -472,7 +443,6 @@ export function ApplicationEditDialog({
       requireTwoFactor: false,
       requireEmailVerification: false,
       sessionTimeoutMinutes: "60",
-      maxConcurrentSessions: "5",
       redirectUris: "",
       reauthMaxAgeMinutes: "",
     },
@@ -520,7 +490,6 @@ export function ApplicationEditDialog({
       requireTwoFactor: detail.requireTwoFactor ?? false,
       requireEmailVerification: detail.requireEmailVerification ?? false,
       sessionTimeoutMinutes: String(detail.sessionTimeoutMinutes ?? 60),
-      maxConcurrentSessions: String(detail.maxConcurrentSessions ?? 5),
       redirectUris: (detail.redirectUris ?? []).join("\n"),
       reauthMaxAgeMinutes:
         detail.reauthenticationMaxAgeMinutes != null
@@ -543,7 +512,11 @@ export function ApplicationEditDialog({
           requireTwoFactor: values.requireTwoFactor,
           requireEmailVerification: values.requireEmailVerification,
           sessionTimeoutMinutes: Number(values.sessionTimeoutMinutes) || 60,
-          maxConcurrentSessions: Number(values.maxConcurrentSessions) || 5,
+          // Not editable here — the control was removed because nothing
+          // enforces this value. The PUT is a full replacement, though, so the
+          // stored number has to be sent back or every save would silently
+          // reset it to the contract's default of 5.
+          maxConcurrentSessions: detail?.maxConcurrentSessions ?? 5,
           redirectUris: toRedirectUriList(values.redirectUris),
           reauthenticationMaxAgeMinutes: emptyToNullNumber(
             values.reauthMaxAgeMinutes,
@@ -687,35 +660,6 @@ export function ApplicationEditDialog({
             </FormControl>
             <FormDescription>
               {t("applications.sessionTimeoutHint")}
-            </FormDescription>
-            <FormMessage />
-          </FormItem>
-        )}
-      />
-      <FormField
-        control={form.control}
-        name="maxConcurrentSessions"
-        render={({ field }) => (
-          <FormItem>
-            <FormLabel>{t("applications.maxSessions")}</FormLabel>
-            <FormControl>
-              <PresetField
-                presets={presets.maxSessions}
-                value={field.value}
-                onChange={field.onChange}
-              >
-                {({ value, onChange }) => (
-                  <Input
-                    type="number"
-                    min={1}
-                    value={value}
-                    onChange={(event) => onChange(event.target.value)}
-                  />
-                )}
-              </PresetField>
-            </FormControl>
-            <FormDescription>
-              {t("applications.maxSessionsHint")}
             </FormDescription>
             <FormMessage />
           </FormItem>

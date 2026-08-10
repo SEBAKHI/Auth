@@ -180,12 +180,20 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         var loginResponse = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
 
+        if (loginResponse.IsError)
+        {
+            // At the concurrent session limit. The email is verified and stays
+            // verified — only the courtesy auto sign-in is refused, and the
+            // pending UserLoggedInEvent is dropped with it.
+            return loginResponse.Errors;
+        }
+
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         _logger.LogInformation(
             "Auto sign-in completed after email verification for user {UserId}",
             user.Id);
 
-        return new VerifyEmailResult(loginResponse);
+        return new VerifyEmailResult(loginResponse.Value);
     }
 }

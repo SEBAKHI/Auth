@@ -48,6 +48,36 @@ public interface IUserSessionRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Counts the user's live sessions, using the same "active" definition as
+    /// <see cref="GetActiveSessionsForUserAsync"/>: not ended and not expired.
+    /// </summary>
+    Task<int> CountActiveForUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Ends every active session the user has beyond <paramref name="keepNewest"/>,
+    /// keeping the most recently used ones, and returns the sessions it ended.
+    ///
+    /// Ordered by last activity rather than start time on purpose: the session
+    /// started first may be the phone its owner picks up hourly, while the one
+    /// nobody has touched in a week is the forgotten machine. Activity is what
+    /// identifies the session a user will not miss.
+    ///
+    /// Convergent by design — it ends everything past the limit, not one row —
+    /// so a lowered limit or a transient failure is corrected by the next
+    /// sign-in rather than leaving the account permanently over its cap.
+    /// </summary>
+    /// <param name="userId">The user whose sessions to trim.</param>
+    /// <param name="keepNewest">How many of the most recently used sessions survive.</param>
+    /// <param name="reason">Reason recorded on each ended session.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The sessions this call ended; empty when the user was within the limit.</returns>
+    Task<IReadOnlyList<UserSession>> TerminateBeyondLimitAsync(
+        Guid userId,
+        int keepNewest,
+        string reason,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Terminates all sessions for a user.
     /// </summary>
     Task TerminateAllForUserAsync(Guid userId, string reason, CancellationToken cancellationToken);

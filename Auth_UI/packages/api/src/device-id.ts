@@ -1,6 +1,16 @@
 const STORAGE_KEY = "auth.deviceId"
 
 /**
+ * Transport header carrying {@link getDeviceId}.
+ *
+ * The value is a client fact like the IP and the user agent, so it travels the
+ * same way they do. It used to be a field in the body of each request that
+ * creates a session, which meant every such endpoint had to remember to include
+ * it — and one did not.
+ */
+export const DEVICE_ID_HEADER = "X-Device-Id"
+
+/**
  * A stable per-browser identifier, sent with every sign-in.
  *
  * Its only job is to tell one device from another when deciding whether a

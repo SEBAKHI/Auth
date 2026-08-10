@@ -537,8 +537,6 @@ export const tr: TranslationResources = {
     requireEmailVerification: "E-posta doğrulaması zorunlu",
     sessionTimeout: "Oturum zaman aşımı (dakika)",
     sessionTimeoutMinutes: "Oturum zaman aşımı (dakika)",
-    maxSessions: "Azami eşzamanlı oturum",
-    maxConcurrentSessions: "Azami eşzamanlı oturum",
     reauthMaxAge: "Yeniden kimlik doğrulama azami süresi (dakika)",
     reauthMaxAgeHint:
       "İsteğe bağlı adım yükseltme. Kullanıcının SSO oturumu bundan eskiyse yeniden oturum açmayı zorunlu kılar. Devre dışı bırakmak için boş bırakın.",
@@ -556,8 +554,6 @@ export const tr: TranslationResources = {
       "Bu uygulamayla ilgili yardım için kullanıcılara gösterilen adres.",
     sessionTimeoutHint:
       "Oturumun herhangi bir etkinlik olmadan ne kadar geçerli kalacağı.",
-    maxSessionsHint:
-      "Bir kullanıcının aynı anda kaç cihazda oturumda kalabileceği.",
     allowSelfRegistrationHint:
       "Herkesin bu uygulama için kendi hesabını oluşturmasına izin ver.",
     requireTwoFactorHint:
@@ -1248,7 +1244,13 @@ export const tr: TranslationResources = {
     session: {
       title: "Oturumlar",
       description:
-        "Parolası değiştiğinde kullanıcının diğer açık oturumlarına ne olacağı. Uygulama başına oturum sınırları burada değil, her uygulamanın kendi üzerinde yapılandırılır.",
+        "Bir kullanıcının aynı anda kaç oturumu açık tutabileceği ve parolası değiştiğinde diğer oturumlarına ne olacağı.",
+      maxConcurrentSessions: "Azami eşzamanlı oturum",
+      maxConcurrentSessionsHint:
+        "Bir kullanıcının aynı anda kaç oturumu açık olabilir; tüm uygulamalar birlikte sayılır. 0 sınır yok demektir ve varsayılan budur: Google, Okta, Auth0 ve Keycloak hiçbiri sınırla gelmez, çünkü sınır bir güvenlik temeli değil, gerektiğinde açılan bir uyumluluk denetimidir. Bir sınır koyacaksanız sıradan bir kişinin yaklaşık altı oturum kullandığını unutmayın — iki tarayıcı, bir telefon, bir tablet, bir iş bilgisayarı.",
+      terminateOldestOnMax: "Reddetmek yerine en eski oturumu kapat",
+      terminateOldestOnMaxHint:
+        "Sınıra ulaşıldığında ne olacağı. Açık: kullanıcının en uzun süredir kullanmadığı oturumlar sona erer ve yeni oturum açma başarılı olur. Kapalı: yeni oturum açma reddedilir. Önerilen: açık — reddetmek, eski cihazlarına erişemeyen kişileri kendi hesaplarının dışında bırakır. Sınır 0 iken etkisizdir.",
       terminateSessionsOnPasswordChange: "Parola değişiminde her yerde oturumu kapat",
       terminateSessionsOnPasswordChangeHint:
         "Bir kullanıcı parolasını değiştirdiğinde diğer tüm oturumları sona erer. Önerilen: açık — değiştirilen bir parola genellikle eskisine artık güvenilmediği anlamına gelir.",

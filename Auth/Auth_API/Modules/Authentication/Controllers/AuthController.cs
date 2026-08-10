@@ -82,7 +82,7 @@ public class AuthController : ApiController
             request.Password,
             GetClientIpAddress(),
             GetUserAgent(),
-            request.DeviceId);
+            GetDeviceId(request.DeviceId));
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -171,7 +171,7 @@ public class AuthController : ApiController
             request.CreateOrganization,
             GetClientIpAddress(),
             GetUserAgent(),
-            DeviceId: request.DeviceId,
+            DeviceId: GetDeviceId(request.DeviceId),
             AuthorizationCode: request.AuthorizationCode,
             GivenName: request.GivenName,
             FamilyName: request.FamilyName);
@@ -284,7 +284,8 @@ public class AuthController : ApiController
                     request.ClientId,
                     request.CodeVerifier,
                     GetClientIpAddress(),
-                    GetUserAgent());
+                    GetUserAgent(),
+                    GetDeviceId());
 
                 var result = await _sender.Send(command, cancellationToken);
 
@@ -733,7 +734,7 @@ public class AuthController : ApiController
             request.Email,
             GetClientIpAddress(),
             GetUserAgent(),
-            request.DeviceId);
+            GetDeviceId(request.DeviceId));
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -837,7 +838,8 @@ public class AuthController : ApiController
                 request.Password,
                 request.TwoFactorCode,
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
-                Request.Headers.UserAgent.ToString()),
+                Request.Headers.UserAgent.ToString(),
+                GetDeviceId()),
             cancellationToken);
 
         return result.Match<IActionResult>(
@@ -868,7 +870,8 @@ public class AuthController : ApiController
                 request.Nonce,
                 request.TwoFactorCode,
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
-                Request.Headers.UserAgent.ToString()),
+                Request.Headers.UserAgent.ToString(),
+                GetDeviceId()),
             cancellationToken);
 
         return result.Match<IActionResult>(

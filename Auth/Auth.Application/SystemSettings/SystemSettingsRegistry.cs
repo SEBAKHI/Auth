@@ -91,12 +91,23 @@ public static class SystemSettingsRegistry
             ConfigRoot: "Session",
             Group: SettingGroups.Security,
             Editable: true,
-            // Only the two fields the code actually consumes. The other
-            // Session:* keys in appsettings have no consumer (per-application
-            // MaxConcurrentSessions lives on the Applications table), so
-            // offering them here would be a lie.
+            // Only the four fields the code actually consumes. LifetimeHours,
+            // ExtendOnActivity, ExtensionHours and IdleTimeoutMinutes are still
+            // absent for the usual reason: nothing reads them, and a session's
+            // real lifetime comes from Jwt:RefreshTokenLifetimeDays.
+            //
+            // MaxConcurrentSessions counts a user's live sessions across every
+            // application, and defaults to 0 (unlimited) because that is what
+            // the major providers ship — a cap is a control an operator turns
+            // on, not a baseline. TerminateOldestOnMax picks what reaching it
+            // does: end the least recently used sessions, or refuse the new
+            // sign-in. Both are read per sign-in through IOptionsSnapshot, so
+            // neither needs a restart. Max 100 is a sanity ceiling, not a
+            // policy: past that a limit is not limiting anything.
             Fields:
             [
+                new SettingFieldDefinition("MaxConcurrentSessions", SettingKind.Int, Min: 0, Max: 100, DefaultValue: 0),
+                new SettingFieldDefinition("TerminateOldestOnMax", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("TerminateSessionsOnPasswordChange", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("TerminateSessionsOnPasswordReset", SettingKind.Bool, DefaultValue: true)
             ]),

@@ -113,6 +113,73 @@ public class UserKnownDeviceRepository : IUserKnownDeviceRepository
     }
 
     /// <inheritdoc />
+    public async Task<bool> AdoptLegacySignatureAsync(
+        Guid userId,
+        string legacyHash,
+        string currentHash,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        // CreateConnectionAsync hands back an open connection; opening it again
+        // throws, and the failure surfaces far from here.
+        using var transaction = connection.BeginTransaction();
+
+        var parameters = new { UserId = userId, LegacyHash = legacyHash, CurrentHash = currentHash };
+
+        var legacyExists = await connection.ExecuteScalarAsync<bool>(@"
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM [dbo].[UserKnownDevices]
+                WHERE [UserId] = @UserId AND [DeviceHash] = @LegacyHash
+            ) THEN 1 ELSE 0 END AS BIT)",
+            parameters, transaction);
+
+        if (!legacyExists)
+        {
+            transaction.Rollback();
+            return false;
+        }
+
+        // Renaming onto a signature the user already has would violate
+        // UQ_UserKnownDevices_UserDevice. Both branches converge on one row for
+        // the browser, which is the point.
+        var currentExists = await connection.ExecuteScalarAsync<bool>(@"
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM [dbo].[UserKnownDevices]
+                WHERE [UserId] = @UserId AND [DeviceHash] = @CurrentHash
+            ) THEN 1 ELSE 0 END AS BIT)",
+            parameters, transaction);
+
+        if (currentExists)
+        {
+            await connection.ExecuteAsync(@"
+                DELETE FROM [dbo].[UserKnownDevices]
+                WHERE [UserId] = @UserId AND [DeviceHash] = @LegacyHash",
+                parameters, transaction);
+        }
+        else
+        {
+            // Renamed rather than replaced, so FirstSeenAt keeps saying when this
+            // browser was actually first seen.
+            await connection.ExecuteAsync(@"
+                UPDATE [dbo].[UserKnownDevices]
+                SET [DeviceHash] = @CurrentHash
+                WHERE [UserId] = @UserId AND [DeviceHash] = @LegacyHash",
+                parameters, transaction);
+        }
+
+        // Sessions filed under the old signature follow the row, or they would
+        // drop into the unattributed bucket the moment the row moved.
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[UserSessions]
+            SET [DeviceHash] = @CurrentHash
+            WHERE [UserId] = @UserId AND [DeviceHash] = @LegacyHash",
+            parameters, transaction);
+
+        transaction.Commit();
+        return true;
+    }
+
+    /// <inheritdoc />
     public async Task<bool> UpsertAsync(UserKnownDevice device, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

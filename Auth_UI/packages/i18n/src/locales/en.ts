@@ -526,8 +526,6 @@ export const en = {
     requireEmailVerification: "Require email verification",
     sessionTimeout: "Session timeout (minutes)",
     sessionTimeoutMinutes: "Session timeout (minutes)",
-    maxSessions: "Max concurrent sessions",
-    maxConcurrentSessions: "Max concurrent sessions",
     reauthMaxAge: "Re-authentication max age (minutes)",
     reauthMaxAgeHint:
       "Optional step-up. Forces a fresh sign-in when the user's SSO session is older than this. Leave empty to disable.",
@@ -544,8 +542,6 @@ export const en = {
       "Address users are pointed to for help with this application.",
     sessionTimeoutHint:
       "How long a signed-in session stays valid without activity.",
-    maxSessionsHint:
-      "How many devices one user may stay signed in on at the same time.",
     allowSelfRegistrationHint:
       "Let anyone create their own account for this application.",
     requireTwoFactorHint:
@@ -1233,7 +1229,13 @@ export const en = {
     session: {
       title: "Sessions",
       description:
-        "What happens to a user's other signed-in sessions when their password changes. Per-application session limits are configured on each application, not here.",
+        "How many sessions a user may keep signed in at once, and what happens to their other sessions when their password changes.",
+      maxConcurrentSessions: "Maximum concurrent sessions",
+      maxConcurrentSessionsHint:
+        "How many sessions one user may have signed in at the same time, counted across every application. 0 means no limit, and that is the default: Google, Okta, Auth0 and Keycloak all ship without a cap, because a limit is a compliance control you turn on rather than a security baseline. If you do set one, remember an ordinary person runs about six — two browsers, a phone, a tablet, a work machine.",
+      terminateOldestOnMax: "Sign out the oldest session instead of refusing",
+      terminateOldestOnMaxHint:
+        "What reaching the limit does. On: the sessions the user has gone longest without using end, and the new sign-in succeeds. Off: the new sign-in is refused. Recommended: on — refusing locks people out of their own account when they cannot reach their old devices. No effect while the limit is 0.",
       terminateSessionsOnPasswordChange: "Sign out everywhere on password change",
       terminateSessionsOnPasswordChangeHint:
         "When a user changes their password, all their other sessions end. Recommended: on — a changed password usually means the old one is no longer trusted.",

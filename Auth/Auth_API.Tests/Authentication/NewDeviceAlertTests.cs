@@ -66,6 +66,7 @@ public class NewDeviceAlertTests
             new Mock<IIdpSessionRepository>().Object,
             _devicesMock.Object,
             new Mock<IGeoIpLookup>().Object,
+            new Mock<ICredentialRevocationService>().Object,
             _publisherMock.Object,
             TestHelpers.CreateOptions(new JwtSettings
             {
@@ -75,6 +76,9 @@ public class NewDeviceAlertTests
             }),
             TestHelpers.CreateOptions(new IdentityProviderSettings()),
             TestHelpers.CreateOptions(notifications ?? new NotificationSettings()),
+            // Default settings mean MaxConcurrentSessions = 0, so the session
+            // limit stays out of the way of what these tests are about.
+            TestHelpers.CreateOptions(new SessionSettings()),
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 
@@ -217,7 +221,8 @@ public class NewDeviceAlertTests
             _user, "203.0.113.10", ChromeOnWindows, deviceId: null, CancellationToken.None,
             establishIdpSession: false);
 
-        response.Token!.AccessToken.Should().Be("access-token");
+        response.IsError.Should().BeFalse();
+        response.Value.Token!.AccessToken.Should().Be("access-token");
         VerifyAlerted(Times.Never());
     }
 
@@ -308,5 +313,105 @@ public class NewDeviceAlertTests
 
         sessionRow.Should().NotBeNull();
         sessionRow!.DeviceHash.Should().NotBeNullOrEmpty();
+    }
+
+    /// <summary>
+    /// Reconciling a browser first recorded before the client sent its
+    /// identifier on every request.
+    ///
+    /// The reported defect: registering, then signing out and back in from the
+    /// same browser, produced a second browser row and an email announcing it.
+    /// The sign-in that completes registration went through verify-email, which
+    /// carried no device id, so its signature was built from an empty one; the
+    /// next real login sent an id and hashed to something else entirely.
+    /// </summary>
+    private void GivenLegacyRowIsAdopted() =>
+        _devicesMock
+            .Setup(r => r.AdoptLegacySignatureAsync(
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+    [Fact]
+    public async Task ABrowserHeldUnderItsPreHeaderSignature_IsAdoptedWithoutAnAlert()
+    {
+        GivenDeviceIsUnknown(userHasOtherDevices: true);
+        GivenLegacyRowIsAdopted();
+
+        await Sign(deviceId: "device-abc");
+
+        VerifyAlerted(Times.Never());
+    }
+
+    [Fact]
+    public async Task AdoptionProbesTheEmptyIdSignatureForTheSameBrowserAndOs()
+    {
+        // The legacy value is what ComputeHash produced with no device id but
+        // the same browser and OS. Probing anything else would either miss the
+        // row or, worse, adopt a different browser's.
+        GivenDeviceIsUnknown(userHasOtherDevices: true);
+        GivenLegacyRowIsAdopted();
+
+        var expected = UserKnownDevice.ComputeHash(null, "Chrome", "Windows");
+        var current = UserKnownDevice.ComputeHash("device-abc", "Chrome", "Windows");
+
+        await Sign(deviceId: "device-abc");
+
+        _devicesMock.Verify(
+            r => r.AdoptLegacySignatureAsync(
+                _user.Id, expected, current, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task WithNoDeviceIdThereIsNothingToReconcile()
+    {
+        // Without an id the current signature already IS the legacy one, so a
+        // probe would ask whether the row it is about to create already exists.
+        GivenDeviceIsUnknown(userHasOtherDevices: true);
+
+        await Sign(deviceId: null);
+
+        _devicesMock.Verify(
+            r => r.AdoptLegacySignatureAsync(
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+        VerifyAlerted(Times.Once());
+    }
+
+    [Fact]
+    public async Task NothingToAdopt_StillTreatsTheBrowserAsNewAndAlerts()
+    {
+        // The probe must not swallow the genuine case it sits in front of.
+        GivenDeviceIsUnknown(userHasOtherDevices: true);
+        _devicesMock
+            .Setup(r => r.AdoptLegacySignatureAsync(
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        await Sign(deviceId: "device-abc");
+
+        VerifyAlerted(Times.Once());
+    }
+
+    [Fact]
+    public async Task ARecognisedBrowserNeverPaysForTheAdoptionProbe()
+    {
+        // Adoption is a one-time reconciliation on the miss path. Every ordinary
+        // sign-in must stay at a single lookup.
+        var known = UserKnownDevice.Create(_user.Id, "hash", "Chrome on Windows");
+        _devicesMock
+            .Setup(r => r.GetAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(known);
+
+        await Sign(deviceId: "device-abc");
+
+        _devicesMock.Verify(
+            r => r.AdoptLegacySignatureAsync(
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

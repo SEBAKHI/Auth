@@ -134,6 +134,14 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         var loginResponse = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
 
+        if (loginResponse.IsError)
+        {
+            // At the concurrent session limit. The challenge has already been
+            // consumed above and stays consumed — the code was correct, and
+            // replaying it must not become a way around the limit.
+            return loginResponse.Errors;
+        }
+
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         _logger.LogInformation(

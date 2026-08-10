@@ -542,8 +542,6 @@ export const fr: TranslationResources = {
     requireEmailVerification: "Exiger la vérification de l'e-mail",
     sessionTimeout: "Expiration de session (minutes)",
     sessionTimeoutMinutes: "Expiration de session (minutes)",
-    maxSessions: "Sessions simultanées max",
-    maxConcurrentSessions: "Sessions simultanées max",
     reauthMaxAge: "Âge maximal de réauthentification (minutes)",
     reauthMaxAgeHint:
       "Renforcement facultatif. Force une nouvelle connexion lorsque la session SSO de l'utilisateur dépasse cette durée. Laisser vide pour désactiver.",
@@ -563,8 +561,6 @@ export const fr: TranslationResources = {
       "Adresse indiquée aux utilisateurs pour obtenir de l'aide.",
     sessionTimeoutHint:
       "Durée pendant laquelle une session reste valide sans activité.",
-    maxSessionsHint:
-      "Nombre d'appareils sur lesquels un utilisateur peut rester connecté simultanément.",
     allowSelfRegistrationHint:
       "Autoriser chacun à créer son propre compte pour cette application.",
     requireTwoFactorHint:
@@ -1275,7 +1271,13 @@ export const fr: TranslationResources = {
     session: {
       title: "Sessions",
       description:
-        "Ce qu'il advient des autres sessions connectées d'un utilisateur quand son mot de passe change. Les limites de session par application se configurent sur chaque application, pas ici.",
+        "Combien de sessions un utilisateur peut garder ouvertes en même temps, et ce qu'il advient de ses autres sessions quand son mot de passe change.",
+      maxConcurrentSessions: "Nombre maximal de sessions simultanées",
+      maxConcurrentSessionsHint:
+        "Combien de sessions un même utilisateur peut avoir ouvertes en même temps, toutes applications confondues. 0 signifie aucune limite, et c'est la valeur par défaut : Google, Okta, Auth0 et Keycloak sont tous livrés sans plafond, car une limite est un contrôle de conformité que l'on active, pas une base de sécurité. Si vous en définissez une, souvenez-vous qu'une personne ordinaire en utilise environ six — deux navigateurs, un téléphone, une tablette, un poste de travail.",
+      terminateOldestOnMax: "Fermer la session la plus ancienne plutôt que refuser",
+      terminateOldestOnMaxHint:
+        "Ce que fait l'atteinte de la limite. Activé : les sessions inutilisées depuis le plus longtemps prennent fin et la nouvelle connexion aboutit. Désactivé : la nouvelle connexion est refusée. Recommandé : activé — refuser enferme les gens hors de leur propre compte lorsqu'ils ne peuvent pas atteindre leurs anciens appareils. Sans effet tant que la limite vaut 0.",
       terminateSessionsOnPasswordChange:
         "Déconnexion partout au changement de mot de passe",
       terminateSessionsOnPasswordChangeHint:

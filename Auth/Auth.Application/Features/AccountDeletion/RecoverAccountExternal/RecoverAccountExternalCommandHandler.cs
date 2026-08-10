@@ -83,6 +83,7 @@ public class RecoverAccountExternalCommandHandler
         }
 
         return await _recoverer.RecoverAsync(
-            user, deletionRequest, request.TwoFactorCode, request.IpAddress, request.UserAgent, cancellationToken);
+            user, deletionRequest, request.TwoFactorCode, request.IpAddress, request.UserAgent,
+            request.DeviceId, cancellationToken);
     }
 }

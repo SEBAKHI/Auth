@@ -521,8 +521,6 @@ export const zh: TranslationResources = {
     requireEmailVerification: "强制邮箱验证",
     sessionTimeout: "会话超时（分钟）",
     sessionTimeoutMinutes: "会话超时（分钟）",
-    maxSessions: "最大并发会话数",
-    maxConcurrentSessions: "最大并发会话数",
     reauthMaxAge: "重新认证的最长时限（分钟）",
     reauthMaxAgeHint:
       "可选的强化验证。当用户的 SSO 会话超过此时限时，强制重新登录。留空则禁用。",
@@ -535,7 +533,6 @@ export const zh: TranslationResources = {
     logoUrlHint: "在该应用登录界面显示的公开图片地址。",
     contactEmailHint: "向用户提供的、就该应用寻求帮助的联系地址。",
     sessionTimeoutHint: "无操作时登录会话保持有效的时长。",
-    maxSessionsHint: "同一用户最多可同时在多少台设备上保持登录。",
     allowSelfRegistrationHint: "允许任何人为该应用自行创建账户。",
     requireTwoFactorHint: "每位用户登录时都必须通过第二重验证。",
     requireEmailVerificationHint: "用户必须先确认邮箱地址才能登录。",
@@ -1179,7 +1176,13 @@ export const zh: TranslationResources = {
     session: {
       title: "会话",
       description:
-        "用户修改密码时，其名下其他已登录会话会如何处理。每个应用的会话数量限制在各应用中单独配置，不在此处。",
+        "一个用户同时可以保持多少个已登录会话，以及修改密码时其他会话会如何处理。",
+      maxConcurrentSessions: "并发会话上限",
+      maxConcurrentSessionsHint:
+        "同一用户可同时保持登录的会话数，跨所有应用一并计算。0 表示不限制，这也是默认值：Google、Okta、Auth0 和 Keycloak 都不预设上限，因为限制是按需开启的合规控制，而非安全基线。若要设置，请记住普通用户大约会用到六个会话——两个浏览器、一部手机、一台平板、一台工作电脑。",
+      terminateOldestOnMax: "结束最早的会话，而不是拒绝登录",
+      terminateOldestOnMaxHint:
+        "达到上限时如何处理。开启：结束用户最久未使用的会话，新登录成功。关闭：拒绝新登录。推荐：开启——拒绝会在用户无法接触旧设备时把他们挡在自己的账户之外。上限为 0 时此项无效。",
       terminateSessionsOnPasswordChange: "修改密码时退出所有设备",
       terminateSessionsOnPasswordChangeHint:
         "用户修改密码后，其所有其他会话都会结束。推荐：开启——修改密码通常意味着旧密码已不再可信。",

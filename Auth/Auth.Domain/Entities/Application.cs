@@ -64,7 +64,20 @@ public class Application : AggregateRoot
     public int SessionTimeoutMinutes { get; private set; }
 
     /// <summary>
-    /// Gets the maximum number of concurrent sessions allowed.
+    /// Stored, never enforced. No sign-in path reads this value: sessions are
+    /// capped per user across the whole platform by
+    /// <c>Session:MaxConcurrentSessions</c>, applied in
+    /// <c>LoginResponseBuilder.BuildAsync</c>. Counting per application would
+    /// also be close to meaningless today — only the OAuth token endpoint sets
+    /// <see cref="UserSession.ApplicationId"/>, so every other sign-in leaves it
+    /// null and would fall outside any per-application count.
+    /// <para>
+    /// Kept because the column, the API contract and any integration reading
+    /// them are older than that decision; removing it would be a breaking change
+    /// buying nothing. The console no longer offers it as a control, which is
+    /// what actually mattered: it was showing operators a limit that did not
+    /// exist.
+    /// </para>
     /// </summary>
     public int MaxConcurrentSessions { get; private set; }
 

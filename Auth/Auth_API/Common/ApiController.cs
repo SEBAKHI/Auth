@@ -89,6 +89,41 @@ public abstract class ApiController : ControllerBase
     }
 
     /// <summary>
+    /// The calling browser's own identifier, used only to tell one browser from
+    /// another when deciding whether a sign-in deserves an email. Client-supplied
+    /// and therefore forgeable: never an authorization input.
+    ///
+    /// Read from a header alongside the IP and the user agent, because it is the
+    /// same kind of fact. It used to arrive in the body of each request that
+    /// creates a session, which left every such endpoint free to forget it —
+    /// verify-email did, so the sign-in that completes registration was filed
+    /// under a signature built from an empty id and the user's next login looked
+    /// like a different browser.
+    /// </summary>
+    /// <param name="fromBody">
+    /// The legacy body field, still honoured so that an older client, or an
+    /// integration posting directly, keeps working. The header wins when both
+    /// are present.
+    /// </param>
+    protected string? GetDeviceId(string? fromBody = null)
+    {
+        var header = Request.Headers[DeviceHeaderNames.DeviceId].FirstOrDefault();
+        var value = string.IsNullOrWhiteSpace(header) ? fromBody : header;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        // Bounded before it reaches the signature: the value is client-supplied
+        // and the column that ultimately stores it is NVARCHAR(64).
+        value = value.Trim();
+        return value.Length > DeviceHeaderNames.MaxDeviceIdLength
+            ? value[..DeviceHeaderNames.MaxDeviceIdLength]
+            : value;
+    }
+
+    /// <summary>
     /// Resolves a success-message resource from <see cref="AuthMessages"/> for
     /// the current request culture, falling back to the English text produced
     /// by the handler when the code is missing or has no resource entry.

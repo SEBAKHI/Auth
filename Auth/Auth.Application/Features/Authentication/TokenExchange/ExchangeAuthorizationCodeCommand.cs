@@ -14,13 +14,20 @@ namespace Auth.Application.Features.Authentication.TokenExchange;
 /// <param name="CodeVerifier">The PKCE code verifier.</param>
 /// <param name="IpAddress">The client's IP address.</param>
 /// <param name="UserAgent">The client's user agent.</param>
+/// <param name="DeviceId">
+/// The calling browser's identifier, when one called. A confidential client
+/// exchanging a code server-side sends none, and the session is recorded without
+/// a browser — but a public SPA completing PKCE in the browser does, and its
+/// session belongs under the same browser as the rest of that user's.
+/// </param>
 public record ExchangeAuthorizationCodeCommand(
     string? Code,
     string? RedirectUri,
     string? ClientId,
     string? CodeVerifier,
     string? IpAddress,
-    string? UserAgent) : IRequest<ErrorOr<OAuthTokenResponse>>;
+    string? UserAgent,
+    string? DeviceId = null) : IRequest<ErrorOr<OAuthTokenResponse>>;
 
 /// <summary>
 /// OAuth 2.0 token endpoint response (RFC 6749 §5.1). Property names are pinned

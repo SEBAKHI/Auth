@@ -48,6 +48,30 @@ public class UserSessionRepository : IUserSessionRepository
         [EndReason] AS [TerminationReason],
         CAST(CASE WHEN [EndedAt] IS NULL THEN 1 ELSE 0 END AS BIT) AS [IsActive]";
 
+    // The same projection against OUTPUT's post-update image. An OUTPUT clause
+    // cannot use unqualified column names, so this cannot simply reuse
+    // SelectColumns. Reading `inserted` rather than `deleted` is what makes the
+    // returned entities describe the session as it now is — ended, with the
+    // reason set — instead of the live row the statement just replaced.
+    private const string OutputInsertedColumns = @"
+        inserted.[Id],
+        inserted.[UserId],
+        inserted.[ApplicationId],
+        inserted.[SessionToken] AS [SessionTokenHash],
+        inserted.[IpAddress],
+        inserted.[UserAgent],
+        COALESCE(inserted.[DeviceType], 'unknown') AS [DeviceType],
+        inserted.[DeviceName],
+        inserted.[DeviceId],
+        inserted.[DeviceHash],
+        inserted.[Location],
+        inserted.[StartedAt] AS [CreatedAt],
+        inserted.[LastActivityAt],
+        inserted.[ExpiresAt],
+        inserted.[EndedAt] AS [TerminatedAt],
+        inserted.[EndReason] AS [TerminationReason],
+        CAST(CASE WHEN inserted.[EndedAt] IS NULL THEN 1 ELSE 0 END AS BIT) AS [IsActive]";
+
     public UserSessionRepository(IDbConnectionFactory connectionFactory)
     {
         _connectionFactory = connectionFactory;
@@ -202,6 +226,73 @@ public class UserSessionRepository : IUserSessionRepository
             new { UserId = userId, DeviceHash = deviceHash });
 
         return sessions.ToList().AsReadOnly();
+    }
+
+    /// <inheritdoc />
+    public async Task<int> CountActiveForUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Same predicate as GetActiveSessionsForUserAsync, served by the filtered
+        // IX_UserSessions_UserId. Counting in SQL rather than materialising the
+        // list keeps the deny check off the row-mapping path it never needs.
+        return await connection.ExecuteScalarAsync<int>(@"
+            SELECT COUNT(*)
+            FROM [dbo].[UserSessions]
+            WHERE [UserId] = @UserId
+              AND [EndedAt] IS NULL
+              AND [ExpiresAt] > GETUTCDATE()",
+            new { UserId = userId });
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<UserSession>> TerminateBeyondLimitAsync(
+        Guid userId,
+        int keepNewest,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        if (keepNewest <= 0)
+        {
+            // 0 is "unlimited", and a negative rank window would end every
+            // session the user has — the caller's misconfiguration must not
+            // become a mass sign-out.
+            return [];
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // One statement, not a read followed by a write. Two sign-ins landing
+        // together each insert their row and then run this; the row lock decides
+        // which one ends a given session, and OUTPUT reports only the rows this
+        // execution actually changed. That is what stops the same eviction being
+        // counted — and emailed — twice.
+        //
+        // [Id] breaks ties so the ranking is deterministic when two sessions
+        // share a LastActivityAt to the tick, which they do when a client opens
+        // two of them in the same request.
+        var evicted = await connection.QueryAsync<UserSession>($@"
+            WITH [ranked] AS (
+                SELECT
+                    [Id],
+                    ROW_NUMBER() OVER (
+                        ORDER BY [LastActivityAt] DESC, [StartedAt] DESC, [Id]) AS [rn]
+                FROM [dbo].[UserSessions]
+                WHERE [UserId] = @UserId
+                  AND [EndedAt] IS NULL
+                  AND [ExpiresAt] > GETUTCDATE()
+            )
+            UPDATE [s] SET
+                [EndedAt] = GETUTCDATE(),
+                [EndReason] = @Reason
+            OUTPUT {OutputInsertedColumns}
+            FROM [dbo].[UserSessions] [s]
+            INNER JOIN [ranked] [r] ON [r].[Id] = [s].[Id]
+            WHERE [r].[rn] > @KeepNewest
+              AND [s].[EndedAt] IS NULL",
+            new { UserId = userId, KeepNewest = keepNewest, Reason = reason });
+
+        return evicted.ToList().AsReadOnly();
     }
 
     /// <inheritdoc />

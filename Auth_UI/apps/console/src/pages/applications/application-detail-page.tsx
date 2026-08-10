@@ -620,10 +620,10 @@ export function ApplicationDetailPage() {
                 label: t("applications.sessionTimeoutMinutes"),
                 value: toNumber(app.sessionTimeoutMinutes),
               },
-              {
-                label: t("applications.maxConcurrentSessions"),
-                value: toNumber(app.maxConcurrentSessions),
-              },
+              // maxConcurrentSessions is deliberately not shown: no sign-in path
+              // consults the column, so displaying it stated a limit that was
+              // never applied. The enforced one is Session:MaxConcurrentSessions
+              // under System settings, counted per user across all applications.
               {
                 // Unset means step-up is off; DetailList drops empty values, so
                 // the row only appears when a threshold is actually configured.

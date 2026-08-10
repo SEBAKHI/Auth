@@ -170,6 +170,14 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         var loginResponse = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
 
+        if (loginResponse.IsError)
+        {
+            // The builder refused (the account is at its concurrent session
+            // limit). The pending UserLoggedInEvent is dropped rather than
+            // dispatched: nothing logged in.
+            return loginResponse.Errors;
+        }
+
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         return loginResponse;

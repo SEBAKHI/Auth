@@ -44,6 +44,27 @@ public interface IUserKnownDeviceRepository
     Task<bool> DeleteAsync(Guid userId, Guid deviceId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Moves a browser recorded under an older signature onto its current one.
+    ///
+    /// The signature covers the client's device id, and that id was not sent on
+    /// every path that creates a session — so an account can hold a row hashed
+    /// from an empty id for a browser that now identifies itself properly.
+    /// Without this the browser would be recorded twice: once under each
+    /// signature, with a "new device" email announcing the second.
+    ///
+    /// Also repoints that browser's sessions, so adopting the row does not
+    /// detach the sessions already filed under it. When the current signature is
+    /// already present the older row is removed instead of renamed, which is
+    /// what makes calling this twice harmless.
+    /// </summary>
+    /// <returns>True when an older row was found and adopted.</returns>
+    Task<bool> AdoptLegacySignatureAsync(
+        Guid userId,
+        string legacyHash,
+        string currentHash,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Records a sighting, inserting the device or refreshing an existing row.
     /// Returns true only when a row was inserted — concurrent sign-ins from the
     /// same new device race here, and this is what decides which one is the

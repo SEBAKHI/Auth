@@ -38,6 +38,75 @@ public class CredentialRevocationServiceTests
     }
 
     [Fact]
+    public async Task EnforceConcurrentSessionLimitAsync_KillsEachEvictedSessionForReal()
+    {
+        // Ending the row is bookkeeping. Until the refresh token is revoked the
+        // evicted device simply refreshes and comes back, and until the session
+        // id is blacklisted its existing access token keeps working for the rest
+        // of its lifetime — so the "limit" would let a user hold any number of
+        // usable credentials.
+        var userId = Guid.NewGuid();
+        var evicted = new[]
+        {
+            TestHelpers.CreateUserSession(userId: userId),
+            TestHelpers.CreateUserSession(userId: userId)
+        };
+        _sessionRepositoryMock
+            .Setup(r => r.TerminateBeyondLimitAsync(userId, 3, "session_limit", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(evicted);
+
+        var result = await _service.EnforceConcurrentSessionLimitAsync(
+            userId, 3, "session_limit", CancellationToken.None);
+
+        result.Should().HaveCount(2);
+        foreach (var session in evicted)
+        {
+            _refreshTokenRepositoryMock.Verify(
+                r => r.RevokeBySessionIdAsync(session.Id, userId, "session_limit", It.IsAny<CancellationToken>()),
+                Times.Once);
+            _blacklistServiceMock.Verify(
+                b => b.BlacklistSession(session.Id.ToString(), session.ExpiresAt), Times.Once);
+        }
+    }
+
+    [Fact]
+    public async Task EnforceConcurrentSessionLimitAsync_WithinTheLimit_TouchesNothing()
+    {
+        var userId = Guid.NewGuid();
+        _sessionRepositoryMock
+            .Setup(r => r.TerminateBeyondLimitAsync(userId, 5, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        var result = await _service.EnforceConcurrentSessionLimitAsync(
+            userId, 5, "session_limit", CancellationToken.None);
+
+        result.Should().BeEmpty();
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeBySessionIdAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _blacklistServiceMock.Verify(
+            b => b.BlacklistSession(It.IsAny<string>(), It.IsAny<DateTime>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task EnforceConcurrentSessionLimitAsync_NonPositiveLimit_NeverReachesTheDatabase(int maxSessions)
+    {
+        // 0 means unlimited. Reaching the repository at all here would put a
+        // ranking query on every single sign-in for the default configuration,
+        // and a negative value would end every session the user has.
+        var result = await _service.EnforceConcurrentSessionLimitAsync(
+            Guid.NewGuid(), maxSessions, "session_limit", CancellationToken.None);
+
+        result.Should().BeEmpty();
+        _sessionRepositoryMock.Verify(
+            r => r.TerminateBeyondLimitAsync(
+                It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
     public async Task TerminateSessionsAsync_NoExcept_TerminatesAllRevokesAndBlacklistsEach()
     {
         var userId = Guid.NewGuid();

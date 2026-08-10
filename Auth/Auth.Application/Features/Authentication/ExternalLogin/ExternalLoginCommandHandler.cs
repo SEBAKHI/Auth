@@ -238,6 +238,13 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         var loginResponse = await _loginResponseBuilder.BuildAsync(
             user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
 
+        if (loginResponse.IsError)
+        {
+            // At the concurrent session limit. The pending UserLoggedInEvent is
+            // dropped rather than dispatched: nothing logged in.
+            return loginResponse.Errors;
+        }
+
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         return loginResponse;

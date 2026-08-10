@@ -16,4 +16,5 @@ public record RecoverAccountExternalCommand(
     string? Nonce,
     string? TwoFactorCode,
     string? IpAddress,
-    string? UserAgent) : IRequest<ErrorOr<LoginResponse>>;
+    string? UserAgent,
+    string? DeviceId = null) : IRequest<ErrorOr<LoginResponse>>;

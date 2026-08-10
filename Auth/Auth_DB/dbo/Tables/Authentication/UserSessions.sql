@@ -25,10 +25,17 @@ GO
 
 -- EndReason: written by the code, not constrained. Current writers are 'logout',
 -- 'User terminated', 'User terminated all sessions', 'User terminated all other
--- sessions', 'Password changed', 'device_forgotten', 'Account deleted' and
--- "Account locked: {reason}". CleanupExpiredAsync would write 'timeout' but has
--- no caller, so expired rows are never stamped — they simply stop matching the
--- active-session filter.
+-- sessions', 'Password changed', 'device_forgotten', 'session_limit', 'Account
+-- deleted' and "Account locked: {reason}". CleanupExpiredAsync would write
+-- 'timeout' but has no caller, so expired rows are never stamped — they simply
+-- stop matching the active-session filter.
+--
+-- 'session_limit': the account was over Session:MaxConcurrentSessions and this
+-- was one of its least recently used sessions. Written by
+-- TerminateBeyondLimitAsync, which ranks by LastActivityAt DESC and ends
+-- everything past the limit in one statement — so the reason marks a session
+-- the user did not end and was not warned about beforehand, which is why the
+-- eviction also sends them mail.
 --
 -- DeviceType values: 'desktop', 'mobile', 'tablet', 'unknown'. The form factor,
 -- parsed from the user agent — NOT a reference to a UserKnownDevices row. The

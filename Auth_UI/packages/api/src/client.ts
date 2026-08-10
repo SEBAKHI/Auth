@@ -1,6 +1,7 @@
 import createClient, { type Middleware } from "openapi-fetch"
 
 import { API_BASE_URL } from "@authsystem/api/env"
+import { DEVICE_ID_HEADER, getDeviceId } from "@authsystem/api/device-id"
 import i18n from "@authsystem/i18n"
 import {
   emitSessionExpired,
@@ -218,6 +219,22 @@ const authMiddleware: Middleware = {
     // Culture signal for backend localization (errors, validation, emails) —
     // sent on every request, including the anonymous login flow.
     request.headers.set("Accept-Language", i18n.language)
+
+    // Which browser this is. A transport header rather than a body field,
+    // because it describes the client and not the command: it used to ride in
+    // the body of each request that mints a session, which made every such
+    // endpoint responsible for remembering it. verify-email did not, so the
+    // sign-in that completes registration was recorded under a signature
+    // derived from an EMPTY device id, and the next real login — which did send
+    // one — hashed to something else and was filed as a second browser, with a
+    // "new device" email to match. Sent here, beside Accept-Language and above
+    // the auth-flow early return, no endpoint can omit it and none has to know
+    // about it. The IP and user agent already worked this way; this was the one
+    // client fact that did not.
+    const deviceId = getDeviceId()
+    if (deviceId) {
+      request.headers.set(DEVICE_ID_HEADER, deviceId)
+    }
 
     if (isAuthFlow(request.url)) return request
 

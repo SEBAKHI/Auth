@@ -588,6 +588,65 @@ describe("without Web Locks", () => {
 })
 
 /**
+ * The browser identifier that tells one client from another.
+ *
+ * It used to be a field in the body of each request that mints a session, so
+ * every such endpoint had to remember it. verify-email did not, which recorded
+ * the sign-in completing a registration under a signature built from an empty
+ * id — and the user's next login, which did send one, was filed as a different
+ * browser and emailed about.
+ */
+describe("identifying the browser", () => {
+  /** Matches on the path exactly: "/Auth/login" must not find "login-history". */
+  function sentHeaders(path: string): Headers | undefined {
+    const calls = (globalThis.fetch as unknown as { mock: { calls: unknown[][] } })
+      .mock.calls
+    return calls
+      .map((call) => call[0] as Request)
+      .find(
+        (request) =>
+          typeof request?.url === "string" &&
+          new URL(request.url).pathname === path
+      )?.headers
+  }
+
+  it("sends the device header on the login flow, which carries no token", async () => {
+    // The header is set ABOVE the auth-flow early return. Setting it below —
+    // where the Authorization header goes — would leave every anonymous
+    // session-minting endpoint exactly as blind as the body field did.
+    installServer()
+    const tab = await openTab()
+
+    await tab.client.api.POST("/api/v1/Auth/login", {
+      body: { email: "user@example.com", password: "x" },
+    })
+
+    expect(
+      sentHeaders("/api/v1/Auth/login")?.get("X-Device-Id")
+    ).toBeTruthy()
+  })
+
+  it("sends the same value on an authenticated request", async () => {
+    // One browser, one identifier, whatever the endpoint — that equality is the
+    // whole fix. A per-call-site value is what allowed two to disagree.
+    storage.set(REFRESH_KEY, "R0")
+    installServer()
+    const tab = await openTab()
+
+    await tab.client.api.POST("/api/v1/Auth/login", {
+      body: { email: "user@example.com", password: "x" },
+    })
+    await tab.client.api.GET("/api/v1/Auth/login-history" as never, {} as never)
+
+    const onLogin = sentHeaders("/api/v1/Auth/login")?.get("X-Device-Id")
+    const onHistory = sentHeaders("/api/v1/Auth/login-history")?.get("X-Device-Id")
+
+    expect(onLogin).toBeTruthy()
+    expect(onHistory).toBe(onLogin)
+  })
+})
+
+/**
  * Which endpoints are treated as anonymous.
  *
  * The fake server answers any non-refresh request 200 when an Authorization

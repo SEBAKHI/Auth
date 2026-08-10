@@ -38,6 +38,17 @@ public static class NotificationTypeCodes
     public const string SessionsRevokedTokenReuse = "sessions-revoked-token-reuse";
 
     /// <summary>
+    /// A sign-in pushed the account past Session:MaxConcurrentSessions, so its
+    /// least recently used sessions were ended to make room. Separate from
+    /// <see cref="SessionsRevokedTokenReuse"/>, which reports a suspected theft:
+    /// this one is ordinary policy, and telling someone their account may be
+    /// compromised when they simply signed in on a fifth device would be a false
+    /// alarm. The owner still has to hear it — a device signed out without them
+    /// touching it looks exactly like an intrusion until it is explained.
+    /// </summary>
+    public const string SessionLimitEnforced = "session-limit-enforced";
+
+    /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
@@ -52,7 +63,10 @@ public static class NotificationTypeCodes
             NewDeviceSignIn,
             // Likewise: unpublishing this one would mean accounts get signed
             // out of every device over a suspected theft, in silence.
-            SessionsRevokedTokenReuse
+            SessionsRevokedTokenReuse,
+            // And this one: a device dropping out of a signed-in account with no
+            // explanation is indistinguishable from being hijacked.
+            SessionLimitEnforced
         ];
 
     /// <summary>
