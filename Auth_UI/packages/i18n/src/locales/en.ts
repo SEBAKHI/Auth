@@ -763,6 +763,46 @@ export const en = {
     deleteCustomBody: "This removes the custom secret '{{key}}'.",
     rotateWarning:
       "Regenerating signing keys invalidates all existing tokens. Proceed with care.",
+    operation: {
+      generateRsaKey: "Regenerate RSA signing key",
+      generateHmacKey: "Regenerate refresh-token HMAC key",
+      generateGatewayToken: "Regenerate gateway token",
+      importRsaKey: "Import RSA signing key",
+      importHmacKey: "Import HMAC key",
+      importGatewayToken: "Import gateway token",
+    },
+    confirmTitle: "This changes a key the whole platform runs on",
+    confirmBody:
+      "You will be emailed a one-time code, and shown exactly who this affects, before anything changes.",
+    challengeTitle: "Enter your confirmation code",
+    challengeBody:
+      "A one-time code was sent to {{email}}. Enter it to see what this operation will break.",
+    challengeCodeLabel: "Confirmation code",
+    challengeSent: "Confirmation code sent.",
+    challengeContinue: "Continue",
+    impactTitle: "Last chance to stop",
+    impactAffected: "{{count}} users will be affected",
+    impactNobody: "Nobody is signed in right now, so no user is affected.",
+    impactRestart:
+      "Nothing changes for users until the API process restarts. When it does, everything below happens at once.",
+    impactGateway:
+      "The API Gateway must be reconfigured with the same token. Until both processes carry it, every request through the gateway is rejected.",
+    impactIrreversible:
+      "This cannot be undone. The old key is overwritten, not archived.",
+    impactExpiresIn: "This confirmation expires in {{time}}.",
+    impactExpired:
+      "This confirmation has expired. Start again to request a new code.",
+    impactConfirmHint: "Type {{email}} to confirm.",
+    impactExecute: "I understand — do it",
+    impact: {
+      usersWithLiveAccessTokens: "Users holding a live access token",
+      usersWithActiveSessions: "Users with an active session",
+      usersSignedOut: "Users signed out of every device",
+      usersWithSsoSessions: "Users whose single sign-on session ends",
+      pendingPasswordResets: "Emailed password-reset links that stop working",
+      pendingTwoFactorChallenges: "Two-factor sign-ins in progress that fail",
+      activeWebhookKeys: "Webhook keys that stop validating",
+    },
   },
   notifications: {
     title: "Notification Templates",
@@ -818,6 +858,10 @@ export const en = {
     textTab: "Text",
     desktopWidth: "Desktop width",
     mobileWidth: "Mobile width",
+    previewScheme: "Preview colour scheme",
+    previewLight: "Light mode",
+    previewDark: "Dark mode",
+    previewWidth: "Preview width",
     saveDraft: "Save draft",
     draftSaved: "Draft saved",
     discardDraft: "Discard draft",
@@ -1060,6 +1104,10 @@ export const en = {
     globalVarPlatformName: "The platform name, as set in Platform settings.",
     globalVarPlatformLogoUrl:
       "The platform logo address, as uploaded in Platform settings. Empty when no logo is set — the layout then shows the platform name instead.",
+    globalVarPlatformEmailLogoUrl:
+      "The email-safe copy of the platform logo - an opaque PNG built for mail clients. Empty when no logo is set.",
+    globalVarPlatformEmailLogoDarkUrl:
+      "The email-safe dark-mode logo. Empty unless a dark logo is uploaded in Platform settings, in which case the layout keeps the light one.",
     globalVarApplicationName:
       "The name of the application the message belongs to. Global messages use the platform name.",
     globalVarApplicationCode:

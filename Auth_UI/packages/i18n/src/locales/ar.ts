@@ -761,6 +761,48 @@ export const ar: TranslationResources = {
     deleteCustomBody: "سيؤدي هذا إلى إزالة السر المخصص '{{key}}'.",
     rotateWarning:
       "إعادة توليد مفاتيح التوقيع تُبطل كل الرموز الحالية. تعامل بحذر.",
+    operation: {
+      generateRsaKey: "إعادة توليد مفتاح توقيع RSA",
+      generateHmacKey: "إعادة توليد مفتاح HMAC لرموز التجديد",
+      generateGatewayToken: "إعادة توليد رمز البوابة",
+      importRsaKey: "استيراد مفتاح توقيع RSA",
+      importHmacKey: "استيراد مفتاح HMAC",
+      importGatewayToken: "استيراد رمز البوابة",
+    },
+    confirmTitle: "هذا يغيّر مفتاحًا تقوم عليه المنصة بأكملها",
+    confirmBody:
+      "سيُرسل إليك رمز تأكيد لمرة واحدة عبر البريد الإلكتروني، وسيُعرض عليك بالضبط من سيتأثر بهذا، قبل أن يتغير أي شيء.",
+    challengeTitle: "أدخل رمز التأكيد",
+    challengeBody:
+      "أُرسل رمز تأكيد لمرة واحدة إلى {{email}}. أدخله لترى ما الذي ستعطّله هذه العملية.",
+    challengeCodeLabel: "رمز التأكيد",
+    challengeSent: "أُرسل رمز التأكيد.",
+    challengeContinue: "متابعة",
+    impactTitle: "آخر فرصة للتوقف",
+    impactAffected: "سيتأثر {{count}} مستخدمًا",
+    impactNobody: "لا أحد مسجّل دخوله الآن، فلن يتأثر أي مستخدم.",
+    impactRestart:
+      "لن يتغير شيء بالنسبة للمستخدمين حتى يُعاد تشغيل عملية واجهة API. وعندها يقع كل ما يلي دفعةً واحدة.",
+    impactGateway:
+      "يجب إعادة ضبط بوابة API بالرمز نفسه. وإلى أن تحمله العمليتان معًا، يُرفض كل طلب يمر عبر البوابة.",
+    impactIrreversible:
+      "لا يمكن التراجع عن هذا الإجراء. يُكتب فوق المفتاح القديم ولا يُؤرشف.",
+    impactExpiresIn: "تنتهي صلاحية هذا التأكيد خلال {{time}}.",
+    impactExpired: "انتهت صلاحية هذا التأكيد. ابدأ من جديد لطلب رمز آخر.",
+    impactConfirmHint: "اكتب {{email}} للتأكيد.",
+    impactExecute: "أدرك ذلك — نفّذ",
+    impact: {
+      usersWithLiveAccessTokens: "المستخدمون الذين يحملون رمز وصول ساريًا",
+      usersWithActiveSessions: "المستخدمون ذوو جلسة نشطة",
+      usersSignedOut: "المستخدمون الذين سيُسجَّل خروجهم من جميع الأجهزة",
+      usersWithSsoSessions:
+        "المستخدمون الذين تنتهي جلسة تسجيل الدخول الأحادي لديهم",
+      pendingPasswordResets:
+        "روابط إعادة تعيين كلمة المرور المُرسلة التي ستتوقف عن العمل",
+      pendingTwoFactorChallenges:
+        "عمليات تسجيل الدخول بالمصادقة الثنائية الجارية التي ستفشل",
+      activeWebhookKeys: "مفاتيح Webhook التي ستتوقف عن التحقق",
+    },
   },
   notifications: {
     title: "قوالب الإشعارات",
@@ -815,6 +857,10 @@ export const ar: TranslationResources = {
     textTab: "نص",
     desktopWidth: "عرض سطح المكتب",
     mobileWidth: "عرض الجوال",
+    previewScheme: "نظام ألوان المعاينة",
+    previewLight: "الوضع الفاتح",
+    previewDark: "الوضع الداكن",
+    previewWidth: "عرض المعاينة",
     saveDraft: "حفظ المسودة",
     draftSaved: "تم حفظ المسودة",
     discardDraft: "تجاهل المسودة",
@@ -1050,6 +1096,10 @@ export const ar: TranslationResources = {
     globalVarPlatformName: "اسم المنصة كما هو محدد في إعدادات المنصة.",
     globalVarPlatformLogoUrl:
       "عنوان شعار المنصة كما رُفع في إعدادات المنصة. يكون فارغًا عند عدم تعيين شعار — وعندها يعرض القالب اسم المنصة بدلًا منه.",
+    globalVarPlatformEmailLogoUrl:
+      "نسخة شعار المنصة المهيّأة للبريد الإلكتروني، وهي صورة PNG معتمة مُعدّة لبرامج البريد. تكون فارغة عند عدم تعيين شعار.",
+    globalVarPlatformEmailLogoDarkUrl:
+      "شعار الوضع الداكن المهيّأ للبريد الإلكتروني. يكون فارغًا ما لم يُرفع شعار داكن في إعدادات المنصة، وعندئذٍ يُبقي التخطيط على الشعار الفاتح.",
     globalVarApplicationName:
       "اسم التطبيق الذي تخصه الرسالة. الرسائل العامة تستخدم اسم المنصة.",
     globalVarApplicationCode:

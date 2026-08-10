@@ -771,6 +771,49 @@ export const fa: TranslationResources = {
     deleteCustomBody: "این کار راز سفارشی '{{key}}' را حذف می‌کند.",
     rotateWarning:
       "تولید دوباره کلیدهای امضا همه توکن‌های موجود را بی‌اعتبار می‌کند. با احتیاط ادامه دهید.",
+    operation: {
+      generateRsaKey: "تولید دوباره کلید امضای RSA",
+      generateHmacKey: "تولید دوباره کلید HMAC توکن تازه‌سازی",
+      generateGatewayToken: "تولید دوباره توکن درگاه",
+      importRsaKey: "درون‌ریزی کلید امضای RSA",
+      importHmacKey: "درون‌ریزی کلید HMAC",
+      importGatewayToken: "درون‌ریزی توکن درگاه",
+    },
+    confirmTitle: "این کار کلیدی را تغییر می‌دهد که کل پلتفرم بر آن استوار است",
+    confirmBody:
+      "پیش از هر تغییری، کدی یک‌بارمصرف به ایمیل شما ارسال می‌شود و دقیقاً نشان داده می‌شود که این کار چه کسانی را تحت تأثیر قرار می‌دهد.",
+    challengeTitle: "کد تأیید را وارد کنید",
+    challengeBody:
+      "کدی یک‌بارمصرف به {{email}} ارسال شد. آن را وارد کنید تا ببینید این عملیات چه چیزهایی را از کار می‌اندازد.",
+    challengeCodeLabel: "کد تأیید",
+    challengeSent: "کد تأیید ارسال شد.",
+    challengeContinue: "ادامه",
+    impactTitle: "آخرین فرصت برای توقف",
+    impactAffected: "{{count}} کاربر تحت تأثیر قرار می‌گیرند",
+    impactNobody:
+      "هم‌اکنون هیچ‌کس وارد نشده است، پس هیچ کاربری تحت تأثیر قرار نمی‌گیرد.",
+    impactRestart:
+      "تا زمانی که فرایند API دوباره راه‌اندازی نشود، هیچ چیزی برای کاربران تغییر نمی‌کند. با راه‌اندازی مجدد، همه موارد زیر یکجا رخ می‌دهد.",
+    impactGateway:
+      "درگاه API باید با همین توکن دوباره پیکربندی شود. تا وقتی هر دو فرایند آن را نداشته باشند، هر درخواستی که از درگاه بگذرد رد می‌شود.",
+    impactIrreversible:
+      "این عمل قابل بازگشت نیست. کلید قدیمی بازنویسی می‌شود، نه بایگانی.",
+    impactExpiresIn: "این تأیید تا {{time}} دیگر منقضی می‌شود.",
+    impactExpired:
+      "این تأیید منقضی شده است. برای درخواست کد جدید، از نو آغاز کنید.",
+    impactConfirmHint: "برای تأیید {{email}} را وارد کنید.",
+    impactExecute: "متوجه‌ام — انجام شود",
+    impact: {
+      usersWithLiveAccessTokens: "کاربران دارای توکن دسترسی فعال",
+      usersWithActiveSessions: "کاربران دارای نشست فعال",
+      usersSignedOut: "کاربرانی که از همه دستگاه‌ها خارج می‌شوند",
+      usersWithSsoSessions: "کاربرانی که نشست ورود یکپارچه‌شان پایان می‌یابد",
+      pendingPasswordResets:
+        "پیوندهای بازنشانی رمز عبور ارسال‌شده که از کار می‌افتند",
+      pendingTwoFactorChallenges:
+        "ورودهای دومرحله‌ای در جریان که شکست می‌خورند",
+      activeWebhookKeys: "کلیدهای webhook که دیگر اعتبارسنجی نمی‌کنند",
+    },
   },
   notifications: {
     title: "قالب‌های اعلان",
@@ -826,6 +869,10 @@ export const fa: TranslationResources = {
     textTab: "متن",
     desktopWidth: "عرض دسکتاپ",
     mobileWidth: "عرض موبایل",
+    previewScheme: "طرح رنگ پیش‌نمایش",
+    previewLight: "حالت روشن",
+    previewDark: "حالت تیره",
+    previewWidth: "عرض پیش‌نمایش",
     saveDraft: "ذخیره پیش‌نویس",
     draftSaved: "پیش‌نویس ذخیره شد",
     discardDraft: "حذف پیش‌نویس",
@@ -1067,6 +1114,10 @@ export const fa: TranslationResources = {
     globalVarPlatformName: "نام پلتفرم، طبق تنظیمات پلتفرم.",
     globalVarPlatformLogoUrl:
       "نشانی لوگوی پلتفرم، طبق آنچه در تنظیمات پلتفرم بارگذاری شده است. اگر لوگویی تعیین نشده باشد خالی است — در این حالت قالب به‌جای آن نام پلتفرم را نمایش می‌دهد.",
+    globalVarPlatformEmailLogoUrl:
+      "نسخهٔ مناسب ایمیل از نشان پلتفرم: یک PNG مات که برای کلاینت‌های ایمیل ساخته شده است. اگر نشانی تنظیم نشده باشد خالی است.",
+    globalVarPlatformEmailLogoDarkUrl:
+      "نشان حالت تیرهٔ مناسب ایمیل. تا زمانی که نشان تیره‌ای در تنظیمات پلتفرم بارگذاری نشود خالی است و چیدمان همان نشان روشن را نگه می‌دارد.",
     globalVarApplicationName:
       "نام برنامه‌ای که پیام به آن تعلق دارد. پیام‌های سراسری از نام پلتفرم استفاده می‌کنند.",
     globalVarApplicationCode: "کد کوتاه برنامه؛ در پیام‌های سراسری خالی است.",

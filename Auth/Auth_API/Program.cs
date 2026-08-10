@@ -419,6 +419,8 @@ builder.Services.AddScoped<IExternalAuthProviderRepository, ExternalAuthProvider
 builder.Services.AddScoped<IUserExternalLoginRepository, UserExternalLoginRepository>();
 builder.Services.AddScoped<IWebhookKeyRepository, WebhookKeyRepository>();
 builder.Services.AddScoped<IDashboardStatsRepository, DashboardStatsRepository>();
+builder.Services.AddScoped<ISecretOperationChallengeRepository, SecretOperationChallengeRepository>();
+builder.Services.AddScoped<ISecretRotationImpactRepository, SecretRotationImpactRepository>();
 builder.Services.AddScoped<IPlatformSettingsRepository, PlatformSettingsRepository>();
 builder.Services.AddScoped<ISystemSettingsRepository, SystemSettingsRepository>();
 builder.Services.AddScoped<INotificationTypeRepository, NotificationTypeRepository>();
@@ -549,6 +551,7 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddSingleton<INotificationDispatchSignal, NotificationDispatchSignal>();
 builder.Services.AddHostedService<NotificationTemplateStartupCheck>();
 builder.Services.AddHostedService<NotificationOutboxDispatcher>();
+builder.Services.AddHostedService<EmailLogoRenditionStartupTask>();
 builder.Services.AddSingleton<IImageStorageService, FileSystemImageStorageService>();
 builder.Services.AddSingleton<IImageUrlComposer, ImageUrlComposer>();
 // Privacy policy: rendered once when a revision is published. The file store
@@ -568,6 +571,8 @@ builder.Services.AddScoped<Auth.Application.Features.Users.Common.IdentifierRese
 builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRequestor>();
 builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRecoverer>();
 builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.DeletionOtpService>();
+// Step-up confirmation behind every destructive secret operation.
+builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.SecretOperationChallengeService>();
 // One-shot, config-gated (AccountDeletion:RunEncryptionMigration) re-encryption
 // of TOTP secrets and phone numbers under per-user DEKs.
 builder.Services.AddHostedService<EncryptionMigrationService>();

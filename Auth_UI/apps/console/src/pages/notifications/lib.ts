@@ -32,6 +32,8 @@ export function getRendererGlobals(t: (key: string) => string): TemplateVariable
   return [
     { name: "Platform.Name", description: t("notifications.globalVarPlatformName"), example: "Acme" },
     { name: "Platform.LogoUrl", description: t("notifications.globalVarPlatformLogoUrl"), example: "https://auth.example.com/uploads/images/logo.webp" },
+    { name: "Platform.EmailLogoUrl", description: t("notifications.globalVarPlatformEmailLogoUrl"), example: "https://auth.example.com/uploads/images/logo-email-light.png" },
+    { name: "Platform.EmailLogoDarkUrl", description: t("notifications.globalVarPlatformEmailLogoDarkUrl"), example: "https://auth.example.com/uploads/images/logo-email-dark.png" },
     { name: "Application.Name", description: t("notifications.globalVarApplicationName"), example: "Acme Console" },
     { name: "Application.Code", description: t("notifications.globalVarApplicationCode"), example: "console" },
     { name: "Application.BaseUrl", description: t("notifications.globalVarApplicationBaseUrl"), example: "https://accounts.example.com" },

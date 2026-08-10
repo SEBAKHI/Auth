@@ -1,24 +1,47 @@
-﻿-- Notification Layouts Seed Data
--- Global Email layout: SEBAKHI-brand design (monochrome, 600px table layout, dark-mode aware).
--- Styles cover both the current template classes and the legacy ones (.warning, .link-fallback)
--- so older custom templates keep rendering correctly.
--- Liquid placeholders: {{ dir }}, {{ lang }}, {{ content | raw }}, {{ strings.footer | raw }},
--- plus renderer globals ({{ Platform.Name }}, {{ Application.Name }}, {{ Year }}).
--- The per-language chrome strings live in StringsJson; string values are themselves Liquid
--- templates (the renderer resolves {{ SenderName }} before injecting them).
---
--- DARK MODE, HONESTLY SCOPED (verified against caniemail.com, 2026-08-10):
---   * @media (prefers-color-scheme: dark) reaches Apple Mail 13+, Outlook.com/macOS/iOS/Android,
---     Samsung Email 6.1+, Fastmail. It does NOT reach Gmail on ANY platform, Yahoo, AOL,
---     ProtonMail, Outlook for Windows or HEY.
---   * Gmail instead applies its own transformation (full inversion on iOS, partial on Android)
---     and offers no way to opt in or out. The LIGHT palette is therefore designed to survive
---     being machine-inverted: every surface is opaque, so the client always has a defined
---     colour to convert instead of guessing.
---   * The logo is the one element no client recolours, which is why the light/dark plates are
---     baked into the PNG rather than painted with CSS. See EmailLogoRendition in the API.
+/*
+  2026-08-10 - Email layout: dark-mode parity + email-safe logo renditions
 
-DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+  Two user-reported defects, both living entirely in the global email layout:
+
+  (1) Backgrounds and text rendered wrong in dark mode on devices. The frame was
+      transparent, so partial-inverting clients had no colour to convert and left the
+      area to their own background while the card kept its light palette; the
+      [data-ogsb]/[data-ogsc] Outlook rules were inert for the same reason (no
+      recoloured ancestor to hang off); and several colour-bearing rules - body text,
+      the frame, the sub-footer - had no dark override at all.
+
+  (2) The logo rendered as a black rounded rectangle. Uploads are re-encoded to
+      alpha-carrying WebP; Gmail's backend transcodes WebP to JPEG, which has no alpha,
+      so a transparent mark is flattened onto black. The layout's border-radius supplied
+      the rounded corners. Outlook for Windows cannot decode WebP at all. There was also
+      no dark logo, because PlatformSettings.LogoUrlDark was never exposed to the
+      renderer.
+
+  The new layout points at {{ Platform.EmailLogoUrl }} / {{ Platform.EmailLogoDarkUrl }},
+  which are opaque PNG renditions with the plate baked into the raster (a CSS plate does
+  not work: several clients force-invert declared background colours but never recolour
+  image pixels). Those globals ship in the SAME deployment as this script - the API
+  renders an unknown layout variable as an empty string rather than failing, so a layout
+  ahead of its renderer would silently emit src="".
+
+  Idempotent. Rewrites only rows still carrying the pre-fix fingerprint, in both
+  DraftContent and PublishedContent, across every Email-channel layout (global and
+  application-scoped). Layouts an admin has customised away from that fingerprint are
+  left untouched and reported at the end so they can be updated by hand.
+
+  Fresh databases get the new layout straight from SeedData\11_NotificationLayouts.sql
+  and this script is a no-op there.
+*/
+SET QUOTED_IDENTIFIER ON;
+SET NOCOUNT ON;
+
+PRINT 'Upgrade 2026-08-10: rebuilding the email layout for dark mode and email-safe logos...';
+
+-- Fingerprint of the pre-fix layout. Both strings existed only in the old version:
+-- the transparent frame that caused defect (1) and the stale "alpha-free" claim that
+-- justified shipping defect (2).
+DECLARE @OldFrame NVARCHAR(200) = N'.wrapper { background:transparent;';
+DECLARE @NewMarker NVARCHAR(200) = N'{{ Platform.EmailLogoUrl }}';
 
 DECLARE @LayoutContent NVARCHAR(MAX) = N'<!DOCTYPE html>
 <html lang="{{ lang }}" dir="{{ dir }}">
@@ -218,28 +241,44 @@ strong { color:#141414; }
 </body>
 </html>';
 
-DECLARE @LayoutStrings NVARCHAR(MAX) = N'{
-"en": {"footer": "This is an automated message from {{ SenderName }}. Please do not reply to this email."},
-"ar": {"footer": "هذه رسالة تلقائية من {{ SenderName }}. يرجى عدم الرد على هذا البريد الإلكتروني."},
-"tr": {"footer": "Bu, {{ SenderName }} tarafından gönderilen otomatik bir mesajdır. Lütfen bu e-postayı yanıtlamayın."},
-"fr": {"footer": "Ceci est un message automatique de {{ SenderName }}. Veuillez ne pas répondre à cet e-mail."},
-"zh": {"footer": "这是来自{{ SenderName }}的自动消息，请勿回复此邮件。"},
-"ur": {"footer": "یہ {{ SenderName }} کی طرف سے ایک خودکار پیغام ہے۔ براہ کرم اس ای میل کا جواب نہ دیں۔"},
-"fa": {"footer": "این یک پیام خودکار از {{ SenderName }} است. لطفاً به این ایمیل پاسخ ندهید."}
-}';
+-- Published copy. Channel 1 = Email; the sweep covers application-scoped layouts too,
+-- not just the seeded global one.
+UPDATE [dbo].[NotificationLayouts]
+SET [PublishedContent] = @LayoutContent
+WHERE [Channel] = 1
+  AND [PublishedContent] IS NOT NULL
+  AND CHARINDEX(@OldFrame, [PublishedContent]) > 0
+  AND CHARINDEX(@NewMarker, [PublishedContent]) = 0;
 
-IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationLayouts] WHERE [Id] = '41000000-0000-0000-0000-000000000001')
+PRINT '  PublishedContent rows updated: ' + CAST(@@ROWCOUNT AS NVARCHAR(10));
+
+-- Draft copy. Kept in step with the published one so the console does not show a
+-- phantom "unpublished changes" diff against the layout that is actually live.
+UPDATE [dbo].[NotificationLayouts]
+SET [DraftContent] = @LayoutContent
+WHERE [Channel] = 1
+  AND CHARINDEX(@OldFrame, [DraftContent]) > 0
+  AND CHARINDEX(@NewMarker, [DraftContent]) = 0;
+
+PRINT '  DraftContent rows updated: ' + CAST(@@ROWCOUNT AS NVARCHAR(10));
+
+-- Report, never touch, any Email layout still on the old logo variable. These are
+-- admin-customised and must be updated by hand or they keep the black-rectangle bug.
+DECLARE @Customised INT = (
+    SELECT COUNT(*) FROM [dbo].[NotificationLayouts]
+    WHERE [Channel] = 1 AND CHARINDEX(@NewMarker, ISNULL([PublishedContent], N'')) = 0);
+
+IF @Customised > 0
 BEGIN
-    INSERT INTO [dbo].[NotificationLayouts]
-        ([Id], [ApplicationId], [Channel], [Name], [DraftContent], [DraftStringsJson], [PublishedContent], [PublishedStringsJson], [PublishedAt], [PublishedBy], [CreatedAt], [CreatedBy])
-    VALUES
-        ('41000000-0000-0000-0000-000000000001', NULL, 1, N'Default Email Layout',
-         @LayoutContent, @LayoutStrings, @LayoutContent, @LayoutStrings,
-         GETUTCDATE(), @SystemUserId, GETUTCDATE(), @SystemUserId);
-    PRINT 'Created default global email layout (published)';
+    PRINT '  WARNING: ' + CAST(@Customised AS NVARCHAR(10)) +
+          ' customised Email layout(s) were left untouched and still use the raw logo URL.';
+    SELECT [Id], [ApplicationId], [Name]
+    FROM [dbo].[NotificationLayouts]
+    WHERE [Channel] = 1 AND CHARINDEX(@NewMarker, ISNULL([PublishedContent], N'')) = 0;
 END
-ELSE
-BEGIN
-    PRINT 'Default email layout already exists';
-END
+
+-- The template cache holds the composed layout for at most 15 minutes (absolute TTL,
+-- which exists precisely to cover out-of-band DB edits like this one). No restart is
+-- required; republishing the layout from the console evicts it immediately.
+PRINT '  Note: sends use the new layout within 15 minutes (TemplateCache absolute TTL).';
 GO

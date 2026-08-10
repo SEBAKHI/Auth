@@ -3,23 +3,37 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { directionForLanguage } from "@authsystem/i18n"
-import { Button } from "@authsystem/ui/button"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
+import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@authsystem/ui/tooltip"
 import type { NotificationPreviewDto } from "../lib"
+import {
+  EmailPreviewFrame,
+  PreviewSchemeToggle,
+  type PreviewScheme,
+} from "./email-preview-frame"
 
 /**
  * Shared rendered-output pane used by both the template and layout previews:
- * HTML/plain-text mode tabs, desktop/mobile width toggle, and the sandboxed
- * iframe (no scripts, no same-origin) that displays the server-rendered result.
- * The toolbar arrangement is fixed (mode tabs at the row start, device toggles
- * at the row end) so every page reads identically, and logical flex properties
- * mirror it automatically under RTL.
+ * HTML/plain-text mode tabs, a light/dark scheme toggle, a desktop/mobile width
+ * toggle, and the sandboxed iframe (no scripts, no same-origin) that displays the
+ * server-rendered result. The toolbar arrangement is fixed (mode tabs at the row
+ * start, simulation toggles at the row end) so every page reads identically, and
+ * logical flex properties mirror it automatically under RTL.
+ *
+ * The scheme toggle is not a cosmetic nicety: an email's dark palette lives behind
+ * `@media (prefers-color-scheme: dark)`, so without it an author cannot see half of
+ * what they are shipping, and a dark-mode regression is only discoverable by sending
+ * a real message to a real device. `color-scheme` on the embedding element sets the
+ * embedded document's preferred scheme (CSS Color Adjust 1), which drives the media
+ * query inside the frame regardless of the console's own theme — the previous
+ * behaviour, where the render silently followed whatever theme the admin happened to
+ * be using, was not reproducible between two people looking at the same template.
  */
 export function PreviewPane({
   preview,
@@ -33,6 +47,7 @@ export function PreviewPane({
   const { t } = useTranslation()
   const [mode, setMode] = React.useState<"html" | "text">("html")
   const [width, setWidth] = React.useState<"desktop" | "mobile">("desktop")
+  const [scheme, setScheme] = React.useState<PreviewScheme>("light")
 
   return (
     <div className="flex flex-col gap-3">
@@ -43,33 +58,42 @@ export function PreviewPane({
             <TabsTrigger value="text">{t("notifications.textTab")}</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="flex items-center gap-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={width === "desktop" ? "secondary" : "ghost"}
-                size="icon-sm"
-                aria-label={t("notifications.desktopWidth")}
-                onClick={() => setWidth("desktop")}
-              >
-                <Monitor />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("notifications.desktopWidth")}</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={width === "mobile" ? "secondary" : "ghost"}
-                size="icon-sm"
-                aria-label={t("notifications.mobileWidth")}
-                onClick={() => setWidth("mobile")}
-              >
-                <Smartphone />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>{t("notifications.mobileWidth")}</TooltipContent>
-          </Tooltip>
+        <div className="flex items-center gap-2">
+          <PreviewSchemeToggle scheme={scheme} onSchemeChange={setScheme} />
+          <ToggleGroup
+            type="single"
+            spacing={0}
+            variant="outline"
+            size="sm"
+            value={width}
+            aria-label={t("notifications.previewWidth")}
+            onValueChange={(next) => {
+              if (next === "desktop" || next === "mobile") setWidth(next)
+            }}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem
+                  value="desktop"
+                  aria-label={t("notifications.desktopWidth")}
+                >
+                  <Monitor />
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent>{t("notifications.desktopWidth")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <ToggleGroupItem
+                  value="mobile"
+                  aria-label={t("notifications.mobileWidth")}
+                >
+                  <Smartphone />
+                </ToggleGroupItem>
+              </TooltipTrigger>
+              <TooltipContent>{t("notifications.mobileWidth")}</TooltipContent>
+            </Tooltip>
+          </ToggleGroup>
         </div>
       </div>
 
@@ -82,16 +106,11 @@ export function PreviewPane({
       <div className="flex justify-center rounded-md border bg-muted/30 p-3">
         {preview ? (
           mode === "html" ? (
-            <iframe
-              title={t("notifications.preview")}
-              sandbox=""
-              srcDoc={preview.html ?? ""}
-              className={
-                width === "mobile"
-                  ? "w-[375px] rounded-md border bg-white"
-                  : "w-full rounded-md border bg-white"
-              }
-              style={{ height: frameHeight }}
+            <EmailPreviewFrame
+              html={preview.html ?? ""}
+              scheme={scheme}
+              className={width === "mobile" ? "w-[375px]" : "w-full"}
+              height={frameHeight}
             />
           ) : (
             <pre

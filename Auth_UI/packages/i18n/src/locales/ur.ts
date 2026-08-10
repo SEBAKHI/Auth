@@ -771,6 +771,48 @@ export const ur: TranslationResources = {
     deleteCustomBody: "یہ حسب ضرورت راز '{{key}}' کو ہٹا دے گا۔",
     rotateWarning:
       "دستخطی کلیدیں دوبارہ بنانے سے تمام موجودہ ٹوکن غیر مؤثر ہو جاتے ہیں۔ احتیاط سے آگے بڑھیں۔",
+    operation: {
+      generateRsaKey: "RSA دستخطی کلید دوبارہ بنائیں",
+      generateHmacKey: "ریفریش ٹوکن کی HMAC کلید دوبارہ بنائیں",
+      generateGatewayToken: "گیٹ وے ٹوکن دوبارہ بنائیں",
+      importRsaKey: "RSA دستخطی کلید درآمد کریں",
+      importHmacKey: "HMAC کلید درآمد کریں",
+      importGatewayToken: "گیٹ وے ٹوکن درآمد کریں",
+    },
+    confirmTitle: "یہ اُس کلید کو بدل رہا ہے جس پر پورا پلیٹ فارم چلتا ہے",
+    confirmBody:
+      "کچھ بھی تبدیل ہونے سے پہلے آپ کو ای میل پر یک بارگی کوڈ بھیجا جائے گا، اور بالکل واضح کر دیا جائے گا کہ اس سے کون متاثر ہوگا۔",
+    challengeTitle: "تصدیقی کوڈ درج کریں",
+    challengeBody:
+      "{{email}} پر یک بارگی کوڈ بھیج دیا گیا ہے۔ یہ دیکھنے کے لیے کہ یہ عمل کیا کچھ توڑ دے گا، اسے درج کریں۔",
+    challengeCodeLabel: "تصدیقی کوڈ",
+    challengeSent: "تصدیقی کوڈ بھیج دیا گیا۔",
+    challengeContinue: "جاری رکھیں",
+    impactTitle: "رکنے کا آخری موقع",
+    impactAffected: "{{count}} صارفین متاثر ہوں گے",
+    impactNobody:
+      "اس وقت کوئی سائن ان نہیں ہے، اس لیے کوئی صارف متاثر نہیں ہوگا۔",
+    impactRestart:
+      "جب تک API کا دوبارہ آغاز نہیں ہوتا، صارفین کے لیے کچھ تبدیل نہیں ہوگا۔ جب ایسا ہوگا تو نیچے دی گئی ہر بات ایک ساتھ پیش آ جائے گی۔",
+    impactGateway:
+      "API گیٹ وے کو اسی ٹوکن کے ساتھ دوبارہ ترتیب دینا لازمی ہے۔ جب تک دونوں پروسیس یہ ٹوکن نہ رکھیں، گیٹ وے سے گزرنے والی ہر درخواست مسترد ہو جائے گی۔",
+    impactIrreversible:
+      "یہ عمل واپس نہیں ہو سکتا۔ پرانی کلید محفوظ نہیں کی جاتی، اُس پر لکھ دیا جاتا ہے۔",
+    impactExpiresIn: "اس تصدیق کی میعاد {{time}} میں ختم ہو جائے گی۔",
+    impactExpired:
+      "اس تصدیق کی میعاد ختم ہو گئی۔ نیا کوڈ طلب کرنے کے لیے عمل دوبارہ شروع کریں۔",
+    impactConfirmHint: "تصدیق کے لیے {{email}} لکھیں۔",
+    impactExecute: "میں سمجھتا ہوں — یہ کر دیں",
+    impact: {
+      usersWithLiveAccessTokens: "وہ صارفین جن کے پاس فعال رسائی ٹوکن ہے",
+      usersWithActiveSessions: "وہ صارفین جن کا سیشن فعال ہے",
+      usersSignedOut: "وہ صارفین جو ہر آلے سے سائن آؤٹ ہو جائیں گے",
+      usersWithSsoSessions: "وہ صارفین جن کا سنگل سائن آن سیشن ختم ہو جائے گا",
+      pendingPasswordResets:
+        "ای میل کیے گئے پاس ورڈ ری سیٹ لنک جو کام کرنا بند کر دیں گے",
+      pendingTwoFactorChallenges: "جاری دو مرحلہ سائن اِن جو ناکام ہو جائیں گے",
+      activeWebhookKeys: "Webhook کلیدیں جن کی توثیق ہونا بند ہو جائے گی",
+    },
   },
   notifications: {
     title: "اطلاعاتی سانچے",
@@ -826,6 +868,10 @@ export const ur: TranslationResources = {
     textTab: "متن",
     desktopWidth: "ڈیسک ٹاپ چوڑائی",
     mobileWidth: "موبائل چوڑائی",
+    previewScheme: "پیش منظر کی رنگ اسکیم",
+    previewLight: "روشن موڈ",
+    previewDark: "گہرا موڈ",
+    previewWidth: "پیش منظر کی چوڑائی",
     saveDraft: "مسودہ محفوظ کریں",
     draftSaved: "مسودہ محفوظ ہو گیا",
     discardDraft: "مسودہ مسترد کریں",
@@ -1066,6 +1112,10 @@ export const ur: TranslationResources = {
       "پلیٹ فارم کا نام، جیسا کہ پلیٹ فارم کی ترتیبات میں طے ہے۔",
     globalVarPlatformLogoUrl:
       "پلیٹ فارم لوگو کا پتہ، جیسا کہ پلیٹ فارم کی ترتیبات میں اپ لوڈ کیا گیا ہے۔ لوگو مقرر نہ ہونے پر خالی رہتا ہے — تب لے آؤٹ اس کی جگہ پلیٹ فارم کا نام دکھاتا ہے۔",
+    globalVarPlatformEmailLogoUrl:
+      "پلیٹ فارم لوگو کی ای میل کے لیے موزوں نقل: میل کلائنٹس کے لیے تیار کردہ ایک غیر شفاف PNG۔ لوگو مقرر نہ ہونے پر خالی رہتا ہے۔",
+    globalVarPlatformEmailLogoDarkUrl:
+      "ای میل کے لیے موزوں گہرے موڈ کا لوگو۔ جب تک پلیٹ فارم کی ترتیبات میں گہرا لوگو اپ لوڈ نہ کیا جائے یہ خالی رہتا ہے، اور خاکہ روشن لوگو ہی استعمال کرتا رہتا ہے۔",
     globalVarApplicationName:
       "اس ایپلیکیشن کا نام جس سے پیغام متعلق ہے۔ عمومی پیغامات پلیٹ فارم کا نام استعمال کرتے ہیں۔",
     globalVarApplicationCode:

@@ -36,6 +36,7 @@ public class NotificationLayoutCommandHandlerTests
             new Mock<IPlatformSettingsRepository>().Object,
             new FluidTemplateRenderer(),
             new Mock<IImageUrlComposer>().Object,
+            new Mock<IImageStorageService>().Object,
             TestHelpers.CreateOptions(new EmailSettings { SenderName = "Auth System" }),
             new Mock<ILogger<NotificationRenderingService>>().Object);
 

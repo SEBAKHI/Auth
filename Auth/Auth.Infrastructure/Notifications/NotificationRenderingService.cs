@@ -30,6 +30,7 @@ public class NotificationRenderingService : INotificationRenderer
     private readonly IPlatformSettingsRepository _platformSettingsRepository;
     private readonly ITemplateRenderer _renderer;
     private readonly IImageUrlComposer _imageUrlComposer;
+    private readonly IImageStorageService _imageStorage;
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<NotificationRenderingService> _logger;
 
@@ -42,6 +43,7 @@ public class NotificationRenderingService : INotificationRenderer
         IPlatformSettingsRepository platformSettingsRepository,
         ITemplateRenderer renderer,
         IImageUrlComposer imageUrlComposer,
+        IImageStorageService imageStorage,
         IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<NotificationRenderingService> logger)
     {
@@ -53,6 +55,7 @@ public class NotificationRenderingService : INotificationRenderer
         _platformSettingsRepository = platformSettingsRepository;
         _renderer = renderer;
         _imageUrlComposer = imageUrlComposer;
+        _imageStorage = imageStorage;
         _emailSettings = emailSettings.Value;
         _logger = logger;
     }
@@ -239,6 +242,11 @@ public class NotificationRenderingService : INotificationRenderer
 
     #region Composition
 
+    private static bool IsAbsoluteUrl(string? value) =>
+        value is not null &&
+        (value.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+         value.StartsWith("https://", StringComparison.OrdinalIgnoreCase));
+
     private async Task<Dictionary<string, object?>> BuildModelAsync(
         IReadOnlyDictionary<string, object?> variables,
         Guid? applicationId,
@@ -263,10 +271,38 @@ public class NotificationRenderingService : INotificationRenderer
         // string as truthy, so the layout's {% if Platform.LogoUrl %} needs nil
         // to fall back to the text wordmark.
         var platformLogoUrl = _imageUrlComposer.Compose(platform?.LogoUrl);
+
+        // Email cannot use the stored WebP logo — Gmail transcodes WebP to JPEG (flattening a
+        // transparent mark onto black) and Outlook for Windows cannot decode it at all. The
+        // layout therefore points at pre-built opaque PNG renditions instead. These are looked
+        // up, never built, here: with the outbox enabled this runs inside the HTTP request that
+        // triggers the mail. A missing rendition stays null so the layout falls back to the
+        // text wordmark rather than re-emitting the unsafe source.
+        var emailLogo = await _imageStorage.GetEmailLogoRenditionAsync(
+            platform?.LogoUrl, EmailLogoVariant.Light, cancellationToken);
+        var emailLogoDark = await _imageStorage.GetEmailLogoRenditionAsync(
+            platform?.LogoUrlDark, EmailLogoVariant.Dark, cancellationToken);
+
+        // An externally hosted absolute URL has no rendition and cannot get one; pass it
+        // through so that escape hatch keeps working.
+        var emailLogoUrl = emailLogo is null
+            ? (IsAbsoluteUrl(platform?.LogoUrl) ? platformLogoUrl : null)
+            : _imageUrlComposer.Compose(emailLogo.Key);
+        var emailLogoDarkUrl = emailLogoDark is null
+            ? (IsAbsoluteUrl(platform?.LogoUrlDark) ? _imageUrlComposer.Compose(platform?.LogoUrlDark) : null)
+            : _imageUrlComposer.Compose(emailLogoDark.Key);
+
         model["Platform"] = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["Name"] = platformName,
-            ["LogoUrl"] = string.IsNullOrWhiteSpace(platformLogoUrl) ? null : platformLogoUrl
+            ["LogoUrl"] = string.IsNullOrWhiteSpace(platformLogoUrl) ? null : platformLogoUrl,
+            ["EmailLogoUrl"] = string.IsNullOrWhiteSpace(emailLogoUrl) ? null : emailLogoUrl,
+            ["EmailLogoDarkUrl"] = string.IsNullOrWhiteSpace(emailLogoDarkUrl) ? null : emailLogoDarkUrl,
+            // Outlook's Word engine ignores height:auto, so the layout must state both.
+            ["EmailLogoWidth"] = emailLogo?.Width,
+            ["EmailLogoHeight"] = emailLogo?.Height,
+            ["EmailLogoDarkWidth"] = emailLogoDark?.Width,
+            ["EmailLogoDarkHeight"] = emailLogoDark?.Height
         };
 
         // Application must ALWAYS be present (the variable catalog promises it):

@@ -20,11 +20,21 @@ import {
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import { formatDateTime } from "@authsystem/ui/format"
+import {
+  EmailPreviewFrame,
+  PreviewSchemeToggle,
+  type PreviewScheme,
+} from "./email-preview-frame"
 
 /**
  * One delivery-log entry: metadata (status, attempts, errors, audit references)
  * plus the exact rendered content that was — or will be — delivered, shown in a
  * fully sandboxed iframe.
+ *
+ * The scheme toggle matters most here: complaints about an email are usually
+ * complaints about how it looked on the reporter's device, and this is the view an
+ * operator opens to check. It shares the authoring preview's frame so the two can
+ * never drift.
  */
 export function OutboxMessageSheet({
   messageId,
@@ -40,6 +50,7 @@ export function OutboxMessageSheet({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [mode, setMode] = React.useState<"html" | "text">("html")
+  const [scheme, setScheme] = React.useState<PreviewScheme>("light")
 
   const query = useQuery({
     queryKey: ["notification-outbox-message", messageId],
@@ -161,19 +172,24 @@ export function OutboxMessageSheet({
                 </Button>
               ) : null}
 
-              <Tabs value={mode} onValueChange={(value) => setMode(value as "html" | "text")}>
-                <TabsList>
-                  <TabsTrigger value="html">{t("notifications.htmlTab")}</TabsTrigger>
-                  <TabsTrigger value="text">{t("notifications.textTab")}</TabsTrigger>
-                </TabsList>
-              </Tabs>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Tabs value={mode} onValueChange={(value) => setMode(value as "html" | "text")}>
+                  <TabsList>
+                    <TabsTrigger value="html">{t("notifications.htmlTab")}</TabsTrigger>
+                    <TabsTrigger value="text">{t("notifications.textTab")}</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                {mode === "html" ? (
+                  <PreviewSchemeToggle scheme={scheme} onSchemeChange={setScheme} />
+                ) : null}
+              </div>
 
               {mode === "html" ? (
-                <iframe
-                  title={t("notifications.preview")}
-                  sandbox=""
-                  srcDoc={message.bodyHtml ?? ""}
-                  className="h-[480px] w-full rounded-md border bg-white"
+                <EmailPreviewFrame
+                  html={message.bodyHtml ?? ""}
+                  scheme={scheme}
+                  className="w-full"
+                  height="480px"
                 />
               ) : (
                 <pre

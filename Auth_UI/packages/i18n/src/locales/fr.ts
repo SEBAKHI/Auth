@@ -792,6 +792,51 @@ export const fr: TranslationResources = {
     deleteCustomBody: "Ceci retire le secret personnalisé « {{key}} ».",
     rotateWarning:
       "Régénérer les clés de signature invalide tous les jetons existants. Procédez avec prudence.",
+    operation: {
+      generateRsaKey: "Régénérer la clé de signature RSA",
+      generateHmacKey: "Régénérer la clé HMAC des jetons de rafraîchissement",
+      generateGatewayToken: "Régénérer le jeton de passerelle",
+      importRsaKey: "Importer la clé de signature RSA",
+      importHmacKey: "Importer la clé HMAC",
+      importGatewayToken: "Importer le jeton de passerelle",
+    },
+    confirmTitle: "Ceci modifie une clé dont dépend toute la plateforme",
+    confirmBody:
+      "Un code à usage unique vous sera envoyé par e-mail et vous verrez exactement qui est affecté, avant que quoi que ce soit ne change.",
+    challengeTitle: "Saisissez votre code de confirmation",
+    challengeBody:
+      "Un code à usage unique a été envoyé à {{email}}. Saisissez-le pour voir ce que cette opération va mettre hors service.",
+    challengeCodeLabel: "Code de confirmation",
+    challengeSent: "Code de confirmation envoyé.",
+    challengeContinue: "Continuer",
+    impactTitle: "Dernière chance de renoncer",
+    impactAffected: "{{count}} utilisateurs seront affectés",
+    impactNobody:
+      "Personne n'est connecté actuellement ; aucun utilisateur n'est donc affecté.",
+    impactRestart:
+      "Rien ne change pour les utilisateurs tant que le processus de l'API n'a pas redémarré. Au redémarrage, tout ce qui suit se produit d'un coup.",
+    impactGateway:
+      "La passerelle API doit être reconfigurée avec le même jeton. Tant que les deux processus ne le portent pas, toute requête passant par la passerelle est rejetée.",
+    impactIrreversible:
+      "Cette action est irréversible. L'ancienne clé est écrasée, pas archivée.",
+    impactExpiresIn: "Cette confirmation expire dans {{time}}.",
+    impactExpired:
+      "Cette confirmation a expiré. Recommencez pour demander un nouveau code.",
+    impactConfirmHint: "Saisissez {{email}} pour confirmer.",
+    impactExecute: "Je comprends — exécuter",
+    impact: {
+      usersWithLiveAccessTokens:
+        "Utilisateurs détenant un jeton d'accès encore valide",
+      usersWithActiveSessions: "Utilisateurs avec une session active",
+      usersSignedOut: "Utilisateurs déconnectés de tous leurs appareils",
+      usersWithSsoSessions:
+        "Utilisateurs dont la session d'authentification unique prend fin",
+      pendingPasswordResets:
+        "Liens de réinitialisation du mot de passe envoyés par e-mail qui cessent de fonctionner",
+      pendingTwoFactorChallenges:
+        "Connexions à deux facteurs en cours qui échouent",
+      activeWebhookKeys: "Clés webhook qui cessent de fonctionner",
+    },
   },
   notifications: {
     title: "Modèles de notification",
@@ -847,6 +892,10 @@ export const fr: TranslationResources = {
     textTab: "Texte",
     desktopWidth: "Largeur bureau",
     mobileWidth: "Largeur mobile",
+    previewScheme: "Schéma de couleurs de l'aperçu",
+    previewLight: "Mode clair",
+    previewDark: "Mode sombre",
+    previewWidth: "Largeur de l'aperçu",
     saveDraft: "Enregistrer le brouillon",
     draftSaved: "Brouillon enregistré",
     discardDraft: "Abandonner le brouillon",
@@ -1094,6 +1143,10 @@ export const fr: TranslationResources = {
       "Le nom de la plateforme, défini dans les paramètres de la plateforme.",
     globalVarPlatformLogoUrl:
       "L'adresse du logo de la plateforme, téléversé dans les paramètres de la plateforme. Vide si aucun logo n'est défini — la mise en page affiche alors le nom de la plateforme à la place.",
+    globalVarPlatformEmailLogoUrl:
+      "La version du logo de la plateforme adaptée aux e-mails : un PNG opaque conçu pour les clients de messagerie. Vide si aucun logo n'est défini.",
+    globalVarPlatformEmailLogoDarkUrl:
+      "Le logo en mode sombre adapté aux e-mails. Vide tant qu'aucun logo sombre n'est téléversé dans les paramètres de la plateforme ; la mise en page conserve alors le logo clair.",
     globalVarApplicationName:
       "Le nom de l'application à laquelle appartient le message. Les messages globaux utilisent le nom de la plateforme.",
     globalVarApplicationCode:

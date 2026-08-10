@@ -781,6 +781,50 @@ export const tr: TranslationResources = {
     deleteCustomBody: "Bu işlem '{{key}}' özel gizli anahtarını kaldırır.",
     rotateWarning:
       "İmzalama anahtarlarını yeniden oluşturmak mevcut tüm jetonları geçersiz kılar. Dikkatli ilerleyin.",
+    operation: {
+      generateRsaKey: "RSA imzalama anahtarını yeniden oluştur",
+      generateHmacKey: "Yenileme jetonu HMAC anahtarını yeniden oluştur",
+      generateGatewayToken: "Ağ geçidi jetonunu yeniden oluştur",
+      importRsaKey: "RSA imzalama anahtarını içe aktar",
+      importHmacKey: "HMAC anahtarını içe aktar",
+      importGatewayToken: "Ağ geçidi jetonunu içe aktar",
+    },
+    confirmTitle:
+      "Bu işlem, tüm platformun üzerinde çalıştığı bir anahtarı değiştirir",
+    confirmBody:
+      "Hiçbir şey değişmeden önce size tek kullanımlık bir kod e-postayla gönderilecek ve bunun tam olarak kimleri etkilediği gösterilecek.",
+    challengeTitle: "Onay kodunuzu girin",
+    challengeBody:
+      "{{email}} adresine tek kullanımlık bir kod gönderildi. Bu işlemin neleri bozacağını görmek için kodu girin.",
+    challengeCodeLabel: "Onay kodu",
+    challengeSent: "Onay kodu gönderildi.",
+    challengeContinue: "Devam",
+    impactTitle: "Durmak için son şans",
+    impactAffected: "{{count}} kullanıcı etkilenecek",
+    impactNobody:
+      "Şu anda oturum açmış kimse yok, bu nedenle hiçbir kullanıcı etkilenmiyor.",
+    impactRestart:
+      "API süreci yeniden başlatılana kadar kullanıcılar için hiçbir şey değişmez. Yeniden başlatıldığında aşağıdakilerin tümü aynı anda gerçekleşir.",
+    impactGateway:
+      "API ağ geçidi aynı jetonla yeniden yapılandırılmalıdır. Her iki süreç de bu jetonu taşıyana kadar ağ geçidi üzerinden gelen her istek reddedilir.",
+    impactIrreversible:
+      "Bu işlem geri alınamaz. Eski anahtar arşivlenmez, üzerine yazılır.",
+    impactExpiresIn: "Bu onayın süresi {{time}} içinde dolacak.",
+    impactExpired:
+      "Bu onayın süresi doldu. Yeni bir kod istemek için baştan başlayın.",
+    impactConfirmHint: "Onaylamak için {{email}} yazın.",
+    impactExecute: "Anladım — uygula",
+    impact: {
+      usersWithLiveAccessTokens: "Geçerli erişim jetonu taşıyan kullanıcılar",
+      usersWithActiveSessions: "Aktif oturumu olan kullanıcılar",
+      usersSignedOut: "Tüm cihazlardan çıkışı yapılacak kullanıcılar",
+      usersWithSsoSessions: "Tek oturum açma oturumu sona erecek kullanıcılar",
+      pendingPasswordResets:
+        "Artık çalışmayacak, e-postayla gönderilmiş parola sıfırlama bağlantıları",
+      pendingTwoFactorChallenges:
+        "Başarısız olacak, sürmekte olan iki adımlı doğrulamalar",
+      activeWebhookKeys: "Artık doğrulama yapmayacak webhook anahtarları",
+    },
   },
   notifications: {
     title: "Bildirim Şablonları",
@@ -836,6 +880,10 @@ export const tr: TranslationResources = {
     textTab: "Metin",
     desktopWidth: "Masaüstü genişliği",
     mobileWidth: "Mobil genişlik",
+    previewScheme: "Önizleme renk şeması",
+    previewLight: "Açık mod",
+    previewDark: "Koyu mod",
+    previewWidth: "Önizleme genişliği",
     saveDraft: "Taslağı kaydet",
     draftSaved: "Taslak kaydedildi",
     discardDraft: "Taslağı sil",
@@ -1076,6 +1124,10 @@ export const tr: TranslationResources = {
     globalVarPlatformName: "Platform ayarlarında tanımlanan platform adı.",
     globalVarPlatformLogoUrl:
       "Platform ayarlarında yüklenen platform logosunun adresi. Logo ayarlanmamışsa boştur — bu durumda şablon bunun yerine platform adını gösterir.",
+    globalVarPlatformEmailLogoUrl:
+      "Platform logosunun e-postaya uygun kopyası: posta istemcileri için hazırlanmış opak bir PNG. Logo ayarlanmadığında boştur.",
+    globalVarPlatformEmailLogoDarkUrl:
+      "E-postaya uygun koyu mod logosu. Platform ayarlarında koyu bir logo yüklenmediyse boştur; bu durumda düzen açık logoyu kullanmaya devam eder.",
     globalVarApplicationName:
       "Mesajın ait olduğu uygulamanın adı. Genel mesajlar platform adını kullanır.",
     globalVarApplicationCode: "Uygulamanın kısa kodu; genel mesajlarda boştur.",

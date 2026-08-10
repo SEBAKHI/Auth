@@ -737,6 +737,44 @@ export const zh: TranslationResources = {
     deleteCustomTitle: "删除自定义机密",
     deleteCustomBody: "这将移除自定义机密 '{{key}}'。",
     rotateWarning: "重新生成签名密钥将使所有现有令牌失效。请谨慎操作。",
+    operation: {
+      generateRsaKey: "重新生成 RSA 签名密钥",
+      generateHmacKey: "重新生成刷新令牌 HMAC 密钥",
+      generateGatewayToken: "重新生成网关令牌",
+      importRsaKey: "导入 RSA 签名密钥",
+      importHmacKey: "导入 HMAC 密钥",
+      importGatewayToken: "导入网关令牌",
+    },
+    confirmTitle: "此操作将更改整个平台赖以运行的密钥",
+    confirmBody:
+      "在任何更改生效前，系统会向您发送一次性确认码，并明确列出此操作会影响到哪些人。",
+    challengeTitle: "输入确认码",
+    challengeBody:
+      "一次性确认码已发送至 {{email}}。请输入以查看此操作将导致哪些内容失效。",
+    challengeCodeLabel: "确认码",
+    challengeSent: "确认码已发送。",
+    challengeContinue: "继续",
+    impactTitle: "最后的中止机会",
+    impactAffected: "{{count}} 个用户将受到影响",
+    impactNobody: "当前没有用户处于登录状态，因此不会有用户受到影响。",
+    impactRestart:
+      "在 API 进程重启前，用户不会受到任何影响。一旦重启，以下后果将同时发生。",
+    impactGateway:
+      "必须为 API 网关重新配置相同的令牌。在两个进程都持有该令牌之前，经由网关的所有请求都会被拒绝。",
+    impactIrreversible: "此操作无法撤销。旧密钥将被覆盖，而不会归档保留。",
+    impactExpiresIn: "此确认将在 {{time}} 后失效。",
+    impactExpired: "此确认已过期。请重新开始以获取新的确认码。",
+    impactConfirmHint: "请输入 {{email}} 以确认。",
+    impactExecute: "我已知晓后果，立即执行",
+    impact: {
+      usersWithLiveAccessTokens: "持有有效访问令牌的用户",
+      usersWithActiveSessions: "拥有活跃会话的用户",
+      usersSignedOut: "将在所有设备上退出登录的用户",
+      usersWithSsoSessions: "单点登录会话将结束的用户",
+      pendingPasswordResets: "已发送但将失效的密码重置链接",
+      pendingTwoFactorChallenges: "进行中但将失败的双重认证登录",
+      activeWebhookKeys: "将无法通过验证的 Webhook 密钥",
+    },
   },
   notifications: {
     title: "通知模板",
@@ -787,6 +825,10 @@ export const zh: TranslationResources = {
     textTab: "文本",
     desktopWidth: "桌面宽度",
     mobileWidth: "移动宽度",
+    previewScheme: "预览配色方案",
+    previewLight: "浅色模式",
+    previewDark: "深色模式",
+    previewWidth: "预览宽度",
     saveDraft: "保存草稿",
     draftSaved: "草稿已保存",
     discardDraft: "放弃草稿",
@@ -1012,6 +1054,10 @@ export const zh: TranslationResources = {
     globalVarPlatformName: "平台名称，来自平台设置。",
     globalVarPlatformLogoUrl:
       "平台徽标的地址，来自平台设置中上传的徽标。未设置徽标时为空——此时布局会改为显示平台名称。",
+    globalVarPlatformEmailLogoUrl:
+      "适用于邮件的平台徽标版本：为邮件客户端生成的不透明 PNG。未设置徽标时为空。",
+    globalVarPlatformEmailLogoDarkUrl:
+      "适用于邮件的深色模式徽标。除非在平台设置中上传了深色徽标，否则为空，此时版式将继续使用浅色徽标。",
     globalVarApplicationName: "消息所属应用的名称。全局消息使用平台名称。",
     globalVarApplicationCode: "应用的短代码；全局消息中为空。",
     globalVarApplicationBaseUrl: "应用的网站地址；可用于构建链接。",

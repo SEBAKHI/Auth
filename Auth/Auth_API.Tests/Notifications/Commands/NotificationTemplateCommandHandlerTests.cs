@@ -67,6 +67,7 @@ public class NotificationTemplateCommandHandlerTests
             new Mock<IPlatformSettingsRepository>().Object,
             new FluidTemplateRenderer(),
             new Mock<IImageUrlComposer>().Object,
+            new Mock<IImageStorageService>().Object,
             TestHelpers.CreateOptions(new EmailSettings()),
             new Mock<ILogger<NotificationRenderingService>>().Object);
     }

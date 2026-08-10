@@ -13,6 +13,11 @@ namespace Auth.Infrastructure.Services;
 /// resized down to the configured max edge and re-encoded to WebP, which drops all metadata
 /// (EXIF/GPS). Files are written under a random key. Swap for an Azure Blob / S3 implementation
 /// later without touching callers.
+/// <para>
+/// WebP is right for the web surfaces and wrong for email, so logos additionally get a derived
+/// opaque PNG rendition keyed off the source name — see
+/// <see cref="EnsureEmailLogoRenditionAsync"/> and <see cref="EmailLogoRendition"/> for why.
+/// </para>
 /// </summary>
 public sealed class FileSystemImageStorageService : IImageStorageService
 {
@@ -128,28 +133,219 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         }
     }
 
+    public Task<EmailLogoRendition?> EnsureEmailLogoRenditionAsync(
+        string? sourceKey, EmailLogoVariant variant, CancellationToken cancellationToken)
+        => Task.FromResult(BuildEmailLogoRendition(sourceKey, variant, write: true));
+
+    public Task<EmailLogoRendition?> GetEmailLogoRenditionAsync(
+        string? sourceKey, EmailLogoVariant variant, CancellationToken cancellationToken)
+        => Task.FromResult(BuildEmailLogoRendition(sourceKey, variant, write: false));
+
     public Task DeleteImageAsync(string? key, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(key) && !IsAbsoluteUrl(key))
         {
             // Path.GetFileName collapses any directory traversal in a stored key.
             var safeName = Path.GetFileName(key);
-            var path = Path.Combine(ResolvedRoot(_settings.CurrentValue), safeName);
-            try
+            var root = ResolvedRoot(_settings.CurrentValue);
+            // The derived email renditions belong to the source; dropping them together
+            // keeps a replaced logo from leaving plated orphans behind.
+            string[] paths =
+            [
+                Path.Combine(root, safeName),
+                Path.Combine(root, RenditionKey(safeName, EmailLogoVariant.Light)),
+                Path.Combine(root, RenditionKey(safeName, EmailLogoVariant.Dark))
+            ];
+
+            foreach (var path in paths)
             {
-                if (File.Exists(path))
+                try
                 {
-                    File.Delete(path);
+                    if (File.Exists(path))
+                    {
+                        File.Delete(path);
+                    }
                 }
-            }
-            catch
-            {
-                // Best-effort cleanup — a failed delete must not fail the operation.
+                catch
+                {
+                    // Best-effort cleanup — a failed delete must not fail the operation.
+                }
             }
         }
 
         return Task.CompletedTask;
     }
+
+    #region Email logo renditions
+
+    // The rendition is generated at 2x and displayed at half size, so it stays sharp on
+    // high-density phone screens where transactional mail is mostly read.
+    private const int RenditionScale = 2;
+
+    // Device-pixel artboard bounds. The plate never exceeds these; it SHRINKS to fit a
+    // narrow or square mark instead of marooning it in a wide slab, because in dark mode
+    // the plate is visible as a chip and its dead space would read as a design error.
+    private const int MaxArtboardWidthPx = 200 * RenditionScale;
+    private const int MaxArtboardHeightPx = 72 * RenditionScale;
+    private const int PlatePaddingPx = 12 * RenditionScale;
+
+    // Never blow a tiny source up into a blurry smear; a small mark simply stays small.
+    private const float MaxUpscale = 2f;
+
+    /// <summary>
+    /// Plate colours. These MUST track the email layout's <c>.card</c> background in each
+    /// mode (light <c>#FFFFFF</c>, dark <c>#1A1A1C</c>) so the chip disappears into the card
+    /// instead of framing it. See <c>Auth_DB\dbo\Scripts\SeedData\11_NotificationLayouts.sql</c>.
+    /// </summary>
+    private static SKColor PlateColor(EmailLogoVariant variant) => variant switch
+    {
+        EmailLogoVariant.Dark => new SKColor(0x1A, 0x1A, 0x1C),
+        _ => new SKColor(0xFF, 0xFF, 0xFF)
+    };
+
+    private static string RenditionKey(string sourceFileName, EmailLogoVariant variant) =>
+        $"{Path.GetFileNameWithoutExtension(sourceFileName)}-email-{variant.ToString().ToLowerInvariant()}.png";
+
+    /// <summary>
+    /// Shared read/write core. With <paramref name="write"/> false this only reports an
+    /// existing rendition, so the send path can never touch the disk for writing.
+    /// </summary>
+    private EmailLogoRendition? BuildEmailLogoRendition(string? sourceKey, EmailLogoVariant variant, bool write)
+    {
+        // An externally hosted logo is an explicit escape hatch: we cannot re-plate a URL we
+        // do not own, and the admin has taken responsibility for its email safety.
+        if (string.IsNullOrWhiteSpace(sourceKey) || IsAbsoluteUrl(sourceKey))
+        {
+            return null;
+        }
+
+        var root = ResolvedRoot(_settings.CurrentValue);
+        // Path.GetFileName collapses any directory traversal in a stored key.
+        var sourceName = Path.GetFileName(sourceKey);
+        var renditionKey = RenditionKey(sourceName, variant);
+        var renditionPath = Path.Combine(root, renditionKey);
+
+        if (!write)
+        {
+            var size = ReadCssSize(renditionPath);
+            return size is { } existing
+                ? new EmailLogoRendition(renditionKey, existing.Width, existing.Height)
+                : null;
+        }
+
+        var sourcePath = Path.Combine(root, sourceName);
+        if (!File.Exists(sourcePath))
+        {
+            _logger.LogWarning(
+                "Email logo rendition skipped: source image {Source} is missing from {Root}. " +
+                "Re-upload the logo in Platform settings.", sourceName, root);
+            return null;
+        }
+
+        using var source = SKBitmap.Decode(sourcePath);
+        if (source is null || source.Width <= 0 || source.Height <= 0)
+        {
+            _logger.LogWarning("Email logo rendition skipped: {Source} could not be decoded.", sourceName);
+            return null;
+        }
+
+        var innerMaxWidth = MaxArtboardWidthPx - (PlatePaddingPx * 2);
+        var innerMaxHeight = MaxArtboardHeightPx - (PlatePaddingPx * 2);
+        var ratio = Math.Min(
+            Math.Min((float)innerMaxWidth / source.Width, (float)innerMaxHeight / source.Height),
+            MaxUpscale);
+
+        var innerWidth = Math.Max(1, (int)Math.Round(source.Width * ratio));
+        var innerHeight = Math.Max(1, (int)Math.Round(source.Height * ratio));
+        var artboardWidth = innerWidth + (PlatePaddingPx * 2);
+        var artboardHeight = innerHeight + (PlatePaddingPx * 2);
+
+        using var scaled = source.Resize(
+            new SKImageInfo(innerWidth, innerHeight),
+            new SKSamplingOptions(SKCubicResampler.Mitchell));
+        if (scaled is null)
+        {
+            _logger.LogWarning("Email logo rendition skipped: {Source} could not be resized.", sourceName);
+            return null;
+        }
+
+        // Opaque surface first — an alpha-free raster is the whole point. Premul is only a
+        // fallback for raster configurations Skia declines to allocate; the plate covers every
+        // pixel either way, so the encoded PNG is fully opaque in both cases.
+        using var surface =
+            SKSurface.Create(new SKImageInfo(artboardWidth, artboardHeight, SKColorType.Bgra8888, SKAlphaType.Opaque))
+            ?? SKSurface.Create(new SKImageInfo(artboardWidth, artboardHeight, SKColorType.Bgra8888, SKAlphaType.Premul));
+        if (surface is null)
+        {
+            _logger.LogWarning("Email logo rendition skipped: no raster surface for {Width}x{Height}.",
+                artboardWidth, artboardHeight);
+            return null;
+        }
+
+        surface.Canvas.Clear(PlateColor(variant));
+        using (var mark = SKImage.FromBitmap(scaled))
+        {
+            surface.Canvas.DrawImage(mark, PlatePaddingPx, PlatePaddingPx);
+        }
+        surface.Canvas.Flush();
+
+        using var snapshot = surface.Snapshot();
+        using var data = snapshot.Encode(SKEncodedImageFormat.Png, 100);
+        if (data is null)
+        {
+            _logger.LogWarning("Email logo rendition skipped: PNG encode failed for {Source}.", sourceName);
+            return null;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(root);
+            // Overwrite: regenerating is cheap and self-heals a rendition built by an older
+            // plate palette or from a source that has since been replaced in place.
+            using var fs = new FileStream(renditionPath, FileMode.Create, FileAccess.Write, FileShare.None);
+            data.SaveTo(fs);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            _logger.LogError(ex,
+                "Email logo rendition write failed for {Path}. Emails will fall back to the text " +
+                "wordmark until the app-pool identity has write permission on ImageStorage:PhysicalPath.",
+                renditionPath);
+            return null;
+        }
+
+        return new EmailLogoRendition(
+            renditionKey,
+            Math.Max(1, artboardWidth / RenditionScale),
+            Math.Max(1, artboardHeight / RenditionScale));
+    }
+
+    /// <summary>Reads a rendition's CSS size from its header without decoding pixels.</summary>
+    private static (int Width, int Height)? ReadCssSize(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var codec = SKCodec.Create(path);
+            if (codec is null || codec.Info.Width <= 0 || codec.Info.Height <= 0)
+            {
+                return null;
+            }
+
+            return (Math.Max(1, codec.Info.Width / RenditionScale),
+                    Math.Max(1, codec.Info.Height / RenditionScale));
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
+        {
+            return null;
+        }
+    }
+
+    #endregion
 
     private static string ResolvedRoot(ImageStorageSettings settings) =>
         Path.IsPathRooted(settings.PhysicalPath)

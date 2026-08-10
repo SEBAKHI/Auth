@@ -119,6 +119,7 @@
     <Build Include="dbo\Tables\Security\AccountDeletionTombstones.sql" />
     <Build Include="dbo\Tables\Security\AccountDeletionVerifications.sql" />
     <Build Include="dbo\Tables\Security\UserEncryptionKeys.sql" />
+    <Build Include="dbo\Tables\Security\SecretOperationChallenges.sql" />
     <Build Include="dbo\Tables\Organizations\Organizations.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationUsers.sql" />
     <Build Include="dbo\Tables\Organizations\OrganizationApplications.sql" />
@@ -170,6 +171,7 @@
     <None Include="dbo\Scripts\Upgrades\2026-08-04_BoundedIdentifierReservation.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-08-05_PolicyPublishArtifact.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-08-08_SessionDeviceColumns.sql" />
+    <None Include="dbo\Scripts\Upgrades\2026-08-10_EmailLayoutDarkModeAndLogo.sql" />
     <None Include="dbo\Scripts\ALTER_Users_PasswordHash_Nullable.sql" />
     <None Include="dbo\Scripts\RECONCILE_prod_constraint_names.sql" />
     <None Include="PublishLocations\Astoom_Auth.publish.xml" />
