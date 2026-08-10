@@ -43,6 +43,12 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime, secretStatusMeta } from "@authsystem/ui/format"
 import { Spinner } from "@authsystem/ui/spinner"
 
+import {
+  SecretOperationFlow,
+  type PendingSecretOperation,
+  type SecretOperationName,
+} from "./secret-operation-flow"
+
 const SECRET_STATUS_LABEL: Record<string, string> = {
   notConfigured: "Not configured",
   configured: "Configured",
@@ -50,20 +56,30 @@ const SECRET_STATUS_LABEL: Record<string, string> = {
   unknown: "Unknown",
 }
 
-type GenerateKind = "rsa" | "hmac" | "gateway"
 type ImportKind = "rsa" | "hmac" | "gateway"
 
+const IMPORT_OPERATION: Record<ImportKind, SecretOperationName> = {
+  rsa: "ImportRsaKey",
+  hmac: "ImportHmacKey",
+  gateway: "ImportGatewayToken",
+}
+
+/**
+ * Collects the key material only. Importing is destructive, so the dialog hands
+ * the material to the confirmation flow rather than posting it: the code the
+ * administrator is about to be emailed is bound to a digest of these exact
+ * bytes, which is why they are chosen before the confirmation and not after.
+ */
 function ImportDialog({
   open,
   onOpenChange,
-  onImported,
+  onSubmit,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onImported: (publicKeyPem?: string | null) => void
+  onSubmit: (pending: PendingSecretOperation) => void
 }) {
   const { t } = useTranslation()
-  const queryClient = useQueryClient()
   const [kind, setKind] = React.useState<ImportKind>("rsa")
   const [value, setValue] = React.useState("")
 
@@ -73,28 +89,6 @@ function ImportDialog({
       setValue("")
     }
   }, [open])
-
-  const mutation = useMutation({
-    mutationFn: async () => {
-      const body = { value }
-      if (kind === "rsa") {
-        return unwrap(api.POST("/api/v1/admin/Secrets/import/rsa", { body }))
-      }
-      if (kind === "hmac") {
-        return unwrap(api.POST("/api/v1/admin/Secrets/import/hmac", { body }))
-      }
-      return unwrap(
-        api.POST("/api/v1/admin/Secrets/import/gateway-token", { body })
-      )
-    },
-    onSuccess: (data) => {
-      void queryClient.invalidateQueries({ queryKey: ["secrets", "status"] })
-      toast.success(t("secrets.imported"))
-      onOpenChange(false)
-      onImported(data?.publicKeyPem)
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -146,11 +140,15 @@ function ImportDialog({
             {t("common.cancel")}
           </Button>
           <Button
-            onClick={() => value && mutation.mutate()}
-            disabled={!value || mutation.isPending}
+            variant="destructive"
+            onClick={() => {
+              if (!value) return
+              onOpenChange(false)
+              onSubmit({ operation: IMPORT_OPERATION[kind], value })
+            }}
+            disabled={!value}
           >
-            {mutation.isPending ? <Spinner /> : null}
-            {t("common.confirm")}
+            {t("secrets.challengeContinue")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -250,7 +248,8 @@ export function SecretsPage() {
   const [customOpen, setCustomOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleteKey, setDeleteKey] = React.useState("")
-  const [pendingGenerate, setPendingGenerate] = React.useState<GenerateKind>()
+  const [pendingOperation, setPendingOperation] =
+    React.useState<PendingSecretOperation>()
   const [reveal, setReveal] = React.useState<{
     value: string
     multiline: boolean
@@ -260,37 +259,6 @@ export function SecretsPage() {
     queryKey: ["secrets", "status"],
     retry: false,
     queryFn: () => unwrap(api.GET("/api/v1/admin/Secrets/status")),
-  })
-
-  const generateMutation = useMutation({
-    mutationFn: async (kind: GenerateKind) => {
-      if (kind === "rsa") {
-        const data = await unwrap(
-          api.POST("/api/v1/admin/Secrets/generate/rsa")
-        )
-        return { value: data?.publicKeyPem, multiline: true }
-      }
-      if (kind === "gateway") {
-        const data = await unwrap(
-          api.POST("/api/v1/admin/Secrets/generate/gateway-token")
-        )
-        return { value: data?.token, multiline: false }
-      }
-      await unwrap(api.POST("/api/v1/admin/Secrets/generate/hmac"))
-      return { value: undefined, multiline: false }
-    },
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ["secrets", "status"] })
-      toast.success(t("secrets.generated"))
-      setPendingGenerate(undefined)
-      if (result.value) {
-        setReveal({ value: result.value, multiline: result.multiline })
-      }
-    },
-    onError: (error) => {
-      setPendingGenerate(undefined)
-      toast.error(getErrorMessage(error))
-    },
   })
 
   const deleteMutation = useMutation({
@@ -345,21 +313,33 @@ export function SecretsPage() {
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button disabled={generateMutation.isPending}>
+                <Button disabled={Boolean(pendingOperation)}>
                   <KeyRound data-icon="inline-start" />
                   {t("secrets.generate")}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuGroup>
-                  <DropdownMenuItem onClick={() => setPendingGenerate("rsa")}>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setPendingOperation({ operation: "GenerateRsaKey" })
+                    }
+                  >
                     {t("secrets.generateRsa")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setPendingGenerate("hmac")}>
+                  <DropdownMenuItem
+                    onClick={() =>
+                      setPendingOperation({ operation: "GenerateHmacKey" })
+                    }
+                  >
                     {t("secrets.generateHmac")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={() => setPendingGenerate("gateway")}
+                    onClick={() =>
+                      setPendingOperation({
+                        operation: "GenerateGatewayToken",
+                      })
+                    }
                   >
                     {t("secrets.generateGatewayToken")}
                   </DropdownMenuItem>
@@ -459,24 +439,21 @@ export function SecretsPage() {
       <ImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
-        onImported={(pem) =>
-          pem ? setReveal({ value: pem, multiline: true }) : undefined
-        }
+        onSubmit={setPendingOperation}
       />
       <CustomSecretDialog open={customOpen} onOpenChange={setCustomOpen} />
 
-      <ConfirmDialog
-        open={Boolean(pendingGenerate)}
-        onOpenChange={(open) => !open && setPendingGenerate(undefined)}
-        title={t("secrets.generate")}
-        description={t("secrets.rotateWarning")}
-        confirmLabel={t("secrets.generate")}
-        destructive
-        loading={generateMutation.isPending}
-        onConfirm={() =>
-          pendingGenerate && generateMutation.mutate(pendingGenerate)
-        }
-      />
+      {pendingOperation ? (
+        <SecretOperationFlow
+          pending={pendingOperation}
+          onClose={() => setPendingOperation(undefined)}
+          onExecuted={(result) =>
+            result.value
+              ? setReveal({ value: result.value, multiline: result.multiline })
+              : undefined
+          }
+        />
+      ) : null}
 
       <ConfirmDialog
         open={deleteOpen}

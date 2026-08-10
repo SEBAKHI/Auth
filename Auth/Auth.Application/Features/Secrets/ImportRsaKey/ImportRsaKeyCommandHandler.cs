@@ -1,7 +1,9 @@
-using System.Security.Cryptography;
 using Auth.Application.Configuration;
+using Auth.Application.Features.Secrets.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
@@ -10,23 +12,29 @@ namespace Auth.Application.Features.Secrets.ImportRsaKey;
 
 /// <summary>
 /// Handler for importing a caller-supplied RSA signing key. Validates the PEM, derives the
-/// public key, and persists both to the encrypted secrets file.
+/// public key, and persists both to the encrypted secrets file — but only after spending a
+/// confirmation bound to a digest of this exact key material, so the bytes that were approved
+/// are the bytes that get stored.
 /// </summary>
 public class ImportRsaKeyCommandHandler : IRequestHandler<ImportRsaKeyCommand, ErrorOr<string>>
 {
-    private const int MinimumRsaKeySizeBits = 2048;
-
     private readonly IDpapiSecretService _secretService;
+    private readonly SecretOperationChallengeService _challengeService;
     private readonly SecretManagementSettings _settings;
+    private readonly IPublisher _publisher;
     private readonly ILogger<ImportRsaKeyCommandHandler> _logger;
 
     public ImportRsaKeyCommandHandler(
         IDpapiSecretService secretService,
+        SecretOperationChallengeService challengeService,
         IOptions<SecretManagementSettings> settings,
+        IPublisher publisher,
         ILogger<ImportRsaKeyCommandHandler> logger)
     {
         _secretService = secretService;
+        _challengeService = challengeService;
         _settings = settings.Value;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -39,26 +47,24 @@ public class ImportRsaKeyCommandHandler : IRequestHandler<ImportRsaKeyCommand, E
             return SecretErrors.ImportNotSupportedInPlainText;
         }
 
-        string publicKeyPem;
-        try
+        var derived = SecretKeyMaterial.ValidateRsaPrivateKey(request.PrivateKeyPem);
+        if (derived.IsError)
         {
-            using var rsa = RSA.Create();
-            rsa.ImportFromPem(request.PrivateKeyPem);
-
-            if (rsa.KeySize < MinimumRsaKeySizeBits)
-            {
-                return SecretErrors.InvalidKeyMaterial(
-                    $"RSA key size {rsa.KeySize} is below the required {MinimumRsaKeySizeBits}-bit minimum.");
-            }
-
-            // Confirm the PEM actually carries a private key (not just a public key) before storing it.
-            _ = rsa.ExportPkcs8PrivateKey();
-            publicKeyPem = rsa.ExportSubjectPublicKeyInfoPem();
+            return derived.Errors;
         }
-        catch (Exception ex) when (ex is ArgumentException or CryptographicException)
+
+        var publicKeyPem = derived.Value;
+
+        var approval = await _challengeService.ConsumeAsync(
+            request.ChallengeId,
+            SecretOperation.ImportRsaKey,
+            SecretPayloadDigest.Compute(request.PrivateKeyPem),
+            request.RequestedBy,
+            cancellationToken);
+
+        if (approval.IsError)
         {
-            return SecretErrors.InvalidKeyMaterial(
-                "The value is not a valid RSA private key in PEM format (expected PKCS#8 or PKCS#1).");
+            return approval.Errors;
         }
 
         try
@@ -68,6 +74,12 @@ public class ImportRsaKeyCommandHandler : IRequestHandler<ImportRsaKeyCommand, E
                 request.RequestedBy);
 
             await _secretService.ImportRsaKeyPairAsync(request.PrivateKeyPem, publicKeyPem, cancellationToken);
+
+            await _publisher.Publish(
+                new SecretOperationExecutedEvent(
+                    request.ChallengeId, SecretOperation.ImportRsaKey, request.RequestedBy),
+                cancellationToken);
+
             return publicKeyPem;
         }
         catch (SecretDecryptionException ex)

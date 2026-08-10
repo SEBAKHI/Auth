@@ -12,5 +12,8 @@ public class ImportRsaKeyCommandValidator : AbstractValidator<ImportRsaKeyComman
     {
         RuleFor(x => x.PrivateKeyPem)
             .NotEmpty().WithMessage("Validation.RsaPrivateKey.Required");
+
+        RuleFor(x => x.ChallengeId)
+            .NotEmpty().WithMessage("Validation.SecretOperation.ChallengeRequired");
     }
 }

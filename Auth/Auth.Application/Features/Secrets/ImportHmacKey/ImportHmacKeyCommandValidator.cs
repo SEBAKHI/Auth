@@ -12,5 +12,8 @@ public class ImportHmacKeyCommandValidator : AbstractValidator<ImportHmacKeyComm
     {
         RuleFor(x => x.HmacKeyBase64)
             .NotEmpty().WithMessage("Validation.HmacKey.Required");
+
+        RuleFor(x => x.ChallengeId)
+            .NotEmpty().WithMessage("Validation.SecretOperation.ChallengeRequired");
     }
 }

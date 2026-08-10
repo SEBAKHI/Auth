@@ -49,6 +49,14 @@ public static class NotificationTypeCodes
     public const string SessionLimitEnforced = "session-limit-enforced";
 
     /// <summary>
+    /// A one-time code confirming a destructive secret operation — regenerating
+    /// or importing the RSA signing key, the refresh-token HMAC key, or the
+    /// gateway token. Sent to the administrator who asked for it, and to nobody
+    /// else: the point is that holding the console session is not enough.
+    /// </summary>
+    public const string SecretOperationChallenge = "secret-operation-challenge";
+
+    /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
@@ -66,7 +74,13 @@ public static class NotificationTypeCodes
             SessionsRevokedTokenReuse,
             // And this one: a device dropping out of a signed-in account with no
             // explanation is indistinguishable from being hijacked.
-            SessionLimitEnforced
+            SessionLimitEnforced,
+            // Unpublishing this one would leave the platform's signing keys
+            // behind a confirmation code that can never be delivered — the
+            // operation would be unavailable rather than unprotected, but the
+            // control is not something an operator should be able to switch off
+            // from the template screen either way.
+            SecretOperationChallenge
         ];
 
     /// <summary>
@@ -91,5 +105,6 @@ public static class NotificationTypeCodes
         OrganizationInvitation,
         OwnershipTransferCode,
         AccountDeletionVerification,
+        SecretOperationChallenge,
     };
 }

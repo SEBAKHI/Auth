@@ -303,6 +303,15 @@
   <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
     <value>La clé privée RSA est requise.</value>
   </data>
+  <data name="Validation.SecretOperation.Invalid" xml:space="preserve">
+    <value>L'opération sur le secret n'est pas reconnue.</value>
+  </data>
+  <data name="Validation.SecretOperation.ValueRequired" xml:space="preserve">
+    <value>Le matériel de clé est requis pour une opération d'importation.</value>
+  </data>
+  <data name="Validation.SecretOperation.ChallengeRequired" xml:space="preserve">
+    <value>Une confirmation vérifiée est requise pour cette opération.</value>
+  </data>
 
   <!-- ==================== Notification Templates ==================== -->
   <data name="Validation.NotificationTypeId.Required" xml:space="preserve">

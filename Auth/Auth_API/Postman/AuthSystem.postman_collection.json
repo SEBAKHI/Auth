@@ -1872,39 +1872,88 @@
 							}
 						},
 						{
+							"name": "Request Operation Confirmation",
+							"request": {
+								"method": "POST",
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"operation\": \"GenerateHmacKey\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/challenges",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "admin", "secrets", "challenges"]
+								},
+								"description": "Step 1 of every destructive key operation. Emails a one-time code to the calling administrator and returns { challengeId, expiresAt, maskedEmail }. Nothing is rotated here. operation is one of GenerateRsaKey, GenerateHmacKey, GenerateGatewayToken, ImportRsaKey, ImportHmacKey, ImportGatewayToken. For the import operations also send \"value\" with the key material: the confirmation is bound to a digest of it, so the approved bytes are the only bytes that can be installed."
+							}
+						},
+						{
+							"name": "Verify Operation Confirmation",
+							"request": {
+								"method": "POST",
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"code\": \"{{secretOperationCode}}\"\n}"
+								},
+								"url": {
+									"raw": "{{baseUrl}}/api/v1/admin/secrets/challenges/{{secretChallengeId}}/verify",
+									"host": ["{{baseUrl}}"],
+									"path": ["api", "v1", "admin", "secrets", "challenges", "{{secretChallengeId}}", "verify"]
+								},
+								"description": "Step 2. Accepts the emailed code and returns the operation's blast radius (affected users plus the per-consequence counts) together with approvalExpiresAt. The approval is spendable for five minutes. Every failure shape returns the same Secret.InvalidChallengeCode; five wrong attempts burn the challenge."
+							}
+						},
+						{
 							"name": "Generate RSA Key",
 							"request": {
 								"method": "POST",
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
+								},
 								"url": {
 									"raw": "{{baseUrl}}/api/v1/admin/secrets/generate/rsa",
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "generate", "rsa"]
 								},
-								"description": "Generates a new RSA key pair and stores it securely. Used for JWT signing."
+								"description": "Step 3. Generates a new RSA key pair used for JWT signing. Requires a verified confirmation raised for this exact operation; the approval is spent on use, so a replay returns 403 Secret.ChallengeNotApproved. Takes effect for users only after the API process restarts."
 							}
 						},
 						{
 							"name": "Generate HMAC Key",
 							"request": {
 								"method": "POST",
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
+								},
 								"url": {
 									"raw": "{{baseUrl}}/api/v1/admin/secrets/generate/hmac",
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "generate", "hmac"]
 								},
-								"description": "Generates a new HMAC key and stores it securely."
+								"description": "Step 3. Generates a new HMAC key. Requires a verified confirmation raised for this exact operation. This one key also hashes password-reset links, two-factor challenges and webhook keys, so rotating it breaks all four."
 							}
 						},
 						{
 							"name": "Generate Gateway Token",
 							"request": {
 								"method": "POST",
+								"header": [{ "key": "Content-Type", "value": "application/json" }],
+								"body": {
+									"mode": "raw",
+									"raw": "{\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
+								},
 								"url": {
 									"raw": "{{baseUrl}}/api/v1/admin/secrets/generate/gateway-token",
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "generate", "gateway-token"]
 								},
-								"description": "Generates a new gateway authentication token and stores it securely."
+								"description": "Step 3. Generates a new gateway authentication token. Requires a verified confirmation raised for this exact operation. Invalidates no user credential, but the API rejects all proxied traffic until the gateway carries the same value."
 							}
 						},
 						{
@@ -1914,14 +1963,14 @@
 								"header": [{ "key": "Content-Type", "value": "application/json" }],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"value\": \"{{importRsaPrivateKeyPem}}\"\n}"
+									"raw": "{\n    \"value\": \"{{importRsaPrivateKeyPem}}\",\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/v1/admin/secrets/import/rsa",
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "import", "rsa"]
 								},
-								"description": "Imports a caller-supplied RSA private key (PKCS#8 or PKCS#1 PEM, at least 2048-bit). Certificate or Dpapi mode only (returns 409 in PlainText). Replaces the JWT signing key and invalidates existing access tokens. Set importRsaPrivateKeyPem to the PEM with line breaks escaped."
+								"description": "Imports a caller-supplied RSA private key (PKCS#8 or PKCS#1 PEM, at least 2048-bit). Certificate or Dpapi mode only (returns 409 in PlainText). Requires a verified confirmation raised for ImportRsaKey with this byte-identical value; submitting different material returns 403 Secret.ChallengeNotApproved. Replaces the JWT signing key and invalidates existing access tokens. Set importRsaPrivateKeyPem to the PEM with line breaks escaped."
 							}
 						},
 						{
@@ -1931,14 +1980,14 @@
 								"header": [{ "key": "Content-Type", "value": "application/json" }],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"value\": \"{{importHmacKey}}\"\n}"
+									"raw": "{\n    \"value\": \"{{importHmacKey}}\",\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/v1/admin/secrets/import/hmac",
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "import", "hmac"]
 								},
-								"description": "Imports a caller-supplied HMAC key (Base64, at least 32 bytes). Certificate or Dpapi mode only (returns 409 in PlainText). Replaces the refresh-token HMAC key and invalidates existing refresh tokens."
+								"description": "Imports a caller-supplied HMAC key (Base64, at least 32 bytes). Certificate or Dpapi mode only (returns 409 in PlainText). Requires a verified confirmation raised for ImportHmacKey with this byte-identical value. Replaces the refresh-token HMAC key and invalidates existing refresh tokens, password-reset links, two-factor challenges and webhook keys."
 							}
 						},
 						{
@@ -1948,14 +1997,14 @@
 								"header": [{ "key": "Content-Type", "value": "application/json" }],
 								"body": {
 									"mode": "raw",
-									"raw": "{\n    \"value\": \"{{importGatewayToken}}\"\n}"
+									"raw": "{\n    \"value\": \"{{importGatewayToken}}\",\n    \"challengeId\": \"{{secretChallengeId}}\"\n}"
 								},
 								"url": {
 									"raw": "{{baseUrl}}/api/v1/admin/secrets/import/gateway-token",
 									"host": ["{{baseUrl}}"],
 									"path": ["api", "v1", "admin", "secrets", "import", "gateway-token"]
 								},
-								"description": "Imports a caller-supplied gateway token (at least 16 characters). Certificate or Dpapi mode only (returns 409 in PlainText). The API Gateway must be reconfigured with the same token."
+								"description": "Imports a caller-supplied gateway token (at least 16 characters). Certificate or Dpapi mode only (returns 409 in PlainText). Requires a verified confirmation raised for ImportGatewayToken with this byte-identical value. The API Gateway must be reconfigured with the same token."
 							}
 						},
 						{

@@ -1,6 +1,9 @@
 using Auth.Application.Configuration;
+using Auth.Application.Features.Secrets.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
@@ -9,23 +12,28 @@ namespace Auth.Application.Features.Secrets.ImportHmacKey;
 
 /// <summary>
 /// Handler for importing a caller-supplied HMAC key. Validates that the value is base64 and at
-/// least 256 bits, then persists it to the encrypted secrets file.
+/// least 256 bits, then persists it to the encrypted secrets file — but only after spending a
+/// confirmation bound to a digest of this exact key material.
 /// </summary>
 public class ImportHmacKeyCommandHandler : IRequestHandler<ImportHmacKeyCommand, ErrorOr<Success>>
 {
-    private const int MinimumHmacKeyBytes = 32; // 256-bit minimum
-
     private readonly IDpapiSecretService _secretService;
+    private readonly SecretOperationChallengeService _challengeService;
     private readonly SecretManagementSettings _settings;
+    private readonly IPublisher _publisher;
     private readonly ILogger<ImportHmacKeyCommandHandler> _logger;
 
     public ImportHmacKeyCommandHandler(
         IDpapiSecretService secretService,
+        SecretOperationChallengeService challengeService,
         IOptions<SecretManagementSettings> settings,
+        IPublisher publisher,
         ILogger<ImportHmacKeyCommandHandler> logger)
     {
         _secretService = secretService;
+        _challengeService = challengeService;
         _settings = settings.Value;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -38,20 +46,22 @@ public class ImportHmacKeyCommandHandler : IRequestHandler<ImportHmacKeyCommand,
             return SecretErrors.ImportNotSupportedInPlainText;
         }
 
-        byte[] decoded;
-        try
+        var material = SecretKeyMaterial.ValidateHmacKey(request.HmacKeyBase64);
+        if (material.IsError)
         {
-            decoded = Convert.FromBase64String(request.HmacKeyBase64);
-        }
-        catch (FormatException)
-        {
-            return SecretErrors.InvalidKeyMaterial("The HMAC key must be a valid Base64 string.");
+            return material.Errors;
         }
 
-        if (decoded.Length < MinimumHmacKeyBytes)
+        var approval = await _challengeService.ConsumeAsync(
+            request.ChallengeId,
+            SecretOperation.ImportHmacKey,
+            SecretPayloadDigest.Compute(request.HmacKeyBase64),
+            request.RequestedBy,
+            cancellationToken);
+
+        if (approval.IsError)
         {
-            return SecretErrors.InvalidKeyMaterial(
-                $"The HMAC key must decode to at least {MinimumHmacKeyBytes} bytes (256 bits).");
+            return approval.Errors;
         }
 
         try
@@ -61,6 +71,12 @@ public class ImportHmacKeyCommandHandler : IRequestHandler<ImportHmacKeyCommand,
                 request.RequestedBy);
 
             await _secretService.ImportHmacKeyAsync(request.HmacKeyBase64, cancellationToken);
+
+            await _publisher.Publish(
+                new SecretOperationExecutedEvent(
+                    request.ChallengeId, SecretOperation.ImportHmacKey, request.RequestedBy),
+                cancellationToken);
+
             return Result.Success;
         }
         catch (SecretDecryptionException ex)

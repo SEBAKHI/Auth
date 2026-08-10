@@ -303,6 +303,15 @@
   <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
     <value>The RSA private key is required.</value>
   </data>
+  <data name="Validation.SecretOperation.Invalid" xml:space="preserve">
+    <value>The secret operation is not recognized.</value>
+  </data>
+  <data name="Validation.SecretOperation.ValueRequired" xml:space="preserve">
+    <value>Key material is required for an import operation.</value>
+  </data>
+  <data name="Validation.SecretOperation.ChallengeRequired" xml:space="preserve">
+    <value>A verified confirmation is required for this operation.</value>
+  </data>
 
   <!-- ==================== Notification Templates ==================== -->
   <data name="Validation.NotificationTypeId.Required" xml:space="preserve">

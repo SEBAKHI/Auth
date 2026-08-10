@@ -303,6 +303,15 @@
   <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
     <value>RSA özel anahtarı gereklidir.</value>
   </data>
+  <data name="Validation.SecretOperation.Invalid" xml:space="preserve">
+    <value>Gizli anahtar işlemi tanınmıyor.</value>
+  </data>
+  <data name="Validation.SecretOperation.ValueRequired" xml:space="preserve">
+    <value>İçe aktarma işlemi için anahtar malzemesi gereklidir.</value>
+  </data>
+  <data name="Validation.SecretOperation.ChallengeRequired" xml:space="preserve">
+    <value>Bu işlem için doğrulanmış bir onay gereklidir.</value>
+  </data>
 
   <!-- ==================== Notification Templates ==================== -->
   <data name="Validation.NotificationTypeId.Required" xml:space="preserve">

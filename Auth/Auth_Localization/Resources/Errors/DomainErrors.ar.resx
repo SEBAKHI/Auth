@@ -549,6 +549,21 @@
   <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
     <value>استيراد المفاتيح عبر واجهة الإدارة مدعوم فقط في وضعي التخزين Certificate أو Dpapi. في وضع PlainText، عيّن المفاتيح مباشرة في appsettings.Production.json.</value>
   </data>
+  <data name="Secret.InvalidChallengeCode" xml:space="preserve">
+    <value>رمز التأكيد غير صحيح أو لم يعد صالحًا. اطلب رمزًا جديدًا وحاول مرة أخرى.</value>
+  </data>
+  <data name="Secret.ChallengeNotApproved" xml:space="preserve">
+    <value>لم يتم تأكيد هذه العملية، أو انتهت صلاحية التأكيد. ابدأ من جديد وأكِّد برمز جديد.</value>
+  </data>
+  <data name="Secret.TooManyChallengeRequests" xml:space="preserve">
+    <value>تم طلب عدد كبير جدًا من رموز التأكيد. يرجى الانتظار قبل المحاولة مرة أخرى.</value>
+  </data>
+  <data name="Secret.ChallengeRecipientUnavailable" xml:space="preserve">
+    <value>لا يوجد في حسابك عنوان بريد إلكتروني مؤكَّد، لذا يتعذّر إرسال رمز التأكيد. أكِّد عنوان بريدك الإلكتروني قبل تنفيذ هذه العملية.</value>
+  </data>
+  <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
+    <value>فشل في إرسال رسالة رمز التأكيد. يرجى المحاولة مرة أخرى.</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>ظهرت كلمة المرور هذه في تسريب بيانات معروف. يرجى اختيار كلمة مرور مختلفة.</value>
   </data>

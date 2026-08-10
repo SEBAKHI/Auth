@@ -547,6 +547,21 @@
   <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
     <value>仅在 Certificate 或 Dpapi 存储模式下支持通过管理 API 导入密钥。在 PlainText 模式下，请直接在 appsettings.Production.json 中设置密钥。</value>
   </data>
+  <data name="Secret.InvalidChallengeCode" xml:space="preserve">
+    <value>确认码不正确或已失效。请申请新的确认码后重试。</value>
+  </data>
+  <data name="Secret.ChallengeNotApproved" xml:space="preserve">
+    <value>此操作尚未确认，或确认已过期。请重新开始并使用新的确认码进行确认。</value>
+  </data>
+  <data name="Secret.TooManyChallengeRequests" xml:space="preserve">
+    <value>确认码申请次数过多，请稍候再试。</value>
+  </data>
+  <data name="Secret.ChallengeRecipientUnavailable" xml:space="preserve">
+    <value>您的账户没有已验证的邮箱地址，因此无法发送确认码。请先验证您的邮箱地址，再执行此操作。</value>
+  </data>
+  <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
+    <value>发送确认码邮件失败，请重试。</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>该密码曾出现在已知的数据泄露中。请选择其他密码。</value>
   </data>

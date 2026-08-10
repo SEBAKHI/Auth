@@ -10557,6 +10557,153 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/Secrets/challenges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SecretOperationChallengeRequest"];
+                    "text/json": components["schemas"]["SecretOperationChallengeRequest"];
+                    "application/*+json": components["schemas"]["SecretOperationChallengeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SecretOperationChallengeDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/Secrets/challenges/{challengeId}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    challengeId: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VerifySecretOperationChallengeRequest"];
+                    "text/json": components["schemas"]["VerifySecretOperationChallengeRequest"];
+                    "application/*+json": components["schemas"]["VerifySecretOperationChallengeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SecretRotationImpactDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/Secrets/generate/rsa": {
         parameters: {
             query?: never;
@@ -10573,7 +10720,13 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "text/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "application/*+json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                };
+            };
             responses: {
                 /** @description OK */
                 200: {
@@ -10626,7 +10779,13 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "text/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "application/*+json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                };
+            };
             responses: {
                 /** @description OK */
                 200: {
@@ -10679,7 +10838,13 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "text/json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                    "application/*+json": components["schemas"]["ConfirmedSecretOperationRequest"];
+                };
+            };
             responses: {
                 /** @description OK */
                 200: {
@@ -10734,9 +10899,9 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["SetSecretRequest"];
-                    "text/json": components["schemas"]["SetSecretRequest"];
-                    "application/*+json": components["schemas"]["SetSecretRequest"];
+                    "application/json": components["schemas"]["ImportSecretRequest"];
+                    "text/json": components["schemas"]["ImportSecretRequest"];
+                    "application/*+json": components["schemas"]["ImportSecretRequest"];
                 };
             };
             responses: {
@@ -10811,9 +10976,9 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["SetSecretRequest"];
-                    "text/json": components["schemas"]["SetSecretRequest"];
-                    "application/*+json": components["schemas"]["SetSecretRequest"];
+                    "application/json": components["schemas"]["ImportSecretRequest"];
+                    "text/json": components["schemas"]["ImportSecretRequest"];
+                    "application/*+json": components["schemas"]["ImportSecretRequest"];
                 };
             };
             responses: {
@@ -10888,9 +11053,9 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["SetSecretRequest"];
-                    "text/json": components["schemas"]["SetSecretRequest"];
-                    "application/*+json": components["schemas"]["SetSecretRequest"];
+                    "application/json": components["schemas"]["ImportSecretRequest"];
+                    "text/json": components["schemas"]["ImportSecretRequest"];
+                    "application/*+json": components["schemas"]["ImportSecretRequest"];
                 };
             };
             responses: {
@@ -11649,6 +11814,10 @@ export interface components {
             confirmNewPassword: string;
             terminateSessions?: null | boolean;
         };
+        ConfirmedSecretOperationRequest: {
+            /** Format: uuid */
+            challengeId?: string;
+        };
         ConfirmPublicDeletionRequest: {
             email: string;
             otpCode: string;
@@ -11922,6 +12091,11 @@ export interface components {
         };
         /** Format: binary */
         IFormFile: string;
+        ImportSecretRequest: {
+            value?: string;
+            /** Format: uuid */
+            challengeId?: string;
+        };
         InitiateOwnershipTransferRequest: {
             /** Format: uuid */
             newOwnerId: string;
@@ -13009,6 +13183,33 @@ export interface components {
             languageCode?: string;
             contentJson?: string;
         };
+        SecretOperation: number;
+        SecretOperationChallengeDto: {
+            /** Format: uuid */
+            challengeId: string;
+            /** Format: date-time */
+            expiresAt: string;
+            maskedEmail: string;
+        };
+        SecretOperationChallengeRequest: {
+            operation?: components["schemas"]["SecretOperation"];
+            value?: null | string;
+        };
+        SecretRotationImpactDto: {
+            operation: components["schemas"]["SecretOperation"];
+            /** Format: date-time */
+            approvalExpiresAt: string;
+            /** Format: int32 */
+            affectedUsers: number | string;
+            details: components["schemas"]["SecretRotationImpactItemDto"][];
+            requiresApiRestart: boolean;
+            requiresGatewayReconfiguration: boolean;
+        };
+        SecretRotationImpactItemDto: {
+            code: string;
+            /** Format: int32 */
+            count: number | string;
+        };
         SecretStatus: number;
         SecretStatusResult: {
             secretFileExists?: boolean;
@@ -13464,6 +13665,9 @@ export interface components {
             email?: null | string;
             otp: string;
             deviceId?: null | string;
+        };
+        VerifySecretOperationChallengeRequest: {
+            code?: string;
         };
         WebhookKeyDto: {
             /** Format: uuid */

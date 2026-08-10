@@ -255,4 +255,24 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created session-limit-enforced notification type';
 END
+
+-- secret-operation-challenge (OTP gating the destructive platform key
+-- operations. The operation being confirmed is a declared variable, not
+-- flavour text: a reader who cannot tell a signing-key rotation from a
+-- gateway-token reset cannot tell a request they made from one they did not.
+-- IpAddress and RequestedAt are required for the same reason)
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000016')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000016',
+        N'secret-operation-challenge',
+        N'Secret Operation Confirmation',
+        N'One-time code confirming a destructive platform key operation (regenerate or import the signing key, refresh-token HMAC key, or gateway token)',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"OperationCode","description":"Technical name of the operation being confirmed","example":"GenerateHmacKey","required":true},{"name":"OtpCode","description":"6-digit confirmation code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"15","required":true},{"name":"IpAddress","description":"Client address the request came from","example":"203.0.113.7","required":true},{"name":"RequestedAt","description":"UTC timestamp of the request","example":"2026-08-10 09:14:00Z","required":true}]',
+        N'{"UserName":"Jane Doe","OperationCode":"GenerateHmacKey","OtpCode":"123456","ExpirationMinutes":15,"IpAddress":"203.0.113.7","RequestedAt":"2026-08-10 09:14:00Z"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created secret-operation-challenge notification type';
+END
 GO

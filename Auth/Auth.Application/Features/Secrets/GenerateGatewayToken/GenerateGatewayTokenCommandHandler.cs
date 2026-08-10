@@ -1,24 +1,35 @@
 using System.Security.Cryptography;
+using Auth.Application.Features.Secrets.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
 
 namespace Auth.Application.Features.Secrets.GenerateGatewayToken;
 
 /// <summary>
-/// Handler for regenerating the gateway token.
+/// Handler for regenerating the gateway token. Spends the step-up confirmation
+/// first: nothing touches the secret store until the approval is proven and
+/// consumed.
 /// </summary>
 public class GenerateGatewayTokenCommandHandler : IRequestHandler<GenerateGatewayTokenCommand, ErrorOr<string>>
 {
     private readonly IDpapiSecretService _secretService;
+    private readonly SecretOperationChallengeService _challengeService;
+    private readonly IPublisher _publisher;
     private readonly ILogger<GenerateGatewayTokenCommandHandler> _logger;
 
     public GenerateGatewayTokenCommandHandler(
         IDpapiSecretService secretService,
+        SecretOperationChallengeService challengeService,
+        IPublisher publisher,
         ILogger<GenerateGatewayTokenCommandHandler> logger)
     {
         _secretService = secretService;
+        _challengeService = challengeService;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -26,6 +37,18 @@ public class GenerateGatewayTokenCommandHandler : IRequestHandler<GenerateGatewa
         GenerateGatewayTokenCommand request,
         CancellationToken cancellationToken)
     {
+        var approval = await _challengeService.ConsumeAsync(
+            request.ChallengeId,
+            SecretOperation.GenerateGatewayToken,
+            payloadHash: null,
+            request.RequestedBy,
+            cancellationToken);
+
+        if (approval.IsError)
+        {
+            return approval.Errors;
+        }
+
         try
         {
             _logger.LogWarning(
@@ -33,6 +56,12 @@ public class GenerateGatewayTokenCommandHandler : IRequestHandler<GenerateGatewa
                 request.RequestedBy);
 
             var token = await _secretService.GenerateGatewayTokenAsync(cancellationToken);
+
+            await _publisher.Publish(
+                new SecretOperationExecutedEvent(
+                    request.ChallengeId, SecretOperation.GenerateGatewayToken, request.RequestedBy),
+                cancellationToken);
+
             return token;
         }
         catch (CryptographicException ex)

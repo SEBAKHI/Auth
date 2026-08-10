@@ -547,6 +547,21 @@
   <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
     <value>Yönetici API'si üzerinden anahtar içe aktarma yalnızca Certificate veya Dpapi depolama modunda desteklenir. PlainText modunda anahtarları doğrudan appsettings.Production.json içinde ayarlayın.</value>
   </data>
+  <data name="Secret.InvalidChallengeCode" xml:space="preserve">
+    <value>Onay kodu yanlış veya artık geçerli değil. Yeni bir kod talep edip tekrar deneyin.</value>
+  </data>
+  <data name="Secret.ChallengeNotApproved" xml:space="preserve">
+    <value>Bu işlem onaylanmadı veya onayın süresi doldu. Baştan başlayın ve yeni bir kodla onaylayın.</value>
+  </data>
+  <data name="Secret.TooManyChallengeRequests" xml:space="preserve">
+    <value>Çok fazla onay kodu talep edildi. Lütfen tekrar denemeden önce bekleyin.</value>
+  </data>
+  <data name="Secret.ChallengeRecipientUnavailable" xml:space="preserve">
+    <value>Hesabınızda doğrulanmış bir e-posta adresi bulunmadığından onay kodu gönderilemiyor. Bu işlemi gerçekleştirmeden önce e-posta adresinizi doğrulayın.</value>
+  </data>
+  <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
+    <value>Onay kodu e-postası gönderilemedi. Lütfen tekrar deneyin.</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>Bu parola bilinen bir veri ihlalinde ortaya çıkmış. Lütfen farklı bir parola seçin.</value>
   </data>

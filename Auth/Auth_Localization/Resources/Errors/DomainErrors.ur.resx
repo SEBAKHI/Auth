@@ -547,6 +547,21 @@
   <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
     <value>ایڈمن API کے ذریعے کلیدیں درآمد کرنا صرف Certificate یا Dpapi اسٹوریج موڈ میں معاون ہے۔ PlainText موڈ میں کلیدیں براہ راست appsettings.Production.json میں مقرر کریں۔</value>
   </data>
+  <data name="Secret.InvalidChallengeCode" xml:space="preserve">
+    <value>تصدیقی کوڈ غلط ہے یا اب کارآمد نہیں رہا۔ نیا کوڈ حاصل کریں اور دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="Secret.ChallengeNotApproved" xml:space="preserve">
+    <value>اس عمل کی تصدیق نہیں ہوئی، یا تصدیق کی میعاد ختم ہو چکی ہے۔ دوبارہ آغاز کریں اور نئے کوڈ سے تصدیق کریں۔</value>
+  </data>
+  <data name="Secret.TooManyChallengeRequests" xml:space="preserve">
+    <value>تصدیقی کوڈ کی بہت زیادہ درخواستیں کی گئی ہیں۔ براہ کرم دوبارہ کوشش سے پہلے کچھ انتظار کریں۔</value>
+  </data>
+  <data name="Secret.ChallengeRecipientUnavailable" xml:space="preserve">
+    <value>آپ کے اکاؤنٹ میں کوئی تصدیق شدہ ای میل ایڈریس نہیں ہے، اس لیے تصدیقی کوڈ نہیں بھیجا جا سکتا۔ یہ عمل انجام دینے سے پہلے اپنے ای میل ایڈریس کی تصدیق کریں۔</value>
+  </data>
+  <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
+    <value>تصدیقی کوڈ کی ای میل بھیجنے میں ناکامی ہوئی۔ براہ کرم دوبارہ کوشش کریں۔</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>یہ پاس ورڈ کسی معلوم ڈیٹا لیک میں سامنے آ چکا ہے۔ براہ کرم مختلف پاس ورڈ منتخب کریں۔</value>
   </data>

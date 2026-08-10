@@ -303,6 +303,15 @@
   <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
     <value>RSA نجی کلید لازمی ہے۔</value>
   </data>
+  <data name="Validation.SecretOperation.Invalid" xml:space="preserve">
+    <value>خفیہ کلید کا یہ عمل پہچانا نہیں گیا۔</value>
+  </data>
+  <data name="Validation.SecretOperation.ValueRequired" xml:space="preserve">
+    <value>درآمد کے عمل کے لیے کلیدی مواد لازمی ہے۔</value>
+  </data>
+  <data name="Validation.SecretOperation.ChallengeRequired" xml:space="preserve">
+    <value>اس عمل کے لیے تصدیق شدہ منظوری لازمی ہے۔</value>
+  </data>
 
   <!-- ==================== Notification Templates ==================== -->
   <data name="Validation.NotificationTypeId.Required" xml:space="preserve">

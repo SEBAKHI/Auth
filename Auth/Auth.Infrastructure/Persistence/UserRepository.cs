@@ -429,6 +429,10 @@ public class UserRepository : IUserRepository
             DELETE FROM [dbo].[PasswordHistory] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[TwoFactorChallenges] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[TwoFactorAuth] WHERE [UserId] = @Id;
+            -- Step-up confirmations the admin raised against the secret store.
+            -- The rotations they authorized survive in AuditLogs; the codes
+            -- themselves are spent credentials with no evidentiary value.
+            DELETE FROM [dbo].[SecretOperationChallenges] WHERE [RequestedBy] = @Id;
             DELETE FROM [dbo].[RevokedTokens] WHERE [RevocationKey] = CONVERT(NVARCHAR(200), @Id);
 
             -- Platform-level assignments

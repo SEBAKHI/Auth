@@ -303,6 +303,15 @@
   <data name="Validation.RsaPrivateKey.Required" xml:space="preserve">
     <value>RSA私钥为必填项。</value>
   </data>
+  <data name="Validation.SecretOperation.Invalid" xml:space="preserve">
+    <value>无法识别该密钥操作。</value>
+  </data>
+  <data name="Validation.SecretOperation.ValueRequired" xml:space="preserve">
+    <value>导入操作需要提供密钥材料。</value>
+  </data>
+  <data name="Validation.SecretOperation.ChallengeRequired" xml:space="preserve">
+    <value>此操作需要已验证的确认。</value>
+  </data>
 
   <!-- ==================== Notification Templates ==================== -->
   <data name="Validation.NotificationTypeId.Required" xml:space="preserve">

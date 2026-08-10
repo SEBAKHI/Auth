@@ -547,6 +547,21 @@
   <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
     <value>درون‌ریزی کلیدها از طریق API مدیریتی فقط در حالت ذخیره‌سازی Certificate یا Dpapi پشتیبانی می‌شود. در حالت PlainText، کلیدها را مستقیماً در appsettings.Production.json تنظیم کنید.</value>
   </data>
+  <data name="Secret.InvalidChallengeCode" xml:space="preserve">
+    <value>کد تأیید نادرست است یا دیگر معتبر نیست. کد جدیدی درخواست کنید و دوباره تلاش کنید.</value>
+  </data>
+  <data name="Secret.ChallengeNotApproved" xml:space="preserve">
+    <value>این عملیات تأیید نشده است یا تأیید آن منقضی شده است. از ابتدا شروع کنید و با کد جدیدی آن را تأیید کنید.</value>
+  </data>
+  <data name="Secret.TooManyChallengeRequests" xml:space="preserve">
+    <value>درخواست‌های بیش از حد مجاز برای کد تأیید انجام شده است. لطفاً پیش از تلاش دوباره کمی صبر کنید.</value>
+  </data>
+  <data name="Secret.ChallengeRecipientUnavailable" xml:space="preserve">
+    <value>حساب شما آدرس ایمیل تأییدشده‌ای ندارد، بنابراین کد تأیید قابل ارسال نیست. پیش از انجام این عملیات، آدرس ایمیل خود را تأیید کنید.</value>
+  </data>
+  <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
+    <value>ارسال ایمیل کد تأیید با شکست مواجه شد. لطفاً دوباره تلاش کنید.</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>این رمز عبور در یک نشت داده شناخته‌شده دیده شده است. لطفاً رمز عبور دیگری انتخاب کنید.</value>
   </data>

@@ -1873,3 +1873,169 @@ BEGIN
     PRINT 'session-limit-enforced template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 16: secret-operation-challenge (global, Email channel)
+--
+-- Gates the operations that can break the platform outright: regenerating or
+-- importing the signing key, the refresh-token HMAC key, or the gateway
+-- token. The code is not the whole message - the reader is told which
+-- operation was asked for, from where and when, because "someone is changing
+-- a key" is only actionable if they can recognise a request they did not make.
+--
+-- The second notice names the blast radius instead of saying "this is
+-- sensitive". By the time this email is read, an attacker who triggered it
+-- already holds an administrator session, so the recipient's judgement is the
+-- last control left standing - and judgement needs the consequences spelled
+-- out, not a warning label.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000016')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000016', '40000000-0000-0000-0000-000000000016', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000016', '42000000-0000-0000-0000-000000000016', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0016-000000000001', '43000000-0000-0000-0000-000000000016', N'en', N'Confirm a change to this platform''s keys',
+N'<div class="header">
+    <p class="eyebrow">Platform security</p>
+    <h1>Confirm a change to this platform''s keys</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">Someone signed in to the {{ Platform.Name }} admin console as you and asked to change one of the cryptographic keys this platform runs on. Enter the code below to continue. It expires in {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">What was requested</p>
+    <p class="notice-text">Operation: {{ OperationCode }}<br />From: {{ IpAddress }}<br />When: {{ RequestedAt }}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Before you enter it</p>
+    <p class="notice-text">Changing these keys can sign every user out, kill every password-reset link that has already been emailed, or take the API offline until it is reconfigured. If you did not request this, do not enter the code and do not share it: someone else is holding an administrator session on this platform. Sign out of every device and change your password.</p>
+</div>'),
+    ('44000000-0000-0000-0016-000000000002', '43000000-0000-0000-0000-000000000016', N'ar', N'تأكيد تغيير في مفاتيح هذه المنصة',
+N'<div class="header">
+    <p class="eyebrow">أمن المنصة</p>
+    <h1>تأكيد تغيير في مفاتيح هذه المنصة</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">سجّل أحدهم الدخول إلى لوحة إدارة {{ Platform.Name }} باسمك، وطلب تغيير أحد مفاتيح التشفير التي تقوم عليها هذه المنصة. أدخل الرمز أدناه للمتابعة. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">ما الذي طُلِب</p>
+    <p class="notice-text">العملية: {{ OperationCode }}<br />من العنوان: {{ IpAddress }}<br />الوقت: {{ RequestedAt }}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">قبل أن تُدخِل الرمز</p>
+    <p class="notice-text">قد يؤدي تغيير هذه المفاتيح إلى إخراج كل المستخدمين من حساباتهم، أو إبطال كل رابط لإعادة تعيين كلمة المرور سبق إرساله بالبريد، أو تعطيل واجهة البرمجة (API) إلى أن يُعاد ضبطها. وإن لم تكن أنت من طلب ذلك، فلا تُدخل الرمز ولا تشاركه مع أحد: فثمة شخص آخر يملك جلسة إدارية على هذه المنصة. سجّل الخروج من كل الأجهزة وغيّر كلمة مرورك.</p>
+</div>'),
+    ('44000000-0000-0000-0016-000000000003', '43000000-0000-0000-0000-000000000016', N'tr', N'Bu platformun anahtarlarında yapılacak değişikliği onaylayın',
+N'<div class="header">
+    <p class="eyebrow">Platform güvenliği</p>
+    <h1>Bu platformun anahtarlarında yapılacak değişikliği onaylayın</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">Biri, {{ Platform.Name }} yönetim konsoluna sizin adınıza giriş yaptı ve bu platformun üzerinde çalıştığı kriptografik anahtarlardan birini değiştirmeyi talep etti. Devam etmek için aşağıdaki kodu girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolacaktır.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Ne talep edildi</p>
+    <p class="notice-text">İşlem: {{ OperationCode }}<br />Nereden: {{ IpAddress }}<br />Ne zaman: {{ RequestedAt }}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Kodu girmeden önce</p>
+    <p class="notice-text">Bu anahtarların değiştirilmesi tüm kullanıcıların oturumunu kapatabilir, daha önce e-postayla gönderilmiş her parola sıfırlama bağlantısını geçersiz kılabilir veya yeniden yapılandırılana kadar API''yi çevrimdışı bırakabilir. Bunu siz talep etmediyseniz kodu girmeyin ve kimseyle paylaşmayın: bu platformda başka biri açık bir yönetici oturumu tutuyor demektir. Tüm cihazlardaki oturumunuzu kapatın ve parolanızı değiştirin.</p>
+</div>'),
+    ('44000000-0000-0000-0016-000000000004', '43000000-0000-0000-0000-000000000016', N'fr', N'Confirmez une modification des clés de cette plateforme',
+N'<div class="header">
+    <p class="eyebrow">Sécurité de la plateforme</p>
+    <h1>Confirmez une modification des clés de cette plateforme</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Quelqu''un s''est connecté à la console d''administration {{ Platform.Name }} en votre nom et a demandé à modifier l''une des clés cryptographiques sur lesquelles repose cette plateforme. Saisissez le code ci-dessous pour continuer. Il expirera dans {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Ce qui a été demandé</p>
+    <p class="notice-text">Opération : {{ OperationCode }}<br />Origine : {{ IpAddress }}<br />Date : {{ RequestedAt }}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">Avant de le saisir</p>
+    <p class="notice-text">La modification de ces clés peut déconnecter tous les utilisateurs, invalider chaque lien de réinitialisation de mot de passe déjà envoyé par e-mail, ou rendre l''API indisponible jusqu''à sa reconfiguration. Si vous n''êtes pas à l''origine de cette demande, ne saisissez pas le code et ne le partagez pas : quelqu''un d''autre détient une session administrateur sur cette plateforme. Déconnectez-vous de tous vos appareils et changez votre mot de passe.</p>
+</div>'),
+    ('44000000-0000-0000-0016-000000000005', '43000000-0000-0000-0000-000000000016', N'zh', N'确认对本平台密钥的更改',
+N'<div class="header">
+    <p class="eyebrow">平台安全</p>
+    <h1>确认对本平台密钥的更改</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">有人以您的身份登录了 {{ Platform.Name }} 管理控制台，并请求更改本平台所依赖的一项加密密钥。请输入以下验证码以继续。验证码将在 {{ ExpirationMinutes }} 分钟后失效。</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">所请求的内容</p>
+    <p class="notice-text">操作：{{ OperationCode }}<br />来源：{{ IpAddress }}<br />时间：{{ RequestedAt }}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">输入之前</p>
+    <p class="notice-text">更改这些密钥可能会让所有用户退出登录、使已经发出的每一个密码重置链接失效，或导致 API 在重新配置之前无法使用。如果这并非您本人的请求，请不要输入此验证码，也不要将其透露给任何人：这说明有他人正持有本平台的管理员会话。请从所有设备退出登录，并修改您的密码。</p>
+</div>'),
+    ('44000000-0000-0000-0016-000000000006', '43000000-0000-0000-0000-000000000016', N'ur', N'اس پلیٹ فارم کی کلیدوں میں تبدیلی کی تصدیق کریں',
+N'<div class="header">
+    <p class="eyebrow">پلیٹ فارم کی سیکیورٹی</p>
+    <h1>اس پلیٹ فارم کی کلیدوں میں تبدیلی کی تصدیق کریں</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">کسی نے آپ کی حیثیت سے {{ Platform.Name }} کے انتظامی کنسول میں سائن اِن کیا اور اُن خفیہ کاری کلیدوں میں سے ایک کو تبدیل کرنے کی درخواست دی جن پر یہ پلیٹ فارم چلتا ہے۔ جاری رکھنے کے لیے نیچے دیا گیا کوڈ درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی۔</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">کیا درخواست کی گئی</p>
+    <p class="notice-text">کارروائی: {{ OperationCode }}<br />کہاں سے: {{ IpAddress }}<br />کب: {{ RequestedAt }}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">کوڈ درج کرنے سے پہلے</p>
+    <p class="notice-text">ان کلیدوں کی تبدیلی ہر صارف کو سائن آؤٹ کر سکتی ہے، ای میل کیے جا چکے ہر پاس ورڈ ری سیٹ لنک کو بےکار کر سکتی ہے، یا API کو دوبارہ ترتیب دیے جانے تک بند کر سکتی ہے۔ اگر یہ درخواست آپ نے نہیں دی تو کوڈ درج نہ کریں اور نہ کسی کے ساتھ شیئر کریں: اس کا مطلب ہے کہ اس پلیٹ فارم پر کسی اور کے پاس منتظم کا سیشن کھلا ہوا ہے۔ تمام آلات سے سائن آؤٹ کریں اور اپنا پاس ورڈ تبدیل کریں۔</p>
+</div>'),
+    ('44000000-0000-0000-0016-000000000007', '43000000-0000-0000-0000-000000000016', N'fa', N'تغییر کلیدهای این پلتفرم را تأیید کنید',
+N'<div class="header">
+    <p class="eyebrow">امنیت پلتفرم</p>
+    <h1>تغییر کلیدهای این پلتفرم را تأیید کنید</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">کسی با هویت شما وارد کنسول مدیریت {{ Platform.Name }} شده و درخواست کرده است یکی از کلیدهای رمزنگاری که این پلتفرم بر آن‌ها استوار است تغییر کند. برای ادامه، کد زیر را وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">آنچه درخواست شد</p>
+    <p class="notice-text">عملیات: {{ OperationCode }}<br />از نشانی: {{ IpAddress }}<br />زمان: {{ RequestedAt }}</p>
+</div>
+<div class="notice">
+    <p class="notice-title">پیش از وارد کردن کد</p>
+    <p class="notice-text">تغییر این کلیدها می‌تواند همهٔ کاربران را از حسابشان خارج کند، هر پیوند بازنشانی گذرواژه را که پیش‌تر ایمیل شده است از کار بیندازد، یا API را تا زمان پیکربندی دوباره از دسترس خارج کند. اگر شما این درخواست را نداده‌اید، کد را وارد نکنید و آن را با کسی در میان نگذارید: یعنی شخص دیگری نشستی مدیریتی روی این پلتفرم در اختیار دارد. از همهٔ دستگاه‌ها خارج شوید و گذرواژه‌تان را تغییر دهید.</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000016'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000016';
+
+    PRINT 'Created secret-operation-challenge template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'secret-operation-challenge template already exists';
+END
+GO

@@ -549,6 +549,21 @@
   <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
     <value>Importing keys via the admin API is only supported in Certificate or Dpapi storage mode. In PlainText mode, set the keys directly in appsettings.Production.json.</value>
   </data>
+  <data name="Secret.InvalidChallengeCode" xml:space="preserve">
+    <value>The confirmation code is incorrect or is no longer valid. Request a new code and try again.</value>
+  </data>
+  <data name="Secret.ChallengeNotApproved" xml:space="preserve">
+    <value>This operation has not been confirmed, or the confirmation has expired. Start again and confirm with a new code.</value>
+  </data>
+  <data name="Secret.TooManyChallengeRequests" xml:space="preserve">
+    <value>Too many confirmation codes were requested. Please wait before trying again.</value>
+  </data>
+  <data name="Secret.ChallengeRecipientUnavailable" xml:space="preserve">
+    <value>Your account has no confirmed email address, so a confirmation code cannot be sent. Confirm your email address before performing this operation.</value>
+  </data>
+  <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
+    <value>Failed to send the confirmation code email. Please try again.</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>This password has appeared in a known data breach. Please choose a different password.</value>
   </data>

@@ -42,4 +42,42 @@ public static class SecretErrors
         code: "Secret.ImportNotSupportedInPlainText",
         description: "Importing keys via the admin API is only supported in Certificate or Dpapi storage mode. " +
                      "In PlainText mode, set the keys directly in appsettings.Production.json.");
+
+    /// <summary>
+    /// The single failure shape for entering a confirmation code: wrong code,
+    /// expired code, spent code, exhausted attempts and unknown challenge id all
+    /// return this. Distinguishing them would tell a guesser which of their
+    /// assumptions was right.
+    /// </summary>
+    public static Error InvalidChallengeCode => Error.Validation(
+        code: "Secret.InvalidChallengeCode",
+        description: "The confirmation code is incorrect or is no longer valid. Request a new code and try again.");
+
+    /// <summary>
+    /// The single failure shape for spending an approval: unverified, expired,
+    /// already spent, requested by a different administrator, or bound to a
+    /// different operation or different key material.
+    /// </summary>
+    public static Error ChallengeNotApproved => Error.Forbidden(
+        code: "Secret.ChallengeNotApproved",
+        description: "This operation has not been confirmed, or the confirmation has expired. " +
+                     "Start again and confirm with a new code.");
+
+    public static Error TooManyChallengeRequests => Error.Forbidden(
+        code: "Secret.TooManyChallengeRequests",
+        description: "Too many confirmation codes were requested. Please wait before trying again.");
+
+    /// <summary>
+    /// The requesting administrator has no confirmed address to send the code
+    /// to. Rotating a signing key on the say-so of an account nobody can reach
+    /// defeats the point of the second factor, so the operation stops here.
+    /// </summary>
+    public static Error ChallengeRecipientUnavailable => Error.Conflict(
+        code: "Secret.ChallengeRecipientUnavailable",
+        description: "Your account has no confirmed email address, so a confirmation code cannot be sent. " +
+                     "Confirm your email address before performing this operation.");
+
+    public static Error ChallengeEmailFailed => Error.Failure(
+        code: "Secret.ChallengeEmailFailed",
+        description: "Failed to send the confirmation code email. Please try again.");
 }

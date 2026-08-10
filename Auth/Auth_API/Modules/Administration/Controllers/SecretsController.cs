@@ -4,6 +4,7 @@ using Auth_API.Authorization;
 using Auth_API.Common;
 using Auth_API.Modules.Administration.Contracts;
 using Auth_API.Modules.Administration.Filters;
+using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Application.Features.Secrets.DeleteCustomSecret;
 using Auth.Application.Features.Secrets.GenerateGatewayToken;
@@ -13,10 +14,13 @@ using Auth.Application.Features.Secrets.GetSecretStatus;
 using Auth.Application.Features.Secrets.ImportGatewayToken;
 using Auth.Application.Features.Secrets.ImportHmacKey;
 using Auth.Application.Features.Secrets.ImportRsaKey;
+using Auth.Application.Features.Secrets.RequestSecretOperationChallenge;
 using Auth.Application.Features.Secrets.SetCustomSecret;
+using Auth.Application.Features.Secrets.VerifySecretOperationChallenge;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Auth_API.Modules.Administration.Controllers;
 
@@ -62,22 +66,101 @@ public class SecretsController : ApiController
     }
 
     /// <summary>
-    /// Regenerates the RSA key pair used for JWT signing.
-    /// WARNING: This will invalidate ALL existing access tokens immediately.
-    /// Users will need to re-authenticate.
+    /// Raises a step-up confirmation for a destructive secret operation: emails a
+    /// one-time code to the requesting administrator. Nothing is rotated here.
     /// </summary>
-    /// <response code="200">Returns the new public key</response>
+    /// <remarks>
+    /// For the import operations the key material must be supplied now, not only
+    /// at execution: the confirmation is bound to a digest of it, so an approval
+    /// cannot be obtained for one key and spent on another.
+    /// </remarks>
+    /// <param name="request">The operation to confirm, and its key material for imports.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">Confirmation raised; the code was emailed</response>
+    /// <response code="400">Invalid operation or key material</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or too many codes requested</response>
+    /// <response code="409">No confirmed email to send a code to, or storage mode is PlainText</response>
+    [HttpPost("challenges")]
+    [RequirePermission("secrets.manage")]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(SecretOperationChallengeDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> RequestOperationChallenge(
+        [FromBody] SecretOperationChallengeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var result = await _sender.Send(
+            new RequestSecretOperationChallengeCommand(
+                request.Operation, request.Value, userId, GetClientIpAddress()),
+            cancellationToken);
+
+        return result.Match(
+            challenge => Ok(challenge),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Answers a step-up confirmation with the emailed code. On success the
+    /// approval window opens and the operation's blast radius is returned — the
+    /// live figures the administrator confirms against.
+    /// </summary>
+    /// <param name="challengeId">The challenge being answered.</param>
+    /// <param name="request">The six-digit code.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">Code accepted; returns the rotation impact</response>
+    /// <response code="400">The code is incorrect or no longer valid</response>
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    [HttpPost("challenges/{challengeId:guid}/verify")]
+    [RequirePermission("secrets.manage")]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(SecretRotationImpactDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> VerifyOperationChallenge(
+        Guid challengeId,
+        [FromBody] VerifySecretOperationChallengeRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var result = await _sender.Send(
+            new VerifySecretOperationChallengeCommand(challengeId, request.Code, userId),
+            cancellationToken);
+
+        return result.Match(
+            impact => Ok(impact),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Regenerates the RSA key pair used for JWT signing.
+    /// WARNING: This will invalidate ALL existing access tokens once the API
+    /// restarts. Users will need to obtain fresh tokens.
+    /// Requires a verified confirmation raised for this exact operation.
+    /// </summary>
+    /// <param name="request">The verified confirmation authorizing the rotation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="200">Returns the new public key</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     [HttpPost("generate/rsa")]
     [RequirePermission("secrets.manage")]
     [ProducesResponseType(typeof(RsaKeyGenerationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GenerateRsaKey(CancellationToken cancellationToken)
+    public async Task<IActionResult> GenerateRsaKey(
+        [FromBody] ConfirmedSecretOperationRequest request,
+        CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var result = await _sender.Send(new GenerateRsaKeyCommand(userId), cancellationToken);
+        var result = await _sender.Send(
+            new GenerateRsaKeyCommand(request.ChallengeId, userId), cancellationToken);
 
         return result.Match(
             publicKeyPem => Ok(new RsaKeyGenerationResponse
@@ -93,21 +176,28 @@ public class SecretsController : ApiController
 
     /// <summary>
     /// Regenerates the HMAC key used for refresh token hashing.
-    /// WARNING: This will invalidate ALL existing refresh tokens.
-    /// Users will need to re-authenticate.
+    /// WARNING: This will invalidate ALL existing refresh tokens, every emailed
+    /// password-reset link, every in-flight two-factor sign-in, and every webhook
+    /// key — all four are hashed with this one key.
+    /// Requires a verified confirmation raised for this exact operation.
     /// </summary>
+    /// <param name="request">The verified confirmation authorizing the rotation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <response code="200">Success message</response>
     /// <response code="401">Unauthorized - not authenticated</response>
-    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     [HttpPost("generate/hmac")]
     [RequirePermission("secrets.manage")]
     [ProducesResponseType(typeof(HmacKeyGenerationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GenerateHmacKey(CancellationToken cancellationToken)
+    public async Task<IActionResult> GenerateHmacKey(
+        [FromBody] ConfirmedSecretOperationRequest request,
+        CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var result = await _sender.Send(new GenerateHmacKeyCommand(userId), cancellationToken);
+        var result = await _sender.Send(
+            new GenerateHmacKeyCommand(request.ChallengeId, userId), cancellationToken);
 
         return result.Match(
             _ => Ok(new HmacKeyGenerationResponse
@@ -122,20 +212,27 @@ public class SecretsController : ApiController
 
     /// <summary>
     /// Regenerates the gateway token used for inter-service authentication.
-    /// WARNING: The API Gateway must be reconfigured with the new token.
+    /// WARNING: The API Gateway must be reconfigured with the new token; until it
+    /// is, every proxied request is rejected.
+    /// Requires a verified confirmation raised for this exact operation.
     /// </summary>
+    /// <param name="request">The verified confirmation authorizing the rotation.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <response code="200">Returns the new gateway token</response>
     /// <response code="401">Unauthorized - not authenticated</response>
-    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     [HttpPost("generate/gateway-token")]
     [RequirePermission("secrets.manage")]
     [ProducesResponseType(typeof(GatewayTokenGenerationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GenerateGatewayToken(CancellationToken cancellationToken)
+    public async Task<IActionResult> GenerateGatewayToken(
+        [FromBody] ConfirmedSecretOperationRequest request,
+        CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var result = await _sender.Send(new GenerateGatewayTokenCommand(userId), cancellationToken);
+        var result = await _sender.Send(
+            new GenerateGatewayTokenCommand(request.ChallengeId, userId), cancellationToken);
 
         return result.Match(
             token => Ok(new GatewayTokenGenerationResponse
@@ -155,12 +252,12 @@ public class SecretsController : ApiController
     /// Certificate/Dpapi storage mode (in PlainText mode, edit appsettings.Production.json).
     /// WARNING: This replaces the current signing key and invalidates ALL existing access tokens.
     /// </summary>
-    /// <param name="request">The RSA private key in PEM format (PKCS#8 or PKCS#1) in the value field.</param>
+    /// <param name="request">The RSA private key in PEM format (PKCS#8 or PKCS#1), plus the verified confirmation.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <response code="200">Returns the derived public key</response>
     /// <response code="400">Invalid key material</response>
     /// <response code="401">Unauthorized - not authenticated</response>
-    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     /// <response code="409">Storage mode is PlainText - import not supported</response>
     [HttpPost("import/rsa")]
     [RequirePermission("secrets.manage")]
@@ -170,11 +267,12 @@ public class SecretsController : ApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ImportRsaKey(
-        [FromBody] SetSecretRequest request,
+        [FromBody] ImportSecretRequest request,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var result = await _sender.Send(new ImportRsaKeyCommand(request.Value, userId), cancellationToken);
+        var result = await _sender.Send(
+            new ImportRsaKeyCommand(request.Value, request.ChallengeId, userId), cancellationToken);
 
         return result.Match(
             publicKeyPem => Ok(new KeyImportResponse
@@ -193,12 +291,12 @@ public class SecretsController : ApiController
     /// Only applicable in Certificate/Dpapi storage mode.
     /// WARNING: This replaces the current key and invalidates ALL existing refresh tokens.
     /// </summary>
-    /// <param name="request">The base64-encoded HMAC key (>= 32 bytes) in the value field.</param>
+    /// <param name="request">The base64-encoded HMAC key (>= 32 bytes), plus the verified confirmation.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <response code="200">Success message</response>
     /// <response code="400">Invalid key material</response>
     /// <response code="401">Unauthorized - not authenticated</response>
-    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     /// <response code="409">Storage mode is PlainText - import not supported</response>
     [HttpPost("import/hmac")]
     [RequirePermission("secrets.manage")]
@@ -208,11 +306,12 @@ public class SecretsController : ApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ImportHmacKey(
-        [FromBody] SetSecretRequest request,
+        [FromBody] ImportSecretRequest request,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var result = await _sender.Send(new ImportHmacKeyCommand(request.Value, userId), cancellationToken);
+        var result = await _sender.Send(
+            new ImportHmacKeyCommand(request.Value, request.ChallengeId, userId), cancellationToken);
 
         return result.Match<IActionResult>(
             _ => Ok(new KeyImportResponse
@@ -230,12 +329,12 @@ public class SecretsController : ApiController
     /// Only applicable in Certificate/Dpapi storage mode.
     /// WARNING: The API Gateway must be reconfigured with the same token.
     /// </summary>
-    /// <param name="request">The gateway token in the value field.</param>
+    /// <param name="request">The gateway token, plus the verified confirmation.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <response code="200">Success message</response>
     /// <response code="400">Invalid token</response>
     /// <response code="401">Unauthorized - not authenticated</response>
-    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     /// <response code="409">Storage mode is PlainText - import not supported</response>
     [HttpPost("import/gateway-token")]
     [RequirePermission("secrets.manage")]
@@ -245,11 +344,12 @@ public class SecretsController : ApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ImportGatewayToken(
-        [FromBody] SetSecretRequest request,
+        [FromBody] ImportSecretRequest request,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
-        var result = await _sender.Send(new ImportGatewayTokenCommand(request.Value, userId), cancellationToken);
+        var result = await _sender.Send(
+            new ImportGatewayTokenCommand(request.Value, request.ChallengeId, userId), cancellationToken);
 
         return result.Match<IActionResult>(
             _ => Ok(new KeyImportResponse

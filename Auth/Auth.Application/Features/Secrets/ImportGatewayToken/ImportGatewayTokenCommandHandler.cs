@@ -1,6 +1,9 @@
 using Auth.Application.Configuration;
+using Auth.Application.Features.Secrets.Common;
 using Auth.Application.Interfaces;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
@@ -8,21 +11,28 @@ using Microsoft.Extensions.Options;
 namespace Auth.Application.Features.Secrets.ImportGatewayToken;
 
 /// <summary>
-/// Handler for importing a caller-supplied gateway token, persisting it to the encrypted secrets file.
+/// Handler for importing a caller-supplied gateway token, persisting it to the encrypted
+/// secrets file — but only after spending a confirmation bound to a digest of this exact token.
 /// </summary>
 public class ImportGatewayTokenCommandHandler : IRequestHandler<ImportGatewayTokenCommand, ErrorOr<Success>>
 {
     private readonly IDpapiSecretService _secretService;
+    private readonly SecretOperationChallengeService _challengeService;
     private readonly SecretManagementSettings _settings;
+    private readonly IPublisher _publisher;
     private readonly ILogger<ImportGatewayTokenCommandHandler> _logger;
 
     public ImportGatewayTokenCommandHandler(
         IDpapiSecretService secretService,
+        SecretOperationChallengeService challengeService,
         IOptions<SecretManagementSettings> settings,
+        IPublisher publisher,
         ILogger<ImportGatewayTokenCommandHandler> logger)
     {
         _secretService = secretService;
+        _challengeService = challengeService;
         _settings = settings.Value;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -35,6 +45,24 @@ public class ImportGatewayTokenCommandHandler : IRequestHandler<ImportGatewayTok
             return SecretErrors.ImportNotSupportedInPlainText;
         }
 
+        var material = SecretKeyMaterial.ValidateGatewayToken(request.Token);
+        if (material.IsError)
+        {
+            return material.Errors;
+        }
+
+        var approval = await _challengeService.ConsumeAsync(
+            request.ChallengeId,
+            SecretOperation.ImportGatewayToken,
+            SecretPayloadDigest.Compute(request.Token),
+            request.RequestedBy,
+            cancellationToken);
+
+        if (approval.IsError)
+        {
+            return approval.Errors;
+        }
+
         try
         {
             _logger.LogWarning(
@@ -42,6 +70,12 @@ public class ImportGatewayTokenCommandHandler : IRequestHandler<ImportGatewayTok
                 request.RequestedBy);
 
             await _secretService.ImportGatewayTokenAsync(request.Token, cancellationToken);
+
+            await _publisher.Publish(
+                new SecretOperationExecutedEvent(
+                    request.ChallengeId, SecretOperation.ImportGatewayToken, request.RequestedBy),
+                cancellationToken);
+
             return Result.Success;
         }
         catch (SecretDecryptionException ex)

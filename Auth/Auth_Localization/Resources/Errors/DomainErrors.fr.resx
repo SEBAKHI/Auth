@@ -547,6 +547,21 @@
   <data name="Secret.ImportNotSupportedInPlainText" xml:space="preserve">
     <value>L'importation de clés via l'API d'administration n'est prise en charge qu'en mode de stockage Certificate ou Dpapi. En mode PlainText, définissez les clés directement dans appsettings.Production.json.</value>
   </data>
+  <data name="Secret.InvalidChallengeCode" xml:space="preserve">
+    <value>Le code de confirmation est incorrect ou n'est plus valide. Demandez un nouveau code et réessayez.</value>
+  </data>
+  <data name="Secret.ChallengeNotApproved" xml:space="preserve">
+    <value>Cette opération n'a pas été confirmée ou la confirmation a expiré. Recommencez et confirmez avec un nouveau code.</value>
+  </data>
+  <data name="Secret.TooManyChallengeRequests" xml:space="preserve">
+    <value>Trop de codes de confirmation ont été demandés. Veuillez patienter avant de réessayer.</value>
+  </data>
+  <data name="Secret.ChallengeRecipientUnavailable" xml:space="preserve">
+    <value>Votre compte ne comporte aucune adresse e-mail vérifiée ; un code de confirmation ne peut donc pas être envoyé. Vérifiez votre adresse e-mail avant d'effectuer cette opération.</value>
+  </data>
+  <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
+    <value>Échec de l'envoi de l'e-mail contenant le code de confirmation. Veuillez réessayer.</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>Ce mot de passe est apparu dans une fuite de données connue. Veuillez en choisir un autre.</value>
   </data>
