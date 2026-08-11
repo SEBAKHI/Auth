@@ -155,6 +155,7 @@ public class AccountDeletionWorker : BackgroundService
         var outboxRepository = scope.ServiceProvider.GetRequiredService<INotificationOutboxRepository>();
         var auditLogRepository = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
         var tombstoneRepository = scope.ServiceProvider.GetRequiredService<IAccountDeletionTombstoneRepository>();
+        var secretChallengeRepository = scope.ServiceProvider.GetRequiredService<ISecretOperationChallengeRepository>();
 
         // 1) Restore re-apply: a Completed request with a live user row means
         //    a backup restore resurrected destroyed data (R5).
@@ -199,6 +200,12 @@ public class AccountDeletionWorker : BackgroundService
         // 2) Expired/used deletion OTPs (short-lived Class A rows).
         await verificationRepository.DeleteExpiredAsync(cancellationToken);
 
+        // 2b) Dead secret step-up challenges. Same class of row as the deletion
+        //     OTPs above: a short-lived credential with no purpose once it can
+        //     neither be answered nor spent. Without this the table only grew —
+        //     its own definition promised this sweep and nothing performed it.
+        var purgedSecretChallenges = await secretChallengeRepository.DeleteExpiredAsync(cancellationToken);
+
         // 3) Anonymized login attempts past the fraud-analysis retention.
         await loginAttemptRepository.CleanupOldAttemptsAsync(
             DateTime.UtcNow.AddDays(-_settings.CurrentValue.LoginAttemptRetentionDays), cancellationToken);
@@ -234,6 +241,7 @@ public class AccountDeletionWorker : BackgroundService
                 additionalData:
                     $"{{\"reappliedDeletions\":{reapplied},\"purgedOutboxRows\":{purgedOutbox}," +
                     $"\"auditCutoffUtc\":\"{auditCutoff:O}\"," +
+                    $"\"purgedSecretChallenges\":{purgedSecretChallenges}," +
                     $"\"releasedReservations\":{releasedReservations}}}"),
             cancellationToken);
 

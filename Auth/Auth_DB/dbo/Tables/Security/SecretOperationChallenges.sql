@@ -30,7 +30,9 @@ GO
 -- for imports — a digest of the key material, all re-checked when it is spent.
 -- Two windows: ExpiresAt bounds code entry, ApprovalExpiresAt bounds how long a
 -- verified approval stays spendable (5 minutes, deliberately not configurable).
--- Expired rows are purged by the retention sweep.
+-- Rows are purged by the retention sweep once BOTH windows have closed, so a
+-- code verified just before ExpiresAt keeps its approval for the full five
+-- minutes.
 
 -- Issuance rate limiting: count recent codes per administrator.
 CREATE NONCLUSTERED INDEX [IX_SecretOperationChallenges_RequestedBy_CreatedAt]

@@ -31,6 +31,7 @@ public class SecretOperationChallengeService
     private readonly IOtpGenerator _otpGenerator;
     private readonly IPasswordHasher _passwordHasher;
     private readonly EmailSettings _emailSettings;
+    private readonly IEnvironmentInfo _environment;
     private readonly ILogger<SecretOperationChallengeService> _logger;
 
     public SecretOperationChallengeService(
@@ -40,6 +41,7 @@ public class SecretOperationChallengeService
         IOtpGenerator otpGenerator,
         IPasswordHasher passwordHasher,
         IOptionsSnapshot<EmailSettings> emailSettings,
+        IEnvironmentInfo environment,
         ILogger<SecretOperationChallengeService> logger)
     {
         _challengeRepository = challengeRepository;
@@ -48,6 +50,7 @@ public class SecretOperationChallengeService
         _otpGenerator = otpGenerator;
         _passwordHasher = passwordHasher;
         _emailSettings = emailSettings.Value;
+        _environment = environment;
         _logger = logger;
     }
 
@@ -111,9 +114,13 @@ public class SecretOperationChallengeService
 
         await _challengeRepository.CreateAsync(challenge, cancellationToken);
 
-        // With email disabled (development), the log is the only other place the
-        // code exists — otherwise the flow is untestable locally.
-        if (!_emailSettings.Enabled)
+        // With email disabled the log is the only other place the code exists,
+        // which is what makes the flow testable locally. Gated on the
+        // environment as well as the setting: this code authorizes rotating the
+        // key every token in the platform is signed with, and Email:Enabled is a
+        // hot setting an operator can flip from the console in production — on
+        // its own it would put the code in plaintext in the production log.
+        if (!_emailSettings.Enabled && _environment.IsDevelopment)
         {
             _logger.LogWarning(
                 "Email disabled - Secret operation confirmation code for {Operation} (admin {Email}): {Otp} (expires in {Minutes} minutes)",
@@ -186,11 +193,25 @@ public class SecretOperationChallengeService
             return SecretErrors.InvalidChallengeCode;
         }
 
+        // Claim an attempt BEFORE evaluating the code. The IsOpen check above is
+        // only a fast path: it reads a count fetched earlier in this request, so
+        // on its own it lets every request that arrives inside the Argon2id
+        // verification window — which is deliberately slow — pass the same stale
+        // count and spend a guess. This conditional update is the cap.
+        var attemptClaimed = await _challengeRepository.TryRegisterAttemptAsync(
+            challenge.Id, SecretOperationChallenge.MaxAttempts, cancellationToken);
+
+        if (!attemptClaimed)
+        {
+            return SecretErrors.InvalidChallengeCode;
+        }
+
         if (!_passwordHasher.VerifyPassword(code, challenge.CodeHash))
         {
-            // Count the attempt before answering, so the cap holds even if the
-            // caller abandons the request the moment it is rejected.
-            await _challengeRepository.IncrementAttemptCountAsync(challenge.Id, cancellationToken);
+            // Mirror the claimed attempt onto the in-memory row for the log line
+            // only. It is deliberately NOT mirrored on the success path below,
+            // where MarkVerified() re-checks IsOpen and would reject a correct
+            // code that legitimately claimed the last attempt.
             challenge.IncrementAttempts();
 
             _logger.LogWarning(
@@ -212,6 +233,7 @@ public class SecretOperationChallengeService
             challenge.Id,
             challenge.VerifiedAt!.Value,
             challenge.ApprovalExpiresAt!.Value,
+            SecretOperationChallenge.MaxAttempts,
             cancellationToken);
 
         if (!stored)

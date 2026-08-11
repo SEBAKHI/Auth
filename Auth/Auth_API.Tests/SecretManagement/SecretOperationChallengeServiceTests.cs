@@ -162,10 +162,64 @@ public class SecretOperationChallengeServiceTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Secret.InvalidChallengeCode");
         _context.ChallengeRepository.Verify(
-            r => r.IncrementAttemptCountAsync(challengeId, It.IsAny<CancellationToken>()),
+            r => r.TryRegisterAttemptAsync(
+                challengeId, SecretOperationChallenge.MaxAttempts, It.IsAny<CancellationToken>()),
             Times.Once,
-            "the attempt must be counted before the caller is answered, or " +
+            "the attempt must be claimed before the caller is answered, or " +
             "abandoning the request resets the cap");
+    }
+
+    [Fact]
+    public async Task Verify_ClaimsTheAttemptBeforeEvaluatingTheCode()
+    {
+        var challengeId = Guid.NewGuid();
+        _context.WithOpenChallenge(challengeId, SecretOperation.GenerateRsaKey, _admin);
+
+        await _context.Service.VerifyAsync(
+            challengeId, SecretChallengeTestContext.CorrectCode, _admin, CancellationToken.None);
+
+        // Reserving only on the failure path would leave the cap advisory: every
+        // request that arrived during the (deliberately slow) hash comparison
+        // would have read the same count and been handed a guess.
+        _context.ChallengeRepository.Verify(
+            r => r.TryRegisterAttemptAsync(
+                challengeId, SecretOperationChallenge.MaxAttempts, It.IsAny<CancellationToken>()),
+            Times.Once,
+            "a correct code must consume an attempt slot too, because the slot " +
+            "is claimed before the code is known to be correct");
+    }
+
+    [Fact]
+    public async Task Verify_RefusesTheCodeWhenTheStoreWillNotGrantAnAttempt()
+    {
+        var challengeId = Guid.NewGuid();
+
+        // The row this request read still looks open — attempts are at zero —
+        // but concurrent requests exhausted the cap before this one reached the
+        // store. That gap is precisely what the in-memory check cannot see, so
+        // the store's answer, not the snapshot, has to decide.
+        _context.WithOpenChallenge(challengeId, SecretOperation.GenerateRsaKey, _admin);
+        _context.ChallengeRepository
+            .Setup(r => r.TryRegisterAttemptAsync(
+                challengeId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var result = await _context.Service.VerifyAsync(
+            challengeId, SecretChallengeTestContext.CorrectCode, _admin, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Secret.InvalidChallengeCode");
+        _context.PasswordHasher.Verify(
+            h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never,
+            "a request that cannot claim an attempt must be answered without " +
+            "evaluating the submitted code");
+        _context.ChallengeRepository.Verify(
+            r => r.MarkVerifiedAsync(
+                It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+                It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "and it must never open an approval window");
     }
 
     [Fact]
@@ -229,7 +283,8 @@ public class SecretOperationChallengeServiceTests
         _context.WithOpenChallenge(challengeId, SecretOperation.GenerateRsaKey, _admin);
         _context.ChallengeRepository
             .Setup(r => r.MarkVerifiedAsync(
-                challengeId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                challengeId, It.IsAny<DateTime>(), It.IsAny<DateTime>(),
+                It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
         var result = await _context.Service.VerifyAsync(

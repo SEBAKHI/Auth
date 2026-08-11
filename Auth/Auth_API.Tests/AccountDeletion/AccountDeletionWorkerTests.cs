@@ -30,6 +30,7 @@ public class AccountDeletionWorkerTests
     private readonly Mock<INotificationOutboxRepository> _outboxRepositoryMock = new();
     private readonly Mock<IAuditLogRepository> _auditLogRepositoryMock = new();
     private readonly Mock<IAccountDeletionTombstoneRepository> _tombstoneRepositoryMock = new();
+    private readonly Mock<ISecretOperationChallengeRepository> _secretChallengeRepositoryMock = new();
     private readonly Mock<ISender> _senderMock = new();
     private readonly Mock<ILogger<AccountDeletionWorker>> _loggerMock = new();
     private readonly AccountDeletionSettings _settings = new();
@@ -56,6 +57,7 @@ public class AccountDeletionWorkerTests
         provider.Setup(p => p.GetService(typeof(INotificationOutboxRepository))).Returns(_outboxRepositoryMock.Object);
         provider.Setup(p => p.GetService(typeof(IAuditLogRepository))).Returns(_auditLogRepositoryMock.Object);
         provider.Setup(p => p.GetService(typeof(IAccountDeletionTombstoneRepository))).Returns(_tombstoneRepositoryMock.Object);
+        provider.Setup(p => p.GetService(typeof(ISecretOperationChallengeRepository))).Returns(_secretChallengeRepositoryMock.Object);
         provider.Setup(p => p.GetService(typeof(ISender))).Returns(_senderMock.Object);
         var scope = new Mock<IServiceScope>();
         scope.SetupGet(s => s.ServiceProvider).Returns(provider.Object);
@@ -151,6 +153,12 @@ public class AccountDeletionWorkerTests
         await _worker.RunSweepAsync(CancellationToken.None);
 
         _verificationRepositoryMock.Verify(r => r.DeleteExpiredAsync(It.IsAny<CancellationToken>()), Times.Once);
+        // Secret step-up challenges are the same class of short-lived credential
+        // row. The table definition claimed this sweep purged them while nothing
+        // did, so they accumulated for the life of the deployment.
+        _secretChallengeRepositoryMock.Verify(
+            r => r.DeleteExpiredAsync(It.IsAny<CancellationToken>()),
+            Times.Once);
         _loginAttemptRepositoryMock.Verify(
             r => r.CleanupOldAttemptsAsync(
                 It.Is<DateTime>(cutoff => Math.Abs((cutoff - DateTime.UtcNow.AddDays(-365)).TotalMinutes) < 5),

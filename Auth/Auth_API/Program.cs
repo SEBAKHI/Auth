@@ -534,6 +534,7 @@ builder.Services.AddSingleton<IWebhookKeyGenerator, WebhookKeyGenerator>();
 builder.Services.AddSingleton<ITotpService>(sp => new TotpService(sp.GetRequiredService<IPasswordHasher>()));
 builder.Services.AddSingleton<IOtpGenerator, OtpGenerator>();
 builder.Services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
+builder.Services.AddSingleton<IEnvironmentInfo, HostEnvironmentInfo>();
 // Notification system: DB-managed templates rendered through Fluid, dispatched
 // via channel strategies. Renderer/cache/factory are singletons (thread-safe,
 // no per-request state); the service and rendering pipeline are scoped (repos).

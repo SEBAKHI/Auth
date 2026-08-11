@@ -76,12 +76,17 @@ public class SecretOperationChallengeRepository : ISecretOperationChallengeRepos
         Guid id,
         DateTime verifiedAt,
         DateTime approvalExpiresAt,
+        int maxAttempts,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         // The WHERE clause repeats every open-challenge condition so a row that
-        // expired or was verified between the read and this write loses.
+        // expired or was verified between the read and this write loses. The
+        // attempt term is a second line of defence: TryRegisterAttemptAsync
+        // already refuses to hand out a slot past the cap, so a correct code can
+        // only arrive here having claimed one — this clause keeps that true if
+        // the reserve-then-evaluate order in the service is ever undone.
         var affected = await connection.ExecuteAsync(@"
             UPDATE [dbo].[SecretOperationChallenges] SET
                 [VerifiedAt] = @VerifiedAt,
@@ -89,8 +94,9 @@ public class SecretOperationChallengeRepository : ISecretOperationChallengeRepos
             WHERE [Id] = @Id
               AND [UsedAt] IS NULL
               AND [VerifiedAt] IS NULL
-              AND [ExpiresAt] > GETUTCDATE()",
-            new { Id = id, VerifiedAt = verifiedAt, ApprovalExpiresAt = approvalExpiresAt });
+              AND [ExpiresAt] > GETUTCDATE()
+              AND [AttemptCount] <= @MaxAttempts",
+            new { Id = id, VerifiedAt = verifiedAt, ApprovalExpiresAt = approvalExpiresAt, MaxAttempts = maxAttempts });
 
         return affected > 0;
     }
@@ -115,15 +121,45 @@ public class SecretOperationChallengeRepository : ISecretOperationChallengeRepos
     }
 
     /// <inheritdoc />
-    public async Task IncrementAttemptCountAsync(Guid id, CancellationToken cancellationToken)
+    public async Task<bool> TryRegisterAttemptAsync(
+        Guid id,
+        int maxAttempts,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
+        // The cap lives in this WHERE clause, exactly as single use lives in
+        // TryConsumeAsync's. An unconditional increment would only *record*
+        // attempts; it would not refuse the sixth, because every request that
+        // read the row before the first increment committed sees the same count.
+        var affected = await connection.ExecuteAsync(@"
             UPDATE [dbo].[SecretOperationChallenges] SET
                 [AttemptCount] = [AttemptCount] + 1
-            WHERE [Id] = @Id",
-            new { Id = id });
+            WHERE [Id] = @Id
+              AND [UsedAt] IS NULL
+              AND [VerifiedAt] IS NULL
+              AND [ExpiresAt] > GETUTCDATE()
+              AND [AttemptCount] < @MaxAttempts",
+            new { Id = id, MaxAttempts = maxAttempts });
+
+        return affected > 0;
+    }
+
+    /// <inheritdoc />
+    public async Task<int> DeleteExpiredAsync(CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Both windows must have closed. Deleting on ExpiresAt alone would drop
+        // a row verified just before its entry deadline while its five-minute
+        // approval window is still open, failing the administrator's operation
+        // at the moment they confirm it. Unspent rows are found through
+        // IX_SecretOperationChallenges_ExpiresAt (filtered on UsedAt IS NULL);
+        // spent rows always carry an ApprovalExpiresAt, so they age out too.
+        return await connection.ExecuteAsync(@"
+            DELETE FROM [dbo].[SecretOperationChallenges]
+            WHERE [ExpiresAt] <= GETUTCDATE()
+              AND ([ApprovalExpiresAt] IS NULL OR [ApprovalExpiresAt] <= GETUTCDATE())");
     }
 
     /// <inheritdoc />

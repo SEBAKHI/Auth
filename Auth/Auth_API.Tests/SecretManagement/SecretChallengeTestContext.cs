@@ -31,6 +31,7 @@ public sealed class SecretChallengeTestContext
     public Mock<INotificationService> NotificationService { get; } = new();
     public Mock<IOtpGenerator> OtpGenerator { get; } = new();
     public Mock<IPasswordHasher> PasswordHasher { get; } = new();
+    public Mock<IEnvironmentInfo> EnvironmentInfo { get; } = new();
 
     public EmailSettings EmailSettings { get; } = new();
 
@@ -50,7 +51,7 @@ public sealed class SecretChallengeTestContext
 
         ChallengeRepository
             .Setup(r => r.MarkVerifiedAsync(
-                It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+                It.IsAny<Guid>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         ChallengeRepository
             .Setup(r => r.TryConsumeAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
@@ -63,6 +64,7 @@ public sealed class SecretChallengeTestContext
             OtpGenerator.Object,
             PasswordHasher.Object,
             TestHelpers.CreateOptions(EmailSettings),
+            EnvironmentInfo.Object,
             new Mock<ILogger<SecretOperationChallengeService>>().Object);
     }
 
@@ -140,6 +142,23 @@ public sealed class SecretChallengeTestContext
         ChallengeRepository
             .Setup(r => r.GetByIdAsync(challengeId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(challenge);
+
+        // Model the conditional UPDATE rather than a bare bool: the slot is
+        // claimed atomically and the count it tests is the stored one, so a
+        // test can call VerifyAsync repeatedly and see the cap actually bite.
+        var attemptsUsed = attemptCount;
+        ChallengeRepository
+            .Setup(r => r.TryRegisterAttemptAsync(challengeId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid _, int maxAttempts, CancellationToken _) =>
+            {
+                if (attemptsUsed >= maxAttempts)
+                {
+                    return false;
+                }
+
+                attemptsUsed++;
+                return true;
+            });
 
         return challenge;
     }

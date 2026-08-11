@@ -9,7 +9,7 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 import { useAuth } from "@authsystem/auth/auth-context"
-import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
+import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { Button } from "@authsystem/ui/button"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import {
@@ -271,8 +271,13 @@ export function SecretOperationFlow({
       >
         <Alert variant="destructive">
           <TriangleAlert />
-          <AlertTitle>{operationLabel}</AlertTitle>
-          <AlertDescription>{t("secrets.rotateWarning")}</AlertDescription>
+          {/* Both strings live in the description: AlertTitle is a one-line
+              slot (line-clamp-1), and these translate to full sentences and
+              long operation labels in fr/tr/fa. */}
+          <AlertDescription>
+            <p>{operationLabel}</p>
+            <p>{t("secrets.rotateWarning")}</p>
+          </AlertDescription>
         </Alert>
       </ConfirmDialog>
 
@@ -357,13 +362,16 @@ export function SecretOperationFlow({
       >
         <Alert variant="destructive">
           <TriangleAlert />
-          <AlertTitle>
-            {affectedUsers > 0
-              ? t("secrets.impactAffected", { count: affectedUsers })
-              : t("secrets.impactNobody")}
-          </AlertTitle>
+          {/* The dialog above already carries the title and the operation
+              label; these two are sentences, so they belong in the
+              description rather than the one-line AlertTitle slot. */}
           <AlertDescription>
-            {t("secrets.impactIrreversible")}
+            <p>
+              {affectedUsers > 0
+                ? t("secrets.impactAffected", { count: affectedUsers })
+                : t("secrets.impactNobody")}
+            </p>
+            <p>{t("secrets.impactIrreversible")}</p>
           </AlertDescription>
         </Alert>
 
