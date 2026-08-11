@@ -177,20 +177,66 @@ public class FileSystemImageStorageServiceTests : IDisposable
         CornerOf(dark.Key).Should().Be(new SKColor(0x1A, 0x1A, 0x1C));
     }
 
-    [Fact]
-    public async Task EnsureEmailLogoRendition_SquareLogo_IsNotMaroonedInAWideSlab()
+    [Theory]
+    [InlineData(1023, 201)]  // wide wordmark
+    [InlineData(300, 300)]   // square
+    [InlineData(120, 400)]   // portrait
+    public async Task EnsureEmailLogoRendition_ArtboardIsIdenticalWhateverTheSourceShape(int w, int h)
     {
-        // A fixed artboard fitted to one wordmark leaves square logos floating in dead plate,
-        // which is invisible on a white card and glaring as a white chip on a dark one.
+        // The artboard is a PERMANENT CONTRACT. Sent mail bakes width/height into its <img>
+        // and can never be edited, so a logo of a different shape must not change the file's
+        // dimensions - otherwise every previously delivered message stretches it. The mark is
+        // letterboxed inside instead; the plate is the card colour, so that is invisible.
         var service = CreateService();
-        var sourceKey = await StoreAsync(MakeTransparentPng(300, 300));
+        var sourceKey = await StoreAsync(MakeTransparentPng(w, h));
 
         var rendition = await service.EnsureEmailLogoRenditionAsync(
             sourceKey, EmailLogoVariant.Light, CancellationToken.None);
 
         rendition.Should().NotBeNull();
-        var aspect = (double)rendition!.Width / rendition.Height;
-        aspect.Should().BeInRange(0.8, 1.25, "the plate should follow the mark's aspect ratio");
+        rendition!.Width.Should().Be(200);
+        rendition.Height.Should().Be(72);
+
+        using var codec = SKCodec.Create(Path.Combine(_tempRoot, rendition.Key));
+        codec.Info.Width.Should().Be(400);
+        codec.Info.Height.Should().Be(144);
+    }
+
+    [Fact]
+    public async Task EnsureEmailLogoRendition_KeyIsStableAcrossDifferentSources()
+    {
+        // The whole point: an email carries a URL the recipient fetches for years. If the key
+        // moved with the upload, replacing the logo would kill the logo in all delivered mail.
+        var service = CreateService();
+        var first = await StoreAsync(MakeTransparentPng(400, 100));
+        var second = await StoreAsync(MakeTransparentPng(300, 300));
+        first.Should().NotBe(second, "each upload gets its own random key");
+
+        var a = await service.EnsureEmailLogoRenditionAsync(first, EmailLogoVariant.Light, CancellationToken.None);
+        var b = await service.EnsureEmailLogoRenditionAsync(second, EmailLogoVariant.Light, CancellationToken.None);
+
+        a!.Key.Should().Be(b!.Key, "the rendition URL must survive a logo replacement");
+        a.Key.Should().Be("platform-email-light.png");
+    }
+
+    [Fact]
+    public async Task EnsureEmailLogoRendition_ReplacingTheLogoOverwritesTheSameFile()
+    {
+        var service = CreateService();
+        var first = await StoreAsync(MakeTransparentPng(400, 100));
+        var rendition = await service.EnsureEmailLogoRenditionAsync(
+            first, EmailLogoVariant.Light, CancellationToken.None);
+        var path = Path.Combine(_tempRoot, rendition!.Key);
+        var before = await File.ReadAllBytesAsync(path);
+
+        // A visibly different logo: solid ink over the whole canvas rather than a centre band.
+        var second = await StoreAsync(MakePng(400, 100));
+        await service.EnsureEmailLogoRenditionAsync(second, EmailLogoVariant.Light, CancellationToken.None);
+
+        Directory.GetFiles(_tempRoot, "platform-email-*.png").Should().HaveCount(1,
+            "a replacement must reuse the file, not mint a second one");
+        (await File.ReadAllBytesAsync(path)).Should().NotEqual(before, "the new logo must be in it");
+        Directory.GetFiles(_tempRoot, "*.tmp").Should().BeEmpty("the atomic swap must leave no temp file");
     }
 
     [Fact]
@@ -269,8 +315,11 @@ public class FileSystemImageStorageServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task DeleteImage_AlsoRemovesTheDerivedRenditions()
+    public async Task DeleteImage_RemovesTheSourceButNeverTheEmailRenditions()
     {
+        // Deleting a replaced upload is right; deleting its rendition is not. The rendition
+        // is at a stable URL that mail already sitting in recipients' inboxes points at, and
+        // that mail cannot be edited - removing the file breaks it permanently.
         var service = CreateService();
         var sourceKey = await StoreAsync(MakeTransparentPng(400, 100));
         var light = await service.EnsureEmailLogoRenditionAsync(
@@ -280,10 +329,11 @@ public class FileSystemImageStorageServiceTests : IDisposable
 
         await service.DeleteImageAsync(sourceKey, CancellationToken.None);
 
-        File.Exists(Path.Combine(_tempRoot, sourceKey)).Should().BeFalse();
-        File.Exists(Path.Combine(_tempRoot, light!.Key)).Should().BeFalse(
-            "a replaced logo must not leave plated orphans behind");
-        File.Exists(Path.Combine(_tempRoot, dark!.Key)).Should().BeFalse();
+        File.Exists(Path.Combine(_tempRoot, sourceKey)).Should().BeFalse(
+            "the superseded upload itself is no longer referenced by anything");
+        File.Exists(Path.Combine(_tempRoot, light!.Key)).Should().BeTrue(
+            "delivered mail fetches this URL every time it is opened");
+        File.Exists(Path.Combine(_tempRoot, dark!.Key)).Should().BeTrue();
     }
 
     private SKColor CornerOf(string renditionKey)

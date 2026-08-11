@@ -148,28 +148,24 @@ public sealed class FileSystemImageStorageService : IImageStorageService
             // Path.GetFileName collapses any directory traversal in a stored key.
             var safeName = Path.GetFileName(key);
             var root = ResolvedRoot(_settings.CurrentValue);
-            // The derived email renditions belong to the source; dropping them together
-            // keeps a replaced logo from leaving plated orphans behind.
-            string[] paths =
-            [
-                Path.Combine(root, safeName),
-                Path.Combine(root, RenditionKey(safeName, EmailLogoVariant.Light)),
-                Path.Combine(root, RenditionKey(safeName, EmailLogoVariant.Dark))
-            ];
 
-            foreach (var path in paths)
+            // Only the uploaded source is removed. The email renditions are NOT touched:
+            // they live at stable keys shared across every logo the platform has ever had,
+            // and mail already delivered points at them. Deleting one here would turn the
+            // logo in the recipient's inbox into a broken image, permanently. Renditions
+            // built by an older version under a source-derived name are left alone for the
+            // same reason - the messages that reference them are still out there.
+            var path = Path.Combine(root, safeName);
+            try
             {
-                try
+                if (File.Exists(path))
                 {
-                    if (File.Exists(path))
-                    {
-                        File.Delete(path);
-                    }
+                    File.Delete(path);
                 }
-                catch
-                {
-                    // Best-effort cleanup — a failed delete must not fail the operation.
-                }
+            }
+            catch
+            {
+                // Best-effort cleanup — a failed delete must not fail the operation.
             }
         }
 
@@ -182,12 +178,25 @@ public sealed class FileSystemImageStorageService : IImageStorageService
     // high-density phone screens where transactional mail is mostly read.
     private const int RenditionScale = 2;
 
-    // Device-pixel artboard bounds. The plate never exceeds these; it SHRINKS to fit a
-    // narrow or square mark instead of marooning it in a wide slab, because in dark mode
-    // the plate is visible as a chip and its dead space would read as a design error.
-    private const int MaxArtboardWidthPx = 200 * RenditionScale;
-    private const int MaxArtboardHeightPx = 72 * RenditionScale;
+    /// <summary>
+    /// FIXED artboard. Every rendition ever produced has exactly these dimensions, whatever
+    /// the source logo's aspect ratio; the mark is scaled to fit inside and centred.
+    /// </summary>
+    /// <remarks>
+    /// This is a PERMANENT CONTRACT, not a tuning knob. Sent mail bakes width/height into its
+    /// <c>&lt;img&gt;</c> (Outlook's Word engine ignores <c>height:auto</c>) and those messages
+    /// can never be edited, so the numbers here must keep matching the file the stable URL
+    /// serves. Changing them would stretch the logo in every email already delivered. If a
+    /// different size is ever genuinely needed, it has to ship as a NEW stable filename so
+    /// historical mail keeps resolving the old one.
+    /// </remarks>
+    private const int ArtboardWidthPx = 200 * RenditionScale;
+    private const int ArtboardHeightPx = 72 * RenditionScale;
     private const int PlatePaddingPx = 12 * RenditionScale;
+
+    /// <summary>The CSS size the layout must state. Constant, by the contract above.</summary>
+    private const int CssWidth = ArtboardWidthPx / RenditionScale;
+    private const int CssHeight = ArtboardHeightPx / RenditionScale;
 
     // Never blow a tiny source up into a blurry smear; a small mark simply stays small.
     private const float MaxUpscale = 2f;
@@ -203,8 +212,20 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         _ => new SKColor(0xFF, 0xFF, 0xFF)
     };
 
-    private static string RenditionKey(string sourceFileName, EmailLogoVariant variant) =>
-        $"{Path.GetFileNameWithoutExtension(sourceFileName)}-email-{variant.ToString().ToLowerInvariant()}.png";
+    /// <summary>
+    /// STABLE key — deliberately independent of the source file.
+    /// </summary>
+    /// <remarks>
+    /// An email carries a URL, not the image: the recipient's client fetches it every time the
+    /// message is opened, for as long as the message exists. A key derived from the uploaded
+    /// file changed on every re-upload, so replacing the logo turned the logo in all previously
+    /// delivered mail into a dead link. A stable key inverts that: the URL never changes, so a
+    /// rebrand flows through to mail already sent and nothing accumulates or has to be kept
+    /// alive forever. The cost is that propagation is not instant — Gmail's image proxy caches
+    /// what it fetched — but a stale logo is a far smaller failure than a missing one.
+    /// </remarks>
+    private static string RenditionKey(EmailLogoVariant variant) =>
+        $"platform-email-{variant.ToString().ToLowerInvariant()}.png";
 
     /// <summary>
     /// Shared read/write core. With <paramref name="write"/> false this only reports an
@@ -222,14 +243,15 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         var root = ResolvedRoot(_settings.CurrentValue);
         // Path.GetFileName collapses any directory traversal in a stored key.
         var sourceName = Path.GetFileName(sourceKey);
-        var renditionKey = RenditionKey(sourceName, variant);
+        var renditionKey = RenditionKey(variant);
         var renditionPath = Path.Combine(root, renditionKey);
 
         if (!write)
         {
-            var size = ReadCssSize(renditionPath);
-            return size is { } existing
-                ? new EmailLogoRendition(renditionKey, existing.Width, existing.Height)
+            // Report the artboard constants rather than measuring the file: the two are
+            // guaranteed equal, and a send must not depend on a disk read succeeding.
+            return File.Exists(renditionPath)
+                ? new EmailLogoRendition(renditionKey, CssWidth, CssHeight)
                 : null;
         }
 
@@ -249,16 +271,21 @@ public sealed class FileSystemImageStorageService : IImageStorageService
             return null;
         }
 
-        var innerMaxWidth = MaxArtboardWidthPx - (PlatePaddingPx * 2);
-        var innerMaxHeight = MaxArtboardHeightPx - (PlatePaddingPx * 2);
+        // Fit the mark inside the FIXED artboard, preserving its aspect ratio. The artboard
+        // itself never changes size, so the width/height baked into already-sent mail stay
+        // correct no matter what shape the next logo is.
+        var innerMaxWidth = ArtboardWidthPx - (PlatePaddingPx * 2);
+        var innerMaxHeight = ArtboardHeightPx - (PlatePaddingPx * 2);
         var ratio = Math.Min(
             Math.Min((float)innerMaxWidth / source.Width, (float)innerMaxHeight / source.Height),
             MaxUpscale);
 
         var innerWidth = Math.Max(1, (int)Math.Round(source.Width * ratio));
         var innerHeight = Math.Max(1, (int)Math.Round(source.Height * ratio));
-        var artboardWidth = innerWidth + (PlatePaddingPx * 2);
-        var artboardHeight = innerHeight + (PlatePaddingPx * 2);
+        // Centre it; the surrounding plate is the card colour, so the letterboxing is
+        // invisible except in clients that force-invert the card but never the image.
+        var offsetX = (ArtboardWidthPx - innerWidth) / 2;
+        var offsetY = (ArtboardHeightPx - innerHeight) / 2;
 
         using var scaled = source.Resize(
             new SKImageInfo(innerWidth, innerHeight),
@@ -273,12 +300,12 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         // fallback for raster configurations Skia declines to allocate; the plate covers every
         // pixel either way, so the encoded PNG is fully opaque in both cases.
         using var surface =
-            SKSurface.Create(new SKImageInfo(artboardWidth, artboardHeight, SKColorType.Bgra8888, SKAlphaType.Opaque))
-            ?? SKSurface.Create(new SKImageInfo(artboardWidth, artboardHeight, SKColorType.Bgra8888, SKAlphaType.Premul));
+            SKSurface.Create(new SKImageInfo(ArtboardWidthPx, ArtboardHeightPx, SKColorType.Bgra8888, SKAlphaType.Opaque))
+            ?? SKSurface.Create(new SKImageInfo(ArtboardWidthPx, ArtboardHeightPx, SKColorType.Bgra8888, SKAlphaType.Premul));
         if (surface is null)
         {
             _logger.LogWarning("Email logo rendition skipped: no raster surface for {Width}x{Height}.",
-                artboardWidth, artboardHeight);
+                ArtboardWidthPx, ArtboardHeightPx);
             return null;
         }
 
@@ -289,7 +316,7 @@ public sealed class FileSystemImageStorageService : IImageStorageService
             // sampling mode is immaterial - but the parameterless overload is obsolete.
             surface.Canvas.DrawImage(
                 mark,
-                new SKPoint(PlatePaddingPx, PlatePaddingPx),
+                new SKPoint(offsetX, offsetY),
                 new SKSamplingOptions(SKCubicResampler.Mitchell));
         }
         surface.Canvas.Flush();
@@ -302,52 +329,46 @@ public sealed class FileSystemImageStorageService : IImageStorageService
             return null;
         }
 
+        var tempPath = $"{renditionPath}.{Guid.NewGuid():N}.tmp";
         try
         {
             Directory.CreateDirectory(root);
-            // Overwrite: regenerating is cheap and self-heals a rendition built by an older
-            // plate palette or from a source that has since been replaced in place.
-            using var fs = new FileStream(renditionPath, FileMode.Create, FileAccess.Write, FileShare.None);
-            data.SaveTo(fs);
+
+            // Write to a sibling temp file, then swap it in. The rendition sits at a STABLE
+            // URL that recipients fetch at unpredictable times, so writing in place would let
+            // a reader see a half-written PNG - a broken logo caused by the act of fixing it.
+            // File.Move with overwrite is atomic within a volume.
+            using (var fs = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                data.SaveTo(fs);
+            }
+
+            File.Move(tempPath, renditionPath, overwrite: true);
         }
         catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
         {
             _logger.LogError(ex,
-                "Email logo rendition write failed for {Path}. Emails will fall back to the text " +
-                "wordmark until the app-pool identity has write permission on ImageStorage:PhysicalPath.",
+                "Email logo rendition write failed for {Path}. Emails keep serving the previous " +
+                "rendition, or fall back to the text wordmark if there is none. Verify the " +
+                "app-pool identity has write permission on ImageStorage:PhysicalPath.",
                 renditionPath);
-            return null;
-        }
 
-        return new EmailLogoRendition(
-            renditionKey,
-            Math.Max(1, artboardWidth / RenditionScale),
-            Math.Max(1, artboardHeight / RenditionScale));
-    }
-
-    /// <summary>Reads a rendition's CSS size from its header without decoding pixels.</summary>
-    private static (int Width, int Height)? ReadCssSize(string path)
-    {
-        if (!File.Exists(path))
-        {
-            return null;
-        }
-
-        try
-        {
-            using var codec = SKCodec.Create(path);
-            if (codec is null || codec.Info.Width <= 0 || codec.Info.Height <= 0)
+            try
             {
-                return null;
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup of the partial file; the failure above is what matters.
             }
 
-            return (Math.Max(1, codec.Info.Width / RenditionScale),
-                    Math.Max(1, codec.Info.Height / RenditionScale));
-        }
-        catch (Exception ex) when (ex is UnauthorizedAccessException or IOException)
-        {
             return null;
         }
+
+        return new EmailLogoRendition(renditionKey, CssWidth, CssHeight);
     }
 
     #endregion

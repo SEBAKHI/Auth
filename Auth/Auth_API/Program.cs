@@ -941,7 +941,16 @@ app.UseStaticFiles(new StaticFileOptions
     OnPrepareResponse = ctx =>
     {
         ctx.Context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-        ctx.Context.Response.Headers["Cache-Control"] = "public, max-age=86400";
+
+        // Uploads are content-addressed by a random key, so they are immutable and cache
+        // hard. The email logo renditions are the exception: they sit at a STABLE filename
+        // that is overwritten whenever branding changes, precisely so that mail already
+        // delivered picks up the new logo. A long TTL there would defeat the point, so they
+        // get a short one and must be revalidated.
+        var isEmailRendition = ctx.File.Name.StartsWith("platform-email-", StringComparison.OrdinalIgnoreCase);
+        ctx.Context.Response.Headers["Cache-Control"] = isEmailRendition
+            ? "public, max-age=3600, must-revalidate"
+            : "public, max-age=86400";
     }
 });
 
