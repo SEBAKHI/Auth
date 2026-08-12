@@ -55,16 +55,21 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
     }
 
     /// <inheritdoc />
-    public async Task MarkAsUsedAsync(Guid challengeId, CancellationToken cancellationToken)
+    public async Task<bool> MarkAsUsedAsync(Guid challengeId, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
+        // The WHERE clause was already the whole race condition's answer; the
+        // rows-affected was simply thrown away, which made the guard decorative.
+        // Returning it turns this statement into the compare-and-set it looks like.
+        var rowsAffected = await connection.ExecuteAsync(@"
             UPDATE [dbo].[TwoFactorChallenges] SET
                 [UsedAt] = GETUTCDATE()
             WHERE [Id] = @ChallengeId
               AND [UsedAt] IS NULL",
             new { ChallengeId = challengeId });
+
+        return rowsAffected > 0;
     }
 
     /// <inheritdoc />

@@ -108,6 +108,13 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             createdAt: DateTime.UtcNow);
         SetupChallenge(challenge);
 
+        // MarkAsUsedAsync returns whether THIS caller claimed the challenge. A
+        // loose mock would answer false and turn every happy path here into
+        // ChallengeInvalid, so the winning answer has to be stated.
+        _challengeRepositoryMock
+            .Setup(r => r.MarkAsUsedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         user = TestHelpers.CreateUser(id: userId, twoFactorEnabled: true);
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
@@ -307,6 +314,58 @@ public class VerifyTwoFactorLoginCommandHandlerTests
                 It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(),
                 It.IsAny<Guid?>(), It.IsAny<Guid?>()),
             Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_LosingAConcurrentVerify_IssuesNothing()
+    {
+        // Two requests carrying the same still-valid code arrive together. Both
+        // pass the in-memory validity check, because both read the same snapshot.
+        // Only the database claim can separate them, and the loser must walk away
+        // with no tokens rather than a second session on one code.
+        var userId = Guid.NewGuid();
+        SetupHappyPath(userId, out var user, out var twoFactor);
+
+        _totpServiceMock
+            .Setup(s => s.ValidateCode(twoFactor.SecretKey, "123456"))
+            .Returns(true);
+
+        // Each request must load its OWN snapshot of the challenge. Handing both
+        // the same instance would let the entity's in-memory UsedAt reject the
+        // second one, and the test would pass without the database claim doing
+        // anything — which is precisely the illusion under test.
+        var challengeId = Guid.NewGuid();
+        _challengeRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync(ChallengeTokenHash, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new TwoFactorChallenge(
+                challengeId, userId, ChallengeTokenHash, "127.0.0.1",
+                expiresAt: DateTime.UtcNow.AddMinutes(TwoFactorChallenge.DefaultLifetimeMinutes),
+                usedAt: null, attemptCount: 0, createdAt: DateTime.UtcNow));
+
+        _challengeRepositoryMock
+            .SetupSequence(r => r.MarkAsUsedAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true)
+            .ReturnsAsync(false);
+
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        var winner = await _handler.Handle(CreateCommand(), CancellationToken.None);
+        var loser = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        winner.IsError.Should().BeFalse();
+        loser.IsError.Should().BeTrue();
+        loser.FirstError.Code.Should().Be("TwoFactor.ChallengeInvalid");
+
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(),
+                It.IsAny<Guid?>(), It.IsAny<Guid?>()),
+            Times.Once);
     }
 
     [Fact]

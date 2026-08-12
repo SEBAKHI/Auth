@@ -23,11 +23,16 @@ public interface ITwoFactorChallengeRepository
     Task CreateAsync(TwoFactorChallenge challenge, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Marks a challenge as used.
+    /// Claims a challenge, marking it used. The claim is atomic: of two callers
+    /// racing with the same still-valid code, exactly one is told it won.
     /// </summary>
     /// <param name="challengeId">The challenge ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    Task MarkAsUsedAsync(Guid challengeId, CancellationToken cancellationToken);
+    /// <returns>
+    /// True if this call consumed the challenge; false if it was already used,
+    /// in which case the caller must not issue anything.
+    /// </returns>
+    Task<bool> MarkAsUsedAsync(Guid challengeId, CancellationToken cancellationToken);
 
     /// <summary>
     /// Increments the attempt count for a challenge.

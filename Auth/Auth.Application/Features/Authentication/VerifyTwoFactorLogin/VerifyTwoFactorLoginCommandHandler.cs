@@ -129,7 +129,14 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             return markUsed.Errors;
         }
 
-        await _challengeRepository.MarkAsUsedAsync(challenge.Id, cancellationToken);
+        // The in-memory check above was read from a snapshot, so two requests
+        // arriving together both pass it. The database claim is what actually
+        // decides: whoever loses it gets nothing, and must lose it here — before
+        // the success is recorded and before any token is minted.
+        if (!await _challengeRepository.MarkAsUsedAsync(challenge.Id, cancellationToken))
+        {
+            return TwoFactorErrors.ChallengeInvalid;
+        }
 
         twoFactor.RecordSuccess();
         await _twoFactorRepository.UpdateAsync(twoFactor, cancellationToken);
