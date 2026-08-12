@@ -104,10 +104,16 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
             twoFactor.RecordFailure();
             await _twoFactorRepository.UpdateAsync(twoFactor, cancellationToken);
 
-            var failureReason = request.UseRecoveryCode ? "Invalid recovery code" : "Invalid two-factor code";
-            var attempt = LoginAttempt.CreateFailure(
-                user.Email, failureReason, request.IpAddress, request.UserAgent, user.Id);
-            await _loginAttemptRepository.CreateAsync(attempt, cancellationToken);
+            // A rejected code does not end the ceremony, so it does not write a row
+            // of its own — the count is kept on the challenge and surfaces in the
+            // history alongside the one row this sign-in owns. Only exhausting the
+            // allowance ends it, and that is the outcome worth recording.
+            challenge.IncrementAttempts();
+            if (!challenge.IsValid)
+            {
+                await _loginAttemptRepository.ResolveTwoFactorCeremonyAsync(
+                    challenge.Id, false, "Too many incorrect verification codes", cancellationToken);
+            }
 
             _logger.LogWarning(
                 "Failed two-factor verification for user {UserId} from {IpAddress}",
@@ -131,8 +137,12 @@ public class VerifyTwoFactorLoginCommandHandler : IRequestHandler<VerifyTwoFacto
         // Record successful login on entity (raises UserLoggedInEvent)
         user.RecordSuccessfulLogin(request.IpAddress, request.UserAgent);
 
+        // The challenge id travels with the build so the success — or a late
+        // session-limit refusal — settles the row this ceremony already owns
+        // instead of appending a second one.
         var loginResponse = await _loginResponseBuilder.BuildAsync(
-            user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken);
+            user, request.IpAddress, request.UserAgent, request.DeviceId, cancellationToken,
+            twoFactorChallengeId: challenge.Id);
 
         if (loginResponse.IsError)
         {

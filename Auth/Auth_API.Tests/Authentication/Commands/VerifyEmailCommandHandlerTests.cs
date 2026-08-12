@@ -167,7 +167,8 @@ public class VerifyEmailCommandHandlerTests
             .Setup(h => h.VerifyPassword("123456", token.OtpHash))
             .Returns(true);
         _twoFactorChallengeServiceMock
-            .Setup(s => s.CreateChallengeAsync(user, It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(s => s.CreateChallengeAsync(
+                user, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("challenge-token");
 
         // Act

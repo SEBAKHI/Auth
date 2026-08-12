@@ -128,9 +128,7 @@ public class LoginCommandHandlerTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("User.InvalidCredentials");
 
-        _loginAttemptRepositoryMock.Verify(
-            r => r.CreateAsync(It.IsAny<LoginAttempt>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+        VerifyFailureRecorded("User not found", Times.Once());
     }
 
     [Fact]
@@ -362,9 +360,7 @@ public class LoginCommandHandlerTests
                 It.IsAny<CancellationToken>()),
             Times.Once);
 
-        _loginAttemptRepositoryMock.Verify(
-            r => r.CreateAsync(It.IsAny<LoginAttempt>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+        VerifyFailureRecorded("Invalid password", Times.Once());
     }
 
     [Fact]
@@ -604,7 +600,8 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _twoFactorChallengeServiceMock
-            .Setup(s => s.CreateChallengeAsync(user, command.IpAddress, It.IsAny<CancellationToken>()))
+            .Setup(s => s.CreateChallengeAsync(
+                user, command.IpAddress, command.UserAgent, It.IsAny<CancellationToken>()))
             .ReturnsAsync("challenge-token");
 
         // Act
@@ -618,8 +615,24 @@ public class LoginCommandHandlerTests
         result.Value.User.Should().BeNull();
     }
 
+    /// <summary>
+    /// Asserts the exact row this handler wrote, not merely that it wrote one.
+    /// The loose <c>It.IsAny&lt;LoginAttempt&gt;()</c> form this replaces is how the
+    /// two-factor gate shipped for months recording a success as a failure: the
+    /// assertion passed for any outcome and any reason.
+    /// </summary>
+    private void VerifyFailureRecorded(string expectedReason, Times times) =>
+        _loginAttemptRepositoryMock.Verify(
+            r => r.CreateAsync(
+                It.Is<LoginAttempt>(a =>
+                    !a.IsSuccess &&
+                    a.FailureReason == expectedReason &&
+                    a.TwoFactorChallengeId == null),
+                It.IsAny<CancellationToken>()),
+            times);
+
     [Fact]
-    public async Task Handle_TwoFactorEnabled_DoesNotBuildLoginResponseOrRecordSuccess()
+    public async Task Handle_TwoFactorEnabled_RecordsNoAttemptOfItsOwn()
     {
         // Arrange
         var user = TestHelpers.CreateUser(twoFactorEnabled: true);
@@ -638,7 +651,8 @@ public class LoginCommandHandlerTests
             .Returns(false);
 
         _twoFactorChallengeServiceMock
-            .Setup(s => s.CreateChallengeAsync(user, command.IpAddress, It.IsAny<CancellationToken>()))
+            .Setup(s => s.CreateChallengeAsync(
+                user, command.IpAddress, command.UserAgent, It.IsAny<CancellationToken>()))
             .ReturnsAsync("challenge-token");
 
         // Act
@@ -650,9 +664,17 @@ public class LoginCommandHandlerTests
             Times.Never);
         user.LastLoginAt.Should().BeNull();
 
-        // A pending (failure-style) login attempt is recorded for the audit trail
+        // The ceremony's row belongs to the challenge service, which opens it as
+        // part of issuing the challenge. This handler writing one too is exactly
+        // the defect: it produced a second row, marked failed, on every clean
+        // two-factor sign-in.
         _loginAttemptRepositoryMock.Verify(
             r => r.CreateAsync(It.IsAny<LoginAttempt>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+
+        _twoFactorChallengeServiceMock.Verify(
+            s => s.CreateChallengeAsync(
+                user, command.IpAddress, command.UserAgent, It.IsAny<CancellationToken>()),
             Times.Once);
     }
 

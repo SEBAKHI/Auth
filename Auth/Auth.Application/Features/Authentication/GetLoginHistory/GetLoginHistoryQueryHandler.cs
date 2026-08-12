@@ -31,7 +31,7 @@ public class GetLoginHistoryQueryHandler
         GetLoginHistoryQuery request,
         CancellationToken cancellationToken)
     {
-        var attempts = await _loginAttemptRepository.GetRecentByUserAsync(
+        var attempts = await _loginAttemptRepository.GetSignInHistoryAsync(
             request.UserId, request.Take, cancellationToken);
 
         var dtos = attempts.Select(attempt =>
@@ -46,14 +46,20 @@ public class GetLoginHistoryQueryHandler
                 Id = attempt.Id,
                 AttemptedAt = attempt.AttemptedAt,
                 IsSuccess = attempt.IsSuccess,
+                // An open ceremony is neither a success nor a failure. Reported as
+                // its own state so the client can say what actually happened —
+                // the password was accepted and the code never came — rather than
+                // painting it red as a failed sign-in.
+                SecondFactorIncomplete = attempt.IsAwaitingSecondFactor,
+                SecondFactorAttempts = attempt.SecondFactorAttempts,
                 FailureReason = attempt.FailureReason,
                 IpAddress = attempt.IpAddress,
                 // Resolved on read, unlike the session row which is stamped on
                 // write. Login attempts are recorded from three separate handlers
                 // and none of them has ever set this column, so reading through
                 // to the lookup is what gives the existing history any locations
-                // at all. The stored value still wins where one exists.
-                Location = attempt.Location ?? _geoIpLookup.Resolve(attempt.IpAddress),
+                // at all.
+                Location = _geoIpLookup.Resolve(attempt.IpAddress),
                 DeviceName = parsed.Describe(),
                 DeviceType = parsed.DeviceType
             };

@@ -90,10 +90,11 @@ public class SessionLimitTests
             new Mock<ILogger<LoginResponseBuilder>>().Object);
     }
 
-    private Task<ErrorOr<LoginResponse>> Sign(SessionSettings session) =>
+    private Task<ErrorOr<LoginResponse>> Sign(
+        SessionSettings session, Guid? twoFactorChallengeId = null) =>
         CreateBuilder(session).BuildAsync(
             _user, "203.0.113.10", ChromeOnWindows, deviceId: null, CancellationToken.None,
-            establishIdpSession: false);
+            establishIdpSession: false, twoFactorChallengeId: twoFactorChallengeId);
 
     private void GivenActiveSessionCount(int count) =>
         _sessionsMock
@@ -302,6 +303,64 @@ public class SessionLimitTests
                     && a.FailureReason == "Maximum concurrent sessions reached"),
                 It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task AfterATwoFactorCeremony_SuccessSettlesTheExistingRowInsteadOfAddingOne()
+    {
+        // The ceremony's row was opened in the earlier request, when the challenge
+        // was issued. Inserting here as well is what produced two entries — one of
+        // them labelled failed — for a single clean sign-in.
+        var challengeId = Guid.NewGuid();
+        GivenActiveSessionCount(0);
+
+        await Sign(new SessionSettings { MaxConcurrentSessions = 0 }, challengeId);
+
+        _loginAttemptsMock.Verify(
+            r => r.ResolveTwoFactorCeremonyAsync(challengeId, true, null, It.IsAny<CancellationToken>()),
+            Times.Once);
+        _loginAttemptsMock.Verify(
+            r => r.CreateAsync(It.IsAny<LoginAttempt>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task AfterATwoFactorCeremony_ARefusalSettlesTheExistingRowInsteadOfAddingOne()
+    {
+        // Same rule on the way out: a sign-in refused at the session limit after a
+        // correct code must not leave the ceremony looking both pending and refused.
+        var challengeId = Guid.NewGuid();
+        GivenActiveSessionCount(5);
+
+        await Sign(
+            new SessionSettings { MaxConcurrentSessions = 5, TerminateOldestOnMax = false },
+            challengeId);
+
+        _loginAttemptsMock.Verify(
+            r => r.ResolveTwoFactorCeremonyAsync(
+                challengeId, false, "Maximum concurrent sessions reached", It.IsAny<CancellationToken>()),
+            Times.Once);
+        _loginAttemptsMock.Verify(
+            r => r.CreateAsync(It.IsAny<LoginAttempt>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task WithoutACeremony_TheSuccessIsRecordedAsANewRow()
+    {
+        GivenActiveSessionCount(0);
+
+        await Sign(new SessionSettings { MaxConcurrentSessions = 0 });
+
+        _loginAttemptsMock.Verify(
+            r => r.CreateAsync(
+                It.Is<LoginAttempt>(a => a.IsSuccess && a.TwoFactorChallengeId == null),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _loginAttemptsMock.Verify(
+            r => r.ResolveTwoFactorCeremonyAsync(
+                It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

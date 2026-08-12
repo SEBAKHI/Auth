@@ -4,7 +4,11 @@ using Auth.Domain.ValueObjects;
 namespace Auth.Domain.Entities;
 
 /// <summary>
-/// Represents a login attempt record for security monitoring.
+/// One sign-in ceremony, from the credentials being presented to the outcome
+/// being known — not one HTTP request. A two-factor sign-in spans two requests,
+/// and produces one row: opened by <see cref="CreateChallenged"/> when the
+/// challenge is issued, settled later by the repository once the second factor
+/// succeeds, is exhausted, or the ceremony is abandoned and simply ages out.
 /// </summary>
 public class LoginAttempt : EntityBase
 {
@@ -53,6 +57,21 @@ public class LoginAttempt : EntityBase
     /// </summary>
     public Guid? ApplicationId { get; private set; }
 
+    /// <summary>
+    /// Gets the two-factor challenge this ceremony is waiting on, or null when
+    /// the sign-in never involved a second factor. It is the handle the verify
+    /// step uses to settle this row instead of writing a second one.
+    /// </summary>
+    public Guid? TwoFactorChallengeId { get; private set; }
+
+    /// <summary>
+    /// Gets whether the ceremony is still open: a second factor was demanded and
+    /// nothing has settled it. Once the challenge lifetime has passed with this
+    /// still true, the ceremony was abandoned or blocked.
+    /// </summary>
+    public bool IsAwaitingSecondFactor =>
+        TwoFactorChallengeId.HasValue && !IsSuccess && FailureReason is null;
+
     private LoginAttempt() : base()
     {
     }
@@ -67,7 +86,8 @@ public class LoginAttempt : EntityBase
         string? userAgent,
         string? location,
         DateTime attemptedAt,
-        Guid? applicationId) : base(id)
+        Guid? applicationId,
+        Guid? twoFactorChallengeId = null) : base(id)
     {
         UserId = userId;
         Email = Email.From(email);
@@ -78,6 +98,7 @@ public class LoginAttempt : EntityBase
         Location = location;
         AttemptedAt = attemptedAt;
         ApplicationId = applicationId;
+        TwoFactorChallengeId = twoFactorChallengeId;
     }
 
     public static LoginAttempt CreateSuccess(
@@ -98,6 +119,36 @@ public class LoginAttempt : EntityBase
             Location = location,
             AttemptedAt = DateTime.UtcNow,
             ApplicationId = applicationId
+        };
+    }
+
+    /// <summary>
+    /// Opens a ceremony: the primary factor was accepted and a second factor has
+    /// been demanded. Nothing has been rejected and nothing has been issued, so
+    /// there is deliberately no failure-reason parameter — a challenge cannot be
+    /// recorded with a reason, and a settled row cannot be recorded without one.
+    /// </summary>
+    public static LoginAttempt CreateChallenged(
+        Guid userId,
+        string email,
+        Guid challengeId,
+        string? ipAddress,
+        string? userAgent,
+        string? location = null,
+        Guid? applicationId = null)
+    {
+        return new LoginAttempt
+        {
+            UserId = userId,
+            Email = Email.From(email),
+            IsSuccess = false,
+            FailureReason = null,
+            IpAddress = ipAddress,
+            UserAgent = userAgent,
+            Location = location,
+            AttemptedAt = DateTime.UtcNow,
+            ApplicationId = applicationId,
+            TwoFactorChallengeId = challengeId
         };
     }
 

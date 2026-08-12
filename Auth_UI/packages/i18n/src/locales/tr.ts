@@ -1632,9 +1632,12 @@ export const tr: TranslationResources = {
     approximateLocation: "IP adresine dayalı yaklaşık konum",
     loginActivity: "Son oturum açma etkinliği",
     loginActivitySubtitle:
-      "Hesabınızdaki son denemeler, başarılı ve başarısız.",
+      "Hesabınızdaki son denemeler ve her birinin nasıl sonuçlandığı.",
     loginSucceeded: "Oturum açıldı",
     loginFailed: "Başarısız oturum açma",
+    loginIncomplete: "İki adımlı doğrulama tamamlanmadı",
+    loginIncompleteHint: "Parolanız girildi ancak doğrulama kodu hiç gelmedi.",
+    loginCodeAttempts: "Reddedilen kod: {{count}}",
     noLoginActivity: "Henüz kayıt yok",
     unrecognisedActivity:
       "Buradaki bir şeyi tanımıyor musunuz? Parolanızı değiştirin.",

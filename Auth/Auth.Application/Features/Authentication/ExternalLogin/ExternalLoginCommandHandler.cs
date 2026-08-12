@@ -218,7 +218,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         if (user.TwoFactorEnabled)
         {
             var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
-                user, request.IpAddress, cancellationToken);
+                user, request.IpAddress, request.UserAgent, cancellationToken);
 
             _logger.LogInformation(
                 "Two-factor verification pending for external login of user {UserId} via {Provider}",

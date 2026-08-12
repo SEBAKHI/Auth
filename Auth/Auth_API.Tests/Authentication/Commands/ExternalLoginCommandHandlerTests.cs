@@ -204,7 +204,8 @@ public class ExternalLoginCommandHandlerTests
             .Setup(r => r.GetByIdAsync(externalLogin.UserId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
         _twoFactorChallengeServiceMock
-            .Setup(s => s.CreateChallengeAsync(user, command.IpAddress, It.IsAny<CancellationToken>()))
+            .Setup(s => s.CreateChallengeAsync(
+                user, command.IpAddress, command.UserAgent, It.IsAny<CancellationToken>()))
             .ReturnsAsync("challenge-token");
 
         // Act

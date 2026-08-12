@@ -35,6 +35,12 @@ public interface ILoginResponseBuilder
     /// (via <paramref name="applicationId"/>) so refreshes keep the same audience.
     /// </param>
     /// <param name="applicationId">The application the tokens are scoped to, if any.</param>
+    /// <param name="twoFactorChallengeId">
+    /// The challenge whose ceremony this sign-in is completing. When set, the
+    /// outcome settles that ceremony's existing row rather than inserting a new
+    /// one — a two-factor sign-in spans two requests and must still leave one
+    /// row. Null for sign-ins that never demanded a second factor.
+    /// </param>
     /// <returns>
     /// The login response with tokens and user info, or
     /// <c>Session.MaxSessionsReached</c> when the account is at its concurrent
@@ -51,5 +57,6 @@ public interface ILoginResponseBuilder
         CancellationToken cancellationToken,
         bool establishIdpSession = true,
         string? audience = null,
-        Guid? applicationId = null);
+        Guid? applicationId = null,
+        Guid? twoFactorChallengeId = null);
 }

@@ -165,7 +165,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         if (user.TwoFactorEnabled)
         {
             var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
-                user, request.IpAddress, cancellationToken);
+                user, request.IpAddress, request.UserAgent, cancellationToken);
 
             return new VerifyEmailResult(new LoginResponse
             {

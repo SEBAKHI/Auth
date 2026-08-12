@@ -5,6 +5,7 @@ import {
   Globe,
   History,
   Monitor,
+  ShieldAlert,
   Smartphone,
   Tablet,
   TriangleAlert,
@@ -43,6 +44,7 @@ import {
 } from "@authsystem/ui/tooltip"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
+import { cn } from "@authsystem/ui/utils"
 import { formatDateTime, formatRelative } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 
@@ -65,24 +67,38 @@ const DEVICE_ICONS: Record<DeviceType, typeof Monitor> = {
 function AttemptRow({ attempt }: { attempt: Attempt }) {
   const { t } = useTranslation()
   const deviceType = attempt.deviceType ?? "unknown"
-  const Icon = attempt.isSuccess ? CircleCheck : CircleX
   const DeviceIcon = DEVICE_ICONS[deviceType]
+
+  // Three outcomes, not two. An unfinished entry is a sign-in where the password
+  // was accepted and the verification code never followed — which, when it was
+  // not the account holder, is the clearest warning this card can carry. It is
+  // deliberately not toned down to look like an ordinary success.
+  const incomplete = attempt.secondFactorIncomplete === true
+  const codeAttempts = Number(attempt.secondFactorAttempts ?? 0)
+  const Icon = incomplete ? ShieldAlert : attempt.isSuccess ? CircleCheck : CircleX
 
   return (
     <Item size="sm">
       <ItemMedia variant="icon">
         <Icon
-          className={
+          className={cn(
             attempt.isSuccess ? "text-muted-foreground" : "text-destructive"
-          }
+          )}
         />
       </ItemMedia>
       <ItemContent>
         <ItemTitle>
-          {attempt.isSuccess
-            ? t("profile.loginSucceeded")
-            : t("profile.loginFailed")}
-          {!attempt.isSuccess && attempt.failureReason ? (
+          {incomplete
+            ? t("profile.loginIncomplete")
+            : attempt.isSuccess
+              ? t("profile.loginSucceeded")
+              : t("profile.loginFailed")}
+          {incomplete ? (
+            <span className="text-sm font-normal text-muted-foreground">
+              {t("profile.loginIncompleteHint")}
+            </span>
+          ) : null}
+          {!attempt.isSuccess && !incomplete && attempt.failureReason ? (
             <span className="text-sm font-normal text-muted-foreground">
               {/* Passed through as stored: the values written do not match the
                   vocabulary the table documents, so a lookup would hide any
@@ -113,6 +129,12 @@ function AttemptRow({ attempt }: { attempt: Attempt }) {
             </TooltipTrigger>
             <TooltipContent>{formatDateTime(attempt.attemptedAt)}</TooltipContent>
           </Tooltip>
+          {/* The count replaces what used to be one red row per rejected code.
+              Worded as a labelled number rather than a sentence, because a
+              sentence would need six plural forms in Arabic alone. */}
+          {codeAttempts > 0 ? (
+            <span>· {t("profile.loginCodeAttempts", { count: codeAttempts })}</span>
+          ) : null}
         </ItemDescription>
       </ItemContent>
     </Item>

@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.ReadModels.Authentication;
 
 namespace Auth.Domain.Interfaces.Repositories;
 
@@ -13,9 +14,25 @@ public interface ILoginAttemptRepository
     Task CreateAsync(LoginAttempt attempt, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets recent login attempts for a user.
+    /// Settles an open two-factor ceremony in place, so a sign-in that spanned two
+    /// requests leaves one row rather than two. Only an open row is touched, which
+    /// makes a repeated call a no-op and stops a settled outcome being rewritten.
     /// </summary>
-    Task<IReadOnlyList<LoginAttempt>> GetRecentByUserAsync(
+    /// <param name="challengeId">The challenge whose ceremony row should be settled.</param>
+    /// <param name="succeeded">True when the second factor was accepted.</param>
+    /// <param name="failureReason">Why it failed; must be null when <paramref name="succeeded"/> is true.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ResolveTwoFactorCeremonyAsync(
+        Guid challengeId,
+        bool succeeded,
+        string? failureReason,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets a user's recent sign-in ceremonies, newest first, each carrying the
+    /// number of verification codes rejected during it.
+    /// </summary>
+    Task<IReadOnlyList<SignInHistoryEntry>> GetSignInHistoryAsync(
         Guid userId,
         int count,
         CancellationToken cancellationToken);

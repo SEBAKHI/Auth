@@ -1612,9 +1612,13 @@ export const en = {
     approximateLocation: "Approximate, based on the IP address",
     loginActivity: "Recent sign-in activity",
     loginActivitySubtitle:
-      "The last attempts on your account, successful and failed.",
+      "The last attempts on your account and how each one ended.",
     loginSucceeded: "Signed in",
     loginFailed: "Failed sign-in",
+    loginIncomplete: "Two-factor verification not completed",
+    loginIncompleteHint:
+      "Your password was entered but the verification code never followed.",
+    loginCodeAttempts: "Rejected codes: {{count}}",
     noLoginActivity: "Nothing recorded yet",
     unrecognisedActivity:
       "Don't recognise something here? Change your password.",

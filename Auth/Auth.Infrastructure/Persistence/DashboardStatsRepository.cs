@@ -120,10 +120,16 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             DECLARE @From DATETIME2 = DATEADD(DAY, -@Days, @Now);
             DECLARE @PrevFrom DATETIME2 = DATEADD(DAY, -@Days, @From);
 
+            -- A FAILURE IS A ROW THAT FAILED AND SAYS WHY. A two-factor ceremony
+            -- still waiting on its code carries IsSuccessful = 0 with no reason,
+            -- and counting that as a failure is what made every clean two-factor
+            -- sign-in inflate these numbers. The one deliberate exception is the
+            -- top-failing-IP query below, which keeps counting them.
+            --
             -- Attempts per viewer-local calendar day, split by outcome
             SELECT CAST(([AttemptedAt] AT TIME ZONE 'UTC') AT TIME ZONE @TimeZone AS DATE) AS [Date],
                    SUM(CASE WHEN [IsSuccessful] = 1 THEN 1 ELSE 0 END) AS SuccessCount,
-                   SUM(CASE WHEN [IsSuccessful] = 0 THEN 1 ELSE 0 END) AS FailureCount
+                   SUM(CASE WHEN [IsSuccessful] = 0 AND [FailureReason] IS NOT NULL THEN 1 ELSE 0 END) AS FailureCount
             FROM [dbo].[LoginAttempts]
             WHERE [AttemptedAt] >= @From
             GROUP BY CAST(([AttemptedAt] AT TIME ZONE 'UTC') AT TIME ZONE @TimeZone AS DATE)
@@ -143,18 +149,18 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             WHERE [AttemptedAt] >= @From AND [IsSuccessful] = 1 AND [UserId] IS NOT NULL;
 
             -- Failure reasons, most frequent first
-            SELECT ISNULL([FailureReason], N'unknown') AS Reason, COUNT(*) AS [Count]
+            SELECT [FailureReason] AS Reason, COUNT(*) AS [Count]
             FROM [dbo].[LoginAttempts]
-            WHERE [AttemptedAt] >= @From AND [IsSuccessful] = 0
-            GROUP BY ISNULL([FailureReason], N'unknown')
+            WHERE [AttemptedAt] >= @From AND [IsSuccessful] = 0 AND [FailureReason] IS NOT NULL
+            GROUP BY [FailureReason]
             ORDER BY [Count] DESC;
 
             -- Current and previous window outcome totals (for deltas)
             SELECT
                 ISNULL(SUM(CASE WHEN [AttemptedAt] >= @From AND [IsSuccessful] = 1 THEN 1 ELSE 0 END), 0) AS WindowSuccessCount,
-                ISNULL(SUM(CASE WHEN [AttemptedAt] >= @From AND [IsSuccessful] = 0 THEN 1 ELSE 0 END), 0) AS WindowFailureCount,
+                ISNULL(SUM(CASE WHEN [AttemptedAt] >= @From AND [IsSuccessful] = 0 AND [FailureReason] IS NOT NULL THEN 1 ELSE 0 END), 0) AS WindowFailureCount,
                 ISNULL(SUM(CASE WHEN [AttemptedAt] < @From AND [IsSuccessful] = 1 THEN 1 ELSE 0 END), 0) AS PreviousWindowSuccessCount,
-                ISNULL(SUM(CASE WHEN [AttemptedAt] < @From AND [IsSuccessful] = 0 THEN 1 ELSE 0 END), 0) AS PreviousWindowFailureCount
+                ISNULL(SUM(CASE WHEN [AttemptedAt] < @From AND [IsSuccessful] = 0 AND [FailureReason] IS NOT NULL THEN 1 ELSE 0 END), 0) AS PreviousWindowFailureCount
             FROM [dbo].[LoginAttempts]
             WHERE [AttemptedAt] >= @PrevFrom;
 
@@ -169,7 +175,14 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             FROM [dbo].[LoginAttempts]
             WHERE [AttemptedAt] >= @From AND [FailureReason] = N'Account locked';
 
-            -- Top failing IP addresses
+            -- Top failing IP addresses.
+            -- DELIBERATELY counts unfinished two-factor ceremonies alongside real
+            -- failures, unlike every other query here. This feed drives the only
+            -- automated attack alert in the product, and an address that produced
+            -- correct passwords for ten accounts and stopped at the second factor
+            -- is the strongest signal it can carry -- excluding those because they
+            -- are not technically failures would hand an attacker a way to go dark
+            -- simply by using credentials that work.
             SELECT TOP (10)
                 [IpAddress],
                 COUNT(*) AS FailureCount,
@@ -183,12 +196,15 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             SELECT la.[ApplicationId],
                    a.[Name] AS ApplicationName,
                    SUM(CASE WHEN la.[IsSuccessful] = 1 THEN 1 ELSE 0 END) AS SuccessCount,
-                   SUM(CASE WHEN la.[IsSuccessful] = 0 THEN 1 ELSE 0 END) AS FailureCount
+                   SUM(CASE WHEN la.[IsSuccessful] = 0 AND la.[FailureReason] IS NOT NULL THEN 1 ELSE 0 END) AS FailureCount
             FROM [dbo].[LoginAttempts] la
             LEFT JOIN [dbo].[Applications] a ON a.[Id] = la.[ApplicationId]
             WHERE la.[AttemptedAt] >= @From
             GROUP BY la.[ApplicationId], a.[Name]
-            ORDER BY COUNT(*) DESC;
+            -- Ranked on what is displayed, not on the raw row count: unfinished
+            -- ceremonies are in neither column now, so COUNT(*) would sort rows
+            -- above others showing larger numbers.
+            ORDER BY SUM(CASE WHEN la.[IsSuccessful] = 1 OR la.[FailureReason] IS NOT NULL THEN 1 ELSE 0 END) DESC;
 
             -- Outcomes attributed to the ten most active organizations via membership.
             -- A user in several organizations is counted once per organization.
@@ -196,19 +212,19 @@ public class DashboardStatsRepository : IDashboardStatsRepository
                 ou.[OrganizationId],
                 o.[Name] AS OrganizationName,
                 SUM(CASE WHEN la.[IsSuccessful] = 1 THEN 1 ELSE 0 END) AS SuccessCount,
-                SUM(CASE WHEN la.[IsSuccessful] = 0 THEN 1 ELSE 0 END) AS FailureCount
+                SUM(CASE WHEN la.[IsSuccessful] = 0 AND la.[FailureReason] IS NOT NULL THEN 1 ELSE 0 END) AS FailureCount
             FROM [dbo].[LoginAttempts] la
             JOIN [dbo].[OrganizationUsers] ou ON ou.[UserId] = la.[UserId] AND ou.[IsActive] = 1
             JOIN [dbo].[Organizations] o ON o.[Id] = ou.[OrganizationId]
             WHERE la.[AttemptedAt] >= @From
             GROUP BY ou.[OrganizationId], o.[Name]
-            ORDER BY COUNT(*) DESC;
+            ORDER BY SUM(CASE WHEN la.[IsSuccessful] = 1 OR la.[FailureReason] IS NOT NULL THEN 1 ELSE 0 END) DESC;
 
             -- Attempts that cannot be attributed to any organization
             -- (unknown user or user without an active membership)
             SELECT
                 ISNULL(SUM(CASE WHEN la.[IsSuccessful] = 1 THEN 1 ELSE 0 END), 0) AS SuccessCount,
-                ISNULL(SUM(CASE WHEN la.[IsSuccessful] = 0 THEN 1 ELSE 0 END), 0) AS FailureCount
+                ISNULL(SUM(CASE WHEN la.[IsSuccessful] = 0 AND la.[FailureReason] IS NOT NULL THEN 1 ELSE 0 END), 0) AS FailureCount
             FROM [dbo].[LoginAttempts] la
             WHERE la.[AttemptedAt] >= @From
               AND NOT EXISTS (

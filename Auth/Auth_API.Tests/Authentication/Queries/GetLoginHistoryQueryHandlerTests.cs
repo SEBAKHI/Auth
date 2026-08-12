@@ -1,8 +1,8 @@
 using Auth.Application.Features.Authentication.GetLoginHistory;
 using Auth.Application.Interfaces;
-using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.ReadModels.Authentication;
 using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.Authentication.Queries;
@@ -29,18 +29,28 @@ public class GetLoginHistoryQueryHandlerTests
             new Mock<ILogger<GetLoginHistoryQueryHandler>>().Object);
     }
 
-    private void GivenAttempts(params LoginAttempt[] attempts) =>
+    private void GivenAttempts(params SignInHistoryEntry[] attempts) =>
         _attemptsMock
-            .Setup(r => r.GetRecentByUserAsync(_userId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetSignInHistoryAsync(_userId, It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(attempts);
 
-    private static LoginAttempt Attempt(
+    private static SignInHistoryEntry Attempt(
         bool success = true,
         string? failureReason = null,
         string? userAgent = ChromeOnWindows,
-        string? location = null) =>
-        new(Guid.NewGuid(), Guid.NewGuid(), "user@example.com", success, failureReason,
-            "203.0.113.10", userAgent, location, DateTime.UtcNow, null);
+        Guid? challengeId = null,
+        int secondFactorAttempts = 0) =>
+        new()
+        {
+            Id = Guid.NewGuid(),
+            AttemptedAt = DateTime.UtcNow,
+            IsSuccess = success,
+            FailureReason = failureReason,
+            IpAddress = "203.0.113.10",
+            UserAgent = userAgent,
+            TwoFactorChallengeId = challengeId,
+            SecondFactorAttempts = secondFactorAttempts
+        };
 
     [Fact]
     public async Task LabelsTheClientFromTheStoredUserAgent()
@@ -73,11 +83,13 @@ public class GetLoginHistoryQueryHandlerTests
     }
 
     [Fact]
-    public async Task ResolvesTheLocationWhenTheRowDoesNotCarryOne()
+    public async Task ResolvesTheLocationFromTheAddress()
     {
-        // No handler has ever written this column, so reading through to the
-        // lookup is what gives the existing history any locations at all.
-        GivenAttempts(Attempt(location: null));
+        // Always resolved on read. The table has no location column at all, so
+        // there has never been a stored value to prefer -- the read model does not
+        // carry one, which is why the old "prefers the stored location" case is
+        // gone rather than merely failing.
+        GivenAttempts(Attempt());
         _geoMock.Setup(g => g.Resolve("203.0.113.10")).Returns("Istanbul, Türkiye");
 
         var entry = (await _handler.Handle(
@@ -87,15 +99,49 @@ public class GetLoginHistoryQueryHandlerTests
     }
 
     [Fact]
-    public async Task PrefersAStoredLocationOverAFreshLookup()
+    public async Task AnUnfinishedCeremonyIsReportedAsNeitherSuccessNorFailure()
     {
-        GivenAttempts(Attempt(location: "Recorded at the time"));
-        _geoMock.Setup(g => g.Resolve(It.IsAny<string?>())).Returns("Resolved now");
+        // The row a sign-in leaves when the password was accepted and the code
+        // never arrived. Reporting it as a failure is the defect this replaced.
+        GivenAttempts(Attempt(
+            success: false, failureReason: null, challengeId: Guid.NewGuid(), secondFactorAttempts: 3));
 
         var entry = (await _handler.Handle(
             new GetLoginHistoryQuery(_userId), CancellationToken.None)).Value.Single();
 
-        entry.Location.Should().Be("Recorded at the time");
+        entry.IsSuccess.Should().BeFalse();
+        entry.SecondFactorIncomplete.Should().BeTrue();
+        entry.SecondFactorAttempts.Should().Be(3);
+        entry.FailureReason.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ACompletedTwoFactorSignInIsNotFlaggedIncomplete()
+    {
+        GivenAttempts(Attempt(success: true, challengeId: Guid.NewGuid(), secondFactorAttempts: 2));
+
+        var entry = (await _handler.Handle(
+            new GetLoginHistoryQuery(_userId), CancellationToken.None)).Value.Single();
+
+        entry.IsSuccess.Should().BeTrue();
+        entry.SecondFactorIncomplete.Should().BeFalse();
+        entry.SecondFactorAttempts.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task ASettledTwoFactorFailureIsAFailureNotAnUnfinishedCeremony()
+    {
+        GivenAttempts(Attempt(
+            success: false,
+            failureReason: "Too many incorrect verification codes",
+            challengeId: Guid.NewGuid(),
+            secondFactorAttempts: 5));
+
+        var entry = (await _handler.Handle(
+            new GetLoginHistoryQuery(_userId), CancellationToken.None)).Value.Single();
+
+        entry.SecondFactorIncomplete.Should().BeFalse();
+        entry.FailureReason.Should().Be("Too many incorrect verification codes");
     }
 
     [Fact]

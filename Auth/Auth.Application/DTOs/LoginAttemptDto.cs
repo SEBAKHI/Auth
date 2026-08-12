@@ -19,10 +19,25 @@ public class LoginAttemptDto
     public bool IsSuccess { get; set; }
 
     /// <summary>
+    /// True when a second factor was demanded and never supplied — the password
+    /// was accepted and the ceremony stopped there. Distinct from a failure:
+    /// nothing was rejected, so <see cref="FailureReason"/> is null and the
+    /// client supplies its own localized wording.
+    /// </summary>
+    public bool SecondFactorIncomplete { get; set; }
+
+    /// <summary>
+    /// How many verification codes were rejected during this sign-in. Zero when
+    /// no second factor was involved. Shown so a history entry can say how hard
+    /// somebody tried, without a row per guess.
+    /// </summary>
+    public int SecondFactorAttempts { get; set; }
+
+    /// <summary>
     /// Why it failed, when it did. Free text as stored — the values written do
     /// not match the vocabulary the table's own comment documents, so this is
     /// passed through rather than mapped to an enum that would silently drop
-    /// anything unrecognised.
+    /// anything unrecognised. Null unless the sign-in actually failed.
     /// </summary>
     public string? FailureReason { get; set; }
 

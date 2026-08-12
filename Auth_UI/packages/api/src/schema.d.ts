@@ -12196,6 +12196,9 @@ export interface components {
             /** Format: date-time */
             attemptedAt?: string;
             isSuccess?: boolean;
+            secondFactorIncomplete?: boolean;
+            /** Format: int32 */
+            secondFactorAttempts?: number | string;
             failureReason?: null | string;
             ipAddress?: null | string;
             location?: null | string;

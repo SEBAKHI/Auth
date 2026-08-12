@@ -98,7 +98,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         CancellationToken cancellationToken,
         bool establishIdpSession = true,
         string? audience = null,
-        Guid? applicationId = null)
+        Guid? applicationId = null,
+        Guid? twoFactorChallengeId = null)
     {
         // The refusal branch of the concurrent session limit, and the first thing
         // this method does. Once past here a refresh token row exists and an
@@ -115,15 +116,13 @@ public class LoginResponseBuilder : ILoginResponseBuilder
                 // Without this the user opens their own sign-in history and finds
                 // nothing where their rejected attempt should be. The reason is
                 // written as prose because FailureReason holds text a person
-                // reads, not a code.
-                await _loginAttemptRepository.CreateAsync(
-                    LoginAttempt.CreateFailure(
-                        user.Email,
-                        "Maximum concurrent sessions reached",
-                        ipAddress,
-                        userAgent,
-                        user.Id,
-                        applicationId: applicationId),
+                // reads, not a code. After a two-factor ceremony the refusal
+                // settles the row that ceremony already opened — appending here
+                // would leave one sign-in showing as both pending and refused.
+                await RecordOutcomeAsync(
+                    user, ipAddress, userAgent, applicationId, twoFactorChallengeId,
+                    succeeded: false,
+                    failureReason: "Maximum concurrent sessions reached",
                     cancellationToken);
 
                 _logger.LogInformation(
@@ -272,8 +271,11 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         // The agent is recorded so the user's own sign-in history can name the
         // client. It used to be dropped here, which left every successful entry
         // in that history describing nothing.
-        var loginAttempt = LoginAttempt.CreateSuccess(user.Id, user.Email, ipAddress, userAgent);
-        await _loginAttemptRepository.CreateAsync(loginAttempt, cancellationToken);
+        await RecordOutcomeAsync(
+            user, ipAddress, userAgent, applicationId, twoFactorChallengeId,
+            succeeded: true,
+            failureReason: null,
+            cancellationToken);
 
         _logger.LogInformation("User {UserId} logged in successfully from {IpAddress}",
             user.Id, ipAddress);
@@ -351,6 +353,40 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     /// two-factor completion, email verification, account recovery — and none
     /// of them may fail because a notification could not be arranged.
     /// </summary>
+    /// <summary>
+    /// Writes the sign-in's outcome as exactly one row, whichever way it ended.
+    ///
+    /// A sign-in that went through a second factor already has a row — opened by
+    /// the challenge service in the earlier request — so its outcome settles that
+    /// row. Everything else has no row yet and inserts one. Both callers here go
+    /// through this method so the two branches cannot drift into disagreeing
+    /// about how many rows a single sign-in produces.
+    /// </summary>
+    private async Task RecordOutcomeAsync(
+        User user,
+        string? ipAddress,
+        string? userAgent,
+        Guid? applicationId,
+        Guid? twoFactorChallengeId,
+        bool succeeded,
+        string? failureReason,
+        CancellationToken cancellationToken)
+    {
+        if (twoFactorChallengeId.HasValue)
+        {
+            await _loginAttemptRepository.ResolveTwoFactorCeremonyAsync(
+                twoFactorChallengeId.Value, succeeded, failureReason, cancellationToken);
+            return;
+        }
+
+        var attempt = succeeded
+            ? LoginAttempt.CreateSuccess(user.Id, user.Email, ipAddress, userAgent, applicationId: applicationId)
+            : LoginAttempt.CreateFailure(
+                user.Email, failureReason!, ipAddress, userAgent, user.Id, applicationId: applicationId);
+
+        await _loginAttemptRepository.CreateAsync(attempt, cancellationToken);
+    }
+
     private async Task TrackDeviceAsync(
         User user,
         string? ipAddress,

@@ -35,7 +35,10 @@ public sealed record OrganizationLoginCount(
 
 /// <summary>
 /// Aggregated authentication statistics over a trailing window of days.
-/// Calendar days use the requested time zone; success/failure comes from LoginAttempts.IsSuccessful.
+/// Calendar days use the requested time zone. A success is LoginAttempts.IsSuccessful;
+/// a failure is a row that failed AND carries a reason, which excludes two-factor
+/// ceremonies still waiting on their code. <see cref="TopFailingIps"/> is the one
+/// exception and counts those too — see the query for why.
 /// </summary>
 public sealed record AuthStatsSnapshot
 {

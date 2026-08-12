@@ -91,9 +91,21 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         Guid userId,
         out User user,
         out TwoFactorAuth twoFactor,
-        string? recoveryCodes = null)
+        string? recoveryCodes = null,
+        int attemptCount = 0)
     {
-        var challenge = TwoFactorChallenge.Create(userId, ChallengeTokenHash, "127.0.0.1");
+        // attemptCount lets a test start the challenge partway through its
+        // allowance, which is the only way to reach the rejection that ends the
+        // ceremony rather than merely counting against it.
+        var challenge = new TwoFactorChallenge(
+            Guid.NewGuid(),
+            userId,
+            ChallengeTokenHash,
+            "127.0.0.1",
+            expiresAt: DateTime.UtcNow.AddMinutes(TwoFactorChallenge.DefaultLifetimeMinutes),
+            usedAt: null,
+            attemptCount: attemptCount,
+            createdAt: DateTime.UtcNow);
         SetupChallenge(challenge);
 
         user = TestHelpers.CreateUser(id: userId, twoFactorEnabled: true);
@@ -278,11 +290,51 @@ public class VerifyTwoFactorLoginCommandHandlerTests
         _twoFactorRepositoryMock.Verify(
             r => r.UpdateAsync(twoFactor, It.IsAny<CancellationToken>()),
             Times.Once);
+        // A rejected code does not end the ceremony, so it writes no row of its
+        // own: the count rides on the challenge and the one row this sign-in owns
+        // is settled only when the allowance runs out. One row per sign-in, not
+        // one per guess.
         _loginAttemptRepositoryMock.Verify(
             r => r.CreateAsync(It.IsAny<LoginAttempt>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+            Times.Never);
+        _loginAttemptRepositoryMock.Verify(
+            r => r.ResolveTwoFactorCeremonyAsync(
+                It.IsAny<Guid>(), It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
         _loginResponseBuilderMock.Verify(
-            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>(), It.IsAny<bool>(), It.IsAny<string?>(),
+                It.IsAny<Guid?>(), It.IsAny<Guid?>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_LastAllowedWrongCode_SettlesTheCeremonyAsFailed()
+    {
+        // Arrange: the challenge has already burned its allowance bar one, so this
+        // rejection is the one that ends the ceremony.
+        var userId = Guid.NewGuid();
+        SetupHappyPath(userId, out _, out var twoFactor,
+            attemptCount: TwoFactorChallenge.MaxAttempts - 1);
+
+        _totpServiceMock
+            .Setup(s => s.ValidateCode(twoFactor.SecretKey, "000000"))
+            .Returns(false);
+
+        // Act
+        var result = await _handler.Handle(CreateCommand(code: "000000"), CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+
+        _loginAttemptRepositoryMock.Verify(
+            r => r.ResolveTwoFactorCeremonyAsync(
+                It.IsAny<Guid>(), false, "Too many incorrect verification codes",
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _loginAttemptRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<LoginAttempt>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
@@ -299,7 +351,9 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             .Returns(true);
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(
+                user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act
@@ -337,7 +391,9 @@ public class VerifyTwoFactorLoginCommandHandlerTests
             .Returns<string, string>((_, hash) => hash == "hash-2");
 
         _loginResponseBuilderMock
-            .Setup(b => b.BuildAsync(user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .Setup(b => b.BuildAsync(
+                user, "127.0.0.1", It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(), It.IsAny<string?>(), It.IsAny<Guid?>(), It.IsAny<Guid?>()))
             .ReturnsAsync(loginResponse);
 
         // Act

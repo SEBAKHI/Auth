@@ -1696,9 +1696,13 @@ export const fr: TranslationResources = {
     approximateLocation: "Approximatif, d'après l'adresse IP",
     loginActivity: "Activité de connexion récente",
     loginActivitySubtitle:
-      "Les dernières tentatives sur votre compte, réussies et échouées.",
+      "Les dernières tentatives sur votre compte et leur issue.",
     loginSucceeded: "Connexion réussie",
     loginFailed: "Échec de connexion",
+    loginIncomplete: "Vérification à deux facteurs non terminée",
+    loginIncompleteHint:
+      "Votre mot de passe a été saisi, mais le code de vérification n'a jamais suivi.",
+    loginCodeAttempts: "Codes refusés : {{count}}",
     noLoginActivity: "Rien d'enregistré pour l'instant",
     unrecognisedActivity:
       "Vous ne reconnaissez pas quelque chose ici ? Changez votre mot de passe.",

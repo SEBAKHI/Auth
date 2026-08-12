@@ -67,7 +67,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             }
 
             // Record failed attempt even if user doesn't exist (prevent enumeration)
-            await RecordLoginAttemptAsync(null, request.Email, false, "User not found",
+            await RecordFailureAsync(null, request.Email,"User not found",
                 request.IpAddress, request.UserAgent, cancellationToken);
 
             return UserErrors.InvalidCredentials;
@@ -77,7 +77,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         var statusCheck = AuthenticationHelper.CheckAccountStatus(user);
         if (statusCheck.IsError)
         {
-            await RecordLoginAttemptAsync(user.Id, request.Email, false, statusCheck.FirstError.Description,
+            await RecordFailureAsync(user.Id, request.Email,statusCheck.FirstError.Description,
                 request.IpAddress, request.UserAgent, cancellationToken);
 
             return statusCheck.Errors;
@@ -86,7 +86,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         // Check lockout
         if (user.IsLockedOut())
         {
-            await RecordLoginAttemptAsync(user.Id, request.Email, false, "Account locked",
+            await RecordFailureAsync(user.Id, request.Email,"Account locked",
                 request.IpAddress, request.UserAgent, cancellationToken);
 
             return UserErrors.AccountLockedUntil(user.LockoutEnd);
@@ -102,7 +102,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         // Guard: external-only users (no password) cannot use password login
         if (user.PasswordHash is null)
         {
-            await RecordLoginAttemptAsync(user.Id, request.Email, false, "No password set",
+            await RecordFailureAsync(user.Id, request.Email,"No password set",
                 request.IpAddress, request.UserAgent, cancellationToken);
 
             return UserErrors.InvalidCredentials;
@@ -118,7 +118,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
                 _passwordSettings.LockoutDuration,
                 cancellationToken);
 
-            await RecordLoginAttemptAsync(user.Id, request.Email, false, "Invalid password",
+            await RecordFailureAsync(user.Id, request.Email,"Invalid password",
                 request.IpAddress, request.UserAgent, cancellationToken);
 
             _logger.LogWarning("Failed login attempt for user {UserId} from {IpAddress}",
@@ -130,7 +130,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         // Check if email is confirmed (only after successful password verification)
         if (!user.EmailConfirmed)
         {
-            await RecordLoginAttemptAsync(user.Id, request.Email, false, "Email not confirmed",
+            await RecordFailureAsync(user.Id, request.Email,"Email not confirmed",
                 request.IpAddress, request.UserAgent, cancellationToken);
 
             _logger.LogWarning("Login blocked for user {UserId} - email not confirmed", user.Id);
@@ -148,13 +148,15 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
 
         // Two-factor gate: no tokens are issued until the code is verified.
         // The client completes the login via the 2fa/verify endpoint.
+        //
+        // No login attempt is recorded here. The challenge service opens the
+        // ceremony's row and the verify endpoint settles it, so this sign-in
+        // leaves one row however it ends. Recording a second one here is what
+        // used to paint every clean two-factor sign-in as a failed attempt.
         if (user.TwoFactorEnabled)
         {
             var challengeToken = await _twoFactorChallengeService.CreateChallengeAsync(
-                user, request.IpAddress, cancellationToken);
-
-            await RecordLoginAttemptAsync(user.Id, request.Email, false, "Two-factor verification pending",
-                request.IpAddress, request.UserAgent, cancellationToken);
+                user, request.IpAddress, request.UserAgent, cancellationToken);
 
             return new LoginResponse
             {
@@ -211,18 +213,20 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
         return UserErrors.AccountPendingDeletion(active.GraceEndsAtUtc);
     }
 
-    private async Task RecordLoginAttemptAsync(
+    /// <summary>
+    /// Records a sign-in this handler rejected. Only failures are written here:
+    /// a success is recorded by the response builder, and a two-factor gate opens
+    /// its ceremony row in the challenge service.
+    /// </summary>
+    private async Task RecordFailureAsync(
         Guid? userId,
         string email,
-        bool isSuccess,
-        string? failureReason,
+        string failureReason,
         string? ipAddress,
         string? userAgent,
         CancellationToken cancellationToken)
     {
-        var attempt = isSuccess
-            ? LoginAttempt.CreateSuccess(userId!.Value, email, ipAddress, userAgent)
-            : LoginAttempt.CreateFailure(email, failureReason!, ipAddress, userAgent, userId);
+        var attempt = LoginAttempt.CreateFailure(email, failureReason, ipAddress, userAgent, userId);
 
         await _loginAttemptRepository.CreateAsync(attempt, cancellationToken);
     }
