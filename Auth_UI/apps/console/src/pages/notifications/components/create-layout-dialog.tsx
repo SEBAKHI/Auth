@@ -54,8 +54,8 @@ const STARTER_CONTENT = `<!DOCTYPE html>
 </body>
 </html>`
 
-// The sender name is tenant-supplied: one ending in a neutral ("Astoom Inc.") would
-// otherwise drag the sentence's period out of its run and render as ".Astoom Inc".
+// The sender name is tenant-supplied: one ending in a neutral ("Company Inc.") would
+// otherwise drag the sentence's period out of its run and render as ".Company Inc".
 const STARTER_STRINGS = JSON.stringify(
   {
     en: { footer: 'This is an automated message from <span dir="auto">{{ SenderName }}</span>.' },

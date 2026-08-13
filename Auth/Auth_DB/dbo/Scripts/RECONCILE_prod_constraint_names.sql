@@ -31,7 +31,7 @@ more than once.
 HOW TO USE
 ----------
 1. Connect to the company_identity_prod database (SSMS / Plesk SQL Manager) using
-   the etrack_company_identity_rw_prod credentials. Make sure you are in the
+   the company_identity_rw_prod credentials. Make sure you are in the
    correct database context.
 2. Run the script. It first PRINTs the rename statements for review, then runs
    them inside a transaction.

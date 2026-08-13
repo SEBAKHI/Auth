@@ -304,8 +304,8 @@ public class EmailLayoutContractTests
     [Fact]
     public void InterpolatedIdentityValues_AreBidiIsolated()
     {
-        // A tenant name ending in a neutral ("Astoom Inc.") merges its own period with the
-        // sentence's, and the pair gets ejected from the Latin run - rendering ".Astoom Inc".
+        // A tenant name ending in a neutral ("Company Inc.") merges its own period with the
+        // sentence's, and the pair gets ejected from the Latin run - rendering ".Company Inc".
         // dir="auto" gives the span first-strong detection plus UA unicode-bidi:isolate.
         var markup = SeedLayout();
 

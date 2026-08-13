@@ -91,12 +91,12 @@ describe("BrandingProvider", () => {
     expect(document.title).toBe("Accounts")
     expect(screen.getByTestId("pending")).toHaveTextContent("true")
 
-    resolve({ data: { platformName: "Astoom", logoUrl: "/uploads/logo.webp" } })
+    resolve({ data: { platformName: "SEBAKHI", logoUrl: "/uploads/logo.webp" } })
 
     await waitFor(() =>
-      expect(screen.getByTestId("name")).toHaveTextContent("Astoom")
+      expect(screen.getByTestId("name")).toHaveTextContent("SEBAKHI")
     )
-    expect(document.title).toBe("Astoom")
+    expect(document.title).toBe("SEBAKHI")
     expect(screen.getByRole("img")).toHaveAttribute(
       "src",
       "https://api.test/uploads/logo.webp"
@@ -105,7 +105,7 @@ describe("BrandingProvider", () => {
 
   it("shows the default mark once the answer says there is no logo", async () => {
     stubLocalStorage()
-    get.mockResolvedValue({ data: { platformName: "Astoom", logoUrl: null } })
+    get.mockResolvedValue({ data: { platformName: "SEBAKHI", logoUrl: null } })
 
     renderProvider()
 
@@ -117,7 +117,7 @@ describe("BrandingProvider", () => {
   it("paints the cached brand on the first frame for a returning visitor", () => {
     stubLocalStorage({
       [BRANDING_CACHE_KEY]: JSON.stringify({
-        platformName: "Astoom",
+        platformName: "SEBAKHI",
         logoUrl: "/uploads/logo.webp",
       }),
     })
@@ -126,17 +126,17 @@ describe("BrandingProvider", () => {
     renderProvider()
 
     expect(screen.getByTestId("pending")).toHaveTextContent("false")
-    expect(screen.getByTestId("name")).toHaveTextContent("Astoom")
+    expect(screen.getByTestId("name")).toHaveTextContent("SEBAKHI")
   })
 
   it("stores each answer so the next visit has one to paint", async () => {
     const entries = stubLocalStorage()
-    get.mockResolvedValue({ data: { platformName: "Astoom", logoUrl: null } })
+    get.mockResolvedValue({ data: { platformName: "SEBAKHI", logoUrl: null } })
 
     renderProvider()
 
     await waitFor(() =>
-      expect(entries.get(BRANDING_CACHE_KEY)).toContain("Astoom")
+      expect(entries.get(BRANDING_CACHE_KEY)).toContain("SEBAKHI")
     )
   })
 
