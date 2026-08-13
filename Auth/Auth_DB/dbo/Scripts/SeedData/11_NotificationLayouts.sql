@@ -1,5 +1,5 @@
 ﻿-- Notification Layouts Seed Data
--- Global Email layout: SEBAKHI-brand design (monochrome, 600px table layout, dark-mode aware).
+-- Global Email layout: COMPANY-brand design (monochrome, 600px table layout, dark-mode aware).
 -- Styles cover both the current template classes and the legacy ones (.warning, .link-fallback)
 -- so older custom templates keep rendering correctly.
 -- Liquid placeholders: {{ dir }}, {{ lang }}, {{ content | raw }}, {{ strings.footer | raw }},
@@ -34,7 +34,7 @@
 --   NEVER use text-align:start/end here - unsupported in all Outlook for Windows, Yahoo,
 --   AOL, Orange, GMX and Web.de. Write right/left through the {{ dir }} conditional.
 --   Interpolated identity values sit in <span dir="auto"> so a tenant name ending in a
---   neutral ("Astoom Inc.") cannot drag the punctuation out of the run.
+--   neutral ("Company Inc.") cannot drag the punctuation out of the run.
 
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 

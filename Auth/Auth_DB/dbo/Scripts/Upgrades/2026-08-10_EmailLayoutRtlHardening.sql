@@ -19,7 +19,7 @@
   <body> replacement, <style> loss, and clients that strip dir from <table>/<td>. Absolute
   text-align keywords only; start/end are unsupported in all Outlook for Windows, Yahoo, AOL,
   Orange, GMX and Web.de. Interpolated identity values are wrapped in <span dir="auto"> so a
-  tenant name ending in a neutral ("Astoom Inc.") cannot drag punctuation out of its run.
+  tenant name ending in a neutral ("Company Inc.") cannot drag punctuation out of its run.
 
   This is a LAYOUT-ONLY fix: template bodies are untouched, so it reaches all 15 templates in
   all 7 languages at once. NotificationTemplateTranslations is pointer-versioned and a blanket
