@@ -88,7 +88,7 @@ describe("the accounts app ships no policy document", () => {
     )
     expect(unknownAction?.getAttribute("statusCode")).toBe("404")
     expect(webConfig).not.toContain("ApplicationRequestRouting")
-    expect(webConfig).not.toContain("https://auth.astoom.com/privacy")
+    expect(webConfig).not.toContain("https://auth-sandbox.sebakhi.com/privacy")
     expect(privacyCspRemoval).toBeNull()
   })
 })

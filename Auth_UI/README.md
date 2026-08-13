@@ -158,7 +158,7 @@ Invitation/reset emails link to the accounts origin (`Email:FrontendBaseUrl`).
 
 ### Privacy notice on the accounts origin
 
-`https://accounts.astoom.com/privacy` is the canonical public address. The
+`https://accounts-sandbox.sebakhi.com/privacy` is the canonical public address. The
 accounts site serves it as static HTML from persistent storage, without the SPA,
 JavaScript, the API Gateway, or ARR. Publishing a revision renders all seven
 languages and writes them to the persistent directory before the database marks
@@ -169,7 +169,7 @@ One-time Plesk setup for production:
 
 - physical directory:
   `C:\Inetpub\vhosts\etrack-76706.package\astoom-privacy-policy-public`;
-- virtual directory on `accounts.astoom.com`: `/privacy`;
+- virtual directory on `accounts-sandbox.sebakhi.com`: `/privacy`;
 - Read permission on; Write permission and directory browsing off;
 - **Create application** off; execute permissions: **None**.
 
@@ -193,7 +193,7 @@ First rollout order:
 3. publish the current revision once from the console and verify that the seven
    `.html` files and the version directory were created;
 4. deploy the Accounts build containing this `web.config`;
-5. verify `accounts.astoom.com/privacy/ar` stays on the Accounts origin, returns
+5. verify `accounts-sandbox.sebakhi.com/privacy/ar` stays on the Accounts origin, returns
    `200`, is styled, and remains readable while the API application is stopped.
 
 If step 3 fails, fix the Auth API application's filesystem permission and try

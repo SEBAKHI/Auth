@@ -250,13 +250,13 @@ public class SetupTwoFactorCommandHandlerTests
         GivenSetupCanProceed(userId, user, "ABCDEFGHIJKLMNOP");
 
         var handler = CreateHandler(TestHelpers.CreateOptions(
-            new JwtSettings { Issuer = "https://auth.astoom.com" }));
+            new JwtSettings { Issuer = "https://auth-sandbox.sebakhi.com" }));
 
         var result = await handler.Handle(new SetupTwoFactorCommand(userId), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         _totpServiceMock.Verify(
-            s => s.GenerateQrCodeUri(It.IsAny<string>(), user.Email, "auth.astoom.com"),
+            s => s.GenerateQrCodeUri(It.IsAny<string>(), user.Email, "auth-sandbox.sebakhi.com"),
             Times.Once);
     }
 

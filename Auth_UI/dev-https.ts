@@ -13,7 +13,7 @@ import { loadEnv, type ConfigEnv } from "vite"
  * differ — so Chrome silently refuses to STORE it. Login succeeds, the browser
  * keeps nothing to prove it, and /auth/authorize bounces straight back to
  * /login: an endless loop with no error anywhere. Serving the SPAs over https
- * too makes dev match production (accounts.astoom.com + auth.astoom.com are
+ * too makes dev match production (accounts-sandbox.sebakhi.com + auth-sandbox.sebakhi.com are
  * both https on one registrable domain, i.e. same-site).
  *
  * Note `Secure` is not what breaks: Chrome treats http://localhost as a

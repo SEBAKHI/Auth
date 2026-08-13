@@ -177,7 +177,7 @@
     <None Include="dbo\Scripts\RECONCILE_prod_constraint_names.sql" />
     <None Include="PublishLocations\Astoom_Auth.publish.xml" />
     <None Include="PublishLocations\astoom_identity_prod.publish.xml" />
-    <None Include="PublishLocations\Auth_DB.publish.xml" />
+    <None Include="PublishLocations\sebakhi_identity_sandbox.publish.xml" />
   </ItemGroup>
   <ItemGroup>
     <PostDeploy Include="dbo\PostDeployment\Script.PostDeployment.sql" />
