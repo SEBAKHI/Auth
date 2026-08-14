@@ -275,13 +275,13 @@ public class OrganizationsController : ApiController
         Guid id,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null,
+        [FromQuery] string? searchTerm = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
         var userId = GetCurrentUserId();
-        var query = new GetOrganizationMembersQuery(id, pageNumber, pageSize, search, sortBy, sortDirection)
+        var query = new GetOrganizationMembersQuery(id, pageNumber, pageSize, searchTerm, sortBy, sortDirection)
         {
             RequestedBy = userId,
             PlatformScope = HasPermissionClaim("organizations:read")

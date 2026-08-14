@@ -50,7 +50,7 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
             query: {
               pageNumber: page + 1,
               pageSize,
-              search: search || undefined,
+              searchTerm: search || undefined,
               sortBy,
               sortDirection,
             },
@@ -69,7 +69,7 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
               query: {
                 pageNumber,
                 pageSize: size,
-                search: search || undefined,
+                searchTerm: search || undefined,
                 sortBy,
                 sortDirection,
               },

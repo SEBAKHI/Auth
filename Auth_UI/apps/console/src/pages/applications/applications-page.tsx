@@ -71,7 +71,7 @@ export function ApplicationsPage() {
             query: {
               pageNumber: page + 1,
               pageSize,
-              search: search || undefined,
+              searchTerm: search || undefined,
               sortBy,
               sortDirection,
             },
@@ -89,7 +89,7 @@ export function ApplicationsPage() {
               query: {
                 pageNumber,
                 pageSize: size,
-                search: search || undefined,
+                searchTerm: search || undefined,
                 sortBy,
                 sortDirection,
               },

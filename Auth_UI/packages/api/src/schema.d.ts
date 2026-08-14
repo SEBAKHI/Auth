@@ -2489,7 +2489,7 @@ export interface paths {
                 query?: {
                     pageNumber?: number | string;
                     pageSize?: number | string;
-                    search?: string;
+                    searchTerm?: string;
                     sortBy?: string;
                     sortDirection?: components["schemas"]["SortDirection"];
                 };
@@ -2962,7 +2962,7 @@ export interface paths {
                 query?: {
                     pageNumber?: number | string;
                     pageSize?: number | string;
-                    search?: string;
+                    searchTerm?: string;
                     sortBy?: string;
                     sortDirection?: components["schemas"]["SortDirection"];
                 };
@@ -4033,7 +4033,7 @@ export interface paths {
                 query?: {
                     pageNumber?: number | string;
                     pageSize?: number | string;
-                    search?: string;
+                    searchTerm?: string;
                     sortBy?: string;
                     sortDirection?: components["schemas"]["SortDirection"];
                 };
@@ -9374,7 +9374,7 @@ export interface paths {
                 query?: {
                     pageNumber?: number | string;
                     pageSize?: number | string;
-                    search?: string;
+                    searchTerm?: string;
                     isActive?: boolean;
                     sortBy?: string;
                     sortDirection?: components["schemas"]["SortDirection"];
@@ -9919,7 +9919,7 @@ export interface paths {
                 query?: {
                     pageNumber?: number | string;
                     pageSize?: number | string;
-                    search?: string;
+                    searchTerm?: string;
                     sortBy?: string;
                     sortDirection?: components["schemas"]["SortDirection"];
                 };
@@ -9997,7 +9997,7 @@ export interface paths {
                 query?: {
                     pageNumber?: number | string;
                     pageSize?: number | string;
-                    search?: string;
+                    searchTerm?: string;
                     sortBy?: string;
                     sortDirection?: components["schemas"]["SortDirection"];
                 };

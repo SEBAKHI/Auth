@@ -82,7 +82,7 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
             query: {
               pageNumber: page + 1,
               pageSize,
-              search: search || undefined,
+              searchTerm: search || undefined,
               sortBy,
               sortDirection,
             },
@@ -101,7 +101,7 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
               query: {
                 pageNumber,
                 pageSize: size,
-                search: search || undefined,
+                searchTerm: search || undefined,
                 sortBy,
                 sortDirection,
               },

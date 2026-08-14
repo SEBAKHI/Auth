@@ -51,13 +51,13 @@ public class ApplicationsController : ApiController
     public async Task<IActionResult> GetApplications(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null,
+        [FromQuery] string? searchTerm = null,
         [FromQuery] bool? isActive = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetApplicationsQuery(pageNumber, pageSize, search, isActive, sortBy, sortDirection);
+        var query = new GetApplicationsQuery(pageNumber, pageSize, searchTerm, isActive, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -162,12 +162,12 @@ public class ApplicationsController : ApiController
         Guid id,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null,
+        [FromQuery] string? searchTerm = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetApplicationUsersQuery(id, pageNumber, pageSize, search, sortBy, sortDirection);
+        var query = new GetApplicationUsersQuery(id, pageNumber, pageSize, searchTerm, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -188,12 +188,12 @@ public class ApplicationsController : ApiController
         Guid id,
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 20,
-        [FromQuery] string? search = null,
+        [FromQuery] string? searchTerm = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        var query = new GetApplicationOrganizationsQuery(id, pageNumber, pageSize, search, sortBy, sortDirection);
+        var query = new GetApplicationOrganizationsQuery(id, pageNumber, pageSize, searchTerm, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
