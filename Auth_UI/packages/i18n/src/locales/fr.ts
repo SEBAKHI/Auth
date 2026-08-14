@@ -276,8 +276,6 @@ export const fr: TranslationResources = {
     alertFailingIpBody: "{{ip}} a produit {{count}} tentatives échouées sur {{users}} identifiant(s).",
     alertStaleSessions: "{{count}} session(s) ont dépassé leur expiration",
     alertStaleSessionsBody: "Elles sont toujours ouvertes et n'ont jamais été fermées.",
-    alertExpiringTokens: "{{count}} jeton(s) expirent sous 7 jours",
-    alertExpiringTokensBody: "Les appelants qui les utilisent commenceront à échouer.",
     alertExpiringEnablements: "{{count}} abonnement(s) arrivent à échéance",
     alertExpiringEnablementsBody: "Fin sous {{days}} jours.",
     reviewUsers: "Examiner les utilisateurs",
@@ -341,8 +339,7 @@ export const fr: TranslationResources = {
     mfaAdoptionHint: "{{enabled}} sur {{active}} utilisateurs actifs",
     dormantAccounts: "Comptes dormants (30 j+)",
     activeTokens: "Jetons de rafraîchissement actifs",
-    tokensHint:
-      "{{expiring}} expirent sous 7 j · {{revoked}} révoqués sur la période",
+    tokensHint: "{{revoked}} révoqué(s) sur les {{days}} derniers jours",
     success: "Réussies",
     failed: "Échouées",
     daily: "Quotidien",

@@ -1,7 +1,6 @@
 import {
   AlertTriangle,
   Clock,
-  KeySquare,
   Lock,
   ShieldAlert,
   TrendingDown,
@@ -126,18 +125,6 @@ export function AttentionPanel({
       description: t("dashboard.alertStaleSessionsBody"),
       to: "/audit-logs",
       actionLabel: t("dashboard.viewAuditLogs"),
-    })
-  }
-
-  const expiringTokens = toNumber(sessionStats?.tokensExpiringIn7Days)
-  if (expiringTokens > 0) {
-    findings.push({
-      key: "expiring-tokens",
-      icon: KeySquare,
-      title: t("dashboard.alertExpiringTokens", { count: expiringTokens }),
-      description: t("dashboard.alertExpiringTokensBody"),
-      to: "/api-keys",
-      actionLabel: t("dashboard.reviewKeys"),
     })
   }
 

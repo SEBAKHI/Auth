@@ -358,11 +358,16 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             FROM [dbo].[UserSessions]
             WHERE [EndedAt] >= @From;
 
-            -- Refresh-token state counts
+            -- Refresh-token state counts.
+            -- Deliberately no expiry-horizon aggregate here: refresh tokens are issued with
+            -- a fixed lifetime (JwtSettings.RefreshTokenLifetimeDays), so expiring-within-
+            -- that-lifetime is satisfied by every live token and the number is identically
+            -- ActiveRefreshTokens. Their expiry is also self-healing (the client refreshes
+            -- silently), so it can never be a finding. Credential expiry that a human must
+            -- act on lives in GetCredentialStatsAsync.
             SELECT
                 ISNULL(SUM(CASE WHEN [RevokedAt] IS NULL AND [ExpiresAt] > @Now THEN 1 ELSE 0 END), 0) AS ActiveRefreshTokens,
-                ISNULL(SUM(CASE WHEN [RevokedAt] >= @From THEN 1 ELSE 0 END), 0) AS TokensRevokedInWindow,
-                ISNULL(SUM(CASE WHEN [RevokedAt] IS NULL AND [ExpiresAt] > @Now AND [ExpiresAt] <= DATEADD(DAY, 7, @Now) THEN 1 ELSE 0 END), 0) AS TokensExpiringIn7Days
+                ISNULL(SUM(CASE WHEN [RevokedAt] >= @From THEN 1 ELSE 0 END), 0) AS TokensRevokedInWindow
             FROM [dbo].[RefreshTokens];
 
             -- Revocation reasons inside the window
@@ -388,8 +393,7 @@ public class DashboardStatsRepository : IDashboardStatsRepository
             AverageSessionMinutes = averageSessionMinutes,
             ActiveRefreshTokens = tokens.ActiveRefreshTokens,
             TokensRevokedInWindow = tokens.TokensRevokedInWindow,
-            RevocationReasons = revocationReasons,
-            TokensExpiringIn7Days = tokens.TokensExpiringIn7Days
+            RevocationReasons = revocationReasons
         };
     }
 
@@ -517,7 +521,6 @@ public class DashboardStatsRepository : IDashboardStatsRepository
     {
         public int ActiveRefreshTokens { get; init; }
         public int TokensRevokedInWindow { get; init; }
-        public int TokensExpiringIn7Days { get; init; }
     }
 
     private record UnknownAppActivityRow

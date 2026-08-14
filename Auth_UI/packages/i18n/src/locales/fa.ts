@@ -273,8 +273,6 @@ export const fa: TranslationResources = {
     alertFailingIpBody: "{{ip}} تعداد {{count}} تلاش ناموفق روی {{users}} نام کاربری داشته است.",
     alertStaleSessions: "{{count}} نشست از زمان انقضا گذشته‌اند",
     alertStaleSessionsBody: "هنوز باز هستند و هرگز بسته نشده‌اند.",
-    alertExpiringTokens: "{{count}} توکن تا ۷ روز آینده منقضی می‌شود",
-    alertExpiringTokensBody: "فراخوانان آن‌ها با خطا روبه‌رو خواهند شد.",
     alertExpiringEnablements: "{{count}} اشتراک در حال انقضا است",
     alertExpiringEnablementsBody: "تا {{days}} روز آینده پایان می‌یابد.",
     reviewUsers: "بازبینی کاربران",
@@ -337,8 +335,7 @@ export const fa: TranslationResources = {
     mfaAdoptionHint: "{{enabled}} از {{active}} کاربر فعال",
     dormantAccounts: "حساب‌های راکد (بیش از ۳۰ روز)",
     activeTokens: "توکن‌های تازه‌سازی فعال",
-    tokensHint:
-      "{{expiring}} تا ۷ روز دیگر منقضی می‌شوند · {{revoked}} در این بازه باطل شدند",
+    tokensHint: "{{revoked}} توکن باطل‌شده در {{days}} روز گذشته",
     success: "موفق",
     failed: "ناموفق",
     daily: "روزانه",

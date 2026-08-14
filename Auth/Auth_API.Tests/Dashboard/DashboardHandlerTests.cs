@@ -1,3 +1,4 @@
+using Auth.Application.DTOs;
 using Auth.Application.Features.Dashboard.GetAppActivityStats;
 using Auth.Application.Features.Dashboard.GetAuditStats;
 using Auth.Application.Features.Dashboard.GetAuthStats;
@@ -189,8 +190,7 @@ public class GetSessionStatsQueryHandlerTests
                 AverageSessionMinutes = 42.5,
                 ActiveRefreshTokens = 11,
                 TokensRevokedInWindow = 3,
-                RevocationReasons = [new ReasonCount("rotated", 3)],
-                TokensExpiringIn7Days = 6
+                RevocationReasons = [new ReasonCount("rotated", 3)]
             });
 
         var result = await _handler.Handle(new GetSessionStatsQuery(), CancellationToken.None);
@@ -202,7 +202,20 @@ public class GetSessionStatsQueryHandlerTests
         result.Value.EndReasons.Should().ContainSingle().Which.Reason.Should().Be("logout");
         result.Value.AverageSessionMinutes.Should().Be(42.5);
         result.Value.ActiveRefreshTokens.Should().Be(11);
-        result.Value.TokensExpiringIn7Days.Should().Be(6);
+    }
+
+    [Fact]
+    public void SessionStatsDto_ExposesNoExpiryHorizon()
+    {
+        // Refresh tokens are issued with a fixed lifetime (JwtSettings.RefreshTokenLifetimeDays,
+        // 7 by default), so "expiring within 7 days" was satisfied by every live token and the
+        // number was identically ActiveRefreshTokens. It drove a permanent dashboard alert
+        // pointing at /api-keys, a table a refresh token can never appear in. If an expiry
+        // horizon ever returns, it belongs on a credential family a human can act on —
+        // see GetCredentialStatsQuery.
+        typeof(SessionStatsDto).GetProperties()
+            .Select(p => p.Name)
+            .Should().NotContain(name => name.Contains("Expiring", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -219,8 +232,7 @@ public class GetSessionStatsQueryHandlerTests
                 AverageSessionMinutes = null,
                 ActiveRefreshTokens = 0,
                 TokensRevokedInWindow = 0,
-                RevocationReasons = [],
-                TokensExpiringIn7Days = 0
+                RevocationReasons = []
             });
 
         var result = await _handler.Handle(new GetSessionStatsQuery(), CancellationToken.None);

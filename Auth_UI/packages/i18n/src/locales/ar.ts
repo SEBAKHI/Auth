@@ -272,8 +272,6 @@ export const ar: TranslationResources = {
     alertFailingIpBody: "أنتج {{ip}} عدد {{count}} محاولة فاشلة على {{users}} اسم مستخدم.",
     alertStaleSessions: "{{count}} جلسة تجاوزت مدة صلاحيتها",
     alertStaleSessionsBody: "لا تزال مفتوحة ولم تُغلق قط.",
-    alertExpiringTokens: "{{count}} رمز تنتهي صلاحيته خلال 7 أيام",
-    alertExpiringTokensBody: "ستبدأ الجهات المستخدمة له بالفشل.",
     alertExpiringEnablements: "{{count}} اشتراك على وشك الانتهاء",
     alertExpiringEnablementsBody: "ينتهي خلال {{days}} يومًا.",
     reviewUsers: "مراجعة المستخدمين",
@@ -335,8 +333,7 @@ export const ar: TranslationResources = {
     mfaAdoptionHint: "{{enabled}} من {{active}} مستخدمًا نشطًا",
     dormantAccounts: "الحسابات الخاملة (+30 يومًا)",
     activeTokens: "رموز التحديث النشطة",
-    tokensHint:
-      "{{expiring}} تنتهي خلال 7 أيام · {{revoked}} أُلغيت خلال الفترة",
+    tokensHint: "{{revoked}} رمزًا مُلغى خلال آخر {{days}} يومًا",
     success: "ناجحة",
     failed: "فاشلة",
     daily: "يومي",

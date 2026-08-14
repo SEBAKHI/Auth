@@ -275,8 +275,6 @@ export const tr: TranslationResources = {
     alertFailingIpBody: "{{ip}}, {{users}} kullanıcı adı üzerinde {{count}} başarısız deneme üretti.",
     alertStaleSessions: "{{count}} oturum süresini aşmış",
     alertStaleSessionsBody: "Hâlâ açık ve hiç kapatılmamış.",
-    alertExpiringTokens: "{{count}} belirtecin süresi 7 gün içinde doluyor",
-    alertExpiringTokensBody: "Bunları kullanan çağrılar başarısız olmaya başlayacak.",
     alertExpiringEnablements: "{{count}} aboneliğin süresi doluyor",
     alertExpiringEnablementsBody: "{{days}} gün içinde sona eriyor.",
     reviewUsers: "Kullanıcıları incele",
@@ -339,8 +337,7 @@ export const tr: TranslationResources = {
     mfaAdoptionHint: "{{active}} aktif kullanıcıdan {{enabled}}",
     dormantAccounts: "Uykuda hesaplar (30g+)",
     activeTokens: "Aktif yenileme jetonları",
-    tokensHint:
-      "{{expiring}} 7 gün içinde sona eriyor · {{revoked}} bu dönemde iptal edildi",
+    tokensHint: "Son {{days}} günde {{revoked}} iptal",
     success: "Başarılı",
     failed: "Başarısız",
     daily: "Günlük",

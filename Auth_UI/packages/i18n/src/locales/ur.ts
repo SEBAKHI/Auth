@@ -272,8 +272,6 @@ export const ur: TranslationResources = {
     alertFailingIpBody: "{{ip}} نے {{users}} صارف ناموں پر {{count}} ناکام کوششیں کیں۔",
     alertStaleSessions: "{{count}} سیشن اپنی مدت گزار چکے ہیں",
     alertStaleSessionsBody: "وہ اب بھی کھلے ہیں اور کبھی بند نہیں کیے گئے۔",
-    alertExpiringTokens: "{{count}} ٹوکن 7 دن میں ختم ہو رہے ہیں",
-    alertExpiringTokensBody: "انہیں استعمال کرنے والے ناکام ہونے لگیں گے۔",
     alertExpiringEnablements: "{{count}} سبسکرپشنز ختم ہو رہی ہیں",
     alertExpiringEnablementsBody: "{{days}} دن کے اندر ختم ہو رہی ہیں۔",
     reviewUsers: "صارفین کا جائزہ لیں",
@@ -335,8 +333,7 @@ export const ur: TranslationResources = {
     mfaAdoptionHint: "{{active}} فعال صارفین میں سے {{enabled}}",
     dormantAccounts: "غیر فعال اکاؤنٹس (30 دن+)",
     activeTokens: "فعال ریفریش ٹوکن",
-    tokensHint:
-      "{{expiring}} 7 دنوں میں ختم ہوں گے · {{revoked}} اس مدت میں منسوخ",
+    tokensHint: "پچھلے {{days}} دنوں میں {{revoked}} منسوخ",
     success: "کامیاب",
     failed: "ناکام",
     daily: "روزانہ",

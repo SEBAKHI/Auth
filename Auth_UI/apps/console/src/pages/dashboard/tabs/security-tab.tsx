@@ -72,8 +72,8 @@ export function SecurityTab({ scope }: { scope: DashboardScope }) {
           icon={KeySquare}
           loading={sessionStats.isLoading}
           hint={t("dashboard.tokensHint", {
-            expiring: toNumber(session?.tokensExpiringIn7Days),
             revoked: toNumber(session?.tokensRevokedInWindow),
+            days,
           })}
         />
         <StatTile

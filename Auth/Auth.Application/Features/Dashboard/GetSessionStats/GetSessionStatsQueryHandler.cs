@@ -43,8 +43,7 @@ public class GetSessionStatsQueryHandler : IRequestHandler<GetSessionStatsQuery,
             TokensRevokedInWindow = snapshot.TokensRevokedInWindow,
             RevocationReasons = snapshot.RevocationReasons
                 .Select(r => new ReasonCountDto { Reason = r.Reason, Count = r.Count })
-                .ToList(),
-            TokensExpiringIn7Days = snapshot.TokensExpiringIn7Days
+                .ToList()
         };
     }
 }

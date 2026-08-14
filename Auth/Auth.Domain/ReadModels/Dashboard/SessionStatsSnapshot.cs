@@ -28,7 +28,4 @@ public sealed record SessionStatsSnapshot
 
     /// <summary>Refresh tokens revoked inside the window grouped by revocation reason.</summary>
     public required IReadOnlyList<ReasonCount> RevocationReasons { get; init; }
-
-    /// <summary>Unrevoked refresh tokens expiring within the next 7 days.</summary>
-    public required int TokensExpiringIn7Days { get; init; }
 }

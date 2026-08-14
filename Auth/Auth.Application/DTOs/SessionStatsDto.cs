@@ -14,5 +14,4 @@ public class SessionStatsDto
     public int ActiveRefreshTokens { get; set; }
     public int TokensRevokedInWindow { get; set; }
     public List<ReasonCountDto> RevocationReasons { get; set; } = [];
-    public int TokensExpiringIn7Days { get; set; }
 }

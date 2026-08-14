@@ -13743,8 +13743,6 @@ export interface components {
             /** Format: int32 */
             tokensRevokedInWindow?: number | string;
             revocationReasons?: components["schemas"]["ReasonCountDto"][];
-            /** Format: int32 */
-            tokensExpiringIn7Days?: number | string;
         };
         SetProfileImageRequest: {
             imageKey: string;
