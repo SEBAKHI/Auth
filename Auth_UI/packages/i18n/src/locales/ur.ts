@@ -139,7 +139,8 @@ export const ur: TranslationResources = {
     apiKeys: "API کلیدیں",
     webhookKeys: "Webhook کلیدیں",
     auditLogs: "آڈٹ لاگز",
-    secrets: "راز",
+    secretManagement: "رازوں کا انتظام",
+    secretKeys: "خفیہ کلیدیں",
     platformSettings: "پلیٹ فارم کی ترتیبات",
     systemSettings: "نظام کی ترتیبات",
     profile: "پروفائل",
@@ -770,8 +771,14 @@ export const ur: TranslationResources = {
     newValues: "نئی اقدار",
   },
   secrets: {
-    title: "راز",
+    title: "خفیہ کلیدیں",
     subtitle: "اس انسٹینس کی دستخطی کلیدوں اور گیٹ وے ٹوکنز کا انتظام کریں۔",
+    status: {
+      notConfigured: "ترتیب نہیں دی گئی",
+      configured: "ترتیب دی گئی",
+      empty: "خالی",
+      unknown: "نامعلوم",
+    },
     disabledTitle: "رازوں کا انتظام غیر فعال ہے",
     disabledBody:
       "اس ماحول کے لیے ایڈمن رازوں کی API بند ہے، یا آپ کے پاس secrets.manage اجازت نہیں ہے۔",
@@ -1206,8 +1213,8 @@ export const ur: TranslationResources = {
     fileValue: "طے شدہ قدر: {{value}}",
     notSet: "مقرر نہیں",
     managedInSecrets:
-      "خفیہ قدر — خفیہ کاری کے ساتھ ذخیرہ ہوتی ہے اور اس کا انتظام راز کے صفحے پر ہوتا ہے، یہاں کبھی نہیں۔",
-    openSecrets: "راز کا صفحہ کھولیں",
+      "خفیہ قدر — خفیہ کاری کے ساتھ ذخیرہ ہوتی ہے اور اس کا انتظام «رازوں کا انتظام» کے تحت ہوتا ہے، یہاں کبھی نہیں۔",
+    openSecrets: "رازوں کا انتظام کریں",
     readOnly: "صرف پڑھنے کے لیے",
     resetSection: "طے شدہ ترتیبات پر واپس لائیں",
     resetConfirmTitle: "یہ حصہ ری سیٹ کریں؟",
@@ -1380,13 +1387,15 @@ export const ur: TranslationResources = {
       googleClientIdHint:
         "Google Cloud Console ← Credentials سے۔ عوامی قدر، یہاں محفوظ کرنا بے خطر ہے۔",
       appleEnabled: "Apple سائن ان",
-      appleEnabledHint: "Services ID، Team ID، Key ID اور راز میں .p8 کلید درکار ہیں۔",
+      appleEnabledHint:
+        "Services ID، Team ID، Key ID اور «رازوں کا انتظام» کے تحت .p8 کلید درکار ہیں۔",
       appleServicesId: "Apple Services ID",
       appleServicesIdHint: "مثلاً com.example.accounts، Apple Developer پورٹل سے۔",
       appleTeamId: "Apple Team ID",
       appleTeamIdHint: "Apple Developer پورٹل سے 10 حرفی ٹیم شناخت کنندہ۔",
       appleKeyId: "Apple Key ID",
-      appleKeyIdHint: ".p8 دستخطی کلید کا شناخت کنندہ؛ کلید خود راز میں رہتی ہے۔",
+      appleKeyIdHint:
+        ".p8 دستخطی کلید کا شناخت کنندہ؛ کلید خود «رازوں کا انتظام» کے تحت رہتی ہے۔",
       applePrivateKeyPem: "Apple دستخطی کلید (.p8)",
       avatarImportEnabled: "فراہم کنندہ سے پروفائل تصاویر درآمد کریں",
       avatarImportEnabledHint:
@@ -1596,7 +1605,7 @@ export const ur: TranslationResources = {
     secretManagement: {
       title: "راز کا انتظام",
       description:
-        "خفیہ نگاری کے راز کیسے ذخیرہ ہوتے ہیں (خفیہ شدہ فائل / DPAPI / ڈیویلپمنٹ کے لیے سادہ متن)۔ ڈیٹا بیس سے پہلے شروع ہوتا ہے، اس لیے موڈ کا انتظام سرور فائلوں میں ہوتا ہے؛ راز کی قدروں کا انتظام راز کے صفحے پر ہوتا ہے۔",
+        "خفیہ نگاری کے راز کیسے ذخیرہ ہوتے ہیں (خفیہ شدہ فائل / DPAPI / ڈیویلپمنٹ کے لیے سادہ متن)۔ ڈیٹا بیس سے پہلے شروع ہوتا ہے، اس لیے موڈ کا انتظام سرور فائلوں میں ہوتا ہے؛ راز کی قدروں کا انتظام نیچے کلیدوں کے صفحے پر ہوتا ہے۔",
       storageMode: "ذخیرے کا موڈ",
       secretFilePath: "راز کی فائل",
       autoGenerateKeys: "کلیدیں خودکار بنائیں",

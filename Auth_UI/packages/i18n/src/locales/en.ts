@@ -134,7 +134,8 @@ export const en = {
     apiKeys: "API Keys",
     webhookKeys: "Webhook Keys",
     auditLogs: "Audit Logs",
-    secrets: "Secrets",
+    secretManagement: "Secret management",
+    secretKeys: "Secret keys",
     platformSettings: "Platform Settings",
     systemSettings: "System Settings",
     profile: "Profile",
@@ -761,8 +762,14 @@ export const en = {
     newValues: "New values",
   },
   secrets: {
-    title: "Secrets",
+    title: "Secret keys",
     subtitle: "Manage signing keys and gateway tokens for this instance.",
+    status: {
+      notConfigured: "Not configured",
+      configured: "Configured",
+      empty: "Empty",
+      unknown: "Unknown",
+    },
     disabledTitle: "Secret administration is disabled",
     disabledBody:
       "The admin secrets API is turned off for this environment, or you lack the secrets.manage permission.",
@@ -1197,8 +1204,8 @@ export const en = {
     fileValue: "Default: {{value}}",
     notSet: "Not set",
     managedInSecrets:
-      "Secret value — stored encrypted and managed on the Secrets page, never here.",
-    openSecrets: "Open Secrets",
+      "Secret value — stored encrypted and managed under Secret management, never here.",
+    openSecrets: "Manage secrets",
     readOnly: "Read-only",
     resetSection: "Reset to defaults",
     resetConfirmTitle: "Reset this section?",
@@ -1365,20 +1372,22 @@ export const en = {
     externalAuth: {
       title: "External sign-in (Google / Apple)",
       description:
-        "Social sign-in providers. The client IDs here are public identifiers; private keys live on the Secrets page. The provider must ALSO be enabled in its directory row for the button to appear.",
+        "Social sign-in providers. The client IDs here are public identifiers; private keys live under Secret management. The provider must ALSO be enabled in its directory row for the button to appear.",
       googleEnabled: "Google sign-in",
       googleEnabledHint: "Requires a valid client ID below.",
       googleClientId: "Google client ID",
       googleClientIdHint:
         "From Google Cloud Console → Credentials. Public value, safe to store here.",
       appleEnabled: "Apple sign-in",
-      appleEnabledHint: "Requires the Services ID, Team ID, Key ID, and the .p8 key in Secrets.",
+      appleEnabledHint:
+        "Requires the Services ID, Team ID, Key ID, and the .p8 key under Secret management.",
       appleServicesId: "Apple Services ID",
       appleServicesIdHint: "e.g. com.example.accounts, from the Apple Developer portal.",
       appleTeamId: "Apple Team ID",
       appleTeamIdHint: "The 10-character team identifier from the Apple Developer portal.",
       appleKeyId: "Apple Key ID",
-      appleKeyIdHint: "Identifier of the .p8 signing key; the key itself lives in Secrets.",
+      appleKeyIdHint:
+        "Identifier of the .p8 signing key; the key itself lives under Secret management.",
       applePrivateKeyPem: "Apple signing key (.p8)",
       avatarImportEnabled: "Import provider profile pictures",
       avatarImportEnabledHint:
@@ -1589,7 +1598,7 @@ export const en = {
     secretManagement: {
       title: "Secret management",
       description:
-        "How cryptographic secrets are stored (encrypted file / DPAPI / plaintext for development). Bootstraps before the database, so the mode is managed in server files; the secret VALUES are managed on the Secrets page.",
+        "How cryptographic secrets are stored (encrypted file / DPAPI / plaintext for development). Bootstraps before the database, so the mode is managed in server files; the secret VALUES are managed on the keys page below.",
       storageMode: "Storage mode",
       secretFilePath: "Secrets file",
       autoGenerateKeys: "Auto-generate keys",

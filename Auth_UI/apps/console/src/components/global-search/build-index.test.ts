@@ -144,6 +144,28 @@ describe("buildSearchIndex", () => {
   it("still lists the static surfaces before the settings payload arrives", () => {
     expect(buildSearchIndex([], t, allow).length).toBeGreaterThan(0)
   })
+
+  it("gives a section with a companion page no row of its own", () => {
+    // Secret management's real controls are on the keys page, which has its own
+    // static surface. Indexing the section too would put two near-identical rows
+    // one click apart — the thing the trail exists to prevent.
+    const secretManagement: SystemSettingsSection = {
+      key: "SecretManagement",
+      group: "infrastructure",
+      editable: false,
+      fields: [{ path: "StorageMode", kind: "string" }],
+    } as SystemSettingsSection
+    const index = buildSearchIndex([secretManagement], t, allow)
+    const ids = index.map((e) => e.id)
+
+    expect(ids).not.toContain("section:SecretManagement")
+    // Its settings stay findable and still route into the section card.
+    expect(ids).toContain("SecretManagement:StorageMode")
+    // And the page itself is still one row.
+    expect(index.find((e) => e.id === "secrets")).toMatchObject({
+      route: "/admin/system-settings/SecretManagement/keys",
+    })
+  })
 })
 
 describe("searchIndex", () => {

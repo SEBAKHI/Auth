@@ -138,7 +138,8 @@ export const ar: TranslationResources = {
     apiKeys: "مفاتيح API",
     webhookKeys: "مفاتيح Webhook",
     auditLogs: "سجلات التدقيق",
-    secrets: "الأسرار",
+    secretManagement: "إدارة الأسرار",
+    secretKeys: "مفاتيح الأسرار",
     platformSettings: "إعدادات المنصة",
     systemSettings: "إعدادات النظام",
     profile: "الملف الشخصي",
@@ -759,8 +760,14 @@ export const ar: TranslationResources = {
     newValues: "القيم الجديدة",
   },
   secrets: {
-    title: "الأسرار",
+    title: "مفاتيح الأسرار",
     subtitle: "إدارة مفاتيح التوقيع ورموز البوابة لهذه النسخة.",
+    status: {
+      notConfigured: "غير مُهيَّأ",
+      configured: "مُهيَّأ",
+      empty: "فارغ",
+      unknown: "غير معروف",
+    },
     disabledTitle: "إدارة الأسرار معطّلة",
     disabledBody:
       "واجهة إدارة الأسرار متوقفة في هذه البيئة، أو تنقصك صلاحية secrets.manage.",
@@ -1186,8 +1193,8 @@ export const ar: TranslationResources = {
     fileValue: "القيمة الافتراضية: {{value}}",
     notSet: "غير محدد",
     managedInSecrets:
-      "قيمة سرية — تُخزن مشفرة وتُدار في صفحة الأسرار، وليس هنا أبدًا.",
-    openSecrets: "فتح الأسرار",
+      "قيمة سرّية — تُخزَّن مشفَّرة وتُدار ضمن «إدارة الأسرار»، وليس هنا أبدًا.",
+    openSecrets: "إدارة الأسرار",
     readOnly: "للقراءة فقط",
     resetSection: "إعادة الضبط إلى الإعدادات الافتراضية",
     resetConfirmTitle: "إعادة تعيين هذا القسم؟",
@@ -1354,20 +1361,22 @@ export const ar: TranslationResources = {
     externalAuth: {
       title: "تسجيل الدخول الخارجي (Google / Apple)",
       description:
-        "مزودو تسجيل الدخول الاجتماعي. معرّفات العملاء هنا معرّفات عامة؛ أما المفاتيح الخاصة فتُحفظ في صفحة الأسرار. يجب أيضًا تفعيل المزود في صفّه بالدليل حتى يظهر الزر.",
+        "مزودو تسجيل الدخول الاجتماعي. معرّفات العملاء هنا معرّفات عامة؛ أما المفاتيح الخاصة فتُحفظ ضمن «إدارة الأسرار». يجب أيضًا تفعيل المزود في صفّه بالدليل حتى يظهر الزر.",
       googleEnabled: "تسجيل الدخول عبر Google",
       googleEnabledHint: "يتطلب معرّف عميل صالحًا أدناه.",
       googleClientId: "معرّف عميل Google",
       googleClientIdHint:
         "من صفحة Credentials في Google Cloud Console. قيمة عامة يمكن تخزينها هنا بأمان.",
       appleEnabled: "تسجيل الدخول عبر Apple",
-      appleEnabledHint: "يتطلب معرّف الخدمات ومعرّف الفريق ومعرّف المفتاح، إضافة إلى مفتاح .p8 في الأسرار.",
+      appleEnabledHint:
+        "يتطلب معرّف الخدمات ومعرّف الفريق ومعرّف المفتاح، إضافة إلى مفتاح ‎.p8‎ ضمن «إدارة الأسرار».",
       appleServicesId: "معرّف خدمات Apple",
       appleServicesIdHint: "مثل com.example.accounts، من بوابة مطوري Apple.",
       appleTeamId: "معرّف فريق Apple",
       appleTeamIdHint: "معرّف الفريق المكوّن من 10 أحرف من بوابة مطوري Apple.",
       appleKeyId: "معرّف مفتاح Apple",
-      appleKeyIdHint: "معرّف مفتاح التوقيع .p8؛ أما المفتاح نفسه فيُحفظ في الأسرار.",
+      appleKeyIdHint:
+        "معرّف مفتاح التوقيع ‎.p8‎؛ أما المفتاح نفسه فيُحفظ ضمن «إدارة الأسرار».",
       applePrivateKeyPem: "مفتاح توقيع Apple (.p8)",
       avatarImportEnabled: "استيراد صور الملفات الشخصية من المزوّد",
       avatarImportEnabledHint:
@@ -1578,7 +1587,7 @@ export const ar: TranslationResources = {
     secretManagement: {
       title: "إدارة الأسرار",
       description:
-        "كيفية تخزين الأسرار التشفيرية (ملف مشفر / DPAPI / نص صريح للتطوير). يُهيأ قبل قاعدة البيانات، لذا يُدار الوضع في ملفات الخادم؛ أما قيم الأسرار نفسها فتُدار في صفحة الأسرار.",
+        "كيفية تخزين الأسرار التشفيرية (ملف مشفر / DPAPI / نص صريح للتطوير). يُهيأ قبل قاعدة البيانات، لذا يُدار الوضع في ملفات الخادم؛ أما قيم الأسرار نفسها فتُدار في صفحة المفاتيح أدناه.",
       storageMode: "وضع التخزين",
       secretFilePath: "ملف الأسرار",
       autoGenerateKeys: "توليد المفاتيح تلقائيًا",

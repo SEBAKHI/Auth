@@ -139,7 +139,8 @@ export const fa: TranslationResources = {
     apiKeys: "کلیدهای API",
     webhookKeys: "کلیدهای Webhook",
     auditLogs: "گزارش‌های ممیزی",
-    secrets: "اسرار",
+    secretManagement: "مدیریت اسرار",
+    secretKeys: "کلیدهای محرمانه",
     platformSettings: "تنظیمات پلتفرم",
     systemSettings: "تنظیمات سیستم",
     profile: "پروفایل",
@@ -770,8 +771,14 @@ export const fa: TranslationResources = {
     newValues: "مقادیر جدید",
   },
   secrets: {
-    title: "اسرار",
+    title: "کلیدهای محرمانه",
     subtitle: "مدیریت کلیدهای امضا و توکن‌های درگاه برای این نمونه.",
+    status: {
+      notConfigured: "پیکربندی‌نشده",
+      configured: "پیکربندی‌شده",
+      empty: "خالی",
+      unknown: "نامشخص",
+    },
     disabledTitle: "مدیریت اسرار غیرفعال است",
     disabledBody:
       "API مدیریت اسرار برای این محیط خاموش است، یا مجوز secrets.manage را ندارید.",
@@ -1207,8 +1214,8 @@ export const fa: TranslationResources = {
     fileValue: "مقدار پیش‌فرض: {{value}}",
     notSet: "تنظیم نشده",
     managedInSecrets:
-      "مقدار محرمانه — به‌صورت رمزگذاری‌شده ذخیره و در صفحه اسرار مدیریت می‌شود، نه اینجا.",
-    openSecrets: "باز کردن اسرار",
+      "مقدار محرمانه — به‌صورت رمزگذاری‌شده ذخیره و ذیل «مدیریت اسرار» مدیریت می‌شود، نه اینجا.",
+    openSecrets: "مدیریت اسرار",
     readOnly: "فقط‌خواندنی",
     resetSection: "بازنشانی به پیش‌فرض‌ها",
     resetConfirmTitle: "این بخش بازنشانی شود؟",
@@ -1377,7 +1384,7 @@ export const fa: TranslationResources = {
     externalAuth: {
       title: "ورود خارجی (Google / Apple)",
       description:
-        "ارائه‌دهندگان ورود اجتماعی. شناسه‌های کلاینت اینجا شناسه‌های عمومی‌اند؛ کلیدهای خصوصی در صفحه اسرار نگهداری می‌شوند. برای نمایان شدن دکمه، ارائه‌دهنده باید در ردیف دایرکتوری خود نیز فعال شده باشد.",
+        "ارائه‌دهندگان ورود اجتماعی. شناسه‌های کلاینت اینجا شناسه‌های عمومی‌اند؛ کلیدهای خصوصی ذیل «مدیریت اسرار» نگهداری می‌شوند. برای نمایان شدن دکمه، ارائه‌دهنده باید در ردیف دایرکتوری خود نیز فعال شده باشد.",
       googleEnabled: "ورود با Google",
       googleEnabledHint: "به شناسه کلاینت معتبر در پایین نیاز دارد.",
       googleClientId: "شناسه کلاینت Google",
@@ -1385,13 +1392,14 @@ export const fa: TranslationResources = {
         "از بخش Credentials در Google Cloud Console. مقداری عمومی است و نگهداری آن اینجا امن است.",
       appleEnabled: "ورود با Apple",
       appleEnabledHint:
-        "به Services ID، Team ID، Key ID و کلید .p8 در اسرار نیاز دارد.",
+        "به Services ID، Team ID، Key ID و کلید .p8 ذیل «مدیریت اسرار» نیاز دارد.",
       appleServicesId: "Apple Services ID",
       appleServicesIdHint: "مثلاً com.example.accounts، از پورتال Apple Developer.",
       appleTeamId: "Apple Team ID",
       appleTeamIdHint: "شناسه تیم ۱۰نویسه‌ای از پورتال Apple Developer.",
       appleKeyId: "Apple Key ID",
-      appleKeyIdHint: "شناسه کلید امضای .p8؛ خود کلید در اسرار نگهداری می‌شود.",
+      appleKeyIdHint:
+        "شناسه کلید امضای .p8؛ خود کلید ذیل «مدیریت اسرار» نگهداری می‌شود.",
       applePrivateKeyPem: "کلید امضای Apple (.p8)",
       avatarImportEnabled: "درون‌ریزی تصویر نمایه از ارائه‌دهنده",
       avatarImportEnabledHint:
@@ -1620,7 +1628,7 @@ export const fa: TranslationResources = {
     secretManagement: {
       title: "مدیریت اسرار",
       description:
-        "نحوه ذخیره اسرار رمزنگاری (فایل رمزگذاری‌شده / DPAPI / متن ساده برای توسعه). پیش از پایگاه‌داده راه‌اندازی می‌شود، پس حالت آن در فایل‌های سرور مدیریت می‌شود؛ خودِ مقادیر اسرار در صفحه اسرار مدیریت می‌شوند.",
+        "نحوه ذخیره اسرار رمزنگاری (فایل رمزگذاری‌شده / DPAPI / متن ساده برای توسعه). پیش از پایگاه‌داده راه‌اندازی می‌شود، پس حالت آن در فایل‌های سرور مدیریت می‌شود؛ خودِ مقادیر اسرار در صفحه کلیدها در پایین مدیریت می‌شوند.",
       storageMode: "حالت ذخیره‌سازی",
       secretFilePath: "فایل اسرار",
       autoGenerateKeys: "تولید خودکار کلیدها",

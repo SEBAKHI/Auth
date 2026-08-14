@@ -24,11 +24,15 @@ import { Textarea } from "@authsystem/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@authsystem/ui/toggle-group"
 
 import {
+  SECTION_COMPANION_PAGES,
   fieldI18nKey,
   formFieldName,
   settingAnchorId,
   type SystemSettingsField,
 } from "../lib/sections"
+
+/** Read from the registry so the card button and these rows can never diverge. */
+const SECRET_KEYS_ROUTE = SECTION_COMPANION_PAGES.SecretManagement.route
 
 /**
  * Row geometry, applied to every setting alike (Windows 11 SettingsCard /
@@ -130,7 +134,7 @@ export function SecretFieldRow({
         <FieldDescription>{t("systemSettings.managedInSecrets")}</FieldDescription>
       </FieldContent>
       <Button variant="outline" size="sm" asChild>
-        <Link to="/admin/secrets">{t("systemSettings.openSecrets")}</Link>
+        <Link to={SECRET_KEYS_ROUTE}>{t("systemSettings.openSecrets")}</Link>
       </Button>
     </Field>
   )

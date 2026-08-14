@@ -406,20 +406,16 @@ export const router = createBrowserRouter([
               },
             ],
           },
+          // The keys page used to sit at this flat path with its own sidebar
+          // entry; keep bookmarks and any link already sent out working.
           {
+            path: "admin/secrets",
             element: (
-              <PermissionRoute permission={PERMISSIONS.secrets.manage} />
+              <Navigate
+                to="/admin/system-settings/SecretManagement/keys"
+                replace
+              />
             ),
-            children: [
-              {
-                path: "admin/secrets",
-                lazy: lazyRoute(
-                  () => import("@/pages/secrets/secrets-page"),
-                  (m) => m.SecretsPage
-                ),
-                handle: crumb("secrets", "/admin/secrets"),
-              },
-            ],
           },
           {
             element: (
@@ -440,18 +436,58 @@ export const router = createBrowserRouter([
             ],
           },
           {
-            element: (
-              <PermissionRoute permission={PERMISSIONS.systemSettings.manage} />
-            ),
+            // The parent owns the crumb, so everything below it reads as part
+            // of system settings — which is the point of hosting the secret
+            // keys page here rather than off the sidebar.
+            path: "admin/system-settings",
+            handle: crumb("systemSettings", "/admin/system-settings"),
             children: [
               {
-                path: "admin/system-settings/:sectionKey?",
-                lazy: lazyRoute(
-                  () =>
-                    import("@/pages/system-settings/system-settings-page"),
-                  (m) => m.SystemSettingsPage
+                element: (
+                  <PermissionRoute
+                    permission={PERMISSIONS.systemSettings.manage}
+                  />
                 ),
-                handle: crumb("systemSettings", "/admin/system-settings"),
+                children: [
+                  {
+                    index: true,
+                    lazy: lazyRoute(
+                      () =>
+                        import("@/pages/system-settings/system-settings-page"),
+                      (m) => m.SystemSettingsPage
+                    ),
+                  },
+                  {
+                    path: ":sectionKey",
+                    lazy: lazyRoute(
+                      () =>
+                        import("@/pages/system-settings/system-settings-page"),
+                      (m) => m.SystemSettingsPage
+                    ),
+                  },
+                ],
+              },
+              {
+                // Gated on `secrets.manage` ALONE. The section card above it
+                // describes where secrets live; this page is where their values
+                // are set, and the two permissions are independent — requiring
+                // both here would lock out a holder of either one.
+                element: (
+                  <PermissionRoute permission={PERMISSIONS.secrets.manage} />
+                ),
+                children: [
+                  {
+                    path: "SecretManagement/keys",
+                    lazy: lazyRoute(
+                      () => import("@/pages/secrets/secrets-page"),
+                      (m) => m.SecretsPage
+                    ),
+                    handle: crumb(
+                      "secretKeys",
+                      "/admin/system-settings/SecretManagement/keys"
+                    ),
+                  },
+                ],
               },
             ],
           },

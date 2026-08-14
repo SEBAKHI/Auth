@@ -49,13 +49,6 @@ import {
   type SecretOperationName,
 } from "./secret-operation-flow"
 
-const SECRET_STATUS_LABEL: Record<string, string> = {
-  notConfigured: "Not configured",
-  configured: "Configured",
-  empty: "Empty",
-  unknown: "Unknown",
-}
-
 type ImportKind = "rsa" | "hmac" | "gateway"
 
 const IMPORT_OPERATION: Record<ImportKind, SecretOperationName> = {
@@ -406,8 +399,10 @@ export function SecretsPage() {
                     className="flex items-center justify-between gap-3 py-2.5"
                   >
                     <span className="font-mono text-sm">{key}</span>
+                    {/* `secretStatusMeta` returns one of four fixed keys, all
+                        under `secrets.status`. */}
                     <Badge variant={meta.variant}>
-                      {SECRET_STATUS_LABEL[meta.key]}
+                      {t(`secrets.status.${meta.key}`)}
                     </Badge>
                   </li>
                 )
