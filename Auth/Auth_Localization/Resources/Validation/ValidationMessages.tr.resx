@@ -39,9 +39,6 @@
   <data name="Validation.LastName.MaxLength" xml:space="preserve">
     <value>Soyad 100 karakteri aşmamalıdır.</value>
   </data>
-  <data name="Validation.DisplayName.MaxLength" xml:space="preserve">
-    <value>Görünen ad 200 karakteri aşmamalıdır.</value>
-  </data>
   <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
     <value>Telefon numarası 20 karakteri aşmamalıdır.</value>
   </data>

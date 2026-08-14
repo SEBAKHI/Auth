@@ -386,7 +386,6 @@ export const ar: TranslationResources = {
     searchPlaceholder: "ابحث بالاسم أو البريد…",
     firstName: "الاسم الأول",
     lastName: "اسم العائلة",
-    displayName: "الاسم المعروض",
     phoneNumber: "رقم الهاتف",
     preferredLanguage: "اللغة المفضلة",
     timeZone: "المنطقة الزمنية",

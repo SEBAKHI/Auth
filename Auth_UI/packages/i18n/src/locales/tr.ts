@@ -392,7 +392,6 @@ export const tr: TranslationResources = {
     searchPlaceholder: "Ada veya e-postaya göre arayın…",
     firstName: "Ad",
     lastName: "Soyad",
-    displayName: "Görünen ad",
     phoneNumber: "Telefon numarası",
     preferredLanguage: "Tercih edilen dil",
     timeZone: "Saat dilimi",

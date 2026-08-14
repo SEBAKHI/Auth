@@ -378,7 +378,6 @@ export const zh: TranslationResources = {
     searchPlaceholder: "按姓名或邮箱搜索…",
     firstName: "名",
     lastName: "姓",
-    displayName: "显示名称",
     phoneNumber: "电话号码",
     preferredLanguage: "首选语言",
     timeZone: "时区",

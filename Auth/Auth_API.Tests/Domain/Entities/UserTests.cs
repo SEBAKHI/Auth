@@ -106,13 +106,13 @@ public class UserTests
     }
 
     [Fact]
-    public void Create_WithCustomDisplayName_UsesProvidedDisplayName()
+    public void Create_AlwaysDerivesTheDisplayNameFromFirstAndLastName()
     {
-        // Arrange & Act
-        var user = User.Create("user@example.com", "hash", "Alice", "Smith", Guid.NewGuid(), displayName: "A. Smith");
+        // No caller may supply one: the store keeps FullName as a computed column
+        // over these two, so anything else would be a second copy no write reaches.
+        var user = User.Create("user@example.com", "hash", "Alice", "Smith", Guid.NewGuid());
 
-        // Assert
-        user.DisplayName.Should().Be("A. Smith");
+        user.DisplayName.Should().Be("Alice Smith");
     }
 
     [Fact]
@@ -198,12 +198,12 @@ public class UserTests
         var modifiedBy = Guid.NewGuid();
 
         // Act
-        user.UpdateProfile("Jane", "Doe", "J. Doe", "+1234567890", "fr", "Europe/Paris", "dark", modifiedBy);
+        user.UpdateProfile("Jane", "Doe", "+1234567890", "fr", "Europe/Paris", "dark", modifiedBy);
 
         // Assert
         user.FirstName.Should().Be("Jane");
         user.LastName.Should().Be("Doe");
-        user.DisplayName.Should().Be("J. Doe");
+        user.DisplayName.Should().Be("Jane Doe");
         user.PreferredLanguage.Should().Be("fr");
         user.TimeZone.Should().Be("Europe/Paris");
         user.Theme.Should().Be("dark");
@@ -212,16 +212,17 @@ public class UserTests
     }
 
     [Fact]
-    public void UpdateProfile_NullDisplayName_SetsDisplayNameToNull()
+    public void UpdateProfile_RenamingTheUser_RederivesTheDisplayName()
     {
         // Arrange
         var user = CreateDefaultUser();
 
         // Act
-        user.UpdateProfile("Jane", "Doe", null, null, null, null, null, Guid.NewGuid());
+        user.UpdateProfile("Jane", "Doe", null, null, null, null, Guid.NewGuid());
 
-        // Assert
-        user.DisplayName.Should().BeNull();
+        // Assert — it follows the names it is made of, and matches the computed
+        // column the next read of this user returns.
+        user.DisplayName.Should().Be("Jane Doe");
     }
 
     #endregion

@@ -87,7 +87,6 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
             firstName: request.FirstName,
             lastName: request.LastName,
             createdBy: request.CreatedBy,
-            displayName: request.DisplayName,
             phoneNumber: request.PhoneNumber,
             preferredLanguage: request.PreferredLanguage ?? "en",
             timeZone: request.TimeZone ?? "UTC",

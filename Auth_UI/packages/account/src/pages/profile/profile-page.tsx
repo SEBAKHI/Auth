@@ -72,7 +72,6 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
   const schema = z.object({
     firstName: z.string().min(1, t("validation.required")),
     lastName: z.string().min(1, t("validation.required")),
-    displayName: z.string().optional(),
     phoneNumber: z.string().optional(),
     preferredLanguage: z.string().optional(),
     timeZone: z.string().optional(),
@@ -85,7 +84,6 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
     defaultValues: {
       firstName: me.firstName ?? "",
       lastName: me.lastName ?? "",
-      displayName: me.displayName ?? "",
       phoneNumber: me.phoneNumber ?? "",
       preferredLanguage: me.preferredLanguage ?? "",
       timeZone: me.timeZone ?? "",
@@ -99,7 +97,6 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
         body: {
           firstName: values.firstName,
           lastName: values.lastName,
-          displayName: emptyToNull(values.displayName),
           phoneNumber: emptyToNull(values.phoneNumber),
           preferredLanguage: emptyToNull(values.preferredLanguage),
           timeZone: emptyToNull(values.timeZone),
@@ -176,19 +173,6 @@ function AccountTab({ me }: { me: Schemas["UserDto"] }) {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>{t("users.lastName")}</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="displayName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t("users.displayName")}</FormLabel>
                       <FormControl>
                         <Input {...field} />
                       </FormControl>

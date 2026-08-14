@@ -383,7 +383,6 @@ export const en = {
     searchPlaceholder: "Search by name or email…",
     firstName: "First name",
     lastName: "Last name",
-    displayName: "Display name",
     phoneNumber: "Phone number",
     preferredLanguage: "Preferred language",
     timeZone: "Time zone",

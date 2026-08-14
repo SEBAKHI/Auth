@@ -30,12 +30,6 @@ public static class SharedValidationRules
             .MaximumLength(100).WithMessage("Validation.LastName.MaxLength");
     }
 
-    public static IRuleBuilderOptions<T, string?> IsValidDisplayName<T>(this IRuleBuilder<T, string?> ruleBuilder)
-    {
-        return ruleBuilder
-            .MaximumLength(200).WithMessage("Validation.DisplayName.MaxLength");
-    }
-
     public static IRuleBuilderOptions<T, string?> IsValidPhoneNumber<T>(this IRuleBuilder<T, string?> ruleBuilder)
     {
         return ruleBuilder

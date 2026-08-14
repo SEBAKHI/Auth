@@ -115,7 +115,6 @@ public class AuthController : ApiController
             request.Password,
             request.FirstName,
             request.LastName,
-            request.DisplayName,
             request.PhoneNumber,
             request.PreferredLanguage,
             request.TimeZone,

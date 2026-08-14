@@ -53,12 +53,11 @@ public class RegisterCommandHandlerTests
         string password = "ValidPass1!",
         string firstName = "Test",
         string lastName = "User",
-        string? displayName = null,
         string? phoneNumber = null,
         string? preferredLanguage = null,
         string? timeZone = null,
         bool createOrganization = false)
-        => new(email, password, firstName, lastName, displayName, phoneNumber, preferredLanguage, timeZone, createOrganization);
+        => new(email, password, firstName, lastName, phoneNumber, preferredLanguage, timeZone, createOrganization);
 
     [Fact]
     public async Task Handle_ValidData_ReturnsRegisterResponse()

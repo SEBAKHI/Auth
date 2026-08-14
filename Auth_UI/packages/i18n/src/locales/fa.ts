@@ -389,7 +389,6 @@ export const fa: TranslationResources = {
     searchPlaceholder: "جستجو بر اساس نام یا ایمیل…",
     firstName: "نام",
     lastName: "نام خانوادگی",
-    displayName: "نام نمایشی",
     phoneNumber: "شماره تلفن",
     preferredLanguage: "زبان ترجیحی",
     timeZone: "منطقه زمانی",

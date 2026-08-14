@@ -14,7 +14,10 @@ BEGIN
         [PasswordHash],
         [FirstName],
         [LastName],
-        [FullName],
+        -- Aliased because the reader binds by column name and has no FullName
+        -- property: unaliased, Dapper drops the column without complaint and
+        -- the sign-in response carries a null display name.
+        [FullName] AS [DisplayName],
         [PhoneNumber],
         [ProfileImageUrl],
         [PreferredLanguage],

@@ -395,7 +395,6 @@ export const fr: TranslationResources = {
     searchPlaceholder: "Rechercher par nom ou e-mail…",
     firstName: "Prénom",
     lastName: "Nom",
-    displayName: "Nom affiché",
     phoneNumber: "Numéro de téléphone",
     preferredLanguage: "Langue préférée",
     timeZone: "Fuseau horaire",

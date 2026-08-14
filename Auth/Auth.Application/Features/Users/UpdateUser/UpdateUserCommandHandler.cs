@@ -40,7 +40,6 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, Error
         user.UpdateProfile(
             firstName: request.FirstName,
             lastName: request.LastName,
-            displayName: request.DisplayName,
             phoneNumber: request.PhoneNumber,
             preferredLanguage: request.PreferredLanguage,
             timeZone: request.TimeZone,

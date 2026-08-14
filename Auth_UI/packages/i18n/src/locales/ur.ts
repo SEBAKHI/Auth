@@ -387,7 +387,6 @@ export const ur: TranslationResources = {
     searchPlaceholder: "نام یا ای میل سے تلاش کریں…",
     firstName: "پہلا نام",
     lastName: "آخری نام",
-    displayName: "ظاہری نام",
     phoneNumber: "فون نمبر",
     preferredLanguage: "ترجیحی زبان",
     timeZone: "ٹائم زون",

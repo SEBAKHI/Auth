@@ -91,7 +91,6 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
             firstName: request.FirstName,
             lastName: request.LastName,
             createdBy: Guid.Empty,
-            displayName: request.DisplayName,
             phoneNumber: request.PhoneNumber,
             // Site language becomes the durable preference: explicit choice from
             // the client, else the request culture (X-Language/Accept-Language) —

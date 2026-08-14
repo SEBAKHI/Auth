@@ -176,7 +176,6 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
                     firstName: FirstNonEmpty(externalUser.FirstName, request.GivenName),
                     lastName: FirstNonEmpty(externalUser.LastName, request.FamilyName),
                     createdBy: Guid.Empty,
-                    displayName: externalUser.DisplayName,
                     profileImageUrl: importedAvatarKey);
 
                 await _userRepository.CreateAsync(user, cancellationToken);

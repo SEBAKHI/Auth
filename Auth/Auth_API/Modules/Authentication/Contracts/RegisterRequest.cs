@@ -35,12 +35,6 @@ public record RegisterRequest
     public required string LastName { get; init; }
 
     /// <summary>
-    /// Gets the optional display name.
-    /// </summary>
-    [StringLength(200)]
-    public string? DisplayName { get; init; }
-
-    /// <summary>
     /// Gets the optional phone number.
     /// </summary>
     [StringLength(20)]
