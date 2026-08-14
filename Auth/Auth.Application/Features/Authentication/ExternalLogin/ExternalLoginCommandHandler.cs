@@ -26,6 +26,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IEnumerable<IExternalTokenLifecycle> _tokenLifecycles;
     private readonly IPerUserCryptoService _perUserCrypto;
+    private readonly IExternalAvatarImporter _avatarImporter;
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
@@ -40,6 +41,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         IdentifierReservationGuard reservationGuard,
         IEnumerable<IExternalTokenLifecycle> tokenLifecycles,
         IPerUserCryptoService perUserCrypto,
+        IExternalAvatarImporter avatarImporter,
         IPersonalOrganizationCreator personalOrganizationCreator,
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
@@ -53,6 +55,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         _reservationGuard = reservationGuard;
         _tokenLifecycles = tokenLifecycles;
         _perUserCrypto = perUserCrypto;
+        _avatarImporter = avatarImporter;
         _personalOrganizationCreator = personalOrganizationCreator;
         _loginResponseBuilder = loginResponseBuilder;
         _twoFactorChallengeService = twoFactorChallengeService;
@@ -113,6 +116,11 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
                 externalUser.Email, externalUser.DisplayName, externalUser.PictureUrl);
             await _externalLoginRepository.UpdateAsync(existingExternalLogin, cancellationToken);
 
+            // Accounts that predate the import, or whose earlier attempt failed, pick
+            // the picture up here. One import per account: the guard inside sees a key
+            // and does nothing on every later sign-in.
+            await AdoptProviderAvatarAsync(user, externalUser.PictureUrl, cancellationToken);
+
             _logger.LogInformation(
                 "Existing user {UserId} logged in via {Provider}",
                 user.Id, request.Provider);
@@ -128,6 +136,10 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
                 _logger.LogInformation(
                     "Linking {Provider} to existing user {UserId} ({Email})",
                     request.Provider, user.Id, user.Email);
+
+                // An account registered by email and only now linked to a provider has
+                // no picture of its own; this is where it gets one.
+                await AdoptProviderAvatarAsync(user, externalUser.PictureUrl, cancellationToken);
             }
             else
             {
@@ -153,13 +165,19 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
                 // name in the ID token — it arrives client-side on the FIRST
                 // authorization only, so the request fields fill the gap here
                 // (first registration) and are ignored everywhere else.
+                // Imported before the account exists so the storage key goes in on the
+                // insert. What is stored is our own key, never the provider's URL: the
+                // apps' img-src names this origin only.
+                var importedAvatarKey = await _avatarImporter.TryImportAsync(
+                    externalUser.PictureUrl, cancellationToken);
+
                 user = User.CreateFromExternalProvider(
                     email: externalUser.Email,
                     firstName: FirstNonEmpty(externalUser.FirstName, request.GivenName),
                     lastName: FirstNonEmpty(externalUser.LastName, request.FamilyName),
                     createdBy: Guid.Empty,
                     displayName: externalUser.DisplayName,
-                    profileImageUrl: externalUser.PictureUrl);
+                    profileImageUrl: importedAvatarKey);
 
                 await _userRepository.CreateAsync(user, cancellationToken);
 
@@ -248,6 +266,34 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         return loginResponse;
+    }
+
+    /// <summary>
+    /// Adopts the provider's picture as the account avatar the first time one is seen,
+    /// copying it into this system's own image storage.
+    /// </summary>
+    /// <remarks>
+    /// A picture already on the account is never replaced — whether it was uploaded by
+    /// the user or imported earlier — so this costs one fetch per account and nothing
+    /// afterwards. A failed import is a no-op: the account keeps its initials and the
+    /// next sign-in tries again.
+    /// </remarks>
+    private async Task AdoptProviderAvatarAsync(
+        User user, string? pictureUrl, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrEmpty(user.ProfileImageUrl))
+        {
+            return;
+        }
+
+        var storageKey = await _avatarImporter.TryImportAsync(pictureUrl, cancellationToken);
+        if (storageKey is null)
+        {
+            return;
+        }
+
+        user.SetProfileImage(storageKey, user.Id);
+        await _userRepository.UpdateAsync(user, cancellationToken);
     }
 
     private static string FirstNonEmpty(string providerValue, string? requestValue) =>

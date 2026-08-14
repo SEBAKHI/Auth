@@ -1381,6 +1381,15 @@ export const en = {
       appleKeyId: "Apple Key ID",
       appleKeyIdHint: "Identifier of the .p8 signing key; the key itself lives in Secrets.",
       applePrivateKeyPem: "Apple signing key (.p8)",
+      avatarImportEnabled: "Import provider profile pictures",
+      avatarImportEnabledHint:
+        "On the first external sign-in of an account that has no picture, the provider's picture is copied here and served from this origin. A picture the user uploaded is never replaced.",
+      avatarImportTimeoutMs: "Import timeout (ms)",
+      avatarImportTimeoutMsHint:
+        "Budget for that one download. Exceeding it leaves the account on its initials; the next sign-in tries again.",
+      avatarImportMaxBytes: "Import size limit (bytes)",
+      avatarImportMaxBytesHint:
+        "Larger responses are refused while being read, not on the strength of the length the provider declares.",
     },
     identityProvider: {
       title: "Identity provider (SSO)",

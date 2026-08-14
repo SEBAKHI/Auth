@@ -617,6 +617,23 @@ builder.Services.AddSingleton<AppleClientSecretGenerator>();
 builder.Services.AddHttpClient<AppleTokenRevocationService>();
 builder.Services.AddSingleton<IExternalTokenLifecycle>(sp => sp.GetRequiredService<AppleTokenRevocationService>());
 builder.Services.AddSingleton<IExternalAuthProviderFactory, ExternalAuthProviderFactory>();
+// Provider profile-picture import. The URL comes out of a provider-signed ID token
+// rather than from user input, but it is still an outbound fetch on the sign-in
+// path, so the handler refuses redirects, sends no cookies and does not decompress.
+// Enabled/TimeoutMs/MaxBytes are read per call via IOptionsMonitor, so all three are
+// hot; the time budget is applied per call rather than as HttpClient.Timeout for
+// exactly that reason.
+builder.Services.AddHttpClient<IExternalAvatarImporter, ExternalAvatarImporter>(client =>
+{
+    client.DefaultRequestHeaders.UserAgent.ParseAdd("AuthSystem-AvatarImport/1.0");
+    client.DefaultRequestHeaders.Accept.ParseAdd("image/*");
+})
+.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    AllowAutoRedirect = false,
+    UseCookies = false,
+    AutomaticDecompression = System.Net.DecompressionMethods.None
+});
 
 // Integration Events
 builder.Services.AddSingleton<Auth.Application.IntegrationEvents.IIntegrationEventPublisher,

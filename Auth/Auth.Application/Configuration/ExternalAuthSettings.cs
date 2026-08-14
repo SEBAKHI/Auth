@@ -16,6 +16,39 @@ public class ExternalAuthSettings
     /// Gets or sets the Apple authentication settings.
     /// </summary>
     public AppleAuthSettings? Apple { get; set; }
+
+    /// <summary>
+    /// Gets or sets the provider profile-picture import settings. Every value is read
+    /// per sign-in, so all three take effect without a restart.
+    /// </summary>
+    public ExternalAvatarImportSettings AvatarImport { get; set; } = new();
+}
+
+/// <summary>
+/// Settings for copying a provider's profile picture into this system's own image
+/// storage the first time an account signs in with one.
+/// </summary>
+public class ExternalAvatarImportSettings
+{
+    /// <summary>
+    /// Gets or sets whether the picture is imported at all. A kill switch for an
+    /// environment with no outbound HTTP: turning it off leaves accounts on the
+    /// initials fallback and changes nothing else about sign-in.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the budget for the download, in milliseconds. Bounds the delay the
+    /// import can add to the one sign-in that performs it.
+    /// </summary>
+    public int TimeoutMs { get; set; } = 3000;
+
+    /// <summary>
+    /// Gets or sets the maximum number of bytes read from the provider. Enforced while
+    /// reading, not from the declared length, so a wrong or absent Content-Length
+    /// cannot get past it. Profile pictures are far smaller than this.
+    /// </summary>
+    public int MaxBytes { get; set; } = 2 * 1024 * 1024;
 }
 
 /// <summary>

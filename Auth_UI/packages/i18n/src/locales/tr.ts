@@ -1402,6 +1402,15 @@ export const tr: TranslationResources = {
       appleKeyId: "Apple Key ID",
       appleKeyIdHint: ".p8 imzalama anahtarının tanımlayıcısı; anahtarın kendisi Gizli Anahtarlar'da durur.",
       applePrivateKeyPem: "Apple imzalama anahtarı (.p8)",
+      avatarImportEnabled: "Sağlayıcı profil resimlerini içe aktar",
+      avatarImportEnabledHint:
+        "Resmi olmayan bir hesabın ilk dış oturum açmasında sağlayıcının resmi buraya kopyalanır ve bu kaynaktan sunulur. Kullanıcının yüklediği bir resim asla değiştirilmez.",
+      avatarImportTimeoutMs: "İçe aktarma zaman aşımı (ms)",
+      avatarImportTimeoutMsHint:
+        "O tek indirme için ayrılan süre. Aşılması hesabı baş harflerinde bırakır; sonraki oturum açmada yeniden denenir.",
+      avatarImportMaxBytes: "İçe aktarma boyut sınırı (bayt)",
+      avatarImportMaxBytesHint:
+        "Daha büyük yanıtlar, sağlayıcının bildirdiği uzunluğa göre değil okunurken reddedilir.",
     },
     identityProvider: {
       title: "Kimlik sağlayıcı (SSO)",

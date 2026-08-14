@@ -1394,6 +1394,15 @@ export const fa: TranslationResources = {
       appleKeyId: "Apple Key ID",
       appleKeyIdHint: "شناسه کلید امضای .p8؛ خود کلید در اسرار نگهداری می‌شود.",
       applePrivateKeyPem: "کلید امضای Apple (.p8)",
+      avatarImportEnabled: "درون‌ریزی تصویر نمایه از ارائه‌دهنده",
+      avatarImportEnabledHint:
+        "در نخستین ورود بیرونی حسابی که تصویر ندارد، تصویر ارائه‌دهنده اینجا رونوشت و از همین مبدأ ارائه می‌شود. تصویری که کاربر بارگذاری کرده هرگز جایگزین نمی‌شود.",
+      avatarImportTimeoutMs: "مهلت درون‌ریزی (میلی‌ثانیه)",
+      avatarImportTimeoutMsHint:
+        "بودجهٔ زمانی همان یک بارگیری. گذشتن از آن حساب را روی حروف نخست نگه می‌دارد و ورود بعدی دوباره تلاش می‌کند.",
+      avatarImportMaxBytes: "سقف اندازهٔ درون‌ریزی (بایت)",
+      avatarImportMaxBytesHint:
+        "پاسخ‌های بزرگ‌تر هنگام خواندن رد می‌شوند، نه بر پایهٔ طولی که ارائه‌دهنده اعلام می‌کند.",
     },
     identityProvider: {
       title: "ارائه‌دهنده هویت (SSO)",

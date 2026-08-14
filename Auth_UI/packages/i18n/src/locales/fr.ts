@@ -1437,6 +1437,15 @@ export const fr: TranslationResources = {
       appleKeyIdHint:
         "Identifiant de la clé de signature .p8 ; la clé elle-même vit dans les Secrets.",
       applePrivateKeyPem: "Clé de signature Apple (.p8)",
+      avatarImportEnabled: "Importer les photos de profil du fournisseur",
+      avatarImportEnabledHint:
+        "À la première connexion externe d'un compte sans photo, la photo du fournisseur est copiée ici et servie depuis cette origine. Une photo téléversée par l'utilisateur n'est jamais remplacée.",
+      avatarImportTimeoutMs: "Délai d'importation (ms)",
+      avatarImportTimeoutMsHint:
+        "Budget alloué à ce téléchargement unique. Son dépassement laisse le compte sur ses initiales ; la connexion suivante réessaie.",
+      avatarImportMaxBytes: "Limite de taille d'importation (octets)",
+      avatarImportMaxBytesHint:
+        "Les réponses plus volumineuses sont refusées pendant la lecture, et non d'après la longueur déclarée par le fournisseur.",
     },
     identityProvider: {
       title: "Fournisseur d'identité (SSO)",

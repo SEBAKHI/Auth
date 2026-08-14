@@ -1324,6 +1324,15 @@ export const zh: TranslationResources = {
       appleKeyId: "Apple Key ID",
       appleKeyIdHint: ".p8 签名密钥的标识符；密钥本身保存在机密中。",
       applePrivateKeyPem: "Apple 签名密钥（.p8）",
+      avatarImportEnabled: "导入提供方的头像",
+      avatarImportEnabledHint:
+        "账户首次通过外部提供方登录且尚无头像时，提供方的头像会被复制到此处并由本源提供。用户自行上传的头像永不会被替换。",
+      avatarImportTimeoutMs: "导入超时（毫秒）",
+      avatarImportTimeoutMsHint:
+        "该次下载的时间预算。超时后账户保持首字母显示，下次登录会再次尝试。",
+      avatarImportMaxBytes: "导入大小上限（字节）",
+      avatarImportMaxBytesHint:
+        "超出上限的响应在读取过程中被拒绝，而不是依据提供方声明的长度。",
     },
     identityProvider: {
       title: "身份提供方（SSO）",

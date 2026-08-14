@@ -1370,6 +1370,15 @@ export const ar: TranslationResources = {
       appleKeyId: "معرّف مفتاح Apple",
       appleKeyIdHint: "معرّف مفتاح التوقيع .p8؛ أما المفتاح نفسه فيُحفظ في الأسرار.",
       applePrivateKeyPem: "مفتاح توقيع Apple (.p8)",
+      avatarImportEnabled: "استيراد صور الملفات الشخصية من المزوّد",
+      avatarImportEnabledHint:
+        "عند أول تسجيل دخول خارجي لحساب لا صورة له، تُنسَخ صورة المزوّد إلى هنا وتُقدَّم من هذا المنشأ. ولا تُستبدل صورة رفعها المستخدم أبداً.",
+      avatarImportTimeoutMs: "مهلة الاستيراد (مللي ثانية)",
+      avatarImportTimeoutMsHint:
+        "الحدّ الزمني لعملية التنزيل الواحدة تلك. تجاوزه يُبقي الحساب على أحرفه الأولى، ويُعاد المحاولة عند تسجيل الدخول التالي.",
+      avatarImportMaxBytes: "حدّ حجم الاستيراد (بايت)",
+      avatarImportMaxBytesHint:
+        "تُرفض الاستجابات الأكبر أثناء قراءتها، لا اعتماداً على الحجم الذي يُعلنه المزوّد.",
     },
     identityProvider: {
       title: "موفر الهوية (SSO)",

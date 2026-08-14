@@ -1389,6 +1389,15 @@ export const ur: TranslationResources = {
       appleKeyId: "Apple Key ID",
       appleKeyIdHint: ".p8 دستخطی کلید کا شناخت کنندہ؛ کلید خود راز میں رہتی ہے۔",
       applePrivateKeyPem: "Apple دستخطی کلید (.p8)",
+      avatarImportEnabled: "فراہم کنندہ سے پروفائل تصاویر درآمد کریں",
+      avatarImportEnabledHint:
+        "جس اکاؤنٹ کی کوئی تصویر نہ ہو، اس کے پہلے بیرونی سائن اِن پر فراہم کنندہ کی تصویر یہاں نقل ہو کر اسی مآخذ سے پیش کی جاتی ہے۔ صارف کی اپلوڈ کردہ تصویر کبھی تبدیل نہیں ہوتی۔",
+      avatarImportTimeoutMs: "درآمد کی مہلت (ملی سیکنڈ)",
+      avatarImportTimeoutMsHint:
+        "اُس ایک ڈاؤن لوڈ کے لیے مقررہ وقت۔ اس سے تجاوز پر اکاؤنٹ ابتدائی حروف پر رہتا ہے؛ اگلے سائن اِن پر دوبارہ کوشش ہوتی ہے۔",
+      avatarImportMaxBytes: "درآمد کے حجم کی حد (بائٹ)",
+      avatarImportMaxBytesHint:
+        "بڑے جوابات پڑھنے کے دوران مسترد کیے جاتے ہیں، فراہم کنندہ کی بتائی ہوئی لمبائی کی بنیاد پر نہیں۔",
     },
     identityProvider: {
       title: "شناختی فراہم کنندہ (SSO)",
