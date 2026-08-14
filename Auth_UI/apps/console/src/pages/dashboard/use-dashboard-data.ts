@@ -88,6 +88,25 @@ export function useAppActivity(days: number, enabled: boolean) {
   })
 }
 
+/**
+ * Credentials about to stop working.
+ *
+ * Deliberately not wired to the dashboard's period picker: this horizon runs
+ * forward, and "the last 7 days" must never come to mean "expiring within 7
+ * days". The server owns the horizon and reports it back as `horizonDays`.
+ *
+ * Families the caller may not read come back null rather than zero, which is what
+ * keeps each finding paired with a page that same caller can actually open.
+ */
+export function useCredentialStats(enabled: boolean) {
+  return useQuery({
+    queryKey: dashboardKeys.credentialStats,
+    enabled,
+    placeholderData: keepPrevious,
+    queryFn: () => unwrap(api.GET("/api/v1/dashboard/credential-stats")),
+  })
+}
+
 /** Latest audit events. Not windowed: "recent" means recent, whatever the scope. */
 export function useRecentActivity(enabled: boolean, pageSize = 8) {
   return useQuery({

@@ -11,8 +11,11 @@ public class GetWebhookKeysQueryValidator : AbstractValidator<GetWebhookKeysQuer
 {
     public GetWebhookKeysQueryValidator()
     {
+        // Omitting the filter is legitimate (every application); supplying an empty Guid
+        // is not — it is a caller that meant to narrow and lost the value on the way.
         RuleFor(x => x.ApplicationId)
-            .NotEmpty().WithMessage("Validation.ApplicationId.Required");
+            .NotEqual(Guid.Empty).WithMessage("Validation.ApplicationId.Required")
+            .When(x => x.ApplicationId.HasValue);
         RuleFor(x => x.SortBy).IsValidSortField(SortFields.WebhookKeys.Allowed);
     }
 }

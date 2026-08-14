@@ -62,8 +62,8 @@ public class WebhookKeyRepository : IWebhookKeyRepository
         (SortFields.WebhookKeys.RevokedAt, ["[RevokedAt]"]));
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<WebhookKey>> GetByApplicationAsync(
-        Guid applicationId,
+    public async Task<IReadOnlyList<WebhookKey>> ListAsync(
+        Guid? applicationId,
         string? sortBy,
         SortDirection sortDirection,
         CancellationToken cancellationToken)
@@ -71,9 +71,15 @@ public class WebhookKeyRepository : IWebhookKeyRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var orderBy = SortSql.OrderBy(SortColumns, sortBy, sortDirection, "[CreatedAt] DESC", "[Id]");
+
+        // Branched rather than a single "@ApplicationId IS NULL OR ...": that predicate is
+        // not sargable and would cost the single-application path its
+        // IX_WebhookKeys_ApplicationId seek. Both fragments are constants.
+        var where = applicationId.HasValue ? "WHERE [ApplicationId] = @ApplicationId" : string.Empty;
+
         var dtos = await connection.QueryAsync<WebhookKeyDto>($@"
             SELECT * FROM [dbo].[WebhookKeys]
-            WHERE [ApplicationId] = @ApplicationId
+            {where}
             ORDER BY {orderBy}",
             new { ApplicationId = applicationId });
 

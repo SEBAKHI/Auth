@@ -5,6 +5,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Features.Dashboard.GetAppActivityStats;
 using Auth.Application.Features.Dashboard.GetAuditStats;
 using Auth.Application.Features.Dashboard.GetAuthStats;
+using Auth.Application.Features.Dashboard.GetCredentialStats;
 using Auth.Application.Features.Dashboard.GetSessionStats;
 using Auth.Application.Features.Dashboard.GetUserStats;
 using MediatR;
@@ -135,6 +136,35 @@ public class DashboardController : ApiController
         CancellationToken cancellationToken = default)
     {
         var result = await _sender.Send(new GetAppActivityStatsQuery(days), cancellationToken);
+
+        return result.Match(
+            stats => Ok(stats),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get the expiry posture of issued API and webhook keys over a forward horizon.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately NOT decorated with [RequirePermission]: the two credential families
+    /// are gated by two different permissions (apikeys:read and webhookkeys:read) and the
+    /// attribute takes only one. The handler resolves both and returns a null bucket for
+    /// a family the caller may not read, so the dashboard can only ever surface a finding
+    /// whose destination page that same caller can open.
+    ///
+    /// The horizon runs forward and is separate from the trailing window every other
+    /// action on this controller takes.
+    /// </remarks>
+    [HttpGet("credential-stats")]
+    [ProducesResponseType(typeof(CredentialStatsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetCredentialStats(
+        [FromQuery] int horizonDays = 14,
+        CancellationToken cancellationToken = default)
+    {
+        var query = new GetCredentialStatsQuery(horizonDays) { RequestedBy = GetCurrentUserId() };
+        var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
             stats => Ok(stats),

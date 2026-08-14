@@ -61,8 +61,8 @@ public class ApiKeyRepository : IApiKeyRepository
         (SortFields.ApiKeys.RevokedAt, ["[RevokedAt]"]));
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<ApiKey>> GetByApplicationAsync(
-        Guid applicationId,
+    public async Task<IReadOnlyList<ApiKey>> ListAsync(
+        Guid? applicationId,
         string? sortBy,
         SortDirection sortDirection,
         CancellationToken cancellationToken)
@@ -70,9 +70,16 @@ public class ApiKeyRepository : IApiKeyRepository
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         var orderBy = SortSql.OrderBy(SortColumns, sortBy, sortDirection, "[CreatedAt] DESC", "[Id]");
+
+        // Branched rather than a single "@ApplicationId IS NULL OR [ApplicationId] = @ApplicationId":
+        // that predicate is not sargable and would cost the single-application path its
+        // IX_ApiKeys_ApplicationId seek. Both fragments are constants; nothing is concatenated
+        // from user input (orderBy comes from the SortColumns allow-list).
+        var where = applicationId.HasValue ? "WHERE [ApplicationId] = @ApplicationId" : string.Empty;
+
         var dtos = await connection.QueryAsync<ApiKeyDto>($@"
             SELECT * FROM [dbo].[ApiKeys]
-            WHERE [ApplicationId] = @ApplicationId
+            {where}
             ORDER BY {orderBy}",
             new { ApplicationId = applicationId });
 
@@ -202,6 +209,44 @@ public class ApiKeyRepository : IApiKeyRepository
         return permissions.ToList();
     }
 
+    /// <summary>
+    /// Dapper expands an IN list into one parameter per element and SQL Server caps a
+    /// batch at 2100, so a platform-wide listing has to be chunked rather than trusted
+    /// to stay small.
+    /// </summary>
+    private const int ScopeLookupChunkSize = 1000;
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetScopesAsync(
+        IReadOnlyCollection<Guid> apiKeyIds,
+        CancellationToken cancellationToken)
+    {
+        if (apiKeyIds.Count == 0)
+        {
+            return new Dictionary<Guid, IReadOnlyList<string>>();
+        }
+
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var scopesByKey = new Dictionary<Guid, IReadOnlyList<string>>();
+        foreach (var chunk in apiKeyIds.Distinct().Chunk(ScopeLookupChunkSize))
+        {
+            var rows = await connection.QueryAsync<ScopeRow>(@"
+                SELECT aks.[ApiKeyId], p.[Code]
+                FROM [dbo].[ApiKeyScopes] aks
+                INNER JOIN [dbo].[Permissions] p ON p.[Id] = aks.[PermissionId]
+                WHERE aks.[ApiKeyId] IN @ApiKeyIds AND p.[IsActive] = 1",
+                new { ApiKeyIds = chunk });
+
+            foreach (var group in rows.GroupBy(row => row.ApiKeyId))
+            {
+                scopesByKey[group.Key] = group.Select(row => row.Code).ToList();
+            }
+        }
+
+        return scopesByKey;
+    }
+
     /// <inheritdoc />
     public async Task RecordUsageAsync(Guid apiKeyId, CancellationToken cancellationToken)
     {
@@ -232,6 +277,12 @@ public class ApiKeyRepository : IApiKeyRepository
             new { Prefix = prefix });
 
         return dtos.Select(dto => dto.ToEntity()).ToList();
+    }
+
+    private record ScopeRow
+    {
+        public Guid ApiKeyId { get; init; }
+        public string Code { get; init; } = string.Empty;
     }
 
     private record ApiKeyDto

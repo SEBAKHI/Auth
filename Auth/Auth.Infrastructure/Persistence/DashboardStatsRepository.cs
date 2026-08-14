@@ -482,6 +482,106 @@ public class DashboardStatsRepository : IDashboardStatsRepository
         };
     }
 
+    /// <inheritdoc />
+    public async Task<CredentialStatsSnapshot> GetCredentialStatsAsync(
+        int horizonDays,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        using var grid = await connection.QueryMultipleAsync(@"
+            DECLARE @Now DATETIME2 = GETUTCDATE();
+            DECLARE @Horizon DATETIME2 = DATEADD(DAY, @HorizonDays, @Now);
+
+            -- API keys that stop authenticating inside the horizon.
+            --
+            -- The Applications join mirrors GetByHashAsync/GetActiveByPrefixAsync: a key
+            -- of a deactivated application already cannot authenticate, so its expiry is
+            -- not news. (Soft-DELETING an application cascades a revoke onto both key
+            -- tables; DEACTIVATING one does not, which is why IsActive is checked here
+            -- and not left to RevokedAt.)
+            --
+            -- Deliberately NO successor rule. Rotation writes a short grace expiry onto
+            -- the outgoing key and issues a replacement, so an obvious refinement is to
+            -- suppress a key that has a longer-lived sibling in the same application and
+            -- environment. That was tried and removed: nothing in the schema distinguishes
+            -- a rotation's replacement from an unrelated second key, so issuing any new
+            -- key silenced every genuinely expiring key beside it. Two API keys in one
+            -- application are two credentials held by two callers; one of them expiring
+            -- does not stop mattering because the other exists. (RotateApiKeyCommandHandler
+            -- records the link only in free-text Description, and KeyPrefix is per
+            -- environment rather than per key, so there is nothing reliable to match on.)
+            --
+            -- The cost of dropping it is that a freshly rotated key is counted for the
+            -- length of its grace window: transient, accurate, and following an explicit
+            -- admin action. The cost of keeping it was a silent missing warning about a
+            -- credential that will break, which is the failure this whole metric exists
+            -- to prevent.
+            SELECT
+                COUNT(*)           AS ExpiringCount,
+                MIN(k.[ExpiresAt]) AS SoonestExpiresAt
+            FROM [dbo].[ApiKeys] k
+            INNER JOIN [dbo].[Applications] a
+                ON a.[Id] = k.[ApplicationId] AND a.[IsActive] = 1 AND a.[IsDeleted] = 0
+            WHERE k.[RevokedAt] IS NULL
+              AND k.[ExpiresAt] IS NOT NULL
+              AND k.[ExpiresAt] >  @Now
+              AND k.[ExpiresAt] <= @Horizon;
+
+            -- Live API keys, the denominator.
+            SELECT COUNT(*)
+            FROM [dbo].[ApiKeys] k
+            INNER JOIN [dbo].[Applications] a
+                ON a.[Id] = k.[ApplicationId] AND a.[IsActive] = 1 AND a.[IsDeleted] = 0
+            WHERE k.[RevokedAt] IS NULL
+              AND (k.[ExpiresAt] IS NULL OR k.[ExpiresAt] > @Now);
+
+            -- Webhook keys: identical shape over the identical column set.
+            SELECT
+                COUNT(*)           AS ExpiringCount,
+                MIN(w.[ExpiresAt]) AS SoonestExpiresAt
+            FROM [dbo].[WebhookKeys] w
+            INNER JOIN [dbo].[Applications] a
+                ON a.[Id] = w.[ApplicationId] AND a.[IsActive] = 1 AND a.[IsDeleted] = 0
+            WHERE w.[RevokedAt] IS NULL
+              AND w.[ExpiresAt] IS NOT NULL
+              AND w.[ExpiresAt] >  @Now
+              AND w.[ExpiresAt] <= @Horizon;
+
+            -- Live webhook keys, the denominator.
+            SELECT COUNT(*)
+            FROM [dbo].[WebhookKeys] w
+            INNER JOIN [dbo].[Applications] a
+                ON a.[Id] = w.[ApplicationId] AND a.[IsActive] = 1 AND a.[IsDeleted] = 0
+            WHERE w.[RevokedAt] IS NULL
+              AND (w.[ExpiresAt] IS NULL OR w.[ExpiresAt] > @Now);",
+            new { HorizonDays = horizonDays });
+
+        // COUNT(*) over no rows is 0 and MIN() over no rows is NULL, so both map as-is.
+        // Wrapping SoonestExpiresAt in ISNULL would fabricate a date.
+        var apiKeys = await grid.ReadSingleAsync<ExpiryBucketRow>();
+        var apiKeysTotal = await grid.ReadSingleAsync<int>();
+        var webhookKeys = await grid.ReadSingleAsync<ExpiryBucketRow>();
+        var webhookKeysTotal = await grid.ReadSingleAsync<int>();
+
+        return new CredentialStatsSnapshot
+        {
+            HorizonDays = horizonDays,
+            ApiKeys = new CredentialExpiryBucket
+            {
+                ExpiringCount = apiKeys.ExpiringCount,
+                SoonestExpiresAt = apiKeys.SoonestExpiresAt,
+                TotalActive = apiKeysTotal
+            },
+            WebhookKeys = new CredentialExpiryBucket
+            {
+                ExpiringCount = webhookKeys.ExpiringCount,
+                SoonestExpiresAt = webhookKeys.SoonestExpiresAt,
+                TotalActive = webhookKeysTotal
+            }
+        };
+    }
+
     private record UserTotalsRow
     {
         public int TotalUsers { get; init; }
@@ -521,6 +621,12 @@ public class DashboardStatsRepository : IDashboardStatsRepository
     {
         public int ActiveRefreshTokens { get; init; }
         public int TokensRevokedInWindow { get; init; }
+    }
+
+    private record ExpiryBucketRow
+    {
+        public int ExpiringCount { get; init; }
+        public DateTime? SoonestExpiresAt { get; init; }
     }
 
     private record UnknownAppActivityRow

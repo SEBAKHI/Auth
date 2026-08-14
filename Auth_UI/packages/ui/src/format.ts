@@ -85,6 +85,22 @@ export function toCalendarDate(date: Date): string {
   return format(date, "yyyy-MM-dd")
 }
 
+const DAY_MS = 86_400_000
+
+/**
+ * Whole days from now until an ISO instant; null for empty or unparseable values.
+ * Negative when the instant is already past.
+ *
+ * Lives here rather than beside its first caller because the dashboard and both
+ * key pages must bucket "expiring soon" by the same rule — two copies of a date
+ * rule is how a card and the page it links to start disagreeing.
+ */
+export function daysUntil(value: string | null | undefined): number | null {
+  const date = toDate(value)
+  if (!date) return null
+  return Math.ceil((date.getTime() - Date.now()) / DAY_MS)
+}
+
 /** Relative time, e.g. "3 hours ago". */
 export function formatRelative(value: string | null | undefined): string {
   const date = toDate(value)

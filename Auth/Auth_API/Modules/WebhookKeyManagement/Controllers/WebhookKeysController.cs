@@ -32,15 +32,20 @@ public class WebhookKeysController : ApiController
     }
 
     /// <summary>
-    /// Get all webhook keys for an application.
+    /// List webhook keys, optionally narrowed to one application.
     /// </summary>
+    /// <remarks>
+    /// Omitting applicationId returns every application's keys, mirroring the API keys
+    /// endpoint so the two pages behave identically.
+    /// </remarks>
     [HttpGet]
     [RequirePermission("webhookkeys:read")]
     [ProducesResponseType(typeof(IReadOnlyList<WebhookKeyDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetWebhookKeys(
-        [FromQuery] Guid applicationId,
+        [FromQuery] Guid? applicationId = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)

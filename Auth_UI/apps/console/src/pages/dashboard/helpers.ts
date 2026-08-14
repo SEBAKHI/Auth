@@ -143,10 +143,8 @@ export function topNWithOther<T>(
   return [...rows.slice(0, n), merge(rows.slice(n))]
 }
 
-/** Whole days from now until an ISO instant; null for empty values. */
-export function daysUntil(iso: string | null | undefined): number | null {
-  if (!iso) return null
-  const t = Date.parse(iso)
-  if (Number.isNaN(t)) return null
-  return Math.ceil((t - Date.now()) / DAY_MS)
-}
+/**
+ * Re-exported from the shared formatters, where it now lives so the key pages
+ * bucket expiry by the same rule the dashboard counts by.
+ */
+export { daysUntil } from "@authsystem/ui/format"

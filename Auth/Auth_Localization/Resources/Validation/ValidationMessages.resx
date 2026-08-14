@@ -78,6 +78,9 @@
   <data name="Validation.Days.Range" xml:space="preserve">
     <value>Days must be between 1 and 90.</value>
   </data>
+  <data name="Validation.HorizonDays.Range" xml:space="preserve">
+    <value>The horizon must be between 1 and 365 days.</value>
+  </data>
   <data name="Validation.ReauthenticationMaxAge.Range" xml:space="preserve">
     <value>Re-authentication max age must be between 1 and 10080 minutes.</value>
   </data>
@@ -129,6 +132,9 @@
   </data>
   <data name="Validation.SecretValue.Required" xml:space="preserve">
     <value>Secret value is required.</value>
+  </data>
+  <data name="Validation.SecretValue.MaxLength" xml:space="preserve">
+    <value>Secret value is longer than this secret allows.</value>
   </data>
 
   <!-- ==================== AuditLog Validation ==================== -->

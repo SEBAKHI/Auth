@@ -78,6 +78,9 @@
   <data name="Validation.Days.Range" xml:space="preserve">
     <value>Gün sayısı 1 ile 90 arasında olmalıdır.</value>
   </data>
+  <data name="Validation.HorizonDays.Range" xml:space="preserve">
+    <value>Ufuk 1 ile 365 gün arasında olmalıdır.</value>
+  </data>
   <data name="Validation.ReauthenticationMaxAge.Range" xml:space="preserve">
     <value>Yeniden kimlik doğrulama azami süresi 1 ile 10080 dakika arasında olmalıdır.</value>
   </data>
@@ -129,6 +132,9 @@
   </data>
   <data name="Validation.SecretValue.Required" xml:space="preserve">
     <value>Gizli değer gereklidir.</value>
+  </data>
+  <data name="Validation.SecretValue.MaxLength" xml:space="preserve">
+    <value>Gizli değer, bu sır için izin verilen uzunluğu aşıyor.</value>
   </data>
 
   <!-- ==================== AuditLog Validation ==================== -->

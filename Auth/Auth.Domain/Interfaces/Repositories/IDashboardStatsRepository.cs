@@ -45,4 +45,12 @@ public interface IDashboardStatsRepository
     /// Gets per-application activity and organization/application enablements over the trailing window.
     /// </summary>
     Task<AppActivitySnapshot> GetAppActivityAsync(int days, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the expiry posture of issued API and webhook keys over a forward horizon.
+    /// The only forward-looking aggregate here: every other window trails now.
+    /// </summary>
+    Task<CredentialStatsSnapshot> GetCredentialStatsAsync(
+        int horizonDays,
+        CancellationToken cancellationToken);
 }

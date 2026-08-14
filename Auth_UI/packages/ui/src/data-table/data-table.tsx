@@ -124,6 +124,13 @@ interface DataTableProps<TData> {
    * making the user type it a second time.
    */
   initialGlobalFilter?: string
+  /**
+   * Column filters the table opens with. Seeded the same way as
+   * `initialGlobalFilter`: a page arriving from a deep link ("show me the keys
+   * that are about to expire") lands on those rows instead of on everything,
+   * and the reader can still clear the filter without the URL re-applying it.
+   */
+  initialColumnFilters?: ColumnFiltersState
   searchPlaceholder?: string
   /** Page-owned filter controls to merge into the toolbar. */
   toolbarExtras?: React.ReactNode
@@ -257,6 +264,7 @@ export function DataTable<TData>({
   enableToolbar = true,
   globalSearch = false,
   initialGlobalFilter = "",
+  initialColumnFilters = [],
   searchPlaceholder,
   toolbarExtras,
   enableExport = true,
@@ -275,7 +283,11 @@ export function DataTable<TData>({
   const isRtl = direction === "rtl"
 
   const [internalSorting, setInternalSorting] = React.useState<SortingState>([])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  // Seeded exactly like the global filter below, so a page can open pre-filtered
+  // from a deep link and the table owns it from there — clearing the filter then
+  // does not fight the URL that set it.
+  const [columnFilters, setColumnFilters] =
+    React.useState<ColumnFiltersState>(initialColumnFilters)
   // Seeded, not controlled: the caller says what the table opens with and the
   // table owns it from there, so typing does not have to round-trip through
   // the page that mounted it.

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
+  daysUntil,
   formatDate,
   formatDateTime,
   fullName,
@@ -9,6 +10,38 @@ import {
   userStatusMeta,
 } from "./format"
 import { setActiveTimeZone } from "@authsystem/i18n/timezone"
+
+describe("daysUntil", () => {
+  it("returns null for empty or unparseable values", () => {
+    expect(daysUntil(null)).toBeNull()
+    expect(daysUntil(undefined)).toBeNull()
+    expect(daysUntil("")).toBeNull()
+    expect(daysUntil("not-a-date")).toBeNull()
+  })
+
+  it("counts forward to a future instant", () => {
+    const future = new Date(Date.now() + 10 * 86_400_000).toISOString()
+    const days = daysUntil(future)
+    expect(days).toBeGreaterThanOrEqual(9)
+    expect(days).toBeLessThanOrEqual(10)
+  })
+
+  it("goes negative once the instant is past", () => {
+    // The sign is what separates "expiring soon" from "already expired" on both
+    // key pages, so it has to survive.
+    const past = new Date(Date.now() - 3 * 86_400_000).toISOString()
+    expect(daysUntil(past)).toBeLessThan(0)
+  })
+
+  it("reads an offset-less datetime as UTC", () => {
+    // The API emits UTC with a Z. A payload that lost it must not be read as
+    // local time: at a 14-day horizon that shift flips the bucket for edge rows.
+    const future = new Date(Date.now() + 5 * 86_400_000)
+      .toISOString()
+      .replace("Z", "")
+    expect(daysUntil(future)).toBeGreaterThanOrEqual(4)
+  })
+})
 
 describe("userStatusMeta", () => {
   it("maps known statuses", () => {

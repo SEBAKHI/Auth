@@ -2,10 +2,13 @@ using Auth.Application.DTOs;
 using Auth.Application.Features.Dashboard.GetAppActivityStats;
 using Auth.Application.Features.Dashboard.GetAuditStats;
 using Auth.Application.Features.Dashboard.GetAuthStats;
+using Auth.Application.Features.Dashboard.GetCredentialStats;
 using Auth.Application.Features.Dashboard.GetSessionStats;
 using Auth.Application.Features.Dashboard.GetUserStats;
+using Auth.Application.Interfaces;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Dashboard;
+using ErrorOr;
 using Microsoft.Extensions.Logging;
 
 namespace Auth_API.Tests.Dashboard;
@@ -371,6 +374,167 @@ public class GetAuditStatsQueryHandlerTests
     }
 }
 
+public class GetCredentialStatsQueryHandlerTests
+{
+    private static readonly Guid Caller = Guid.NewGuid();
+
+    private readonly Mock<IDashboardStatsRepository> _repoMock = new();
+    private readonly Mock<IPermissionChecker> _permissionsMock = new();
+    private readonly GetCredentialStatsQueryHandler _handler;
+
+    public GetCredentialStatsQueryHandlerTests()
+    {
+        _handler = new GetCredentialStatsQueryHandler(
+            _repoMock.Object,
+            _permissionsMock.Object,
+            new Mock<ILogger<GetCredentialStatsQueryHandler>>().Object);
+    }
+
+    private void Allow(string permission) =>
+        _permissionsMock
+            .Setup(p => p.HasPermissionAsync(Caller, permission, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+    private static CredentialStatsSnapshot CreateSnapshot(
+        int horizonDays = 14,
+        int apiKeysExpiring = 3,
+        int webhookKeysExpiring = 1) => new()
+        {
+            HorizonDays = horizonDays,
+            ApiKeys = new CredentialExpiryBucket
+            {
+                ExpiringCount = apiKeysExpiring,
+                SoonestExpiresAt = new DateTime(2026, 8, 20, 9, 0, 0, DateTimeKind.Utc),
+                TotalActive = 12
+            },
+            WebhookKeys = new CredentialExpiryBucket
+            {
+                ExpiringCount = webhookKeysExpiring,
+                SoonestExpiresAt = new DateTime(2026, 8, 25, 9, 0, 0, DateTimeKind.Utc),
+                TotalActive = 4
+            }
+        };
+
+    private Task<ErrorOr<CredentialStatsDto>> Handle(int horizonDays = 14) =>
+        _handler.Handle(
+            new GetCredentialStatsQuery(horizonDays) { RequestedBy = Caller },
+            CancellationToken.None);
+
+    [Fact]
+    public async Task Handle_BothPermissions_MapsBothBuckets()
+    {
+        Allow("apikeys:read");
+        Allow("webhookkeys:read");
+        _repoMock
+            .Setup(r => r.GetCredentialStatsAsync(14, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateSnapshot());
+
+        var result = await Handle();
+
+        result.IsError.Should().BeFalse();
+        result.Value.HorizonDays.Should().Be(14);
+        result.Value.ApiKeys!.ExpiringCount.Should().Be(3);
+        result.Value.ApiKeys.TotalActive.Should().Be(12);
+        result.Value.ApiKeys.SoonestExpiresAt.Should().Be(new DateTime(2026, 8, 20, 9, 0, 0, DateTimeKind.Utc));
+        result.Value.WebhookKeys!.ExpiringCount.Should().Be(1);
+        result.Value.WebhookKeys.TotalActive.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task Handle_OnlyApiKeysPermission_WebhookBucketIsNull()
+    {
+        // Null, not a zeroed bucket: zero would assert that nothing is expiring, and the
+        // dashboard would render a "webhook keys are fine" state the caller cannot verify.
+        Allow("apikeys:read");
+        _repoMock
+            .Setup(r => r.GetCredentialStatsAsync(14, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateSnapshot());
+
+        var result = await Handle();
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApiKeys.Should().NotBeNull();
+        result.Value.WebhookKeys.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Handle_OnlyWebhookKeysPermission_ApiKeyBucketIsNull()
+    {
+        Allow("webhookkeys:read");
+        _repoMock
+            .Setup(r => r.GetCredentialStatsAsync(14, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateSnapshot());
+
+        var result = await Handle();
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApiKeys.Should().BeNull();
+        result.Value.WebhookKeys.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Handle_NoPermissions_SkipsTheRepository()
+    {
+        var result = await Handle();
+
+        result.IsError.Should().BeFalse();
+        result.Value.HorizonDays.Should().Be(14);
+        result.Value.ApiKeys.Should().BeNull();
+        result.Value.WebhookKeys.Should().BeNull();
+        _repoMock.Verify(
+            r => r.GetCredentialStatsAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_PassesHorizonToRepository()
+    {
+        Allow("apikeys:read");
+        _repoMock
+            .Setup(r => r.GetCredentialStatsAsync(45, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateSnapshot(horizonDays: 45));
+
+        var result = await Handle(45);
+
+        result.IsError.Should().BeFalse();
+        result.Value.HorizonDays.Should().Be(45);
+        _repoMock.Verify(
+            r => r.GetCredentialStatsAsync(45, It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_NothingExpiring_SoonestIsNull()
+    {
+        Allow("apikeys:read");
+        _repoMock
+            .Setup(r => r.GetCredentialStatsAsync(14, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CredentialStatsSnapshot
+            {
+                HorizonDays = 14,
+                ApiKeys = new CredentialExpiryBucket
+                {
+                    ExpiringCount = 0,
+                    SoonestExpiresAt = null,
+                    TotalActive = 7
+                },
+                WebhookKeys = new CredentialExpiryBucket
+                {
+                    ExpiringCount = 0,
+                    SoonestExpiresAt = null,
+                    TotalActive = 0
+                }
+            });
+
+        var result = await Handle();
+
+        result.IsError.Should().BeFalse();
+        result.Value.ApiKeys!.ExpiringCount.Should().Be(0);
+        result.Value.ApiKeys.SoonestExpiresAt.Should().BeNull();
+        result.Value.ApiKeys.TotalActive.Should().Be(7);
+    }
+}
+
 public class DashboardQueryValidatorTests
 {
     [Theory]
@@ -397,6 +561,40 @@ public class DashboardQueryValidatorTests
         new GetSessionStatsQueryValidator().Validate(new GetSessionStatsQuery(days)).IsValid.Should().BeFalse();
         new GetAppActivityStatsQueryValidator().Validate(new GetAppActivityStatsQuery(days)).IsValid.Should().BeFalse();
         new GetAuditStatsQueryValidator().Validate(new GetAuditStatsQuery(days)).IsValid.Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(14)]
+    [InlineData(365)]
+    public void CredentialStatsValidator_AcceptsHorizonInRange(int horizonDays)
+    {
+        // A forward horizon, deliberately not the trailing-window rule: it allows a
+        // full year, because a credential can legitimately be issued that far out.
+        new GetCredentialStatsQueryValidator()
+            .Validate(new GetCredentialStatsQuery(horizonDays) { RequestedBy = Guid.NewGuid() })
+            .IsValid.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(366)]
+    public void CredentialStatsValidator_RejectsHorizonOutOfRange(int horizonDays)
+    {
+        new GetCredentialStatsQueryValidator()
+            .Validate(new GetCredentialStatsQuery(horizonDays) { RequestedBy = Guid.NewGuid() })
+            .IsValid.Should().BeFalse();
+    }
+
+    [Fact]
+    public void CredentialStatsValidator_RejectsMissingCaller()
+    {
+        // The caller identity is the permission gate for this query; an empty Guid would
+        // silently resolve to no permissions and return an all-null payload.
+        new GetCredentialStatsQueryValidator()
+            .Validate(new GetCredentialStatsQuery(14) { RequestedBy = Guid.Empty })
+            .IsValid.Should().BeFalse();
     }
 
     [Fact]

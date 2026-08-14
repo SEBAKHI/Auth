@@ -1,9 +1,11 @@
 import {
   AlertTriangle,
   Clock,
+  KeySquare,
   Lock,
   ShieldAlert,
   TrendingDown,
+  Webhook,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -45,11 +47,13 @@ export function AttentionPanel({
   authStats,
   sessionStats,
   appActivity,
+  credentialStats,
   loading,
 }: {
   authStats?: Schemas["AuthStatsDto"]
   sessionStats?: Schemas["SessionStatsDto"]
   appActivity?: Schemas["AppActivityDto"]
+  credentialStats?: Schemas["CredentialStatsDto"]
   loading: boolean
 }) {
   const { t } = useTranslation()
@@ -125,6 +129,48 @@ export function AttentionPanel({
       description: t("dashboard.alertStaleSessionsBody"),
       to: "/audit-logs",
       actionLabel: t("dashboard.viewAuditLogs"),
+    })
+  }
+
+  // Credentials that will genuinely stop working, with no replacement issued.
+  //
+  // Each finding is guarded by its bucket being present, and the server returns a
+  // null bucket exactly when the viewer lacks the permission that guards the page
+  // the button opens. The gate is therefore closed by construction — there is no
+  // permission list here to keep in step with the route table.
+  const horizonDays = toNumber(credentialStats?.horizonDays)
+
+  const apiKeys = credentialStats?.apiKeys
+  if (apiKeys && toNumber(apiKeys.expiringCount) > 0) {
+    findings.push({
+      key: "expiring-api-keys",
+      icon: KeySquare,
+      title: t("dashboard.alertExpiringKeys", {
+        count: toNumber(apiKeys.expiringCount),
+        days: horizonDays,
+      }),
+      description: t("dashboard.alertExpiringKeysBody", {
+        soonest: Math.max(daysUntil(apiKeys.soonestExpiresAt) ?? 0, 0),
+      }),
+      to: "/api-keys?expiry=soon",
+      actionLabel: t("dashboard.reviewKeys"),
+    })
+  }
+
+  const webhookKeys = credentialStats?.webhookKeys
+  if (webhookKeys && toNumber(webhookKeys.expiringCount) > 0) {
+    findings.push({
+      key: "expiring-webhook-keys",
+      icon: Webhook,
+      title: t("dashboard.alertExpiringWebhookKeys", {
+        count: toNumber(webhookKeys.expiringCount),
+        days: horizonDays,
+      }),
+      description: t("dashboard.alertExpiringKeysBody", {
+        soonest: Math.max(daysUntil(webhookKeys.soonestExpiresAt) ?? 0, 0),
+      }),
+      to: "/webhook-keys?expiry=soon",
+      actionLabel: t("dashboard.reviewWebhookKeys"),
     })
   }
 

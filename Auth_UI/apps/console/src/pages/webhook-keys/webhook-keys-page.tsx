@@ -41,12 +41,28 @@ import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { PERMISSIONS } from "@/lib/constants"
 import { getErrorMessage } from "@authsystem/api/errors"
-import { formatDateTime } from "@authsystem/ui/format"
+import { daysUntil, formatDateTime } from "@authsystem/ui/format"
+import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import { WebhookKeyCreateDialog } from "./webhook-key-create-dialog"
 import { Spinner } from "@authsystem/ui/spinner"
 
 type WebhookKeyDto = Schemas["WebhookKeyDto"]
+
+/**
+ * Matches the server's default credential-expiry horizon, so the rows this page
+ * shows are the rows the dashboard counted.
+ */
+const EXPIRY_SOON_DAYS = 14
+
+type ExpiryState = "expired" | "soon" | "later" | "none"
+
+function expiryState(iso: string | null | undefined): ExpiryState {
+  const remaining = daysUntil(iso)
+  if (remaining === null) return "none"
+  if (remaining < 0) return "expired"
+  return remaining <= EXPIRY_SOON_DAYS ? "soon" : "later"
+}
 
 function ValidateWebhookKeyDialog({
   open,
@@ -130,7 +146,11 @@ export function WebhookKeysPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
 
+  // undefined now means "every application", not "nothing chosen": the table
+  // renders on arrival instead of waiting for a picker the reader may not even be
+  // allowed to load (the picker needs applications:read; this page does not).
   const [applicationId, setApplicationId] = React.useState<string>()
+  const initialExpiry = useSearchHandoff("expiry")
   const [createOpen, setCreateOpen] = React.useState(false)
   const [validateOpen, setValidateOpen] = React.useState(false)
   const [revealValue, setRevealValue] = React.useState<string>()
@@ -148,11 +168,10 @@ export function WebhookKeysPage() {
 
   const query = useQuery({
     queryKey: ["webhook-keys", { applicationId }],
-    enabled: Boolean(applicationId),
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/WebhookKeys", {
-          params: { query: { applicationId: applicationId as string } },
+          params: { query: applicationId ? { applicationId } : {} },
         })
       ),
   })
@@ -245,6 +264,32 @@ export function WebhookKeysPage() {
         <Badge variant={row.original.isRevoked ? "destructive" : "default"}>
           {row.original.isRevoked ? t("common.revoked") : t("common.active")}
         </Badge>
+      ),
+    },
+    {
+      id: "expiresAt",
+      // The accessor stays the raw instant so sorting, CSV export and the row
+      // detail sheet all show a date; the bucket exists only inside the predicate.
+      accessorFn: (row) => row.expiresAt ?? "",
+      filterFn: (row, _columnId, selected: string[]) =>
+        selected.includes(expiryState(row.original.expiresAt)),
+      header: t("common.expiresAt"),
+      meta: {
+        label: t("common.expiresAt"),
+        filterVariant: "faceted",
+        filterOptions: [
+          { value: "expired", label: t("webhookKeys.expired") },
+          { value: "soon", label: t("webhookKeys.expiringSoon") },
+          { value: "later", label: t("webhookKeys.expiresLater") },
+          { value: "none", label: t("webhookKeys.noExpiry") },
+        ],
+      },
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {row.original.expiresAt
+            ? formatDateTime(row.original.expiresAt)
+            : t("webhookKeys.noExpiry")}
+        </span>
       ),
     },
     {
@@ -343,26 +388,29 @@ export function WebhookKeysPage() {
         <ApplicationSelect
           value={applicationId}
           onChange={setApplicationId}
+          allowAll
           className="w-full"
         />
       </div>
 
-      {applicationId ? (
-        <DataTable
-          fillHeight
-          tableId="webhook-keys"
-          globalSearch
-          columns={columns}
-          data={query.data ?? []}
-          isLoading={query.isLoading}
-          error={query.isError ? query.error : undefined}
-          onRetry={() => query.refetch()}
-        />
-      ) : (
-        <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-          {t("common.selectApplication")}
-        </p>
-      )}
+      <DataTable
+        fillHeight
+        tableId="webhook-keys"
+        globalSearch
+        columns={columns}
+        data={query.data ?? []}
+        // A key that slipped past its date while the alert was up is the most
+        // urgent row here, so the link that was meant to surface it must not
+        // filter it out: "expiring soon" opens on soon AND already expired.
+        initialColumnFilters={
+          initialExpiry === "soon"
+            ? [{ id: "expiresAt", value: ["soon", "expired"] }]
+            : []
+        }
+        isLoading={query.isLoading}
+        error={query.isError ? query.error : undefined}
+        onRetry={() => query.refetch()}
+      />
 
       {applicationId ? (
         <WebhookKeyCreateDialog

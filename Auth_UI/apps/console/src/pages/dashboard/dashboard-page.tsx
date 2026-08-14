@@ -38,6 +38,8 @@ export function DashboardPage() {
     roles: hasPermission(PERMISSIONS.roles.read),
     audit: hasPermission(PERMISSIONS.auditLogs.read),
     allOrganizations: hasPermission(PERMISSIONS.organizations.read),
+    apiKeys: hasPermission(PERMISSIONS.apiKeys.read),
+    webhookKeys: hasPermission(PERMISSIONS.webhookKeys.read),
   }
 
   const scope: DashboardScope = { days, granularity, timeZone, permissions }

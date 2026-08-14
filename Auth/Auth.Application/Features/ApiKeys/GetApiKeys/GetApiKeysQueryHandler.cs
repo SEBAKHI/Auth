@@ -29,7 +29,7 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
         GetApiKeysQuery request,
         CancellationToken cancellationToken)
     {
-        var apiKeys = await _apiKeyRepository.GetByApplicationAsync(
+        var apiKeys = await _apiKeyRepository.ListAsync(
             request.ApplicationId, request.SortBy, request.SortDirection, cancellationToken);
 
         var applicationNames = await NameLookupHelper.ApplicationNamesAsync(
@@ -42,10 +42,16 @@ public class GetApiKeysQueryHandler : IRequestHandler<GetApiKeysQuery, ErrorOr<I
             apiKeys.Select(key => (Guid?)key.CreatedBy),
             cancellationToken);
 
+        // One round trip for every key's scopes. The per-key call this replaced was an
+        // N+1 that only stayed invisible while the listing was capped to one application.
+        var scopesByKey = await _apiKeyRepository.GetScopesAsync(
+            apiKeys.Select(key => key.Id).ToList(),
+            cancellationToken);
+
         var apiKeyDtos = new List<ApiKeyDto>();
         foreach (var apiKey in apiKeys)
         {
-            var scopes = await _apiKeyRepository.GetScopesAsync(apiKey.Id, cancellationToken);
+            var scopes = scopesByKey.GetValueOrDefault(apiKey.Id, []);
             apiKeyDtos.Add(new ApiKeyDto
             {
                 Id = apiKey.Id,

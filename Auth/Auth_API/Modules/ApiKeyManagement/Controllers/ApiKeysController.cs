@@ -32,15 +32,21 @@ public class ApiKeysController : ApiController
     }
 
     /// <summary>
-    /// Get all API keys for an application.
+    /// List API keys, optionally narrowed to one application.
     /// </summary>
+    /// <remarks>
+    /// Omitting applicationId returns every application's keys. The console defaults to
+    /// that view so the page renders on arrival rather than waiting for a picker, which
+    /// also makes it reachable for a caller holding apikeys:read but not applications:read.
+    /// </remarks>
     [HttpGet]
     [RequirePermission("apikeys:read")]
     [ProducesResponseType(typeof(IReadOnlyList<ApiKeyDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetApiKeys(
-        [FromQuery] Guid applicationId,
+        [FromQuery] Guid? applicationId = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)

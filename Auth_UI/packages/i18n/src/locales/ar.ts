@@ -274,8 +274,15 @@ export const ar: TranslationResources = {
     alertStaleSessionsBody: "لا تزال مفتوحة ولم تُغلق قط.",
     alertExpiringEnablements: "{{count}} اشتراك على وشك الانتهاء",
     alertExpiringEnablementsBody: "ينتهي خلال {{days}} يومًا.",
+    alertExpiringKeys:
+      "{{count}} مفتاح واجهة برمجية تنتهي صلاحيته خلال {{days}} يومًا",
+    alertExpiringWebhookKeys:
+      "{{count}} مفتاح ويب هوك تنتهي صلاحيته خلال {{days}} يومًا",
+    alertExpiringKeysBody:
+      "أقربها يتوقّف عن العمل خلال {{soonest}} يوم. ستبدأ الجهات التي ما زالت تستخدمه بالفشل.",
     reviewUsers: "مراجعة المستخدمين",
     reviewKeys: "مراجعة المفاتيح",
+    reviewWebhookKeys: "مراجعة مفاتيح الويب هوك",
     reviewOrganizations: "مراجعة المنظمات",
     accountHygiene: "سلامة الحسابات",
     accountHygieneSubtitle: "تغطية العامل الثاني والحسابات غير المستخدمة.",
@@ -699,6 +706,10 @@ export const ar: TranslationResources = {
       "هذه هي المرة الوحيدة التي يظهر فيها المفتاح كاملاً. خزّنه بأمان.",
     validateTitle: "التحقق من مفتاح API",
     validatePlaceholder: "الصق مفتاح API للتحقق منه…",
+    expiringSoon: "توشك على الانتهاء",
+    expired: "منتهية الصلاحية",
+    expiresLater: "تنتهي لاحقًا",
+    noExpiry: "بلا انتهاء",
     created: "تم إنشاء مفتاح API.",
     revoked: "تم إلغاء مفتاح API.",
     rotated: "تم تدوير مفتاح API.",
@@ -720,6 +731,10 @@ export const ar: TranslationResources = {
     rotate: "تدوير",
     validate: "تحقق",
     validatePlaceholder: "الصق مفتاح webhook للتحقق منه…",
+    expiringSoon: "توشك على الانتهاء",
+    expired: "منتهية الصلاحية",
+    expiresLater: "تنتهي لاحقًا",
+    noExpiry: "بلا انتهاء",
     revokeTitle: "إلغاء مفتاح Webhook",
     revokeBody:
       "ستفشل نقاط النهاية التي تستخدم هذا المفتاح في التحقق من التوقيع.",

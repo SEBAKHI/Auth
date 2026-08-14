@@ -35,6 +35,17 @@ export interface paths {
                         "text/json": components["schemas"]["WebhookKeyDto"][];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
                 /** @description Unauthorized */
                 401: {
                     headers: {
@@ -7199,6 +7210,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboard/credential-stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: {
+                    horizonDays?: number | string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["CredentialStatsDto"];
+                        "application/json": components["schemas"]["CredentialStatsDto"];
+                        "text/json": components["schemas"]["CredentialStatsDto"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/Auth/login": {
         parameters: {
             query?: never;
@@ -10451,6 +10523,17 @@ export interface paths {
                         "text/json": components["schemas"]["ApiKeyDto"][];
                     };
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
                 /** @description Unauthorized */
                 401: {
                     headers: {
@@ -12412,6 +12495,20 @@ export interface components {
             createdAt?: string;
             /** Format: date-time */
             expiresAt?: null | string;
+        };
+        CredentialExpiryBucketDto: {
+            /** Format: int32 */
+            expiringCount?: number | string;
+            /** Format: date-time */
+            soonestExpiresAt?: null | string;
+            /** Format: int32 */
+            totalActive?: number | string;
+        };
+        CredentialStatsDto: {
+            /** Format: int32 */
+            horizonDays?: number | string;
+            apiKeys?: null | components["schemas"]["CredentialExpiryBucketDto"];
+            webhookKeys?: null | components["schemas"]["CredentialExpiryBucketDto"];
         };
         DailyCountDto: {
             /** Format: date-time */

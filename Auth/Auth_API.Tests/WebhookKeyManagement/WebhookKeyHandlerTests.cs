@@ -253,7 +253,7 @@ public class GetWebhookKeysQueryHandlerTests
             TestHelpers.CreateWebhookKey(applicationId: appId, name: "Key2")
         };
 
-        _repoMock.Setup(r => r.GetByApplicationAsync(appId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+        _repoMock.Setup(r => r.ListAsync(appId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(keys);
 
         _applicationRepositoryMock
@@ -265,5 +265,26 @@ public class GetWebhookKeysQueryHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.Should().HaveCount(2);
         result.Value.Should().OnlyContain(k => k.ApplicationName == "Hooked App");
+    }
+
+    [Fact]
+    public async Task Handle_NoApplicationId_ListsEveryApplicationsKeys()
+    {
+        var appOne = Guid.NewGuid();
+        var appTwo = Guid.NewGuid();
+        var keys = new List<WebhookKey>
+        {
+            TestHelpers.CreateWebhookKey(applicationId: appOne, name: "One"),
+            TestHelpers.CreateWebhookKey(applicationId: appTwo, name: "Two")
+        };
+
+        _repoMock.Setup(r => r.ListAsync(null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(keys);
+
+        var result = await _handler.Handle(new GetWebhookKeysQuery(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Should().HaveCount(2);
+        result.Value.Select(k => k.ApplicationId).Should().BeEquivalentTo([appOne, appTwo]);
     }
 }

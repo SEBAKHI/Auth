@@ -277,8 +277,15 @@ export const tr: TranslationResources = {
     alertStaleSessionsBody: "Hâlâ açık ve hiç kapatılmamış.",
     alertExpiringEnablements: "{{count}} aboneliğin süresi doluyor",
     alertExpiringEnablementsBody: "{{days}} gün içinde sona eriyor.",
+    alertExpiringKeys:
+      "{{count}} API anahtarının süresi {{days}} gün içinde doluyor",
+    alertExpiringWebhookKeys:
+      "{{count}} webhook anahtarının süresi {{days}} gün içinde doluyor",
+    alertExpiringKeysBody:
+      "En yakını {{soonest}} gün içinde çalışmayı bırakıyor. Onu hâlâ kullanan çağrılar başarısız olmaya başlayacak.",
     reviewUsers: "Kullanıcıları incele",
     reviewKeys: "Anahtarları incele",
+    reviewWebhookKeys: "Webhook anahtarlarını incele",
     reviewOrganizations: "Kuruluşları incele",
     accountHygiene: "Hesap hijyeni",
     accountHygieneSubtitle: "İkinci faktör kapsamı ve kullanılmayan hesaplar.",
@@ -718,6 +725,10 @@ export const tr: TranslationResources = {
       "Anahtarın tamamı yalnızca bu kez gösterilir. Güvenle saklayın.",
     validateTitle: "API anahtarını doğrula",
     validatePlaceholder: "Doğrulamak için bir API anahtarı yapıştırın…",
+    expiringSoon: "Süresi yakında doluyor",
+    expired: "Süresi doldu",
+    expiresLater: "Daha sonra doluyor",
+    noExpiry: "Süresiz",
     created: "API anahtarı oluşturuldu.",
     revoked: "API anahtarı iptal edildi.",
     rotated: "API anahtarı yenilendi.",
@@ -739,6 +750,10 @@ export const tr: TranslationResources = {
     rotate: "Yenile",
     validate: "Doğrula",
     validatePlaceholder: "Doğrulamak için bir webhook anahtarı yapıştırın…",
+    expiringSoon: "Süresi yakında doluyor",
+    expired: "Süresi doldu",
+    expiresLater: "Daha sonra doluyor",
+    noExpiry: "Süresiz",
     revokeTitle: "Webhook anahtarını iptal et",
     revokeBody:
       "Bu anahtarı kullanan uç noktalar imza doğrulamasında başarısız olacak.",

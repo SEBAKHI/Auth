@@ -78,6 +78,9 @@
   <data name="Validation.Days.Range" xml:space="preserve">
     <value>دنوں کی تعداد ۱ سے ۹۰ کے درمیان ہونی چاہیے۔</value>
   </data>
+  <data name="Validation.HorizonDays.Range" xml:space="preserve">
+    <value>افق ۱ سے ۳۶۵ دن کے درمیان ہونا چاہیے۔</value>
+  </data>
   <data name="Validation.ReauthenticationMaxAge.Range" xml:space="preserve">
     <value>دوبارہ توثیق کی زیادہ سے زیادہ مدت ۱ سے ۱۰۰۸۰ منٹ کے درمیان ہونی چاہیے۔</value>
   </data>
@@ -129,6 +132,9 @@
   </data>
   <data name="Validation.SecretValue.Required" xml:space="preserve">
     <value>خفیہ قدر لازمی ہے۔</value>
+  </data>
+  <data name="Validation.SecretValue.MaxLength" xml:space="preserve">
+    <value>خفیہ قدر اس راز کے لیے مجاز لمبائی سے زیادہ ہے۔</value>
   </data>
 
   <!-- ==================== AuditLog Validation ==================== -->

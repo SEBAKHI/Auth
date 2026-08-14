@@ -78,6 +78,9 @@
   <data name="Validation.Days.Range" xml:space="preserve">
     <value>يجب أن يكون عدد الأيام بين 1 و90.</value>
   </data>
+  <data name="Validation.HorizonDays.Range" xml:space="preserve">
+    <value>يجب أن يكون الأفق بين 1 و365 يومًا.</value>
+  </data>
   <data name="Validation.ReauthenticationMaxAge.Range" xml:space="preserve">
     <value>يجب أن تكون مدة إعادة المصادقة القصوى بين 1 و10080 دقيقة.</value>
   </data>
@@ -129,6 +132,9 @@
   </data>
   <data name="Validation.SecretValue.Required" xml:space="preserve">
     <value>قيمة السر مطلوبة.</value>
+  </data>
+  <data name="Validation.SecretValue.MaxLength" xml:space="preserve">
+    <value>قيمة السر أطول مما يسمح به هذا السر.</value>
   </data>
 
   <!-- ==================== AuditLog Validation ==================== -->

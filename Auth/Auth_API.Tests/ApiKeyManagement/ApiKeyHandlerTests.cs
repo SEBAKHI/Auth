@@ -495,7 +495,7 @@ public class GetApiKeysQueryHandlerTests
         var query = new GetApiKeysQuery(applicationId);
 
         _apiKeyRepositoryMock
-            .Setup(r => r.GetByApplicationAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.ListAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<ApiKey> { apiKey1, apiKey2 });
 
         _applicationRepositoryMock
@@ -503,12 +503,12 @@ public class GetApiKeysQueryHandlerTests
             .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId, name: "Keyed App"));
 
         _apiKeyRepositoryMock
-            .Setup(r => r.GetScopesAsync(apiKey1.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "read:users" });
-
-        _apiKeyRepositoryMock
-            .Setup(r => r.GetScopesAsync(apiKey2.Id, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "read:users", "write:users" });
+            .Setup(r => r.GetScopesAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<string>>
+            {
+                [apiKey1.Id] = ["read:users"],
+                [apiKey2.Id] = ["read:users", "write:users"]
+            });
 
         // Act
         var result = await _handler.Handle(query, CancellationToken.None);
@@ -528,5 +528,92 @@ public class GetApiKeysQueryHandlerTests
         result.Value[1].KeyPrefix.Should().Be("ak_stg_");
         result.Value[1].Environment.Should().Be("staging");
         result.Value[1].Scopes.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public async Task Handle_NoApplicationId_ListsEveryApplicationsKeys()
+    {
+        var appOne = Guid.NewGuid();
+        var appTwo = Guid.NewGuid();
+        var keys = new List<ApiKey>
+        {
+            TestHelpers.CreateApiKey(applicationId: appOne, name: "One"),
+            TestHelpers.CreateApiKey(applicationId: appTwo, name: "Two")
+        };
+
+        _apiKeyRepositoryMock
+            .Setup(r => r.ListAsync(null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(keys);
+        _apiKeyRepositoryMock
+            .Setup(r => r.GetScopesAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<string>>());
+
+        var result = await _handler.Handle(new GetApiKeysQuery(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Should().HaveCount(2);
+        result.Value.Select(k => k.ApplicationId).Should().BeEquivalentTo([appOne, appTwo]);
+    }
+
+    [Fact]
+    public async Task Handle_ResolvesScopesInOneRoundTrip()
+    {
+        // The guard against the N+1 returning. Scoped to one application the per-key call
+        // was invisible; spanning every application it is one query per row on the platform.
+        var applicationId = Guid.NewGuid();
+        var keys = new List<ApiKey>
+        {
+            TestHelpers.CreateApiKey(applicationId: applicationId, name: "One"),
+            TestHelpers.CreateApiKey(applicationId: applicationId, name: "Two"),
+            TestHelpers.CreateApiKey(applicationId: applicationId, name: "Three")
+        };
+
+        _apiKeyRepositoryMock
+            .Setup(r => r.ListAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(keys);
+        _apiKeyRepositoryMock
+            .Setup(r => r.GetScopesAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<string>>());
+
+        var result = await _handler.Handle(new GetApiKeysQuery(applicationId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _apiKeyRepositoryMock.Verify(
+            r => r.GetScopesAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+        _apiKeyRepositoryMock.Verify(
+            r => r.GetScopesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_KeyWithNoScopes_ReturnsEmptyScopeList()
+    {
+        // Keys with no scopes are absent from the batch map; the handler must not throw
+        // on the missing entry, and must not report null scopes to the client.
+        var applicationId = Guid.NewGuid();
+        var apiKey = TestHelpers.CreateApiKey(applicationId: applicationId, name: "Scopeless");
+
+        _apiKeyRepositoryMock
+            .Setup(r => r.ListAsync(applicationId, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<ApiKey> { apiKey });
+        _apiKeyRepositoryMock
+            .Setup(r => r.GetScopesAsync(It.IsAny<IReadOnlyCollection<Guid>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<Guid, IReadOnlyList<string>>());
+
+        var result = await _handler.Handle(new GetApiKeysQuery(applicationId), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.Should().ContainSingle().Which.Scopes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Validator_AcceptsNoApplicationIdButRejectsAnEmptyOne()
+    {
+        var validator = new GetApiKeysQueryValidator();
+
+        validator.Validate(new GetApiKeysQuery()).IsValid.Should().BeTrue();
+        validator.Validate(new GetApiKeysQuery(Guid.NewGuid())).IsValid.Should().BeTrue();
+        validator.Validate(new GetApiKeysQuery(Guid.Empty)).IsValid.Should().BeFalse();
     }
 }

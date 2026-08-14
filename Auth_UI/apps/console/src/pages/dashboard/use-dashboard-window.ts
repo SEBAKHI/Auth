@@ -104,6 +104,9 @@ export const dashboardKeys = {
   sessionStats: (days: number) =>
     ["dashboard", "session-stats", days] as const,
   appActivity: (days: number) => ["dashboard", "app-activity", days] as const,
+  // No window in the key: the credential horizon runs forward, so it is not the
+  // period the rest of the dashboard is scoped to.
+  credentialStats: ["dashboard", "credential-stats"] as const,
   organizations: (scope: "all" | "membership") =>
     ["dashboard", "orgs", scope] as const,
   recentActivity: ["dashboard", "recent"] as const,

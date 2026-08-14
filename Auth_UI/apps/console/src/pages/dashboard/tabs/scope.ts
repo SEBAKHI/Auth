@@ -11,5 +11,9 @@ export interface DashboardScope {
     roles: boolean
     audit: boolean
     allOrganizations: boolean
+    /** Gates the API-key expiry finding, and the page it links to. */
+    apiKeys: boolean
+    /** Gates the webhook-key expiry finding, and the page it links to. */
+    webhookKeys: boolean
   }
 }

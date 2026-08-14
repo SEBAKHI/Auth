@@ -91,6 +91,25 @@ describe("DataTable", () => {
     expect(nameColumnOrder()).toEqual(["Charlie", "Alice", "Bob"])
   })
 
+  it("opens pre-filtered when initialColumnFilters is seeded", () => {
+    // A page reached from a deep link ("show me what is about to expire") must
+    // land on those rows rather than on everything.
+    render(
+      <DataTable
+        columns={columns}
+        data={data}
+        initialColumnFilters={[{ id: "name", value: "Ali" }]}
+      />
+    )
+    expect(nameColumnOrder()).toEqual(["Alice"])
+  })
+
+  it("shows every row when the seed is omitted", () => {
+    // The prop is additive: the ~15 tables that never pass it must not change.
+    render(<DataTable columns={columns} data={data} />)
+    expect(nameColumnOrder()).toEqual(["Charlie", "Alice", "Bob"])
+  })
+
   it("sorts rows when a sortable header is clicked", async () => {
     const user = userEvent.setup()
     render(<DataTable columns={columns} data={data} />)

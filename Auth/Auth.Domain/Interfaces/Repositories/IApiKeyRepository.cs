@@ -18,12 +18,18 @@ public interface IApiKeyRepository
     Task<ApiKey?> GetByHashAsync(string keyHash, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets all API keys for an application. <paramref name="sortBy"/> accepts the
-    /// allow-listed field names in <see cref="Constants.SortFields.ApiKeys"/>;
-    /// null keeps the default order.
+    /// Lists API keys, optionally narrowed to one application; a null
+    /// <paramref name="applicationId"/> spans every application.
+    /// <paramref name="sortBy"/> accepts the allow-listed field names in
+    /// <see cref="Constants.SortFields.ApiKeys"/>; null keeps the default order.
     /// </summary>
-    Task<IReadOnlyList<ApiKey>> GetByApplicationAsync(
-        Guid applicationId,
+    /// <remarks>
+    /// Named ListAsync, not GetByApplicationAsync: a method whose name promises one
+    /// application while returning every application's keys is the exact class of
+    /// mismatch this endpoint's dashboard alert already suffered from.
+    /// </remarks>
+    Task<IReadOnlyList<ApiKey>> ListAsync(
+        Guid? applicationId,
         string? sortBy,
         Enums.SortDirection sortDirection,
         CancellationToken cancellationToken);
@@ -57,6 +63,18 @@ public interface IApiKeyRepository
     /// Gets the permission codes for an API key.
     /// </summary>
     Task<IReadOnlyList<string>> GetScopesAsync(Guid apiKeyId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the permission codes for many API keys in one round trip. Keys with no
+    /// scopes are absent from the map.
+    /// </summary>
+    /// <remarks>
+    /// The per-key overload made a listing issue one query per row, which was tolerable
+    /// only while every listing was scoped to a single application.
+    /// </remarks>
+    Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetScopesAsync(
+        IReadOnlyCollection<Guid> apiKeyIds,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Records the last usage of an API key.

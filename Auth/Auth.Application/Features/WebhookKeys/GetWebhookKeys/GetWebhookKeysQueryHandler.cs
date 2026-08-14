@@ -29,7 +29,7 @@ public class GetWebhookKeysQueryHandler : IRequestHandler<GetWebhookKeysQuery, E
         GetWebhookKeysQuery request,
         CancellationToken cancellationToken)
     {
-        var webhookKeys = await _webhookKeyRepository.GetByApplicationAsync(
+        var webhookKeys = await _webhookKeyRepository.ListAsync(
             request.ApplicationId, request.SortBy, request.SortDirection, cancellationToken);
 
         var applicationNames = await NameLookupHelper.ApplicationNamesAsync(

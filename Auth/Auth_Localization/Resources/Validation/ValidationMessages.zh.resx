@@ -78,6 +78,9 @@
   <data name="Validation.Days.Range" xml:space="preserve">
     <value>天数必须在1到90之间。</value>
   </data>
+  <data name="Validation.HorizonDays.Range" xml:space="preserve">
+    <value>时间范围必须在1到365天之间。</value>
+  </data>
   <data name="Validation.ReauthenticationMaxAge.Range" xml:space="preserve">
     <value>重新认证的最长时限必须介于1到10080分钟之间。</value>
   </data>
@@ -129,6 +132,9 @@
   </data>
   <data name="Validation.SecretValue.Required" xml:space="preserve">
     <value>密钥值为必填项。</value>
+  </data>
+  <data name="Validation.SecretValue.MaxLength" xml:space="preserve">
+    <value>密钥值超过了此机密允许的长度。</value>
   </data>
 
   <!-- ==================== AuditLog Validation ==================== -->

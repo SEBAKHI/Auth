@@ -19,6 +19,7 @@ import type { DashboardScope } from "./scope"
 import {
   useAppActivity,
   useAuthStats,
+  useCredentialStats,
   useOrganizationCount,
   useRecentActivity,
   useSessionStats,
@@ -43,6 +44,9 @@ export function OverviewTab({ scope }: { scope: DashboardScope }) {
   const appActivity = useAppActivity(days, permissions.apps)
   const recent = useRecentActivity(permissions.audit)
   const orgs = useOrganizationCount(permissions.allOrganizations)
+  const credentialStats = useCredentialStats(
+    permissions.apiKeys || permissions.webhookKeys
+  )
 
   const auth = authStats.data
   const users = userStats.data
@@ -86,6 +90,7 @@ export function OverviewTab({ scope }: { scope: DashboardScope }) {
         authStats={auth}
         sessionStats={sessionStats.data}
         appActivity={appActivity.data}
+        credentialStats={credentialStats.data}
         loading={authStats.isLoading || sessionStats.isLoading}
       />
 
