@@ -572,12 +572,12 @@ export function SecretsPage() {
                     className="flex items-center justify-between gap-3 py-2.5"
                   >
                     <span className="font-mono text-sm">{key}</span>
+                    {/* Action first, badge last. Only two rows carry an action,
+                        so putting it after the badge would indent those two
+                        badges by the button's width and break the column the
+                        eye scans down. Source order, not a logical-property
+                        override, so RTL mirrors it for free. */}
                     <div className="flex items-center gap-2">
-                      {/* `secretStatusMeta` returns one of four fixed keys, all
-                          under `secrets.status`. */}
-                      <Badge variant={meta.variant}>
-                        {t(`secrets.status.${meta.key}`)}
-                      </Badge>
                       {isSettableKnownSecret(key) ? (
                         <Button
                           variant="ghost"
@@ -588,6 +588,11 @@ export function SecretsPage() {
                           {t("common.edit")}
                         </Button>
                       ) : null}
+                      {/* `secretStatusMeta` returns one of four fixed keys, all
+                          under `secrets.status`. */}
+                      <Badge variant={meta.variant}>
+                        {t(`secrets.status.${meta.key}`)}
+                      </Badge>
                     </div>
                   </li>
                 )

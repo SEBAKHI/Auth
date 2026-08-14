@@ -103,6 +103,23 @@ describe("SecretsPage — storing the credential secrets", () => {
     ).toBeNull()
   })
 
+  /**
+   * Only two of the rows carry an action. If the badge came first, those two
+   * badges would sit one button-width inboard of all the others and the column
+   * the eye scans down would break. Asserting the badge is the LAST child keeps
+   * every badge on the same edge, in both text directions.
+   */
+  it("puts the badge last in the row so every badge stays aligned", async () => {
+    renderPage()
+
+    await screen.findByText("ConnectionStrings.AuthDb")
+
+    for (const key of ["JwtPrivateKeyPem", "SmtpPassword", "ConnectionStrings.AuthDb"]) {
+      const trailing = screen.getByText(key).parentElement!.lastElementChild!
+      expect(trailing.lastElementChild).toHaveAttribute("data-slot", "badge")
+    }
+  })
+
   it("posts the SMTP password to its own endpoint, masked while typing", async () => {
     const user = await openDialogFor("SmtpPassword")
 
