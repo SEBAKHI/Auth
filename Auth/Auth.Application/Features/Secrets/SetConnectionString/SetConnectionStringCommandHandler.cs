@@ -90,8 +90,10 @@ public class SetConnectionStringCommandHandler : IRequestHandler<SetConnectionSt
             {
                 _logger.LogWarning(
                     "AuthDb connection string stored in the encrypted secrets file by user {UserId} " +
-                    "even though no connection could be opened with it. The API will NOT start until the " +
-                    "database accepts it. Recover with AUTH_IGNORE_SECRET_CONNECTIONSTRING=true.",
+                    "even though no connection could be opened with it. After the next restart the process " +
+                    "will still start, but every database-backed request will fail — sign-in included — " +
+                    "until the database accepts this string. Recover with " +
+                    "AUTH_IGNORE_SECRET_CONNECTIONSTRING=true.",
                     request.RequestedBy);
             }
 

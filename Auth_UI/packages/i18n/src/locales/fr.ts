@@ -837,7 +837,7 @@ export const fr: TranslationResources = {
     restartRequired: "Prend effet au prochain redémarrage de l'API.",
     connectionFailedTitle: "Connexion impossible avec cette chaîne",
     connectionFailedBody:
-      "Ne l'enregistrez malgré tout que si vous préparez un mot de passe qui n'est pas encore actif sur la base de données. L'API ne démarrera pas tant que la base ne l'accepte pas.",
+      "Ne l'enregistrez malgré tout que si vous préparez un mot de passe qui n'est pas encore actif sur la base de données. Après le redémarrage, l'API démarre quand même, mais toute requête touchant la base échoue — y compris la connexion — tant que la base n'accepte pas cette chaîne.",
     saveAnyway: "Enregistrer quand même",
     key: "Clé",
     value: "Valeur",

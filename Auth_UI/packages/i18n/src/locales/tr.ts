@@ -827,7 +827,7 @@ export const tr: TranslationResources = {
     restartRequired: "API bir sonraki yeniden başlatmada geçerli olur.",
     connectionFailedTitle: "Bu bağlantı dizesiyle bağlanılamadı",
     connectionFailedBody:
-      "Yalnızca veritabanında henüz etkin olmayan bir parolayı hazırlıyorsanız yine de kaydedin. Veritabanı kabul edene kadar API başlamayacaktır.",
+      "Yalnızca veritabanında henüz etkin olmayan bir parolayı hazırlıyorsanız yine de kaydedin. Yeniden başlatmadan sonra API yine de başlar, ancak veritabanına dokunan her istek — oturum açma dahil — veritabanı bu dizeyi kabul edene kadar başarısız olur.",
     saveAnyway: "Yine de kaydet",
     key: "Anahtar",
     value: "Değer",

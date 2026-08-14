@@ -780,7 +780,7 @@ export const zh: TranslationResources = {
     restartRequired: "在 API 下次重启时生效。",
     connectionFailedTitle: "无法使用此连接字符串建立连接",
     connectionFailedBody:
-      "仅当您正在准备数据库上尚未生效的密码时才强制保存。在数据库接受它之前，API 将无法启动。",
+      "仅当您正在准备数据库上尚未生效的密码时才强制保存。重启后 API 仍会启动，但在数据库接受此字符串之前，所有访问数据库的请求都会失败，包括登录。",
     saveAnyway: "仍然保存",
     key: "键",
     value: "值",

@@ -808,7 +808,7 @@ export const en = {
     restartRequired: "Takes effect the next time the API restarts.",
     connectionFailedTitle: "Could not connect with this connection string",
     connectionFailedBody:
-      "Save it anyway only if you are staging a password that is not active at the database yet. The API will not start until the database accepts it.",
+      "Save it anyway only if you are staging a password that is not active at the database yet. After the next restart the API still starts, but every request that touches the database fails — sign-in included — until the database accepts this string.",
     saveAnyway: "Save anyway",
     key: "Key",
     value: "Value",
