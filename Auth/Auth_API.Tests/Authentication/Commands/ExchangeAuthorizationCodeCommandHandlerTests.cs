@@ -24,6 +24,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
 
     private readonly Mock<IAuthorizationCodeRepository> _authorizationCodeRepositoryMock = new();
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
+    private readonly Mock<IApplicationAccessRepository> _applicationAccessRepositoryMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock = new();
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock = new();
@@ -31,9 +32,14 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
 
     public ExchangeAuthorizationCodeCommandHandlerTests()
     {
+        _applicationAccessRepositoryMock
+            .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         _handler = new ExchangeAuthorizationCodeCommandHandler(
             _authorizationCodeRepositoryMock.Object,
             _applicationRepositoryMock.Object,
+            _applicationAccessRepositoryMock.Object,
             _userRepositoryMock.Object,
             _refreshTokenKeyServiceMock.Object,
             _loginResponseBuilderMock.Object,
@@ -313,4 +319,71 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
                 It.IsAny<Guid?>()),
             Times.Once);
     }
+
+    #region Entitlement gate
+
+    [Fact]
+    public async Task Handle_UnentitledUser_ReturnsAccessDenied()
+    {
+        // Arrange — entitlement was withdrawn between /authorize and /token.
+        SetupHappyPath(Challenge);
+        _applicationAccessRepositoryMock
+            .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(ApplicationErrors.AccessDenied);
+    }
+
+    [Fact]
+    public async Task Handle_UnentitledUser_StillConsumesTheCode()
+    {
+        // Arrange
+        SetupHappyPath(Challenge);
+        _applicationAccessRepositoryMock
+            .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        // Assert — single-use means single-use. The code was spent before the
+        // check, which is correct: the client must start a fresh round rather
+        // than get a second chance at the same code.
+        _authorizationCodeRepositoryMock.Verify(
+            r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_UnentitledUser_MintsNoToken()
+    {
+        // Arrange
+        SetupHappyPath(Challenge);
+        _applicationAccessRepositoryMock
+            .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        // Assert
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(
+                It.IsAny<User>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<bool>(),
+                It.IsAny<string?>(),
+                It.IsAny<Guid?>()),
+            Times.Never);
+    }
+
+    #endregion
 }

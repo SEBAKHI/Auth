@@ -439,6 +439,11 @@ public class UserRepository : IUserRepository
             DELETE FROM [dbo].[UserRoles] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[UserPermissions] WHERE [UserId] = @Id;
 
+            -- Invitations to individual applications. Deleted rather than kept
+            -- as a revoked row: the account is being destroyed, and a surviving
+            -- row would name a user that no longer exists.
+            DELETE FROM [dbo].[ApplicationUserAccess] WHERE [UserId] = @Id;
+
             -- Organization memberships and artifacts the user authored
             DELETE FROM [dbo].[OrganizationUserRoles] WHERE [UserId] = @Id;
             DELETE FROM [dbo].[OrganizationUserPermissions] WHERE [UserId] = @Id;
@@ -502,6 +507,11 @@ public class UserRepository : IUserRepository
             UPDATE [dbo].[OrganizationUserRoles] SET [AssignedBy] = @SystemUserId WHERE [AssignedBy] = @Id;
             UPDATE [dbo].[OrganizationUserPermissions] SET [GrantedBy] = @SystemUserId WHERE [GrantedBy] = @Id;
             UPDATE [dbo].[OrganizationInvitations] SET [AcceptedByUserId] = NULL WHERE [AcceptedByUserId] = @Id;
+            -- Invitations OTHER users still hold, issued by the departing
+            -- administrator: the invitation belongs to its invitee, so only the
+            -- actor reference moves. RevokedBy has no foreign key and is left as
+            -- historical detail on rows already withdrawn.
+            UPDATE [dbo].[ApplicationUserAccess] SET [GrantedBy] = @SystemUserId WHERE [GrantedBy] = @Id;
 
             -- The account row last; IsDeleted = 1 is the final in-database guard
             DELETE FROM [dbo].[Users] WHERE [Id] = @Id AND [IsDeleted] = 1;",
@@ -560,10 +570,7 @@ public class UserRepository : IUserRepository
         var sql = $@"
             SELECT COUNT(1) FROM [dbo].[Users]
             WHERE (@IncludeDeleted = 1 OR [IsDeleted] = 0)
-              AND (@SearchPattern IS NULL OR
-                   [Email] LIKE @SearchPattern OR
-                   [FirstName] LIKE @SearchPattern OR
-                   [LastName] LIKE @SearchPattern);
+              AND {UserSearchSql.Matches()};
 
             SELECT
                 [Id], [Username], [Email], [NormalizedEmail], [PasswordHash],
@@ -582,10 +589,7 @@ public class UserRepository : IUserRepository
                 [IsDeleted], [DeletedAt]
             FROM [dbo].[Users]
             WHERE (@IncludeDeleted = 1 OR [IsDeleted] = 0)
-              AND (@SearchPattern IS NULL OR
-                   [Email] LIKE @SearchPattern OR
-                   [FirstName] LIKE @SearchPattern OR
-                   [LastName] LIKE @SearchPattern)
+              AND {UserSearchSql.Matches()}
             ORDER BY {orderBy}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY;";
 
@@ -1008,65 +1012,6 @@ public class UserRepository : IUserRepository
             Theme ?? "system",
             IsDeleted,
             DeletedAt);
-    }
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<UserApplicationAccess>> GetUserApplicationsAsync(
-        Guid userId,
-        CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        // Same access semantics as OrganizationRepository.HasAppAccessAsync,
-        // generalized to a list and unioned with direct app-scoped role assignments.
-        var rows = await connection.QueryAsync<UserApplicationAccess>(@"
-            SELECT
-                a.[Id] AS [ApplicationId],
-                a.[Code],
-                a.[Name],
-                a.[LogoUrl],
-                a.[IsActive],
-                CAST(MAX(src.[ViaOrganization]) AS BIT) AS [ViaOrganization],
-                CAST(MAX(src.[ViaDirect]) AS BIT) AS [ViaDirect]
-            FROM (
-                SELECT oa.[ApplicationId], 1 AS [ViaOrganization], 0 AS [ViaDirect]
-                FROM [dbo].[OrganizationUsers] ou
-                INNER JOIN [dbo].[Organizations] o ON ou.[OrganizationId] = o.[Id]
-                INNER JOIN [dbo].[OrganizationApplications] oa ON o.[Id] = oa.[OrganizationId]
-                WHERE ou.[UserId] = @UserId
-                  AND ou.[IsActive] = 1 AND o.[IsActive] = 1 AND oa.[IsActive] = 1
-                  AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())
-                  AND (oa.[ExpiresAt] IS NULL OR oa.[ExpiresAt] > GETUTCDATE())
-                  AND (
-                      EXISTS (
-                          SELECT 1 FROM [dbo].[OrganizationUserRoles] our
-                          WHERE our.[OrganizationId] = o.[Id]
-                            AND our.[UserId] = @UserId
-                            AND our.[ApplicationId] = oa.[ApplicationId]
-                            AND our.[IsActive] = 1
-                            AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE()))
-                      OR EXISTS (
-                          SELECT 1 FROM [dbo].[OrganizationUserPermissions] oup
-                          WHERE oup.[OrganizationId] = o.[Id]
-                            AND oup.[UserId] = @UserId
-                            AND oup.[ApplicationId] = oa.[ApplicationId]
-                            AND oup.[IsActive] = 1
-                            AND (oup.[ExpiresAt] IS NULL OR oup.[ExpiresAt] > GETUTCDATE()))
-                  )
-                UNION ALL
-                SELECT ur.[ApplicationId], 0, 1
-                FROM [dbo].[UserRoles] ur
-                WHERE ur.[UserId] = @UserId
-                  AND ur.[ApplicationId] IS NOT NULL
-                  AND ur.[IsActive] = 1
-                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
-            ) src
-            INNER JOIN [dbo].[Applications] a ON src.[ApplicationId] = a.[Id]
-            WHERE a.[IsDeleted] = 0
-            GROUP BY a.[Id], a.[Code], a.[Name], a.[LogoUrl], a.[IsActive]",
-            new { UserId = userId });
-
-        return rows.ToList();
     }
 
     private record UserRoleInternalDto

@@ -14,17 +14,20 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
 {
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IApplicationRepository _applicationRepository;
     private readonly IPublisher _publisher;
     private readonly ILogger<AssignRoleCommandHandler> _logger;
 
     public AssignRoleCommandHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        IApplicationRepository applicationRepository,
         IPublisher publisher,
         ILogger<AssignRoleCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _applicationRepository = applicationRepository;
         _publisher = publisher;
         _logger = logger;
     }
@@ -45,9 +48,29 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
             return RoleErrors.NotFound(request.RoleId);
         }
 
-        // Check if already assigned
-        var existingRoles = await _roleRepository.GetUserRolesAsync(request.UserId, cancellationToken);
-        if (existingRoles.Any(r => r.Id == request.RoleId))
+        // A role that belongs to one application cannot be scoped to another.
+        // Global roles (null owner) may be scoped anywhere.
+        if (request.ApplicationId.HasValue)
+        {
+            var application = await _applicationRepository.GetByIdAsync(request.ApplicationId.Value, cancellationToken);
+            if (application is null)
+            {
+                return ApplicationErrors.NotFound(request.ApplicationId.Value);
+            }
+
+            if (role.ApplicationId.HasValue && role.ApplicationId.Value != request.ApplicationId.Value)
+            {
+                return RoleErrors.NotFound(request.RoleId);
+            }
+        }
+
+        // Scoped by (role, application): a platform-wide assignment of the same
+        // role must not block scoping it to one application, and vice versa.
+        // Comparing role alone conflated the two and made the second impossible.
+        var existing = await _userRepository.GetUserRoleAsync(
+            request.UserId, request.RoleId, request.ApplicationId, cancellationToken);
+
+        if (existing is not null && existing.IsValid())
         {
             return Error.Conflict(
                 code: "User.RoleAlreadyAssigned",
@@ -60,7 +83,7 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
             userId: request.UserId,
             roleId: request.RoleId,
             assignedBy: request.AssignedBy,
-            applicationId: null,
+            applicationId: request.ApplicationId,
             expiresAt: request.ExpiresAt);
 
         await _roleRepository.AssignToUserAsync(userRole, cancellationToken);

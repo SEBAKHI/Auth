@@ -4,7 +4,11 @@ using Auth_API.Common;
 using Auth_API.Modules.ApplicationManagement.Contracts;
 using Auth.Application.Features.Applications.CreateApplication;
 using Auth.Application.Features.Applications.DeleteApplication;
+using Auth.Application.Features.Applications.GetApplicationAccessGrants;
 using Auth.Application.Features.Applications.GetApplicationById;
+using Auth.Application.Features.Applications.GrantApplicationAccess;
+using Auth.Application.Features.Applications.RevokeApplicationAccess;
+using Auth.Application.Features.Applications.SetApplicationActive;
 using Auth.Application.Features.Applications.GetApplicationOrganizations;
 using Auth.Application.Features.Applications.GetApplicationPermissions;
 using Auth.Application.Features.Applications.GetApplicationRoles;
@@ -223,7 +227,8 @@ public class ApplicationsController : ApiController
             request.SessionTimeoutMinutes,
             request.MaxConcurrentSessions,
             request.RedirectUris,
-            request.ReauthenticationMaxAgeMinutes)
+            request.ReauthenticationMaxAgeMinutes,
+            request.AccessMode)
         {
             CreatedBy = userId
         };
@@ -260,7 +265,8 @@ public class ApplicationsController : ApiController
             request.SessionTimeoutMinutes,
             request.MaxConcurrentSessions,
             request.RedirectUris,
-            request.ReauthenticationMaxAgeMinutes)
+            request.ReauthenticationMaxAgeMinutes,
+            request.AccessMode)
         {
             ModifiedBy = userId
         };
@@ -294,4 +300,119 @@ public class ApplicationsController : ApiController
             errors => Problem(errors));
     }
 
+    /// <summary>
+    /// Switch an application on. Its access mode is left as it was.
+    /// </summary>
+    [HttpPost("{id:guid}/activate")]
+    [RequirePermission("applications:update")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ActivateApplication(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new SetApplicationActiveCommand(id, true) { ModifiedBy = GetCurrentUserId() },
+            cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Switch an application off. Nobody signs in and no token refreshes while
+    /// it is off, whatever its access mode; its refresh tokens and sessions are
+    /// revoked immediately.
+    /// </summary>
+    [HttpPost("{id:guid}/deactivate")]
+    [RequirePermission("applications:update")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> DeactivateApplication(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(
+            new SetApplicationActiveCommand(id, false) { ModifiedBy = GetCurrentUserId() },
+            cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get the application's access list — the users individually invited to it.
+    /// </summary>
+    [HttpGet("{id:guid}/access")]
+    [RequirePermission("applications:read")]
+    [ProducesResponseType(typeof(IReadOnlyList<ApplicationAccessGrantDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetApplicationAccess(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetApplicationAccessGrantsQuery(id), cancellationToken);
+
+        return result.Match(
+            grants => Ok(grants),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Invite a user to the application, optionally with a role scoped to it.
+    /// </summary>
+    [HttpPost("{id:guid}/access")]
+    [RequirePermission("applications:update")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GrantApplicationAccess(
+        Guid id,
+        [FromBody] GrantApplicationAccessRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new GrantApplicationAccessCommand(
+            id, request.UserId, request.RoleId, request.ExpiresAt, request.Note)
+        {
+            GrantedBy = GetCurrentUserId()
+        };
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Withdraw a user's invitation. Their tokens and sessions for this
+    /// application are revoked; other applications are untouched.
+    /// </summary>
+    [HttpDelete("{id:guid}/access/{userId:guid}")]
+    [RequirePermission("applications:update")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> RevokeApplicationAccess(
+        Guid id,
+        Guid userId,
+        CancellationToken cancellationToken)
+    {
+        var command = new RevokeApplicationAccessCommand(id, userId)
+        {
+            RevokedBy = GetCurrentUserId()
+        };
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
 }

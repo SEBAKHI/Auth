@@ -18,6 +18,7 @@ public class UpdateApplicationCommandValidator : AbstractValidator<UpdateApplica
         RuleFor(x => x.SessionTimeoutMinutes).GreaterThan(0);
         RuleFor(x => x.MaxConcurrentSessions).GreaterThan(0);
         RuleFor(x => x.ReauthenticationMaxAgeMinutes).IsValidReauthenticationMaxAge();
+        RuleFor(x => x.AccessMode).IsInEnum();
 
         RuleFor(x => x.RedirectUris!)
             .IsWithinRedirectUriLimit()

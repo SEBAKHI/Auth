@@ -38,17 +38,9 @@ public class SessionLimitTests
 
     private LoginResponseBuilder CreateBuilder(SessionSettings session)
     {
-        var roles = new Mock<IRoleRepository>();
-        roles.Setup(r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
-
-        var permissions = new Mock<IPermissionRepository>();
-        permissions.Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
-
-        var organizations = new Mock<IOrganizationRepository>();
-        organizations.Setup(r => r.GetMembershipPermissionCodesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
+        var claims = new Mock<ITokenClaimsResolver>();
+        claims.Setup(r => r.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], [], []));
 
         _jwtMock.Setup(s => s.GenerateAccessToken(
                 It.IsAny<User>(), It.IsAny<IEnumerable<string>>(), It.IsAny<IEnumerable<string>>(),
@@ -62,9 +54,7 @@ public class SessionLimitTests
         keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns("hash");
 
         return new LoginResponseBuilder(
-            roles.Object,
-            permissions.Object,
-            organizations.Object,
+            claims.Object,
             _jwtMock.Object,
             keys.Object,
             _refreshTokensMock.Object,

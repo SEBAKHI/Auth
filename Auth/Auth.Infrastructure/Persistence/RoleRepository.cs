@@ -129,18 +129,32 @@ public class RoleRepository : IRoleRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // Both ways a role can be scoped to an application: assigned directly
+        // with that scope, or held through an organization that has the
+        // application enabled. Reading only the first left every
+        // organization-mediated user with an empty role set in their
+        // application token — they could sign in and do nothing.
         var dtos = await connection.QueryAsync<RoleDto>(@"
             SELECT r.* FROM [dbo].[Roles] r
             INNER JOIN [dbo].[UserRoles] ur ON r.[Id] = ur.[RoleId]
             WHERE ur.[UserId] = @UserId
-              AND r.[ApplicationId] = @ApplicationId
+              AND (ur.[ApplicationId] = @ApplicationId OR r.[ApplicationId] = @ApplicationId)
               AND ur.[IsActive] = 1
               AND r.[IsActive] = 1
               AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
-            ORDER BY r.[Name]",
+
+            UNION
+
+            SELECT r.* FROM [dbo].[Roles] r
+            INNER JOIN [dbo].[OrganizationUserRoles] our ON r.[Id] = our.[RoleId]
+            WHERE our.[UserId] = @UserId
+              AND our.[ApplicationId] = @ApplicationId
+              AND our.[IsActive] = 1
+              AND r.[IsActive] = 1
+              AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE())",
             new { UserId = userId, ApplicationId = applicationId });
 
-        return dtos.Select(dto => dto.ToEntity()).ToList();
+        return dtos.Select(dto => dto.ToEntity()).OrderBy(r => r.Name).ToList();
     }
 
     /// <inheritdoc />
@@ -339,7 +353,9 @@ public class RoleRepository : IRoleRepository
 
         // The assignment flags are computed once in the CROSS APPLY and shared
         // by the WHERE filter and the SELECT list.
-        const string fromClause = @"
+        // Not const: the shared user-search predicate is composed at runtime so
+        // every list agrees on what a search matches.
+        var fromClause = $@"
             FROM [dbo].[Users] u
             CROSS APPLY (SELECT
                 CASE WHEN EXISTS (
@@ -358,10 +374,7 @@ public class RoleRepository : IRoleRepository
                     THEN 1 ELSE 0 END AS [ViaOrganization]
             ) f
             WHERE u.[IsDeleted] = 0
-              AND (@SearchPattern IS NULL OR
-                   u.[Email] LIKE @SearchPattern OR
-                   u.[FirstName] LIKE @SearchPattern OR
-                   u.[LastName] LIKE @SearchPattern)
+              AND {UserSearchSql.Matches("u")}
               AND (f.[ViaDirect] = 1 OR f.[ViaOrganization] = 1)";
 
         var sql = $@"

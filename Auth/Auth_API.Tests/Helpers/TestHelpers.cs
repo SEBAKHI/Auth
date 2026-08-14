@@ -134,6 +134,13 @@ public static class TestHelpers
     /// <summary>
     /// Creates a test Application entity.
     /// </summary>
+    /// <param name="accessMode">
+    /// Defaults to <see cref="ApplicationAccessMode.Everyone"/>, not to the
+    /// production default. Most tests here exercise something other than the
+    /// sign-in gate and would otherwise each need invitation setup to say
+    /// nothing about invitations. Tests that DO exercise the gate pass
+    /// <see cref="ApplicationAccessMode.Restricted"/> explicitly.
+    /// </param>
     public static Application CreateApplication(
         Guid? id = null,
         string? code = null,
@@ -142,7 +149,8 @@ public static class TestHelpers
         string? baseUrl = null,
         string? logoUrl = null,
         bool isActive = true,
-        Guid? createdBy = null)
+        Guid? createdBy = null,
+        ApplicationAccessMode accessMode = ApplicationAccessMode.Everyone)
     {
         var appId = id ?? Guid.NewGuid();
 
@@ -163,7 +171,8 @@ public static class TestHelpers
             createdAt: DateTime.UtcNow,
             createdBy: createdBy ?? SystemUserId,
             modifiedAt: null,
-            modifiedBy: null);
+            modifiedBy: null,
+            accessMode: accessMode);
     }
 
     /// <summary>

@@ -20,6 +20,8 @@ export function ApplicationSelect({
   allowAll = false,
   placeholder,
   className,
+  options,
+  loading,
 }: {
   /** Trigger id, so a `FieldLabel htmlFor` can name the control. */
   id?: string
@@ -28,10 +30,23 @@ export function ApplicationSelect({
   allowAll?: boolean
   placeholder?: string
   className?: string
+  /**
+   * Explicit list, replacing the platform-wide one.
+   *
+   * Callers that need a narrower set pass it here rather than filtering
+   * downstream: this component is shared by nine screens whose needs differ —
+   * an organization may only enable applications open to everyone, while the
+   * role, permission and API-key screens must be able to reach every one.
+   */
+  options?: { id?: string; name?: string }[]
+  /** Loading flag for a caller-supplied list. */
+  loading?: boolean
 }) {
   const { t } = useTranslation()
-  const { data, isLoading } = useApplications()
-  const apps = (data?.applications ?? []).filter((app) => Boolean(app.id))
+  const shared = useApplications()
+  const source = options ?? shared.data?.applications ?? []
+  const isLoading = options ? Boolean(loading) : shared.isLoading
+  const apps = source.filter((app) => Boolean(app.id))
   // With no selectable options, keep the trigger disabled so it never opens an
   // empty popover (an empty Radix Select inside a Dialog can otherwise leak a
   // dismiss that closes the dialog).

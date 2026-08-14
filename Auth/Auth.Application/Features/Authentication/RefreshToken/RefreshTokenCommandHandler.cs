@@ -20,10 +20,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
 {
     private readonly IUserRepository _userRepository;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
-    private readonly IRoleRepository _roleRepository;
-    private readonly IPermissionRepository _permissionRepository;
-    private readonly IOrganizationRepository _organizationRepository;
+    private readonly ITokenClaimsResolver _tokenClaimsResolver;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IApplicationAccessRepository _applicationAccessRepository;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IUserSessionRepository _sessionRepository;
@@ -34,10 +33,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     public RefreshTokenCommandHandler(
         IUserRepository userRepository,
         IRefreshTokenRepository refreshTokenRepository,
-        IRoleRepository roleRepository,
-        IPermissionRepository permissionRepository,
-        IOrganizationRepository organizationRepository,
+        ITokenClaimsResolver tokenClaimsResolver,
         IApplicationRepository applicationRepository,
+        IApplicationAccessRepository applicationAccessRepository,
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IUserSessionRepository sessionRepository,
@@ -47,10 +45,9 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
     {
         _userRepository = userRepository;
         _refreshTokenRepository = refreshTokenRepository;
-        _roleRepository = roleRepository;
-        _permissionRepository = permissionRepository;
-        _organizationRepository = organizationRepository;
+        _tokenClaimsResolver = tokenClaimsResolver;
         _applicationRepository = applicationRepository;
+        _applicationAccessRepository = applicationAccessRepository;
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _sessionRepository = sessionRepository;
@@ -142,13 +139,6 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             return UserErrors.AccountLocked;
         }
 
-        // Get updated roles and permissions
-        var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
-        var roleNames = roles.Select(r => r.Code).ToList();
-        var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
-        var organizationPermissions = await _organizationRepository
-            .GetMembershipPermissionCodesAsync(user.Id, cancellationToken);
-
         // A token issued to a specific app (OAuth flow) carries that app on the
         // refresh token; re-mint the same per-app audience so the refreshed token
         // stays valid only for that app. Direct first-party logins have no
@@ -169,13 +159,42 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
                 return ApplicationErrors.ApplicationInactive;
             }
 
+            // Entitlement is re-checked on every refresh, so withdrawing an
+            // invitation takes effect within one access-token lifetime instead
+            // of one refresh-token lifetime.
+            if (!await _applicationAccessRepository.IsUserEntitledAsync(
+                    user.Id, application.Id, cancellationToken))
+            {
+                // Revoke THIS token only. Losing access to one application must
+                // not sign the user out of the others, so no bulk revocation
+                // here. The reason is not "Rotated", so WasTerminatedInBulk is
+                // true and re-presenting this token answers "session ended"
+                // rather than triggering the theft cascade.
+                storedToken.Revoke(
+                    revokedBy: null, // system action, not an administrator acting now
+                    reason: TokenRevocationReasons.ApplicationAccessRevoked);
+                await _refreshTokenRepository.UpdateAsync(storedToken, cancellationToken);
+
+                _logger.LogWarning(
+                    "Refresh rejected: user {UserId} is no longer entitled to application {ApplicationId}",
+                    user.Id, application.Id);
+
+                return ApplicationErrors.AccessDenied;
+            }
+
             audience = application.Code;
         }
+
+        // Claims are resolved for the audience this token is scoped to, so a
+        // role that belongs to another application cannot ride along.
+        var claims = await _tokenClaimsResolver.ResolveAsync(
+            user.Id, storedToken.ApplicationId, cancellationToken);
 
         // Generate new access token, carrying the stable session id forward so
         // the access token's "sid" stays constant across refreshes.
         var accessToken = _jwtTokenService.GenerateAccessToken(
-            user, permissions, roleNames, storedToken.SessionId, organizationPermissions, audience);
+            user, claims.Permissions, claims.RoleCodes, storedToken.SessionId,
+            claims.OrganizationPermissions, audience);
 
         // Keep the session's last-activity timestamp fresh (best-effort).
         if (storedToken.SessionId.HasValue)

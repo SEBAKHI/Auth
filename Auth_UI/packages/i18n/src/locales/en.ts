@@ -555,6 +555,38 @@ export const en = {
     created: "Application created.",
     updated: "Application updated.",
     deleted: "Application deleted.",
+    available: "Available",
+    availableHint:
+      "When off, nobody can sign in and existing sessions end — including invited users.",
+    deactivateTitle: "Turn off this application?",
+    deactivateBody:
+      "Nobody will be able to sign in to {{name}}, and everyone currently signed in will be signed out. You can turn it back on at any time.",
+    activated: "Application turned on.",
+    deactivated: "Application turned off.",
+    accessMode: "Who can sign in",
+    accessModeEveryone: "Everyone",
+    accessModeEveryoneHint: "Any user on the platform can use this application.",
+    accessModeRestricted: "Only invited people",
+    accessModeRestrictedHint:
+      "Only the people you add can sign in. Use this while trying an application out.",
+    openToEveryoneNotice:
+      "This application is open to everyone, so the list below is informational — anyone can sign in whether or not they appear here.",
+    manageAccess: "Trial users",
+    manageAccessDescription:
+      "The people allowed to try {{name}} while it is restricted. Nobody else can sign in until you open it to everyone. You can give each user a role at the same time.",
+    accessUser: "User",
+    accessRole: "Role in this application",
+    accessRoleHint: "Optional. Without one they can sign in but do nothing.",
+    accessExpires: "Access expires",
+    grantAccess: "Add user",
+    noAccessGrants: "No trial users yet.",
+    accessGranted: "Access granted.",
+    accessRevoked: "Access removed.",
+    accessVia: "Access via",
+    accessViaGrant: "Trial user",
+    accessViaDirect: "Direct role",
+    accessViaOrganization: "Organization",
+    accessViaMultiple: "Multiple",
   },
   organizations: {
     title: "Organizations",

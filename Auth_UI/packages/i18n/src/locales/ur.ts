@@ -561,6 +561,40 @@ export const ur: TranslationResources = {
     created: "ایپلیکیشن بن گئی۔",
     updated: "ایپلیکیشن اپ ڈیٹ ہو گئی۔",
     deleted: "ایپلیکیشن حذف ہو گئی۔",
+    available: "دستیاب",
+    availableHint:
+      "بند ہونے پر کوئی داخل نہیں ہو سکتا اور موجودہ سیشن ختم ہو جاتے ہیں — مدعو افراد سمیت۔",
+    deactivateTitle: "کیا یہ ایپلیکیشن بند کر دی جائے؟",
+    deactivateBody:
+      "کوئی بھی {{name}} میں داخل نہیں ہو سکے گا، اور جو اس وقت داخل ہیں سب کو نکال دیا جائے گا۔ آپ اسے کسی بھی وقت دوبارہ چالو کر سکتے ہیں۔",
+    activated: "ایپلیکیشن چالو کر دی گئی۔",
+    deactivated: "ایپلیکیشن بند کر دی گئی۔",
+    accessMode: "کون داخل ہو سکتا ہے",
+    accessModeEveryone: "سب",
+    accessModeEveryoneHint:
+      "پلیٹ فارم کا کوئی بھی صارف یہ ایپلیکیشن استعمال کر سکتا ہے۔",
+    accessModeRestricted: "صرف مدعو افراد",
+    accessModeRestrictedHint:
+      "صرف وہی لوگ داخل ہو سکتے ہیں جنہیں آپ شامل کریں۔ آزمائش کے دوران یہ استعمال کریں۔",
+    openToEveryoneNotice:
+      "یہ ایپلیکیشن سب کے لیے کھلی ہے، اس لیے نیچے دی گئی فہرست صرف معلومات کے لیے ہے — کوئی بھی داخل ہو سکتا ہے، چاہے فہرست میں ہو یا نہ ہو۔",
+    manageAccess: "آزمائشی صارفین",
+    manageAccessDescription:
+      "وہ لوگ جنہیں {{name}} کو محدود حالت میں آزمانے کی اجازت ہے۔ جب تک آپ اسے سب کے لیے نہ کھولیں، کوئی اور داخل نہیں ہو سکتا۔ آپ اسی مرحلے میں ہر صارف کو کردار بھی دے سکتے ہیں۔",
+    accessUser: "صارف",
+    accessRole: "اس ایپلیکیشن میں کردار",
+    accessRoleHint:
+      "اختیاری۔ کردار کے بغیر وہ داخل تو ہو سکتے ہیں مگر کچھ نہیں کر سکتے۔",
+    accessExpires: "رسائی کی میعاد",
+    grantAccess: "صارف شامل کریں",
+    noAccessGrants: "ابھی تک کوئی آزمائشی صارف نہیں ہے۔",
+    accessGranted: "رسائی دے دی گئی۔",
+    accessRevoked: "رسائی واپس لے لی گئی۔",
+    accessVia: "رسائی کا ذریعہ",
+    accessViaGrant: "آزمائشی صارف",
+    accessViaDirect: "براہِ راست کردار",
+    accessViaOrganization: "تنظیم",
+    accessViaMultiple: "متعدد",
   },
   organizations: {
     title: "تنظیمیں",

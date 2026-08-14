@@ -664,8 +664,33 @@ function ApplicationsTab({
       ),
   })
 
-  const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ["org-apps", orgId] })
+  /**
+   * What this organization may actually enable: switched on, open to everyone,
+   * and not already enabled here.
+   *
+   * Not the platform-wide application list. That one needs `applications:read`,
+   * which an organization administrator has no reason to hold — without it the
+   * picker simply came up empty with nothing to explain why — and it includes
+   * applications restricted to their own invitation list, which no organization
+   * can enable at all.
+   */
+  const availableQuery = useQuery({
+    queryKey: ["org-apps", orgId, "available"],
+    enabled: enableOpen,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/Organizations/{id}/applications/available", {
+          params: { path: { id: orgId } },
+        })
+      ),
+  })
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({
+      queryKey: ["org-apps", orgId, "available"],
+    })
+    return queryClient.invalidateQueries({ queryKey: ["org-apps", orgId] })
+  }
 
   const enableMutation = useMutation({
     mutationFn: async (applicationId: string) => {
@@ -869,6 +894,11 @@ function ApplicationsTab({
                 value={appId}
                 onChange={setAppId}
                 className="w-full"
+                options={(availableQuery.data ?? []).map((app) => ({
+                  id: app.applicationId,
+                  name: app.name,
+                }))}
+                loading={availableQuery.isLoading}
               />
             </Field>
             <Field>

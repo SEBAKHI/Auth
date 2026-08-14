@@ -29,17 +29,9 @@ public class NewDeviceAlertTests
     /// <summary>Builds the subject with every collaborator stubbed to succeed.</summary>
     private LoginResponseBuilder CreateBuilder(NotificationSettings? notifications = null)
     {
-        var roles = new Mock<IRoleRepository>();
-        roles.Setup(r => r.GetUserRolesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
-
-        var permissions = new Mock<IPermissionRepository>();
-        permissions.Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
-
-        var organizations = new Mock<IOrganizationRepository>();
-        organizations.Setup(r => r.GetMembershipPermissionCodesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync([]);
+        var claims = new Mock<ITokenClaimsResolver>();
+        claims.Setup(r => r.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], [], []));
 
         var jwt = new Mock<IJwtTokenService>();
         jwt.Setup(s => s.GenerateAccessToken(
@@ -54,9 +46,7 @@ public class NewDeviceAlertTests
         keys.Setup(s => s.ComputeTokenHash(It.IsAny<string>())).Returns("hash");
 
         return new LoginResponseBuilder(
-            roles.Object,
-            permissions.Object,
-            organizations.Object,
+            claims.Object,
             jwt.Object,
             keys.Object,
             new Mock<IRefreshTokenRepository>().Object,

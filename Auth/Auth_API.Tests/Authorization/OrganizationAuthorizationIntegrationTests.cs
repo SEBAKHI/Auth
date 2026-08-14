@@ -23,6 +23,16 @@ public class OrganizationAuthorizationIntegrationTests
     private readonly Guid _acmeOrgId = Guid.NewGuid();
     private readonly Guid _betaCorpOrgId = Guid.NewGuid();
 
+    // A small stand-in for the organization tables. The checker now asks one
+    // repository method for "this user's permissions for this application
+    // across every organization that has it enabled", so these tests describe
+    // the rows and let the stub compute the same answer the SQL would — the
+    // scenarios stay readable and keep asserting real semantics instead of a
+    // call sequence.
+    private readonly Dictionary<(Guid User, Guid Organization), bool> _memberships = [];
+    private readonly Dictionary<(Guid Organization, Guid Application), bool> _appEnabled = [];
+    private readonly Dictionary<(Guid Organization, Guid User, Guid Application), string[]> _orgPermissions = [];
+
     public OrganizationAuthorizationIntegrationTests()
     {
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
@@ -45,6 +55,45 @@ public class OrganizationAuthorizationIntegrationTests
                 It.IsAny<Guid>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string>());
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetEffectivePermissionCodesForApplicationAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Guid userId, Guid applicationId, CancellationToken _) =>
+                AggregateOrgPermissions(userId, applicationId));
+    }
+
+    /// <summary>
+    /// Mirrors GetEffectivePermissionCodesForApplicationAsync: union the codes
+    /// from every active membership whose organization has the application
+    /// enabled.
+    /// </summary>
+    private IReadOnlyList<string> AggregateOrgPermissions(Guid userId, Guid applicationId)
+    {
+        var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var ((user, organization), isActive) in _memberships)
+        {
+            if (user != userId || !isActive)
+            {
+                continue;
+            }
+
+            if (!_appEnabled.TryGetValue((organization, applicationId), out var enabled) || !enabled)
+            {
+                continue;
+            }
+
+            if (_orgPermissions.TryGetValue((organization, userId, applicationId), out var granted))
+            {
+                foreach (var code in granted)
+                {
+                    codes.Add(code);
+                }
+            }
+        }
+
+        return codes.ToList();
     }
 
     #region Scenario: User Accesses App Through Single Organization
@@ -124,10 +173,12 @@ public class OrganizationAuthorizationIntegrationTests
         // Scenario: Jane's membership in Acme Corp has been deactivated.
         // She should no longer have access.
 
-        // Arrange - User's membership is inactive (not returned by GetUserMembershipsAsync)
-        _organizationRepositoryMock
-            .Setup(r => r.GetUserMembershipsAsync(_userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<OrganizationUser>()); // No active memberships
+        // Arrange — the membership exists but is deactivated, so it contributes
+        // nothing even though the organization has the application enabled.
+        SetupUserInOrganization(_userId, _acmeOrgId, isActive: false);
+        SetupOrgAppEnabled(_acmeOrgId, _dataTransferAppId, enabled: true);
+        SetupOrgUserPermissions(_acmeOrgId, _userId, _dataTransferAppId,
+            new[] { "data-transfer:read" });
 
         // Act
         var canRead = await _permissionChecker.HasPermissionAsync(
@@ -150,15 +201,8 @@ public class OrganizationAuthorizationIntegrationTests
         // Jane should have both permissions.
 
         // Arrange
-        var memberships = new List<OrganizationUser>
-        {
-            TestHelpers.CreateOrganizationUser(organizationId: _acmeOrgId, userId: _userId, isActive: true),
-            TestHelpers.CreateOrganizationUser(organizationId: _betaCorpOrgId, userId: _userId, isActive: true)
-        };
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetUserMembershipsAsync(_userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(memberships);
+        SetupUserInOrganization(_userId, _acmeOrgId, isActive: true);
+        SetupUserInOrganization(_userId, _betaCorpOrgId, isActive: true);
 
         // Both orgs have Data Transfer enabled
         SetupOrgAppEnabled(_acmeOrgId, _dataTransferAppId, enabled: true);
@@ -192,15 +236,8 @@ public class OrganizationAuthorizationIntegrationTests
         // Jane should only get permissions from Acme Corp.
 
         // Arrange
-        var memberships = new List<OrganizationUser>
-        {
-            TestHelpers.CreateOrganizationUser(organizationId: _acmeOrgId, userId: _userId, isActive: true),
-            TestHelpers.CreateOrganizationUser(organizationId: _betaCorpOrgId, userId: _userId, isActive: true)
-        };
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetUserMembershipsAsync(_userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(memberships);
+        SetupUserInOrganization(_userId, _acmeOrgId, isActive: true);
+        SetupUserInOrganization(_userId, _betaCorpOrgId, isActive: true);
 
         // Only Acme has Data Transfer
         SetupOrgAppEnabled(_acmeOrgId, _dataTransferAppId, enabled: true);
@@ -214,13 +251,11 @@ public class OrganizationAuthorizationIntegrationTests
             _userId, _dataTransferAppId, CancellationToken.None);
 
         // Assert
+        // Beta Corp's grant is excluded because the application is not enabled
+        // there — asserted on the result, since the disabled organization is
+        // filtered inside the query rather than skipped by the caller.
         permissions.Should().ContainSingle()
             .Which.Should().Be("data-transfer:read");
-
-        // Verify Beta Corp permissions were never queried
-        _organizationRepositoryMock.Verify(
-            r => r.GetEffectivePermissionCodesAsync(_betaCorpOrgId, _userId, _dataTransferAppId, It.IsAny<CancellationToken>()),
-            Times.Never);
     }
 
     [Fact]
@@ -231,15 +266,8 @@ public class OrganizationAuthorizationIntegrationTests
         // Permissions should be correctly isolated per app.
 
         // Arrange
-        var memberships = new List<OrganizationUser>
-        {
-            TestHelpers.CreateOrganizationUser(organizationId: _acmeOrgId, userId: _userId, isActive: true),
-            TestHelpers.CreateOrganizationUser(organizationId: _betaCorpOrgId, userId: _userId, isActive: true)
-        };
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetUserMembershipsAsync(_userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(memberships);
+        SetupUserInOrganization(_userId, _acmeOrgId, isActive: true);
+        SetupUserInOrganization(_userId, _betaCorpOrgId, isActive: true);
 
         // Acme has Data Transfer, Beta has Mail Merge
         SetupOrgAppEnabled(_acmeOrgId, _dataTransferAppId, enabled: true);
@@ -495,11 +523,7 @@ public class OrganizationAuthorizationIntegrationTests
     {
         // Scenario: User has no org memberships but has direct permissions.
 
-        // Arrange
-        _organizationRepositoryMock
-            .Setup(r => r.GetUserMembershipsAsync(_userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<OrganizationUser>());
-
+        // Arrange — no memberships recorded, so the organization branch is empty.
         _permissionRepositoryMock
             .Setup(r => r.GetUserEffectivePermissionsAsync(_userId, _dataTransferAppId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "direct:permission" });
@@ -581,9 +605,10 @@ public class OrganizationAuthorizationIntegrationTests
             .Which.Should().Be("global:permission");
 
         _organizationRepositoryMock.Verify(
-            r => r.GetUserMembershipsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            r => r.GetEffectivePermissionCodesForApplicationAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never,
-            "Should not check org memberships without applicationId");
+            "Should not check org permissions without applicationId");
     }
 
     #endregion
@@ -592,35 +617,17 @@ public class OrganizationAuthorizationIntegrationTests
 
     private void SetupUserInOrganization(Guid userId, Guid organizationId, bool isActive)
     {
-        var membership = TestHelpers.CreateOrganizationUser(
-            organizationId: organizationId,
-            userId: userId,
-            isActive: isActive);
-
-        // Get existing memberships or create new list
-        var existingSetup = _organizationRepositoryMock.Setups
-            .FirstOrDefault(s => s.Expression.ToString().Contains("GetUserMembershipsAsync"));
-
-        if (existingSetup == null)
-        {
-            _organizationRepositoryMock
-                .Setup(r => r.GetUserMembershipsAsync(userId, It.IsAny<CancellationToken>()))
-                .ReturnsAsync(new List<OrganizationUser> { membership });
-        }
+        _memberships[(userId, organizationId)] = isActive;
     }
 
     private void SetupOrgAppEnabled(Guid organizationId, Guid applicationId, bool enabled)
     {
-        _organizationRepositoryMock
-            .Setup(r => r.IsApplicationEnabledAsync(organizationId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(enabled);
+        _appEnabled[(organizationId, applicationId)] = enabled;
     }
 
     private void SetupOrgUserPermissions(Guid organizationId, Guid userId, Guid applicationId, string[] permissions)
     {
-        _organizationRepositoryMock
-            .Setup(r => r.GetEffectivePermissionCodesAsync(organizationId, userId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(permissions.ToList());
+        _orgPermissions[(organizationId, userId, applicationId)] = permissions;
     }
 
     #endregion

@@ -8,6 +8,7 @@ using Auth.Application.Features.Organizations.DeleteOrganization;
 using Auth.Application.Features.Organizations.DisableApplication;
 using Auth.Application.Features.Organizations.EnableApplication;
 using Auth.Application.Features.Organizations.GetAllOrganizations;
+using Auth.Application.Features.Organizations.GetAvailableApplications;
 using Auth.Application.Features.Organizations.GetMemberAppRoles;
 using Auth.Application.Features.Organizations.GetOrganizationApplications;
 using Auth.Application.Features.Organizations.GetOrganizationById;
@@ -440,6 +441,33 @@ public class OrganizationsController : ApiController
             PlatformScope = HasPermissionClaim("organizations:read")
         };
         var result = await _sender.Send(query, cancellationToken);
+
+        return result.Match(
+            apps => Ok(apps),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Get the applications this organization is allowed to enable: switched on,
+    /// open to everyone, and not already enabled for it.
+    /// </summary>
+    /// <remarks>
+    /// Its own endpoint rather than a filter over the platform-wide application
+    /// list, because that list is guarded by <c>applications:read</c> — a
+    /// platform permission an organization administrator has no reason to hold,
+    /// and without which the picker simply comes back empty with no explanation.
+    /// Restricted applications never appear: they admit only the users on their
+    /// own access list.
+    /// </remarks>
+    [HttpGet("{id:guid}/applications/available")]
+    [RequirePermission("org:apps:manage")]
+    [ProducesResponseType(typeof(IReadOnlyList<AvailableApplicationDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetAvailableApplications(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new GetAvailableApplicationsQuery(id), cancellationToken);
 
         return result.Match(
             apps => Ok(apps),

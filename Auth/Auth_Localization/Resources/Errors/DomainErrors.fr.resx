@@ -282,6 +282,21 @@
   <data name="Application.Inactive" xml:space="preserve">
     <value>Cette application est actuellement inactive.</value>
   </data>
+  <data name="Application.AccessDenied" xml:space="preserve">
+    <value>Vous n'avez pas accès à cette application.</value>
+  </data>
+  <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
+    <value>L'utilisateur « {0} » a déjà accès à cette application.</value>
+  </data>
+  <data name="Application.UserAccessNotFound" xml:space="preserve">
+    <value>L'utilisateur « {0} » n'a pas d'accès accordé à cette application.</value>
+  </data>
+  <data name="Application.CannotRestrictWithActiveOrganizations" xml:space="preserve">
+    <value>Désactivez cette application pour ses organisations avant de la réserver aux personnes invitées individuellement.</value>
+  </data>
+  <data name="Application.RestrictedCannotBeEnabledForOrganization" xml:space="preserve">
+    <value>Cette application est réservée aux utilisateurs invités individuellement et ne peut pas être activée pour une organisation.</value>
+  </data>
   <data name="Application.InvalidCode" xml:space="preserve">
     <value>Le code d'application '{0}' est invalide. Utilisez uniquement des caractères alphanumériques majuscules et des tirets bas.</value>
   </data>

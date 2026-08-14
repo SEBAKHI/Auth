@@ -3,26 +3,36 @@ using Auth.Domain.Enums;
 namespace Auth.Domain.ReadModels.Access;
 
 /// <summary>
-/// One application a user can access, with how the access is obtained:
-/// through an organization (membership + enabled app + app-level role or
-/// permission in that organization) and/or a direct app-scoped role assignment.
+/// One application a user can sign in to, with how: the application is open to
+/// everyone, and/or the user holds an invitation on its access list.
 /// </summary>
+/// <remarks>
+/// Mirrors the sign-in gate exactly. An open application admits everyone, so it
+/// is listed for every user with <see cref="ViaOpenAccess"/> set; a restricted
+/// one is listed only for the people on its list.
+/// </remarks>
 public sealed record UserApplicationAccess(
     Guid ApplicationId,
     string Code,
     string Name,
     string? LogoUrl,
     bool IsActive,
-    bool ViaOrganization,
-    bool ViaDirect);
+    bool ViaOpenAccess,
+    bool ViaGrant);
 
 /// <summary>
-/// One user holding an active role assignment scoped to an application,
-/// either directly (UserRoles) or through an organization (OrganizationUserRoles).
+/// One user attached to an application: invited on its access list, holding an
+/// app-scoped role directly (UserRoles), and/or holding one through an
+/// organization (OrganizationUserRoles).
 /// </summary>
 /// <remarks>
 /// Uses init-only properties (not a positional constructor) so Dapper can
 /// materialize the <see cref="UserStatus"/> enum from the tinyint column.
+/// <para>
+/// Attachment is not the same question as admission: a user with only an
+/// app-scoped role is listed here but cannot sign in to a restricted
+/// application, and everyone can sign in to an open one without appearing here.
+/// </para>
 /// </remarks>
 public sealed record ApplicationUserRow
 {
@@ -36,7 +46,44 @@ public sealed record ApplicationUserRow
     public DateTime? LastLoginAt { get; init; }
     public DateTime CreatedAt { get; init; }
     public string? RoleNames { get; init; }
+    public bool ViaGrant { get; init; }
+    public bool ViaDirect { get; init; }
+    public bool ViaOrganization { get; init; }
 }
+
+/// <summary>
+/// One invitation on an application's access list, with the invited user's
+/// display details and who issued it.
+/// </summary>
+/// <remarks>
+/// Uses init-only properties (not a positional constructor) so Dapper can
+/// materialize the <see cref="UserStatus"/> enum from the tinyint column.
+/// </remarks>
+public sealed record ApplicationUserGrantRow
+{
+    public Guid UserId { get; init; }
+    public string Email { get; init; } = string.Empty;
+    public string? FirstName { get; init; }
+    public string? LastName { get; init; }
+    public string? DisplayName { get; init; }
+    public string? ProfileImageUrl { get; init; }
+    public UserStatus Status { get; init; }
+    public DateTime GrantedAt { get; init; }
+    public Guid GrantedBy { get; init; }
+    public string? GrantedByName { get; init; }
+    public DateTime? ExpiresAt { get; init; }
+    public string? Note { get; init; }
+}
+
+/// <summary>
+/// One application an organization is allowed to enable: switched on, open to
+/// everyone, and not already enabled for that organization.
+/// </summary>
+public sealed record AvailableApplicationRow(
+    Guid ApplicationId,
+    string Code,
+    string Name,
+    string? LogoUrl);
 
 /// <summary>
 /// One organization that has an application enabled (active or not),

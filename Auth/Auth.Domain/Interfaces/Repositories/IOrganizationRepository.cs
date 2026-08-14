@@ -124,6 +124,22 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Same as <see cref="GetMembershipPermissionCodesAsync(Guid, CancellationToken)"/>,
+    /// narrowed to organizations that actually have the given application
+    /// enabled. Used when minting an application-scoped token, so a partner
+    /// application is not handed the user's entire organization graph.
+    /// </summary>
+    /// <remarks>
+    /// Distinct name rather than an overload: an overload taking two
+    /// <see cref="Guid"/>s would be ambiguous with the
+    /// (organizationId, userId) one below at every call site.
+    /// </remarks>
+    Task<IReadOnlyList<(Guid OrganizationId, string Code)>> GetMembershipPermissionCodesForApplicationAsync(
+        Guid userId,
+        Guid applicationId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets the permission codes granted by the user's membership role in one
     /// organization (empty when not a member). Used by the authorization gate
     /// as a live fallback for tokens issued before the membership existed.
@@ -353,12 +369,12 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Checks if a user has access to an application through any of their organizations.
-    /// Returns true if:
-    /// 1. User is a member of at least one org that has the app enabled
-    /// 2. User has at least one role OR permission for that app in that org
+    /// Gets the user's effective permission codes for one application across
+    /// every organization they belong to that has it enabled — the single-query
+    /// form of "walk the memberships, then ask each one". Used on the token-mint
+    /// path, where the per-membership loop cost 1 + 2N round trips.
     /// </summary>
-    Task<bool> HasAppAccessAsync(
+    Task<IReadOnlyList<string>> GetEffectivePermissionCodesForApplicationAsync(
         Guid userId,
         Guid applicationId,
         CancellationToken cancellationToken);

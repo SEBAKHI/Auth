@@ -1,3 +1,5 @@
+using Auth.Domain.Enums;
+
 namespace Auth_API.Modules.ApplicationManagement.Contracts;
 
 public record UpdateApplicationRequest(
@@ -12,4 +14,5 @@ public record UpdateApplicationRequest(
     int SessionTimeoutMinutes = 60,
     int MaxConcurrentSessions = 5,
     IReadOnlyList<string>? RedirectUris = null,
-    int? ReauthenticationMaxAgeMinutes = null);
+    int? ReauthenticationMaxAgeMinutes = null,
+    ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted);

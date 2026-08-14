@@ -59,6 +59,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             request.RequireEmailVerification,
             request.SessionTimeoutMinutes,
             request.MaxConcurrentSessions,
+            request.AccessMode,
             request.CreatedBy,
             request.ReauthenticationMaxAgeMinutes);
 
@@ -85,6 +86,7 @@ public class CreateApplicationCommandHandler : IRequestHandler<CreateApplication
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
+            AccessMode = application.AccessMode,
             AllowSelfRegistration = application.AllowSelfRegistration,
             RequireTwoFactor = application.RequireTwoFactor,
             RequireEmailVerification = application.RequireEmailVerification,

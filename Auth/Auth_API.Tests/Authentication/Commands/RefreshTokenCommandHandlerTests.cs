@@ -19,10 +19,9 @@ public class RefreshTokenCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock;
-    private readonly Mock<IRoleRepository> _roleRepositoryMock;
-    private readonly Mock<IPermissionRepository> _permissionRepositoryMock;
-    private readonly Mock<IOrganizationRepository> _organizationRepositoryMock;
+    private readonly Mock<ITokenClaimsResolver> _tokenClaimsResolverMock;
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+    private readonly Mock<IApplicationAccessRepository> _applicationAccessRepositoryMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
     private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock;
     private readonly Mock<ILogger<RefreshTokenCommandHandler>> _loggerMock;
@@ -34,14 +33,21 @@ public class RefreshTokenCommandHandlerTests
     {
         _userRepositoryMock = new Mock<IUserRepository>();
         _refreshTokenRepositoryMock = new Mock<IRefreshTokenRepository>();
-        _roleRepositoryMock = new Mock<IRoleRepository>();
-        _permissionRepositoryMock = new Mock<IPermissionRepository>();
-        _organizationRepositoryMock = new Mock<IOrganizationRepository>();
+        _tokenClaimsResolverMock = new Mock<ITokenClaimsResolver>();
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
+        _applicationAccessRepositoryMock = new Mock<IApplicationAccessRepository>();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
         _refreshTokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
         _loggerMock = new Mock<ILogger<RefreshTokenCommandHandler>>();
         _publisherMock = new Mock<IPublisher>();
+
+        _tokenClaimsResolverMock
+            .Setup(r => r.ResolveAsync(It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], [], []));
+
+        _applicationAccessRepositoryMock
+            .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         _jwtSettings = new JwtSettings
         {
@@ -53,10 +59,9 @@ public class RefreshTokenCommandHandlerTests
         _handler = new RefreshTokenCommandHandler(
             _userRepositoryMock.Object,
             _refreshTokenRepositoryMock.Object,
-            _roleRepositoryMock.Object,
-            _permissionRepositoryMock.Object,
-            _organizationRepositoryMock.Object,
+            _tokenClaimsResolverMock.Object,
             _applicationRepositoryMock.Object,
+            _applicationAccessRepositoryMock.Object,
             _jwtTokenServiceMock.Object,
             _refreshTokenKeyServiceMock.Object,
             new Mock<IUserSessionRepository>().Object,
@@ -91,12 +96,9 @@ public class RefreshTokenCommandHandlerTests
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-        _roleRepositoryMock
-            .Setup(r => r.GetUserRolesAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Role>());
-        _permissionRepositoryMock
-            .Setup(r => r.GetUserEffectivePermissionsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string>());
+        _tokenClaimsResolverMock
+            .Setup(r => r.ResolveAsync(userId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], [], []));
         _jwtTokenServiceMock
             .Setup(s => s.GenerateAccessToken(
                 user,
@@ -152,12 +154,9 @@ public class RefreshTokenCommandHandlerTests
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-        _roleRepositoryMock
-            .Setup(r => r.GetUserRolesAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Role>());
-        _permissionRepositoryMock
-            .Setup(r => r.GetUserEffectivePermissionsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string>());
+        _tokenClaimsResolverMock
+            .Setup(r => r.ResolveAsync(userId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], [], []));
 
         // Soft-deleted applications are invisible to GetByIdAsync.
         _applicationRepositoryMock
@@ -205,12 +204,9 @@ public class RefreshTokenCommandHandlerTests
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-        _roleRepositoryMock
-            .Setup(r => r.GetUserRolesAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Role>());
-        _permissionRepositoryMock
-            .Setup(r => r.GetUserEffectivePermissionsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string>());
+        _tokenClaimsResolverMock
+            .Setup(r => r.ResolveAsync(userId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], [], []));
         _applicationRepositoryMock
             .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
@@ -256,12 +252,9 @@ public class RefreshTokenCommandHandlerTests
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-        _roleRepositoryMock
-            .Setup(r => r.GetUserRolesAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Role>());
-        _permissionRepositoryMock
-            .Setup(r => r.GetUserEffectivePermissionsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string>());
+        _tokenClaimsResolverMock
+            .Setup(r => r.ResolveAsync(userId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], [], []));
         _applicationRepositoryMock
             .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(application);
@@ -702,12 +695,9 @@ public class RefreshTokenCommandHandlerTests
         _userRepositoryMock
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
-        _roleRepositoryMock
-            .Setup(r => r.GetUserRolesAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Role>());
-        _permissionRepositoryMock
-            .Setup(r => r.GetUserEffectivePermissionsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string>());
+        _tokenClaimsResolverMock
+            .Setup(r => r.ResolveAsync(userId, It.IsAny<Guid?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new TokenClaims([], [], []));
         _jwtTokenServiceMock
             .Setup(s => s.GenerateAccessToken(
                 user,

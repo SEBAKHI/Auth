@@ -17,6 +17,7 @@ public class AssignRoleCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
+    private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
     private readonly AssignRoleCommandHandler _handler;
 
@@ -25,6 +26,7 @@ public class AssignRoleCommandHandlerTests
         _handler = new AssignRoleCommandHandler(
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
+            _applicationRepositoryMock.Object,
             _publisherMock.Object,
             new Mock<ILogger<AssignRoleCommandHandler>>().Object);
     }
@@ -84,7 +86,11 @@ public class AssignRoleCommandHandlerTests
         var role = TestHelpers.CreateRole(id: roleId);
         _userRepositoryMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(TestHelpers.CreateUser(id: userId));
         _roleRepositoryMock.Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>())).ReturnsAsync(role);
-        _roleRepositoryMock.Setup(r => r.GetUserRolesAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<Role> { role });
+        // Scoped by (role, application): the existing assignment is the
+        // platform-wide one, matching the platform-wide request below.
+        _userRepositoryMock
+            .Setup(r => r.GetUserRoleAsync(userId, roleId, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(UserRole.Create(userId, roleId, Guid.NewGuid()));
 
         var result = await _handler.Handle(
             new AssignRoleCommand(userId, roleId) { AssignedBy = Guid.NewGuid() },

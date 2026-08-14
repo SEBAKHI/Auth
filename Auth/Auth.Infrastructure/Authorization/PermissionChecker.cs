@@ -78,10 +78,13 @@ public class PermissionChecker : IPermissionChecker
             allPermissions.Add(permission);
         }
 
-        // 2. Get organization-based permissions (if applicationId is specified)
+        // 2. Get organization-based permissions (if applicationId is specified).
+        // One query across every membership: this runs on the token-mint path,
+        // where walking memberships one at a time cost 1 + 2N round trips per
+        // sign-in.
         if (applicationId.HasValue)
         {
-            var orgPermissions = await GetOrganizationBasedPermissionsAsync(
+            var orgPermissions = await _organizationRepository.GetEffectivePermissionCodesForApplicationAsync(
                 userId, applicationId.Value, cancellationToken);
 
             foreach (var permission in orgPermissions)
@@ -91,46 +94,6 @@ public class PermissionChecker : IPermissionChecker
         }
 
         return allPermissions.ToList().AsReadOnly();
-    }
-
-    /// <summary>
-    /// Gets permissions for a user through their organization memberships for a specific application.
-    /// </summary>
-    private async Task<IReadOnlyList<string>> GetOrganizationBasedPermissionsAsync(
-        Guid userId,
-        Guid applicationId,
-        CancellationToken cancellationToken)
-    {
-        var permissions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        // Get all active organization memberships for the user
-        var memberships = await _organizationRepository.GetUserMembershipsAsync(userId, cancellationToken);
-
-        foreach (var membership in memberships)
-        {
-            // Check if the org has this application enabled
-            var isAppEnabled = await _organizationRepository.IsApplicationEnabledAsync(
-                membership.OrganizationId,
-                applicationId,
-                cancellationToken);
-
-            if (!isAppEnabled)
-                continue;
-
-            // Get effective permissions for this user in this org for this app
-            var orgPermissions = await _organizationRepository.GetEffectivePermissionCodesAsync(
-                membership.OrganizationId,
-                userId,
-                applicationId,
-                cancellationToken);
-
-            foreach (var permission in orgPermissions)
-            {
-                permissions.Add(permission);
-            }
-        }
-
-        return permissions.ToList().AsReadOnly();
     }
 
     /// <summary>

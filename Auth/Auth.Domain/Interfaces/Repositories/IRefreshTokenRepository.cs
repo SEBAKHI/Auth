@@ -50,6 +50,20 @@ public interface IRefreshTokenRepository
     Task RevokeBySessionIdAsync(Guid sessionId, Guid? revokedBy, string reason, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Revokes every live token scoped to one application, leaving tokens for
+    /// other applications and for the platform alone. Used when the application
+    /// is switched off or stops being open to everyone.
+    /// </summary>
+    Task RevokeAllForApplicationAsync(Guid applicationId, Guid? revokedBy, string reason, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Revokes one user's live tokens for one application. Used when an
+    /// invitation is withdrawn: the user loses that application and keeps
+    /// everything else.
+    /// </summary>
+    Task RevokeForUserAndApplicationAsync(Guid userId, Guid applicationId, Guid? revokedBy, string reason, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets all active tokens for a user.
     /// </summary>
     Task<IReadOnlyList<RefreshToken>> GetActiveTokensForUserAsync(Guid userId, CancellationToken cancellationToken);
