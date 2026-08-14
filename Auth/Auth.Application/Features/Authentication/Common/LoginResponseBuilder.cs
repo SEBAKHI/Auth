@@ -21,9 +21,7 @@ namespace Auth.Application.Features.Authentication.Common;
 /// </summary>
 public class LoginResponseBuilder : ILoginResponseBuilder
 {
-    private readonly IRoleRepository _roleRepository;
-    private readonly IPermissionRepository _permissionRepository;
-    private readonly IOrganizationRepository _organizationRepository;
+    private readonly ITokenClaimsResolver _tokenClaimsResolver;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IRefreshTokenRepository _refreshTokenRepository;
@@ -48,9 +46,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
     private const string SessionLimitEndReason = "session_limit";
 
     public LoginResponseBuilder(
-        IRoleRepository roleRepository,
-        IPermissionRepository permissionRepository,
-        IOrganizationRepository organizationRepository,
+        ITokenClaimsResolver tokenClaimsResolver,
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
         IRefreshTokenRepository refreshTokenRepository,
@@ -68,9 +64,7 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         IOptionsSnapshot<SessionSettings> sessionSettings,
         ILogger<LoginResponseBuilder> logger)
     {
-        _roleRepository = roleRepository;
-        _permissionRepository = permissionRepository;
-        _organizationRepository = organizationRepository;
+        _tokenClaimsResolver = tokenClaimsResolver;
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
         _refreshTokenRepository = refreshTokenRepository;
@@ -133,15 +127,15 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             }
         }
 
-        // Get roles and permissions
-        var roles = await _roleRepository.GetUserRolesAsync(user.Id, cancellationToken);
-        var roleNames = roles.Select(r => r.Code).ToList();
-        var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(user.Id, cancellationToken);
-
-        // Organization membership permissions ride in the token as org-scoped
-        // claims so members pass the org endpoint gates for their own orgs.
-        var organizationPermissions = await _organizationRepository
-            .GetMembershipPermissionCodesAsync(user.Id, cancellationToken);
+        // Roles, permissions and org-scoped claims, all narrowed to the
+        // application this token is for. A platform login (applicationId null)
+        // gets the user's full authority, exactly as before; an application
+        // token gets only that application's — so a role granted for one app can
+        // no longer be enforced by another that never issued it.
+        var claims = await _tokenClaimsResolver.ResolveAsync(user.Id, applicationId, cancellationToken);
+        var roleNames = claims.RoleCodes;
+        var permissions = claims.Permissions;
+        var organizationPermissions = claims.OrganizationPermissions;
 
         // A stable session id, constant across access-token refreshes, ties the
         // session row and all of its refresh tokens together (carried as "sid").

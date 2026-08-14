@@ -153,6 +153,36 @@ export function secretStatusMeta(status: number | string | undefined): {
   return SECRET_STATUS[lookup] ?? { key: "unknown", variant: "outline" }
 }
 
+// ─── ApplicationAccessMode (enum: Everyone=1, Restricted=2) ───────────────────
+//
+// Who may sign in to an application that is switched on. Same two-shape problem
+// as the statuses above: the API serializes the enum as its name, while the
+// generated OpenAPI types call it a number — so anything comparing the raw value
+// to a literal is wrong for one of the two forms.
+export type ApplicationAccessMode = "Everyone" | "Restricted"
+
+const ACCESS_MODE: Record<string, ApplicationAccessMode> = {
+  1: "Everyone",
+  2: "Restricted",
+  everyone: "Everyone",
+  restricted: "Restricted",
+}
+
+/**
+ * Normalizes an access mode to its name. Unknown values read as
+ * <c>Restricted</c>: guessing "open to everyone" from a value we failed to
+ * understand would overstate access in the one place it must not be overstated.
+ */
+export function accessMode(
+  value: number | string | undefined | null
+): ApplicationAccessMode {
+  if (value === undefined || value === null) return "Restricted"
+
+  const lookup =
+    typeof value === "number" ? String(value) : value.trim().toLowerCase()
+  return ACCESS_MODE[lookup] ?? "Restricted"
+}
+
 /** Build a "First Last" display name with sensible fallbacks. */
 export function fullName(
   first: string | null | undefined,

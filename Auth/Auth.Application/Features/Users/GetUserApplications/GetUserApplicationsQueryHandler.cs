@@ -15,15 +15,18 @@ namespace Auth.Application.Features.Users.GetUserApplications;
 public class GetUserApplicationsQueryHandler : IRequestHandler<GetUserApplicationsQuery, ErrorOr<IReadOnlyList<UserApplicationDto>>>
 {
     private readonly IUserRepository _userRepository;
+    private readonly IApplicationAccessRepository _applicationAccessRepository;
     private readonly IImageUrlComposer _imageUrlComposer;
     private readonly ILogger<GetUserApplicationsQueryHandler> _logger;
 
     public GetUserApplicationsQueryHandler(
         IUserRepository userRepository,
+        IApplicationAccessRepository applicationAccessRepository,
         IImageUrlComposer imageUrlComposer,
         ILogger<GetUserApplicationsQueryHandler> logger)
     {
         _userRepository = userRepository;
+        _applicationAccessRepository = applicationAccessRepository;
         _imageUrlComposer = imageUrlComposer;
         _logger = logger;
     }
@@ -39,7 +42,10 @@ public class GetUserApplicationsQueryHandler : IRequestHandler<GetUserApplicatio
             return UserErrors.NotFound(request.UserId);
         }
 
-        var accesses = await _userRepository.GetUserApplicationsAsync(request.UserId, cancellationToken);
+        // Answered by the same repository the sign-in gate asks, so this report
+        // can never claim access the gate would refuse.
+        var accesses = await _applicationAccessRepository.GetApplicationsForUserAsync(
+            request.UserId, cancellationToken);
 
         var dtos = accesses.Select(access => new UserApplicationDto
         {
@@ -50,9 +56,9 @@ public class GetUserApplicationsQueryHandler : IRequestHandler<GetUserApplicatio
             IsActive = access.IsActive,
             AccessSource = access switch
             {
-                { ViaOrganization: true, ViaDirect: true } => "both",
-                { ViaOrganization: true } => "organization",
-                _ => "direct"
+                { ViaOpenAccess: true, ViaGrant: true } => "both",
+                { ViaOpenAccess: true } => "open",
+                _ => "grant"
             }
         }).ToList();
 

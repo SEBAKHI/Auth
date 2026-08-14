@@ -567,6 +567,40 @@ export const tr: TranslationResources = {
     created: "Uygulama oluşturuldu.",
     updated: "Uygulama güncellendi.",
     deleted: "Uygulama silindi.",
+    available: "Kullanılabilir",
+    availableHint:
+      "Kapalıyken kimse giriş yapamaz ve mevcut oturumlar sona erer — davet edilen kişiler dahil.",
+    deactivateTitle: "Bu uygulama kapatılsın mı?",
+    deactivateBody:
+      "{{name}} uygulamasına kimse giriş yapamayacak ve şu anda giriş yapmış herkesin oturumu kapanacak. Dilediğiniz zaman yeniden açabilirsiniz.",
+    activated: "Uygulama açıldı.",
+    deactivated: "Uygulama kapatıldı.",
+    accessMode: "Kimler giriş yapabilir",
+    accessModeEveryone: "Herkes",
+    accessModeEveryoneHint:
+      "Platformdaki her kullanıcı bu uygulamayı kullanabilir.",
+    accessModeRestricted: "Yalnızca davet edilenler",
+    accessModeRestrictedHint:
+      "Yalnızca eklediğiniz kişiler giriş yapabilir. Uygulamayı denerken bunu kullanın.",
+    openToEveryoneNotice:
+      "Bu uygulama herkese açık; aşağıdaki liste yalnızca bilgi amaçlıdır — listede olsun olmasın herkes giriş yapabilir.",
+    manageAccess: "Deneme kullanıcıları",
+    manageAccessDescription:
+      "{{name}} kısıtlıyken onu deneyebilecek kişiler. Uygulamayı herkese açana kadar başka kimse giriş yapamaz. Aynı anda her kullanıcıya rol de verebilirsiniz.",
+    accessUser: "Kullanıcı",
+    accessRole: "Bu uygulamadaki rol",
+    accessRoleHint:
+      "İsteğe bağlı. Rol olmadan giriş yapabilir ama hiçbir şey yapamaz.",
+    accessExpires: "Erişim bitiş tarihi",
+    grantAccess: "Kullanıcı ekle",
+    noAccessGrants: "Henüz deneme kullanıcısı yok.",
+    accessGranted: "Erişim verildi.",
+    accessRevoked: "Erişim kaldırıldı.",
+    accessVia: "Erişim kaynağı",
+    accessViaGrant: "Deneme kullanıcısı",
+    accessViaDirect: "Doğrudan rol",
+    accessViaOrganization: "Organizasyon",
+    accessViaMultiple: "Birden fazla",
   },
   organizations: {
     title: "Organizasyonlar",

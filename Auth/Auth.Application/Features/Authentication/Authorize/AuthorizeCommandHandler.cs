@@ -18,6 +18,14 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// later failures redirect back to the validated redirect_uri with an OAuth
 /// error code. Without a valid IdP session the browser is sent to the accounts
 /// login page carrying the original authorize URL as returnTo.
+/// <para>
+/// A signed-in user who is not entitled to the application gets the redirecting
+/// kind: <c>error=access_denied</c>, back to the already-validated redirect_uri.
+/// The client needs to tell "not signed in" from "signed in but not allowed here"
+/// to show the right message, and the only non-redirecting alternative available
+/// is the login bounce — which would loop forever, since the user signs in
+/// successfully every time and is refused again on return.
+/// </para>
 /// </summary>
 public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr<AuthorizeResult>>
 {
@@ -29,6 +37,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
     private const int MaxStateLength = 512;
 
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IApplicationAccessRepository _applicationAccessRepository;
     private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly IAuthorizationCodeRepository _authorizationCodeRepository;
     private readonly IUserRepository _userRepository;
@@ -39,6 +48,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
 
     public AuthorizeCommandHandler(
         IApplicationRepository applicationRepository,
+        IApplicationAccessRepository applicationAccessRepository,
         IIdpSessionRepository idpSessionRepository,
         IAuthorizationCodeRepository authorizationCodeRepository,
         IUserRepository userRepository,
@@ -48,6 +58,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         ILogger<AuthorizeCommandHandler> logger)
     {
         _applicationRepository = applicationRepository;
+        _applicationAccessRepository = applicationAccessRepository;
         _idpSessionRepository = idpSessionRepository;
         _authorizationCodeRepository = authorizationCodeRepository;
         _userRepository = userRepository;
@@ -144,6 +155,21 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
                 RedirectUrl = BuildLoginRedirect(request.OriginalRequestUrl),
                 IsLoginRedirect = true
             };
+        }
+
+        // --- Entitlement: is this user allowed into THIS application? ---
+        // Last, on purpose. A user whose session is too old re-authenticates
+        // before being told no, which costs one extra round trip in the rare
+        // step-up case and buys this: a stolen stale session cookie cannot be
+        // used to enumerate which applications its owner may enter.
+        if (!await _applicationAccessRepository.IsUserEntitledAsync(user.Id, application.Id, cancellationToken))
+        {
+            // No error_description: the client is told it was refused, never why
+            // or about whom. The detail belongs in the server log.
+            _logger.LogWarning(
+                "Access denied for user {UserId} to client {ClientId}", user.Id, request.ClientId);
+
+            return ErrorRedirect(request, "access_denied");
         }
 
         // --- Issue the one-time code bound to this exact request ---

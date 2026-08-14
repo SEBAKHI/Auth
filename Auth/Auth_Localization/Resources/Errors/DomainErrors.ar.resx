@@ -282,6 +282,21 @@
   <data name="Application.Inactive" xml:space="preserve">
     <value>هذا التطبيق غير نشط حاليًا.</value>
   </data>
+  <data name="Application.AccessDenied" xml:space="preserve">
+    <value>ليس لديك صلاحية الوصول إلى هذا التطبيق.</value>
+  </data>
+  <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
+    <value>المستخدم '{0}' لديه بالفعل حق الوصول إلى هذا التطبيق.</value>
+  </data>
+  <data name="Application.UserAccessNotFound" xml:space="preserve">
+    <value>المستخدم '{0}' ليس لديه حق وصول ممنوح إلى هذا التطبيق.</value>
+  </data>
+  <data name="Application.CannotRestrictWithActiveOrganizations" xml:space="preserve">
+    <value>عطّل هذا التطبيق عن منظماته قبل تقييده بالمستخدمين المدعوّين فرديًا.</value>
+  </data>
+  <data name="Application.RestrictedCannotBeEnabledForOrganization" xml:space="preserve">
+    <value>هذا التطبيق مقيَّد بالمستخدمين المدعوّين فرديًا ولا يمكن تفعيله لمنظمة.</value>
+  </data>
   <data name="Application.InvalidCode" xml:space="preserve">
     <value>رمز التطبيق '{0}' غير صالح. استخدم أحرفًا أبجدية رقمية كبيرة وشرطات سفلية فقط.</value>
   </data>

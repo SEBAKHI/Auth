@@ -282,6 +282,21 @@
   <data name="Application.Inactive" xml:space="preserve">
     <value>此应用程序当前处于未激活状态。</value>
   </data>
+  <data name="Application.AccessDenied" xml:space="preserve">
+    <value>您无权访问此应用程序。</value>
+  </data>
+  <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
+    <value>用户"{0}"已拥有此应用程序的访问权限。</value>
+  </data>
+  <data name="Application.UserAccessNotFound" xml:space="preserve">
+    <value>用户"{0}"未被授予此应用程序的访问权限。</value>
+  </data>
+  <data name="Application.CannotRestrictWithActiveOrganizations" xml:space="preserve">
+    <value>在将此应用限制为单独邀请的用户之前，请先为其组织禁用它。</value>
+  </data>
+  <data name="Application.RestrictedCannotBeEnabledForOrganization" xml:space="preserve">
+    <value>此应用程序仅限单独邀请的用户使用，无法为组织启用。</value>
+  </data>
   <data name="Application.InvalidCode" xml:space="preserve">
     <value>应用程序代码'{0}'无效，仅允许使用大写字母、数字和下划线。</value>
   </data>

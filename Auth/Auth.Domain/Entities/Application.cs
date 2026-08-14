@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using Auth.Domain.Primitives;
 
 namespace Auth.Domain.Entities;
@@ -39,9 +40,21 @@ public class Application : AggregateRoot
     public string? ContactEmail { get; private set; }
 
     /// <summary>
-    /// Gets whether the application is currently active.
+    /// Gets whether the application is switched on. This is the stronger of the
+    /// two access switches and beats everything: a deactivated application
+    /// admits nobody — not invited users, not organization members, not
+    /// platform administrators — and no token issued for it can be refreshed.
+    /// <see cref="AccessMode"/> is only consulted once this is true.
     /// </summary>
     public bool IsActive { get; private set; }
+
+    /// <summary>
+    /// Gets who may sign in while the application is active. Independent of
+    /// <see cref="IsActive"/>: this decides the audience, that decides whether
+    /// there is an audience at all. New applications start
+    /// <see cref="ApplicationAccessMode.Restricted"/>.
+    /// </summary>
+    public ApplicationAccessMode AccessMode { get; private set; }
 
     /// <summary>
     /// Gets whether the application allows self-registration.
@@ -135,7 +148,8 @@ public class Application : AggregateRoot
         DateTime createdAt,
         Guid createdBy,
         DateTime? modifiedAt,
-        Guid? modifiedBy) : base(id)
+        Guid? modifiedBy,
+        ApplicationAccessMode accessMode) : base(id)
     {
         Code = code;
         Name = name;
@@ -144,6 +158,7 @@ public class Application : AggregateRoot
         LogoUrl = logoUrl;
         ContactEmail = contactEmail;
         IsActive = isActive;
+        AccessMode = accessMode;
         AllowSelfRegistration = allowSelfRegistration;
         RequireTwoFactor = requireTwoFactor;
         RequireEmailVerification = requireEmailVerification;
@@ -155,6 +170,12 @@ public class Application : AggregateRoot
         ModifiedBy = modifiedBy;
     }
 
+    /// <summary>
+    /// Creates a registration. The application is switched on immediately but
+    /// starts <see cref="ApplicationAccessMode.Restricted"/>: nobody can sign in
+    /// until an administrator invites them, or opens the application to everyone.
+    /// Born-open was the previous behavior and is the defect this default fixes.
+    /// </summary>
     public static Application Create(
         string code,
         string name,
@@ -169,6 +190,7 @@ public class Application : AggregateRoot
             Description = description,
             BaseUrl = baseUrl,
             IsActive = true,
+            AccessMode = ApplicationAccessMode.Restricted,
             AllowSelfRegistration = false,
             RequireTwoFactor = false,
             RequireEmailVerification = false,
@@ -179,6 +201,12 @@ public class Application : AggregateRoot
         return application;
     }
 
+    /// <summary>
+    /// Updates the editable settings. Deliberately does NOT touch
+    /// <see cref="IsActive"/> — switching an application off is its own command
+    /// (<see cref="Activate"/> / <see cref="Deactivate"/>) so a full-object PUT
+    /// built from stale client state can never silently switch one back on.
+    /// </summary>
     public void Update(
         string name,
         string? description,
@@ -190,6 +218,7 @@ public class Application : AggregateRoot
         bool requireEmailVerification,
         int sessionTimeoutMinutes,
         int maxConcurrentSessions,
+        ApplicationAccessMode accessMode,
         Guid modifiedBy,
         int? reauthenticationMaxAgeMinutes = null)
     {
@@ -198,6 +227,7 @@ public class Application : AggregateRoot
         BaseUrl = baseUrl;
         LogoUrl = logoUrl;
         ContactEmail = contactEmail;
+        AccessMode = accessMode;
         AllowSelfRegistration = allowSelfRegistration;
         RequireTwoFactor = requireTwoFactor;
         RequireEmailVerification = requireEmailVerification;
@@ -256,12 +286,23 @@ public class Application : AggregateRoot
             .Distinct(StringComparer.Ordinal);
     }
 
+    /// <summary>
+    /// Switches the application on. Does not change who may sign in — that is
+    /// <see cref="AccessMode"/>, which this deliberately leaves alone so an
+    /// application reactivated after an incident comes back with the same
+    /// audience it had when it was switched off.
+    /// </summary>
     public void Activate(Guid modifiedBy)
     {
         IsActive = true;
         SetModified(modifiedBy);
     }
 
+    /// <summary>
+    /// Switches the application off for everyone. Callers are expected to also
+    /// revoke the application's refresh tokens and terminate its sessions;
+    /// already-issued access tokens survive until they expire on their own.
+    /// </summary>
     public void Deactivate(Guid modifiedBy)
     {
         IsActive = false;

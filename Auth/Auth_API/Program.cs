@@ -406,6 +406,9 @@ builder.Services.AddScoped<IUserKnownDeviceRepository, UserKnownDeviceRepository
 // for reads, so opening it per request would only add I/O to the sign-in path.
 builder.Services.AddSingleton<IGeoIpLookup, GeoIpLookup>();
 builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
+// The single authority on "may this user sign in to this application?", asked by
+// the authorize, token-exchange and refresh paths alike.
+builder.Services.AddScoped<IApplicationAccessRepository, ApplicationAccessRepository>();
 builder.Services.AddScoped<IPasswordResetTokenRepository, PasswordResetTokenRepository>();
 builder.Services.AddScoped<IAuthorizationCodeRepository, AuthorizationCodeRepository>();
 builder.Services.AddScoped<IIdpSessionRepository, IdpSessionRepository>();
@@ -621,6 +624,9 @@ builder.Services.AddSingleton<Auth.Application.IntegrationEvents.IIntegrationEve
 
 // Shared Application Services
 builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
+// Scopes a token's roles and permissions to the application it is minted for,
+// on both the mint and the refresh path.
+builder.Services.AddScoped<ITokenClaimsResolver, TokenClaimsResolver>();
 builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
 

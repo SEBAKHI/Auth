@@ -157,6 +157,60 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
+    public async Task RevokeAllForApplicationAsync(
+        Guid applicationId,
+        Guid? revokedBy,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Scoped by ApplicationId, so platform tokens (null) and tokens for
+        // other applications survive: switching one application off must not
+        // sign anyone out of the rest.
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[RefreshTokens] SET
+                [RevokedAt] = GETUTCDATE(),
+                [RevokedBy] = @RevokedBy,
+                [ReasonRevoked] = @ReasonRevoked
+            WHERE [ApplicationId] = @ApplicationId
+              AND [RevokedAt] IS NULL",
+            new
+            {
+                ApplicationId = applicationId,
+                RevokedBy = revokedBy,
+                ReasonRevoked = reason
+            });
+    }
+
+    /// <inheritdoc />
+    public async Task RevokeForUserAndApplicationAsync(
+        Guid userId,
+        Guid applicationId,
+        Guid? revokedBy,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[RefreshTokens] SET
+                [RevokedAt] = GETUTCDATE(),
+                [RevokedBy] = @RevokedBy,
+                [ReasonRevoked] = @ReasonRevoked
+            WHERE [UserId] = @UserId
+              AND [ApplicationId] = @ApplicationId
+              AND [RevokedAt] IS NULL",
+            new
+            {
+                UserId = userId,
+                ApplicationId = applicationId,
+                RevokedBy = revokedBy,
+                ReasonRevoked = reason
+            });
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<RefreshToken>> GetActiveTokensForUserAsync(
         Guid userId,
         CancellationToken cancellationToken)

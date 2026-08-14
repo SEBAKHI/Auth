@@ -93,6 +93,18 @@ public interface IUserSessionRepository
     Task TerminateAsync(Guid sessionId, string reason, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Terminates every active session belonging to one application. Only the
+    /// OAuth token endpoint stamps <c>UserSession.ApplicationId</c>, so platform
+    /// sessions (null) are untouched.
+    /// </summary>
+    Task TerminateForApplicationAsync(Guid applicationId, string reason, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Terminates one user's active sessions for one application.
+    /// </summary>
+    Task TerminateForUserAndApplicationAsync(Guid userId, Guid applicationId, string reason, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Cleans up expired sessions.
     /// </summary>
     Task CleanupExpiredAsync(CancellationToken cancellationToken);

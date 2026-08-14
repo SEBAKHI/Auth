@@ -574,6 +574,40 @@ export const fr: TranslationResources = {
     created: "Application créée.",
     updated: "Application mise à jour.",
     deleted: "Application supprimée.",
+    available: "Disponible",
+    availableHint:
+      "Désactivée, personne ne peut se connecter et les sessions en cours prennent fin — y compris pour les personnes invitées.",
+    deactivateTitle: "Désactiver cette application ?",
+    deactivateBody:
+      "Plus personne ne pourra se connecter à {{name}}, et toutes les personnes connectées seront déconnectées. Vous pouvez la réactiver à tout moment.",
+    activated: "Application activée.",
+    deactivated: "Application désactivée.",
+    accessMode: "Qui peut se connecter",
+    accessModeEveryone: "Tout le monde",
+    accessModeEveryoneHint:
+      "N'importe quel utilisateur de la plateforme peut utiliser cette application.",
+    accessModeRestricted: "Uniquement les personnes invitées",
+    accessModeRestrictedHint:
+      "Seules les personnes que vous ajoutez peuvent se connecter. Idéal pour une phase d'essai.",
+    openToEveryoneNotice:
+      "Cette application est ouverte à tous : la liste ci-dessous est indicative — chacun peut se connecter, qu'il y figure ou non.",
+    manageAccess: "Utilisateurs d'essai",
+    manageAccessDescription:
+      "Les personnes autorisées à essayer {{name}} pendant qu'elle est restreinte. Personne d'autre ne peut se connecter tant que vous ne l'ouvrez pas à tous. Vous pouvez attribuer un rôle en même temps.",
+    accessUser: "Utilisateur",
+    accessRole: "Rôle dans cette application",
+    accessRoleHint:
+      "Facultatif. Sans rôle, l'utilisateur peut se connecter mais ne peut rien faire.",
+    accessExpires: "Expiration de l'accès",
+    grantAccess: "Ajouter un utilisateur",
+    noAccessGrants: "Aucun utilisateur d'essai pour l'instant.",
+    accessGranted: "Accès accordé.",
+    accessRevoked: "Accès retiré.",
+    accessVia: "Origine de l'accès",
+    accessViaGrant: "Utilisateur d'essai",
+    accessViaDirect: "Rôle direct",
+    accessViaOrganization: "Organisation",
+    accessViaMultiple: "Plusieurs",
   },
   organizations: {
     title: "Organisations",

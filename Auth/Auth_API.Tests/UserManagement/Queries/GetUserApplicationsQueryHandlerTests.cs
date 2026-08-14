@@ -16,12 +16,14 @@ namespace Auth_API.Tests.UserManagement.Queries;
 public class GetUserApplicationsQueryHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
+    private readonly Mock<IApplicationAccessRepository> _accessRepositoryMock = new();
     private readonly GetUserApplicationsQueryHandler _handler;
 
     public GetUserApplicationsQueryHandlerTests()
     {
         _handler = new GetUserApplicationsQueryHandler(
             _userRepositoryMock.Object,
+            _accessRepositoryMock.Object,
             Mock.Of<IImageUrlComposer>(),
             new Mock<ILogger<GetUserApplicationsQueryHandler>>().Object);
     }
@@ -37,13 +39,13 @@ public class GetUserApplicationsQueryHandlerTests
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
 
-        _userRepositoryMock
-            .Setup(r => r.GetUserApplicationsAsync(userId, It.IsAny<CancellationToken>()))
+        _accessRepositoryMock
+            .Setup(r => r.GetApplicationsForUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(
             [
-                new UserApplicationAccess(Guid.NewGuid(), "CMS", "CMS App", null, true, ViaOrganization: true, ViaDirect: false),
-                new UserApplicationAccess(Guid.NewGuid(), "CRM", "CRM App", null, true, ViaOrganization: false, ViaDirect: true),
-                new UserApplicationAccess(Guid.NewGuid(), "ERP", "ERP App", null, false, ViaOrganization: true, ViaDirect: true)
+                new UserApplicationAccess(Guid.NewGuid(), "CMS", "CMS App", null, true, ViaOpenAccess: true, ViaGrant: false),
+                new UserApplicationAccess(Guid.NewGuid(), "CRM", "CRM App", null, true, ViaOpenAccess: false, ViaGrant: true),
+                new UserApplicationAccess(Guid.NewGuid(), "ERP", "ERP App", null, false, ViaOpenAccess: true, ViaGrant: true)
             ]);
 
         // Act
@@ -52,8 +54,8 @@ public class GetUserApplicationsQueryHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
         result.Value.Should().HaveCount(3);
-        result.Value.Single(a => a.Code == "CMS").AccessSource.Should().Be("organization");
-        result.Value.Single(a => a.Code == "CRM").AccessSource.Should().Be("direct");
+        result.Value.Single(a => a.Code == "CMS").AccessSource.Should().Be("open");
+        result.Value.Single(a => a.Code == "CRM").AccessSource.Should().Be("grant");
         result.Value.Single(a => a.Code == "ERP").AccessSource.Should().Be("both");
     }
 
@@ -67,8 +69,8 @@ public class GetUserApplicationsQueryHandlerTests
             .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(TestHelpers.CreateUser(id: userId));
 
-        _userRepositoryMock
-            .Setup(r => r.GetUserApplicationsAsync(userId, It.IsAny<CancellationToken>()))
+        _accessRepositoryMock
+            .Setup(r => r.GetApplicationsForUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(
             [
                 new UserApplicationAccess(Guid.NewGuid(), "B", "Bravo", null, true, true, false),
@@ -99,8 +101,8 @@ public class GetUserApplicationsQueryHandlerTests
         // Assert
         result.IsError.Should().BeTrue();
         result.FirstError.Type.Should().Be(ErrorType.NotFound);
-        _userRepositoryMock.Verify(
-            r => r.GetUserApplicationsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+        _accessRepositoryMock.Verify(
+            r => r.GetApplicationsForUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 }

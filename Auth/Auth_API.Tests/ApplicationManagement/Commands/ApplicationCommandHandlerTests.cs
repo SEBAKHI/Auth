@@ -202,16 +202,22 @@ public class CreateApplicationCommandHandlerTests
 public class UpdateApplicationCommandHandlerTests
 {
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock;
+    private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock;
+    private readonly Mock<IUserSessionRepository> _sessionRepositoryMock;
     private readonly Mock<ILogger<UpdateApplicationCommandHandler>> _loggerMock;
     private readonly UpdateApplicationCommandHandler _handler;
 
     public UpdateApplicationCommandHandlerTests()
     {
         _applicationRepositoryMock = new Mock<IApplicationRepository>();
+        _refreshTokenRepositoryMock = new Mock<IRefreshTokenRepository>();
+        _sessionRepositoryMock = new Mock<IUserSessionRepository>();
         _loggerMock = new Mock<ILogger<UpdateApplicationCommandHandler>>();
 
         _handler = new UpdateApplicationCommandHandler(
             _applicationRepositoryMock.Object,
+            _refreshTokenRepositoryMock.Object,
+            _sessionRepositoryMock.Object,
             ApplicationTestImages.Composer(),
             _loggerMock.Object);
     }

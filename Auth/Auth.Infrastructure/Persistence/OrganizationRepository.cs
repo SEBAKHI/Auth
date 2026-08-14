@@ -421,6 +421,40 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<(Guid OrganizationId, string Code)>> GetMembershipPermissionCodesForApplicationAsync(
+        Guid userId,
+        Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The platform-wide query above, narrowed to organizations that have
+        // this application enabled. An application-scoped token has no business
+        // carrying the user's memberships in organizations that never heard of
+        // it — the claim's only consumer is the platform API, which never
+        // receives an application-audience token anyway.
+        var rows = await connection.QueryAsync<(Guid OrganizationId, string Code)>(@"
+            SELECT DISTINCT ou.[OrganizationId], p.[Code]
+            FROM [dbo].[OrganizationUsers] ou
+            INNER JOIN [dbo].[Organizations] o ON ou.[OrganizationId] = o.[Id]
+            INNER JOIN [dbo].[OrganizationApplications] oa
+                ON oa.[OrganizationId] = ou.[OrganizationId]
+               AND oa.[ApplicationId] = @ApplicationId
+               AND oa.[IsActive] = 1
+               AND (oa.[ExpiresAt] IS NULL OR oa.[ExpiresAt] > GETUTCDATE())
+            INNER JOIN [dbo].[RolePermissions] rp ON rp.[RoleId] = ou.[RoleId]
+            INNER JOIN [dbo].[Permissions] p ON p.[Id] = rp.[PermissionId]
+            WHERE ou.[UserId] = @UserId
+              AND ou.[IsActive] = 1
+              AND o.[IsActive] = 1
+              AND p.[IsActive] = 1
+              AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())",
+            new { UserId = userId, ApplicationId = applicationId });
+
+        return rows.ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<string>> GetMembershipPermissionCodesAsync(
         Guid organizationId,
         Guid userId,
@@ -496,12 +530,12 @@ public class OrganizationRepository : IOrganizationRepository
         var searchPattern = string.IsNullOrEmpty(searchTerm) ? null : $"%{searchTerm}%";
 
         // Get total count
-        var countSql = @"
+        var countSql = $@"
             SELECT COUNT(1)
             FROM [dbo].[OrganizationUsers] ou
             INNER JOIN [dbo].[Users] u ON ou.[UserId] = u.[Id]
             WHERE ou.[OrganizationId] = @OrganizationId AND ou.[IsActive] = 1
-            AND (@SearchPattern IS NULL OR u.[Email] LIKE @SearchPattern OR u.[FirstName] LIKE @SearchPattern OR u.[LastName] LIKE @SearchPattern)";
+            AND {UserSearchSql.Matches("u")}";
 
         var totalCount = await connection.ExecuteScalarAsync<int>(countSql, new
         {
@@ -522,7 +556,7 @@ public class OrganizationRepository : IOrganizationRepository
             LEFT JOIN [dbo].[Roles] r ON ou.[RoleId] = r.[Id]
             LEFT JOIN [dbo].[Users] inv ON ou.[InvitedBy] = inv.[Id]
             WHERE ou.[OrganizationId] = @OrganizationId AND ou.[IsActive] = 1
-            AND (@SearchPattern IS NULL OR u.[Email] LIKE @SearchPattern OR u.[FirstName] LIKE @SearchPattern OR u.[LastName] LIKE @SearchPattern)
+            AND {UserSearchSql.Matches("u")}
             ORDER BY {orderBy}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
 
@@ -1126,53 +1160,58 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> HasAppAccessAsync(
+    public async Task<IReadOnlyList<string>> GetEffectivePermissionCodesForApplicationAsync(
         Guid userId,
         Guid applicationId,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // Check if user has access to app through any org:
-        // 1. User is a member of an org
-        // 2. That org has the app enabled
-        // 3. User has at least one role OR permission for that app in that org
-        var count = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1)
+        // GetEffectivePermissionCodesAsync's two branches, with the single
+        // organization replaced by "every organization the user belongs to that
+        // has this application enabled". One round trip: the caller is the token
+        // mint, where walking memberships one by one cost 1 + 2N queries per
+        // sign-in.
+        var permissionCodes = await connection.QueryAsync<string>(@"
+            SELECT DISTINCT p.[Code]
             FROM [dbo].[OrganizationUsers] ou
             INNER JOIN [dbo].[Organizations] o ON ou.[OrganizationId] = o.[Id]
-            INNER JOIN [dbo].[OrganizationApplications] oa ON o.[Id] = oa.[OrganizationId]
+            INNER JOIN [dbo].[OrganizationApplications] oa
+                ON oa.[OrganizationId] = o.[Id] AND oa.[ApplicationId] = @ApplicationId
+            INNER JOIN [dbo].[OrganizationUserRoles] our
+                ON our.[OrganizationId] = o.[Id]
+               AND our.[UserId] = @UserId
+               AND our.[ApplicationId] = @ApplicationId
+            INNER JOIN [dbo].[RolePermissions] rp ON our.[RoleId] = rp.[RoleId]
+            INNER JOIN [dbo].[Permissions] p ON rp.[PermissionId] = p.[Id]
             WHERE ou.[UserId] = @UserId
-              AND oa.[ApplicationId] = @ApplicationId
-              AND ou.[IsActive] = 1
-              AND o.[IsActive] = 1
-              AND oa.[IsActive] = 1
+              AND ou.[IsActive] = 1 AND o.[IsActive] = 1 AND oa.[IsActive] = 1
+              AND our.[IsActive] = 1 AND p.[IsActive] = 1
               AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())
               AND (oa.[ExpiresAt] IS NULL OR oa.[ExpiresAt] > GETUTCDATE())
-              AND (
-                  -- Has at least one app-level role
-                  EXISTS (
-                      SELECT 1 FROM [dbo].[OrganizationUserRoles] our
-                      WHERE our.[OrganizationId] = o.[Id]
-                        AND our.[UserId] = @UserId
-                        AND our.[ApplicationId] = @ApplicationId
-                        AND our.[IsActive] = 1
-                        AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE())
-                  )
-                  OR
-                  -- Has at least one individual permission
-                  EXISTS (
-                      SELECT 1 FROM [dbo].[OrganizationUserPermissions] oup
-                      WHERE oup.[OrganizationId] = o.[Id]
-                        AND oup.[UserId] = @UserId
-                        AND oup.[ApplicationId] = @ApplicationId
-                        AND oup.[IsActive] = 1
-                        AND (oup.[ExpiresAt] IS NULL OR oup.[ExpiresAt] > GETUTCDATE())
-                  )
-              )",
+              AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE())
+
+            UNION
+
+            SELECT DISTINCT p.[Code]
+            FROM [dbo].[OrganizationUsers] ou
+            INNER JOIN [dbo].[Organizations] o ON ou.[OrganizationId] = o.[Id]
+            INNER JOIN [dbo].[OrganizationApplications] oa
+                ON oa.[OrganizationId] = o.[Id] AND oa.[ApplicationId] = @ApplicationId
+            INNER JOIN [dbo].[OrganizationUserPermissions] oup
+                ON oup.[OrganizationId] = o.[Id]
+               AND oup.[UserId] = @UserId
+               AND oup.[ApplicationId] = @ApplicationId
+            INNER JOIN [dbo].[Permissions] p ON oup.[PermissionId] = p.[Id]
+            WHERE ou.[UserId] = @UserId
+              AND ou.[IsActive] = 1 AND o.[IsActive] = 1 AND oa.[IsActive] = 1
+              AND oup.[IsActive] = 1 AND p.[IsActive] = 1
+              AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())
+              AND (oa.[ExpiresAt] IS NULL OR oa.[ExpiresAt] > GETUTCDATE())
+              AND (oup.[ExpiresAt] IS NULL OR oup.[ExpiresAt] > GETUTCDATE())",
             new { UserId = userId, ApplicationId = applicationId });
 
-        return count > 0;
+        return permissionCodes.ToList().AsReadOnly();
     }
 
     /// <inheritdoc />

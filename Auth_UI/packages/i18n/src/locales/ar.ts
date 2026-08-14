@@ -554,6 +554,38 @@ export const ar: TranslationResources = {
     created: "تم إنشاء التطبيق.",
     updated: "تم تحديث التطبيق.",
     deleted: "تم حذف التطبيق.",
+    available: "متاح",
+    availableHint:
+      "عند الإيقاف لا يستطيع أحد الدخول وتنتهي الجلسات القائمة، بمن فيهم المدعوّون.",
+    deactivateTitle: "إيقاف هذا التطبيق؟",
+    deactivateBody:
+      "لن يتمكن أحد من الدخول إلى {{name}}، وسيُخرَج كل من هو داخله الآن. يمكنك إعادة تشغيله في أي وقت.",
+    activated: "تم تشغيل التطبيق.",
+    deactivated: "تم إيقاف التطبيق.",
+    accessMode: "من يستطيع الدخول",
+    accessModeEveryone: "الجميع",
+    accessModeEveryoneHint: "أي مستخدم في المنصة يستطيع استعمال هذا التطبيق.",
+    accessModeRestricted: "المدعوّون فقط",
+    accessModeRestrictedHint:
+      "لا يدخل إلا من تضيفهم أنت. استعمل هذا الوضع أثناء تجربة التطبيق.",
+    openToEveryoneNotice:
+      "هذا التطبيق مفتوح للجميع، فالقائمة أدناه للعلم فقط — أي مستخدم يدخل سواء ظهر فيها أم لا.",
+    manageAccess: "المستخدمون التجريبيون",
+    manageAccessDescription:
+      "المستخدمون المسموح لهم بتجربة {{name}} أثناء وضعه المقيَّد. لا يدخله أحد سواهم حتى تفتحه للجميع. ويمكنك منح كل مستخدم دورًا في نفس الخطوة.",
+    accessUser: "المستخدم",
+    accessRole: "الدور داخل هذا التطبيق",
+    accessRoleHint: "اختياري. بدونه يدخل المستخدم دون أن يستطيع فعل شيء.",
+    accessExpires: "ينتهي الوصول",
+    grantAccess: "إضافة مستخدم",
+    noAccessGrants: "لا يوجد مستخدمون تجريبيون بعد.",
+    accessGranted: "تم منح الوصول.",
+    accessRevoked: "تم سحب الوصول.",
+    accessVia: "مصدر الوصول",
+    accessViaGrant: "مستخدم تجريبي",
+    accessViaDirect: "دور مباشر",
+    accessViaOrganization: "منظمة",
+    accessViaMultiple: "أكثر من مصدر",
   },
   organizations: {
     title: "المنظمات",

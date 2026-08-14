@@ -21,6 +21,7 @@ public class AuthorizeCommandHandlerTests
     private static readonly string ValidChallenge = new('a', 43);
 
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
+    private readonly Mock<IApplicationAccessRepository> _applicationAccessRepositoryMock = new();
     private readonly Mock<IIdpSessionRepository> _idpSessionRepositoryMock = new();
     private readonly Mock<IAuthorizationCodeRepository> _authorizationCodeRepositoryMock = new();
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
@@ -30,8 +31,15 @@ public class AuthorizeCommandHandlerTests
 
     public AuthorizeCommandHandlerTests()
     {
+        // Entitled by default: every test that is not about the gate would
+        // otherwise have to say something about invitations to say nothing.
+        _applicationAccessRepositoryMock
+            .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
         _handler = new AuthorizeCommandHandler(
             _applicationRepositoryMock.Object,
+            _applicationAccessRepositoryMock.Object,
             _idpSessionRepositoryMock.Object,
             _authorizationCodeRepositoryMock.Object,
             _userRepositoryMock.Object,
@@ -510,4 +518,131 @@ public class AuthorizeCommandHandlerTests
         result.Value.IsLoginRedirect.Should().BeTrue();
         VerifyNoCodeIssued();
     }
+
+    #region Entitlement gate
+
+    /// <summary>Makes the gate refuse whoever asks.</summary>
+    private void DenyEntitlement()
+    {
+        _applicationAccessRepositoryMock
+            .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+    }
+
+    [Fact]
+    public async Task Handle_EntitledUser_IssuesCode()
+    {
+        // Arrange
+        SetupApplication();
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.RedirectUrl.Should().StartWith($"{RedirectUri}?code=plain-code");
+    }
+
+    [Fact]
+    public async Task Handle_UnentitledUser_RedirectsWithAccessDeniedAndIssuesNoCode()
+    {
+        // Arrange
+        SetupApplication();
+        SetupValidSession();
+        SetupCodeIssuance();
+        DenyEntitlement();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        // Assert — refused through the redirect, not as a bare error: the client
+        // must be able to tell "not signed in" from "signed in, not allowed".
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        result.Value.RedirectUrl.Should().StartWith(RedirectUri);
+        result.Value.RedirectUrl.Should().Contain("error=access_denied");
+        result.Value.RedirectUrl.Should().Contain("state=xyz");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_UnentitledUser_ErrorRedirectCarriesNoDescription()
+    {
+        // Arrange
+        SetupApplication();
+        SetupValidSession();
+        DenyEntitlement();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        // Assert — the client learns it was refused, never why or about whom.
+        result.Value.RedirectUrl.Should().NotContain("error_description");
+    }
+
+    [Fact]
+    public async Task Handle_UnentitledUser_NeverRedirectsAnywhereButTheRegisteredUri()
+    {
+        // Arrange
+        SetupApplication();
+        SetupValidSession();
+        DenyEntitlement();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        // Assert
+        result.Value.RedirectUrl.Should().StartWith(RedirectUri);
+        result.Value.IsLoginRedirect.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_StepUpRequired_DoesNotConsultTheGate()
+    {
+        // Arrange — a stale session with a step-up policy bounces to login first.
+        // Checking entitlement earlier would let a stolen stale cookie enumerate
+        // which applications its owner may enter, without knowing the password.
+        var application = SetupApplication();
+        application.LoadReauthenticationMaxAge(1);
+        SetupSessionAged(TimeSpan.FromMinutes(30));
+        DenyEntitlement();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        // Assert
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        _applicationAccessRepositoryMock.Verify(
+            r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_InactiveApplication_IsRejectedBeforeTheGateIsConsulted()
+    {
+        // Arrange — the on/off switch beats the access mode, and beats it early:
+        // an unknown client and a switched-off one must be indistinguishable.
+        SetupApplication(isActive: false);
+        SetupValidSession();
+
+        // Act
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token"), CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(AuthErrors.InvalidClient);
+        _applicationAccessRepositoryMock.Verify(
+            r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    #endregion
 }

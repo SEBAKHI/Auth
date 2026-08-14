@@ -219,13 +219,4 @@ public interface IUserRepository
     Task<bool> HasDirectPermissionAsync(Guid userId, Guid permissionId, CancellationToken cancellationToken);
 
     #endregion
-
-    /// <summary>
-    /// Gets the distinct applications a user can access, either through an
-    /// organization (membership + enabled app + app-level role or permission)
-    /// or through a direct app-scoped role assignment.
-    /// </summary>
-    Task<IReadOnlyList<ReadModels.Access.UserApplicationAccess>> GetUserApplicationsAsync(
-        Guid userId,
-        CancellationToken cancellationToken);
 }

@@ -1,4 +1,5 @@
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
@@ -51,6 +52,19 @@ public class EnableApplicationCommandHandler : IRequestHandler<EnableApplication
         if (application == null)
         {
             return OrganizationErrors.ApplicationNotFound(request.ApplicationId);
+        }
+
+        // A restricted application admits only the users on its own access list,
+        // so an organization can never enable one. The console never offers a
+        // restricted application in its picker; this is the guard that actually
+        // enforces it, for anyone calling the API directly.
+        if (application.AccessMode == ApplicationAccessMode.Restricted)
+        {
+            _logger.LogWarning(
+                "Refused to enable restricted application {ApplicationId} ({ApplicationCode}) for organization {OrganizationId}",
+                application.Id, application.Code, request.OrganizationId);
+
+            return ApplicationErrors.RestrictedCannotBeEnabledForOrganization;
         }
 
         // Check if already enabled

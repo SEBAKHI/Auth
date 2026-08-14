@@ -58,7 +58,8 @@ public class GetApplicationUsersQueryHandler : IRequestHandler<GetApplicationUse
             Status = user.Status,
             LastLoginAt = user.LastLoginAt,
             CreatedAt = user.CreatedAt,
-            RoleNames = user.RoleNames
+            RoleNames = user.RoleNames,
+            AccessSource = DescribeSource(user)
         }).ToList();
 
         _logger.LogDebug(
@@ -72,5 +73,18 @@ public class GetApplicationUsersQueryHandler : IRequestHandler<GetApplicationUse
             PageNumber = request.PageNumber,
             PageSize = request.PageSize
         };
+    }
+
+    private static string DescribeSource(Auth.Domain.ReadModels.Access.ApplicationUserRow row)
+    {
+        var sources = 0;
+        if (row.ViaGrant) sources++;
+        if (row.ViaDirect) sources++;
+        if (row.ViaOrganization) sources++;
+
+        if (sources > 1) return "multiple";
+        if (row.ViaGrant) return "grant";
+        if (row.ViaDirect) return "direct";
+        return "organization";
     }
 }

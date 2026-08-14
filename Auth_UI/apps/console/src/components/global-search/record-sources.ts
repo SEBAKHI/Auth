@@ -163,8 +163,7 @@ export const RECORD_SOURCES: readonly RecordSource[] = [
     fetch: async ({ query, signal, limit }) => {
       const result = await unwrap(
         api.GET("/api/v1/Applications", {
-          // This endpoint spells the parameter `search`, not `searchTerm`.
-          params: { query: { pageNumber: 1, pageSize: limit, search: query } },
+          params: { query: { pageNumber: 1, pageSize: limit, searchTerm: query } },
           signal,
         })
       )

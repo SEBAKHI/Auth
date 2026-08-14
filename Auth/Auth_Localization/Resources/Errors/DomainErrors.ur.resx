@@ -282,6 +282,21 @@
   <data name="Application.Inactive" xml:space="preserve">
     <value>یہ ایپلیکیشن فی الحال غیر فعال ہے۔</value>
   </data>
+  <data name="Application.AccessDenied" xml:space="preserve">
+    <value>آپ کو اس ایپلیکیشن تک رسائی حاصل نہیں ہے۔</value>
+  </data>
+  <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
+    <value>صارف '{0}' کو پہلے ہی اس ایپلیکیشن تک رسائی حاصل ہے۔</value>
+  </data>
+  <data name="Application.UserAccessNotFound" xml:space="preserve">
+    <value>صارف '{0}' کو اس ایپلیکیشن تک رسائی نہیں دی گئی۔</value>
+  </data>
+  <data name="Application.CannotRestrictWithActiveOrganizations" xml:space="preserve">
+    <value>اس ایپلیکیشن کو انفرادی طور پر مدعو صارفین تک محدود کرنے سے پہلے اسے اس کی تنظیموں کے لیے غیر فعال کریں۔</value>
+  </data>
+  <data name="Application.RestrictedCannotBeEnabledForOrganization" xml:space="preserve">
+    <value>یہ ایپلیکیشن صرف انفرادی طور پر مدعو کیے گئے صارفین تک محدود ہے اور اسے کسی تنظیم کے لیے فعال نہیں کیا جا سکتا۔</value>
+  </data>
   <data name="Application.InvalidCode" xml:space="preserve">
     <value>ایپلیکیشن کوڈ '{0}' غلط ہے۔ صرف بڑے انگریزی حروف، اعداد اور انڈر سکور استعمال کریں۔</value>
   </data>

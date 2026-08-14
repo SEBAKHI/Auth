@@ -1,32 +1,63 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ColumnDef, SortingState } from "@tanstack/react-table"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
+import { toast } from "sonner"
 
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { DetailList } from "@authsystem/ui/common/detail-list"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
+import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
+import { Field, FieldLabel } from "@authsystem/ui/field"
 import { Skeleton } from "@authsystem/ui/skeleton"
+import { Switch } from "@authsystem/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
 import { collectAllPages, toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
-import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
+import {
+  accessMode,
+  formatDateTime,
+  fullName,
+  userStatusMeta,
+} from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
 import type { Schemas } from "@authsystem/api/types"
+import { ApplicationAccessDialog } from "./application-access-dialog"
 import { ApplicationEditDialog } from "./application-dialogs"
 
 function ApplicationUsersTab({ appId }: { appId: string }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+
+  /**
+   * Why a user is on this roster. Not the same question as "can they sign in":
+   * only an invitation admits anyone to a restricted application, and an open
+   * one admits people who never appear here at all.
+   */
+  const accessSourceLabel = (source: string | undefined) => {
+    switch (source) {
+      case "grant":
+        return t("applications.accessViaGrant")
+      case "direct":
+        return t("applications.accessViaDirect")
+      case "organization":
+        return t("applications.accessViaOrganization")
+      default:
+        return t("applications.accessViaMultiple")
+    }
+  }
+
   const [page, setPage] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
   const [searchInput, setSearchInput] = React.useState("")
@@ -51,7 +82,7 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
             query: {
               pageNumber: page + 1,
               pageSize,
-              search: search || undefined,
+              searchTerm: search || undefined,
               sortBy,
               sortDirection,
             },
@@ -70,7 +101,7 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
               query: {
                 pageNumber,
                 pageSize: size,
-                search: search || undefined,
+                searchTerm: search || undefined,
                 sortBy,
                 sortDirection,
               },
@@ -128,6 +159,22 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
         <span className="text-sm text-muted-foreground">
           {row.original.roleNames ?? "—"}
         </span>
+      ),
+    },
+    {
+      id: "accessSource",
+      enableSorting: false,
+      accessorFn: (row) => accessSourceLabel(row.accessSource),
+      filterFn: "faceted",
+      header: t("applications.accessVia"),
+      meta: {
+        label: t("applications.accessVia"),
+        filterVariant: "faceted",
+      },
+      cell: ({ row }) => (
+        <Badge variant="outline">
+          {accessSourceLabel(row.original.accessSource)}
+        </Badge>
       ),
     },
     {
@@ -502,6 +549,8 @@ export function ApplicationDetailPage() {
   const canUpdate = hasPermission(PERMISSIONS.applications.update)
   const queryClient = useQueryClient()
   const [editOpen, setEditOpen] = React.useState(false)
+  const [accessOpen, setAccessOpen] = React.useState(false)
+  const [deactivateOpen, setDeactivateOpen] = React.useState(false)
 
   const detailQuery = useQuery({
     queryKey: ["applications", appId],
@@ -515,6 +564,29 @@ export function ApplicationDetailPage() {
   })
   const app = detailQuery.data
   usePageBreadcrumb(app?.name)
+
+  const activeMutation = useMutation({
+    mutationFn: async (isActive: boolean) => {
+      const { error } = await api.POST(
+        isActive
+          ? "/api/v1/Applications/{id}/activate"
+          : "/api/v1/Applications/{id}/deactivate",
+        { params: { path: { id: appId } } }
+      )
+      if (error) throw error
+      return isActive
+    },
+    onSuccess: (isActive) => {
+      void queryClient.invalidateQueries({ queryKey: ["applications"] })
+      toast.success(
+        isActive
+          ? t("applications.activated")
+          : t("applications.deactivated")
+      )
+      setDeactivateOpen(false)
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
 
   return (
     <div className="flex flex-col gap-6">
@@ -554,6 +626,12 @@ export function ApplicationDetailPage() {
                         baseUrl: app.baseUrl ?? null,
                         logoUrl: logoKey,
                         contactEmail: app.contactEmail ?? null,
+                        // Without this, uploading a logo would send the
+                        // contract's default and silently close an open
+                        // application down to its invitation list.
+                        accessMode: accessMode(
+                          app.accessMode
+                        ) as unknown as number,
                         allowSelfRegistration:
                           app.allowSelfRegistration ?? false,
                         requireTwoFactor: app.requireTwoFactor ?? false,
@@ -574,9 +652,30 @@ export function ApplicationDetailPage() {
             }
             actions={
               canUpdate ? (
-                <Button variant="outline" onClick={() => setEditOpen(true)}>
-                  {t("common.edit")}
-                </Button>
+                <div className="flex items-center gap-3">
+                  <Field orientation="horizontal" className="w-auto">
+                    <FieldLabel
+                      htmlFor="application-available"
+                      className="font-normal whitespace-nowrap"
+                    >
+                      {t("applications.available")}
+                    </FieldLabel>
+                    <Switch
+                      id="application-available"
+                      checked={app.isActive ?? false}
+                      disabled={activeMutation.isPending}
+                      onCheckedChange={(next) => {
+                        // Turning it off locks everyone out at once, so it is
+                        // confirmed; turning it back on is not.
+                        if (next) activeMutation.mutate(true)
+                        else setDeactivateOpen(true)
+                      }}
+                    />
+                  </Field>
+                  <Button variant="outline" onClick={() => setEditOpen(true)}>
+                    {t("common.edit")}
+                  </Button>
+                </div>
               ) : null
             }
           />
@@ -588,10 +687,24 @@ export function ApplicationDetailPage() {
                 fullWidth: true,
               },
               {
-                label: t("common.status"),
+                label: t("applications.available"),
                 value: (
                   <Badge variant={app.isActive ? "default" : "secondary"}>
                     {app.isActive ? t("common.active") : t("common.inactive")}
+                  </Badge>
+                ),
+              },
+              {
+                label: t("applications.accessMode"),
+                value: (
+                  <Badge
+                    variant={
+                      accessMode(app.accessMode) === "Everyone" ? "default" : "secondary"
+                    }
+                  >
+                    {accessMode(app.accessMode) === "Everyone"
+                      ? t("applications.accessModeEveryone")
+                      : t("applications.accessModeRestricted")}
                   </Badge>
                 ),
               },
@@ -671,7 +784,23 @@ export function ApplicationDetailPage() {
           <TabsTrigger value="permissions">{t("nav.permissions")}</TabsTrigger>
         </TabsList>
         <TabsContent value="users" className="mt-4">
-          <ApplicationUsersTab appId={appId} />
+          <div className="flex flex-col gap-4">
+            {app && accessMode(app.accessMode) === "Everyone" ? (
+              <Alert>
+                <AlertDescription>
+                  {t("applications.openToEveryoneNotice")}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {canUpdate ? (
+              <div className="flex justify-end">
+                <Button variant="outline" onClick={() => setAccessOpen(true)}>
+                  {t("applications.manageAccess")}
+                </Button>
+              </div>
+            ) : null}
+            <ApplicationUsersTab appId={appId} />
+          </div>
         </TabsContent>
         <TabsContent value="organizations" className="mt-4">
           <ApplicationOrganizationsTab appId={appId} />
@@ -685,11 +814,31 @@ export function ApplicationDetailPage() {
       </Tabs>
 
       {app ? (
-        <ApplicationEditDialog
-          open={editOpen}
-          onOpenChange={setEditOpen}
-          application={app}
-        />
+        <>
+          <ApplicationEditDialog
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            application={app}
+          />
+          <ApplicationAccessDialog
+            open={accessOpen}
+            onOpenChange={setAccessOpen}
+            applicationId={appId}
+            applicationName={app.name ?? ""}
+          />
+          <ConfirmDialog
+            open={deactivateOpen}
+            onOpenChange={setDeactivateOpen}
+            title={t("applications.deactivateTitle")}
+            description={t("applications.deactivateBody", {
+              name: app.name ?? "",
+            })}
+            confirmLabel={t("common.confirm")}
+            destructive
+            loading={activeMutation.isPending}
+            onConfirm={() => activeMutation.mutate(false)}
+          />
+        </>
       ) : null}
     </div>
   )

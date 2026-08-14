@@ -282,6 +282,21 @@
   <data name="Application.Inactive" xml:space="preserve">
     <value>Bu uygulama şu anda etkin değil.</value>
   </data>
+  <data name="Application.AccessDenied" xml:space="preserve">
+    <value>Bu uygulamaya erişim yetkiniz yok.</value>
+  </data>
+  <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
+    <value>'{0}' kullanıcısının bu uygulamaya zaten erişimi var.</value>
+  </data>
+  <data name="Application.UserAccessNotFound" xml:space="preserve">
+    <value>'{0}' kullanıcısına bu uygulama için verilmiş bir erişim yok.</value>
+  </data>
+  <data name="Application.CannotRestrictWithActiveOrganizations" xml:space="preserve">
+    <value>Bu uygulamayı yalnızca tek tek davet edilen kullanıcılarla sınırlamadan önce kuruluşları için devre dışı bırakın.</value>
+  </data>
+  <data name="Application.RestrictedCannotBeEnabledForOrganization" xml:space="preserve">
+    <value>Bu uygulama yalnızca tek tek davet edilen kullanıcılara açıktır ve bir kuruluş için etkinleştirilemez.</value>
+  </data>
   <data name="Application.InvalidCode" xml:space="preserve">
     <value>Uygulama kodu '{0}' geçersiz. Yalnızca büyük harf alfanümerik karakterler ve alt çizgiler kullanın.</value>
   </data>

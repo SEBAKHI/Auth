@@ -34,6 +34,45 @@ public static class ApplicationErrors
         code: "Application.Inactive",
         description: "This application is currently inactive.");
 
+    /// <summary>
+    /// The sign-in gate's refusal. Deliberately generic: it names neither the
+    /// user, nor the application, nor why access was refused, so it cannot be
+    /// used to probe who is entitled to what. The specifics go to the server log.
+    /// </summary>
+    public static Error AccessDenied => Error.Forbidden(
+        code: "Application.AccessDenied",
+        description: "You do not have access to this application.");
+
+    public static Error UserAccessAlreadyGranted(Guid userId) => Error.Conflict(
+        code: "Application.UserAccessAlreadyGranted",
+        description: $"User '{userId}' already has access to this application.",
+        metadata: new() { ["args"] = new object[] { userId } });
+
+    public static Error UserAccessNotFound(Guid userId) => Error.NotFound(
+        code: "Application.UserAccessNotFound",
+        description: $"User '{userId}' does not have granted access to this application.",
+        metadata: new() { ["args"] = new object[] { userId } });
+
+    /// <summary>
+    /// A restricted application admits only the users on its invitation list, so
+    /// it can never have enabled organizations. Guards the rule from the
+    /// enablement side; <see cref="HasActiveOrganizations"/> guards it from the
+    /// access-mode side.
+    /// </summary>
+    public static Error RestrictedCannotBeEnabledForOrganization => Error.Validation(
+        code: "Application.RestrictedCannotBeEnabledForOrganization",
+        description: "This application is restricted to individually invited users and cannot be enabled for an organization.");
+
+    /// <summary>
+    /// The same invariant seen from the access-mode side. Distinct from
+    /// <see cref="HasActiveOrganizations"/> because that one says "cannot
+    /// delete", and an administrator reading it while changing who may sign in
+    /// would have no idea what they were being told.
+    /// </summary>
+    public static Error CannotRestrictWithActiveOrganizations => Error.Conflict(
+        code: "Application.CannotRestrictWithActiveOrganizations",
+        description: "Disable this application for its organizations before restricting it to individually invited users.");
+
     public static Error InvalidCode(string code) => Error.Validation(
         code: "Application.InvalidCode",
         description: $"Application code '{code}' is invalid. Use uppercase alphanumeric characters and underscores only.",

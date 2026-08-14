@@ -1,3 +1,5 @@
+using Auth.Domain.Enums;
+
 namespace Auth.Application.DTOs;
 
 /// <summary>
@@ -12,7 +14,20 @@ public class ApplicationDto
     public string? BaseUrl { get; set; }
     public string? LogoUrl { get; set; }
     public string? ContactEmail { get; set; }
+
+    /// <summary>
+    /// Whether the application is switched on. Off means nobody signs in,
+    /// whatever <see cref="AccessMode"/> says. Changed through the dedicated
+    /// activate/deactivate endpoints, never through an update.
+    /// </summary>
     public bool IsActive { get; set; }
+
+    /// <summary>
+    /// Who may sign in while the application is on: everyone on the platform,
+    /// or only individually invited users.
+    /// </summary>
+    public ApplicationAccessMode AccessMode { get; set; }
+
     public bool AllowSelfRegistration { get; set; }
     public bool RequireTwoFactor { get; set; }
     public bool RequireEmailVerification { get; set; }

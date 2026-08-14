@@ -3,9 +3,13 @@ using Auth.Domain.Enums;
 namespace Auth.Application.DTOs;
 
 /// <summary>
-/// One user holding an active role assignment scoped to an application,
-/// either directly or through an organization.
+/// One user attached to an application: invited on its access list, holding an
+/// application-scoped role directly, and/or holding one through an organization.
 /// </summary>
+/// <remarks>
+/// A roster, not an admission list. Only the invitation lets someone into a
+/// restricted application, and an open one admits people who never appear here.
+/// </remarks>
 public class ApplicationUserDto
 {
     public Guid UserId { get; set; }
@@ -23,6 +27,13 @@ public class ApplicationUserDto
     /// Comma-separated names of the application's roles held by the user.
     /// </summary>
     public string? RoleNames { get; set; }
+
+    /// <summary>
+    /// Why the user appears on this roster: "grant" (invited), "direct" (an
+    /// application-scoped role), "organization" (a role through an organization),
+    /// or "multiple" when more than one applies.
+    /// </summary>
+    public string AccessSource { get; set; } = string.Empty;
 }
 
 /// <summary>

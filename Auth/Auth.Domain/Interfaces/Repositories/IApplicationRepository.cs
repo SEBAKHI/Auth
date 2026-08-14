@@ -71,9 +71,29 @@ public interface IApplicationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Checks if an application has active user role assignments.
+    /// Checks whether any user is still attached to the application — invited on
+    /// its access list, holding an app-scoped role directly, or holding one
+    /// through an organization. The single-boolean form of the same question
+    /// <see cref="GetUsersPagedAsync"/> answers as a list; the two must agree,
+    /// or the console shows users on an application the delete guard says is
+    /// empty.
     /// </summary>
+    /// <remarks>
+    /// An application open to everyone has no explicit attachments, so this is
+    /// false for it however many people sign in — otherwise open applications
+    /// could never be deleted.
+    /// </remarks>
     Task<bool> HasActiveUserAssignmentsAsync(Guid applicationId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the applications an organization is allowed to enable: switched on,
+    /// open to everyone, and not already enabled for that organization.
+    /// Restricted applications are excluded because they admit only the users on
+    /// their own access list, so an organization can never enable one.
+    /// </summary>
+    Task<IReadOnlyList<ReadModels.Access.AvailableApplicationRow>> GetAvailableForOrganizationAsync(
+        Guid organizationId,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Checks if an application is enabled for any organizations.

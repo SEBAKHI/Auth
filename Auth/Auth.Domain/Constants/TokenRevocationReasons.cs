@@ -22,4 +22,18 @@ public static class TokenRevocationReasons
     /// token and session the account holds is revoked in response.
     /// </summary>
     public const string RefreshTokenReuse = "Detected refresh token reuse";
+
+    /// <summary>
+    /// The holder lost their entitlement to the application this token is scoped
+    /// to — their invitation was withdrawn, or the application stopped being open
+    /// to everyone. Only that application's token is revoked; tokens for other
+    /// applications and for the platform are untouched.
+    /// </summary>
+    public const string ApplicationAccessRevoked = "Application access revoked";
+
+    /// <summary>
+    /// The application itself was switched off, so every token scoped to it is
+    /// revoked at once.
+    /// </summary>
+    public const string ApplicationDeactivated = "Application deactivated";
 }

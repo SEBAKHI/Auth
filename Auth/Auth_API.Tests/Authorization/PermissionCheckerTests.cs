@@ -255,36 +255,32 @@ public class PermissionCheckerTests
 
     #region Organization-Based Permissions Tests
 
+    // The organization branch is one query across every membership the user has
+    // in which the application is enabled — the repository owns "which
+    // organizations count", so these tests state its result rather than walking
+    // memberships one by one.
+
+    /// <summary>Stubs the organization branch for an application-scoped call.</summary>
+    private void SetupOrganizationPermissions(Guid userId, Guid applicationId, params string[] codes)
+    {
+        _organizationRepositoryMock
+            .Setup(r => r.GetEffectivePermissionCodesForApplicationAsync(
+                userId, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(codes.ToList());
+    }
+
     [Fact]
     public async Task GetUserPermissionsAsync_CombinesDirectAndOrgPermissions()
     {
         // Arrange
         var userId = Guid.NewGuid();
         var applicationId = Guid.NewGuid();
-        var orgId = Guid.NewGuid();
 
-        // Direct permissions
         _permissionRepositoryMock
             .Setup(r => r.GetUserEffectivePermissionsAsync(userId, applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "direct:permission1" });
 
-        // Organization memberships
-        var membership = TestHelpers.CreateOrganizationUser(
-            organizationId: orgId,
-            userId: userId,
-            isActive: true);
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetUserMembershipsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<OrganizationUser> { membership });
-
-        _organizationRepositoryMock
-            .Setup(r => r.IsApplicationEnabledAsync(orgId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetEffectivePermissionCodesAsync(orgId, userId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "org:permission1", "org:permission2" });
+        SetupOrganizationPermissions(userId, applicationId, "org:permission1", "org:permission2");
 
         // Act
         var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId, CancellationToken.None);
@@ -299,30 +295,16 @@ public class PermissionCheckerTests
     [Fact]
     public async Task GetUserPermissionsAsync_SkipsOrgPermissionsWhenAppNotEnabled()
     {
-        // Arrange
+        // Arrange — the application is enabled for none of the user's
+        // organizations, so the organization branch contributes nothing.
         var userId = Guid.NewGuid();
         var applicationId = Guid.NewGuid();
-        var orgId = Guid.NewGuid();
 
-        // Direct permissions
         _permissionRepositoryMock
             .Setup(r => r.GetUserEffectivePermissionsAsync(userId, applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "direct:permission1" });
 
-        // Organization memberships
-        var membership = TestHelpers.CreateOrganizationUser(
-            organizationId: orgId,
-            userId: userId,
-            isActive: true);
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetUserMembershipsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<OrganizationUser> { membership });
-
-        // App NOT enabled for this org
-        _organizationRepositoryMock
-            .Setup(r => r.IsApplicationEnabledAsync(orgId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
+        SetupOrganizationPermissions(userId, applicationId);
 
         // Act
         var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId, CancellationToken.None);
@@ -330,11 +312,6 @@ public class PermissionCheckerTests
         // Assert
         result.Should().HaveCount(1);
         result.Should().Contain("direct:permission1");
-
-        // Should not call GetEffectivePermissionCodesAsync when app is not enabled
-        _organizationRepositoryMock.Verify(
-            r => r.GetEffectivePermissionCodesAsync(orgId, userId, applicationId, It.IsAny<CancellationToken>()),
-            Times.Never);
     }
 
     [Fact]
@@ -343,31 +320,12 @@ public class PermissionCheckerTests
         // Arrange
         var userId = Guid.NewGuid();
         var applicationId = Guid.NewGuid();
-        var orgId = Guid.NewGuid();
 
-        // Direct permissions include "shared:permission"
         _permissionRepositoryMock
             .Setup(r => r.GetUserEffectivePermissionsAsync(userId, applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string> { "shared:permission", "direct:only" });
 
-        // Organization memberships
-        var membership = TestHelpers.CreateOrganizationUser(
-            organizationId: orgId,
-            userId: userId,
-            isActive: true);
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetUserMembershipsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<OrganizationUser> { membership });
-
-        _organizationRepositoryMock
-            .Setup(r => r.IsApplicationEnabledAsync(orgId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        // Org permissions also include "shared:permission"
-        _organizationRepositoryMock
-            .Setup(r => r.GetEffectivePermissionCodesAsync(orgId, userId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "shared:permission", "org:only" });
+        SetupOrganizationPermissions(userId, applicationId, "shared:permission", "org:only");
 
         // Act
         var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId, CancellationToken.None);
@@ -382,42 +340,16 @@ public class PermissionCheckerTests
     [Fact]
     public async Task GetUserPermissionsAsync_CollectsFromMultipleOrgs()
     {
-        // Arrange
+        // Arrange — permissions from two different organizations, aggregated by
+        // the repository into one result set.
         var userId = Guid.NewGuid();
         var applicationId = Guid.NewGuid();
-        var org1Id = Guid.NewGuid();
-        var org2Id = Guid.NewGuid();
 
         _permissionRepositoryMock
             .Setup(r => r.GetUserEffectivePermissionsAsync(userId, applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string>());
 
-        // User is member of two orgs
-        var memberships = new List<OrganizationUser>
-        {
-            TestHelpers.CreateOrganizationUser(organizationId: org1Id, userId: userId, isActive: true),
-            TestHelpers.CreateOrganizationUser(organizationId: org2Id, userId: userId, isActive: true)
-        };
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetUserMembershipsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(memberships);
-
-        _organizationRepositoryMock
-            .Setup(r => r.IsApplicationEnabledAsync(org1Id, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        _organizationRepositoryMock
-            .Setup(r => r.IsApplicationEnabledAsync(org2Id, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetEffectivePermissionCodesAsync(org1Id, userId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "org1:permission" });
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetEffectivePermissionCodesAsync(org2Id, userId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "org2:permission" });
+        SetupOrganizationPermissions(userId, applicationId, "org1:permission", "org2:permission");
 
         // Act
         var result = await _permissionChecker.GetUserPermissionsAsync(userId, applicationId, CancellationToken.None);
@@ -434,29 +366,13 @@ public class PermissionCheckerTests
         // Arrange
         var userId = Guid.NewGuid();
         var applicationId = Guid.NewGuid();
-        var orgId = Guid.NewGuid();
         var permission = "data-transfer:export";
 
         _permissionRepositoryMock
             .Setup(r => r.GetUserEffectivePermissionsAsync(userId, applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<string>()); // No direct permissions
 
-        var membership = TestHelpers.CreateOrganizationUser(
-            organizationId: orgId,
-            userId: userId,
-            isActive: true);
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetUserMembershipsAsync(userId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<OrganizationUser> { membership });
-
-        _organizationRepositoryMock
-            .Setup(r => r.IsApplicationEnabledAsync(orgId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        _organizationRepositoryMock
-            .Setup(r => r.GetEffectivePermissionCodesAsync(orgId, userId, applicationId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<string> { "data-transfer:export", "data-transfer:import" });
+        SetupOrganizationPermissions(userId, applicationId, "data-transfer:export", "data-transfer:import");
 
         // Act
         var result = await _permissionChecker.HasPermissionAsync(userId, permission, applicationId, CancellationToken.None);
@@ -482,9 +398,10 @@ public class PermissionCheckerTests
         result.Should().HaveCount(1);
         result.Should().Contain("some:permission");
 
-        // Should not check org permissions when no applicationId
+        // A platform token asks nothing of the organization branch.
         _organizationRepositoryMock.Verify(
-            r => r.GetUserMembershipsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            r => r.GetEffectivePermissionCodesForApplicationAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 

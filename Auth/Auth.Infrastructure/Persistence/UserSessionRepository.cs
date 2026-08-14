@@ -346,6 +346,44 @@ public class UserSessionRepository : IUserSessionRepository
     }
 
     /// <inheritdoc />
+    public async Task TerminateForApplicationAsync(
+        Guid applicationId,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Only the OAuth token endpoint stamps ApplicationId on a session, so
+        // platform sessions (null) are left alone by construction.
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[UserSessions] SET
+                [EndedAt] = GETUTCDATE(),
+                [EndReason] = @Reason
+            WHERE [ApplicationId] = @ApplicationId
+              AND [EndedAt] IS NULL",
+            new { ApplicationId = applicationId, Reason = reason });
+    }
+
+    /// <inheritdoc />
+    public async Task TerminateForUserAndApplicationAsync(
+        Guid userId,
+        Guid applicationId,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[UserSessions] SET
+                [EndedAt] = GETUTCDATE(),
+                [EndReason] = @Reason
+            WHERE [UserId] = @UserId
+              AND [ApplicationId] = @ApplicationId
+              AND [EndedAt] IS NULL",
+            new { UserId = userId, ApplicationId = applicationId, Reason = reason });
+    }
+
+    /// <inheritdoc />
     public async Task CleanupExpiredAsync(CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

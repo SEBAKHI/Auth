@@ -12,7 +12,8 @@ public class UserApplicationDto
     public bool IsActive { get; set; }
 
     /// <summary>
-    /// How the user obtains access: "direct", "organization", or "both".
+    /// How the user gets in: "open" (the application admits everyone),
+    /// "grant" (they are on its invitation list), or "both".
     /// </summary>
     public string AccessSource { get; set; } = string.Empty;
 }

@@ -26,6 +26,7 @@ public class ExchangeAuthorizationCodeCommandHandler
 
     private readonly IAuthorizationCodeRepository _authorizationCodeRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IApplicationAccessRepository _applicationAccessRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
@@ -34,6 +35,7 @@ public class ExchangeAuthorizationCodeCommandHandler
     public ExchangeAuthorizationCodeCommandHandler(
         IAuthorizationCodeRepository authorizationCodeRepository,
         IApplicationRepository applicationRepository,
+        IApplicationAccessRepository applicationAccessRepository,
         IUserRepository userRepository,
         IRefreshTokenKeyService refreshTokenKeyService,
         ILoginResponseBuilder loginResponseBuilder,
@@ -41,6 +43,7 @@ public class ExchangeAuthorizationCodeCommandHandler
     {
         _authorizationCodeRepository = authorizationCodeRepository;
         _applicationRepository = applicationRepository;
+        _applicationAccessRepository = applicationAccessRepository;
         _userRepository = userRepository;
         _refreshTokenKeyService = refreshTokenKeyService;
         _loginResponseBuilder = loginResponseBuilder;
@@ -117,6 +120,18 @@ public class ExchangeAuthorizationCodeCommandHandler
         if (user.IsLockedOut())
         {
             return UserErrors.AccountLocked;
+        }
+
+        // Defense in depth. The authorize endpoint already refused anyone not
+        // entitled; this only fires when the invitation was withdrawn, or the
+        // application was closed down, in the seconds between the two calls.
+        if (!await _applicationAccessRepository.IsUserEntitledAsync(user.Id, application.Id, cancellationToken))
+        {
+            _logger.LogWarning(
+                "Access denied at token exchange for user {UserId}, client {ClientId}",
+                user.Id, request.ClientId);
+
+            return ApplicationErrors.AccessDenied;
         }
 
         // No browser is on this call, so no IdP session cookie is minted here —

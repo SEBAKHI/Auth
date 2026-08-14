@@ -282,6 +282,21 @@
   <data name="Application.Inactive" xml:space="preserve">
     <value>این برنامه در حال حاضر غیرفعال است.</value>
   </data>
+  <data name="Application.AccessDenied" xml:space="preserve">
+    <value>شما به این برنامه دسترسی ندارید.</value>
+  </data>
+  <data name="Application.UserAccessAlreadyGranted" xml:space="preserve">
+    <value>کاربر «{0}» از قبل به این برنامه دسترسی دارد.</value>
+  </data>
+  <data name="Application.UserAccessNotFound" xml:space="preserve">
+    <value>به کاربر «{0}» دسترسی به این برنامه داده نشده است.</value>
+  </data>
+  <data name="Application.CannotRestrictWithActiveOrganizations" xml:space="preserve">
+    <value>پیش از محدود کردن این برنامه به کاربران دعوت‌شدهٔ جداگانه، آن را برای سازمان‌هایش غیرفعال کنید.</value>
+  </data>
+  <data name="Application.RestrictedCannotBeEnabledForOrganization" xml:space="preserve">
+    <value>این برنامه محدود به کاربران دعوت‌شده به‌صورت جداگانه است و نمی‌توان آن را برای یک سازمان فعال کرد.</value>
+  </data>
   <data name="Application.InvalidCode" xml:space="preserve">
     <value>کد برنامه '{0}' نامعتبر است. فقط از حروف بزرگ انگلیسی، اعداد و زیرخط استفاده کنید.</value>
   </data>

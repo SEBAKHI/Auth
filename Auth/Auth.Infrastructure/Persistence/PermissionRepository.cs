@@ -187,7 +187,11 @@ public class PermissionRepository : IPermissionRepository
                 FROM [dbo].[Permissions] p
                 INNER JOIN [dbo].[UserPermissions] up ON p.[Id] = up.[PermissionId]
                 WHERE up.[UserId] = @UserId
-                  AND (up.[ApplicationId] = @ApplicationId OR up.[ApplicationId] IS NULL)
+                  -- Application-scoped only. A grant with a null ApplicationId is
+                  -- platform authority; letting it ride into a partner
+                  -- application's token is the cross-application bleed this
+                  -- overload exists to prevent.
+                  AND up.[ApplicationId] = @ApplicationId
                   AND up.[IsActive] = 1
                   AND p.[IsActive] = 1
                   AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())
@@ -591,7 +595,9 @@ public class PermissionRepository : IPermissionRepository
 
         // The grant flags are computed once in the CROSS APPLY and shared by
         // the WHERE filter and the SELECT list.
-        const string fromClause = @"
+        // Not const: the shared user-search predicate is composed at runtime so
+        // every list agrees on what a search matches.
+        var fromClause = $@"
             FROM [dbo].[Users] u
             CROSS APPLY (SELECT
                 CASE WHEN EXISTS (
@@ -628,10 +634,7 @@ public class PermissionRepository : IPermissionRepository
                     THEN 1 ELSE 0 END AS [ViaRole]
             ) f
             WHERE u.[IsDeleted] = 0
-              AND (@SearchPattern IS NULL OR
-                   u.[Email] LIKE @SearchPattern OR
-                   u.[FirstName] LIKE @SearchPattern OR
-                   u.[LastName] LIKE @SearchPattern)
+              AND {UserSearchSql.Matches("u")}
               AND (f.[ViaDirect] = 1 OR f.[ViaOrganization] = 1 OR f.[ViaRole] = 1)";
 
         var sql = $@"

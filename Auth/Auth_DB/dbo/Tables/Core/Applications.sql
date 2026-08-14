@@ -21,11 +21,22 @@ CREATE TABLE [dbo].[Applications]
     [IsDeleted] BIT NOT NULL CONSTRAINT [DF_Applications_IsDeleted] DEFAULT 0,
     [DeletedAt] DATETIME2 NULL,
     [DeletedBy] UNIQUEIDENTIFIER NULL,
+    [AccessMode] TINYINT NOT NULL CONSTRAINT [DF_Applications_AccessMode] DEFAULT 2,
 
     CONSTRAINT [PK_Applications] PRIMARY KEY CLUSTERED ([Id]),
     CONSTRAINT [UQ_Applications_Code] UNIQUE ([Code])
 );
 GO
+
+-- IsActive and AccessMode are two independent switches, and IsActive wins:
+--   IsActive  = is the application switched on at all? Off means nobody signs
+--               in and no token refreshes, not even for invited users.
+--   AccessMode= when it IS on, who may sign in?
+--                 1 = Everyone   - any authenticated platform user
+--                 2 = Restricted - only users with an active row in
+--                                  ApplicationUserAccess (the default for new
+--                                  applications; also implies the application
+--                                  has no enabled organizations)
 
 -- Indexes
 CREATE NONCLUSTERED INDEX [IX_Applications_Code]
@@ -35,4 +46,9 @@ GO
 
 CREATE NONCLUSTERED INDEX [IX_Applications_IsActive]
 ON [dbo].[Applications] ([IsActive]);
+GO
+
+CREATE NONCLUSTERED INDEX [IX_Applications_AccessMode]
+ON [dbo].[Applications] ([AccessMode])
+WHERE [IsDeleted] = 0;
 GO

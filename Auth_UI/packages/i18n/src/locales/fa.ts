@@ -561,6 +561,40 @@ export const fa: TranslationResources = {
     created: "برنامه ایجاد شد.",
     updated: "برنامه به‌روزرسانی شد.",
     deleted: "برنامه حذف شد.",
+    available: "در دسترس",
+    availableHint:
+      "وقتی خاموش باشد هیچ‌کس نمی‌تواند وارد شود و نشست‌های موجود پایان می‌یابند — از جمله کاربران دعوت‌شده.",
+    deactivateTitle: "این برنامه خاموش شود؟",
+    deactivateBody:
+      "هیچ‌کس نمی‌تواند وارد {{name}} شود و همهٔ کسانی که اکنون وارد شده‌اند خارج می‌شوند. هر زمان می‌توانید دوباره روشنش کنید.",
+    activated: "برنامه روشن شد.",
+    deactivated: "برنامه خاموش شد.",
+    accessMode: "چه کسی می‌تواند وارد شود",
+    accessModeEveryone: "همه",
+    accessModeEveryoneHint:
+      "هر کاربری در سامانه می‌تواند از این برنامه استفاده کند.",
+    accessModeRestricted: "فقط افراد دعوت‌شده",
+    accessModeRestrictedHint:
+      "فقط کسانی که اضافه می‌کنید می‌توانند وارد شوند. برای دورهٔ آزمایشی از این گزینه استفاده کنید.",
+    openToEveryoneNotice:
+      "این برنامه برای همه باز است، بنابراین فهرست زیر فقط جنبهٔ اطلاع‌رسانی دارد — هر کسی می‌تواند وارد شود، چه در فهرست باشد چه نباشد.",
+    manageAccess: "کاربران آزمایشی",
+    manageAccessDescription:
+      "کسانی که اجازه دارند {{name}} را در حالت محدود آزمایش کنند. تا زمانی که آن را برای همه باز نکنید، هیچ‌کس دیگری نمی‌تواند وارد شود. می‌توانید هم‌زمان به هر کاربر نقشی بدهید.",
+    accessUser: "کاربر",
+    accessRole: "نقش در این برنامه",
+    accessRoleHint:
+      "اختیاری. بدون نقش، کاربر می‌تواند وارد شود اما کاری نمی‌تواند انجام دهد.",
+    accessExpires: "انقضای دسترسی",
+    grantAccess: "افزودن کاربر",
+    noAccessGrants: "هنوز کاربر آزمایشی وجود ندارد.",
+    accessGranted: "دسترسی داده شد.",
+    accessRevoked: "دسترسی گرفته شد.",
+    accessVia: "منبع دسترسی",
+    accessViaGrant: "کاربر آزمایشی",
+    accessViaDirect: "نقش مستقیم",
+    accessViaOrganization: "سازمان",
+    accessViaMultiple: "چند منبع",
   },
   organizations: {
     title: "سازمان‌ها",

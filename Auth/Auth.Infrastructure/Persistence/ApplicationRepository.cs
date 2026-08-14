@@ -30,7 +30,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [Id] = @Id AND [IsDeleted] = 0",
@@ -56,7 +56,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy],
                 [IsDeleted], [DeletedAt], [DeletedBy]
             FROM [dbo].[Applications]
@@ -75,7 +75,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [Code] = @Code AND [IsDeleted] = 0",
@@ -111,7 +111,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [IsDeleted] = 0
@@ -129,7 +129,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             WHERE [IsActive] = 1 AND [IsDeleted] = 0
@@ -166,12 +166,12 @@ public class ApplicationRepository : IApplicationRepository
             INSERT INTO [dbo].[Applications] (
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             ) VALUES (
                 @Id, @Code, @Name, @Description, @BaseUrl, @LogoUrl, @ContactEmail,
                 @IsActive, @AllowSelfRegistration, @RequireTwoFactor, @RequireEmailVerification,
-                @SessionTimeoutMinutes, @MaxConcurrentSessions, @ReauthenticationMaxAgeMinutes,
+                @SessionTimeoutMinutes, @MaxConcurrentSessions, @ReauthenticationMaxAgeMinutes, @AccessMode,
                 @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
             )",
             new
@@ -190,6 +190,7 @@ public class ApplicationRepository : IApplicationRepository
                 application.SessionTimeoutMinutes,
                 application.MaxConcurrentSessions,
                 application.ReauthenticationMaxAgeMinutes,
+                AccessMode = (byte)application.AccessMode,
                 application.CreatedAt,
                 application.CreatedBy,
                 application.ModifiedAt,
@@ -239,6 +240,7 @@ public class ApplicationRepository : IApplicationRepository
                 [SessionTimeoutMinutes] = @SessionTimeoutMinutes,
                 [MaxConcurrentSessions] = @MaxConcurrentSessions,
                 [ReauthenticationMaxAgeMinutes] = @ReauthenticationMaxAgeMinutes,
+                [AccessMode] = @AccessMode,
                 [ModifiedAt] = @ModifiedAt,
                 [ModifiedBy] = @ModifiedBy
             WHERE [Id] = @Id",
@@ -257,6 +259,7 @@ public class ApplicationRepository : IApplicationRepository
                 application.SessionTimeoutMinutes,
                 application.MaxConcurrentSessions,
                 application.ReauthenticationMaxAgeMinutes,
+                AccessMode = (byte)application.AccessMode,
                 application.ModifiedAt,
                 application.ModifiedBy
             },
@@ -383,7 +386,7 @@ public class ApplicationRepository : IApplicationRepository
             SELECT
                 [Id], [Code], [Name], [Description], [BaseUrl], [LogoUrl], [ContactEmail],
                 [IsActive], [AllowSelfRegistration], [RequireTwoFactor], [RequireEmailVerification],
-                [SessionTimeoutMinutes], [MaxConcurrentSessions],
+                [SessionTimeoutMinutes], [MaxConcurrentSessions], [ReauthenticationMaxAgeMinutes], [AccessMode],
                 [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
             FROM [dbo].[Applications]
             {whereClause}
@@ -407,14 +410,64 @@ public class ApplicationRepository : IApplicationRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // The three ways a user is attached to an application, matching
+        // GetUsersPagedAsync exactly. They must stay in step: a delete guard
+        // that sees fewer attachments than the console's Users tab lets an
+        // administrator delete an application that visibly still has users.
         var count = await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(1) FROM [dbo].[UserRoles]
-            WHERE [ApplicationId] = @ApplicationId
-              AND [IsActive] = 1
-              AND ([ExpiresAt] IS NULL OR [ExpiresAt] > GETUTCDATE())",
+            SELECT TOP 1 1
+            WHERE EXISTS (
+                SELECT 1 FROM [dbo].[ApplicationUserAccess] aua
+                WHERE aua.[ApplicationId] = @ApplicationId
+                  AND aua.[IsActive] = 1
+                  AND aua.[RevokedAt] IS NULL
+                  AND (aua.[ExpiresAt] IS NULL OR aua.[ExpiresAt] > GETUTCDATE()))
+               OR EXISTS (
+                SELECT 1 FROM [dbo].[UserRoles] ur
+                WHERE ur.[ApplicationId] = @ApplicationId
+                  AND ur.[IsActive] = 1
+                  AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE()))
+               OR EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationUserRoles] our
+                WHERE our.[ApplicationId] = @ApplicationId
+                  AND our.[IsActive] = 1
+                  AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE()))",
             new { ApplicationId = applicationId });
 
         return count > 0;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<AvailableApplicationRow>> GetAvailableForOrganizationAsync(
+        Guid organizationId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Restricted applications are filtered out at the source rather than
+        // hidden in the console: an organization can never enable one, because a
+        // restricted application admits only the users on its own access list.
+        // Already-enabled applications are excluded too, so the picker offers
+        // nothing that would come back as a conflict.
+        var rows = await connection.QueryAsync<AvailableApplicationRow>(@"
+            SELECT a.[Id] AS ApplicationId, a.[Code], a.[Name], a.[LogoUrl]
+            FROM [dbo].[Applications] a
+            WHERE a.[IsDeleted] = 0
+              AND a.[IsActive] = 1
+              AND a.[AccessMode] = @Everyone
+              AND NOT EXISTS (
+                SELECT 1 FROM [dbo].[OrganizationApplications] oa
+                WHERE oa.[ApplicationId] = a.[Id]
+                  AND oa.[OrganizationId] = @OrganizationId
+                  AND oa.[IsActive] = 1)
+            ORDER BY a.[Name]",
+            new
+            {
+                OrganizationId = organizationId,
+                Everyone = (byte)ApplicationAccessMode.Everyone
+            });
+
+        return rows.ToList().AsReadOnly();
     }
 
     /// <inheritdoc />
@@ -514,6 +567,7 @@ public class ApplicationRepository : IApplicationRepository
         public int SessionTimeoutMinutes { get; init; }
         public int MaxConcurrentSessions { get; init; }
         public int? ReauthenticationMaxAgeMinutes { get; init; }
+        public ApplicationAccessMode AccessMode { get; init; }
         public DateTime CreatedAt { get; init; }
         public Guid CreatedBy { get; init; }
         public DateTime? ModifiedAt { get; init; }
@@ -541,7 +595,8 @@ public class ApplicationRepository : IApplicationRepository
                 CreatedAt,
                 CreatedBy,
                 ModifiedAt,
-                ModifiedBy);
+                ModifiedBy,
+                AccessMode);
             entity.LoadReauthenticationMaxAge(ReauthenticationMaxAgeMinutes);
             entity.LoadDeletionState(IsDeleted, DeletedAt, DeletedBy);
             return entity;
@@ -602,32 +657,57 @@ public class ApplicationRepository : IApplicationRepository
         var orderBy = SortSql.OrderBy(
             ApplicationUserSortColumns, sortBy, sortDirection, "u.[Email]", "u.[Id]");
 
-        // A user belongs to the application when they hold an active app-scoped
-        // role assignment, directly (UserRoles) or through an organization
-        // (OrganizationUserRoles) — same signals as HasActiveUserAssignmentsAsync.
-        const string filter = @"
+        // A user is attached to the application when they are invited on its
+        // access list, or hold an active app-scoped role directly (UserRoles) or
+        // through an organization (OrganizationUserRoles) — the same three
+        // signals as HasActiveUserAssignmentsAsync, which must not drift.
+        //
+        // Attachment is not admission: an app-scoped role alone does not let
+        // anyone into a restricted application (the invitation does), and
+        // everyone signs in to an open one without appearing here. The tab is a
+        // roster, and the console labels it as one.
+        //
+        // Each signal is written ONCE and evaluated once per row, through the
+        // CROSS APPLY below. It used to be written twice — once to decide who
+        // belongs in the list, once again to label each row with how — so the
+        // same row was tested up to six times, and worse, the two copies could
+        // be edited apart until a user was listed with every label reading
+        // "no". One source, one evaluation, no way to disagree.
+        const string attachmentSources = @"
+                CROSS APPLY (VALUES (
+                    CAST(CASE WHEN EXISTS (
+                        SELECT 1 FROM [dbo].[ApplicationUserAccess] aua
+                        WHERE aua.[UserId] = u.[Id]
+                          AND aua.[ApplicationId] = @ApplicationId
+                          AND aua.[IsActive] = 1
+                          AND aua.[RevokedAt] IS NULL
+                          AND (aua.[ExpiresAt] IS NULL OR aua.[ExpiresAt] > GETUTCDATE()))
+                        THEN 1 ELSE 0 END AS BIT),
+                    CAST(CASE WHEN EXISTS (
+                        SELECT 1 FROM [dbo].[UserRoles] ur
+                        WHERE ur.[UserId] = u.[Id]
+                          AND ur.[ApplicationId] = @ApplicationId
+                          AND ur.[IsActive] = 1
+                          AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE()))
+                        THEN 1 ELSE 0 END AS BIT),
+                    CAST(CASE WHEN EXISTS (
+                        SELECT 1 FROM [dbo].[OrganizationUserRoles] our
+                        WHERE our.[UserId] = u.[Id]
+                          AND our.[ApplicationId] = @ApplicationId
+                          AND our.[IsActive] = 1
+                          AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE()))
+                        THEN 1 ELSE 0 END AS BIT)
+                )) AS src ([ViaGrant], [ViaDirect], [ViaOrganization])";
+
+        var filter = $@"
             u.[IsDeleted] = 0
-              AND (@SearchPattern IS NULL OR
-                   u.[Email] LIKE @SearchPattern OR
-                   u.[FirstName] LIKE @SearchPattern OR
-                   u.[LastName] LIKE @SearchPattern)
-              AND (
-                  EXISTS (
-                      SELECT 1 FROM [dbo].[UserRoles] ur
-                      WHERE ur.[UserId] = u.[Id]
-                        AND ur.[ApplicationId] = @ApplicationId
-                        AND ur.[IsActive] = 1
-                        AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE()))
-                  OR EXISTS (
-                      SELECT 1 FROM [dbo].[OrganizationUserRoles] our
-                      WHERE our.[UserId] = u.[Id]
-                        AND our.[ApplicationId] = @ApplicationId
-                        AND our.[IsActive] = 1
-                        AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE()))
-              )";
+              AND {UserSearchSql.Matches("u")}
+              AND (src.[ViaGrant] = 1 OR src.[ViaDirect] = 1 OR src.[ViaOrganization] = 1)";
 
         var sql = $@"
-            SELECT COUNT(1) FROM [dbo].[Users] u
+            SELECT COUNT(1)
+            FROM [dbo].[Users] u
+            {attachmentSources}
             WHERE {filter};
 
             SELECT
@@ -640,8 +720,12 @@ public class ApplicationRepository : IApplicationRepository
                 u.[Status],
                 u.[LastLoginUtc] AS [LastLoginAt],
                 u.[CreatedAt],
-                rn.[RoleNames]
+                rn.[RoleNames],
+                src.[ViaGrant],
+                src.[ViaDirect],
+                src.[ViaOrganization]
             FROM [dbo].[Users] u
+            {attachmentSources}
             OUTER APPLY (
                 SELECT STRING_AGG(x.[Name], ', ') WITHIN GROUP (ORDER BY x.[Name]) AS [RoleNames]
                 FROM (

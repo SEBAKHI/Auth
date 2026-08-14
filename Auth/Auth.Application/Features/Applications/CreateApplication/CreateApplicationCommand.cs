@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Domain.Enums;
 using ErrorOr;
 using MediatR;
 
@@ -20,7 +21,8 @@ public record CreateApplicationCommand(
     int SessionTimeoutMinutes = 60,
     int MaxConcurrentSessions = 5,
     IReadOnlyList<string>? RedirectUris = null,
-    int? ReauthenticationMaxAgeMinutes = null) : IRequest<ErrorOr<ApplicationDto>>
+    int? ReauthenticationMaxAgeMinutes = null,
+    ApplicationAccessMode AccessMode = ApplicationAccessMode.Restricted) : IRequest<ErrorOr<ApplicationDto>>
 {
     /// <summary>
     /// The ID of the user creating this application (for audit).

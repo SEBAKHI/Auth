@@ -56,6 +56,7 @@ public class GetApplicationByIdQueryHandler : IRequestHandler<GetApplicationById
             LogoUrl = _imageUrlComposer.Compose(application.LogoUrl),
             ContactEmail = application.ContactEmail,
             IsActive = application.IsActive,
+            AccessMode = application.AccessMode,
             AllowSelfRegistration = application.AllowSelfRegistration,
             RequireTwoFactor = application.RequireTwoFactor,
             RequireEmailVerification = application.RequireEmailVerification,

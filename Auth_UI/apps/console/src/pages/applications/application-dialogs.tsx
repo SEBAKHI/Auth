@@ -8,7 +8,12 @@ import { z } from "zod"
 
 import { FormDialog } from "@authsystem/ui/common/form-dialog"
 import { PresetField } from "@authsystem/ui/common/preset-field"
-import { FieldContent } from "@authsystem/ui/field"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldLabel,
+} from "@authsystem/ui/field"
 import {
   FormControl,
   FormDescription,
@@ -18,11 +23,13 @@ import {
   FormMessage,
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
+import { RadioGroup, RadioGroupItem } from "@authsystem/ui/radio-group"
 import { Switch } from "@authsystem/ui/switch"
 import { Textarea } from "@authsystem/ui/textarea"
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
+import { accessMode } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 
 function emptyToNull(value: string | undefined): string | null {
@@ -42,6 +49,76 @@ function toRedirectUriList(value: string | undefined): string[] {
     .split("\n")
     .map((uri) => uri.trim())
     .filter((uri) => uri.length > 0)
+}
+
+type AccessMode = "Everyone" | "Restricted"
+
+/**
+ * The API serializes enums as their names, but the generated OpenAPI types
+ * describe them as numbers, so the request body's declared type and what the
+ * server actually accepts disagree. Sending the number instead would be worse:
+ * the two orderings would have to stay in step by hand forever.
+ */
+function accessModeForWire(mode: AccessMode) {
+  return mode as unknown as number
+}
+
+/**
+ * Who may sign in while the application is switched on. Deliberately separate
+ * from availability: this picks the audience, the header switch decides whether
+ * there is one at all.
+ *
+ * One component for both dialogs, not two copies — the create and edit forms
+ * already drifted once over the fields they each remembered to send.
+ */
+function AccessModeChoice({
+  idPrefix,
+  value,
+  onChange,
+}: {
+  idPrefix: string
+  value: AccessMode
+  onChange: (value: AccessMode) => void
+}) {
+  const { t } = useTranslation()
+
+  const options: { value: AccessMode; label: string; hint: string }[] = [
+    {
+      value: "Everyone",
+      label: t("applications.accessModeEveryone"),
+      hint: t("applications.accessModeEveryoneHint"),
+    },
+    {
+      value: "Restricted",
+      label: t("applications.accessModeRestricted"),
+      hint: t("applications.accessModeRestrictedHint"),
+    },
+  ]
+
+  return (
+    <RadioGroup
+      value={value}
+      onValueChange={(next) => onChange(next as AccessMode)}
+    >
+      {options.map((option) => (
+        <Field key={option.value} orientation="horizontal">
+          <RadioGroupItem
+            id={`${idPrefix}-${option.value}`}
+            value={option.value}
+          />
+          <FieldContent>
+            <FieldLabel
+              htmlFor={`${idPrefix}-${option.value}`}
+              className="font-normal"
+            >
+              {option.label}
+            </FieldLabel>
+            <FieldDescription>{option.hint}</FieldDescription>
+          </FieldContent>
+        </Field>
+      ))}
+    </RadioGroup>
+  )
 }
 
 type ToggleName =
@@ -125,6 +202,8 @@ export function ApplicationCreateDialog({
   const queryClient = useQueryClient()
   const toggles = useToggles()
   const presets = useSessionPresets()
+  // Both dialogs can be mounted at once, so radio ids must not collide.
+  const dialogId = "application-create"
 
   const schema = z.object({
     code: z.string().min(1, t("validation.required")),
@@ -133,6 +212,7 @@ export function ApplicationCreateDialog({
     baseUrl: z.string().optional(),
     logoUrl: z.string().optional(),
     contactEmail: z.string().optional(),
+    accessMode: z.enum(["Everyone", "Restricted"]),
     allowSelfRegistration: z.boolean(),
     requireTwoFactor: z.boolean(),
     requireEmailVerification: z.boolean(),
@@ -151,6 +231,10 @@ export function ApplicationCreateDialog({
       baseUrl: "",
       logoUrl: "",
       contactEmail: "",
+      // Closed by default, matching the server. A new application admits nobody
+      // until its owner invites people or opens it up — deliberately, since
+      // born-open is the defect this whole field exists to fix.
+      accessMode: "Restricted",
       allowSelfRegistration: false,
       requireTwoFactor: false,
       requireEmailVerification: false,
@@ -174,6 +258,7 @@ export function ApplicationCreateDialog({
           baseUrl: emptyToNull(values.baseUrl),
           logoUrl: emptyToNull(values.logoUrl),
           contactEmail: emptyToNull(values.contactEmail),
+          accessMode: accessModeForWire(values.accessMode),
           allowSelfRegistration: values.allowSelfRegistration,
           requireTwoFactor: values.requireTwoFactor,
           requireEmailVerification: values.requireEmailVerification,
@@ -316,6 +401,23 @@ export function ApplicationCreateDialog({
       />
       <FormField
         control={form.control}
+        name="accessMode"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.accessMode")}</FormLabel>
+            <FormControl>
+              <AccessModeChoice
+                idPrefix={`${dialogId}-access`}
+                value={field.value}
+                onChange={field.onChange}
+              />
+            </FormControl>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
         name="sessionTimeoutMinutes"
         render={({ field }) => (
           <FormItem>
@@ -415,6 +517,7 @@ export function ApplicationEditDialog({
   const queryClient = useQueryClient()
   const toggles = useToggles()
   const presets = useSessionPresets()
+  const dialogId = "application-edit"
 
   const schema = z.object({
     name: z.string().min(1, t("validation.required")),
@@ -422,6 +525,7 @@ export function ApplicationEditDialog({
     baseUrl: z.string().optional(),
     logoUrl: z.string().optional(),
     contactEmail: z.string().optional(),
+    accessMode: z.enum(["Everyone", "Restricted"]),
     allowSelfRegistration: z.boolean(),
     requireTwoFactor: z.boolean(),
     requireEmailVerification: z.boolean(),
@@ -439,6 +543,7 @@ export function ApplicationEditDialog({
       baseUrl: "",
       logoUrl: "",
       contactEmail: "",
+      accessMode: "Restricted",
       allowSelfRegistration: false,
       requireTwoFactor: false,
       requireEmailVerification: false,
@@ -486,6 +591,7 @@ export function ApplicationEditDialog({
       baseUrl: detail.baseUrl ?? "",
       logoUrl: detail.logoUrl ?? "",
       contactEmail: detail.contactEmail ?? "",
+      accessMode: accessMode(detail.accessMode),
       allowSelfRegistration: detail.allowSelfRegistration ?? false,
       requireTwoFactor: detail.requireTwoFactor ?? false,
       requireEmailVerification: detail.requireEmailVerification ?? false,
@@ -508,6 +614,7 @@ export function ApplicationEditDialog({
           baseUrl: emptyToNull(values.baseUrl),
           logoUrl: emptyToNull(values.logoUrl),
           contactEmail: emptyToNull(values.contactEmail),
+          accessMode: accessModeForWire(values.accessMode),
           allowSelfRegistration: values.allowSelfRegistration,
           requireTwoFactor: values.requireTwoFactor,
           requireEmailVerification: values.requireEmailVerification,
@@ -632,6 +739,23 @@ export function ApplicationEditDialog({
             <FormDescription>
               {t("applications.redirectUrisHint")}
             </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <FormField
+        control={form.control}
+        name="accessMode"
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t("applications.accessMode")}</FormLabel>
+            <FormControl>
+              <AccessModeChoice
+                idPrefix={`${dialogId}-access`}
+                value={field.value}
+                onChange={field.onChange}
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )}
