@@ -806,6 +806,18 @@ export const fa: TranslationResources = {
     customSecret: "راز سفارشی",
     setCustom: "تنظیم راز سفارشی",
     deleteCustom: "حذف راز سفارشی",
+    setSmtpPassword: "تنظیم گذرواژه SMTP",
+    setSmtpPasswordHint:
+      "به‌صورت رمزگذاری‌شده ذخیره می‌شود و به‌جای تنظیم Email:Password استفاده می‌شود. برای اطمینان، پس از راه‌اندازی مجدد یک ایمیل آزمایشی بفرستید.",
+    setConnectionString: "تنظیم رشته اتصال پایگاه داده",
+    setConnectionStringHint:
+      "به‌صورت رمزگذاری‌شده ذخیره می‌شود و به‌جای تنظیم ConnectionStrings:AuthDb استفاده می‌شود، از جمله هر مقداری در web.config.",
+    knownSecretSaved: "ذخیره شد. برای اعمال، API را دوباره راه‌اندازی کنید.",
+    restartRequired: "در راه‌اندازی مجدد بعدی API اعمال می‌شود.",
+    connectionFailedTitle: "با این رشته اتصال، ارتباط برقرار نشد",
+    connectionFailedBody:
+      "تنها در صورتی به‌هرحال ذخیره کنید که در حال آماده‌سازی گذرواژه‌ای هستید که هنوز روی پایگاه داده فعال نشده است. تا زمانی که پایگاه داده آن را نپذیرد، API راه‌اندازی نمی‌شود.",
+    saveAnyway: "به‌هرحال ذخیره کن",
     key: "کلید",
     value: "مقدار",
     importValuePlaceholder:

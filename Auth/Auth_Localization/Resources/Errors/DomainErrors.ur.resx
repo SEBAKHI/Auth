@@ -577,6 +577,15 @@
   <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
     <value>تصدیقی کوڈ کی ای میل بھیجنے میں ناکامی ہوئی۔ براہ کرم دوبارہ کوشش کریں۔</value>
   </data>
+  <data name="Secret.SetNotSupportedInPlainText" xml:space="preserve">
+    <value>اس راز کو محفوظ کرنا صرف Certificate یا Dpapi اسٹوریج موڈ میں معاون ہے۔ PlainText موڈ میں اسے کنفیگریشن یا ماحولیاتی متغیر کے ذریعے فراہم کریں۔</value>
+  </data>
+  <data name="Secret.ConnectionStringMalformed" xml:space="preserve">
+    <value>کنکشن اسٹرنگ کا تجزیہ نہیں کیا جا سکا: {0}</value>
+  </data>
+  <data name="Secret.ConnectionStringUnreachable" xml:space="preserve">
+    <value>کنکشن اسٹرنگ محفوظ نہیں کی گئی کیونکہ اس سے کوئی کنکشن نہیں کھولا جا سکا: {0} اگر آپ ایسا پاس ورڈ تیار کر رہے ہیں جو ابھی فعال نہیں، تو تصدیق کے ساتھ دوبارہ بھیجیں تاکہ یہ بہرحال محفوظ ہو جائے۔</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>یہ پاس ورڈ کسی معلوم ڈیٹا لیک میں سامنے آ چکا ہے۔ براہ کرم مختلف پاس ورڈ منتخب کریں۔</value>
   </data>

@@ -331,6 +331,12 @@ builder.Services.AddSingleton<IDpapiSecretService>(sp =>
 var connectionString = builder.Configuration.GetConnectionString("AuthDb")
     ?? throw new InvalidOperationException("Connection string 'AuthDb' not found.");
 
+// The null-check above cannot fire while appsettings.json ships a non-empty
+// placeholder for this key, so the placeholder gets its own check.
+StartupStep.Run(
+    "connection-string resolution check",
+    () => ConnectionStringGuard.EnsureResolved(connectionString));
+
 // A permanent key minted over a populated registry is a silent data-integrity
 // failure, so it is verified here — the first point where the database is
 // reachable — and never merely trusted.
@@ -342,6 +348,10 @@ if (identifierKeyWasMinted)
 }
 
 builder.Services.AddSingleton<IDbConnectionFactory>(_ => new SqlConnectionFactory(connectionString));
+
+// Probes a candidate connection string before the admin API commits it to the
+// secrets file. Stateless, so a singleton.
+builder.Services.AddSingleton<IConnectionStringProbe, SqlConnectionStringProbe>();
 
 // ════════════════════════════════════════════════════════════════════════════
 // Dynamic system settings: a database-backed configuration layer over the

@@ -798,6 +798,18 @@ export const en = {
     customSecret: "Custom secret",
     setCustom: "Set custom secret",
     deleteCustom: "Delete custom secret",
+    setSmtpPassword: "Set SMTP password",
+    setSmtpPasswordHint:
+      "Stored encrypted and used instead of the Email:Password setting. Send a test email after restarting to confirm it.",
+    setConnectionString: "Set database connection string",
+    setConnectionStringHint:
+      "Stored encrypted and used instead of the ConnectionStrings:AuthDb setting, including any value in web.config.",
+    knownSecretSaved: "Saved. Restart the API to apply it.",
+    restartRequired: "Takes effect the next time the API restarts.",
+    connectionFailedTitle: "Could not connect with this connection string",
+    connectionFailedBody:
+      "Save it anyway only if you are staging a password that is not active at the database yet. The API will not start until the database accepts it.",
+    saveAnyway: "Save anyway",
     key: "Key",
     value: "Value",
     importValuePlaceholder: "Paste the key material exactly as exported",

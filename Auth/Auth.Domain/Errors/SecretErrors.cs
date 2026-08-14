@@ -44,6 +44,39 @@ public static class SecretErrors
                      "In PlainText mode, set the keys directly in appsettings.Production.json.");
 
     /// <summary>
+    /// PlainText mode has no encrypted file to write into, so storing the
+    /// connection string or the SMTP password there would be a no-op that reads
+    /// as success. In that mode both belong in configuration or an environment
+    /// variable, which is where the process already reads them from.
+    /// </summary>
+    public static Error SetNotSupportedInPlainText => Error.Conflict(
+        code: "Secret.SetNotSupportedInPlainText",
+        description: "Storing this secret is only supported in Certificate or Dpapi storage mode. " +
+                     "In PlainText mode, supply it through configuration or an environment variable instead.");
+
+    /// <summary>
+    /// The supplied text is not a well-formed SQL Server connection string. This
+    /// is a hard rejection: unlike an unreachable server, a malformed string can
+    /// never become valid later, so there is nothing to pre-stage.
+    /// </summary>
+    public static Error ConnectionStringMalformed(string detail) => Error.Validation(
+        code: "Secret.ConnectionStringMalformed",
+        description: $"The connection string could not be parsed: {detail}",
+        metadata: new() { ["args"] = new object[] { detail } });
+
+    /// <summary>
+    /// The connection string parsed but no connection could be opened with it.
+    /// Recoverable by design — an operator pre-staging a password change stores a
+    /// value that is not live yet — so the caller may repeat the request with
+    /// <c>ForceSave</c> to store it anyway.
+    /// </summary>
+    public static Error ConnectionStringUnreachable(string detail) => Error.Validation(
+        code: "Secret.ConnectionStringUnreachable",
+        description: $"The connection string was not saved because no connection could be opened with it: {detail} " +
+                     "If you are staging a password that is not active yet, resubmit with confirmation to save it anyway.",
+        metadata: new() { ["args"] = new object[] { detail } });
+
+    /// <summary>
     /// The single failure shape for entering a confirmation code: wrong code,
     /// expired code, spent code, exhausted attempts and unknown challenge id all
     /// return this. Distinguishing them would tell a guesser which of their

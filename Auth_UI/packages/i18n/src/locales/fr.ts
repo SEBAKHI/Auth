@@ -827,6 +827,18 @@ export const fr: TranslationResources = {
     customSecret: "Secret personnalisé",
     setCustom: "Définir un secret personnalisé",
     deleteCustom: "Supprimer le secret personnalisé",
+    setSmtpPassword: "Définir le mot de passe SMTP",
+    setSmtpPasswordHint:
+      "Stocké chiffré et utilisé à la place du paramètre Email:Password. Envoyez un e-mail de test après le redémarrage pour le confirmer.",
+    setConnectionString: "Définir la chaîne de connexion à la base de données",
+    setConnectionStringHint:
+      "Stockée chiffrée et utilisée à la place du paramètre ConnectionStrings:AuthDb, y compris toute valeur définie dans web.config.",
+    knownSecretSaved: "Enregistré. Redémarrez l'API pour l'appliquer.",
+    restartRequired: "Prend effet au prochain redémarrage de l'API.",
+    connectionFailedTitle: "Connexion impossible avec cette chaîne",
+    connectionFailedBody:
+      "Ne l'enregistrez malgré tout que si vous préparez un mot de passe qui n'est pas encore actif sur la base de données. L'API ne démarrera pas tant que la base ne l'accepte pas.",
+    saveAnyway: "Enregistrer quand même",
     key: "Clé",
     value: "Valeur",
     importValuePlaceholder:

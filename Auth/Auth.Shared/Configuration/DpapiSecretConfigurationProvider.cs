@@ -38,6 +38,21 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
     private readonly IDataProtectionProvider _dataProtectionProvider;
     private const string ProtectorPurpose = "AuthSystem.SecretManagement.v1";
 
+    /// <summary>
+    /// Escape hatch: when set to "true", the stored connection string is not
+    /// layered onto configuration, so the value from web.config / appsettings
+    /// wins again.
+    /// </summary>
+    /// <remarks>
+    /// A stored connection string that stops working — the database host renamed,
+    /// the password rotated at the server, the site moved — leaves the API unable
+    /// to start, and therefore unable to serve the admin console that would fix
+    /// it. Without a way to bypass the stored value the only remedy is editing an
+    /// encrypted file by hand. Mirrors AUTH_DISABLE_DB_SETTINGS, which exists so a
+    /// bad database-backed override can always be bypassed.
+    /// </remarks>
+    public const string IgnoreConnectionStringVariable = "AUTH_IGNORE_SECRET_CONNECTIONSTRING";
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
@@ -51,9 +66,17 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
         _dataProtectionProvider = dataProtectionProvider;
     }
 
+    /// <summary>
+    /// The failure from the last <see cref="Load"/>, or null when the file loaded
+    /// (or is simply absent). Lets startup report why the secrets are missing
+    /// instead of leaving the operator to infer it from a downstream symptom.
+    /// </summary>
+    public Exception? LoadError { get; private set; }
+
     public override void Load()
     {
         Data = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        LoadError = null;
 
         if (!File.Exists(_secretFilePath))
         {
@@ -74,14 +97,30 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
                 MapSecretsToConfiguration(secrets);
             }
         }
-        catch (CryptographicException)
+        catch (CryptographicException ex)
         {
-            // Log warning but don't fail - fall back to appsettings values
-            Console.WriteLine($"Warning: Could not decrypt secret file at {_secretFilePath}. Using appsettings.json values.");
+            // Deliberately non-fatal here: RequiredSecretsGuard fails the boot a
+            // few steps later with the full list of what is missing, which is a
+            // better message than an exception from inside a configuration
+            // provider. What this must NOT do is stay quiet — the file also
+            // carries the connection string and the SMTP password, and a silent
+            // fall-through leaves those reverting to the inert "{Key}__{Name}"
+            // placeholders in appsettings, which surfaces as an unrelated-looking
+            // SQL parse error rather than "the secrets file could not be read".
+            LoadError = ex;
+            Console.Error.WriteLine(
+                $"ERROR: Could not DECRYPT the secrets file at '{_secretFilePath}'. Every secret it holds — " +
+                "signing keys, the database connection string, the SMTP password — is unavailable, and " +
+                "configuration values are being used instead. Usual cause: the file was encrypted on another " +
+                "machine, or the Data Protection certificate / key ring is missing on this one. " +
+                $"Details: {ex.Message}");
         }
         catch (JsonException ex)
         {
-            Console.WriteLine($"Warning: Could not parse secret file at {_secretFilePath}: {ex.Message}");
+            LoadError = ex;
+            Console.Error.WriteLine(
+                $"ERROR: Could not PARSE the secrets file at '{_secretFilePath}'. It decrypted but its contents " +
+                $"are not valid JSON, which usually means a truncated write. Details: {ex.Message}");
         }
     }
 
@@ -132,7 +171,17 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
         // Connection strings (when SQL authentication is used)
         if (!string.IsNullOrEmpty(secrets.ConnectionStrings?.AuthDb))
         {
-            Data["ConnectionStrings:AuthDb"] = secrets.ConnectionStrings.AuthDb;
+            if (ShouldIgnoreStoredConnectionString())
+            {
+                Console.WriteLine(
+                    $"Warning: {IgnoreConnectionStringVariable}=true - the connection string in the secrets " +
+                    "file is being IGNORED. The value from configuration/environment is in effect. Remove " +
+                    "this variable once the stored value has been corrected.");
+            }
+            else
+            {
+                Data["ConnectionStrings:AuthDb"] = secrets.ConnectionStrings.AuthDb;
+            }
         }
 
         // Argon2id password pepper(s) -> Password:Pepper:Keys:{id} (+ current key id).
@@ -159,4 +208,10 @@ public class DpapiSecretConfigurationProvider : ConfigurationProvider
             Data[$"Secrets:Custom:{key}"] = value;
         }
     }
+
+    private static bool ShouldIgnoreStoredConnectionString() =>
+        string.Equals(
+            Environment.GetEnvironmentVariable(IgnoreConnectionStringVariable),
+            "true",
+            StringComparison.OrdinalIgnoreCase);
 }

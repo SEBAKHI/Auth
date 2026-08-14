@@ -817,6 +817,18 @@ export const tr: TranslationResources = {
     customSecret: "Özel gizli anahtar",
     setCustom: "Özel gizli anahtar ayarla",
     deleteCustom: "Özel gizli anahtarı sil",
+    setSmtpPassword: "SMTP parolasını ayarla",
+    setSmtpPasswordHint:
+      "Şifreli saklanır ve Email:Password ayarı yerine kullanılır. Doğrulamak için yeniden başlattıktan sonra test e-postası gönderin.",
+    setConnectionString: "Veritabanı bağlantı dizesini ayarla",
+    setConnectionStringHint:
+      "Şifreli saklanır ve web.config'deki değer dahil olmak üzere ConnectionStrings:AuthDb ayarı yerine kullanılır.",
+    knownSecretSaved: "Kaydedildi. Uygulamak için API'yi yeniden başlatın.",
+    restartRequired: "API bir sonraki yeniden başlatmada geçerli olur.",
+    connectionFailedTitle: "Bu bağlantı dizesiyle bağlanılamadı",
+    connectionFailedBody:
+      "Yalnızca veritabanında henüz etkin olmayan bir parolayı hazırlıyorsanız yine de kaydedin. Veritabanı kabul edene kadar API başlamayacaktır.",
+    saveAnyway: "Yine de kaydet",
     key: "Anahtar",
     value: "Değer",
     importValuePlaceholder:

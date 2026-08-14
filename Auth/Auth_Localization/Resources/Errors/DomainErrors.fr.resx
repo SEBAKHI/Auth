@@ -577,6 +577,15 @@
   <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
     <value>Échec de l'envoi de l'e-mail contenant le code de confirmation. Veuillez réessayer.</value>
   </data>
+  <data name="Secret.SetNotSupportedInPlainText" xml:space="preserve">
+    <value>Le stockage de ce secret n'est pris en charge qu'en mode Certificate ou Dpapi. En mode PlainText, fournissez-le via la configuration ou une variable d'environnement.</value>
+  </data>
+  <data name="Secret.ConnectionStringMalformed" xml:space="preserve">
+    <value>La chaîne de connexion n'a pas pu être analysée : {0}</value>
+  </data>
+  <data name="Secret.ConnectionStringUnreachable" xml:space="preserve">
+    <value>La chaîne de connexion n'a pas été enregistrée car aucune connexion n'a pu être ouverte avec elle : {0} Si vous préparez un mot de passe qui n'est pas encore actif, renvoyez la demande avec confirmation pour l'enregistrer malgré tout.</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>Ce mot de passe est apparu dans une fuite de données connue. Veuillez en choisir un autre.</value>
   </data>

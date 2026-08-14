@@ -577,6 +577,15 @@
   <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
     <value>发送确认码邮件失败，请重试。</value>
   </data>
+  <data name="Secret.SetNotSupportedInPlainText" xml:space="preserve">
+    <value>仅在 Certificate 或 Dpapi 存储模式下支持存储此机密。在 PlainText 模式下，请改用配置或环境变量提供。</value>
+  </data>
+  <data name="Secret.ConnectionStringMalformed" xml:space="preserve">
+    <value>无法解析连接字符串：{0}</value>
+  </data>
+  <data name="Secret.ConnectionStringUnreachable" xml:space="preserve">
+    <value>未保存连接字符串，因为无法使用它建立连接：{0} 如果您正在准备尚未生效的密码，请重新提交并确认以强制保存。</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>该密码曾出现在已知的数据泄露中。请选择其他密码。</value>
   </data>

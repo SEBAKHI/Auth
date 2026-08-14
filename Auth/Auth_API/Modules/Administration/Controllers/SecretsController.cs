@@ -15,7 +15,9 @@ using Auth.Application.Features.Secrets.ImportGatewayToken;
 using Auth.Application.Features.Secrets.ImportHmacKey;
 using Auth.Application.Features.Secrets.ImportRsaKey;
 using Auth.Application.Features.Secrets.RequestSecretOperationChallenge;
+using Auth.Application.Features.Secrets.SetConnectionString;
 using Auth.Application.Features.Secrets.SetCustomSecret;
+using Auth.Application.Features.Secrets.SetSmtpPassword;
 using Auth.Application.Features.Secrets.VerifySecretOperationChallenge;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -363,9 +365,92 @@ public class SecretsController : ApiController
     }
 
     /// <summary>
+    /// Stores the SMTP password in the encrypted secrets file, where it overrides
+    /// <c>Email:Password</c> from configuration. Takes effect on the next API restart.
+    /// </summary>
+    /// <remarks>
+    /// No step-up confirmation, unlike the rotations above: the confirmation code
+    /// is delivered by email, so requiring one to repair a broken SMTP password
+    /// would mean the code can only arrive after the fix it authorizes.
+    /// </remarks>
+    /// <param name="request">The SMTP password.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="204">Password stored; restart the API to apply it</response>
+    /// <response code="400">Missing or over-long value</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="409">Storage mode is PlainText - there is no encrypted file to write to</response>
+    [HttpPut("smtp-password")]
+    [RequirePermission("secrets.manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SetSmtpPassword(
+        [FromBody] SetSecretRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var result = await _sender.Send(
+            new SetSmtpPasswordCommand(request.Value, userId),
+            cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Stores the AuthDb connection string in the encrypted secrets file, where it
+    /// overrides <c>ConnectionStrings:AuthDb</c> from configuration — including the
+    /// environment variables supplied by web.config. Takes effect on the next API restart.
+    /// </summary>
+    /// <remarks>
+    /// The value is probed before it is stored. A string that cannot be parsed is
+    /// refused outright. A string that parses but cannot reach the server is
+    /// refused once, and stored only if the caller resubmits with
+    /// <c>forceSave</c> — which is how a database password is rotated, since the
+    /// new credential is not live at the server yet.
+    /// </remarks>
+    /// <param name="request">The connection string, and whether to store it despite a failed connection.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <response code="204">Connection string stored; restart the API to apply it</response>
+    /// <response code="400">The value is malformed, or unreachable without forceSave</response>
+    /// <response code="401">Unauthorized - not authenticated</response>
+    /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
+    /// <response code="409">Storage mode is PlainText - there is no encrypted file to write to</response>
+    [HttpPut("connection-string")]
+    [RequirePermission("secrets.manage")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SetConnectionString(
+        [FromBody] SetConnectionStringRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        var result = await _sender.Send(
+            new SetConnectionStringCommand(request.Value, request.ForceSave, userId),
+            cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
     /// Sets a custom secret value.
     /// Custom secrets are stored under the Custom namespace in the secret file.
     /// </summary>
+    /// <remarks>
+    /// Custom secrets are namespaced: the key is stored under <c>Custom:</c> and
+    /// surfaces as <c>Secrets:Custom:{key}</c>. This endpoint therefore cannot set
+    /// a first-class secret — passing <c>ConnectionStrings.AuthDb</c> here stores a
+    /// value nothing reads. Use the dedicated endpoints above for those.
+    /// </remarks>
     /// <param name="key">The secret key (alphanumeric, underscores, dots only)</param>
     /// <param name="request">The secret value</param>
     /// <param name="cancellationToken">Cancellation token</param>

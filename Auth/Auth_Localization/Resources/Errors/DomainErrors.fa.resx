@@ -577,6 +577,15 @@
   <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
     <value>ارسال ایمیل کد تأیید با شکست مواجه شد. لطفاً دوباره تلاش کنید.</value>
   </data>
+  <data name="Secret.SetNotSupportedInPlainText" xml:space="preserve">
+    <value>ذخیره این راز تنها در حالت ذخیره‌سازی Certificate یا Dpapi پشتیبانی می‌شود. در حالت PlainText، آن را از طریق پیکربندی یا متغیر محیطی فراهم کنید.</value>
+  </data>
+  <data name="Secret.ConnectionStringMalformed" xml:space="preserve">
+    <value>رشته اتصال قابل تجزیه نبود: {0}</value>
+  </data>
+  <data name="Secret.ConnectionStringUnreachable" xml:space="preserve">
+    <value>رشته اتصال ذخیره نشد زیرا هیچ اتصالی با آن باز نشد: {0} اگر در حال آماده‌سازی گذرواژه‌ای هستید که هنوز فعال نشده است، با تأیید دوباره ارسال کنید تا به‌هرحال ذخیره شود.</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>این رمز عبور در یک نشت داده شناخته‌شده دیده شده است. لطفاً رمز عبور دیگری انتخاب کنید.</value>
   </data>

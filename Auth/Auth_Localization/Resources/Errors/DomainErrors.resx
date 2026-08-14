@@ -579,6 +579,15 @@
   <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
     <value>Failed to send the confirmation code email. Please try again.</value>
   </data>
+  <data name="Secret.SetNotSupportedInPlainText" xml:space="preserve">
+    <value>Storing this secret is only supported in Certificate or Dpapi storage mode. In PlainText mode, supply it through configuration or an environment variable instead.</value>
+  </data>
+  <data name="Secret.ConnectionStringMalformed" xml:space="preserve">
+    <value>The connection string could not be parsed: {0}</value>
+  </data>
+  <data name="Secret.ConnectionStringUnreachable" xml:space="preserve">
+    <value>The connection string was not saved because no connection could be opened with it: {0} If you are staging a password that is not active yet, resubmit with confirmation to save it anyway.</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>This password has appeared in a known data breach. Please choose a different password.</value>
   </data>

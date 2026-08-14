@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { KeyRound, Lock, RefreshCw, Upload } from "lucide-react"
+import { KeyRound, Lock, Pencil, RefreshCw, Upload } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { SecretRevealDialog } from "@authsystem/ui/common/secret-reveal-dialog"
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@authsystem/ui/card"
@@ -25,7 +26,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
-import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
 import {
   Select,
@@ -39,7 +45,7 @@ import { Skeleton } from "@authsystem/ui/skeleton"
 import { Textarea } from "@authsystem/ui/textarea"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
-import { getErrorMessage } from "@authsystem/api/errors"
+import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime, secretStatusMeta } from "@authsystem/ui/format"
 import { Spinner } from "@authsystem/ui/spinner"
 
@@ -149,6 +155,172 @@ function ImportDialog({
   )
 }
 
+/**
+ * The two first-class secrets that carry a credential rather than key material,
+ * keyed by the name the status endpoint reports them under.
+ *
+ * Both used to be supplied as plaintext environment variables in web.config,
+ * which is why they render as "not configured": the badge reads the encrypted
+ * file, not the resolved configuration. The generic custom-secret dialog cannot
+ * set them — it namespaces every key under `Custom:`, which lands the value in
+ * `Secrets:Custom:*` where nothing reads it.
+ */
+const SETTABLE_KNOWN_SECRETS = {
+  SmtpPassword: {
+    endpoint: "/api/v1/admin/Secrets/smtp-password",
+    labelKey: "secrets.setSmtpPassword",
+    hintKey: "secrets.setSmtpPasswordHint",
+    multiline: false,
+  },
+  "ConnectionStrings.AuthDb": {
+    endpoint: "/api/v1/admin/Secrets/connection-string",
+    labelKey: "secrets.setConnectionString",
+    hintKey: "secrets.setConnectionStringHint",
+    multiline: true,
+  },
+} as const
+
+type KnownSecretKey = keyof typeof SETTABLE_KNOWN_SECRETS
+
+function isSettableKnownSecret(key: string): key is KnownSecretKey {
+  return Object.hasOwn(SETTABLE_KNOWN_SECRETS, key)
+}
+
+/**
+ * Stores one of the two credential secrets in the encrypted file.
+ *
+ * The connection string is probed before it is stored. An unreachable server is
+ * reported but not fatal: rotating the database password has no other valid
+ * order, since changing it at the server first takes this very console down with
+ * the database, and storing the new string first cannot pass a connect test
+ * while the credential is not live yet. So the first failure surfaces as a
+ * warning and arms a second, deliberate "save anyway" click.
+ */
+function KnownSecretDialog({
+  secretKey,
+  onOpenChange,
+}: {
+  secretKey?: KnownSecretKey
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  // No reset effect: the caller keys this component by secretKey, so opening it
+  // mounts a fresh instance and the initial state IS the reset. A half-typed
+  // connection string must never survive into the next dialog.
+  const [value, setValue] = React.useState("")
+  // The warning carries the value it was raised for, not just its text. Clearing
+  // it on keystroke would only cover the forward direction: the field stays
+  // editable during the probe, so a late-arriving failure for the OLD string
+  // would otherwise arm "Save anyway" for a string that was never probed, and
+  // force-save skips the server-side check. Comparing against `probed` ties the
+  // confirmation to exactly the value it describes, whichever order they arrive in.
+  const [unreachable, setUnreachable] = React.useState<{
+    probed: string
+    message: string
+  }>()
+
+  const config = secretKey ? SETTABLE_KNOWN_SECRETS[secretKey] : undefined
+
+  // Armed only while the field still holds the string the server rejected.
+  const forceSave = unreachable?.probed === value
+  const warning = forceSave ? unreachable.message : undefined
+
+  const mutation = useMutation({
+    mutationFn: async (attempt: string) => {
+      if (!config) return
+      const { error } = await api.PUT(config.endpoint, {
+        body: config.multiline ? { value: attempt, forceSave } : { value: attempt },
+      })
+      if (error) throw error
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["secrets", "status"] })
+      toast.success(t("secrets.knownSecretSaved"))
+      onOpenChange(false)
+    },
+    onError: (error, attempt) => {
+      if (getErrorCodes(error).includes("Secret.ConnectionStringUnreachable")) {
+        setUnreachable({ probed: attempt, message: getErrorMessage(error) })
+        return
+      }
+      toast.error(getErrorMessage(error))
+    },
+  })
+
+  return (
+    <Dialog open={Boolean(secretKey)} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{config ? t(config.labelKey) : ""}</DialogTitle>
+          <DialogDescription>{t("secrets.restartRequired")}</DialogDescription>
+        </DialogHeader>
+        <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="known-secret-value">
+              {t("secrets.value")}
+            </FieldLabel>
+            {/* Pinned LTR: a connection string or password must never be
+                right-aligned or reordered by an RTL console.
+                spellCheck/autoComplete are off on both: a connection string in a
+                plain textarea is prose to the browser, and enhanced spellcheck
+                ships the field contents — password included — to the vendor. */}
+            {config?.multiline ? (
+              <Textarea
+                id="known-secret-value"
+                dir="ltr"
+                rows={4}
+                spellCheck={false}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className="font-mono text-xs"
+              />
+            ) : (
+              <Input
+                id="known-secret-value"
+                type="password"
+                dir="ltr"
+                spellCheck={false}
+                autoComplete="new-password"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                className="font-mono text-xs"
+              />
+            )}
+            <FieldDescription>
+              {config ? t(config.hintKey) : ""}
+            </FieldDescription>
+          </Field>
+        </FieldGroup>
+        {warning ? (
+          <Alert variant="destructive">
+            <AlertTitle>{t("secrets.connectionFailedTitle")}</AlertTitle>
+            <AlertDescription>
+              {warning} {t("secrets.connectionFailedBody")}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button
+            variant={forceSave ? "destructive" : "default"}
+            onClick={() => value && mutation.mutate(value)}
+            disabled={!value || mutation.isPending}
+          >
+            {mutation.isPending ? <Spinner /> : null}
+            {forceSave ? t("secrets.saveAnyway") : t("common.save")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 function CustomSecretDialog({
   open,
   onOpenChange,
@@ -239,6 +411,7 @@ export function SecretsPage() {
 
   const [importOpen, setImportOpen] = React.useState(false)
   const [customOpen, setCustomOpen] = React.useState(false)
+  const [knownSecretKey, setKnownSecretKey] = React.useState<KnownSecretKey>()
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [deleteKey, setDeleteKey] = React.useState("")
   const [pendingOperation, setPendingOperation] =
@@ -399,11 +572,23 @@ export function SecretsPage() {
                     className="flex items-center justify-between gap-3 py-2.5"
                   >
                     <span className="font-mono text-sm">{key}</span>
-                    {/* `secretStatusMeta` returns one of four fixed keys, all
-                        under `secrets.status`. */}
-                    <Badge variant={meta.variant}>
-                      {t(`secrets.status.${meta.key}`)}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      {/* `secretStatusMeta` returns one of four fixed keys, all
+                          under `secrets.status`. */}
+                      <Badge variant={meta.variant}>
+                        {t(`secrets.status.${meta.key}`)}
+                      </Badge>
+                      {isSettableKnownSecret(key) ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setKnownSecretKey(key)}
+                        >
+                          <Pencil data-icon="inline-start" />
+                          {t("common.edit")}
+                        </Button>
+                      ) : null}
+                    </div>
                   </li>
                 )
               })}
@@ -437,6 +622,13 @@ export function SecretsPage() {
         onSubmit={setPendingOperation}
       />
       <CustomSecretDialog open={customOpen} onOpenChange={setCustomOpen} />
+      <KnownSecretDialog
+        key={knownSecretKey ?? "none"}
+        secretKey={knownSecretKey}
+        onOpenChange={(open) => {
+          if (!open) setKnownSecretKey(undefined)
+        }}
+      />
 
       {pendingOperation ? (
         <SecretOperationFlow

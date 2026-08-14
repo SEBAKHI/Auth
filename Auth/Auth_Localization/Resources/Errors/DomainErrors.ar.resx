@@ -579,6 +579,15 @@
   <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
     <value>فشل في إرسال رسالة رمز التأكيد. يرجى المحاولة مرة أخرى.</value>
   </data>
+  <data name="Secret.SetNotSupportedInPlainText" xml:space="preserve">
+    <value>تخزين هذا السر مدعوم فقط في وضع التخزين Certificate أو Dpapi. في وضع PlainText، زوّده عبر الإعدادات أو متغيّر بيئة بدلًا من ذلك.</value>
+  </data>
+  <data name="Secret.ConnectionStringMalformed" xml:space="preserve">
+    <value>تعذّر تحليل سلسلة الاتصال: {0}</value>
+  </data>
+  <data name="Secret.ConnectionStringUnreachable" xml:space="preserve">
+    <value>لم تُحفظ سلسلة الاتصال لأنه تعذّر فتح أي اتصال بها: {0} إن كنت تُجهّز كلمة مرور لم تُفعَّل بعد، فأعد الإرسال مع التأكيد لحفظها رغم ذلك.</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>ظهرت كلمة المرور هذه في تسريب بيانات معروف. يرجى اختيار كلمة مرور مختلفة.</value>
   </data>

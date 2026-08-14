@@ -770,6 +770,18 @@ export const zh: TranslationResources = {
     customSecret: "自定义机密",
     setCustom: "设置自定义机密",
     deleteCustom: "删除自定义机密",
+    setSmtpPassword: "设置 SMTP 密码",
+    setSmtpPasswordHint:
+      "加密存储，并替代 Email:Password 设置。重启后发送测试邮件以确认。",
+    setConnectionString: "设置数据库连接字符串",
+    setConnectionStringHint:
+      "加密存储，并替代 ConnectionStrings:AuthDb 设置，包括 web.config 中的任何值。",
+    knownSecretSaved: "已保存。重启 API 以生效。",
+    restartRequired: "在 API 下次重启时生效。",
+    connectionFailedTitle: "无法使用此连接字符串建立连接",
+    connectionFailedBody:
+      "仅当您正在准备数据库上尚未生效的密码时才强制保存。在数据库接受它之前，API 将无法启动。",
+    saveAnyway: "仍然保存",
     key: "键",
     value: "值",
     importValuePlaceholder: "按导出时的原样粘贴密钥内容",

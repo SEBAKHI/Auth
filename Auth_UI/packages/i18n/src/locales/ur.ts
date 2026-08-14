@@ -806,6 +806,18 @@ export const ur: TranslationResources = {
     customSecret: "حسب ضرورت راز",
     setCustom: "حسب ضرورت راز مقرر کریں",
     deleteCustom: "حسب ضرورت راز حذف کریں",
+    setSmtpPassword: "SMTP پاس ورڈ مقرر کریں",
+    setSmtpPasswordHint:
+      "خفیہ کاری کے ساتھ محفوظ ہوتا ہے اور Email:Password ترتیب کی جگہ استعمال ہوتا ہے۔ تصدیق کے لیے دوبارہ شروع کرنے کے بعد ٹیسٹ ای میل بھیجیں۔",
+    setConnectionString: "ڈیٹابیس کنکشن اسٹرنگ مقرر کریں",
+    setConnectionStringHint:
+      "خفیہ کاری کے ساتھ محفوظ ہوتی ہے اور ConnectionStrings:AuthDb ترتیب کی جگہ استعمال ہوتی ہے، بشمول web.config میں موجود کوئی بھی قدر۔",
+    knownSecretSaved: "محفوظ ہو گیا۔ لاگو کرنے کے لیے API دوبارہ شروع کریں۔",
+    restartRequired: "اگلی بار API دوبارہ شروع ہونے پر نافذ ہوگا۔",
+    connectionFailedTitle: "اس کنکشن اسٹرنگ سے رابطہ نہیں ہو سکا",
+    connectionFailedBody:
+      "اسے بہرحال صرف اسی صورت محفوظ کریں جب آپ ایسا پاس ورڈ تیار کر رہے ہوں جو ڈیٹابیس پر ابھی فعال نہیں۔ جب تک ڈیٹابیس اسے قبول نہ کرے، API شروع نہیں ہوگا۔",
+    saveAnyway: "بہرحال محفوظ کریں",
     key: "کلید",
     value: "قدر",
     importValuePlaceholder:

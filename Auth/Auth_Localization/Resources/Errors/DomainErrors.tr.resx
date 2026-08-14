@@ -577,6 +577,15 @@
   <data name="Secret.ChallengeEmailFailed" xml:space="preserve">
     <value>Onay kodu e-postası gönderilemedi. Lütfen tekrar deneyin.</value>
   </data>
+  <data name="Secret.SetNotSupportedInPlainText" xml:space="preserve">
+    <value>Bu sırrın saklanması yalnızca Certificate veya Dpapi depolama modunda desteklenir. PlainText modunda bunun yerine yapılandırma veya bir ortam değişkeni ile sağlayın.</value>
+  </data>
+  <data name="Secret.ConnectionStringMalformed" xml:space="preserve">
+    <value>Bağlantı dizesi ayrıştırılamadı: {0}</value>
+  </data>
+  <data name="Secret.ConnectionStringUnreachable" xml:space="preserve">
+    <value>Bağlantı dizesiyle hiçbir bağlantı açılamadığı için kaydedilmedi: {0} Henüz etkin olmayan bir parolayı hazırlıyorsanız, yine de kaydetmek için onayla birlikte yeniden gönderin.</value>
+  </data>
   <data name="User.PasswordBreached" xml:space="preserve">
     <value>Bu parola bilinen bir veri ihlalinde ortaya çıkmış. Lütfen farklı bir parola seçin.</value>
   </data>

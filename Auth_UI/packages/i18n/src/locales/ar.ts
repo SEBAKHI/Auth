@@ -796,6 +796,18 @@ export const ar: TranslationResources = {
     customSecret: "سر مخصص",
     setCustom: "تعيين سر مخصص",
     deleteCustom: "حذف السر المخصص",
+    setSmtpPassword: "تعيين كلمة مرور SMTP",
+    setSmtpPasswordHint:
+      "تُخزَّن مشفَّرة وتُستعمل بدلًا من إعداد Email:Password. أرسل رسالة اختبار بعد إعادة التشغيل للتأكد منها.",
+    setConnectionString: "تعيين سلسلة الاتصال بقاعدة البيانات",
+    setConnectionStringHint:
+      "تُخزَّن مشفَّرة وتُستعمل بدلًا من إعداد ConnectionStrings:AuthDb، بما في ذلك أي قيمة في web.config.",
+    knownSecretSaved: "تم الحفظ. أعد تشغيل الواجهة البرمجية لتطبيقها.",
+    restartRequired: "يسري المفعول عند إعادة تشغيل الواجهة البرمجية.",
+    connectionFailedTitle: "تعذّر الاتصال بهذه السلسلة",
+    connectionFailedBody:
+      "لا تحفظها رغم ذلك إلا إن كنت تُجهّز كلمة مرور لم تُفعَّل بعد في قاعدة البيانات. لن تعمل الواجهة البرمجية حتى تقبلها قاعدة البيانات.",
+    saveAnyway: "احفظ رغم ذلك",
     key: "المفتاح",
     value: "القيمة",
     importValuePlaceholder: "الصق مادة المفتاح كما صُدِّرت تمامًا",

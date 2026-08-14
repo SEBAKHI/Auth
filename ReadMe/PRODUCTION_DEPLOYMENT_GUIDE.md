@@ -101,17 +101,26 @@ variable is unset** (Production is the default).
 | *(absent)* `ConnectionStrings__AuthDb` | A **generic ASP.NET Core override** — any setting, with `:` → `__`. | Create the env var on the host to keep a secret out of files. |
 
 **Which to use:** put **non-secrets** (URLs, CORS origins, Google Client ID) straight in
-`appsettings.Production.json`. Keep **secrets** out of files with `__` env vars
-(`ConnectionStrings__AuthDb`, `Email__Password`). The **certificate password** is the one special
-case wired to a named variable (`AUTH_DP_CERT_PASSWORD`).
+`appsettings.Production.json`. In Certificate/Dpapi mode, keep **secrets** in `secrets.dpapi` —
+including the connection string and the SMTP password, both settable from the console
+([Reference §B](#b-encrypt-the-connection-string--smtp-password)). The `__` env vars
+(`ConnectionStrings__AuthDb`, `Email__Password`) remain valid and are how you bootstrap a new server
+before the encrypted file holds them. The **certificate password** is the one special case wired to a
+named variable (`AUTH_DP_CERT_PASSWORD`), and the one secret that cannot be encrypted — it opens the
+certificate that protects everything else.
 
 ### Where each secret can live
 
 | Secret | PlainText mode | Certificate / Dpapi mode |
 |---|---|---|
 | RSA / HMAC / gateway token | Auto-generated into `appsettings.Production.json` | Auto-generated into `secrets.dpapi` (encrypted) |
-| Connection string | `appsettings.Production.json` or `ConnectionStrings__AuthDb` env var | Same options as PlainText (file or `__` env var) — **plus** you can encrypt it in `secrets.dpapi` ([Reference §B](#b-advanced-encrypt-the-connection-string--smtp-password)) |
-| SMTP password | `Email__Password` env var | Same option as PlainText (`Email__Password`) — **plus** you can encrypt it in `secrets.dpapi` ([Reference §B](#b-advanced-encrypt-the-connection-string--smtp-password)) |
+| Connection string | `appsettings.Production.json` or `ConnectionStrings__AuthDb` env var | **Recommended:** encrypted in `secrets.dpapi`, set from the console ([Reference §B](#b-encrypt-the-connection-string--smtp-password)). The env var still works and still bootstraps a new server. |
+| SMTP password | `Email__Password` env var | **Recommended:** encrypted in `secrets.dpapi`, set from the console ([Reference §B](#b-encrypt-the-connection-string--smtp-password)). The env var still works. |
+| Certificate password | n/a | `AUTH_DP_CERT_PASSWORD` env var only — it cannot live in the file it unlocks |
+
+> **The rule that governs everything below:** when a secret is present in `secrets.dpapi`, the
+> encrypted value **wins** and the environment variable is ignored. The secrets layer is added after
+> environment variables, and before the connection string is read.
 
 ---
 
@@ -188,7 +197,7 @@ Edit `Auth/Auth_API/appsettings.Production.json` (never put production secrets i
   failed startup. Point the **Auth API and the API Gateway at the SAME folder** so they share one ring
   (e.g. a `secrets` folder next to the app). Grant the app-pool identity *Modify* on that folder.
 * **Email** — set `Enabled: true` and SMTP host/port/sender when you need password reset; keep the
-  password out of the file (`Email__Password` env var, or [Reference §B](#b-advanced-encrypt-the-connection-string--smtp-password)).
+  password out of the file — set it from the console ([Reference §B](#b-encrypt-the-connection-string--smtp-password)), or use the `Email__Password` env var.
 * **Gateway** — Layout B: leave `Gateway:ValidationEnabled: true`. Layout A: set it to `false`, or
   the API rejects every request that lacks the gateway token.
 
@@ -412,62 +421,121 @@ decrypted and keys regenerate (logging everyone out) — **unless you hold the k
 and re-import it on the new machine** ([§G](#g-provision-your-own-keys-byok--painless-migration)).
 Fine for a box you fully control.
 
-## B. (Advanced) Encrypt the connection string & SMTP password
+## B. Encrypt the connection string & SMTP password
 
-In Certificate/Dpapi mode the keys are encrypted automatically, but the **connection string** and
-**SMTP password** are not auto-added. The encrypted `secrets.dpapi` *does* have slots for both, and
-when present they override `ConnectionStrings:AuthDb` and `Email:Password` from appsettings. There
-is **no HTTP endpoint or CLI** to set them — you write them with a tiny one-off program that reuses
-the app's certificate-protected key ring.
+In Certificate/Dpapi mode the signing keys are encrypted automatically. The **connection string**
+and the **SMTP password** are not auto-generated — nothing can invent them — so they start out
+wherever you first put them, usually a `__` env var in `web.config`. Both have slots in
+`secrets.dpapi`, and both are set from the console:
 
-> **Practicality check:** this requires running a console app **on the same machine, with the same
-> certificate**. On locked-down shared hosting where you can't, keep these two as env vars
-> (`ConnectionStrings__AuthDb`, `Email__Password`) instead — still out of any readable file.
+**Console → System settings → Secret keys**, then **Edit** on the `ConnectionStrings.AuthDb` or
+`SmtpPassword` row.
 
-**Order matters:** run this **after** the API's first start (so the file already holds the RSA/HMAC/
-gateway keys), or call `GenerateMissingKeysAsync` first as below so a fresh file is complete.
+Requires `SecretManagement:EnableAdminApi: true` and the `secrets.manage` permission. Neither is
+available in PlainText mode: there is no encrypted file to write to, so both endpoints return 409.
 
-```csharp
-// One-off console app referencing Auth.Infrastructure, Auth.Application, Auth.Shared.
-using Auth.Application.Configuration;
-using Auth.Infrastructure.Security;
-using Auth.Shared.Configuration;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
+> **Why the console badge says "Not configured" while everything works.** The badge reads the
+> encrypted file, not the effective configuration. A value supplied by `ConnectionStrings__AuthDb`
+> never touches that file, so the row is red however healthy the database connection is. Red means
+> *"not in the vault"*, not *"not working"*.
 
-// Point these at the SAME locations the Auth API uses:
-var keyPath        = @"C:\inetpub\vhosts\<webspace>\secrets";
-var secretFilePath = @"C:\inetpub\vhosts\<webspace>\secrets\secrets.dpapi";
-var certSettings   = new DataProtectionCertificateSettings
-{
-    PfxPath = @"C:\inetpub\vhosts\<webspace>\secrets\dp-cert.pfx",
-    PasswordEnvironmentVariable = "AUTH_DP_CERT_PASSWORD"   // must be set in this process
-};
+> **"Set custom secret" cannot do this.** That dialog namespaces every key under `Custom:`, so
+> typing `ConnectionStrings.AuthDb` there stores a value under `Secrets:Custom:ConnectionStrings.AuthDb`
+> — which nothing reads. It returns success and adds a second, green row while the real row stays
+> red. Use the **Edit** buttons above.
 
-var provider = new ServiceCollection()
-    .AddDataProtection()
-    .SetApplicationName("AuthSystem")
-    .PersistKeysToFileSystem(new DirectoryInfo(keyPath))
-    .ConfigureKeyProtection(SecretStorageMode.Certificate, certSettings)
-    .Services.BuildServiceProvider()
-    .GetRequiredService<IDataProtectionProvider>();
+Both values take effect on the **next API restart**: the connection string is captured once at
+startup into the connection factory, and the process keeps its startup configuration until it
+restarts.
 
-var settings = Options.Create(new SecretManagementSettings { SecretFilePath = secretFilePath });
-var secrets  = new DpapiSecretService(provider, settings, NullLogger<DpapiSecretService>.Instance);
+### B.1 First deployment — moving off web.config
 
-await secrets.GenerateMissingKeysAsync(CancellationToken.None);   // safe if keys already exist
-await secrets.SetSecretAsync("ConnectionStrings.AuthDb",
-    "Data Source=...;Initial Catalog=...;User Id=...;Password=...;Encrypt=True;TrustServerCertificate=False;MultipleActiveResultSets=true",
-    CancellationToken.None);
-await secrets.SetSecretAsync("SmtpPassword", "<your-smtp-password>", CancellationToken.None);
-Console.WriteLine("Wrote encrypted secrets to " + secretFilePath);
-```
+The console cannot be used without a working database, so start from the file and migrate inward:
 
-Then **remove** `ConnectionStrings:AuthDb` and `Email:Password` from `appsettings.Production.json`
-and restart — the API now reads both from the encrypted file. (For Dpapi mode, use
-`SecretStorageMode.Dpapi` and drop `certSettings`/`ConfigureKeyProtection`.)
+1. Leave `ConnectionStrings__AuthDb` in `web.config` as it is. Start the API — it boots from the env var.
+2. Console → Secret keys → **Edit** both rows. The badges turn **Configured**.
+3. Restart. Sign in, and send a test email
+   (`POST /api/v1/admin/system-settings/email/test`) to prove both values are now
+   coming from the encrypted file.
+4. Delete `ConnectionStrings__AuthDb` and `Email__Password` from `web.config`, keeping
+   `AUTH_DP_CERT_PASSWORD`. Restart and repeat step 3.
+
+This is the only time you touch `web.config` for these two.
+
+> Rotate the credentials afterwards if they were ever plaintext on disk. `web.config` is copied into
+> `bin\` and `obj\...\PubTmp\Out\` on every publish; moving a value into the vault does not
+> retroactively un-expose it.
+
+### B.2 Rotating the database password
+
+Three steps, and `web.config` is not involved:
+
+1. Console → **Edit** `ConnectionStrings.AuthDb` → enter the string carrying the **new** password →
+   the connect test fails (the password is not live yet) → confirm **Save anyway**.
+2. Change the password at SQL Server.
+3. Restart the API.
+
+Run steps 1 and 2 back to back: between them the vault holds a value that does not work yet, so an
+unplanned restart in that window leaves every database-backed request failing until step 2 lands.
+
+> The connect test is a warning, not a gate, precisely for this. If it refused, password rotation
+> would have no valid order: changing it at the server first takes the console down with the
+> database, and storing the new string first can never pass a test against a credential that is not
+> active yet. A malformed string is still refused outright — that one can never start working.
+
+### B.3 Rotating the SMTP password
+
+No forced save and no escape hatch needed — a wrong SMTP password stops email, not the API:
+
+1. Change it at the mail provider.
+2. Console → **Edit** `SmtpPassword`.
+3. Restart, **then** send a test email. Testing before the restart exercises the old password and
+   gives a misleading result.
+
+### B.4 Recovery — a stored connection string that no longer works
+
+If the stored value goes stale (database host renamed, password changed at the server, site
+migrated), **the process still starts** — nothing at startup opens a database connection — but every
+database-backed request fails, sign-in included, so the console that would fix it is unusable.
+
+> Expect this symptom, not a startup failure: IIS shows a running site, `/health` returns 200, and
+> `/ready` plus every real endpoint fail. Looking for an HTTP 500.30 "failed to start" page will send
+> you hunting in the wrong place. See the [§D troubleshooting table](#d-troubleshooting) row for
+> "/ready fails, /health works".
+
+Break the loop:
+
+1. In `web.config`, add a working `ConnectionStrings__AuthDb` **and**:
+
+   ```xml
+   <environmentVariable name="AUTH_IGNORE_SECRET_CONNECTIONSTRING" value="true" />
+   ```
+
+   The secrets layer then skips the connection string only — every other secret still loads, so the
+   signing keys are unaffected and the startup guard stays satisfied.
+2. Restart. The API boots on the `web.config` value.
+3. Console → **Edit** `ConnectionStrings.AuthDb` → store the correct string.
+4. Remove both lines from `web.config` and restart.
+
+Exercise this once deliberately, before you need it.
+
+> If instead the whole file fails to decrypt, the startup log says so explicitly and names
+> `secrets.dpapi`. On a freshly migrated server that means the Data Protection certificate or key
+> ring did not travel with it — see
+> [§G Migration procedure](#migration-procedure-move-to-a-new-server-keep-everyone-logged-in). The
+> escape hatch will not help there: the signing keys are gone too.
+
+### B.5 Moving to another server
+
+Nothing special to do for these two — they travel **inside** `secrets.dpapi`. Copy the three
+artefacts (`secrets.dpapi`, the `key-*.xml` ring, and `dp-cert.pfx`) and set `AUTH_DP_CERT_PASSWORD`
+in the new `web.config`, as described in
+[§G Migration procedure](#migration-procedure-move-to-a-new-server-keep-everyone-logged-in).
+
+The one thing that can still need attention is a **different database host** on the new server: the
+stored connection string is then stale, so the site comes up but no request that touches the database
+succeeds. Use [§B.4](#b4-recovery--a-stored-connection-string-that-no-longer-works) to get a usable
+console, then store the correct string from it.
 
 ## C. Environment variables on Plesk and cPanel
 
@@ -706,8 +774,23 @@ curl -X POST https://auth.<yourdomain>.com/api/v1/admin/secrets/import/gateway-t
   -d '{ "value": "<your-gateway-token>" }'
 ```
 
-The connection string and SMTP password have **no** HTTP import — keep them as `__` env vars, or use
-the console app in [§B](#b-advanced-encrypt-the-connection-string--smtp-password) on a machine you control.
+The connection string and the SMTP password have no import endpoint — they are not key material and
+carry no blast radius to confirm, so they need no confirmation code. Normally you set them from the
+console ([§B](#b-encrypt-the-connection-string--smtp-password)); over HTTP, reusing `$TOKEN` from
+step 1 above:
+
+```bash
+curl -X PUT https://auth.<yourdomain>.com/api/v1/admin/Secrets/smtp-password \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{ "value": "<your-smtp-password>" }'
+
+curl -X PUT https://auth.<yourdomain>.com/api/v1/admin/Secrets/connection-string \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{ "value": "<your-connection-string>", "forceSave": false }'
+```
+
+`forceSave: true` stores a connection string that failed the connect test — see
+[§B.2](#b2-rotating-the-database-password) for the one case where that is correct.
 
 ### PlainText BYOK (no API needed)
 
