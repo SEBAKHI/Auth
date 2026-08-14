@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next"
 
 import {
+  SECTION_COMPANION_PAGES,
   SECTION_I18N,
   fieldI18nKey,
   formFieldName,
@@ -160,18 +161,24 @@ export function buildSearchIndex(
       : ""
     const sectionOwnTrail = [settingsRoot, groupLabel].filter(Boolean)
 
-    entries.push({
-      kind: "surface",
-      id: `section:${sectionKey}`,
-      title: sectionTitle,
-      description: sectionI18n
-        ? t(`systemSettings.${sectionI18n}.description`, { defaultValue: "" })
-        : "",
-      route,
-      trail: sectionOwnTrail,
-      keywords:
-        `${pathKeywords(sectionKey)} ${joinPath(sectionOwnTrail)}`.toLowerCase(),
-    })
+    // A section with a companion page gets no row of its own: that page's own
+    // static surface already names this destination, and two near-identical rows
+    // one click apart is exactly what the trail exists to prevent. The section's
+    // FIELDS are still indexed below and still route into its card.
+    if (!(sectionKey in SECTION_COMPANION_PAGES)) {
+      entries.push({
+        kind: "surface",
+        id: `section:${sectionKey}`,
+        title: sectionTitle,
+        description: sectionI18n
+          ? t(`systemSettings.${sectionI18n}.description`, { defaultValue: "" })
+          : "",
+        route,
+        trail: sectionOwnTrail,
+        keywords:
+          `${pathKeywords(sectionKey)} ${joinPath(sectionOwnTrail)}`.toLowerCase(),
+      })
+    }
 
     for (const field of section.fields ?? []) {
       const path = field.path ?? ""

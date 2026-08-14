@@ -12,7 +12,6 @@ public record CreateUserCommand(
     string Password,
     string FirstName,
     string LastName,
-    string? DisplayName = null,
     string? PhoneNumber = null,
     string? PreferredLanguage = null,
     string? TimeZone = null,

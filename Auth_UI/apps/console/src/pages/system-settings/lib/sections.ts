@@ -1,5 +1,7 @@
 import type { Schemas } from "@authsystem/api/types"
 
+import { PERMISSIONS } from "@/lib/constants"
+
 export type SystemSettingsDto = Schemas["SystemSettingsDto"]
 export type SystemSettingsSection = Schemas["SystemSettingsSectionDto"]
 export type SystemSettingsField = Schemas["SystemSettingsFieldDto"]
@@ -42,6 +44,37 @@ export const SECTION_I18N: Record<string, string> = {
   DataProtection: "dataProtection",
   SecretManagement: "secretManagement",
   ConnectionStrings: "connectionStrings",
+}
+
+/**
+ * A section whose real controls live on a page of its own rather than in the
+ * section card — because they are operations, not settings.
+ */
+export interface SectionCompanionPage {
+  /** Absolute route of the companion page. */
+  route: string
+  /** i18n key under `systemSettings.*` for the card's footer button. */
+  actionLabelKey: string
+  /** Permission the companion page requires — its own, not the section's. */
+  permission: string
+}
+
+/**
+ * One declaration drives three things that would otherwise drift apart: the
+ * button on the section card, the deep link on every setting the section owns
+ * the value of, and the suppression of the section's generic command-palette
+ * row (the companion page's own row already names that destination, and two
+ * rows one click apart is what the palette's trail exists to avoid).
+ *
+ * A section absent from here — DataProtection, ConnectionStrings — renders
+ * exactly as it does today.
+ */
+export const SECTION_COMPANION_PAGES: Record<string, SectionCompanionPage> = {
+  SecretManagement: {
+    route: "/admin/system-settings/SecretManagement/keys",
+    actionLabelKey: "systemSettings.openSecrets",
+    permission: PERMISSIONS.secrets.manage,
+  },
 }
 
 /**

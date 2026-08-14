@@ -36,7 +36,6 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
         // Apply updates only for fields that are provided
         var firstName = request.FirstName ?? user.FirstName;
         var lastName = request.LastName ?? user.LastName;
-        var displayName = request.DisplayName ?? user.DisplayName;
         var phoneNumber = request.PhoneNumber ?? user.PhoneNumber;
         var preferredLanguage = request.PreferredLanguage ?? user.PreferredLanguage;
         var timeZone = request.TimeZone ?? user.TimeZone;
@@ -45,7 +44,6 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
         user.UpdateProfile(
             firstName,
             lastName,
-            displayName,
             phoneNumber,
             preferredLanguage,
             timeZone,

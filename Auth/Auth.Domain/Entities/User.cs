@@ -225,7 +225,6 @@ public class User : AggregateRoot
         string firstName,
         string lastName,
         Guid createdBy,
-        string? displayName = null,
         string? phoneNumber = null,
         string preferredLanguage = "en",
         string timeZone = "UTC",
@@ -239,7 +238,7 @@ public class User : AggregateRoot
             PasswordHash = passwordHash,
             FirstName = firstName,
             LastName = lastName,
-            DisplayName = displayName ?? $"{firstName} {lastName}",
+            DisplayName = $"{firstName} {lastName}",
             PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber),
             Status = UserStatus.Active,
             EmailConfirmed = false,
@@ -267,7 +266,6 @@ public class User : AggregateRoot
         string firstName,
         string lastName,
         Guid createdBy,
-        string? displayName = null,
         string? profileImageUrl = null,
         string preferredLanguage = "en",
         string timeZone = "UTC",
@@ -281,7 +279,7 @@ public class User : AggregateRoot
             PasswordHash = null,
             FirstName = firstName,
             LastName = lastName,
-            DisplayName = displayName ?? $"{firstName} {lastName}",
+            DisplayName = $"{firstName} {lastName}",
             Status = UserStatus.Active,
             EmailConfirmed = true,
             PhoneConfirmed = false,
@@ -316,7 +314,6 @@ public class User : AggregateRoot
     public void UpdateProfile(
         string firstName,
         string lastName,
-        string? displayName,
         string? phoneNumber,
         string? preferredLanguage,
         string? timeZone,
@@ -325,7 +322,11 @@ public class User : AggregateRoot
     {
         FirstName = firstName;
         LastName = lastName;
-        DisplayName = displayName;
+        // Derived, never supplied: the store keeps FullName as a computed column
+        // over these two, so a display name that could differ from it would be a
+        // second copy that no write ever reaches. GetFullName() is used verbatim
+        // so this value and the next read of it are the same string.
+        DisplayName = GetFullName();
         PhoneNumber = ValueObjects.PhoneNumber.FromNullable(phoneNumber);
         PreferredLanguage = preferredLanguage;
         TimeZone = timeZone;

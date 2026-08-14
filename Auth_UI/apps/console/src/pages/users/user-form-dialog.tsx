@@ -9,7 +9,6 @@ import { z } from "zod"
 import { FormDialog } from "@authsystem/ui/common/form-dialog"
 import { LanguageSelect } from "@authsystem/ui/common/language-select"
 import { TimeZoneSelect } from "@authsystem/ui/common/timezone-select"
-import { Field, FieldLabel } from "@authsystem/ui/field"
 import {
   FormControl,
   FormField,
@@ -20,7 +19,6 @@ import {
 import { Input } from "@authsystem/ui/input"
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
-import { fullName } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -104,21 +102,14 @@ export function UserFormDialog({
     })
   }, [open, user, form])
 
-  // Display name is always the live combination of first + last name.
-  const displayName = fullName(form.watch("firstName"), form.watch("lastName"))
-
   const mutation = useMutation({
     mutationFn: async (values: Values) => {
-      const combinedDisplayName = emptyToNull(
-        fullName(values.firstName, values.lastName)
-      )
       if (isEdit && user?.id) {
         const { error } = await api.PUT("/api/v1/Users/{id}", {
           params: { path: { id: user.id } },
           body: {
             firstName: values.firstName,
             lastName: values.lastName,
-            displayName: combinedDisplayName,
             phoneNumber: emptyToNull(values.phoneNumber),
             preferredLanguage: emptyToNull(values.preferredLanguage),
             timeZone: emptyToNull(values.timeZone),
@@ -133,7 +124,6 @@ export function UserFormDialog({
           password: values.password ?? "",
           firstName: values.firstName,
           lastName: values.lastName,
-          displayName: combinedDisplayName,
           phoneNumber: emptyToNull(values.phoneNumber),
           preferredLanguage: emptyToNull(values.preferredLanguage),
           timeZone: emptyToNull(values.timeZone),
@@ -224,12 +214,6 @@ export function UserFormDialog({
             </FormItem>
           )}
         />
-        <Field>
-          <FieldLabel htmlFor="user-display-name">
-            {t("users.displayName")}
-          </FieldLabel>
-          <Input id="user-display-name" value={displayName} readOnly disabled />
-        </Field>
         <FormField
           control={form.control}
           name="phoneNumber"

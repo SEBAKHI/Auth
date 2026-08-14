@@ -12386,7 +12386,6 @@ export interface components {
             password: string;
             firstName: string;
             lastName: string;
-            displayName?: null | string;
             phoneNumber?: null | string;
             preferredLanguage?: null | string;
             timeZone?: null | string;
@@ -13494,7 +13493,6 @@ export interface components {
             password: string;
             firstName: string;
             lastName: string;
-            displayName?: null | string;
             phoneNumber?: null | string;
             preferredLanguage?: null | string;
             timeZone?: null | string;
@@ -13923,7 +13921,6 @@ export interface components {
         UpdateProfileRequest: {
             firstName?: null | string;
             lastName?: null | string;
-            displayName?: null | string;
             phoneNumber?: null | string;
             preferredLanguage?: null | string;
             timeZone?: null | string;
@@ -13940,7 +13937,6 @@ export interface components {
         UpdateUserRequest: {
             firstName: string;
             lastName: string;
-            displayName?: null | string;
             phoneNumber?: null | string;
             preferredLanguage?: null | string;
             timeZone?: null | string;

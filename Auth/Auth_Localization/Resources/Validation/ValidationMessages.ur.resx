@@ -39,9 +39,6 @@
   <data name="Validation.LastName.MaxLength" xml:space="preserve">
     <value>آخری نام ۱۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
   </data>
-  <data name="Validation.DisplayName.MaxLength" xml:space="preserve">
-    <value>ظاہری نام ۲۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
-  </data>
   <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
     <value>فون نمبر ۲۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
   </data>

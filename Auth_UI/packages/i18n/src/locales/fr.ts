@@ -139,7 +139,8 @@ export const fr: TranslationResources = {
     apiKeys: "Clés API",
     webhookKeys: "Clés Webhook",
     auditLogs: "Journaux d'audit",
-    secrets: "Secrets",
+    secretManagement: "Gestion des secrets",
+    secretKeys: "Clés secrètes",
     platformSettings: "Paramètres de la plateforme",
     systemSettings: "Paramètres système",
     profile: "Profil",
@@ -395,7 +396,6 @@ export const fr: TranslationResources = {
     searchPlaceholder: "Rechercher par nom ou e-mail…",
     firstName: "Prénom",
     lastName: "Nom",
-    displayName: "Nom affiché",
     phoneNumber: "Numéro de téléphone",
     preferredLanguage: "Langue préférée",
     timeZone: "Fuseau horaire",
@@ -791,9 +791,15 @@ export const fr: TranslationResources = {
     newValues: "Nouvelles valeurs",
   },
   secrets: {
-    title: "Secrets",
+    title: "Clés secrètes",
     subtitle:
       "Gérez les clés de signature et les jetons de passerelle de cette instance.",
+    status: {
+      notConfigured: "Non configuré",
+      configured: "Configuré",
+      empty: "Vide",
+      unknown: "Inconnu",
+    },
     disabledTitle: "L'administration des secrets est désactivée",
     disabledBody:
       "L'API d'administration des secrets est désactivée pour cet environnement, ou la permission secrets.manage vous manque.",
@@ -1243,8 +1249,8 @@ export const fr: TranslationResources = {
     fileValue: "Valeur par défaut : {{value}}",
     notSet: "Non défini",
     managedInSecrets:
-      "Valeur secrète — stockée chiffrée et gérée sur la page Secrets, jamais ici.",
-    openSecrets: "Ouvrir les Secrets",
+      "Valeur secrète — stockée chiffrée et gérée sous Gestion des secrets, jamais ici.",
+    openSecrets: "Gérer les secrets",
     readOnly: "Lecture seule",
     resetSection: "Réinitialiser aux valeurs par défaut",
     resetConfirmTitle: "Réinitialiser cette section ?",
@@ -1418,7 +1424,7 @@ export const fr: TranslationResources = {
     externalAuth: {
       title: "Connexion externe (Google / Apple)",
       description:
-        "Fournisseurs de connexion sociale. Les ID client ici sont des identifiants publics ; les clés privées vivent sur la page Secrets. Le fournisseur doit AUSSI être activé dans sa fiche de l'annuaire pour que le bouton apparaisse.",
+        "Fournisseurs de connexion sociale. Les ID client ici sont des identifiants publics ; les clés privées vivent sous Gestion des secrets. Le fournisseur doit AUSSI être activé dans sa fiche de l'annuaire pour que le bouton apparaisse.",
       googleEnabled: "Connexion Google",
       googleEnabledHint: "Nécessite un ID client valide ci-dessous.",
       googleClientId: "ID client Google",
@@ -1426,7 +1432,7 @@ export const fr: TranslationResources = {
         "Depuis Google Cloud Console → Credentials. Valeur publique, sans risque à stocker ici.",
       appleEnabled: "Connexion Apple",
       appleEnabledHint:
-        "Nécessite le Services ID, le Team ID, le Key ID et la clé .p8 dans les Secrets.",
+        "Nécessite le Services ID, le Team ID, le Key ID et la clé .p8 sous Gestion des secrets.",
       appleServicesId: "Apple Services ID",
       appleServicesIdHint:
         "p. ex. com.example.accounts, depuis le portail Apple Developer.",
@@ -1435,8 +1441,17 @@ export const fr: TranslationResources = {
         "L'identifiant d'équipe à 10 caractères du portail Apple Developer.",
       appleKeyId: "Apple Key ID",
       appleKeyIdHint:
-        "Identifiant de la clé de signature .p8 ; la clé elle-même vit dans les Secrets.",
+        "Identifiant de la clé de signature .p8 ; la clé elle-même vit sous Gestion des secrets.",
       applePrivateKeyPem: "Clé de signature Apple (.p8)",
+      avatarImportEnabled: "Importer les photos de profil du fournisseur",
+      avatarImportEnabledHint:
+        "À la première connexion externe d'un compte sans photo, la photo du fournisseur est copiée ici et servie depuis cette origine. Une photo téléversée par l'utilisateur n'est jamais remplacée.",
+      avatarImportTimeoutMs: "Délai d'importation (ms)",
+      avatarImportTimeoutMsHint:
+        "Budget alloué à ce téléchargement unique. Son dépassement laisse le compte sur ses initiales ; la connexion suivante réessaie.",
+      avatarImportMaxBytes: "Limite de taille d'importation (octets)",
+      avatarImportMaxBytesHint:
+        "Les réponses plus volumineuses sont refusées pendant la lecture, et non d'après la longueur déclarée par le fournisseur.",
     },
     identityProvider: {
       title: "Fournisseur d'identité (SSO)",
@@ -1666,7 +1681,7 @@ export const fr: TranslationResources = {
     secretManagement: {
       title: "Gestion des secrets",
       description:
-        "Comment les secrets cryptographiques sont stockés (fichier chiffré / DPAPI / texte clair pour le développement). S'amorce avant la base de données, le mode se gère donc dans les fichiers du serveur ; les VALEURS des secrets se gèrent sur la page Secrets.",
+        "Comment les secrets cryptographiques sont stockés (fichier chiffré / DPAPI / texte clair pour le développement). S'amorce avant la base de données, le mode se gère donc dans les fichiers du serveur ; les VALEURS des secrets se gèrent sur la page des clés ci-dessous.",
       storageMode: "Mode de stockage",
       secretFilePath: "Fichier des secrets",
       autoGenerateKeys: "Génération automatique des clés",

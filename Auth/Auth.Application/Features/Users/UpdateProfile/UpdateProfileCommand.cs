@@ -13,7 +13,6 @@ public record UpdateProfileCommand(
     Guid UserId,
     string? FirstName = null,
     string? LastName = null,
-    string? DisplayName = null,
     string? PhoneNumber = null,
     string? PreferredLanguage = null,
     string? TimeZone = null,

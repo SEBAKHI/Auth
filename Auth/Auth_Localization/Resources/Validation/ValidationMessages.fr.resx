@@ -39,9 +39,6 @@
   <data name="Validation.LastName.MaxLength" xml:space="preserve">
     <value>Le nom de famille ne doit pas dépasser 100 caractères.</value>
   </data>
-  <data name="Validation.DisplayName.MaxLength" xml:space="preserve">
-    <value>Le nom d'affichage ne doit pas dépasser 200 caractères.</value>
-  </data>
   <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
     <value>Le numéro de téléphone ne doit pas dépasser 20 caractères.</value>
   </data>

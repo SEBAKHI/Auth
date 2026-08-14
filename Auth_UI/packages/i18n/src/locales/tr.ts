@@ -139,7 +139,8 @@ export const tr: TranslationResources = {
     apiKeys: "API Anahtarları",
     webhookKeys: "Webhook Anahtarları",
     auditLogs: "Denetim Kayıtları",
-    secrets: "Gizli Anahtarlar",
+    secretManagement: "Gizli anahtar yönetimi",
+    secretKeys: "Gizli anahtarlar",
     platformSettings: "Platform Ayarları",
     systemSettings: "Sistem Ayarları",
     profile: "Profil",
@@ -392,7 +393,6 @@ export const tr: TranslationResources = {
     searchPlaceholder: "Ada veya e-postaya göre arayın…",
     firstName: "Ad",
     lastName: "Soyad",
-    displayName: "Görünen ad",
     phoneNumber: "Telefon numarası",
     preferredLanguage: "Tercih edilen dil",
     timeZone: "Saat dilimi",
@@ -780,9 +780,15 @@ export const tr: TranslationResources = {
     newValues: "Yeni değerler",
   },
   secrets: {
-    title: "Gizli Anahtarlar",
+    title: "Gizli anahtarlar",
     subtitle:
       "Bu örnek için imzalama anahtarlarını ve ağ geçidi jetonlarını yönetin.",
+    status: {
+      notConfigured: "Yapılandırılmadı",
+      configured: "Yapılandırıldı",
+      empty: "Boş",
+      unknown: "Bilinmiyor",
+    },
     disabledTitle: "Gizli anahtar yönetimi devre dışı",
     disabledBody:
       "Yönetici gizli anahtar API'si bu ortam için kapalı veya secrets.manage izniniz yok.",
@@ -1219,8 +1225,8 @@ export const tr: TranslationResources = {
     fileValue: "Varsayılan değer: {{value}}",
     notSet: "Ayarlanmadı",
     managedInSecrets:
-      "Gizli değer — şifreli olarak saklanır ve Gizli Anahtarlar sayfasında yönetilir, asla burada değil.",
-    openSecrets: "Gizli Anahtarlar'ı aç",
+      "Gizli değer — şifreli olarak saklanır ve Gizli anahtar yönetimi altında yönetilir, asla burada değil.",
+    openSecrets: "Gizli anahtarları yönet",
     readOnly: "Salt okunur",
     resetSection: "Varsayılanlara sıfırla",
     resetConfirmTitle: "Bu bölüm sıfırlansın mı?",
@@ -1387,21 +1393,32 @@ export const tr: TranslationResources = {
     externalAuth: {
       title: "Harici oturum açma (Google / Apple)",
       description:
-        "Sosyal oturum açma sağlayıcıları. Buradaki istemci kimlikleri genel tanımlayıcılardır; özel anahtarlar Gizli Anahtarlar sayfasında durur. Düğmenin görünmesi için sağlayıcının AYRICA kendi dizin satırında da etkinleştirilmesi gerekir.",
+        "Sosyal oturum açma sağlayıcıları. Buradaki istemci kimlikleri genel tanımlayıcılardır; özel anahtarlar Gizli anahtar yönetimi altında durur. Düğmenin görünmesi için sağlayıcının AYRICA kendi dizin satırında da etkinleştirilmesi gerekir.",
       googleEnabled: "Google ile oturum açma",
       googleEnabledHint: "Aşağıda geçerli bir istemci kimliği gerektirir.",
       googleClientId: "Google istemci kimliği",
       googleClientIdHint:
         "Google Cloud Console → Credentials bölümünden alınır. Genel bir değerdir, burada saklanması güvenlidir.",
       appleEnabled: "Apple ile oturum açma",
-      appleEnabledHint: "Services ID, Team ID, Key ID ve Gizli Anahtarlar'daki .p8 anahtarını gerektirir.",
+      appleEnabledHint:
+        "Services ID, Team ID, Key ID ve Gizli anahtar yönetimi altındaki .p8 anahtarını gerektirir.",
       appleServicesId: "Apple Services ID",
       appleServicesIdHint: "örn. com.example.accounts, Apple Developer portalından alınır.",
       appleTeamId: "Apple Team ID",
       appleTeamIdHint: "Apple Developer portalındaki 10 karakterlik ekip tanımlayıcısı.",
       appleKeyId: "Apple Key ID",
-      appleKeyIdHint: ".p8 imzalama anahtarının tanımlayıcısı; anahtarın kendisi Gizli Anahtarlar'da durur.",
+      appleKeyIdHint:
+        ".p8 imzalama anahtarının tanımlayıcısı; anahtarın kendisi Gizli anahtar yönetimi altında durur.",
       applePrivateKeyPem: "Apple imzalama anahtarı (.p8)",
+      avatarImportEnabled: "Sağlayıcı profil resimlerini içe aktar",
+      avatarImportEnabledHint:
+        "Resmi olmayan bir hesabın ilk dış oturum açmasında sağlayıcının resmi buraya kopyalanır ve bu kaynaktan sunulur. Kullanıcının yüklediği bir resim asla değiştirilmez.",
+      avatarImportTimeoutMs: "İçe aktarma zaman aşımı (ms)",
+      avatarImportTimeoutMsHint:
+        "O tek indirme için ayrılan süre. Aşılması hesabı baş harflerinde bırakır; sonraki oturum açmada yeniden denenir.",
+      avatarImportMaxBytes: "İçe aktarma boyut sınırı (bayt)",
+      avatarImportMaxBytesHint:
+        "Daha büyük yanıtlar, sağlayıcının bildirdiği uzunluğa göre değil okunurken reddedilir.",
     },
     identityProvider: {
       title: "Kimlik sağlayıcı (SSO)",
@@ -1602,7 +1619,7 @@ export const tr: TranslationResources = {
     secretManagement: {
       title: "Gizli anahtar yönetimi",
       description:
-        "Kriptografik gizli değerlerin nasıl saklandığı (şifreli dosya / DPAPI / geliştirme için düz metin). Veritabanından önce başlatıldığı için mod sunucu dosyalarında yönetilir; gizli DEĞERLER ise Gizli Anahtarlar sayfasında yönetilir.",
+        "Kriptografik gizli değerlerin nasıl saklandığı (şifreli dosya / DPAPI / geliştirme için düz metin). Veritabanından önce başlatıldığı için mod sunucu dosyalarında yönetilir; gizli DEĞERLER ise aşağıdaki anahtarlar sayfasında yönetilir.",
       storageMode: "Depolama modu",
       secretFilePath: "Gizli anahtar dosyası",
       autoGenerateKeys: "Anahtarları otomatik oluştur",

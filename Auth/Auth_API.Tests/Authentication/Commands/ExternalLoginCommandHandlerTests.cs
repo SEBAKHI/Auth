@@ -19,6 +19,7 @@ public class ExternalLoginCommandHandlerTests
     private readonly Mock<IAccountDeletionTombstoneRepository> _tombstoneRepositoryMock;
     private readonly List<IExternalTokenLifecycle> _tokenLifecycles = [];
     private readonly Mock<IPerUserCryptoService> _perUserCryptoMock = new();
+    private readonly Mock<IExternalAvatarImporter> _avatarImporterMock;
     private readonly Mock<IPersonalOrganizationCreator> _personalOrgCreatorMock;
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock;
     private readonly Mock<ITwoFactorChallengeService> _twoFactorChallengeServiceMock;
@@ -34,6 +35,7 @@ public class ExternalLoginCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _accountDeletionRequestRepositoryMock = new Mock<IAccountDeletionRequestRepository>();
         _tombstoneRepositoryMock = new Mock<IAccountDeletionTombstoneRepository>();
+        _avatarImporterMock = new Mock<IExternalAvatarImporter>();
         _personalOrgCreatorMock = new Mock<IPersonalOrganizationCreator>();
         _loginResponseBuilderMock = new Mock<ILoginResponseBuilder>();
         _twoFactorChallengeServiceMock = new Mock<ITwoFactorChallengeService>();
@@ -50,6 +52,7 @@ public class ExternalLoginCommandHandlerTests
                 _tombstoneRepositoryMock.Object, new Mock<IIdentifierHasher>().Object),
             _tokenLifecycles,
             _perUserCryptoMock.Object,
+            _avatarImporterMock.Object,
             _personalOrgCreatorMock.Object,
             _loginResponseBuilderMock.Object,
             _twoFactorChallengeServiceMock.Object,
@@ -67,10 +70,13 @@ public class ExternalLoginCommandHandlerTests
         string? deviceId = null)
         => new(provider, idToken, nonce, createOrganization, ipAddress, userAgent, deviceId);
 
+    private const string ProviderPictureUrl = "https://lh3.googleusercontent.com/a/picture";
+
     private static ExternalUserInfo CreateExternalUserInfo(
         string email = "external@test.com",
-        bool emailVerified = true)
-        => new("provider-user-123", email, "External", "User", "External User", null, emailVerified);
+        bool emailVerified = true,
+        string? pictureUrl = ProviderPictureUrl)
+        => new("provider-user-123", email, "External", "User", "External User", pictureUrl, emailVerified);
 
     private LoginResponse CreateLoginResponse() => new()
     {
@@ -330,5 +336,205 @@ public class ExternalLoginCommandHandlerTests
         _personalOrgCreatorMock.Verify(
             p => p.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    // --- Provider avatar import -------------------------------------------------
+    // The provider's picture URL is never stored on the account: the apps' img-src
+    // names this origin only, so a remote URL renders as the initials fallback. What
+    // is stored is the key the import returns.
+
+    [Fact]
+    public async Task Handle_NewExternalUser_StoresImportedKeyRatherThanTheProviderUrl()
+    {
+        // Arrange
+        var command = CreateCommand();
+        var externalUser = CreateExternalUserInfo();
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(externalUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _avatarImporterMock
+            .Setup(i => i.TryImportAsync(ProviderPictureUrl, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("imported-key.webp");
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(It.IsAny<User>(), command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        _userRepositoryMock.Verify(
+            r => r.CreateAsync(
+                It.Is<User>(u => u.ProfileImageUrl == "imported-key.webp"),
+                It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_LinkingProviderToExistingAccount_ImportsTheAvatar()
+    {
+        // Arrange — an account registered by email, only now linked to a provider.
+        var command = CreateCommand();
+        var existingUser = TestHelpers.CreateUser(email: "external@test.com");
+        var externalUser = CreateExternalUserInfo();
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(externalUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingUser);
+        _avatarImporterMock
+            .Setup(i => i.TryImportAsync(ProviderPictureUrl, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("linked-key.webp");
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(existingUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        existingUser.ProfileImageUrl.Should().Be("linked-key.webp");
+        _userRepositoryMock.Verify(
+            r => r.UpdateAsync(existingUser, It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_ReturningUserWithoutAvatar_ImportsTheAvatar()
+    {
+        // Arrange — an account that signed in before the import existed.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        var externalUser = CreateExternalUserInfo();
+        var externalLogin = TestHelpers.CreateUserExternalLogin(userId: userId);
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalLogin);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(externalLogin.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _avatarImporterMock
+            .Setup(i => i.TryImportAsync(ProviderPictureUrl, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("backfilled-key.webp");
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        user.ProfileImageUrl.Should().Be("backfilled-key.webp");
+    }
+
+    [Fact]
+    public async Task Handle_ReturningUserWithAnAvatar_NeverFetchesTheProviderPicture()
+    {
+        // Arrange — a picture already on the account, whether uploaded by the user or
+        // imported on an earlier sign-in. Neither may be silently replaced, and the
+        // fetch must not happen at all: that is what keeps this to one call per account.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        user.SetProfileImage("chosen-by-the-user.webp", userId);
+        var externalUser = CreateExternalUserInfo();
+        var externalLogin = TestHelpers.CreateUserExternalLogin(userId: userId);
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalLogin);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(externalLogin.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        user.ProfileImageUrl.Should().Be("chosen-by-the-user.webp");
+        _avatarImporterMock.Verify(
+            i => i.TryImportAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_AvatarImportReturnsNothing_SignInStillSucceeds()
+    {
+        // Arrange — the import failed, was switched off, or the provider sent no
+        // picture. None of those is a reason to refuse the sign-in.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(id: userId);
+        var externalUser = CreateExternalUserInfo();
+        var externalLogin = TestHelpers.CreateUserExternalLogin(userId: userId);
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalLogin);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(externalLogin.UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _avatarImporterMock
+            .Setup(i => i.TryImportAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(user, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.Token!.AccessToken.Should().Be("access-token");
+        user.ProfileImageUrl.Should().BeNull();
+        _userRepositoryMock.Verify(
+            r => r.UpdateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 }

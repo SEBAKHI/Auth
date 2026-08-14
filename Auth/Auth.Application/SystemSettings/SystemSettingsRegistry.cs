@@ -177,7 +177,12 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("Apple:ServicesId", SettingKind.String, DefaultValue: ""),
                 new SettingFieldDefinition("Apple:TeamId", SettingKind.String, DefaultValue: ""),
                 new SettingFieldDefinition("Apple:KeyId", SettingKind.String, DefaultValue: ""),
-                new SettingFieldDefinition("Apple:PrivateKeyPem", SettingKind.String, Sensitive: true)
+                new SettingFieldDefinition("Apple:PrivateKeyPem", SettingKind.String, Sensitive: true),
+                // Read per sign-in through IOptionsMonitor, so none of the three
+                // needs a restart.
+                new SettingFieldDefinition("AvatarImport:Enabled", SettingKind.Bool, DefaultValue: true),
+                new SettingFieldDefinition("AvatarImport:TimeoutMs", SettingKind.Int, Min: 500, Max: 30000, DefaultValue: 3000),
+                new SettingFieldDefinition("AvatarImport:MaxBytes", SettingKind.Int, Min: 65536, Max: 4194304, DefaultValue: 2097152)
             ]),
 
         new SettingSectionDefinition(

@@ -203,11 +203,14 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
 
   // ── Platform administration ───────────────────────────────────────────────
   {
+    // The section this page belongs to contributes no row of its own — see
+    // SECTION_COMPANION_PAGES — so this one carries both names.
     id: "secrets",
-    route: "/admin/secrets",
+    route: "/admin/system-settings/SecretManagement/keys",
     titleKey: "secrets.title",
     descriptionKey: "secrets.subtitle",
-    pathKeys: [],
+    altTitleKeys: ["nav.secretManagement", "systemSettings.secretManagement.title"],
+    pathKeys: ["nav.systemSettings", "nav.secretManagement"],
     permission: PERMISSIONS.secrets.manage,
   },
   {

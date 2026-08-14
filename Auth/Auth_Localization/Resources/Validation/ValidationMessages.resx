@@ -39,9 +39,6 @@
   <data name="Validation.LastName.MaxLength" xml:space="preserve">
     <value>Last name must not exceed 100 characters.</value>
   </data>
-  <data name="Validation.DisplayName.MaxLength" xml:space="preserve">
-    <value>Display name must not exceed 200 characters.</value>
-  </data>
   <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
     <value>Phone number must not exceed 20 characters.</value>
   </data>

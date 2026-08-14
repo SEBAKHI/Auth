@@ -4,7 +4,6 @@ import {
   KeyRound,
   LayoutDashboard,
   KeySquare,
-  Lock,
   Mail,
   ScrollText,
   Settings2,
@@ -161,12 +160,9 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Mail,
     permission: PERMISSIONS.notificationTemplates.read,
   },
-  {
-    titleKey: "secrets",
-    url: "/admin/secrets",
-    icon: Lock,
-    permission: PERMISSIONS.secrets.manage,
-  },
+  // Secret keys are not a sidebar destination of their own: they live under
+  // System settings › Secret management, reached from that section's card and
+  // from the "manage secrets" button on every secret-owned setting.
   {
     titleKey: "platformSettings",
     url: "/admin/platform-settings",

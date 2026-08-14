@@ -11,7 +11,6 @@ public record UpdateUserCommand(
     Guid Id,
     string FirstName,
     string LastName,
-    string? DisplayName = null,
     string? PhoneNumber = null,
     string? PreferredLanguage = null,
     string? TimeZone = null,

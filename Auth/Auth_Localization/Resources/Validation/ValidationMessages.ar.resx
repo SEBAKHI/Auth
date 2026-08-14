@@ -39,9 +39,6 @@
   <data name="Validation.LastName.MaxLength" xml:space="preserve">
     <value>يجب ألا يتجاوز اسم العائلة 100 حرف.</value>
   </data>
-  <data name="Validation.DisplayName.MaxLength" xml:space="preserve">
-    <value>يجب ألا يتجاوز الاسم المعروض 200 حرف.</value>
-  </data>
   <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
     <value>يجب ألا يتجاوز رقم الهاتف 20 حرفًا.</value>
   </data>

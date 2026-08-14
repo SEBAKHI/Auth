@@ -138,7 +138,8 @@ export const zh: TranslationResources = {
     apiKeys: "API 密钥",
     webhookKeys: "Webhook 密钥",
     auditLogs: "审计日志",
-    secrets: "机密",
+    secretManagement: "机密管理",
+    secretKeys: "机密密钥",
     platformSettings: "平台设置",
     systemSettings: "系统设置",
     profile: "个人资料",
@@ -378,7 +379,6 @@ export const zh: TranslationResources = {
     searchPlaceholder: "按姓名或邮箱搜索…",
     firstName: "名",
     lastName: "姓",
-    displayName: "显示名称",
     phoneNumber: "电话号码",
     preferredLanguage: "首选语言",
     timeZone: "时区",
@@ -736,8 +736,14 @@ export const zh: TranslationResources = {
     newValues: "新值",
   },
   secrets: {
-    title: "机密",
+    title: "机密密钥",
     subtitle: "管理此实例的签名密钥和网关令牌。",
+    status: {
+      notConfigured: "未配置",
+      configured: "已配置",
+      empty: "为空",
+      unknown: "未知",
+    },
     disabledTitle: "机密管理已禁用",
     disabledBody: "此环境已关闭机密管理 API，或您缺少 secrets.manage 权限。",
     secretFile: "机密文件",
@@ -1141,8 +1147,8 @@ export const zh: TranslationResources = {
     fileValue: "默认值：{{value}}",
     notSet: "未设置",
     managedInSecrets:
-      "机密值——加密存储并在机密页面管理，绝不在此处显示。",
-    openSecrets: "打开机密",
+      "机密值——加密存储并在「机密管理」下管理，绝不在此处显示。",
+    openSecrets: "管理机密",
     readOnly: "只读",
     resetSection: "重置为默认值",
     resetConfirmTitle: "重置此部分？",
@@ -1316,14 +1322,24 @@ export const zh: TranslationResources = {
       googleClientIdHint:
         "来自 Google Cloud Console → Credentials。公开值，可安全存储在此处。",
       appleEnabled: "Apple 登录",
-      appleEnabledHint: "需要 Services ID、Team ID、Key ID，以及保存在机密中的 .p8 密钥。",
+      appleEnabledHint:
+        "需要 Services ID、Team ID、Key ID，以及保存在「机密管理」下的 .p8 密钥。",
       appleServicesId: "Apple Services ID",
       appleServicesIdHint: "例如 com.example.accounts，来自 Apple 开发者门户。",
       appleTeamId: "Apple Team ID",
       appleTeamIdHint: "来自 Apple 开发者门户的 10 位团队标识符。",
       appleKeyId: "Apple Key ID",
-      appleKeyIdHint: ".p8 签名密钥的标识符；密钥本身保存在机密中。",
+      appleKeyIdHint: ".p8 签名密钥的标识符；密钥本身保存在「机密管理」下。",
       applePrivateKeyPem: "Apple 签名密钥（.p8）",
+      avatarImportEnabled: "导入提供方的头像",
+      avatarImportEnabledHint:
+        "账户首次通过外部提供方登录且尚无头像时，提供方的头像会被复制到此处并由本源提供。用户自行上传的头像永不会被替换。",
+      avatarImportTimeoutMs: "导入超时（毫秒）",
+      avatarImportTimeoutMsHint:
+        "该次下载的时间预算。超时后账户保持首字母显示，下次登录会再次尝试。",
+      avatarImportMaxBytes: "导入大小上限（字节）",
+      avatarImportMaxBytesHint:
+        "超出上限的响应在读取过程中被拒绝，而不是依据提供方声明的长度。",
     },
     identityProvider: {
       title: "身份提供方（SSO）",
@@ -1523,7 +1539,7 @@ export const zh: TranslationResources = {
     secretManagement: {
       title: "机密管理",
       description:
-        "加密机密的存储方式（加密文件 / DPAPI / 开发用明文）。它在数据库之前完成初始化，因此存储模式只能在服务器文件中管理；机密的具体值在机密页面管理。",
+        "加密机密的存储方式（加密文件 / DPAPI / 开发用明文）。它在数据库之前完成初始化，因此存储模式只能在服务器文件中管理；机密的具体值在下方的密钥页面管理。",
       storageMode: "存储模式",
       secretFilePath: "机密文件",
       autoGenerateKeys: "自动生成密钥",

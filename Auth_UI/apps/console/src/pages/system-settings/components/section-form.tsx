@@ -2,16 +2,18 @@ import * as React from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm, type FieldValues } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { useSearchParams } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
+import { RequirePermission } from "@authsystem/auth/require-permission"
 import { Button } from "@authsystem/ui/button"
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@authsystem/ui/card"
@@ -22,6 +24,7 @@ import { Spinner } from "@authsystem/ui/spinner"
 import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
 
 import {
+  SECTION_COMPANION_PAGES,
   SECTION_I18N,
   SETTINGS_QUERY_KEY,
   formFieldName,
@@ -118,6 +121,28 @@ function useFieldAnchor(sectionKey: string) {
     // Re-runs when the section changes too, since the row only exists once
     // its own section is rendered.
   }, [target, sectionKey])
+}
+
+/**
+ * The way out of a section whose real controls are operations rather than
+ * settings. Generic on purpose: which sections have one is declared in
+ * `SECTION_COMPANION_PAGES`, and a section without an entry renders nothing
+ * here. The permission gate is the companion page's own, not the section's.
+ */
+function SectionCompanionAction({ sectionKey }: { sectionKey: string }) {
+  const { t } = useTranslation()
+  const companion = SECTION_COMPANION_PAGES[sectionKey]
+  if (!companion) return null
+
+  return (
+    <RequirePermission permission={companion.permission}>
+      <CardFooter>
+        <Button asChild>
+          <Link to={companion.route}>{t(companion.actionLabelKey)}</Link>
+        </Button>
+      </CardFooter>
+    </RequirePermission>
+  )
 }
 
 export function SectionForm({ section }: { section: SystemSettingsSection }) {
@@ -261,6 +286,7 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
             )}
           </FieldGroup>
         </CardContent>
+        <SectionCompanionAction sectionKey={sectionKey} />
       </Card>
     )
   }
@@ -344,6 +370,7 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
           </form>
         </Form>
       </CardContent>
+      <SectionCompanionAction sectionKey={sectionKey} />
       <ConfirmDialog
         open={confirmReset}
         onOpenChange={setConfirmReset}

@@ -62,6 +62,7 @@ public class ExternalLoginTokenStorageTests
                 new Mock<IIdentifierHasher>().Object),
             [_tokenLifecycleMock.Object],
             _perUserCryptoMock.Object,
+            new Mock<IExternalAvatarImporter>().Object,
             new Mock<IPersonalOrganizationCreator>().Object,
             loginResponseBuilderMock.Object,
             new Mock<ITwoFactorChallengeService>().Object,
