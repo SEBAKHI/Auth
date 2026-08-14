@@ -290,7 +290,11 @@ export function NotificationPolicyDetailPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    // From `xl` the page fills the shell's height and the editor/preview pair
+    // below scrolls per column, so the rendered policy stays in view while its
+    // sections are being edited. Narrower than that the two stack and the page
+    // scrolls once.
+    <div className="flex flex-col gap-6 xl:min-h-0 xl:flex-1">
       {unsavedPrompt}
       <PageHeader
         title={t("notifications.policyContentTitle", { version })}
@@ -437,9 +441,15 @@ export function NotificationPolicyDetailPage() {
       {contentQuery.isLoading || !doc ? (
         <Skeleton className="h-96 w-full" />
       ) : (
-        <div className="grid gap-6 xl:grid-cols-2">
+        // A flex row rather than a two-column grid: `flex-1` splits the width
+        // exactly as `grid-cols-2` did, and only a flex child can be told to
+        // shrink below its content and scroll.
+        <div className="flex flex-col gap-6 xl:min-h-0 xl:flex-1 xl:flex-row">
           {/* Editor */}
-          <div className="flex flex-col gap-6" onFocusCapture={onFocusCapture}>
+          <div
+            className="flex flex-col gap-6 xl:min-h-0 xl:min-w-0 xl:flex-1 xl:overflow-y-auto"
+            onFocusCapture={onFocusCapture}
+          >
             <Card>
               <CardHeader>
                 <CardTitle>{t("notifications.policyVersionDetails")}</CardTitle>
@@ -876,8 +886,10 @@ export function NotificationPolicyDetailPage() {
             </Card>
           </div>
 
-          {/* Live preview — same renderer as the public page */}
-          <div className="xl:sticky xl:top-6 xl:self-start">
+          {/* Live preview — same renderer as the public page. It scrolls as its
+              own column now; the sticky offset it used before was standing in
+              for exactly that. */}
+          <div className="xl:min-h-0 xl:min-w-0 xl:flex-1 xl:overflow-y-auto">
             <PolicyPreviewPane
               content={doc}
               disclosure={disclosure}

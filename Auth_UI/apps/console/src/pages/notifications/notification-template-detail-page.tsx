@@ -228,7 +228,10 @@ export function NotificationTemplateDetailPage() {
   const isSystemGlobal = Boolean(template.typeIsSystem && !template.applicationId)
 
   return (
-    <div className="flex flex-col gap-6">
+    // From `xl` the page fills the shell's height and the editor/preview pair
+    // below scrolls per column, so the preview stays in view while the body is
+    // being edited. Narrower than that the two stack and the page scrolls once.
+    <div className="flex flex-col gap-6 xl:min-h-0 xl:flex-1">
       <PageHeader
         title={template.typeName ?? ""}
         description={
@@ -339,8 +342,11 @@ export function NotificationTemplateDetailPage() {
         </p>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <div className="flex flex-col gap-4">
+      {/* A flex row rather than a two-column grid: `flex-1` splits the width
+          exactly as `grid-cols-2` did, and only a flex child can be told to
+          shrink below its content and scroll. */}
+      <div className="flex flex-col gap-6 xl:min-h-0 xl:flex-1 xl:flex-row">
+        <div className="flex flex-col gap-4 xl:min-h-0 xl:min-w-0 xl:flex-1 xl:overflow-y-auto">
           <Tabs value={activeLanguage} onValueChange={setActiveLanguage}>
             {/* Wrapping needs the height to follow the rows; the strip's
                 default fixed height would cut off every row but the first. */}
@@ -454,14 +460,18 @@ export function NotificationTemplateDetailPage() {
           </FieldGroup>
         </div>
 
-        <TemplatePreview
-          notificationTypeId={template.notificationTypeId!}
-          applicationId={template.applicationId}
-          languageCode={activeLanguage}
-          subject={active.subject}
-          bodyHtml={active.bodyHtml}
-          bodyText={active.bodyText}
-        />
+        {/* The preview is a bare row child, so the scroll column is this
+            wrapper rather than the component itself. */}
+        <div className="xl:min-h-0 xl:min-w-0 xl:flex-1 xl:overflow-y-auto">
+          <TemplatePreview
+            notificationTypeId={template.notificationTypeId!}
+            applicationId={template.applicationId}
+            languageCode={activeLanguage}
+            subject={active.subject}
+            bodyHtml={active.bodyHtml}
+            bodyText={active.bodyText}
+          />
+        </div>
       </div>
 
       <VersionHistorySheet

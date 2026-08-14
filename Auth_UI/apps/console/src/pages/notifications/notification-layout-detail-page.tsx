@@ -212,7 +212,11 @@ export function NotificationLayoutDetailPage() {
   const contentDir = directionForLanguage(previewLanguage)
 
   return (
-    <div className="flex flex-col gap-6">
+    // From `xl` the page fills the shell's height and the editor/preview pair
+    // below scrolls per column, so the preview stays in view while the footer
+    // strings are being edited. Narrower than that the two stack and the page
+    // scrolls once.
+    <div className="flex flex-col gap-6 xl:min-h-0 xl:flex-1">
       <PageHeader
         title={layout.name ?? ""}
         description={
@@ -258,8 +262,11 @@ export function NotificationLayoutDetailPage() {
         ) : null}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <div className="flex flex-col gap-4">
+      {/* A flex row rather than a two-column grid: `flex-1` splits the width
+          exactly as `grid-cols-2` did, and only a flex child can be told to
+          shrink below its content and scroll. */}
+      <div className="flex flex-col gap-6 xl:min-h-0 xl:flex-1 xl:flex-row">
+        <div className="flex flex-col gap-4 xl:min-h-0 xl:min-w-0 xl:flex-1 xl:overflow-y-auto">
           <Tabs value={previewLanguage} onValueChange={setPreviewLanguage}>
             {/* Wrapping needs the height to follow the rows; the strip's
                 default fixed height would cut off every row but the first. */}
@@ -355,7 +362,7 @@ export function NotificationLayoutDetailPage() {
           </FieldGroup>
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 xl:min-h-0 xl:min-w-0 xl:flex-1 xl:overflow-y-auto">
           <p className="text-sm font-medium">{t("notifications.preview")}</p>
           <PreviewPane
             preview={preview}

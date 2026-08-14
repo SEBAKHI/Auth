@@ -27,7 +27,10 @@ function SectionNav({
 }) {
   const { t } = useTranslation()
   return (
-    <nav className="flex flex-col gap-4 lg:w-56 lg:shrink-0">
+    // `pe-2` keeps the labels clear of this column's own scrollbar; the column
+    // scrolls on its own from `lg` up, so reaching the last section never
+    // pushes the settings card off screen.
+    <nav className="flex flex-col gap-4 lg:min-h-0 lg:w-56 lg:shrink-0 lg:overflow-y-auto lg:pe-2">
       {groups.map(({ group, sections }) => (
         <div key={group} className="flex flex-col gap-1">
           <p className="px-3 text-xs font-medium text-muted-foreground">
@@ -94,7 +97,11 @@ export function SystemSettingsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    // From `lg` the page fills the shell's height instead of growing past it,
+    // so the header and the banners stay put and each of the two columns below
+    // carries its own scrollbar. Below that breakpoint the columns stack and
+    // `main` is the single scroller again, as on every other page.
+    <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1">
       <PageHeader
         title={t("systemSettings.title")}
         description={t("systemSettings.subtitle")}
@@ -108,12 +115,14 @@ export function SystemSettingsPage() {
           {t("errors.generic")}
         </p>
       ) : (
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+        // No `items-start`: the columns have to stretch to the row's height for
+        // either of them to scroll inside it.
+        <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:flex-row">
           <SectionNav groups={groups} activeKey={active?.key ?? ""} />
           {/* The card keeps the full page width: extra width is spent by the
               rows (label at the start, control pinned to the end), never by
               stretching a control. */}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto">
             {active ? (
               <SectionForm
                 key={`${active.key}:${active.rowVersion ?? "none"}`}

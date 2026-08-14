@@ -96,10 +96,13 @@ export function PolicyPreviewPane({
             // of the preview.
             // eslint-disable-next-line no-restricted-syntax
             dir={dir}
+            // No height cap of its own: the preview column scrolls from `xl`
+            // up, and below that the page scrolls. A capped box inside a
+            // scrolling column would be a second scrollbar for one document.
             className={
               width === "mobile"
-                ? "max-h-[70vh] w-[375px] overflow-y-auto rounded-md border bg-background p-4"
-                : "max-h-[70vh] w-full overflow-y-auto rounded-md border bg-background p-6"
+                ? "w-[375px] rounded-md border bg-background p-4"
+                : "w-full rounded-md border bg-background p-6"
             }
           >
             <div className="flex flex-col gap-6">
@@ -127,7 +130,9 @@ export function PolicyPreviewPane({
         ) : (
           <pre
             dir="ltr"
-            className="max-h-[70vh] w-full overflow-auto whitespace-pre-wrap rounded-md border bg-background p-4 text-xs"
+            // Keeps its horizontal scroller — a long unbroken value in the JSON
+            // has nowhere else to go. The vertical one belongs to the column.
+            className="w-full overflow-x-auto whitespace-pre-wrap rounded-md border bg-background p-4 text-xs"
           >
             {JSON.stringify(content, null, 2)}
           </pre>
