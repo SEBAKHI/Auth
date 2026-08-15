@@ -814,6 +814,7 @@ export const fr: TranslationResources = {
     disabledTitle: "L'administration des secrets est désactivée",
     disabledBody:
       "L'API d'administration des secrets est désactivée pour cet environnement, ou la permission secrets.manage vous manque.",
+    unavailableTitle: "Impossible de lire l'état des secrets",
     about: {
       jwtPrivateKeyPem:
         "Signe chaque jeton d'accès. Le remplacer les invalide tous.",

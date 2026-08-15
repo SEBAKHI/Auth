@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { KeyRound, Lock, Pencil, RefreshCw } from "lucide-react"
+import { KeyRound, Lock, Pencil, RefreshCw, TriangleAlert } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -20,6 +20,14 @@ import {
   DialogTitle,
 } from "@authsystem/ui/dialog"
 import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@authsystem/ui/empty"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -37,7 +45,11 @@ import { Skeleton } from "@authsystem/ui/skeleton"
 import { Textarea } from "@authsystem/ui/textarea"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
-import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import {
+  getErrorCodes,
+  getErrorMessage,
+  getErrorStatus,
+} from "@authsystem/api/errors"
 import { formatDateTime, secretStatusMeta } from "@authsystem/ui/format"
 import { Spinner } from "@authsystem/ui/spinner"
 
@@ -466,7 +478,7 @@ function CustomSecretDialog({
 }
 
 export function SecretsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
 
   const [importKind, setImportKind] = React.useState<ImportKind>()
@@ -482,7 +494,13 @@ export function SecretsPage() {
   }>()
 
   const statusQuery = useQuery({
-    queryKey: ["secrets", "status"],
+    // Language-scoped, because the failure branch renders the server's own
+    // words: the error is localized from Accept-Language at the time of the
+    // call, and re-rendering under a new language leaves a cached message in
+    // the old one — an English page explaining itself in Persian. Every
+    // invalidate elsewhere passes ["secrets", "status"], which still matches
+    // by prefix.
+    queryKey: ["secrets", "status", i18n.language],
     retry: false,
     queryFn: () => unwrap(api.GET("/api/v1/admin/Secrets/status")),
   })
@@ -504,6 +522,13 @@ export function SecretsPage() {
   })
 
   if (statusQuery.isError) {
+    // 403 is the only status that means what this screen used to claim for every
+    // failure: the admin API is switched off for this environment, or the caller
+    // lacks secrets.manage. Anything else is a fault — a secrets file this host
+    // can no longer decrypt returns 500 with the reason in its body — and
+    // reporting that as "disabled" tells the operator the opposite of the truth
+    // while hiding the one thing they could act on.
+    const refused = getErrorStatus(statusQuery.error) === 403
     return (
       <div className="flex flex-col gap-6">
         <PageHeader
@@ -511,12 +536,39 @@ export function SecretsPage() {
           description={t("secrets.subtitle")}
         />
         <Card>
-          <CardContent className="flex flex-col items-center gap-2 py-12 text-center">
-            <Lock className="size-8 text-muted-foreground" />
-            <p className="font-medium">{t("secrets.disabledTitle")}</p>
-            <p className="max-w-md text-sm text-muted-foreground">
-              {t("secrets.disabledBody")}
-            </p>
+          <CardContent>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  {refused ? <Lock /> : <TriangleAlert />}
+                </EmptyMedia>
+                <EmptyTitle>
+                  {refused
+                    ? t("secrets.disabledTitle")
+                    : t("secrets.unavailableTitle")}
+                </EmptyTitle>
+                {/* The server's own words on the fault path. The handler turns
+                    both failure modes into domain errors that already name the
+                    cause and the fix, so paraphrasing them here would only lose
+                    detail. */}
+                <EmptyDescription>
+                  {refused
+                    ? t("secrets.disabledBody")
+                    : getErrorMessage(statusQuery.error)}
+                </EmptyDescription>
+              </EmptyHeader>
+              {refused ? null : (
+                <EmptyContent>
+                  <Button
+                    variant="outline"
+                    onClick={() => statusQuery.refetch()}
+                  >
+                    <RefreshCw data-icon="inline-start" />
+                    {t("common.retry")}
+                  </Button>
+                </EmptyContent>
+              )}
+            </Empty>
           </CardContent>
         </Card>
       </div>

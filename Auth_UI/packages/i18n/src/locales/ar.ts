@@ -783,6 +783,7 @@ export const ar: TranslationResources = {
     disabledTitle: "إدارة الأسرار معطّلة",
     disabledBody:
       "واجهة إدارة الأسرار متوقفة في هذه البيئة، أو تنقصك صلاحية secrets.manage.",
+    unavailableTitle: "تعذّرت قراءة حالة الأسرار",
     about: {
       jwtPrivateKeyPem: "يوقّع كل رموز الوصول. استبداله يُبطلها جميعًا.",
       jwtPublicKeyPem:

@@ -58,6 +58,20 @@ export function getErrorMessage(
   return fallback
 }
 
+/**
+ * The HTTP status an API error carries, or undefined when the request never
+ * reached the server — a network failure throws a TypeError with no body.
+ *
+ * Lets a page tell "the server refused me" apart from "the server broke". A
+ * screen that collapses both into one message reports a fault as a setting,
+ * and hides the only thing the operator could have acted on.
+ */
+export function getErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") return undefined
+  const { status } = error as ApiErrorBody
+  return typeof status === "number" ? status : undefined
+}
+
 /** Extract the ErrorOr error codes (e.g. "User.EmailNotConfirmed") from an API error. */
 export function getErrorCodes(error: unknown): string[] {
   if (!error || typeof error !== "object") return []

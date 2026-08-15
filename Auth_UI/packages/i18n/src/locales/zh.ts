@@ -757,6 +757,7 @@ export const zh: TranslationResources = {
     },
     disabledTitle: "机密管理已禁用",
     disabledBody: "此环境已关闭机密管理 API，或您缺少 secrets.manage 权限。",
+    unavailableTitle: "无法读取机密状态",
     about: {
       jwtPrivateKeyPem: "为每个访问令牌签名。替换后所有令牌立即失效。",
       jwtPublicKeyPem: "每次使用时从私钥派生 — 不会单独编辑。",

@@ -804,6 +804,7 @@ export const tr: TranslationResources = {
     disabledTitle: "Gizli anahtar yönetimi devre dışı",
     disabledBody:
       "Yönetici gizli anahtar API'si bu ortam için kapalı veya secrets.manage izniniz yok.",
+    unavailableTitle: "Gizli anahtar durumu okunamadı",
     about: {
       jwtPrivateKeyPem:
         "Her erişim jetonunu imzalar. Değiştirilmesi hepsini geçersiz kılar.",

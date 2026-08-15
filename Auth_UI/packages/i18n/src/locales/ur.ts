@@ -793,6 +793,7 @@ export const ur: TranslationResources = {
     disabledTitle: "رازوں کا انتظام غیر فعال ہے",
     disabledBody:
       "اس ماحول کے لیے ایڈمن رازوں کی API بند ہے، یا آپ کے پاس secrets.manage اجازت نہیں ہے۔",
+    unavailableTitle: "رازوں کی حالت پڑھی نہیں جا سکی",
     about: {
       jwtPrivateKeyPem:
         "ہر رسائی ٹوکن پر دستخط کرتی ہے۔ اسے تبدیل کرنے سے سب ٹوکن باطل ہو جاتے ہیں۔",

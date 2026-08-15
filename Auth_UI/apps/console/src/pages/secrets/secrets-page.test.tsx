@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import "@authsystem/i18n"
+import i18n from "@authsystem/i18n"
 
 const get = vi.fn()
 const put = vi.fn()
@@ -104,6 +104,79 @@ async function openDialogFor(rowLabel: string) {
   )
   return user
 }
+
+/**
+ * Every other test here mocks a successful status call, which is why the page
+ * shipped reporting a 500 as "administration is disabled" — the opposite of the
+ * truth, in front of a fault that names its own fix. These two pin the split.
+ */
+describe("SecretsPage — when the status call fails", () => {
+  beforeEach(() => {
+    put.mockReset().mockResolvedValue({})
+  })
+
+  it("reports a refusal as the setting it is", async () => {
+    get.mockReset().mockResolvedValue({
+      error: { status: 403, title: "Forbidden" },
+    })
+
+    renderPage()
+
+    await screen.findByText("Secret administration is disabled")
+    // Nothing to retry: a switched-off API answers the same way every time.
+    expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument()
+  })
+
+  it("reports a fault as a fault, in the server's own words", async () => {
+    // What an undecryptable secrets file actually returns: the handler catches
+    // SecretDecryptionException and answers with a domain error naming the cause.
+    get.mockReset().mockResolvedValue({
+      error: {
+        status: 500,
+        title: "Secret.DecryptionFailed",
+        detail:
+          "Failed to decrypt the secret file. It may have been encrypted on a different machine or the DPAPI keys may have changed.",
+      },
+    })
+
+    renderPage()
+
+    await screen.findByText("Secret status could not be read")
+    expect(
+      screen.getByText(/may have been encrypted on a different machine/)
+    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
+    expect(
+      screen.queryByText("Secret administration is disabled")
+    ).not.toBeInTheDocument()
+  })
+
+  /**
+   * The message on this screen is the server's, localized from Accept-Language
+   * when the call was made. Cached under a language-blind key it outlives the
+   * language that produced it — an English page explaining itself in Persian,
+   * which is exactly what the browser showed before the key carried the
+   * language.
+   */
+  it("refetches the status when the language changes", async () => {
+    get.mockReset().mockResolvedValue({
+      error: { status: 500, title: "Secret.DecryptionFailed", detail: "…" },
+    })
+
+    renderPage()
+    await screen.findByText("Secret status could not be read")
+    const callsInEnglish = get.mock.calls.length
+
+    await act(async () => {
+      await i18n.changeLanguage("tr")
+    })
+
+    await waitFor(() =>
+      expect(get.mock.calls.length).toBeGreaterThan(callsInEnglish)
+    )
+    await i18n.changeLanguage("en")
+  })
+})
 
 describe("SecretsPage — storing the credential secrets", () => {
   beforeEach(() => {

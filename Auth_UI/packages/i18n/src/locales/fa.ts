@@ -793,6 +793,7 @@ export const fa: TranslationResources = {
     disabledTitle: "مدیریت اسرار غیرفعال است",
     disabledBody:
       "API مدیریت اسرار برای این محیط خاموش است، یا مجوز secrets.manage را ندارید.",
+    unavailableTitle: "وضعیت اسرار خوانده نشد",
     about: {
       jwtPrivateKeyPem:
         "هر توکن دسترسی را امضا می‌کند. جایگزینی آن همهٔ آن‌ها را باطل می‌کند.",

@@ -785,6 +785,10 @@ export const en = {
     disabledTitle: "Secret administration is disabled",
     disabledBody:
       "The admin secrets API is turned off for this environment, or you lack the secrets.manage permission.",
+    // Shown when the request failed for any reason other than a refusal. The
+    // server's own message follows it, so this only has to say which kind of
+    // problem it is: a fault to fix, not a setting to change.
+    unavailableTitle: "Secret status could not be read",
     // One line per first-class secret, shown under its name. States what the
     // value does and why the row offers what it offers — a row with no action
     // and no explanation reads as a missing button, not a deliberate one.
