@@ -814,10 +814,28 @@ export const fr: TranslationResources = {
     disabledTitle: "L'administration des secrets est désactivée",
     disabledBody:
       "L'API d'administration des secrets est désactivée pour cet environnement, ou la permission secrets.manage vous manque.",
+    about: {
+      jwtPrivateKeyPem:
+        "Signe chaque jeton d'accès. Le remplacer les invalide tous.",
+      jwtPublicKeyPem:
+        "Dérivée de la clé privée à chaque utilisation — jamais modifiée séparément.",
+      refreshTokenHmacKey:
+        "Hache les jetons de rafraîchissement, les liens de réinitialisation, les connexions à deux facteurs et les clés de webhook.",
+      gatewayToken:
+        "Partagé avec la passerelle API. Les deux processus doivent porter la même valeur.",
+      accountDeletionIdentifierHmacKey:
+        "Permanente. La changer orpheline chaque enregistrement de compte supprimé ; elle n'est donc jamais remplacée ici.",
+      passwordPepper:
+        "Un ensemble de clés avec un pointeur vers la clé courante, pas une valeur unique. Provisionné et alterné au démarrage.",
+      smtpPassword:
+        "Appartient à votre fournisseur de messagerie — le système ne stocke que ce qu'il a émis.",
+      connectionString:
+        "Appartient au serveur de base de données. Vérifiée auprès de lui avant d'être stockée.",
+    },
     secretFile: "Fichier de secrets",
     machine: "Machine",
     schemaVersion: "Version du schéma",
-    generate: "Générer",
+    replace: "Remplacer",
     generateRsa: "Générer une clé RSA",
     generateHmac: "Générer une clé HMAC",
     generateGatewayToken: "Générer un jeton de passerelle",
@@ -843,6 +861,8 @@ export const fr: TranslationResources = {
     value: "Valeur",
     importValuePlaceholder:
       "Collez le matériel de clé exactement tel qu'exporté",
+    importBody:
+      "Le matériel est validé, puis un code de confirmation est envoyé par e-mail avant tout remplacement.",
     rsaPem: "Clé privée RSA (PEM)",
     hmacBase64: "Clé HMAC (base64)",
     tokenValue: "Valeur du jeton",

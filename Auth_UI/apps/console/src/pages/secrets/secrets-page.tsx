@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { KeyRound, Lock, Pencil, RefreshCw, Upload } from "lucide-react"
+import { KeyRound, Lock, Pencil, RefreshCw } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -33,14 +33,6 @@ import {
   FieldLabel,
 } from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@authsystem/ui/select"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { Textarea } from "@authsystem/ui/textarea"
 import { api } from "@authsystem/api/client"
@@ -55,12 +47,46 @@ import {
   type SecretOperationName,
 } from "./secret-operation-flow"
 
+/**
+ * The three shapes key material comes in. Not three secrets and not a free
+ * choice: each shape is accepted by exactly one pair of endpoints, which write
+ * to a fixed secret name. There is no "which secret" parameter anywhere on the
+ * import path, which is why a credential like the connection string can never
+ * travel through it.
+ */
 type ImportKind = "rsa" | "hmac" | "gateway"
 
-const IMPORT_OPERATION: Record<ImportKind, SecretOperationName> = {
-  rsa: "ImportRsaKey",
-  hmac: "ImportHmacKey",
-  gateway: "ImportGatewayToken",
+interface KeyMaterialSpec {
+  generate: SecretOperationName
+  import: SecretOperationName
+  generateLabelKey: string
+  importLabelKey: string
+  /** Names the exact encoding the server will validate the pasted value against. */
+  valueLabelKey: string
+}
+
+const KEY_MATERIAL: Record<ImportKind, KeyMaterialSpec> = {
+  rsa: {
+    generate: "GenerateRsaKey",
+    import: "ImportRsaKey",
+    generateLabelKey: "secrets.generateRsa",
+    importLabelKey: "secrets.importRsa",
+    valueLabelKey: "secrets.rsaPem",
+  },
+  hmac: {
+    generate: "GenerateHmacKey",
+    import: "ImportHmacKey",
+    generateLabelKey: "secrets.generateHmac",
+    importLabelKey: "secrets.importHmac",
+    valueLabelKey: "secrets.hmacBase64",
+  },
+  gateway: {
+    generate: "GenerateGatewayToken",
+    import: "ImportGatewayToken",
+    generateLabelKey: "secrets.generateGatewayToken",
+    importLabelKey: "secrets.importGatewayToken",
+    valueLabelKey: "secrets.tokenValue",
+  },
 }
 
 /**
@@ -68,65 +94,51 @@ const IMPORT_OPERATION: Record<ImportKind, SecretOperationName> = {
  * the material to the confirmation flow rather than posting it: the code the
  * administrator is about to be emailed is bound to a digest of these exact
  * bytes, which is why they are chosen before the confirmation and not after.
+ *
+ * The shape is fixed by the row this was opened from, so there is nothing to
+ * pick here. The dialog used to ask — and naming one shape in the button while
+ * offering three in the dialog is what made the page read as if importing were
+ * a general-purpose editor for any secret.
  */
 function ImportDialog({
-  open,
+  kind,
   onOpenChange,
   onSubmit,
 }: {
-  open: boolean
+  kind?: ImportKind
   onOpenChange: (open: boolean) => void
   onSubmit: (pending: PendingSecretOperation) => void
 }) {
   const { t } = useTranslation()
-  const [kind, setKind] = React.useState<ImportKind>("rsa")
+  // No reset effect: the caller keys this component by kind, so opening it
+  // mounts a fresh instance and the initial state IS the reset. Key material
+  // half-pasted for one shape must never survive into another.
   const [value, setValue] = React.useState("")
 
-  React.useEffect(() => {
-    if (open) {
-      setKind("rsa")
-      setValue("")
-    }
-  }, [open])
+  const spec = kind ? KEY_MATERIAL[kind] : undefined
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={Boolean(kind)} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("secrets.importRsa")}</DialogTitle>
-          <DialogDescription>{t("secrets.subtitle")}</DialogDescription>
+          <DialogTitle>{spec ? t(spec.importLabelKey) : ""}</DialogTitle>
+          <DialogDescription>{t("secrets.importBody")}</DialogDescription>
         </DialogHeader>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="import-secret-kind">
-              {t("common.type")}
-            </FieldLabel>
-            <Select
-              value={kind}
-              onValueChange={(v) => setKind(v as ImportKind)}
-            >
-              <SelectTrigger id="import-secret-kind" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="rsa">RSA</SelectItem>
-                  <SelectItem value="hmac">HMAC</SelectItem>
-                  <SelectItem value="gateway">Gateway token</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field>
             <FieldLabel htmlFor="import-secret-value">
-              {t("secrets.value")}
+              {spec ? t(spec.valueLabelKey) : ""}
             </FieldLabel>
-            {/* Key material — pinned LTR like the key field above it, so an RTL
-                console cannot right-align or reorder a PEM blob. */}
+            {/* Key material — pinned LTR so an RTL console cannot right-align
+                or reorder a PEM blob. */}
             <Textarea
               id="import-secret-value"
               dir="ltr"
               rows={6}
+              spellCheck={false}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder={t("secrets.importValuePlaceholder")}
@@ -141,9 +153,9 @@ function ImportDialog({
           <Button
             variant="destructive"
             onClick={() => {
-              if (!value) return
+              if (!value || !spec) return
               onOpenChange(false)
-              onSubmit({ operation: IMPORT_OPERATION[kind], value })
+              onSubmit({ operation: spec.import, value })
             }}
             disabled={!value}
           >
@@ -184,6 +196,58 @@ type KnownSecretKey = keyof typeof SETTABLE_KNOWN_SECRETS
 
 function isSettableKnownSecret(key: string): key is KnownSecretKey {
   return Object.hasOwn(SETTABLE_KNOWN_SECRETS, key)
+}
+
+/**
+ * What governs each first-class secret, and therefore what its row may offer.
+ *
+ * The split is not cosmetic. It follows from a single question — who owns the
+ * correct value? — and everything else is downstream of the answer:
+ *
+ *  - An external party owns it (the mail provider, the database server), so the
+ *    system can only transcribe what they decided. Generating one would be
+ *    meaningless, and a wrong value fails forward without killing anything
+ *    already issued. Those rows carry a plain edit form: `SETTABLE_KNOWN_SECRETS`.
+ *  - The system owns it, so it can be minted — and replacing it does not make
+ *    the old value "wrong", it makes it *gone*, along with everything ever
+ *    derived from it. Those rows carry `material`, and both generating and
+ *    importing run the three-gate confirmation in `SecretOperationFlow`.
+ *  - Neither: the value is derived, permanent, or not a single value at all.
+ *    Those rows carry a description and no action.
+ *
+ * Every row therefore states its own governance. Six of the eight used to offer
+ * nothing and explain nothing, which reads as an unfinished feature rather than
+ * a deliberate refusal — and left the destructive operations parked in the page
+ * header, far from the rows they rewrite.
+ *
+ * Keys match the names the status endpoint reports. Anything absent here (a
+ * `Custom:` entry) renders as a plain row, which is correct: nothing reads it.
+ */
+const SECRET_GOVERNANCE: Record<
+  string,
+  { descriptionKey: string; material?: ImportKind }
+> = {
+  JwtPrivateKeyPem: {
+    descriptionKey: "secrets.about.jwtPrivateKeyPem",
+    material: "rsa",
+  },
+  JwtPublicKeyPem: { descriptionKey: "secrets.about.jwtPublicKeyPem" },
+  RefreshTokenHmacKey: {
+    descriptionKey: "secrets.about.refreshTokenHmacKey",
+    material: "hmac",
+  },
+  GatewayToken: {
+    descriptionKey: "secrets.about.gatewayToken",
+    material: "gateway",
+  },
+  AccountDeletionIdentifierHmacKey: {
+    descriptionKey: "secrets.about.accountDeletionIdentifierHmacKey",
+  },
+  PasswordPepper: { descriptionKey: "secrets.about.passwordPepper" },
+  SmtpPassword: { descriptionKey: "secrets.about.smtpPassword" },
+  "ConnectionStrings.AuthDb": {
+    descriptionKey: "secrets.about.connectionString",
+  },
 }
 
 /**
@@ -330,15 +394,11 @@ function CustomSecretDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  // No reset effect: the caller keys this component by `open`, so opening it
+  // mounts a fresh instance and the initial state IS the reset — the same
+  // arrangement the other two dialogs on this page use.
   const [key, setKey] = React.useState("")
   const [value, setValue] = React.useState("")
-
-  React.useEffect(() => {
-    if (open) {
-      setKey("")
-      setValue("")
-    }
-  }, [open])
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -409,7 +469,7 @@ export function SecretsPage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
 
-  const [importOpen, setImportOpen] = React.useState(false)
+  const [importKind, setImportKind] = React.useState<ImportKind>()
   const [customOpen, setCustomOpen] = React.useState(false)
   const [knownSecretKey, setKnownSecretKey] = React.useState<KnownSecretKey>()
   const [deleteOpen, setDeleteOpen] = React.useState(false)
@@ -468,52 +528,13 @@ export function SecretsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* No page-level actions. Every operation belongs to exactly one secret,
+          so it lives on that secret's row — a generate/import pair in the
+          header could only name the key it rewrites in its label, and did so
+          for one of the three. */}
       <PageHeader
         title={t("secrets.title")}
         description={t("secrets.subtitle")}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
-              <Upload data-icon="inline-start" />
-              {t("secrets.importRsa")}
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button disabled={Boolean(pendingOperation)}>
-                  <KeyRound data-icon="inline-start" />
-                  {t("secrets.generate")}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      setPendingOperation({ operation: "GenerateRsaKey" })
-                    }
-                  >
-                    {t("secrets.generateRsa")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      setPendingOperation({ operation: "GenerateHmacKey" })
-                    }
-                  >
-                    {t("secrets.generateHmac")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() =>
-                      setPendingOperation({
-                        operation: "GenerateGatewayToken",
-                      })
-                    }
-                  >
-                    {t("secrets.generateGatewayToken")}
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        }
       />
 
       <Card>
@@ -566,18 +587,31 @@ export function SecretsPage() {
             <ul className="divide-y">
               {secrets.map(([key, value]) => {
                 const meta = secretStatusMeta(value)
+                const governance = SECRET_GOVERNANCE[key]
+                const material = governance?.material
+                  ? KEY_MATERIAL[governance.material]
+                  : undefined
                 return (
                   <li
                     key={key}
                     className="flex items-center justify-between gap-3 py-2.5"
                   >
-                    <span className="font-mono text-sm">{key}</span>
-                    {/* Action first, badge last. Only two rows carry an action,
-                        so putting it after the badge would indent those two
-                        badges by the button's width and break the column the
-                        eye scans down. Source order, not a logical-property
+                    <div className="flex min-w-0 flex-col gap-0.5">
+                      <span className="font-mono text-sm">{key}</span>
+                      {/* Why this row offers what it offers. Rows that cannot
+                          be acted on need this most: a blank row reads as a
+                          missing button rather than a deliberate one. */}
+                      {governance ? (
+                        <span className="text-xs text-muted-foreground">
+                          {t(governance.descriptionKey)}
+                        </span>
+                      ) : null}
+                    </div>
+                    {/* Action first, badge last, so the badges stay on one
+                        column the eye can scan down regardless of which rows
+                        carry a button. Source order, not a logical-property
                         override, so RTL mirrors it for free. */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-2">
                       {isSettableKnownSecret(key) ? (
                         <Button
                           variant="ghost"
@@ -587,6 +621,40 @@ export function SecretsPage() {
                           <Pencil data-icon="inline-start" />
                           {t("common.edit")}
                         </Button>
+                      ) : null}
+                      {material ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={Boolean(pendingOperation)}
+                            >
+                              <KeyRound data-icon="inline-start" />
+                              {t("secrets.replace")}
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuGroup>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  setPendingOperation({
+                                    operation: material.generate,
+                                  })
+                                }
+                              >
+                                {t(material.generateLabelKey)}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  setImportKind(governance?.material)
+                                }
+                              >
+                                {t(material.importLabelKey)}
+                              </DropdownMenuItem>
+                            </DropdownMenuGroup>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       ) : null}
                       {/* `secretStatusMeta` returns one of four fixed keys, all
                           under `secrets.status`. */}
@@ -621,14 +689,24 @@ export function SecretsPage() {
         </CardContent>
       </Card>
 
+      {/* Keyed so opening a dialog mounts a fresh one and the initial state IS
+          the reset; prefixed because these two are siblings and would otherwise
+          collide on the closed key. */}
       <ImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
+        key={`import-${importKind ?? "none"}`}
+        kind={importKind}
+        onOpenChange={(open) => {
+          if (!open) setImportKind(undefined)
+        }}
         onSubmit={setPendingOperation}
       />
-      <CustomSecretDialog open={customOpen} onOpenChange={setCustomOpen} />
+      <CustomSecretDialog
+        key={`custom-${customOpen}`}
+        open={customOpen}
+        onOpenChange={setCustomOpen}
+      />
       <KnownSecretDialog
-        key={knownSecretKey ?? "none"}
+        key={`known-${knownSecretKey ?? "none"}`}
         secretKey={knownSecretKey}
         onOpenChange={(open) => {
           if (!open) setKnownSecretKey(undefined)

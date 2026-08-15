@@ -793,10 +793,28 @@ export const ur: TranslationResources = {
     disabledTitle: "رازوں کا انتظام غیر فعال ہے",
     disabledBody:
       "اس ماحول کے لیے ایڈمن رازوں کی API بند ہے، یا آپ کے پاس secrets.manage اجازت نہیں ہے۔",
+    about: {
+      jwtPrivateKeyPem:
+        "ہر رسائی ٹوکن پر دستخط کرتی ہے۔ اسے تبدیل کرنے سے سب ٹوکن باطل ہو جاتے ہیں۔",
+      jwtPublicKeyPem:
+        "ہر استعمال پر نجی کلید سے اخذ ہوتی ہے — الگ سے تدوین نہیں ہوتی۔",
+      refreshTokenHmacKey:
+        "ریفریش ٹوکن، پاس ورڈ ری سیٹ لنکس، دو عنصری لاگ اِن اور ویب ہک کلیدیں ہیش کرتی ہے۔",
+      gatewayToken:
+        "API گیٹ وے کے ساتھ مشترک۔ دونوں عمل میں ایک ہی قدر ہونی چاہیے۔",
+      accountDeletionIdentifierHmacKey:
+        "مستقل۔ اسے بدلنے سے ہر حذف شدہ اکاؤنٹ کا ریکارڈ بے سہارا ہو جاتا ہے، اس لیے یہاں سے تبدیل نہیں ہوتی۔",
+      passwordPepper:
+        "یہ واحد قدر نہیں بلکہ موجودہ کلید کے اشارے کے ساتھ کلیدوں کا مجموعہ ہے۔ آغاز پر مہیا اور تبدیل ہوتی ہے۔",
+      smtpPassword:
+        "آپ کے ای میل فراہم کنندہ کی ملکیت — نظام صرف وہی محفوظ کرتا ہے جو انہوں نے جاری کیا۔",
+      connectionString:
+        "ڈیٹابیس سرور کی ملکیت۔ محفوظ کرنے سے پہلے اس پر جانچ ہوتی ہے۔",
+    },
     secretFile: "راز فائل",
     machine: "مشین",
     schemaVersion: "اسکیما ورژن",
-    generate: "بنائیں",
+    replace: "تبدیل کریں",
     generateRsa: "RSA کلید بنائیں",
     generateHmac: "HMAC کلید بنائیں",
     generateGatewayToken: "گیٹ وے ٹوکن بنائیں",
@@ -822,6 +840,8 @@ export const ur: TranslationResources = {
     value: "قدر",
     importValuePlaceholder:
       "کلید کا مواد بعینہٖ اسی طرح چسپاں کریں جیسے برآمد ہوا تھا",
+    importBody:
+      "مواد کی جانچ ہوتی ہے، پھر کسی بھی تبدیلی سے پہلے ای میل پر تصدیقی کوڈ بھیجا جاتا ہے۔",
     rsaPem: "RSA نجی کلید (PEM)",
     hmacBase64: "HMAC کلید (base64)",
     tokenValue: "ٹوکن کی قدر",

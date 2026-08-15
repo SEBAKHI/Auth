@@ -783,10 +783,24 @@ export const ar: TranslationResources = {
     disabledTitle: "إدارة الأسرار معطّلة",
     disabledBody:
       "واجهة إدارة الأسرار متوقفة في هذه البيئة، أو تنقصك صلاحية secrets.manage.",
+    about: {
+      jwtPrivateKeyPem: "يوقّع كل رموز الوصول. استبداله يُبطلها جميعًا.",
+      jwtPublicKeyPem:
+        "يُشتقّ من المفتاح الخاص عند كل استخدام — لا يُحرَّر على حدة.",
+      refreshTokenHmacKey:
+        "يُجزّئ رموز التجديد وروابط استعادة كلمة المرور وعمليات الدخول الثنائي ومفاتيح Webhook.",
+      gatewayToken: "مشترك مع بوابة API. يجب أن تحمل العمليتان القيمة نفسها.",
+      accountDeletionIdentifierHmacKey:
+        "دائم. تغييره يُيتّم كل سجلّ حساب محذوف، فلا يُستبدل من هنا.",
+      passwordPepper:
+        "مجموعة مفاتيح بمؤشّر للمفتاح الحالي، لا قيمة واحدة. تُهيَّأ وتُدوَّر عند الإقلاع.",
+      smtpPassword: "يملكها مزوّد البريد لديك — النظام يخزّن ما أصدره فقط.",
+      connectionString: "يملكها خادم قاعدة البيانات. تُفحص عليه قبل تخزينها.",
+    },
     secretFile: "ملف الأسرار",
     machine: "الجهاز",
     schemaVersion: "إصدار المخطط",
-    generate: "توليد",
+    replace: "استبدال",
     generateRsa: "توليد مفتاح RSA",
     generateHmac: "توليد مفتاح HMAC",
     generateGatewayToken: "توليد رمز البوابة",
@@ -811,6 +825,8 @@ export const ar: TranslationResources = {
     key: "المفتاح",
     value: "القيمة",
     importValuePlaceholder: "الصق مادة المفتاح كما صُدِّرت تمامًا",
+    importBody:
+      "تُفحص مادة المفتاح، ثم يُرسل رمز تأكيد بالبريد قبل استبدال أي شيء.",
     rsaPem: "مفتاح RSA الخاص (PEM)",
     hmacBase64: "مفتاح HMAC (base64)",
     tokenValue: "قيمة الرمز",

@@ -804,10 +804,28 @@ export const tr: TranslationResources = {
     disabledTitle: "Gizli anahtar yönetimi devre dışı",
     disabledBody:
       "Yönetici gizli anahtar API'si bu ortam için kapalı veya secrets.manage izniniz yok.",
+    about: {
+      jwtPrivateKeyPem:
+        "Her erişim jetonunu imzalar. Değiştirilmesi hepsini geçersiz kılar.",
+      jwtPublicKeyPem:
+        "Her kullanımda özel anahtardan türetilir — tek başına düzenlenmez.",
+      refreshTokenHmacKey:
+        "Yenileme jetonlarını, parola sıfırlama bağlantılarını, iki adımlı girişleri ve webhook anahtarlarını karmalar.",
+      gatewayToken:
+        "API Ağ Geçidi ile paylaşılır. Her iki süreç de aynı değeri taşımalıdır.",
+      accountDeletionIdentifierHmacKey:
+        "Kalıcıdır. Değiştirilmesi silinmiş hesap kayıtlarını sahipsiz bırakır, bu yüzden buradan değiştirilmez.",
+      passwordPepper:
+        "Tek bir değer değil, geçerli anahtar işaretçisi olan bir anahtar kümesi. Başlangıçta sağlanır ve döndürülür.",
+      smtpPassword:
+        "E-posta sağlayıcınıza aittir — sistem yalnızca onların verdiğini saklar.",
+      connectionString:
+        "Veritabanı sunucusuna aittir. Saklanmadan önce sunucuya karşı denetlenir.",
+    },
     secretFile: "Gizli anahtar dosyası",
     machine: "Makine",
     schemaVersion: "Şema sürümü",
-    generate: "Oluştur",
+    replace: "Değiştir",
     generateRsa: "RSA anahtarı oluştur",
     generateHmac: "HMAC anahtarı oluştur",
     generateGatewayToken: "Ağ geçidi jetonu oluştur",
@@ -833,6 +851,8 @@ export const tr: TranslationResources = {
     value: "Değer",
     importValuePlaceholder:
       "Anahtar materyalini dışa aktarıldığı biçimde yapıştırın",
+    importBody:
+      "Materyal doğrulanır, ardından herhangi bir şey değiştirilmeden önce e-posta ile bir onay kodu gönderilir.",
     rsaPem: "RSA özel anahtarı (PEM)",
     hmacBase64: "HMAC anahtarı (base64)",
     tokenValue: "Jeton değeri",

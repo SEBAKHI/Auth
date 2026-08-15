@@ -785,10 +785,31 @@ export const en = {
     disabledTitle: "Secret administration is disabled",
     disabledBody:
       "The admin secrets API is turned off for this environment, or you lack the secrets.manage permission.",
+    // One line per first-class secret, shown under its name. States what the
+    // value does and why the row offers what it offers — a row with no action
+    // and no explanation reads as a missing button, not a deliberate one.
+    about: {
+      jwtPrivateKeyPem:
+        "Signs every access token. Replacing it invalidates all of them.",
+      jwtPublicKeyPem:
+        "Derived from the private key on every use — never edited on its own.",
+      refreshTokenHmacKey:
+        "Hashes refresh tokens, password-reset links, two-factor sign-ins and webhook keys.",
+      gatewayToken:
+        "Shared with the API Gateway. Both processes must carry the same value.",
+      accountDeletionIdentifierHmacKey:
+        "Permanent. Changing it orphans every deleted-account record, so it is never replaced from here.",
+      passwordPepper:
+        "A set of keys with a current-key pointer, not one value. Provisioned and rotated at startup.",
+      smtpPassword:
+        "Owned by your mail provider — the system only stores what they issued.",
+      connectionString:
+        "Owned by the database server. Checked against it before it is stored.",
+    },
     secretFile: "Secret file",
     machine: "Machine",
     schemaVersion: "Schema version",
-    generate: "Generate",
+    replace: "Replace",
     generateRsa: "Generate RSA key",
     generateHmac: "Generate HMAC key",
     generateGatewayToken: "Generate gateway token",
@@ -813,6 +834,8 @@ export const en = {
     key: "Key",
     value: "Value",
     importValuePlaceholder: "Paste the key material exactly as exported",
+    importBody:
+      "The material is validated, then a confirmation code is emailed before anything is replaced.",
     rsaPem: "RSA private key (PEM)",
     hmacBase64: "HMAC key (base64)",
     tokenValue: "Token value",

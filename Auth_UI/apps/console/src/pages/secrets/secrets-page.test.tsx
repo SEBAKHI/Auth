@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor } from "@testing-library/react"
+import { render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
@@ -15,6 +15,15 @@ vi.mock("@authsystem/api/client", () => ({
     PUT: (...args: unknown[]) => put(...args),
     DELETE: vi.fn(),
   },
+}))
+
+/**
+ * The confirmation flow reads the signed-in administrator's own address — it is
+ * both where the code is sent and what has to be typed back on the last screen.
+ * Standing up a real AuthProvider here would test the provider, not the page.
+ */
+vi.mock("@authsystem/auth/auth-context", () => ({
+  useAuth: () => ({ user: { email: "admin@company.com" } }),
 }))
 
 import { SecretsPage } from "./secrets-page"
@@ -52,7 +61,11 @@ function renderPage() {
   )
 }
 
-/** The status payload the console renders the badge list from. */
+/**
+ * The status payload the console renders the badge list from. Carries all eight
+ * first-class secrets because the row's action is chosen per key: a payload with
+ * only three of them would leave five governance branches unexercised.
+ */
 function statusPayload() {
   return {
     data: {
@@ -62,6 +75,11 @@ function statusPayload() {
       schemaVersion: 1,
       secrets: {
         JwtPrivateKeyPem: "Configured",
+        JwtPublicKeyPem: "Configured",
+        RefreshTokenHmacKey: "Configured",
+        GatewayToken: "Configured",
+        AccountDeletionIdentifierHmacKey: "Configured",
+        PasswordPepper: "Configured",
         SmtpPassword: "NotConfigured",
         "ConnectionStrings.AuthDb": "NotConfigured",
       },
@@ -69,12 +87,21 @@ function statusPayload() {
   }
 }
 
+/**
+ * The whole row for a secret. The key name now sits in a two-line column beside
+ * its description, so its parent is no longer the row — reach for the `li`.
+ */
+function rowFor(key: string) {
+  return screen.getByText(key).closest("li")!
+}
+
 async function openDialogFor(rowLabel: string) {
   const user = userEvent.setup()
   renderPage()
-  const row = await screen.findByText(rowLabel)
-  const editButton = row.parentElement!.querySelector("button")!
-  await user.click(editButton)
+  await screen.findByText(rowLabel)
+  await user.click(
+    within(rowFor(rowLabel)).getByRole("button", { name: "Edit" })
+  )
   return user
 }
 
@@ -85,39 +112,129 @@ describe("SecretsPage — storing the credential secrets", () => {
   })
 
   /**
-   * Only these two rows are settable. The signing keys are rotated through the
-   * confirmation flow, and a stray Edit button beside them would offer a path
-   * that silently bypasses it.
+   * Each row gets exactly the action its governance allows, and the three
+   * classes must not leak into one another. An Edit box beside a signing key
+   * would be an import that silently bypasses the confirmation flow; a
+   * confirmation flow in front of the SMTP password would deliver its code
+   * through the very mail path being repaired.
    */
-  it("offers an edit control on the two credential rows only", async () => {
+  it("gives every row exactly the action its governance allows", async () => {
     renderPage()
 
     await screen.findByText("ConnectionStrings.AuthDb")
 
+    // An external party owns the value, so it can only be transcribed.
     for (const key of ["SmtpPassword", "ConnectionStrings.AuthDb"]) {
-      const row = screen.getByText(key).parentElement!
-      expect(row.querySelector("button")).not.toBeNull()
+      expect(
+        within(rowFor(key)).getByRole("button", { name: "Edit" })
+      ).toBeInTheDocument()
     }
-    expect(
-      screen.getByText("JwtPrivateKeyPem").parentElement!.querySelector("button")
-    ).toBeNull()
+
+    // The system owns the value, so replacing it runs the confirmation flow.
+    for (const key of [
+      "JwtPrivateKeyPem",
+      "RefreshTokenHmacKey",
+      "GatewayToken",
+    ]) {
+      expect(
+        within(rowFor(key)).getByRole("button", { name: "Replace" })
+      ).toBeInTheDocument()
+    }
+
+    // Derived, permanent, or not a single value: nothing to offer.
+    for (const key of [
+      "JwtPublicKeyPem",
+      "AccountDeletionIdentifierHmacKey",
+      "PasswordPepper",
+    ]) {
+      expect(within(rowFor(key)).queryByRole("button")).toBeNull()
+    }
   })
 
   /**
-   * Only two of the rows carry an action. If the badge came first, those two
-   * badges would sit one button-width inboard of all the others and the column
-   * the eye scans down would break. Asserting the badge is the LAST child keeps
-   * every badge on the same edge, in both text directions.
+   * A row with no button and no sentence reads as an unfinished feature rather
+   * than a deliberate refusal — which is exactly how the page was misread. The
+   * three action-less rows are the ones that must carry their reason.
+   */
+  it("states why the action-less rows offer nothing", async () => {
+    renderPage()
+
+    await screen.findByText("ConnectionStrings.AuthDb")
+
+    expect(rowFor("JwtPublicKeyPem")).toHaveTextContent(
+      /Derived from the private key/
+    )
+    expect(rowFor("AccountDeletionIdentifierHmacKey")).toHaveTextContent(
+      /Permanent/
+    )
+    expect(rowFor("PasswordPepper")).toHaveTextContent(/not one value/)
+  })
+
+  /**
+   * Rows differ in whether they carry an action, and in how many. If the badge
+   * came first it would sit one or two button-widths inboard on some rows and
+   * the column the eye scans down would break. Asserting the badge is the LAST
+   * child keeps every badge on the same edge, in both text directions.
    */
   it("puts the badge last in the row so every badge stays aligned", async () => {
     renderPage()
 
     await screen.findByText("ConnectionStrings.AuthDb")
 
-    for (const key of ["JwtPrivateKeyPem", "SmtpPassword", "ConnectionStrings.AuthDb"]) {
-      const trailing = screen.getByText(key).parentElement!.lastElementChild!
+    for (const key of [
+      "JwtPrivateKeyPem",
+      "JwtPublicKeyPem",
+      "SmtpPassword",
+      "ConnectionStrings.AuthDb",
+    ]) {
+      const trailing = rowFor(key).lastElementChild!
       expect(trailing.lastElementChild).toHaveAttribute("data-slot", "badge")
     }
+  })
+
+  /**
+   * The import path has no "which secret" parameter — each endpoint writes to a
+   * fixed name — so the shape is decided by the row, not by the operator. The
+   * dialog used to ask, which is what made importing look like a general editor
+   * for any secret. The field names the encoding the server will check against.
+   */
+  it("locks the import dialog to the shape of the row it was opened from", async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByText("RefreshTokenHmacKey")
+    await user.click(
+      within(rowFor("RefreshTokenHmacKey")).getByRole("button", {
+        name: "Replace",
+      })
+    )
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Import HMAC key" })
+    )
+
+    expect(await screen.findByLabelText("HMAC key (base64)")).toBeInTheDocument()
+    expect(screen.queryByRole("combobox")).toBeNull()
+  })
+
+  /**
+   * Generating is the other half of the same governance: it must reach the
+   * confirmation flow, not the storage endpoint. Nothing is written until the
+   * emailed code and the impact screen have both been answered.
+   */
+  it("routes a row's generate through the confirmation flow, not a write", async () => {
+    const user = userEvent.setup()
+    renderPage()
+
+    await screen.findByText("GatewayToken")
+    await user.click(
+      within(rowFor("GatewayToken")).getByRole("button", { name: "Replace" })
+    )
+    await user.click(
+      await screen.findByRole("menuitem", { name: "Generate gateway token" })
+    )
+
+    await screen.findByText("This changes a key the whole platform runs on")
+    expect(put).not.toHaveBeenCalled()
   })
 
   it("posts the SMTP password to its own endpoint, masked while typing", async () => {

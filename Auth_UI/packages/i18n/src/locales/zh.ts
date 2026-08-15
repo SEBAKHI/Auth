@@ -757,10 +757,23 @@ export const zh: TranslationResources = {
     },
     disabledTitle: "机密管理已禁用",
     disabledBody: "此环境已关闭机密管理 API，或您缺少 secrets.manage 权限。",
+    about: {
+      jwtPrivateKeyPem: "为每个访问令牌签名。替换后所有令牌立即失效。",
+      jwtPublicKeyPem: "每次使用时从私钥派生 — 不会单独编辑。",
+      refreshTokenHmacKey:
+        "用于哈希刷新令牌、密码重置链接、进行中的双因素登录以及 Webhook 密钥。",
+      gatewayToken: "与 API 网关共享。两个进程必须持有相同的值。",
+      accountDeletionIdentifierHmacKey:
+        "永久性。更改会使每条已删除账户记录失去关联，因此不会在此替换。",
+      passwordPepper:
+        "是一组带当前密钥指针的密钥，而非单个值。在启动时配置并轮换。",
+      smtpPassword: "归你的邮件服务商所有 — 系统只存储他们签发的值。",
+      connectionString: "归数据库服务器所有。存储前会先对其进行连接检查。",
+    },
     secretFile: "机密文件",
     machine: "主机",
     schemaVersion: "架构版本",
-    generate: "生成",
+    replace: "替换",
     generateRsa: "生成 RSA 密钥",
     generateHmac: "生成 HMAC 密钥",
     generateGatewayToken: "生成网关令牌",
@@ -785,6 +798,7 @@ export const zh: TranslationResources = {
     key: "键",
     value: "值",
     importValuePlaceholder: "按导出时的原样粘贴密钥内容",
+    importBody: "系统会先校验密钥内容，再通过电子邮件发送确认码，之后才会替换任何内容。",
     rsaPem: "RSA 私钥（PEM）",
     hmacBase64: "HMAC 密钥（base64）",
     tokenValue: "令牌值",
