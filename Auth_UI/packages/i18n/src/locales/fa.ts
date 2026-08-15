@@ -62,6 +62,10 @@ export const fa: TranslationResources = {
     lastUsed: "آخرین استفاده",
     optional: "اختیاری",
     required: "الزامی",
+    range: "بازه: {{range}}",
+    rangeMin: "کمینه: {{min}}",
+    rangeMax: "بیشینه: {{max}}",
+    defaultValue: "پیش‌فرض: {{value}}",
     signOut: "خروج",
     profile: "پروفایل",
     language: "زبان",
@@ -252,7 +256,6 @@ export const fa: TranslationResources = {
     window: "دوره",
     windowHint: "همه اعداد این صفحه بر چه بازه‌ای از گذشته محاسبه می‌شوند.",
     windowCustom: "تعداد روزهای موردنظر",
-    windowCustomHint: "بین {{min}} تا {{max}} روز.",
     windowLabel: "{{days}} روز گذشته.",
     granularity: "دانه‌بندی",
     granularityHint: "هر نقطه روی محور زمان یک روز است یا یک هفته.",
@@ -693,8 +696,10 @@ export const fa: TranslationResources = {
       "این کلید به کدام استقرار تعلق دارد، تا تشخیص کلیدها ساده باشد.",
     rateLimitPerMinute: "محدودیت نرخ / دقیقه",
     rateLimitPerDay: "محدودیت نرخ / روز",
-    rateLimitPerMinuteHint: "تعداد درخواست‌های این کلید در هر یک دقیقه.",
-    rateLimitPerDayHint: "تعداد درخواست‌های این کلید در یک روز.",
+    rateLimitPerMinuteHint:
+      "تعداد درخواست‌های این کلید در هر یک دقیقه. مقداری راهنماست: عدد ذخیره و به سرویسی که کلید را اعتبارسنجی می‌کند سپرده می‌شود — اینجا چیزی درخواست‌ها را نمی‌شمارد و رد نمی‌کند.",
+    rateLimitPerDayHint:
+      "تعداد درخواست‌های این کلید در یک روز. مانند مورد بالا راهنماست: سرویسی که کلید را اعتبارسنجی می‌کند آن را اعمال می‌کند، نه این سامانه.",
     scopes: "دامنه‌ها",
     revoke: "ابطال",
     rotate: "چرخش",
@@ -1424,6 +1429,34 @@ export const fa: TranslationResources = {
         "پیشنهاد: ۱۰ — رعایت بهداشت برای یک نقطه پایانی ناشناس.",
       passwordResetWindowSeconds: "پنجره بازنشانی رمز (ثانیه)",
       passwordResetWindowSecondsHint: "پیشنهاد: ۶۰.",
+    },
+    gatewayRateLimiting: {
+      title: "محدودسازی نرخ درخواست (دروازه)",
+      description:
+        "محدودسازی به ازای IP کلاینت در لبه، پیش از آنکه درخواست به API برسد. حلقهٔ بیرونی؛ بخش API در بالا حلقهٔ درونی است. تغییر ذخیره‌شده حدود ۳۰ ثانیه بعد به دروازه می‌رسد، چون دروازه فرایندی جداست که تنظیماتش را خودش می‌کشد و در این پایگاه‌داده شریک نیست.",
+      globalPermitLimit: "سقف کلی درخواست‌ها",
+      globalPermitLimitHint:
+        "بر هر درخواستی که از دروازه می‌گذرد اعمال می‌شود، بالاتر از سه سیاست زیر. نباید از سریع‌ترینِ آن‌ها کندتر باشد، وگرنه آن‌ها را بی‌صدا محدود می‌کند.",
+      globalWindowSeconds: "پنجرهٔ کلی (ثانیه)",
+      globalWindowSecondsHint: "بازه‌ای که سقف کلی در آن شمرده می‌شود.",
+      globalQueueLimit: "طول صف کلی",
+      globalQueueLimitHint:
+        "چند درخواست پس از رسیدن به سقف به‌جای رد شدن منتظر بمانند. صفر یعنی رد فوری بدون صف.",
+      authPermitLimit: "درخواست‌های ورود در هر پنجره",
+      authPermitLimitHint:
+        "مسیرهای ‎/auth/‎ را پوشش می‌دهد. همتای بیرونی محدودیت ورود در بخش API — آن را برابر یا بالاتر از آن نگه دارید، وگرنه محدودیت درونی هرگز فرصت عمل نمی‌یابد.",
+      authWindowSeconds: "پنجرهٔ ورود (ثانیه)",
+      authWindowSecondsHint: "پیشنهاد: ۶۰.",
+      apiPermitLimit: "درخواست‌های عمومی API در هر پنجره",
+      apiPermitLimitHint:
+        "نقاط پایانی معمول خواندن و نوشتن را پوشش می‌دهد: کاربران، نقش‌ها، برنامه‌ها، سازمان‌ها، تصاویر، گزارش‌های حسابرسی.",
+      apiWindowSeconds: "پنجرهٔ عمومی API (ثانیه)",
+      apiWindowSecondsHint: "پیشنهاد: ۶۰.",
+      adminPermitLimit: "درخواست‌های کنسول مدیریت در هر پنجره",
+      adminPermitLimitHint:
+        "مسیرهای ‎/admin/‎ را پوشش می‌دهد: تنظیمات پلتفرم، تنظیمات سامانه، رازها. یک صفحهٔ کنسول ممکن است چند درخواست خرج کند، پس مقداری نزدیک به محدودیت عمومی API درست است. آنچه واقعاً از این مسیرها محافظت می‌کند بررسی مجوز و گزارش حسابرسی است، نه محدودیتی که برای ترافیک ناشناس اندازه گرفته شده.",
+      adminWindowSeconds: "پنجرهٔ کنسول مدیریت (ثانیه)",
+      adminWindowSecondsHint: "پیشنهاد: ۶۰.",
     },
     externalAuth: {
       title: "ورود خارجی (Google / Apple)",

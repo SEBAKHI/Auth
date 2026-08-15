@@ -62,6 +62,10 @@ export const fr: TranslationResources = {
     lastUsed: "Dernière utilisation",
     optional: "Facultatif",
     required: "Obligatoire",
+    range: "Plage : {{range}}",
+    rangeMin: "Minimum : {{min}}",
+    rangeMax: "Maximum : {{max}}",
+    defaultValue: "Valeur par défaut : {{value}}",
     signOut: "Se déconnecter",
     profile: "Profil",
     language: "Langue",
@@ -255,7 +259,6 @@ export const fr: TranslationResources = {
     window: "Période",
     windowHint: "La profondeur sur laquelle chaque chiffre de cette page est mesuré.",
     windowCustom: "Nombre de jours",
-    windowCustomHint: "Entre {{min}} et {{max}} jours.",
     windowLabel: "{{days}} derniers jours.",
     granularity: "Granularité",
     granularityHint: "Si un point de l'axe temporel représente un jour ou une semaine.",
@@ -712,9 +715,9 @@ export const fr: TranslationResources = {
     rateLimitPerMinute: "Limite de débit / minute",
     rateLimitPerDay: "Limite de débit / jour",
     rateLimitPerMinuteHint:
-      "Requêtes que cette clé peut effectuer en une minute.",
+      "Requêtes que cette clé peut effectuer en une minute. Valeur indicative : le nombre est enregistré et transmis au service qui valide la clé — rien ici ne compte ni ne rejette les requêtes.",
     rateLimitPerDayHint:
-      "Requêtes que cette clé peut effectuer en une journée.",
+      "Requêtes que cette clé peut effectuer en une journée. Indicative comme la précédente : appliquée par le service qui valide la clé, pas par ce système.",
     scopes: "Portées",
     revoke: "Révoquer",
     rotate: "Renouveler",
@@ -1464,6 +1467,34 @@ export const fr: TranslationResources = {
         "Recommandé : 10 — une mesure d'hygiène pour un point de terminaison anonyme.",
       passwordResetWindowSeconds: "Fenêtre de réinitialisation (secondes)",
       passwordResetWindowSecondsHint: "Recommandé : 60.",
+    },
+    gatewayRateLimiting: {
+      title: "Limitation de débit (passerelle)",
+      description:
+        "Limitation par adresse IP cliente en périphérie, appliquée avant que la requête n'atteigne l'API. L'anneau externe ; la section API ci-dessus est l'anneau interne. Une modification enregistrée parvient à la passerelle en 30 secondes environ, car il s'agit d'un processus distinct qui récupère ses réglages au lieu de partager cette base de données.",
+      globalPermitLimit: "Plafond global de requêtes",
+      globalPermitLimitHint:
+        "S'applique à toute requête passant par la passerelle, au-dessus des trois politiques ci-dessous. Il ne doit pas être plus lent que la plus rapide d'entre elles, sinon il les bride silencieusement.",
+      globalWindowSeconds: "Fenêtre globale (secondes)",
+      globalWindowSecondsHint: "Durée sur laquelle le plafond global est compté.",
+      globalQueueLimit: "Longueur de la file globale",
+      globalQueueLimitHint:
+        "Nombre de requêtes mises en attente plutôt que rejetées une fois le plafond atteint. Zéro signifie rejet immédiat, sans file.",
+      authPermitLimit: "Requêtes de connexion par fenêtre",
+      authPermitLimitHint:
+        "Couvre les routes /auth/. Le jumeau externe de la limite de connexion de la section API — gardez-la au niveau de celle-ci ou au-dessus, sinon la limite interne ne se déclenche jamais.",
+      authWindowSeconds: "Fenêtre de connexion (secondes)",
+      authWindowSecondsHint: "Recommandé : 60.",
+      apiPermitLimit: "Requêtes API générales par fenêtre",
+      apiPermitLimitHint:
+        "Couvre les points de terminaison de lecture et d'écriture ordinaires : utilisateurs, rôles, applications, organisations, images, journaux d'audit.",
+      apiWindowSeconds: "Fenêtre API générale (secondes)",
+      apiWindowSecondsHint: "Recommandé : 60.",
+      adminPermitLimit: "Requêtes de la console d'administration par fenêtre",
+      adminPermitLimitHint:
+        "Couvre les routes /admin/ : réglages de la plateforme, réglages système, secrets. Un seul écran de console peut consommer plusieurs requêtes ; une valeur proche de la limite API générale est donc la bonne. Ce qui protège réellement ces routes, c'est le contrôle des permissions et le journal d'audit, non une limite calibrée pour du trafic anonyme.",
+      adminWindowSeconds: "Fenêtre de la console d'administration (secondes)",
+      adminWindowSecondsHint: "Recommandé : 60.",
     },
     externalAuth: {
       title: "Connexion externe (Google / Apple)",

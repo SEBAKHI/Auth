@@ -9,7 +9,15 @@ import { z } from "zod"
 import { FormDialog } from "@authsystem/ui/common/form-dialog"
 import { DatePicker, monthsFromNow } from "@authsystem/ui/common/date-picker"
 import { PresetField } from "@authsystem/ui/common/preset-field"
-import { ENVIRONMENTS, RATE_PER_DAY, RATE_PER_MINUTE } from "@/lib/presets"
+import { FieldConstraints } from "@authsystem/ui/common/field-constraints"
+import {
+  DEFAULT_RATE_PER_DAY,
+  DEFAULT_RATE_PER_MINUTE,
+  ENVIRONMENTS,
+  MIN_RATE_LIMIT,
+  RATE_PER_DAY,
+  RATE_PER_MINUTE,
+} from "@/lib/presets"
 import {
   FormControl,
   FormDescription,
@@ -36,9 +44,6 @@ function toIntOr(value: string | undefined, fallback: number): number {
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
-
-const DEFAULT_RATE_PER_MINUTE = 60
-const DEFAULT_RATE_PER_DAY = 10000
 
 export function ApiKeyCreateDialog({
   open,
@@ -190,7 +195,7 @@ export function ApiKeyCreateDialog({
                 {({ value, onChange }) => (
                   <Input
                     type="number"
-                    min={1}
+                    min={MIN_RATE_LIMIT}
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                   />
@@ -200,6 +205,10 @@ export function ApiKeyCreateDialog({
             <FormDescription>
               {t("apiKeys.rateLimitPerMinuteHint")}
             </FormDescription>
+            <FieldConstraints
+              min={MIN_RATE_LIMIT}
+              defaultValue={DEFAULT_RATE_PER_MINUTE}
+            />
             <FormMessage />
           </FormItem>
         )}
@@ -219,7 +228,7 @@ export function ApiKeyCreateDialog({
                 {({ value, onChange }) => (
                   <Input
                     type="number"
-                    min={1}
+                    min={MIN_RATE_LIMIT}
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                   />
@@ -227,6 +236,10 @@ export function ApiKeyCreateDialog({
               </PresetField>
             </FormControl>
             <FormDescription>{t("apiKeys.rateLimitPerDayHint")}</FormDescription>
+            <FieldConstraints
+              min={MIN_RATE_LIMIT}
+              defaultValue={DEFAULT_RATE_PER_DAY}
+            />
             <FormMessage />
           </FormItem>
         )}

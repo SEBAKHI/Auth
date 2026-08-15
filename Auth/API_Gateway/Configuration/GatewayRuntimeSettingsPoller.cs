@@ -93,20 +93,38 @@ public sealed class GatewayRuntimeSettingsPoller : BackgroundService
             using var response = await client.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            var settings = await response.Content
-                .ReadFromJsonAsync<GatewayRuntimeSettings>(cancellationToken);
+            var payload = await response.Content
+                .ReadFromJsonAsync<GatewayRuntimeSettingsPayload>(cancellationToken);
 
-            if (settings is null)
+            if (payload is null)
             {
                 return;
             }
 
-            if (settings.Version != _provider.Current.Version)
+            var current = _provider.Current;
+
+            // Every field falls back to what this process already holds. Two
+            // things arrive here as an absent field: an API deployed before
+            // this gateway (rolling upgrade, so it does not know RateLimits
+            // yet) and a truncated response. Neither is a reason to run the
+            // edge on zeros — a PermitLimit of 0 rejects every request, which
+            // is a worse outage than the stale value it replaced.
+            var settings = new GatewayRuntimeSettings(
+                Version: payload.Version,
+                CorsAllowedOrigins: payload.CorsAllowedOrigins ?? current.CorsAllowedOrigins,
+                CorsAllowCredentials: payload.CorsAllowCredentials,
+                HealthChecksExposeErrorDetails: payload.HealthChecksExposeErrorDetails,
+                RateLimits: IsUsable(payload.RateLimits) ? payload.RateLimits! : current.RateLimits);
+
+            if (settings.Version != current.Version)
             {
                 _provider.Update(settings);
                 _logger.LogInformation(
-                    "Applied system settings version {Version} from the Auth API ({OriginCount} CORS origins).",
-                    settings.Version, settings.CorsAllowedOrigins.Count);
+                    "Applied system settings version {Version} from the Auth API ({OriginCount} CORS origins, admin limit {AdminPermitLimit}/{AdminWindowSeconds}s).",
+                    settings.Version,
+                    settings.CorsAllowedOrigins.Count,
+                    settings.RateLimits.AdminPermitLimit,
+                    settings.RateLimits.AdminWindowSeconds);
             }
             else
             {
@@ -132,4 +150,31 @@ public sealed class GatewayRuntimeSettingsPoller : BackgroundService
             }
         }
     }
+
+    /// <summary>
+    /// Whether a fetched limit set can be run on. A window or permit count of
+    /// zero would silence the whole edge, so a partially-populated payload is
+    /// treated as no payload. A queue length of zero is legitimate — it means
+    /// reject on arrival rather than hold.
+    /// </summary>
+    private static bool IsUsable(GatewayRateLimits? limits) =>
+        limits is not null
+        && limits.GlobalPermitLimit > 0 && limits.GlobalWindowSeconds > 0 && limits.GlobalQueueLimit >= 0
+        && limits.AuthPermitLimit > 0 && limits.AuthWindowSeconds > 0
+        && limits.ApiPermitLimit > 0 && limits.ApiWindowSeconds > 0
+        && limits.AdminPermitLimit > 0 && limits.AdminWindowSeconds > 0;
+
+    /// <summary>
+    /// The wire shape, deliberately separate from <see cref="GatewayRuntimeSettings"/>:
+    /// every field is optional here because the sender may be an older build,
+    /// and the mapping above decides what an absent field falls back to. Reading
+    /// straight into the runtime record would hand it nulls and zeros its type
+    /// says are impossible.
+    /// </summary>
+    private sealed record GatewayRuntimeSettingsPayload(
+        int Version,
+        IReadOnlyList<string>? CorsAllowedOrigins,
+        bool CorsAllowCredentials,
+        bool HealthChecksExposeErrorDetails,
+        GatewayRateLimits? RateLimits);
 }

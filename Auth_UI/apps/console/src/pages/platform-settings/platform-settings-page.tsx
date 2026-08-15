@@ -40,8 +40,28 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
   const { t } = useTranslation()
   const queryClient = useQueryClient()
 
-  const invalidate = React.useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY })
+  /**
+   * The update endpoint returns the saved settings, so every write below feeds
+   * the response straight into the cache instead of invalidating and fetching
+   * the same row again.
+   *
+   * That refetch was not free: /admin/** is one rate-limit bucket at the
+   * gateway, so each save cost two permits, and five logo changes in a minute
+   * were enough to get an administrator throttled out of their own console.
+   */
+  const applySaved = React.useCallback(
+    (saved: Schemas["PlatformSettingsDto"] | undefined) => {
+      if (saved) queryClient.setQueryData(SETTINGS_QUERY_KEY, saved)
+    },
+    [queryClient]
+  )
+
+  /**
+   * Public branding genuinely does need a refetch: different projection,
+   * different route — and that route sits on the roomier "api" bucket, not the
+   * admin one, so it is not what was costing an administrator their quota.
+   */
+  const refreshBranding = React.useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: BRANDING_QUERY_KEY })
   }, [queryClient])
 
@@ -57,7 +77,7 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
 
   const saveName = useMutation({
     mutationFn: async (values: Values) => {
-      const { error } = await api.PUT("/api/v1/admin/platform-settings", {
+      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
         body: {
           platformName: values.platformName,
           logoUrl: settings.logoUrl ?? null,
@@ -66,9 +86,11 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
         },
       })
       if (error) throw error
+      return data
     },
-    onSuccess: () => {
-      invalidate()
+    onSuccess: (saved) => {
+      applySaved(saved)
+      refreshBranding()
       toast.success(t("platformSettings.updated"))
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -77,7 +99,7 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
   // Logo changes persist immediately (same flow as organization logos).
   const persistLogoLight = React.useCallback(
     async (logoKey: string | null) => {
-      const { error } = await api.PUT("/api/v1/admin/platform-settings", {
+      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
         body: {
           platformName: settings.platformName ?? "",
           logoUrl: logoKey,
@@ -86,13 +108,14 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
         },
       })
       if (error) throw error
+      applySaved(data)
     },
-    [settings.platformName, settings.logoUrlDark, settings.faviconUrl]
+    [settings.platformName, settings.logoUrlDark, settings.faviconUrl, applySaved]
   )
 
   const persistLogoDark = React.useCallback(
     async (logoKey: string | null) => {
-      const { error } = await api.PUT("/api/v1/admin/platform-settings", {
+      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
         body: {
           platformName: settings.platformName ?? "",
           logoUrl: settings.logoUrl ?? null,
@@ -101,13 +124,14 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
         },
       })
       if (error) throw error
+      applySaved(data)
     },
-    [settings.platformName, settings.logoUrl, settings.faviconUrl]
+    [settings.platformName, settings.logoUrl, settings.faviconUrl, applySaved]
   )
 
   const persistFavicon = React.useCallback(
     async (logoKey: string | null) => {
-      const { error } = await api.PUT("/api/v1/admin/platform-settings", {
+      const { data, error } = await api.PUT("/api/v1/admin/platform-settings", {
         body: {
           platformName: settings.platformName ?? "",
           logoUrl: settings.logoUrl ?? null,
@@ -116,8 +140,9 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
         },
       })
       if (error) throw error
+      applySaved(data)
     },
-    [settings.platformName, settings.logoUrl, settings.logoUrlDark]
+    [settings.platformName, settings.logoUrl, settings.logoUrlDark, applySaved]
   )
 
   return (
@@ -136,7 +161,7 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
               name={settings.platformName}
               canEdit
               persist={persistLogoLight}
-              invalidate={invalidate}
+              invalidate={refreshBranding}
               successMessage={t("platformSettings.updated")}
             />
             <p className="text-xs text-muted-foreground">
@@ -149,7 +174,7 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
               name={settings.platformName}
               canEdit
               persist={persistLogoDark}
-              invalidate={invalidate}
+              invalidate={refreshBranding}
               successMessage={t("platformSettings.updated")}
             />
             <p className="text-xs text-muted-foreground">
@@ -162,7 +187,7 @@ function SettingsCard({ settings }: { settings: Schemas["PlatformSettingsDto"] }
               name={settings.platformName}
               canEdit
               persist={persistFavicon}
-              invalidate={invalidate}
+              invalidate={refreshBranding}
               successMessage={t("platformSettings.updated")}
             />
             <p className="text-xs text-muted-foreground">

@@ -4,6 +4,7 @@ import type { Control, FieldValues } from "react-hook-form"
 
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
+import { FieldConstraints } from "@authsystem/ui/common/field-constraints"
 import {
   Field,
   FieldContent,
@@ -193,8 +194,13 @@ export function SettingField({
   const name = formFieldName(field.path ?? "")
   const kind = field.kind ?? "string"
 
-  // The hint, the default-value note and any validation message all belong to
-  // the text block; as direct row children they would become extra columns.
+  // The hint, the bounds, the default-value note and any validation message
+  // all belong to the text block; as direct row children they would become
+  // extra columns.
+  //
+  // Bounds come from the registry, so this one mount states them for every
+  // section the console has — and the hint copy never repeats a number that
+  // could then drift from the value actually enforced.
   const textBlock = (extraHint?: string) => (
     <FieldContent className={TEXT_BLOCK}>
       <FormLabel className={kind === "bool" ? "font-normal" : undefined}>
@@ -204,6 +210,11 @@ export function SettingField({
       {hint || extraHint ? (
         <FormDescription>{[hint, extraHint].filter(Boolean).join(" ")}</FormDescription>
       ) : null}
+      <FieldConstraints
+        min={field.min}
+        max={field.max}
+        defaultValue={field.defaultValue}
+      />
       <BaselineNote field={field} />
       <FormMessage />
     </FieldContent>

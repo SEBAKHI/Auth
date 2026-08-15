@@ -29,6 +29,20 @@
       "autoPort": false
     },
     {
+      "name": "gateway",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": [
+        "run",
+        "--project",
+        "Auth/API_Gateway/API_Gateway.csproj",
+        "--launch-profile",
+        "http"
+      ],
+      "port": 5034,
+      "url": "http://localhost:5034",
+      "autoPort": false
+    },
+    {
       "name": "accounts",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["-C", "Auth_UI", "run", "dev:accounts"],

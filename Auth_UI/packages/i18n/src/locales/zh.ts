@@ -62,6 +62,10 @@ export const zh: TranslationResources = {
     lastUsed: "最后使用",
     optional: "可选",
     required: "必填",
+    range: "范围：{{range}}",
+    rangeMin: "最小值：{{min}}",
+    rangeMax: "最大值：{{max}}",
+    defaultValue: "默认值：{{value}}",
     signOut: "退出登录",
     profile: "个人资料",
     language: "语言",
@@ -248,7 +252,6 @@ export const zh: TranslationResources = {
     window: "时间范围",
     windowHint: "本页所有数字回溯统计的时间长度。",
     windowCustom: "包含天数",
-    windowCustomHint: "介于 {{min}} 到 {{max}} 天之间。",
     windowLabel: "最近 {{days}} 天。",
     granularity: "粒度",
     granularityHint: "时间轴上每个点代表一天还是一周。",
@@ -667,8 +670,10 @@ export const zh: TranslationResources = {
     environmentHint: "该密钥所属的部署环境，便于区分各个密钥。",
     rateLimitPerMinute: "速率限制 / 分钟",
     rateLimitPerDay: "速率限制 / 天",
-    rateLimitPerMinuteHint: "该密钥在任意一分钟内可发起的请求数。",
-    rateLimitPerDayHint: "该密钥在一天内可发起的请求数。",
+    rateLimitPerMinuteHint:
+      "该密钥在任意一分钟内可发起的请求数。仅作参考：此数值会被保存并交给校验该密钥的服务——本系统不会计数，也不会拒绝请求。",
+    rateLimitPerDayHint:
+      "该密钥在一天内可发起的请求数。与上一项同样仅作参考：由校验该密钥的服务执行，而非本系统。",
     scopes: "作用域",
     revoke: "吊销",
     rotate: "轮换",
@@ -1349,6 +1354,34 @@ export const zh: TranslationResources = {
       passwordResetPermitLimitHint: "推荐：10——匿名端点的基本防护。",
       passwordResetWindowSeconds: "密码重置窗口（秒）",
       passwordResetWindowSecondsHint: "推荐：60。",
+    },
+    gatewayRateLimiting: {
+      title: "请求速率限制（网关）",
+      description:
+        "在边缘按客户端 IP 限流，请求尚未到达 API 之前即生效。这是外圈，上方的 API 部分是内圈。保存后的改动大约 30 秒内送达网关：网关是独立进程，自行拉取设置，并不共享此数据库。",
+      globalPermitLimit: "全局请求上限",
+      globalPermitLimitHint:
+        "适用于经过网关的每个请求，位于下方三项策略之上。它不得比其中最快的一项还慢，否则会悄悄压低它们。",
+      globalWindowSeconds: "全局窗口（秒）",
+      globalWindowSecondsHint: "统计全局上限的时间跨度。",
+      globalQueueLimit: "全局队列长度",
+      globalQueueLimitHint:
+        "达到上限后排队等待而非被拒绝的请求数。零表示不排队，直接拒绝。",
+      authPermitLimit: "每窗口登录请求数",
+      authPermitLimitHint:
+        "覆盖 /auth/ 路由。它是 API 部分登录限制的外层孪生项——请保持不低于那一项，否则内层限制永远没有机会触发。",
+      authWindowSeconds: "登录窗口（秒）",
+      authWindowSecondsHint: "推荐：60。",
+      apiPermitLimit: "每窗口常规 API 请求数",
+      apiPermitLimitHint:
+        "覆盖常规读写端点：用户、角色、应用、组织、图片、审计日志。",
+      apiWindowSeconds: "常规 API 窗口（秒）",
+      apiWindowSecondsHint: "推荐：60。",
+      adminPermitLimit: "每窗口管理控制台请求数",
+      adminPermitLimitHint:
+        "覆盖 /admin/ 路由：平台设置、系统设置、密钥。单个控制台页面可能消耗数个请求，因此取值应接近常规 API 限制。真正保护这些路由的是权限校验与审计日志，而非为匿名流量设计的限流。",
+      adminWindowSeconds: "管理控制台窗口（秒）",
+      adminWindowSecondsHint: "推荐：60。",
     },
     externalAuth: {
       title: "外部登录（Google / Apple）",

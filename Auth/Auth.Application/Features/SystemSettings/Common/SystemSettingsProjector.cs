@@ -80,6 +80,9 @@ internal static class SystemSettingsProjector
             EffectiveValue = SettingValueReader.ReadTyped(configuration, field.Kind, fullKey) ?? field.DefaultValue,
             OverrideValue = overrideValue,
             BaselineValue = CanonicalToTyped(baselineCanonical, field.Kind) ?? field.DefaultValue,
+            // Uncoalesced on purpose: the console shows this as "the system
+            // default", so a file value must never be able to masquerade as one.
+            DefaultValue = field.DefaultValue,
             Source = overrideValue is not null
                 ? "database"
                 : baselineCanonical is not null ? "file" : "default",

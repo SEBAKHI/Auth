@@ -62,6 +62,10 @@ export const ur: TranslationResources = {
     lastUsed: "آخری استعمال",
     optional: "اختیاری",
     required: "لازمی",
+    range: "حد: {{range}}",
+    rangeMin: "کم از کم: {{min}}",
+    rangeMax: "زیادہ سے زیادہ: {{max}}",
+    defaultValue: "طے شدہ: {{value}}",
     signOut: "سائن آؤٹ",
     profile: "پروفائل",
     language: "زبان",
@@ -251,7 +255,6 @@ export const ur: TranslationResources = {
     window: "مدت",
     windowHint: "اس صفحے کے تمام اعداد کتنی پچھلی مدت پر شمار کیے جاتے ہیں۔",
     windowCustom: "شامل کیے جانے والے دن",
-    windowCustomHint: "{{min}} سے {{max}} دن کے درمیان۔",
     windowLabel: "گزشتہ {{days}} دن۔",
     granularity: "تفصیل کی سطح",
     granularityHint: "وقت کے محور پر ہر نقطہ ایک دن ہے یا ایک ہفتہ۔",
@@ -693,8 +696,10 @@ export const ur: TranslationResources = {
       "یہ کلید کس تعیناتی سے تعلق رکھتی ہے، تاکہ کلیدوں میں فرق آسان ہو۔",
     rateLimitPerMinute: "شرح کی حد / منٹ",
     rateLimitPerDay: "شرح کی حد / دن",
-    rateLimitPerMinuteHint: "یہ کلید ایک منٹ میں کتنی درخواستیں کر سکتی ہے۔",
-    rateLimitPerDayHint: "یہ کلید ایک دن میں کتنی درخواستیں کر سکتی ہے۔",
+    rateLimitPerMinuteHint:
+      "یہ کلید ایک منٹ میں کتنی درخواستیں کر سکتی ہے۔ یہ محض رہنما قدر ہے: عدد محفوظ ہو کر اُس سروس کو دیا جاتا ہے جو کلید کی تصدیق کرتی ہے — یہاں کوئی چیز درخواستیں گنتی یا مسترد نہیں کرتی۔",
+    rateLimitPerDayHint:
+      "یہ کلید ایک دن میں کتنی درخواستیں کر سکتی ہے۔ اوپر والی کی طرح رہنما قدر: اسے کلید کی تصدیق کرنے والی سروس نافذ کرتی ہے، یہ نظام نہیں۔",
     scopes: "دائرہ کار",
     revoke: "منسوخ کریں",
     rotate: "گھمائیں",
@@ -1420,6 +1425,34 @@ export const ur: TranslationResources = {
       passwordResetPermitLimitHint: "تجویز: 10 — گمنام اینڈ پوائنٹ کے لیے احتیاطی حفاظت۔",
       passwordResetWindowSeconds: "پاس ورڈ ری سیٹ ونڈو (سیکنڈ)",
       passwordResetWindowSecondsHint: "تجویز: 60۔",
+    },
+    gatewayRateLimiting: {
+      title: "درخواست کی حد (گیٹ وے)",
+      description:
+        "کنارے پر فی کلائنٹ IP درخواستوں کی حد، درخواست کے API تک پہنچنے سے پہلے۔ یہ بیرونی حلقہ ہے؛ اوپر کا API حصہ اندرونی۔ محفوظ کی گئی تبدیلی تقریباً 30 سیکنڈ میں گیٹ وے تک پہنچتی ہے، کیونکہ وہ ایک الگ پروسیس ہے جو اپنی ترتیبات خود کھینچتا ہے اور یہ ڈیٹابیس شریک نہیں کرتا۔",
+      globalPermitLimit: "مجموعی درخواست کی حد",
+      globalPermitLimitHint:
+        "گیٹ وے سے گزرنے والی ہر درخواست پر لاگو، نیچے دی گئی تینوں پالیسیوں کے اوپر۔ یہ ان میں سب سے تیز سے سست نہیں ہونی چاہیے، ورنہ انہیں خاموشی سے محدود کر دے گی۔",
+      globalWindowSeconds: "مجموعی ونڈو (سیکنڈ)",
+      globalWindowSecondsHint: "وہ مدت جس پر مجموعی حد شمار ہوتی ہے۔",
+      globalQueueLimit: "مجموعی قطار کی لمبائی",
+      globalQueueLimitHint:
+        "حد پوری ہونے پر مسترد ہونے کے بجائے کتنی درخواستیں انتظار کریں۔ صفر کا مطلب بغیر قطار کے فوری انکار۔",
+      authPermitLimit: "فی ونڈو سائن اِن درخواستیں",
+      authPermitLimitHint:
+        "‎/auth/‎ راستوں کا احاطہ کرتی ہے۔ API حصے کی سائن اِن حد کا بیرونی جوڑ — اسے اُس کے برابر یا اُس سے اوپر رکھیں، ورنہ اندرونی حد کو کبھی چلنے کا موقع نہیں ملے گا۔",
+      authWindowSeconds: "سائن اِن ونڈو (سیکنڈ)",
+      authWindowSecondsHint: "تجویز: 60۔",
+      apiPermitLimit: "فی ونڈو عام API درخواستیں",
+      apiPermitLimitHint:
+        "عام پڑھنے اور لکھنے کے اینڈ پوائنٹس: صارفین، کردار، ایپلیکیشنز، تنظیمیں، تصاویر، آڈٹ لاگز۔",
+      apiWindowSeconds: "عام API ونڈو (سیکنڈ)",
+      apiWindowSecondsHint: "تجویز: 60۔",
+      adminPermitLimit: "فی ونڈو ایڈمن کنسول درخواستیں",
+      adminPermitLimitHint:
+        "‎/admin/‎ راستوں کا احاطہ کرتی ہے: پلیٹ فارم ترتیبات، سسٹم ترتیبات، رازداری کلیدیں۔ ایک ہی کنسول اسکرین کئی درخواستیں خرچ کر سکتی ہے، اس لیے عام API حد کے قریب قدر مناسب ہے۔ ان راستوں کی اصل حفاظت اجازت کی جانچ اور آڈٹ لاگ کرتے ہیں، نہ کہ گمنام ٹریفک کے لیے بنائی گئی حد۔",
+      adminWindowSeconds: "ایڈمن کنسول ونڈو (سیکنڈ)",
+      adminWindowSecondsHint: "تجویز: 60۔",
     },
     externalAuth: {
       title: "بیرونی سائن ان (Google / Apple)",

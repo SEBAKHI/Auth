@@ -21,6 +21,20 @@ export const ENVIRONMENTS: Preset[] = [
   { value: "production", label: "production" },
 ]
 
+/**
+ * The bounds and shipped defaults behind the preset sets below.
+ *
+ * Exported rather than repeated at each call site because three consumers read
+ * the same number — the `min` attribute on the input, the coercion fallback,
+ * and the `FieldConstraints` line the user reads. A limit written out three
+ * times is a limit that will eventually be displayed wrong.
+ */
+export const MIN_RATE_LIMIT = 1
+export const DEFAULT_RATE_PER_MINUTE = 60
+export const DEFAULT_RATE_PER_DAY = 10000
+export const MIN_GRACE_PERIOD_MINUTES = 0
+export const DEFAULT_GRACE_PERIOD_MINUTES = 60
+
 /** Server: non-nullable `int`, `GreaterThan(0)`; its own default is 60. */
 export const RATE_PER_MINUTE: Preset[] = [
   { value: "60", label: "60" },
@@ -43,10 +57,15 @@ export const RATE_PER_DAY: Preset[] = [
  * `Number(grace) || 60` turned a deliberate 0 into 60, silently keeping the old
  * key alive for an hour after a rotation the operator wanted to take effect now.
  */
-export function toGracePeriod(value: string, fallback = 60): number {
+export function toGracePeriod(
+  value: string,
+  fallback = DEFAULT_GRACE_PERIOD_MINUTES
+): number {
   if (value.trim().length === 0) return fallback
   const parsed = Number(value)
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+  return Number.isFinite(parsed) && parsed >= MIN_GRACE_PERIOD_MINUTES
+    ? parsed
+    : fallback
 }
 
 /**

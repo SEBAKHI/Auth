@@ -14029,6 +14029,7 @@ export interface components {
             effectiveValue?: unknown;
             overrideValue?: unknown;
             baselineValue?: unknown;
+            defaultValue?: unknown;
             source?: string;
             restartRequired?: boolean;
             isPendingRestart?: boolean;

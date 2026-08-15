@@ -35,7 +35,13 @@ import {
   FieldLabel,
 } from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
-import { toGracePeriod, useGracePeriodPresets } from "@/lib/presets"
+import {
+  DEFAULT_GRACE_PERIOD_MINUTES,
+  MIN_GRACE_PERIOD_MINUTES,
+  toGracePeriod,
+  useGracePeriodPresets,
+} from "@/lib/presets"
+import { FieldConstraints } from "@authsystem/ui/common/field-constraints"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
@@ -490,13 +496,17 @@ export function ApiKeysPage() {
               <Input
                 id="grace"
                 type="number"
-                min={0}
+                min={MIN_GRACE_PERIOD_MINUTES}
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
               />
             )}
           </PresetField>
           <FieldDescription>{t("apiKeys.gracePeriodHint")}</FieldDescription>
+          <FieldConstraints
+            min={MIN_GRACE_PERIOD_MINUTES}
+            defaultValue={DEFAULT_GRACE_PERIOD_MINUTES}
+          />
         </Field>
       </ConfirmDialog>
     </div>

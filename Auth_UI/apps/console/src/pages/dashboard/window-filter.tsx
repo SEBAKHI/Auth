@@ -2,7 +2,8 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@authsystem/ui/button"
-import { Field, FieldDescription, FieldLabel } from "@authsystem/ui/field"
+import { Field, FieldLabel } from "@authsystem/ui/field"
+import { FieldConstraints } from "@authsystem/ui/common/field-constraints"
 import { Input } from "@authsystem/ui/input"
 import {
   Popover,
@@ -125,12 +126,10 @@ export function WindowFilter({
                     {t("common.apply")}
                   </Button>
                 </div>
-                <FieldDescription>
-                  {t("dashboard.windowCustomHint", {
-                    min: MIN_DAYS,
-                    max: MAX_DAYS,
-                  })}
-                </FieldDescription>
+                {/* Was a hint string of its own saying the same thing in its
+                    own words. One phrasing for bounds across the console beats
+                    a per-screen one, and the label already carries the unit. */}
+                <FieldConstraints min={MIN_DAYS} max={MAX_DAYS} />
               </Field>
             </PopoverContent>
           </Popover>

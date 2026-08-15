@@ -144,55 +144,86 @@ builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
+    // Limits are read per request from GatewayRuntimeSettingsProvider, not once
+    // from this process's configuration file: they are console-owned settings
+    // that arrive over the settings pull, and a value frozen here would ignore
+    // every save until the next deployment.
+    //
+    // Partition keys carry the settings version for the same reason the Auth
+    // API's do — a partition caches its limiter on first hit, so without the
+    // stamp a saved change would sit unapplied until every open window idled
+    // out, and an administrator would reasonably conclude the setting is fake.
+    static GatewayRateLimits Limits(HttpContext context) =>
+        context.RequestServices.GetRequiredService<GatewayRuntimeSettingsProvider>().Current.RateLimits;
+
+    static int SettingsVersion(HttpContext context) =>
+        context.RequestServices.GetRequiredService<GatewayRuntimeSettingsProvider>().Current.Version;
+
+    // NOTE: partitioning on Connection.RemoteIpAddress assumes this process is
+    // the edge. Behind a reverse proxy or CDN it collapses every client into
+    // one bucket — see the warning in Auth_API/Program.cs. Fixing it means
+    // UseForwardedHeaders with a known-proxy list, which depends on the
+    // deployment topology and is tracked separately.
+    static string ClientId(HttpContext context) =>
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
     // Global rate limit
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
-        var clientId = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var limits = Limits(context);
 
-        return RateLimitPartition.GetFixedWindowLimiter(clientId, _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = builder.Configuration.GetValue("RateLimiting:GlobalPermitLimit", 1000),
-            Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:GlobalWindowSeconds", 60)),
-            QueueLimit = builder.Configuration.GetValue("RateLimiting:GlobalQueueLimit", 100),
-            QueueProcessingOrder = QueueProcessingOrder.OldestFirst
-        });
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"v{SettingsVersion(context)}:{ClientId(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.GlobalPermitLimit,
+                Window = TimeSpan.FromSeconds(limits.GlobalWindowSeconds),
+                QueueLimit = limits.GlobalQueueLimit,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            });
     });
 
     // Per-endpoint rate limits
     options.AddPolicy("auth", context =>
     {
-        var clientId = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var limits = Limits(context);
 
-        return RateLimitPartition.GetFixedWindowLimiter(clientId, _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = builder.Configuration.GetValue("RateLimiting:AuthPermitLimit", 20),
-            Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:AuthWindowSeconds", 60)),
-            QueueLimit = 0
-        });
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"v{SettingsVersion(context)}:{ClientId(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.AuthPermitLimit,
+                Window = TimeSpan.FromSeconds(limits.AuthWindowSeconds),
+                QueueLimit = 0
+            });
     });
 
     options.AddPolicy("api", context =>
     {
-        var clientId = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var limits = Limits(context);
 
-        return RateLimitPartition.GetFixedWindowLimiter(clientId, _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = builder.Configuration.GetValue("RateLimiting:ApiPermitLimit", 100),
-            Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:ApiWindowSeconds", 60)),
-            QueueLimit = 10
-        });
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"v{SettingsVersion(context)}:{ClientId(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.ApiPermitLimit,
+                Window = TimeSpan.FromSeconds(limits.ApiWindowSeconds),
+                QueueLimit = 10
+            });
     });
 
     options.AddPolicy("admin", context =>
     {
-        var clientId = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var limits = Limits(context);
 
-        return RateLimitPartition.GetFixedWindowLimiter(clientId, _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = builder.Configuration.GetValue("RateLimiting:AdminPermitLimit", 10),
-            Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:AdminWindowSeconds", 60)),
-            QueueLimit = 0
-        });
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"v{SettingsVersion(context)}:{ClientId(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.AdminPermitLimit,
+                Window = TimeSpan.FromSeconds(limits.AdminWindowSeconds),
+                QueueLimit = 0
+            });
     });
 
     options.OnRejected = async (context, token) =>

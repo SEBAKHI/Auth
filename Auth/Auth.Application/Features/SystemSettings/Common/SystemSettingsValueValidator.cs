@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Auth.Application.SystemSettings;
 using Auth.Domain.Errors;
@@ -240,6 +241,109 @@ internal static class SystemSettingsValueValidator
                         ? null
                         : $"'{entry}' must be an image/* content type.");
                 break;
+
+            case "GatewayRateLimiting":
+                ValidateGatewayRateCeiling(values, section, errors, effectiveValue);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The gateway's per-route policies, each as its (permit, window) pair.
+    /// </summary>
+    private static readonly (string Permit, string Window)[] GatewayRatePolicies =
+    [
+        ("AuthPermitLimit", "AuthWindowSeconds"),
+        ("ApiPermitLimit", "ApiWindowSeconds"),
+        ("AdminPermitLimit", "AdminWindowSeconds")
+    ];
+
+    /// <summary>
+    /// Refuses a gateway save whose global bucket is slower than one of the
+    /// per-route policies it sits above.
+    /// <para>
+    /// Every request passes the global limiter before its route policy, so the
+    /// lower of the two is what a client actually gets. Without this rule an
+    /// administrator can raise ApiPermitLimit to 2000, watch it save, and be
+    /// throttled at the unchanged global 1000 — a control that reports success
+    /// and does nothing, which is the exact failure the registry pruned the
+    /// dead throttle fields to avoid.
+    /// </para>
+    /// </summary>
+    private static void ValidateGatewayRateCeiling(
+        IReadOnlyList<KeyValuePair<string, JsonElement>> values,
+        SettingSectionDefinition section,
+        List<Error> errors,
+        Func<string, string?> effectiveValue)
+    {
+        // Rates, not raw permits: the windows are independently editable, so
+        // 100/60s and 100/3600s are not the same ceiling.
+        double? Rate(string permitField, string windowField)
+        {
+            if (TryReadLong(permitField) is not { } permits ||
+                TryReadLong(windowField) is not { } seconds ||
+                seconds <= 0)
+            {
+                return null;
+            }
+
+            return (double)permits / seconds;
+        }
+
+        long? TryReadLong(string fieldPath) =>
+            long.TryParse(
+                PayloadOrEffective(values, section, fieldPath, effectiveValue),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var parsed)
+                ? parsed
+                : null;
+
+        // An unreadable value is already reported by the per-field validation;
+        // pairing stays silent rather than adding a second, vaguer error.
+        if (Rate("GlobalPermitLimit", "GlobalWindowSeconds") is not { } globalRate)
+        {
+            return;
+        }
+
+        var outrunning = GatewayRatePolicies
+            .Select(policy => (policy.Permit, Rate: Rate(policy.Permit, policy.Window)))
+            .Where(policy => policy.Rate is { } rate && rate > globalRate)
+            .ToList();
+
+        if (outrunning.Count == 0)
+        {
+            return;
+        }
+
+        // Report on a field this save actually touched: naming the global
+        // ceiling to an administrator who was raising a route policy points
+        // them at a control they did not open.
+        var editsGlobal = ContainsField(values, "GlobalPermitLimit")
+                       || ContainsField(values, "GlobalWindowSeconds");
+
+        if (editsGlobal)
+        {
+            // Lowering the ceiling can undercut all three policies at once, but
+            // that is one mistake, not three. Name the fastest — clear it and
+            // the rest clear with it.
+            var fastest = outrunning.MaxBy(policy => policy.Rate)!.Permit;
+
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                "GlobalPermitLimit",
+                $"the global bucket would allow fewer requests per second than {fastest}, and every " +
+                "request passes the global limiter first, so the lower ceiling is the one clients hit. " +
+                "Raise the global limit, or lower the policies above it."));
+            return;
+        }
+
+        foreach (var (permitField, _) in outrunning)
+        {
+            errors.Add(SystemSettingsErrors.InvalidFieldValue(
+                permitField,
+                "the global bucket would allow fewer requests per second than this, and every request " +
+                "passes the global limiter first, so the lower ceiling is the one clients hit. " +
+                "Raise the global limit or lower this one."));
         }
     }
 

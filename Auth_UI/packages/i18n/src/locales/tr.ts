@@ -62,6 +62,10 @@ export const tr: TranslationResources = {
     lastUsed: "Son kullanım",
     optional: "İsteğe bağlı",
     required: "Zorunlu",
+    range: "Aralık: {{range}}",
+    rangeMin: "En az: {{min}}",
+    rangeMax: "En fazla: {{max}}",
+    defaultValue: "Varsayılan: {{value}}",
     signOut: "Oturumu kapat",
     profile: "Profil",
     language: "Dil",
@@ -254,7 +258,6 @@ export const tr: TranslationResources = {
     window: "Dönem",
     windowHint: "Bu sayfadaki her sayının ne kadar geriye gidilerek ölçüldüğü.",
     windowCustom: "Kapsanacak gün sayısı",
-    windowCustomHint: "{{min}} ile {{max}} gün arasında.",
     windowLabel: "Son {{days}} gün.",
     granularity: "Ayrıntı düzeyi",
     granularityHint: "Zaman eksenindeki her noktanın bir gün mü bir hafta mı olduğu.",
@@ -704,8 +707,9 @@ export const tr: TranslationResources = {
     rateLimitPerMinute: "Hız sınırı / dakika",
     rateLimitPerDay: "Hız sınırı / gün",
     rateLimitPerMinuteHint:
-      "Bu anahtarın bir dakika içinde yapabileceği istek sayısı.",
-    rateLimitPerDayHint: "Bu anahtarın bir günde yapabileceği istek sayısı.",
+      "Bu anahtarın bir dakika içinde yapabileceği istek sayısı. Yol gösterici bir değerdir: sayı saklanır ve anahtarı doğrulayan hizmete verilir — burada hiçbir şey istekleri saymaz ya da reddetmez.",
+    rateLimitPerDayHint:
+      "Bu anahtarın bir günde yapabileceği istek sayısı. Yukarıdaki gibi yol gösterici: bu sistem değil, anahtarı doğrulayan hizmet uygular.",
     scopes: "Kapsamlar",
     revoke: "İptal et",
     rotate: "Yenile",
@@ -1434,6 +1438,34 @@ export const tr: TranslationResources = {
       passwordResetPermitLimitHint: "Önerilen: 10 — anonim bir uç nokta için temel hijyen.",
       passwordResetWindowSeconds: "Parola sıfırlama penceresi (saniye)",
       passwordResetWindowSecondsHint: "Önerilen: 60.",
+    },
+    gatewayRateLimiting: {
+      title: "İstek hızı sınırlama (Ağ geçidi)",
+      description:
+        "İstek API'ye ulaşmadan önce, uçta istemci IP'si başına uygulanan sınırlama. Dış halka; yukarıdaki API bölümü ise iç halka. Kaydedilen değişiklik ağ geçidine yaklaşık 30 saniye içinde ulaşır: ağ geçidi bu veritabanını paylaşmayan, ayarlarını kendisi çeken ayrı bir süreçtir.",
+      globalPermitLimit: "Genel istek tavanı",
+      globalPermitLimitHint:
+        "Aşağıdaki üç politikanın üstünde, ağ geçidinden geçen her isteğe uygulanır. Bunların en hızlısından yavaş olmamalıdır, aksi hâlde onları sessizce kısar.",
+      globalWindowSeconds: "Genel pencere (saniye)",
+      globalWindowSecondsHint: "Genel tavanın sayıldığı süre.",
+      globalQueueLimit: "Genel kuyruk uzunluğu",
+      globalQueueLimitHint:
+        "Tavana ulaşıldığında reddedilmek yerine bekleyen istek sayısı. Sıfır, kuyruk olmadan anında ret demektir.",
+      authPermitLimit: "Pencere başına oturum açma isteği",
+      authPermitLimitHint:
+        "/auth/ yollarını kapsar. API bölümündeki oturum açma sınırının dış ikizi — onu bu değerin altında tutun, yoksa iç sınır hiç devreye giremez.",
+      authWindowSeconds: "Oturum açma penceresi (saniye)",
+      authWindowSecondsHint: "Önerilen: 60.",
+      apiPermitLimit: "Pencere başına genel API isteği",
+      apiPermitLimitHint:
+        "Olağan okuma ve yazma uç noktalarını kapsar: kullanıcılar, roller, uygulamalar, kuruluşlar, görseller, denetim kayıtları.",
+      apiWindowSeconds: "Genel API penceresi (saniye)",
+      apiWindowSecondsHint: "Önerilen: 60.",
+      adminPermitLimit: "Pencere başına yönetim konsolu isteği",
+      adminPermitLimitHint:
+        "/admin/ yollarını kapsar: platform ayarları, sistem ayarları, gizli anahtarlar. Tek bir konsol ekranı birkaç istek harcayabilir; bu yüzden genel API sınırına yakın bir değer doğrudur. Bu yolları asıl koruyan, anonim trafiğe göre ölçülmüş bir kısıt değil, izin denetimi ve denetim kaydıdır.",
+      adminWindowSeconds: "Yönetim konsolu penceresi (saniye)",
+      adminWindowSecondsHint: "Önerilen: 60.",
     },
     externalAuth: {
       title: "Harici oturum açma (Google / Apple)",

@@ -62,6 +62,10 @@ export const ar: TranslationResources = {
     lastUsed: "آخر استخدام",
     optional: "اختياري",
     required: "مطلوب",
+    range: "النطاق: {{range}}",
+    rangeMin: "الحد الأدنى: {{min}}",
+    rangeMax: "الحد الأقصى: {{max}}",
+    defaultValue: "الافتراضي: {{value}}",
     signOut: "تسجيل الخروج",
     profile: "الملف الشخصي",
     language: "اللغة",
@@ -251,7 +255,6 @@ export const ar: TranslationResources = {
     window: "المدة",
     windowHint: "المدة التي تُحسب عليها كل الأرقام في هذه الصفحة.",
     windowCustom: "عدد الأيام",
-    windowCustomHint: "بين {{min}} و{{max}} يومًا.",
     windowLabel: "آخر {{days}} يومًا.",
     granularity: "التجميع",
     granularityHint: "هل تمثل كل نقطة على المحور الزمني يومًا واحدًا أم أسبوعًا.",
@@ -686,8 +689,9 @@ export const ar: TranslationResources = {
     rateLimitPerMinute: "حد المعدل / دقيقة",
     rateLimitPerDay: "حد المعدل / يوم",
     rateLimitPerMinuteHint:
-      "عدد الطلبات المسموح بها لهذا المفتاح في الدقيقة الواحدة.",
-    rateLimitPerDayHint: "عدد الطلبات المسموح بها لهذا المفتاح في اليوم.",
+      "عدد الطلبات المسموح بها لهذا المفتاح في الدقيقة الواحدة. قيمة إرشادية: يُخزَّن الرقم ويُسلَّم إلى الخدمة التي تتحقق من المفتاح — ولا شيء هنا يعدّ الطلبات أو يرفضها.",
+    rateLimitPerDayHint:
+      "عدد الطلبات المسموح بها لهذا المفتاح في اليوم. إرشادية كسابقتها: تفرضها الخدمة التي تتحقق من المفتاح، لا هذا النظام.",
     scopes: "النطاقات",
     revoke: "إلغاء",
     rotate: "تدوير",
@@ -1398,6 +1402,34 @@ export const ar: TranslationResources = {
       passwordResetPermitLimitHint: "الموصى به: 10 — إجراء وقائي لنقطة وصول مفتوحة دون تسجيل دخول.",
       passwordResetWindowSeconds: "نافذة إعادة تعيين كلمة المرور (ثوانٍ)",
       passwordResetWindowSecondsHint: "الموصى به: 60.",
+    },
+    gatewayRateLimiting: {
+      title: "تحديد معدل الطلبات (البوابة)",
+      description:
+        "تقييد الطلبات لكل عنوان IP عند الحافة، قبل أن يصل الطلب إلى الـAPI. هذا هو الطوق الخارجي، وقسم الـAPI أعلاه هو الداخلي. التغيير المحفوظ يصل إلى البوابة خلال 30 ثانية تقريبًا، لأنها عملية منفصلة تسحب إعداداتها ولا تشارك قاعدة البيانات هذه.",
+      globalPermitLimit: "السقف العام للطلبات",
+      globalPermitLimitHint:
+        "يسري على كل طلب يمرّ بالبوابة، فوق السياسات الثلاث أدناه. يجب ألّا يكون أبطأ من أسرعها، وإلا قيّدها بصمت.",
+      globalWindowSeconds: "النافذة العامة (ثوانٍ)",
+      globalWindowSecondsHint: "المدة التي يُحسب السقف العام خلالها.",
+      globalQueueLimit: "طول الطابور العام",
+      globalQueueLimitHint:
+        "عدد الطلبات التي تنتظر بدل أن تُرفض عند بلوغ السقف. الصفر يعني الرفض الفوري بلا انتظار.",
+      authPermitLimit: "طلبات المصادقة لكل نافذة",
+      authPermitLimitHint:
+        "تغطي مسارات ‎/auth/‎. التوأم الخارجي لحدّ تسجيل الدخول في قسم الـAPI — أبقِها عنده أو فوقه، وإلا لم تسنح للحدّ الداخلي فرصة العمل.",
+      authWindowSeconds: "نافذة المصادقة (ثوانٍ)",
+      authWindowSecondsHint: "الموصى به: 60.",
+      apiPermitLimit: "طلبات الـAPI العامة لكل نافذة",
+      apiPermitLimitHint:
+        "تغطي نقاط القراءة والكتابة المعتادة: المستخدمون والأدوار والتطبيقات والمنظمات والصور وسجلات التدقيق.",
+      apiWindowSeconds: "نافذة الـAPI العامة (ثوانٍ)",
+      apiWindowSecondsHint: "الموصى به: 60.",
+      adminPermitLimit: "طلبات لوحة الإدارة لكل نافذة",
+      adminPermitLimitHint:
+        "تغطي مسارات ‎/admin/‎: إعدادات المنصة وإعدادات النظام والأسرار. الشاشة الواحدة قد تُنفق عدة طلبات، فالقيمة المناسبة قريبة من حدّ الـAPI العام. وما يحمي هذه المسارات فعلًا هو فحص الصلاحيات وسجل التدقيق، لا خنقٌ مصمَّم لحركة مجهولة.",
+      adminWindowSeconds: "نافذة لوحة الإدارة (ثوانٍ)",
+      adminWindowSecondsHint: "الموصى به: 60.",
     },
     externalAuth: {
       title: "تسجيل الدخول الخارجي (Google / Apple)",

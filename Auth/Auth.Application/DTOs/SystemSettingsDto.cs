@@ -71,6 +71,15 @@ public record SystemSettingsFieldDto
     /// <summary>The configuration-file/environment value overrides fall back to.</summary>
     public object? BaselineValue { get; init; }
 
+    /// <summary>
+    /// The value shipped with the system, independent of anything this
+    /// deployment configured. Distinct from <see cref="BaselineValue"/>, which
+    /// is the file value OR this default when no file value exists: that
+    /// coalescing is right for "what would I fall back to", and wrong for
+    /// telling an administrator what the original number is.
+    /// </summary>
+    public object? DefaultValue { get; init; }
+
     /// <summary>database | file | default | secrets.</summary>
     public string Source { get; init; } = "default";
 

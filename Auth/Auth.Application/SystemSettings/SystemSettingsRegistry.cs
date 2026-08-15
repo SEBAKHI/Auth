@@ -165,6 +165,54 @@ public static class SystemSettingsRegistry
             ]),
 
         new SettingSectionDefinition(
+            Key: "GatewayRateLimiting",
+            ConfigRoot: "GatewayRateLimiting",
+            Group: SettingGroups.Access,
+            Editable: true,
+            // The API Gateway's OWN limiter, which runs at the edge before a
+            // request ever reaches this process. A separate section from
+            // RateLimiting above, not extra fields on it: these two throttles
+            // live in two processes, and one storage row per section is what
+            // makes "who owns this key" answerable.
+            //
+            // The gateway cannot read the database, so these values reach it
+            // over the existing settings pull (GatewayRuntimeSettingsController
+            // → GatewayRuntimeSettingsPoller). That makes them hot but not
+            // instant: a save lands within one poll interval, and the gateway
+            // stamps its partition keys with the settings version so a new
+            // limit applies to fresh partitions rather than waiting for every
+            // open window to idle out. The console copy says so; promising
+            // "immediately" here would be the kind of half-truth this registry
+            // exists to prevent.
+            //
+            // Defaults mirror the fallbacks API_Gateway/Program.cs passes to
+            // GetValue and the values in its appsettings.json (no options class
+            // exists on either side); GatewayRateLimitingParityTests guards the
+            // three from drifting apart.
+            Fields:
+            [
+                new SettingFieldDefinition("GlobalPermitLimit", SettingKind.Int, Min: 10, Max: 1000000, DefaultValue: 1000),
+                new SettingFieldDefinition("GlobalWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // 0 is a real choice here, not an unset sentinel: it means
+                // reject on arrival instead of holding the request in a queue.
+                new SettingFieldDefinition("GlobalQueueLimit", SettingKind.Int, Min: 0, Max: 10000, DefaultValue: 100),
+                new SettingFieldDefinition("AuthPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
+                new SettingFieldDefinition("AuthWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                new SettingFieldDefinition("ApiPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 100),
+                new SettingFieldDefinition("ApiWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // 120, not the 10 this shipped with. Ten requests a minute was
+                // stricter than the general api policy (100) for a route group
+                // used by a handful of authenticated, permission-checked,
+                // fully-audited accounts — and one console screen can spend
+                // several requests, so an administrator hit the wall doing
+                // ordinary work. Authorization and the audit log are what
+                // defend /admin/**; a throttle sized for anonymous traffic
+                // only defends it from its own operators.
+                new SettingFieldDefinition("AdminPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 120),
+                new SettingFieldDefinition("AdminWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+            ]),
+
+        new SettingSectionDefinition(
             Key: "ExternalAuth",
             ConfigRoot: "ExternalAuth",
             Group: SettingGroups.Access,

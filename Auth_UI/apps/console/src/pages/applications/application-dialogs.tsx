@@ -8,6 +8,7 @@ import { z } from "zod"
 
 import { FormDialog } from "@authsystem/ui/common/form-dialog"
 import { PresetField } from "@authsystem/ui/common/preset-field"
+import { FieldConstraints } from "@authsystem/ui/common/field-constraints"
 import {
   Field,
   FieldContent,
@@ -166,6 +167,20 @@ function useToggles(): { name: ToggleName; label: string; hint: string }[] {
  * across every application. The column and its API field survive so no
  * integration breaks; the edit dialog round-trips the stored value untouched.
  */
+/**
+ * Session-timing bounds, declared once for the input attributes, the presets
+ * and the line the user reads. `reauthMaxAge` has a real ceiling (7 days) that
+ * until now only appeared as an `Input` attribute the browser enforced
+ * silently — the operator met it by being refused.
+ *
+ * Only the create dialog states a default: the edit dialog shows the value
+ * that was saved, and labelling that "the default" would invent one.
+ */
+const SESSION_TIMEOUT_MIN_MINUTES = 1
+const DEFAULT_SESSION_TIMEOUT_MINUTES = 60
+const REAUTH_MAX_AGE_MIN_MINUTES = 1
+const REAUTH_MAX_AGE_MAX_MINUTES = 10080
+
 function useSessionPresets() {
   const { t } = useTranslation()
   const minutes = (count: number) => t("common.minutesShort", { count })
@@ -431,7 +446,7 @@ export function ApplicationCreateDialog({
                 {({ value, onChange }) => (
                   <Input
                     type="number"
-                    min={1}
+                    min={SESSION_TIMEOUT_MIN_MINUTES}
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                   />
@@ -441,6 +456,10 @@ export function ApplicationCreateDialog({
             <FormDescription>
               {t("applications.sessionTimeoutHint")}
             </FormDescription>
+            <FieldConstraints
+              min={SESSION_TIMEOUT_MIN_MINUTES}
+              defaultValue={DEFAULT_SESSION_TIMEOUT_MINUTES}
+            />
             <FormMessage />
           </FormItem>
         )}
@@ -460,8 +479,8 @@ export function ApplicationCreateDialog({
                 {({ value, onChange }) => (
                   <Input
                     type="number"
-                    min={1}
-                    max={10080}
+                    min={REAUTH_MAX_AGE_MIN_MINUTES}
+                    max={REAUTH_MAX_AGE_MAX_MINUTES}
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                   />
@@ -471,6 +490,12 @@ export function ApplicationCreateDialog({
             <FormDescription>
               {t("applications.reauthMaxAgeHint")}
             </FormDescription>
+            {/* No default line: this field ships off, and "off" is the empty
+                preset rather than a number to state. */}
+            <FieldConstraints
+              min={REAUTH_MAX_AGE_MIN_MINUTES}
+              max={REAUTH_MAX_AGE_MAX_MINUTES}
+            />
             <FormMessage />
           </FormItem>
         )}
@@ -775,7 +800,7 @@ export function ApplicationEditDialog({
                 {({ value, onChange }) => (
                   <Input
                     type="number"
-                    min={1}
+                    min={SESSION_TIMEOUT_MIN_MINUTES}
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                   />
@@ -785,6 +810,10 @@ export function ApplicationEditDialog({
             <FormDescription>
               {t("applications.sessionTimeoutHint")}
             </FormDescription>
+            <FieldConstraints
+              min={SESSION_TIMEOUT_MIN_MINUTES}
+              defaultValue={DEFAULT_SESSION_TIMEOUT_MINUTES}
+            />
             <FormMessage />
           </FormItem>
         )}
@@ -804,8 +833,8 @@ export function ApplicationEditDialog({
                 {({ value, onChange }) => (
                   <Input
                     type="number"
-                    min={1}
-                    max={10080}
+                    min={REAUTH_MAX_AGE_MIN_MINUTES}
+                    max={REAUTH_MAX_AGE_MAX_MINUTES}
                     value={value}
                     onChange={(event) => onChange(event.target.value)}
                   />
@@ -815,6 +844,12 @@ export function ApplicationEditDialog({
             <FormDescription>
               {t("applications.reauthMaxAgeHint")}
             </FormDescription>
+            {/* No default line: this field ships off, and "off" is the empty
+                preset rather than a number to state. */}
+            <FieldConstraints
+              min={REAUTH_MAX_AGE_MIN_MINUTES}
+              max={REAUTH_MAX_AGE_MAX_MINUTES}
+            />
             <FormMessage />
           </FormItem>
         )}

@@ -57,6 +57,10 @@ export const en = {
     lastUsed: "Last used",
     optional: "Optional",
     required: "Required",
+    range: "Range: {{range}}",
+    rangeMin: "Minimum: {{min}}",
+    rangeMax: "Maximum: {{max}}",
+    defaultValue: "Default: {{value}}",
     signOut: "Sign out",
     profile: "Profile",
     language: "Language",
@@ -248,7 +252,6 @@ export const en = {
     window: "Period",
     windowHint: "How far back every number on this page is measured.",
     windowCustom: "Days to include",
-    windowCustomHint: "Between {{min}} and {{max}} days.",
     windowLabel: "Trailing {{days}} days.",
     granularity: "Granularity",
     granularityHint: "Whether points on the time axis are one day or one week.",
@@ -687,8 +690,10 @@ export const en = {
       "Which deployment this key belongs to, so keys are easy to tell apart.",
     rateLimitPerMinute: "Rate limit / minute",
     rateLimitPerDay: "Rate limit / day",
-    rateLimitPerMinuteHint: "Requests this key may make in any one minute.",
-    rateLimitPerDayHint: "Requests this key may make in a single day.",
+    rateLimitPerMinuteHint:
+      "Requests this key may make in any one minute. Advisory: the number is stored and handed to whichever service validates the key — nothing here counts requests or rejects them.",
+    rateLimitPerDayHint:
+      "Requests this key may make in a single day. Advisory, like the limit above: enforced by the service that validates the key, not by this system.",
     scopes: "Scopes",
     revoke: "Revoke",
     rotate: "Rotate",
@@ -1419,6 +1424,34 @@ export const en = {
       passwordResetPermitLimitHint: "Recommended: 10 — hygiene for an anonymous endpoint.",
       passwordResetWindowSeconds: "Password-reset window (seconds)",
       passwordResetWindowSecondsHint: "Recommended: 60.",
+    },
+    gatewayRateLimiting: {
+      title: "Rate limiting (Gateway)",
+      description:
+        "Per-client-IP throttling at the edge, applied before a request reaches the API. The outer ring; the API section above is the inner one. A saved change reaches the gateway within about 30 seconds, because it is a separate process that pulls its settings rather than sharing this database.",
+      globalPermitLimit: "Global request ceiling",
+      globalPermitLimitHint:
+        "Applies to every request through the gateway, on top of the three policies below. It must not be slower than the fastest of them, or it silently caps them.",
+      globalWindowSeconds: "Global window (seconds)",
+      globalWindowSecondsHint: "The span the global ceiling is counted over.",
+      globalQueueLimit: "Global queue length",
+      globalQueueLimitHint:
+        "How many requests wait instead of being rejected once the ceiling is reached. Zero means reject on arrival with no queue.",
+      authPermitLimit: "Sign-in requests per window",
+      authPermitLimitHint:
+        "Covers the /auth/ routes. The outer twin of the sign-in limit in the API section — keep it at or above that one, or the inner limit never gets a chance to fire.",
+      authWindowSeconds: "Sign-in window (seconds)",
+      authWindowSecondsHint: "Recommended: 60.",
+      apiPermitLimit: "General API requests per window",
+      apiPermitLimitHint:
+        "Covers the ordinary read and write endpoints: users, roles, applications, organizations, images, audit logs.",
+      apiWindowSeconds: "General API window (seconds)",
+      apiWindowSecondsHint: "Recommended: 60.",
+      adminPermitLimit: "Admin console requests per window",
+      adminPermitLimitHint:
+        "Covers the /admin/ routes: platform settings, system settings, secrets. One console screen can spend several requests, so a value near the general API limit is the right shape. What actually protects these routes is the permission check and the audit log, not a throttle sized for anonymous traffic.",
+      adminWindowSeconds: "Admin console window (seconds)",
+      adminWindowSecondsHint: "Recommended: 60.",
     },
     externalAuth: {
       title: "External sign-in (Google / Apple)",

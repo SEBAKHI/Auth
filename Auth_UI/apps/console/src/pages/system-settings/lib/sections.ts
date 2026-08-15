@@ -30,6 +30,7 @@ export const SECTION_I18N: Record<string, string> = {
   Gateway: "gateway",
   Cors: "cors",
   RateLimiting: "rateLimiting",
+  GatewayRateLimiting: "gatewayRateLimiting",
   ExternalAuth: "externalAuth",
   IdentityProvider: "identityProvider",
   Email: "email",

@@ -80,8 +80,26 @@ public sealed class GatewayRuntimeSettingsController : ControllerBase
             Version: _reloader.Version,
             CorsAllowedOrigins: origins,
             CorsAllowCredentials: _configuration.GetValue("Cors:AllowCredentials", false),
-            HealthChecksExposeErrorDetails: _configuration.GetValue("HealthChecks:ExposeErrorDetails", false)));
+            HealthChecksExposeErrorDetails: _configuration.GetValue("HealthChecks:ExposeErrorDetails", false),
+            RateLimits: ReadRateLimits()));
     }
+
+    /// <summary>
+    /// The gateway's own limiter values, read live from the same configuration
+    /// stack as everything else here. Defaults mirror the registry and the
+    /// gateway's file layer; GatewayRateLimitingParityTests keeps the three in
+    /// step.
+    /// </summary>
+    private GatewayRateLimitsResponse ReadRateLimits() => new(
+        GlobalPermitLimit: _configuration.GetValue("GatewayRateLimiting:GlobalPermitLimit", 1000),
+        GlobalWindowSeconds: _configuration.GetValue("GatewayRateLimiting:GlobalWindowSeconds", 60),
+        GlobalQueueLimit: _configuration.GetValue("GatewayRateLimiting:GlobalQueueLimit", 100),
+        AuthPermitLimit: _configuration.GetValue("GatewayRateLimiting:AuthPermitLimit", 20),
+        AuthWindowSeconds: _configuration.GetValue("GatewayRateLimiting:AuthWindowSeconds", 60),
+        ApiPermitLimit: _configuration.GetValue("GatewayRateLimiting:ApiPermitLimit", 100),
+        ApiWindowSeconds: _configuration.GetValue("GatewayRateLimiting:ApiWindowSeconds", 60),
+        AdminPermitLimit: _configuration.GetValue("GatewayRateLimiting:AdminPermitLimit", 120),
+        AdminWindowSeconds: _configuration.GetValue("GatewayRateLimiting:AdminWindowSeconds", 60));
 
     private bool HasValidGatewayToken()
     {
@@ -120,4 +138,21 @@ public sealed record GatewayRuntimeSettingsResponse(
     int Version,
     IReadOnlyList<string> CorsAllowedOrigins,
     bool CorsAllowCredentials,
-    bool HealthChecksExposeErrorDetails);
+    bool HealthChecksExposeErrorDetails,
+    GatewayRateLimitsResponse RateLimits);
+
+/// <summary>
+/// The gateway's rate-limiter numbers. They live in the console because the
+/// gateway process cannot reach the database; this pull is the only way a
+/// saved value gets there.
+/// </summary>
+public sealed record GatewayRateLimitsResponse(
+    int GlobalPermitLimit,
+    int GlobalWindowSeconds,
+    int GlobalQueueLimit,
+    int AuthPermitLimit,
+    int AuthWindowSeconds,
+    int ApiPermitLimit,
+    int ApiWindowSeconds,
+    int AdminPermitLimit,
+    int AdminWindowSeconds);
