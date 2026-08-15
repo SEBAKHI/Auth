@@ -20,6 +20,7 @@ import {
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
 import { api } from "@authsystem/api/client"
+import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 import { useAuth } from "@authsystem/auth/auth-context"
@@ -175,7 +176,9 @@ function RegisterAndJoin({
     .object({
       firstName: z.string().min(1, t("validation.required")),
       lastName: z.string().min(1, t("validation.required")),
-      password: z.string().min(8, t("validation.minLength", { count: 8 })),
+      password: z
+        .string()
+        .min(PASSWORD_LENGTH_FLOOR, t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR })),
       confirmPassword: z.string().min(1, t("validation.required")),
     })
     .refine((data) => data.password === data.confirmPassword, {

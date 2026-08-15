@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { api } from "@authsystem/api/client"
+import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import { Button } from "@authsystem/ui/button"
 import { FieldGroup } from "@authsystem/ui/field"
 import {
@@ -43,7 +44,9 @@ export function ResetPasswordPage() {
 
   const schema = z
     .object({
-      newPassword: z.string().min(8, t("validation.minLength", { count: 8 })),
+      newPassword: z
+        .string()
+        .min(PASSWORD_LENGTH_FLOOR, t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR })),
       confirmNewPassword: z.string().min(1, t("validation.required")),
     })
     .refine((data) => data.newPassword === data.confirmNewPassword, {

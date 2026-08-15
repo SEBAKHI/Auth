@@ -53,7 +53,16 @@ public static class SystemSettingsRegistry
             Editable: true,
             Fields:
             [
-                new SettingFieldDefinition("MinimumLength", SettingKind.Int, Min: 8, Max: 128, DefaultValue: 6),
+                // Min is the ABSOLUTE FLOOR the whole password stack accepts,
+                // not the recommendation: nothing between the sign-up form and
+                // PasswordValidator carries a length rule of its own, so an
+                // operator who sets 6 really gets 6. DefaultValue is the
+                // recommended policy (OWASP/NIST 8) and mirrors both the
+                // settings-class default and the shipped appsettings value, so
+                // the console's "default" and a reset both land on the same
+                // number. Before this, Min 8 forbade the default of 6 the
+                // console displayed — a range that excluded its own default.
+                new SettingFieldDefinition("MinimumLength", SettingKind.Int, Min: 6, Max: 128, DefaultValue: 8),
                 new SettingFieldDefinition("RequireUppercase", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("RequireLowercase", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("RequireDigit", SettingKind.Bool, DefaultValue: true),

@@ -31,6 +31,7 @@ import {
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
 import { api } from "@authsystem/api/client"
+import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
@@ -42,7 +43,9 @@ function ChangePasswordCard() {
   const schema = z
     .object({
       currentPassword: z.string().min(1, t("validation.required")),
-      newPassword: z.string().min(8, t("validation.minLength", { count: 8 })),
+      newPassword: z
+        .string()
+        .min(PASSWORD_LENGTH_FLOOR, t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR })),
       confirmNewPassword: z.string().min(1, t("validation.required")),
     })
     .refine((data) => data.newPassword === data.confirmNewPassword, {

@@ -8,9 +8,12 @@ public class PasswordSettings
     public const string SectionName = "Password";
 
     /// <summary>
-    /// Gets or sets the minimum password length.
+    /// Gets or sets the minimum password length. 8 is the OWASP/NIST floor and
+    /// the value appsettings ships, so deleting the key weakens nothing; the
+    /// policy can be lowered to 6 (the registry's absolute floor) or raised to
+    /// 128 from the console.
     /// </summary>
-    public int MinimumLength { get; set; } = 6;
+    public int MinimumLength { get; set; } = 8;
 
     /// <summary>
     /// Gets or sets whether uppercase letters are required.

@@ -18,6 +18,7 @@ import {
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
 import { api } from "@authsystem/api/client"
+import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 
@@ -61,11 +62,11 @@ export function UserFormDialog({
                 message: t("validation.email"),
               })
             }
-            if (!values.password || values.password.length < 8) {
+            if (!values.password || values.password.length < PASSWORD_LENGTH_FLOOR) {
               ctx.addIssue({
                 code: "custom",
                 path: ["password"],
-                message: t("validation.minLength", { count: 8 }),
+                message: t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR }),
               })
             }
           }

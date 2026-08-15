@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { api } from "@authsystem/api/client"
+import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import { privacyPolicyUrl } from "@authsystem/api/env"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
@@ -40,7 +41,9 @@ export function RegisterPage() {
         .regex(EMAIL_RE, t("validation.email")),
       firstName: z.string().min(1, t("validation.required")),
       lastName: z.string().min(1, t("validation.required")),
-      password: z.string().min(8, t("validation.minLength", { count: 8 })),
+      password: z
+        .string()
+        .min(PASSWORD_LENGTH_FLOOR, t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR })),
       confirmPassword: z.string().min(1, t("validation.required")),
     })
     .refine((data) => data.password === data.confirmPassword, {

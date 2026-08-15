@@ -15,10 +15,12 @@ public record ResetPasswordRequest
     public required string Token { get; init; }
 
     /// <summary>
-    /// Gets the new password to set.
+    /// Gets the new password to set. Length and complexity are the configured
+    /// policy's business, enforced by PasswordValidator in the handler; a
+    /// length attribute here would be a second, hardcoded floor that silently
+    /// overrode Password:MinimumLength whenever an operator lowered it.
     /// </summary>
     [Required]
-    [MinLength(8)]
     public required string NewPassword { get; init; }
 
     /// <summary>

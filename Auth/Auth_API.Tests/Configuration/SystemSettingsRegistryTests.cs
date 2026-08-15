@@ -1,3 +1,4 @@
+using System.Globalization;
 using Auth.Application.SystemSettings;
 
 namespace Auth_API.Tests.Configuration;
@@ -160,6 +161,28 @@ public class SystemSettingsRegistryTests
             field.Max.Should().NotBeNull("editable int '{0}' needs an upper bound", section.FullKey(field));
             field.Min!.Value.Should().BeLessThanOrEqualTo(field.Max!.Value);
         }
+    }
+
+    /// <summary>
+    /// A default outside its own range is a self-contradiction the console
+    /// renders verbatim: it prints "range 8-128, default 6" and then refuses
+    /// the 6 it just called the default. Worse, the number is not decorative —
+    /// it is what the field falls back to when neither files nor database
+    /// configure the key, so the range would be forbidding a value the system
+    /// actually runs on. Password:MinimumLength shipped exactly that.
+    /// </summary>
+    [Fact]
+    public void EditableIntDefaults_FallInsideTheirOwnBounds()
+    {
+        var offenders = AllFields()
+            .Where(x => x.Field.Kind == SettingKind.Int && x.Field.Editable && x.Field.DefaultValue is not null)
+            .Select(x => (Key: x.Section.FullKey(x.Field), x.Field,
+                Default: Convert.ToInt64(x.Field.DefaultValue, CultureInfo.InvariantCulture)))
+            .Where(x => x.Default < x.Field.Min || x.Default > x.Field.Max)
+            .Select(x => $"{x.Key} default {x.Default} outside [{x.Field.Min}, {x.Field.Max}]")
+            .ToList();
+
+        offenders.Should().BeEmpty("an int field's default must be a value the field itself accepts");
     }
 
     [Fact]
