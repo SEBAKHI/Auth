@@ -436,7 +436,10 @@
     <value>تم إنهاء الجلسة بالفعل.</value>
   </data>
   <data name="Session.MaxSessionsReached" xml:space="preserve">
-    <value>تم الوصول إلى الحد الأقصى لعدد الجلسات المتزامنة.</value>
+    <value>أنت مسجّل الدخول على {0} من {1} أجهزة مسموح بها. سجّل الخروج من جهاز آخر لتدخل من هنا.</value>
+  </data>
+  <data name="Session.MaxSessionsReachedUntil" xml:space="preserve">
+    <value>أنت مسجّل الدخول على {0} من {1} أجهزة مسموح بها. سجّل الخروج من جهاز آخر لتُفرِغ خانة، أو انتظر انتهاء أقرب هذه الجلسات في {2}.</value>
   </data>
 
   <!-- ==================== AuditLog Errors ==================== -->

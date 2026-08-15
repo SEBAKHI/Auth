@@ -434,7 +434,10 @@
     <value>نشست قبلاً پایان یافته است.</value>
   </data>
   <data name="Session.MaxSessionsReached" xml:space="preserve">
-    <value>به حداکثر تعداد نشست‌های همزمان رسیده‌اید.</value>
+    <value>شما روی {0} دستگاه از {1} دستگاه مجاز وارد شده‌اید. برای ورود از اینجا، در دستگاه دیگری خارج شوید.</value>
+  </data>
+  <data name="Session.MaxSessionsReachedUntil" xml:space="preserve">
+    <value>شما روی {0} دستگاه از {1} دستگاه مجاز وارد شده‌اید. برای آزاد کردن یک جایگاه در دستگاه دیگری خارج شوید، یا تا انقضای زودترین این نشست‌ها در {2} صبر کنید.</value>
   </data>
 
   <!-- ==================== AuditLog Errors ==================== -->

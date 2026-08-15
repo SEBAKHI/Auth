@@ -229,15 +229,18 @@ public class UserSessionRepository : IUserSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task<int> CountActiveForUserAsync(Guid userId, CancellationToken cancellationToken)
+    public async Task<ActiveSessionPressure> GetActiveSessionPressureAsync(
+        Guid userId,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
         // Same predicate as GetActiveSessionsForUserAsync, served by the filtered
-        // IX_UserSessions_UserId. Counting in SQL rather than materialising the
-        // list keeps the deny check off the row-mapping path it never needs.
-        return await connection.ExecuteScalarAsync<int>(@"
-            SELECT COUNT(*)
+        // IX_UserSessions_UserId. Aggregating in SQL rather than materialising the
+        // list keeps the deny check off the row-mapping path it never needs, and
+        // MIN rides along on the pass COUNT already makes.
+        return await connection.QuerySingleAsync<ActiveSessionPressure>(@"
+            SELECT COUNT(*) AS [Count], MIN([ExpiresAt]) AS [EarliestExpiry]
             FROM [dbo].[UserSessions]
             WHERE [UserId] = @UserId
               AND [EndedAt] IS NULL

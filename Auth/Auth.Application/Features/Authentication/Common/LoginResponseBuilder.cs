@@ -102,8 +102,9 @@ public class LoginResponseBuilder : ILoginResponseBuilder
         var limit = _sessionSettings.MaxConcurrentSessions;
         if (limit > 0 && !_sessionSettings.TerminateOldestOnMax)
         {
-            var activeCount = await _sessionRepository.CountActiveForUserAsync(
+            var pressure = await _sessionRepository.GetActiveSessionPressureAsync(
                 user.Id, cancellationToken);
+            var activeCount = pressure.Count;
 
             if (activeCount >= limit)
             {
@@ -120,10 +121,11 @@ public class LoginResponseBuilder : ILoginResponseBuilder
                     cancellationToken);
 
                 _logger.LogInformation(
-                    "Refused sign-in for user {UserId}: {ActiveCount} active sessions at a limit of {Limit}",
-                    user.Id, activeCount, limit);
+                    "Refused sign-in for user {UserId}: {ActiveCount} active sessions at a limit of {Limit}, earliest expiry {EarliestExpiry}",
+                    user.Id, activeCount, limit, pressure.EarliestExpiry);
 
-                return SessionErrors.MaxSessionsReached;
+                return SessionErrors.MaxSessionsReached(
+                    activeCount, limit, pressure.EarliestExpiry);
             }
         }
 

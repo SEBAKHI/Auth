@@ -434,7 +434,10 @@
     <value>سیشن پہلے سے ختم کیا جا چکا ہے۔</value>
   </data>
   <data name="Session.MaxSessionsReached" xml:space="preserve">
-    <value>بیک وقت سیشنز کی زیادہ سے زیادہ تعداد پوری ہو چکی ہے۔</value>
+    <value>آپ {1} مجاز آلات میں سے {0} پر لاگ اِن ہیں۔ یہاں سے داخل ہونے کے لیے کسی دوسرے آلے سے لاگ آؤٹ کریں۔</value>
+  </data>
+  <data name="Session.MaxSessionsReachedUntil" xml:space="preserve">
+    <value>آپ {1} مجاز آلات میں سے {0} پر لاگ اِن ہیں۔ جگہ خالی کرنے کے لیے کسی دوسرے آلے سے لاگ آؤٹ کریں، یا ان سیشنز میں سب سے پہلے ختم ہونے والے کی میعاد {2} تک انتظار کریں۔</value>
   </data>
 
   <!-- ==================== AuditLog Errors ==================== -->

@@ -434,7 +434,10 @@
     <value>会话已被终止。</value>
   </data>
   <data name="Session.MaxSessionsReached" xml:space="preserve">
-    <value>已达到最大并发会话数。</value>
+    <value>您已在 {1} 台允许设备中的 {0} 台上登录。请在其他设备上退出登录，才能在此登录。</value>
+  </data>
+  <data name="Session.MaxSessionsReachedUntil" xml:space="preserve">
+    <value>您已在 {1} 台允许设备中的 {0} 台上登录。请在其他设备上退出登录以腾出名额，或等待其中最早的会话于 {2} 过期。</value>
   </data>
 
   <!-- ==================== AuditLog Errors ==================== -->

@@ -434,7 +434,10 @@
     <value>La session a déjà été terminée.</value>
   </data>
   <data name="Session.MaxSessionsReached" xml:space="preserve">
-    <value>Le nombre maximum de sessions simultanées a été atteint.</value>
+    <value>Vous êtes connecté sur {0} des {1} appareils autorisés. Déconnectez-vous sur un autre appareil pour vous connecter ici.</value>
+  </data>
+  <data name="Session.MaxSessionsReachedUntil" xml:space="preserve">
+    <value>Vous êtes connecté sur {0} des {1} appareils autorisés. Déconnectez-vous sur un autre appareil pour libérer une place, ou attendez l'expiration de la plus proche de ces sessions, le {2}.</value>
   </data>
 
   <!-- ==================== AuditLog Errors ==================== -->

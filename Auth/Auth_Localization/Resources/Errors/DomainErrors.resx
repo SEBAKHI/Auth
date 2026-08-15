@@ -436,7 +436,10 @@
     <value>The session has already been terminated.</value>
   </data>
   <data name="Session.MaxSessionsReached" xml:space="preserve">
-    <value>Maximum number of concurrent sessions has been reached.</value>
+    <value>You are signed in on {0} of {1} allowed devices. Sign out on another device to sign in here.</value>
+  </data>
+  <data name="Session.MaxSessionsReachedUntil" xml:space="preserve">
+    <value>You are signed in on {0} of {1} allowed devices. Sign out on another device to free a slot, or wait until the earliest of these sessions expires at {2}.</value>
   </data>
 
   <!-- ==================== AuditLog Errors ==================== -->

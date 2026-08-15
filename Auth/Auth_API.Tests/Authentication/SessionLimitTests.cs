@@ -86,10 +86,24 @@ public class SessionLimitTests
             _user, "203.0.113.10", ChromeOnWindows, deviceId: null, CancellationToken.None,
             establishIdpSession: false, twoFactorChallengeId: twoFactorChallengeId);
 
-    private void GivenActiveSessionCount(int count) =>
+    /// <summary>An expiry for tests that only care about the count.</summary>
+    private static readonly DateTime SomeExpiry =
+        new(2026, 8, 21, 17, 41, 18, DateTimeKind.Utc);
+
+    private void GivenActiveSessionPressure(ActiveSessionPressure pressure) =>
         _sessionsMock
-            .Setup(r => r.CountActiveForUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(count);
+            .Setup(r => r.GetActiveSessionPressureAsync(
+                It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(pressure);
+
+    /// <summary>
+    /// A live session always has an expiry, so that is the shape every test gets
+    /// unless it is specifically about the absent one. Written as its own helper
+    /// rather than an optional parameter: a `?? fallback` default cannot tell
+    /// "not supplied" from an explicit null, which is exactly the case under test.
+    /// </summary>
+    private void GivenActiveSessionCount(int count) =>
+        GivenActiveSessionPressure(new ActiveSessionPressure(count, SomeExpiry));
 
     private void GivenEvicted(params UserSession[] sessions) =>
         _revocationMock
@@ -122,7 +136,8 @@ public class SessionLimitTests
 
         result.IsError.Should().BeFalse();
         _sessionsMock.Verify(
-            r => r.CountActiveForUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+            r => r.GetActiveSessionPressureAsync(
+                It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
         _revocationMock.Verify(
             r => r.EnforceConcurrentSessionLimitAsync(
                 It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
@@ -248,10 +263,38 @@ public class SessionLimitTests
 
     // ---- Refusal ----
 
+    /// <summary>
+    /// The refusal has to be a way out, not a dead end. With eviction switched
+    /// off nothing frees a slot except signing out elsewhere or an expiry the
+    /// user cannot see, so the error carries both numbers and that deadline —
+    /// and the localized string interpolates them from <c>args</c>.
+    /// </summary>
     [Fact]
-    public async Task RefusalMode_AtTheLimit_ReturnsMaxSessionsReached()
+    public async Task RefusalMode_AtTheLimit_NamesTheCountLimitAndDeadline()
     {
-        GivenActiveSessionCount(5);
+        GivenActiveSessionPressure(new ActiveSessionPressure(5, SomeExpiry));
+
+        var result = await Sign(new SessionSettings
+        {
+            MaxConcurrentSessions = 5,
+            TerminateOldestOnMax = false
+        });
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Session.MaxSessionsReachedUntil");
+        result.FirstError.Metadata!["args"].Should().BeEquivalentTo(
+            new object[] { 5, 5, SomeExpiry.ToString("u") });
+    }
+
+    /// <summary>
+    /// A code whose text promises a deadline must never render without one. The
+    /// count-only code is the fallback, mirroring
+    /// <c>UserErrors.AccountLocked</c> beside <c>AccountLockedUntil</c>.
+    /// </summary>
+    [Fact]
+    public async Task RefusalMode_WithNoKnownExpiry_FallsBackToTheCountOnlyCode()
+    {
+        GivenActiveSessionPressure(new ActiveSessionPressure(5, EarliestExpiry: null));
 
         var result = await Sign(new SessionSettings
         {
@@ -261,6 +304,26 @@ public class SessionLimitTests
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Session.MaxSessionsReached");
+        result.FirstError.Metadata!["args"].Should().BeEquivalentTo(new object[] { 5, 5 });
+    }
+
+    /// <summary>
+    /// Refusing a correct password with <c>User.InvalidCredentials</c> would be
+    /// the lie <c>LoginCommandHandler</c> refuses to tell, and would leave the
+    /// user with no way to understand a lockout that has no self-service exit.
+    /// </summary>
+    [Fact]
+    public async Task RefusalMode_NeverMasqueradesAsInvalidCredentials()
+    {
+        GivenActiveSessionCount(5);
+
+        var result = await Sign(new SessionSettings
+        {
+            MaxConcurrentSessions = 5,
+            TerminateOldestOnMax = false
+        });
+
+        result.FirstError.Code.Should().NotBe("User.InvalidCredentials");
     }
 
     [Fact]
@@ -391,6 +454,7 @@ public class SessionLimitTests
         await Sign(new SessionSettings { MaxConcurrentSessions = 5 });
 
         _sessionsMock.Verify(
-            r => r.CountActiveForUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+            r => r.GetActiveSessionPressureAsync(
+                It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }

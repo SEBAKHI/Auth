@@ -3,6 +3,18 @@ using Auth.Domain.Entities;
 namespace Auth.Domain.Interfaces.Repositories;
 
 /// <summary>
+/// How close a user is to their concurrent-session limit.
+/// </summary>
+/// <param name="Count">Live sessions: not ended and not expired.</param>
+/// <param name="EarliestExpiry">
+/// When the first of those sessions expires, and therefore the soonest a slot
+/// can free itself without the user acting. Null only when there are none.
+/// A session extended by activity moves later, so this is the earliest a slot
+/// may open, never a promise of when it will.
+/// </param>
+public readonly record struct ActiveSessionPressure(int Count, DateTime? EarliestExpiry);
+
+/// <summary>
 /// Repository interface for user session operations.
 /// </summary>
 public interface IUserSessionRepository
@@ -48,10 +60,19 @@ public interface IUserSessionRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Counts the user's live sessions, using the same "active" definition as
+    /// Counts the user's live sessions and reports when the first of them frees
+    /// its slot, using the same "active" definition as
     /// <see cref="GetActiveSessionsForUserAsync"/>: not ended and not expired.
     /// </summary>
-    Task<int> CountActiveForUserAsync(Guid userId, CancellationToken cancellationToken);
+    /// <remarks>
+    /// Both values come from one pass so they cannot disagree: asked separately,
+    /// a session expiring between the two queries would produce a count that no
+    /// longer matches the expiry reported beside it, and the refusal message
+    /// quotes both numbers to the person it is turning away.
+    /// </remarks>
+    Task<ActiveSessionPressure> GetActiveSessionPressureAsync(
+        Guid userId,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Ends every active session the user has beyond <paramref name="keepNewest"/>,

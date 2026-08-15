@@ -434,7 +434,10 @@
     <value>Oturum zaten sonlandırılmış.</value>
   </data>
   <data name="Session.MaxSessionsReached" xml:space="preserve">
-    <value>Maksimum eş zamanlı oturum sayısına ulaşıldı.</value>
+    <value>İzin verilen {1} cihazdan {0} tanesinde oturum açmış durumdasınız. Buradan giriş yapmak için başka bir cihazda oturumu kapatın.</value>
+  </data>
+  <data name="Session.MaxSessionsReachedUntil" xml:space="preserve">
+    <value>İzin verilen {1} cihazdan {0} tanesinde oturum açmış durumdasınız. Yer açmak için başka bir cihazda oturumu kapatın veya bu oturumlardan en erken sona ereninin {2} tarihinde dolmasını bekleyin.</value>
   </data>
 
   <!-- ==================== AuditLog Errors ==================== -->
