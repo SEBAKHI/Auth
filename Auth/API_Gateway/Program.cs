@@ -159,11 +159,27 @@ builder.Services.AddRateLimiter(options =>
     static int SettingsVersion(HttpContext context) =>
         context.RequestServices.GetRequiredService<GatewayRuntimeSettingsProvider>().Current.Version;
 
-    // NOTE: partitioning on Connection.RemoteIpAddress assumes this process is
-    // the edge. Behind a reverse proxy or CDN it collapses every client into
-    // one bucket — see the warning in Auth_API/Program.cs. Fixing it means
-    // UseForwardedHeaders with a known-proxy list, which depends on the
-    // deployment topology and is tracked separately.
+    // RemoteIpAddress, deliberately — and NOT X-Forwarded-For, which is the
+    // opposite of what Auth_API does a few files away.
+    //
+    // The asymmetry is the point. The API sits BEHIND this process, so its TCP
+    // peer is always the gateway and it must read the forwarded header instead
+    // (see ClientIpResolver). This process is the EDGE: verified 2026-08-15 as
+    // IIS + ANCM in-process hosting (web.config hostingModel="inprocess", which
+    // hands Kestrel the real client address with no localhost hop), on Plesk for
+    // Windows, which serves through IIS with no nginx layer, and with no CDN in
+    // front — one origin A record, no via/x-cache/cf-ray on any response.
+    //
+    // So do NOT "fix" this by adding UseForwardedHeaders here. X-Forwarded-For
+    // is client-supplied at the edge: trusting it would let any caller pick a
+    // fresh rate-limit partition on every request and walk straight through
+    // every limit below. That is strictly worse than the hazard it looks like
+    // it is solving.
+    //
+    // If a CDN or another reverse proxy is ever put in front of this process,
+    // every client collapses into one bucket and nothing here will notice.
+    // Handle that by enabling forwarded headers WITH KnownProxies pinned to
+    // that hop — never unconditionally.
     static string ClientId(HttpContext context) =>
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 

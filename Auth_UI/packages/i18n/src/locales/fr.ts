@@ -1457,16 +1457,18 @@ export const fr: TranslationResources = {
       title: "Limitation de débit (API)",
       description:
         "Limitation des requêtes par IP cliente. Une couche d'une défense en profondeur : elle ralentit les abus automatisés tandis que le verrouillage de compte stoppe la devinette de mots de passe. Les limites modifiées s'appliquent immédiatement aux nouvelles fenêtres client.",
-      loginPermitLimit: "Tentatives de connexion par fenêtre",
+      loginPermitLimit: "Requêtes d'authentification par fenêtre",
       loginPermitLimitHint:
-        "S'applique à la connexion, à l'inscription et aux autres points de terminaison d'authentification interactifs. Recommandé : 20 par IP.",
-      loginWindowSeconds: "Fenêtre de connexion (secondes)",
-      loginWindowSecondsHint: "Recommandé : 60.",
-      passwordResetPermitLimit: "Demandes de réinitialisation par fenêtre",
+        "Nombre de requêtes d'authentification qu'une même IP cliente peut effectuer avant d'être refusée avec un 429. Plus large que la seule connexion : inscription, connexion externe, échange de jetons, mot de passe oublié, vérification d'e-mail et renvoi, double authentification, ouverture et acceptation d'invitations, suppression et récupération de compte, et défis d'opération sur les secrets. Première de deux couches : elle ralentit un attaquant qui parcourt de nombreux comptes, tandis que le verrouillage de compte arrête celui qui essaie de nombreux mots de passe sur un seul.",
+      loginWindowSeconds: "Fenêtre de comptage d'authentification (secondes)",
+      loginWindowSecondsHint:
+        "Durée sur laquelle le compte ci-dessus est mesuré. La fenêtre est fixe et non glissante : le compteur revient à zéro à sa fin, et un client ayant épuisé son quota attend jusque-là. L'allonger resserre la limite et allonge l'attente après un refus, en même temps.",
+      passwordResetPermitLimit: "Utilisations du lien de réinitialisation par fenêtre",
       passwordResetPermitLimitHint:
-        "Recommandé : 10 — une mesure d'hygiène pour un point de terminaison anonyme.",
-      passwordResetWindowSeconds: "Fenêtre de réinitialisation (secondes)",
-      passwordResetWindowSecondsHint: "Recommandé : 60.",
+        "Nombre de fois qu'une même IP cliente peut soumettre un nouveau mot de passe accompagné d'un jeton de réinitialisation. Il s'agit de l'utilisation du lien, non de sa demande — demander l'e-mail relève de la limite d'authentification ci-dessus. Le jeton porte 256 bits d'entropie et ne peut être deviné : cette limite est donc une mesure d'hygiène pour un point de terminaison ouvert sans connexion, pas une défense du jeton.",
+      passwordResetWindowSeconds: "Fenêtre de comptage de réinitialisation (secondes)",
+      passwordResetWindowSecondsHint:
+        "Durée sur laquelle le nombre d'utilisations ci-dessus est mesuré, selon la même mécanique de fenêtre fixe.",
     },
     gatewayRateLimiting: {
       title: "Limitation de débit (passerelle)",
@@ -1476,7 +1478,8 @@ export const fr: TranslationResources = {
       globalPermitLimitHint:
         "S'applique à toute requête passant par la passerelle, au-dessus des trois politiques ci-dessous. Il ne doit pas être plus lent que la plus rapide d'entre elles, sinon il les bride silencieusement.",
       globalWindowSeconds: "Fenêtre globale (secondes)",
-      globalWindowSecondsHint: "Durée sur laquelle le plafond global est compté.",
+      globalWindowSecondsHint:
+        "Durée sur laquelle le plafond global est compté. La fenêtre est fixe et non glissante : le compteur de chaque client revient à zéro à sa fin.",
       globalQueueLimit: "Longueur de la file globale",
       globalQueueLimitHint:
         "Nombre de requêtes mises en attente plutôt que rejetées une fois le plafond atteint. Zéro signifie rejet immédiat, sans file.",
@@ -1484,17 +1487,20 @@ export const fr: TranslationResources = {
       authPermitLimitHint:
         "Couvre les routes /auth/. Le jumeau externe de la limite de connexion de la section API — gardez-la au niveau de celle-ci ou au-dessus, sinon la limite interne ne se déclenche jamais.",
       authWindowSeconds: "Fenêtre de connexion (secondes)",
-      authWindowSecondsHint: "Recommandé : 60.",
+      authWindowSecondsHint:
+        "Durée sur laquelle les requêtes de connexion sont comptées en périphérie. Un client ayant épuisé son quota est refusé jusqu'à la fin de la fenêtre : l'allonger resserre donc la limite et prolonge cette attente.",
       apiPermitLimit: "Requêtes API générales par fenêtre",
       apiPermitLimitHint:
         "Couvre les points de terminaison de lecture et d'écriture ordinaires : utilisateurs, rôles, applications, organisations, images, journaux d'audit.",
       apiWindowSeconds: "Fenêtre API générale (secondes)",
-      apiWindowSecondsHint: "Recommandé : 60.",
+      apiWindowSecondsHint:
+        "Durée sur laquelle les requêtes API générales sont comptées, selon la même mécanique de fenêtre fixe. C'est le seau le plus sollicité en usage normal : une fenêtre courte évite que la navigation ordinaire n'atteigne jamais le plafond.",
       adminPermitLimit: "Requêtes de la console d'administration par fenêtre",
       adminPermitLimitHint:
         "Couvre les routes /admin/ : réglages de la plateforme, réglages système, secrets. Un seul écran de console peut consommer plusieurs requêtes ; une valeur proche de la limite API générale est donc la bonne. Ce qui protège réellement ces routes, c'est le contrôle des permissions et le journal d'audit, non une limite calibrée pour du trafic anonyme.",
       adminWindowSeconds: "Fenêtre de la console d'administration (secondes)",
-      adminWindowSecondsHint: "Recommandé : 60.",
+      adminWindowSecondsHint:
+        "Durée sur laquelle les requêtes d'administration sont comptées. La raccourcir rend plus vite un nouveau quota à l'administrateur après un refus ; l'allonger fait durer un seul refus plus longtemps.",
     },
     externalAuth: {
       title: "Connexion externe (Google / Apple)",

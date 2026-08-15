@@ -1429,15 +1429,18 @@ export const tr: TranslationResources = {
       title: "Hız sınırlama (API)",
       description:
         "İstemci IP'si başına istek kısıtlaması. Katmanlı savunmanın bir katmanı: hesap kilitleme parola tahminini durdururken bu, otomatik kötüye kullanımı yavaşlatır. Değiştirilen sınırlar yeni istemci pencerelerine hemen uygulanır.",
-      loginPermitLimit: "Pencere başına oturum açma denemeleri",
+      loginPermitLimit: "Pencere başına kimlik doğrulama isteği",
       loginPermitLimitHint:
-        "Oturum açma, kayıt ve diğer etkileşimli kimlik doğrulama uç noktalarına uygulanır. Önerilen: IP başına 20.",
-      loginWindowSeconds: "Oturum açma penceresi (saniye)",
-      loginWindowSecondsHint: "Önerilen: 60.",
-      passwordResetPermitLimit: "Pencere başına parola sıfırlama istekleri",
-      passwordResetPermitLimitHint: "Önerilen: 10 — anonim bir uç nokta için temel hijyen.",
-      passwordResetWindowSeconds: "Parola sıfırlama penceresi (saniye)",
-      passwordResetWindowSecondsHint: "Önerilen: 60.",
+        "Tek bir istemci IP'sinin 429 ile reddedilmeden önce yapabileceği kimlik doğrulama isteği sayısı. Yalnızca oturum açmayı değil; kaydı, harici oturum açmayı, token değişimini, parolamı unuttum akışını, e-posta doğrulamayı ve yeniden göndermeyi, iki adımlı doğrulamayı, davet açmayı ve kabul etmeyi, hesap silme ile kurtarmayı ve gizli anahtar işlem doğrulamalarını da kapsar. İki katmanın ilkidir: bu, çok sayıda hesabı deneyen saldırganı yavaşlatır; hesap kilitleme ise tek hesapta çok sayıda parola deneyeni durdurur.",
+      loginWindowSeconds: "Kimlik doğrulama sayım penceresi (saniye)",
+      loginWindowSecondsHint:
+        "Yukarıdaki sayımın ölçüldüğü süre. Pencere kayan değil sabittir: süre bittiğinde sayaç sıfırlanır ve hakkını tüketen istemci o ana kadar bekler. Uzatmak hem sınırı sıkılaştırır hem de ret sonrası beklemeyi uzatır.",
+      passwordResetPermitLimit: "Pencere başına sıfırlama bağlantısı kullanımı",
+      passwordResetPermitLimitHint:
+        "Tek bir istemci IP'sinin sıfırlama tokenıyla birlikte kaç kez yeni parola gönderebileceği. Bu, bağlantının kullanılmasıdır; bağlantının istenmesi değil — sıfırlama e-postası istemek yukarıdaki kimlik doğrulama sınırına girer. Tokenın kendisi 256 bit entropi taşır ve tahmin edilemez, dolayısıyla bu sınır tokenı korumaktan çok, oturum açmadan erişilebilen bir uç nokta için temel hijyendir.",
+      passwordResetWindowSeconds: "Sıfırlama sayım penceresi (saniye)",
+      passwordResetWindowSecondsHint:
+        "Yukarıdaki kullanım sayısının ölçüldüğü süre; aynı sabit pencere mekaniğiyle.",
     },
     gatewayRateLimiting: {
       title: "İstek hızı sınırlama (Ağ geçidi)",
@@ -1447,7 +1450,8 @@ export const tr: TranslationResources = {
       globalPermitLimitHint:
         "Aşağıdaki üç politikanın üstünde, ağ geçidinden geçen her isteğe uygulanır. Bunların en hızlısından yavaş olmamalıdır, aksi hâlde onları sessizce kısar.",
       globalWindowSeconds: "Genel pencere (saniye)",
-      globalWindowSecondsHint: "Genel tavanın sayıldığı süre.",
+      globalWindowSecondsHint:
+        "Genel tavanın sayıldığı süre. Pencere kayan değil sabittir: süre bittiğinde her istemcinin sayacı sıfırlanır.",
       globalQueueLimit: "Genel kuyruk uzunluğu",
       globalQueueLimitHint:
         "Tavana ulaşıldığında reddedilmek yerine bekleyen istek sayısı. Sıfır, kuyruk olmadan anında ret demektir.",
@@ -1455,17 +1459,20 @@ export const tr: TranslationResources = {
       authPermitLimitHint:
         "/auth/ yollarını kapsar. API bölümündeki oturum açma sınırının dış ikizi — onu bu değerin altında tutun, yoksa iç sınır hiç devreye giremez.",
       authWindowSeconds: "Oturum açma penceresi (saniye)",
-      authWindowSecondsHint: "Önerilen: 60.",
+      authWindowSecondsHint:
+        "Oturum açma isteklerinin uçta sayıldığı süre. Hakkını tüketen istemci pencere bitene kadar reddedilir; bu yüzden süreyi uzatmak hem sınırı sıkılaştırır hem de o beklemeyi uzatır.",
       apiPermitLimit: "Pencere başına genel API isteği",
       apiPermitLimitHint:
         "Olağan okuma ve yazma uç noktalarını kapsar: kullanıcılar, roller, uygulamalar, kuruluşlar, görseller, denetim kayıtları.",
       apiWindowSeconds: "Genel API penceresi (saniye)",
-      apiWindowSecondsHint: "Önerilen: 60.",
+      apiWindowSecondsHint:
+        "Genel API isteklerinin sayıldığı süre; aynı sabit pencere mekaniğiyle. Normal kullanımda en yoğun kova budur, bu yüzden kısa bir pencere olağan gezinmenin tavana hiç ulaşmamasını sağlar.",
       adminPermitLimit: "Pencere başına yönetim konsolu isteği",
       adminPermitLimitHint:
         "/admin/ yollarını kapsar: platform ayarları, sistem ayarları, gizli anahtarlar. Tek bir konsol ekranı birkaç istek harcayabilir; bu yüzden genel API sınırına yakın bir değer doğrudur. Bu yolları asıl koruyan, anonim trafiğe göre ölçülmüş bir kısıt değil, izin denetimi ve denetim kaydıdır.",
       adminWindowSeconds: "Yönetim konsolu penceresi (saniye)",
-      adminWindowSecondsHint: "Önerilen: 60.",
+      adminWindowSecondsHint:
+        "Yönetim isteklerinin sayıldığı süre. Kısaltmak, bir retten sonra yöneticiye yeni hakkı daha çabuk verir; uzatmak ise tek bir retin daha uzun sürmesine yol açar.",
     },
     externalAuth: {
       title: "Harici oturum açma (Google / Apple)",

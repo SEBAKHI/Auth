@@ -1415,15 +1415,18 @@ export const en = {
       title: "Rate limiting (API)",
       description:
         "Per-client-IP request throttling. One layer of a layered defense: it slows automated abuse while account lockout stops password guessing. Changed limits apply to new client windows immediately.",
-      loginPermitLimit: "Sign-in attempts per window",
+      loginPermitLimit: "Authentication requests per window",
       loginPermitLimitHint:
-        "Applies to login, registration, and other interactive auth endpoints. Recommended: 20 per IP.",
-      loginWindowSeconds: "Sign-in window (seconds)",
-      loginWindowSecondsHint: "Recommended: 60.",
-      passwordResetPermitLimit: "Password-reset requests per window",
-      passwordResetPermitLimitHint: "Recommended: 10 — hygiene for an anonymous endpoint.",
-      passwordResetWindowSeconds: "Password-reset window (seconds)",
-      passwordResetWindowSecondsHint: "Recommended: 60.",
+        "How many authentication requests one client IP may make before it is refused with 429. Wider than sign-in alone: registration, external sign-in, token exchange, forgot-password, email verification and resend, two-factor verification, invitation lookup and acceptance, account deletion and recovery, and secret-operation challenges. The first of two layers — this slows an attacker working across many accounts, while account lockout stops one working through many passwords on a single account.",
+      loginWindowSeconds: "Authentication counting window (seconds)",
+      loginWindowSecondsHint:
+        "The span the count above is measured over. The window is fixed, not rolling: the counter returns to zero when it ends, and a client that has spent its allowance waits until then. Lengthening it tightens the limit and lengthens the wait after a refusal at the same time.",
+      passwordResetPermitLimit: "Reset-link redemptions per window",
+      passwordResetPermitLimitHint:
+        "How many times one client IP may submit a new password together with a reset token. This is redemption, not the request for the email — asking for a reset link falls under the authentication limit above. The token carries 256 bits of entropy and cannot be guessed, so this limit is hygiene for an endpoint open without sign-in rather than a defence of the token.",
+      passwordResetWindowSeconds: "Reset counting window (seconds)",
+      passwordResetWindowSecondsHint:
+        "The span the redemption count above is measured over, on the same fixed-window mechanic.",
     },
     gatewayRateLimiting: {
       title: "Rate limiting (Gateway)",
@@ -1433,7 +1436,8 @@ export const en = {
       globalPermitLimitHint:
         "Applies to every request through the gateway, on top of the three policies below. It must not be slower than the fastest of them, or it silently caps them.",
       globalWindowSeconds: "Global window (seconds)",
-      globalWindowSecondsHint: "The span the global ceiling is counted over.",
+      globalWindowSecondsHint:
+        "The span the global ceiling is counted over. The window is fixed, not rolling: every client's counter returns to zero when it ends.",
       globalQueueLimit: "Global queue length",
       globalQueueLimitHint:
         "How many requests wait instead of being rejected once the ceiling is reached. Zero means reject on arrival with no queue.",
@@ -1441,17 +1445,20 @@ export const en = {
       authPermitLimitHint:
         "Covers the /auth/ routes. The outer twin of the sign-in limit in the API section — keep it at or above that one, or the inner limit never gets a chance to fire.",
       authWindowSeconds: "Sign-in window (seconds)",
-      authWindowSecondsHint: "Recommended: 60.",
+      authWindowSecondsHint:
+        "The span sign-in requests are counted over at the edge. A client that has spent its allowance is refused until the window ends, so lengthening this both tightens the limit and lengthens that wait.",
       apiPermitLimit: "General API requests per window",
       apiPermitLimitHint:
         "Covers the ordinary read and write endpoints: users, roles, applications, organizations, images, audit logs.",
       apiWindowSeconds: "General API window (seconds)",
-      apiWindowSecondsHint: "Recommended: 60.",
+      apiWindowSecondsHint:
+        "The span general API requests are counted over, on the same fixed-window mechanic. This is the busiest bucket in normal use, so a short window keeps ordinary browsing from ever reaching the ceiling.",
       adminPermitLimit: "Admin console requests per window",
       adminPermitLimitHint:
         "Covers the /admin/ routes: platform settings, system settings, secrets. One console screen can spend several requests, so a value near the general API limit is the right shape. What actually protects these routes is the permission check and the audit log, not a throttle sized for anonymous traffic.",
       adminWindowSeconds: "Admin console window (seconds)",
-      adminWindowSecondsHint: "Recommended: 60.",
+      adminWindowSecondsHint:
+        "The span admin requests are counted over. Shortening it hands an administrator a fresh allowance sooner after a refusal; lengthening it makes a single refusal last longer.",
     },
     externalAuth: {
       title: "External sign-in (Google / Apple)",

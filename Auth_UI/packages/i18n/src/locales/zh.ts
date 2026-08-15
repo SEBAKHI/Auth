@@ -1345,15 +1345,18 @@ export const zh: TranslationResources = {
       title: "速率限制（API）",
       description:
         "按客户端 IP 进行请求节流。这是分层防御中的一层：它能减缓自动化滥用，而账户锁定则负责阻止密码猜测。修改后的限制会立即应用于新的客户端窗口。",
-      loginPermitLimit: "每窗口登录尝试次数",
+      loginPermitLimit: "每窗口认证请求数",
       loginPermitLimitHint:
-        "适用于登录、注册及其他交互式认证端点。推荐：每个 IP 20 次。",
-      loginWindowSeconds: "登录窗口（秒）",
-      loginWindowSecondsHint: "推荐：60。",
-      passwordResetPermitLimit: "每窗口密码重置请求数",
-      passwordResetPermitLimitHint: "推荐：10——匿名端点的基本防护。",
-      passwordResetWindowSeconds: "密码重置窗口（秒）",
-      passwordResetWindowSecondsHint: "推荐：60。",
+        "单个客户端 IP 在被以 429 拒绝之前可发起的认证请求数。范围不止登录：还包括注册、外部登录、令牌交换、忘记密码、邮箱验证与重发、两步验证、打开与接受邀请、账户删除与恢复，以及密钥操作确认。这是两层防御中的第一层——它拖慢逐个尝试大量账户的攻击者，而账户锁定则阻止在单个账户上穷举密码的人。",
+      loginWindowSeconds: "认证计数窗口（秒）",
+      loginWindowSecondsHint:
+        "统计上述次数的时间跨度。窗口是固定的而非滑动的：到期时计数归零，已用尽配额的客户端需等到那时。延长它会同时收紧限制并拉长被拒后的等待时间。",
+      passwordResetPermitLimit: "每窗口重置链接使用次数",
+      passwordResetPermitLimitHint:
+        "单个客户端 IP 可携带重置令牌提交新密码的次数。这是使用链接，而非索取链接——索取重置邮件属于上面的认证限制。令牌本身带有 256 位熵、无法被猜出，因此该限制是对一个无需登录即可访问的端点的基本防护，而不是对令牌的防御。",
+      passwordResetWindowSeconds: "重置计数窗口（秒）",
+      passwordResetWindowSecondsHint:
+        "统计上述使用次数的时间跨度，采用同样的固定窗口机制。",
     },
     gatewayRateLimiting: {
       title: "请求速率限制（网关）",
@@ -1363,7 +1366,8 @@ export const zh: TranslationResources = {
       globalPermitLimitHint:
         "适用于经过网关的每个请求，位于下方三项策略之上。它不得比其中最快的一项还慢，否则会悄悄压低它们。",
       globalWindowSeconds: "全局窗口（秒）",
-      globalWindowSecondsHint: "统计全局上限的时间跨度。",
+      globalWindowSecondsHint:
+        "统计全局上限的时间跨度。窗口是固定的而非滑动的：到期时每个客户端的计数都归零。",
       globalQueueLimit: "全局队列长度",
       globalQueueLimitHint:
         "达到上限后排队等待而非被拒绝的请求数。零表示不排队，直接拒绝。",
@@ -1371,17 +1375,20 @@ export const zh: TranslationResources = {
       authPermitLimitHint:
         "覆盖 /auth/ 路由。它是 API 部分登录限制的外层孪生项——请保持不低于那一项，否则内层限制永远没有机会触发。",
       authWindowSeconds: "登录窗口（秒）",
-      authWindowSecondsHint: "推荐：60。",
+      authWindowSecondsHint:
+        "在边缘统计登录请求的时间跨度。用尽配额的客户端会被拒绝直到窗口结束，因此延长它会同时收紧限制并拉长这段等待。",
       apiPermitLimit: "每窗口常规 API 请求数",
       apiPermitLimitHint:
         "覆盖常规读写端点：用户、角色、应用、组织、图片、审计日志。",
       apiWindowSeconds: "常规 API 窗口（秒）",
-      apiWindowSecondsHint: "推荐：60。",
+      apiWindowSecondsHint:
+        "统计常规 API 请求的时间跨度，采用同样的固定窗口机制。正常使用中这是最繁忙的一个桶，较短的窗口可以让日常浏览根本不会触到上限。",
       adminPermitLimit: "每窗口管理控制台请求数",
       adminPermitLimitHint:
         "覆盖 /admin/ 路由：平台设置、系统设置、密钥。单个控制台页面可能消耗数个请求，因此取值应接近常规 API 限制。真正保护这些路由的是权限校验与审计日志，而非为匿名流量设计的限流。",
       adminWindowSeconds: "管理控制台窗口（秒）",
-      adminWindowSecondsHint: "推荐：60。",
+      adminWindowSecondsHint:
+        "统计管理请求的时间跨度。缩短它可让管理员在被拒后更快拿到新配额；延长它则会让一次拒绝持续更久。",
     },
     externalAuth: {
       title: "外部登录（Google / Apple）",
