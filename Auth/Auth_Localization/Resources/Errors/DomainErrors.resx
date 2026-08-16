@@ -597,6 +597,9 @@
   <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
     <value>The password security check is temporarily unavailable. Please try again later.</value>
   </data>
+  <data name="User.PasswordAlreadySet" xml:space="preserve">
+    <value>This account already has a password. Change it instead of setting a new one.</value>
+  </data>
   <data name="User.RoleAlreadyAssigned" xml:space="preserve">
     <value>User already has role '{0}'.</value>
   </data>

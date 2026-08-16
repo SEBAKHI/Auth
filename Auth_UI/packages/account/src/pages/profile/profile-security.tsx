@@ -31,6 +31,7 @@ import {
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
 import { api } from "@authsystem/api/client"
+import { SetPasswordPanel } from "@authsystem/auth/set-password-panel"
 import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
@@ -325,10 +326,41 @@ function TwoFactorCard({ me }: { me: Schemas["UserDto"] }) {
   )
 }
 
+function SetPasswordCard({ email }: { email: string }) {
+  const { t } = useTranslation()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{t("profile.setPassword")}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <SetPasswordPanel email={email} />
+      </CardContent>
+    </Card>
+  )
+}
+
 export function ProfileSecurity({ me }: { me: Schemas["UserDto"] }) {
+  /*
+   * An account created by signing in with Google has no password, so the change
+   * form below asked it for a current password it could never supply - the form
+   * was not merely awkward, it was unsubmittable. `hasPassword` has been on
+   * UserDto and on this very query all along with nothing reading it.
+   *
+   * Compared against `false` rather than negated: the generated type marks it
+   * optional, so an API that stops sending it would otherwise hide the change
+   * form from everyone. Failing back to the change form is the safe direction.
+   */
+  const hasNoPassword = me.hasPassword === false && Boolean(me.email)
+
   return (
     <div className="flex flex-col gap-6">
-      <ChangePasswordCard />
+      {hasNoPassword ? (
+        <SetPasswordCard email={me.email!} />
+      ) : (
+        <ChangePasswordCard />
+      )}
       <TwoFactorCard me={me} />
     </div>
   )

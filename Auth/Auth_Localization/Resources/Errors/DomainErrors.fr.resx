@@ -595,6 +595,9 @@
   <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
     <value>La vérification de sécurité du mot de passe est temporairement indisponible. Veuillez réessayer plus tard.</value>
   </data>
+  <data name="User.PasswordAlreadySet" xml:space="preserve">
+    <value>Ce compte possède déjà un mot de passe. Modifiez-le au lieu d'en définir un nouveau.</value>
+  </data>
   <data name="User.RoleAlreadyAssigned" xml:space="preserve">
     <value>L'utilisateur possède déjà le rôle '{0}'.</value>
   </data>

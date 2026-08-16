@@ -90,11 +90,65 @@ public class PasswordChangedAuditEventHandlerTests
     [Fact]
     public async Task Handle_CreatesAuditLogEntry()
     {
-        var evt = new PasswordChangedEvent(Guid.NewGuid(), Guid.NewGuid());
+        var evt = new PasswordChangedEvent(Guid.NewGuid(), Guid.NewGuid(), "user@test.com", "Jane Doe");
 
         await _handler.Handle(evt, CancellationToken.None);
 
         _repoMock.Verify(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()), Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_RecordsTheRotationActionNotTheFirstPasswordOne()
+    {
+        AuditLog? captured = null;
+        _repoMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => captured = log);
+
+        await _handler.Handle(new PasswordChangedEvent(Guid.NewGuid(), Guid.NewGuid(), "user@test.com", "Jane Doe"), CancellationToken.None);
+
+        captured!.Action.Should().Be("password.changed");
+    }
+}
+
+public class PasswordCreatedAuditEventHandlerTests
+{
+    private readonly Mock<IAuditLogRepository> _repoMock = new();
+    private readonly PasswordCreatedAuditEventHandler _handler;
+
+    public PasswordCreatedAuditEventHandlerTests()
+    {
+        _handler = new PasswordCreatedAuditEventHandler(
+            _repoMock.Object,
+            new Mock<ILogger<PasswordCreatedAuditEventHandler>>().Object);
+    }
+
+    [Fact]
+    public async Task Handle_WritesADistinctFirstPasswordAction()
+    {
+        // A password RESET used to write nothing at all, so the moment an external-only
+        // super-admin acquired its first credential left no record. This is that record,
+        // and it must not be mistakable for a rotation.
+        AuditLog? captured = null;
+        _repoMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => captured = log);
+
+        var userId = Guid.NewGuid();
+        var setBy = Guid.NewGuid();
+
+        await _handler.Handle(
+            new PasswordCreatedEvent(userId, setBy, "user@test.com", "Jane Doe"),
+            CancellationToken.None);
+
+        captured.Should().NotBeNull();
+        captured!.ActionType.Should().Be("Security");
+        captured.Action.Should().Be("password.created");
+        captured.Action.Should().NotBe("password.changed");
+        captured.UserId.Should().Be(setBy);
+        captured.EntityType.Should().Be("User");
+        captured.EntityId.Should().Be(userId);
+        captured.IsSuccess.Should().BeTrue();
     }
 }
 

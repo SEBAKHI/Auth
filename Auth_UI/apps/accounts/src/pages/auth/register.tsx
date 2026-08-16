@@ -23,7 +23,7 @@ import {
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
 
-import { ExternalProviders } from "@/components/external-providers"
+import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import { Spinner } from "@authsystem/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -219,7 +219,7 @@ export function RegisterPage() {
           </FieldGroup>
         </form>
       </Form>
-      <ExternalProviders />
+      <ExternalProviders recoveryPath="/account-recovery" />
     </AuthLayout>
   )
 }

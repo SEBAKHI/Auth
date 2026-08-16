@@ -7,7 +7,7 @@ import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { useTheme } from "@authsystem/ui/theme-provider"
 
-import { useExternalProviders } from "@/components/use-external-providers"
+import { useExternalProviders } from "./use-external-providers"
 
 /** Minimal typings for the Google Identity Services (GSI) client. */
 interface GsiIdConfiguration {
@@ -100,17 +100,32 @@ interface LocationState {
   from?: { pathname?: string; search?: string }
 }
 
+interface GoogleSignInProps {
+  /**
+   * Where to send an account that is pending deletion. Optional because not every
+   * host app has a recovery screen: the console does not, and sending it to a route
+   * it lacks would be a 404 instead of a message. Two things make the fallback the
+   * better answer there rather than a cross-origin redirect — the still-fresh
+   * credential lives in router state and cannot survive a navigation to another
+   * origin, and the recovery form's other path asks for a password an external-only
+   * account does not have. Without this prop the branch degrades to the error toast,
+   * which shows the server's own localized pending-deletion message.
+   */
+  recoveryPath?: string
+}
+
 /**
  * "Continue with Google" button (GSI ID-token flow). Renders nothing unless
  * the API lists an enabled "google" provider AND a client id is configured.
  * The surrounding divider lives in ExternalProviders.
  *
  * A fresh nonce is generated per mount and sent BOTH to Google (echoed inside
- * the signed ID token) and to the API, which rejects the login on mismatch —
- * the API only validates the nonce when one is provided, so always sending it
- * is what turns replay protection on.
+ * the signed ID token) and to the API, which rejects the login on mismatch.
+ * Note what that is and is not: the nonce binds this response to this mount, but
+ * it is generated in the browser and never issued, stored or spent server-side,
+ * and the API skips the check when none is sent. It is not replay protection.
  */
-export function GoogleSignIn() {
+export function GoogleSignIn({ recoveryPath }: GoogleSignInProps = {}) {
   const { i18n, t } = useTranslation()
   const { loginExternal } = useAuth()
   const { resolvedTheme } = useTheme()
@@ -149,8 +164,12 @@ export function GoogleSignIn() {
       } catch (error) {
         // Pending deletion (the ID token itself was valid): carry the still-
         // fresh credential to the recovery screen so restoring is one click.
-        if (getErrorCodes(error).includes("User.AccountPendingDeletion")) {
-          navigate("/account-recovery", {
+        // Only where the host app has one — see recoveryPath.
+        if (
+          recoveryPath &&
+          getErrorCodes(error).includes("User.AccountPendingDeletion")
+        ) {
+          navigate(recoveryPath, {
             state: {
               message: getErrorMessage(error),
               external: {
@@ -165,7 +184,7 @@ export function GoogleSignIn() {
         toast.error(getErrorMessage(error))
       }
     },
-    [loginExternal, navigate, from, t]
+    [loginExternal, navigate, from, t, recoveryPath]
   )
 
   React.useEffect(() => {

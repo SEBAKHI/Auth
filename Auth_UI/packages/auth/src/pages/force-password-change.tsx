@@ -1,4 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
+import { useQuery } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -7,8 +8,12 @@ import { z } from "zod"
 
 import { api } from "@authsystem/api/client"
 import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
+import { unwrap } from "@authsystem/api/helpers"
 import { Button } from "@authsystem/ui/button"
 import { FieldGroup } from "@authsystem/ui/field"
+import { Skeleton } from "@authsystem/ui/skeleton"
+
+import { SetPasswordPanel } from "../set-password-panel"
 import {
   Form,
   FormControl,
@@ -23,6 +28,47 @@ import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Spinner } from "@authsystem/ui/spinner"
 
 export function ForcePasswordChangePage() {
+  const { t } = useTranslation()
+
+  /*
+   * The form below demands a current password, so an account that has none - a
+   * Google or Apple sign-up an administrator has flagged for a password change -
+   * could only ever be told its current password was wrong, on the one page it
+   * is not allowed to leave. `GET /Auth/me` is claims-only and carries no such
+   * flag, so the fuller user record is what answers the question.
+   */
+  const meQuery = useQuery({
+    queryKey: ["me"],
+    queryFn: () => unwrap(api.GET("/api/v1/Users/me")),
+  })
+
+  if (meQuery.isPending) {
+    return (
+      <AuthLayout title={t("auth.forceTitle")} subtitle={t("auth.forceSubtitle")}>
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      </AuthLayout>
+    )
+  }
+
+  // Fails closed: only an explicit false swaps the form out. A failed or older
+  // request keeps today's behaviour rather than blanking the page or offering a
+  // link to an account that may well have a password.
+  if (meQuery.data?.hasPassword === false && meQuery.data.email) {
+    return (
+      <AuthLayout title={t("profile.setPassword")} subtitle={t("auth.forceSubtitle")}>
+        <SetPasswordPanel email={meQuery.data.email} />
+      </AuthLayout>
+    )
+  }
+
+  return <ForcePasswordChangeForm />
+}
+
+function ForcePasswordChangeForm() {
   const { t } = useTranslation()
   const navigate = useNavigate()
 

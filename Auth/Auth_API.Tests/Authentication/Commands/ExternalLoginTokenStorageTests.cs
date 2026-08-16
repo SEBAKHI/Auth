@@ -56,6 +56,7 @@ public class ExternalLoginTokenStorageTests
             _providerFactoryMock.Object,
             _externalLoginRepositoryMock.Object,
             _userRepositoryMock.Object,
+            new Mock<IPermissionRepository>().Object,
             new Mock<IAccountDeletionRequestRepository>().Object,
             new IdentifierReservationGuard(
                 new Mock<IAccountDeletionTombstoneRepository>().Object,

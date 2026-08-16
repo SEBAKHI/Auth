@@ -176,6 +176,7 @@ export const ar: TranslationResources = {
     resetLinkExpiresIn: "ينتهي الرابط خلال {{time}}",
     resetLinkExpired: "انتهت صلاحية الرابط. اطلب رابطًا جديدًا.",
     resendResetLink: "لم يصلك؟ أعد الإرسال",
+    resendAvailableIn: "يمكنك إعادة الإرسال بعد {{time}}",
     resetLinkInvalidTitle: "هذا الرابط لم يعد صالحًا",
     resetLinkInvalidDescription:
       "روابط إعادة التعيين تُستخدم مرة واحدة فقط، وتنتهي صلاحيتها بعد مدة.",
@@ -1744,6 +1745,10 @@ export const ar: TranslationResources = {
     signedInAt: "بدأت في",
     changePassword: "تغيير كلمة المرور",
     passwordChanged: "تم تغيير كلمة المرور.",
+    setPassword: "تعيين كلمة مرور",
+    setPasswordBody:
+      "لا كلمة مرور لهذا الحساب بعد، فأنت لم تدخل إلا عبر حساب مرتبط مثل جوجل. سنرسل إليك رابطًا لإنشاء واحدة، وبعدها تصلح الطريقتان معًا.",
+    emailSetPasswordLink: "أرسل إليّ رابطًا",
     twoFactor: "المصادقة الثنائية",
     twoFactorEnabled: "المصادقة الثنائية مفعّلة.",
     twoFactorDisabled: "المصادقة الثنائية معطّلة.",

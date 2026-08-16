@@ -4,6 +4,7 @@ import { createBrowserRouter, Navigate, useParams } from "react-router-dom"
 import { ACCOUNTS_URL } from "@authsystem/api/env"
 import { RequireAnonymous, RequireAuth } from "@authsystem/auth/require-auth"
 import { PermissionRoute } from "@authsystem/auth/require-permission"
+import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import { LoginPage } from "@authsystem/auth/pages/login"
 import { crumb } from "@authsystem/ui/crumbs"
 import { ForbiddenPage } from "@authsystem/ui/error-pages/forbidden"
@@ -74,7 +75,14 @@ export const router = createBrowserRouter([
   {
     element: <RequireAnonymous />,
     children: [
-      { path: "/login", element: <LoginPage /> },
+      {
+        // An administrator whose account was created by signing in with Google has
+        // no password to type here, so without this slot the console was closed to
+        // them entirely. No `recoveryPath`: this app has no /account-recovery route,
+        // and the pending-deletion branch falls back to the server's own message.
+        path: "/login",
+        element: <LoginPage providers={<ExternalProviders />} />,
+      },
       {
         path: "/forgot-password",
         lazy: lazyRoute(
@@ -82,7 +90,6 @@ export const router = createBrowserRouter([
           (m) => m.ForgotPasswordPage
         ),
       },
-      { path: "/reset-password", element: <ResetPasswordRedirect /> },
     ],
   },
   {
@@ -514,6 +521,10 @@ export const router = createBrowserRouter([
     ),
   },
   { path: "/accept-invitation", element: <AcceptInvitationRedirect /> },
+  // Top-level on purpose, like its accounts twin: under RequireAnonymous a
+  // signed-in administrator opening an old reset link was redirected to "/" and
+  // the token was swallowed before this redirect could forward it.
+  { path: "/reset-password", element: <ResetPasswordRedirect /> },
   { path: "/403", element: <ForbiddenPage /> },
   { path: "*", element: <NotFoundPage /> },
     ],

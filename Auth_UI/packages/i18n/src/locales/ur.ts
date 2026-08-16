@@ -177,6 +177,7 @@ export const ur: TranslationResources = {
     resetLinkExpiresIn: "لنک {{time}} میں ختم ہو جائے گا",
     resetLinkExpired: "لنک کی میعاد ختم ہو گئی۔ نیا لنک طلب کریں۔",
     resendResetLink: "موصول نہیں ہوا؟ دوبارہ بھیجیں",
+    resendAvailableIn: "{{time}} بعد دوبارہ بھیج سکتے ہیں",
     resetLinkInvalidTitle: "یہ لنک اب کارآمد نہیں",
     resetLinkInvalidDescription:
       "پاس ورڈ ری سیٹ لنک صرف ایک بار استعمال ہوتے ہیں اور کچھ دیر بعد ختم ہو جاتے ہیں۔",
@@ -1766,6 +1767,10 @@ export const ur: TranslationResources = {
     signedInAt: "سائن ان ہوا",
     changePassword: "پاس ورڈ تبدیل کریں",
     passwordChanged: "پاس ورڈ تبدیل ہو گیا۔",
+    setPassword: "پاس ورڈ مقرر کریں",
+    setPasswordBody:
+      "اس اکاؤنٹ کا ابھی کوئی پاس ورڈ نہیں ہے — آپ اب تک صرف Google جیسے منسلک اکاؤنٹ سے سائن اِن کرتے رہے ہیں۔ ہم آپ کو پاس ورڈ بنانے کا لنک بھیجیں گے، اس کے بعد دونوں طریقے کام کریں گے۔",
+    emailSetPasswordLink: "مجھے لنک بھیجیں",
     twoFactor: "دو مرحلہ توثیق",
     twoFactorEnabled: "دو مرحلہ توثیق فعال ہے۔",
     twoFactorDisabled: "دو مرحلہ توثیق غیر فعال ہے۔",

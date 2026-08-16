@@ -1,5 +1,6 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Enums;
+using Auth.Domain.Errors;
 using Auth.Domain.Events;
 
 namespace Auth_API.Tests.Domain.Entities;
@@ -21,13 +22,14 @@ public class UserTests
         DateTime? lockoutEnd = null,
         bool twoFactorEnabled = false,
         string? twoFactorSecret = null,
-        bool mustChangePassword = false)
+        bool mustChangePassword = false,
+        string? passwordHash = "hashed_password")
     {
         return new User(
             id: Guid.NewGuid(),
             email: "test@example.com",
             normalizedEmail: "TEST@EXAMPLE.COM",
-            passwordHash: "hashed_password",
+            passwordHash: passwordHash,
             firstName: "John",
             lastName: "Doe",
             displayName: "John Doe",
@@ -273,6 +275,63 @@ public class UserTests
         var domainEvent = user.DomainEvents[0].Should().BeOfType<PasswordChangedEvent>().Subject;
         domainEvent.UserId.Should().Be(user.Id);
         domainEvent.ChangedBy.Should().Be(modifiedBy);
+    }
+
+    #endregion
+
+    #region SetInitialPassword Tests
+
+    [Fact]
+    public void SetInitialPassword_AccountWithoutAPassword_SetsHashAndClearsMustChange()
+    {
+        // Arrange — an external-only sign-up: Google and Apple leave PasswordHash null.
+        var user = CreateDefaultUser(passwordHash: null, mustChangePassword: true);
+        var modifiedBy = Guid.NewGuid();
+
+        // Act
+        var result = user.SetInitialPassword("first_argon2id_hash", modifiedBy);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        user.PasswordHash.Should().Be("first_argon2id_hash");
+        user.PasswordChangedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        user.MustChangePassword.Should().BeFalse();
+        user.ModifiedBy.Should().Be(modifiedBy);
+    }
+
+    [Fact]
+    public void SetInitialPassword_AccountWithoutAPassword_RaisesPasswordCreatedEventNotChanged()
+    {
+        // The audit log has to distinguish "this account gained its first credential"
+        // from "an existing credential was rotated".
+        var user = CreateDefaultUser(passwordHash: null);
+        var modifiedBy = Guid.NewGuid();
+
+        user.SetInitialPassword("first_hash", modifiedBy);
+
+        user.DomainEvents.Should().ContainSingle();
+        var domainEvent = user.DomainEvents[0].Should().BeOfType<PasswordCreatedEvent>().Subject;
+        domainEvent.UserId.Should().Be(user.Id);
+        domainEvent.SetBy.Should().Be(modifiedBy);
+    }
+
+    [Fact]
+    public void SetInitialPassword_AccountThatAlreadyHasOne_ReturnsErrorAndMutatesNothing()
+    {
+        // Arrange
+        var user = CreateDefaultUser(passwordHash: "existing_hash");
+        var passwordChangedAtBefore = user.PasswordChangedAt;
+
+        // Act
+        var result = user.SetInitialPassword("attempted_hash", Guid.NewGuid());
+
+        // Assert — the invariant lives in the aggregate, so no caller can overwrite an
+        // existing password through a path that never asked for the current one.
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(UserErrors.PasswordAlreadySet.Code);
+        user.PasswordHash.Should().Be("existing_hash");
+        user.PasswordChangedAt.Should().Be(passwordChangedAtBefore);
+        user.DomainEvents.Should().BeEmpty();
     }
 
     #endregion

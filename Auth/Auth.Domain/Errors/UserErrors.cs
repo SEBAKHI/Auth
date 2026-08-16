@@ -79,6 +79,15 @@ public static class UserErrors
         code: "User.PasswordBreachCheckUnavailable",
         description: "The password security check is temporarily unavailable. Please try again later.");
 
+    /// <summary>
+    /// Guards User.SetInitialPassword, which exists only for accounts that have never had a
+    /// password (external-only sign-ups). Rotating an existing one is User.ChangePassword,
+    /// whose caller proves knowledge of the current password first.
+    /// </summary>
+    public static Error PasswordAlreadySet => Error.Conflict(
+        code: "User.PasswordAlreadySet",
+        description: "This account already has a password. Change it instead of setting a new one.");
+
     public static Error CannotDeleteSystemUser => Error.Forbidden(
         code: "User.CannotDeleteSystemUser",
         description: "System users cannot be deleted.");

@@ -4,7 +4,7 @@ import { Link } from "react-router-dom"
 import { privacyPolicyUrl } from "@authsystem/api/env"
 import { LoginPage } from "@authsystem/auth/pages/login"
 
-import { ExternalProviders } from "@/components/external-providers"
+import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 
 /**
  * Accounts-flavored sign-in: external providers, sign-up link, end-user subtitle.
@@ -21,7 +21,7 @@ export function AccountsLoginPage() {
   return (
     <LoginPage
       subtitle={t("auth.signInSubtitleAccounts")}
-      providers={<ExternalProviders />}
+      providers={<ExternalProviders recoveryPath="/account-recovery" />}
       footer={
         <span>
           {t("auth.noAccount")}{" "}

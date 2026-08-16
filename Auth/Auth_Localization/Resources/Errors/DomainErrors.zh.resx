@@ -595,6 +595,9 @@
   <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
     <value>密码安全检查暂时不可用，请稍后重试。</value>
   </data>
+  <data name="User.PasswordAlreadySet" xml:space="preserve">
+    <value>此账户已设置密码。请更改现有密码，而不是设置新密码。</value>
+  </data>
   <data name="User.RoleAlreadyAssigned" xml:space="preserve">
     <value>用户已拥有角色'{0}'。</value>
   </data>

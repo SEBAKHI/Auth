@@ -7,8 +7,9 @@ import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { Button } from "@authsystem/ui/button"
 
-import { useExternalProviders } from "@/components/use-external-providers"
 import { Spinner } from "@authsystem/ui/spinner"
+
+import { useExternalProviders } from "./use-external-providers"
 
 /** Minimal typings for the Sign in with Apple JS client. */
 interface AppleSignInResponse {
@@ -83,6 +84,11 @@ interface LocationState {
   from?: { pathname?: string; search?: string }
 }
 
+interface AppleSignInProps {
+  /** Where to send a pending-deletion account; omitted in apps without a recovery screen. */
+  recoveryPath?: string
+}
+
 /**
  * "Continue with Apple" button (popup ID-token flow). Renders nothing unless
  * the API lists an enabled "apple" provider AND a Services ID is configured.
@@ -93,7 +99,7 @@ interface LocationState {
  * deletion revoke the Apple grant — and, on first authorization only, the
  * user's name (Apple never repeats it).
  */
-export function AppleSignIn() {
+export function AppleSignIn({ recoveryPath }: AppleSignInProps = {}) {
   const { i18n, t } = useTranslation()
   const { loginExternal } = useAuth()
   const navigate = useNavigate()
@@ -151,10 +157,11 @@ export function AppleSignIn() {
       // Pending deletion (the ID token itself was valid): carry the still-
       // fresh credential to the recovery screen so restoring is one click.
       if (
+        recoveryPath &&
         response &&
         getErrorCodes(error).includes("User.AccountPendingDeletion")
       ) {
-        navigate("/account-recovery", {
+        navigate(recoveryPath, {
           state: {
             message: getErrorMessage(error),
             external: {
@@ -170,7 +177,7 @@ export function AppleSignIn() {
     } finally {
       setPending(false)
     }
-  }, [appleServicesId, from, i18n.language, loginExternal, navigate, t])
+  }, [appleServicesId, from, i18n.language, loginExternal, navigate, t, recoveryPath])
 
   if (!appleEnabled) return null
 

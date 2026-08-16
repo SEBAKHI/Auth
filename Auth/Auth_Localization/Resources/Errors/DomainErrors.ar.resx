@@ -597,6 +597,9 @@
   <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
     <value>فحص أمان كلمة المرور غير متاح مؤقتًا. يرجى المحاولة مرة أخرى لاحقًا.</value>
   </data>
+  <data name="User.PasswordAlreadySet" xml:space="preserve">
+    <value>لهذا الحساب كلمة مرور بالفعل. غيّرها بدلًا من تعيين كلمة مرور جديدة.</value>
+  </data>
   <data name="User.RoleAlreadyAssigned" xml:space="preserve">
     <value>المستخدم لديه الدور '{0}' بالفعل.</value>
   </data>

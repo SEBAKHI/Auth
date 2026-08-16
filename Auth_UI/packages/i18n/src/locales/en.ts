@@ -172,6 +172,7 @@ export const en = {
     resetLinkExpiresIn: "The link expires in {{time}}",
     resetLinkExpired: "The link has expired. Request a new one.",
     resendResetLink: "Didn't get it? Send again",
+    resendAvailableIn: "You can send again in {{time}}",
     resetLinkInvalidTitle: "This link is no longer valid",
     resetLinkInvalidDescription:
       "Password reset links can only be used once, and expire after a while.",
@@ -1769,6 +1770,10 @@ export const en = {
     signedInAt: "Signed in",
     changePassword: "Change password",
     passwordChanged: "Password changed.",
+    setPassword: "Set a password",
+    setPasswordBody:
+      "This account has no password yet — you've only signed in through a connected account like Google. We'll email you a link to create one, and after that either way will work.",
+    emailSetPasswordLink: "Email me a link",
     twoFactor: "Two-factor authentication",
     twoFactorEnabled: "Two-factor is enabled.",
     twoFactorDisabled: "Two-factor is disabled.",

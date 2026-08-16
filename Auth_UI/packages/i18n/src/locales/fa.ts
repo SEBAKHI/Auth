@@ -178,6 +178,7 @@ export const fa: TranslationResources = {
     resetLinkExpiresIn: "این پیوند تا {{time}} دیگر منقضی می‌شود",
     resetLinkExpired: "پیوند منقضی شده است. پیوند تازه‌ای درخواست کنید.",
     resendResetLink: "دریافت نکردید؟ دوباره ارسال کنید",
+    resendAvailableIn: "{{time}} دیگر می‌توانید دوباره ارسال کنید",
     resetLinkInvalidTitle: "این پیوند دیگر معتبر نیست",
     resetLinkInvalidDescription:
       "پیوندهای بازنشانی رمز عبور تنها یک بار قابل استفاده‌اند و پس از مدتی منقضی می‌شوند.",
@@ -1788,6 +1789,10 @@ export const fa: TranslationResources = {
     signedInAt: "زمان ورود",
     changePassword: "تغییر رمز عبور",
     passwordChanged: "رمز عبور تغییر کرد.",
+    setPassword: "تعیین رمز عبور",
+    setPasswordBody:
+      "این حساب هنوز رمز عبوری ندارد؛ تاکنون تنها با یک حساب متصل مانند Google وارد شده‌اید. پیوندی برای ساختن رمز عبور برایتان می‌فرستیم و پس از آن هر دو روش کار می‌کند.",
+    emailSetPasswordLink: "پیوند را برایم بفرست",
     twoFactor: "احراز هویت دومرحله‌ای",
     twoFactorEnabled: "احراز دومرحله‌ای فعال است.",
     twoFactorDisabled: "احراز دومرحله‌ای غیرفعال است.",

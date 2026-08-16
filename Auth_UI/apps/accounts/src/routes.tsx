@@ -41,13 +41,6 @@ export const router = createBrowserRouter([
           (m) => m.ForgotPasswordPage
         ),
       },
-      {
-        path: "/reset-password",
-        lazy: lazyRoute(
-          () => import("@authsystem/auth/pages/reset-password"),
-          (m) => m.ResetPasswordPage
-        ),
-      },
       // Public no-login deletion wizard (compliance surface).
       {
         path: "/delete-account",
@@ -130,6 +123,20 @@ export const router = createBrowserRouter([
     lazy: lazyRoute(
       () => import("@authsystem/auth/pages/accept-invitation"),
       (m) => m.AcceptInvitationPage
+    ),
+  },
+  // Top-level on purpose: the link is emailed, and the person who opens it may
+  // already be signed in here - a Google-created account following the "set a
+  // password" card from Profile > Security is exactly that case. Under
+  // RequireAnonymous they were redirected to "/" and the token in the query
+  // string was swallowed without a word, which reads as a broken email link.
+  // With no token the page renders its own invalid-link state, so exposing it
+  // to a signed-in visitor leaks nothing.
+  {
+    path: "/reset-password",
+    lazy: lazyRoute(
+      () => import("@authsystem/auth/pages/reset-password"),
+      (m) => m.ResetPasswordPage
     ),
   },
   // Top-level on purpose: the user arrives unauthenticated but recovering

@@ -178,6 +178,7 @@ export const fr: TranslationResources = {
     resetLinkExpiresIn: "Le lien expire dans {{time}}",
     resetLinkExpired: "Le lien a expiré. Demandez-en un nouveau.",
     resendResetLink: "Rien reçu ? Renvoyer",
+    resendAvailableIn: "Vous pourrez renvoyer dans {{time}}",
     resetLinkInvalidTitle: "Ce lien n'est plus valide",
     resetLinkInvalidDescription:
       "Les liens de réinitialisation ne servent qu'une fois et expirent au bout d'un moment.",
@@ -1843,6 +1844,10 @@ export const fr: TranslationResources = {
     signedInAt: "Connecté le",
     changePassword: "Changer le mot de passe",
     passwordChanged: "Mot de passe changé.",
+    setPassword: "Définir un mot de passe",
+    setPasswordBody:
+      "Ce compte n'a pas encore de mot de passe : vous ne vous êtes connecté qu'avec un compte associé comme Google. Nous vous enverrons un lien pour en créer un, et les deux méthodes fonctionneront ensuite.",
+    emailSetPasswordLink: "M'envoyer un lien",
     twoFactor: "Authentification à deux facteurs",
     twoFactorEnabled: "La double authentification est activée.",
     twoFactorDisabled: "La double authentification est désactivée.",

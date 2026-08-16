@@ -595,6 +595,9 @@
   <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
     <value>Parola güvenlik denetimi geçici olarak kullanılamıyor. Lütfen daha sonra tekrar deneyin.</value>
   </data>
+  <data name="User.PasswordAlreadySet" xml:space="preserve">
+    <value>Bu hesabın zaten bir parolası var. Yeni bir parola belirlemek yerine mevcut parolayı değiştirin.</value>
+  </data>
   <data name="User.RoleAlreadyAssigned" xml:space="preserve">
     <value>Kullanıcı '{0}' rolüne zaten sahip.</value>
   </data>

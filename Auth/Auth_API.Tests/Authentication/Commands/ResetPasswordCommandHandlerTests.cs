@@ -4,7 +4,9 @@ using Auth.Application.Interfaces;
 using Auth.Application.Validators;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Primitives;
 using Auth_API.Tests.Helpers;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
@@ -26,6 +28,8 @@ public class ResetPasswordCommandHandlerTests
     private readonly Mock<IUserSessionRepository> _userSessionRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock;
+    private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
+    private readonly List<IDomainEvent> _dispatchedEvents = [];
     private readonly Mock<ILogger<ResetPasswordCommandHandler>> _loggerMock;
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
@@ -40,10 +44,23 @@ public class ResetPasswordCommandHandlerTests
         _userSessionRepositoryMock = new Mock<IUserSessionRepository>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _tokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
+        _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
         _loggerMock = new Mock<ILogger<ResetPasswordCommandHandler>>();
 
         _tokenKeyServiceMock.Setup(k => k.ComputeTokenHash(It.IsAny<string>()))
             .Returns((string token) => $"hmac({token})");
+
+        // Mirrors the real dispatcher: drain, then CLEAR. Capturing at publish time is what
+        // makes the assertions meaningful - reading DomainEvents after the call would show
+        // whatever a production dispatcher had already emptied.
+        _eventDispatcherMock
+            .Setup(d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()))
+            .Callback<AggregateRoot, CancellationToken>((aggregate, _) =>
+            {
+                _dispatchedEvents.AddRange(aggregate.DomainEvents);
+                aggregate.ClearDomainEvents();
+            })
+            .Returns(Task.CompletedTask);
 
         _passwordSettings = TestHelpers.CreatePasswordSettings();
         _sessionSettings = TestHelpers.CreateSessionSettings();
@@ -62,6 +79,7 @@ public class ResetPasswordCommandHandlerTests
             TestHelpers.CreatePassingBreachEvaluator(),
             TestHelpers.CreateOptions(_passwordSettings),
             TestHelpers.CreateOptions(_sessionSettings),
+            _eventDispatcherMock.Object,
             _loggerMock.Object);
     }
 
@@ -298,13 +316,73 @@ public class ResetPasswordCommandHandlerTests
 
         SetupValidResetScenario(user, resetToken, command);
 
+        // Captured before the act: the handler now mutates the aggregate, so reading
+        // user.PasswordHash at assert time would return the NEW hash.
+        var previousHash = user.PasswordHash;
+
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
         _passwordHistoryRepositoryMock.Verify(r => r.AddAsync(
-            It.Is<PasswordHistory>(ph => ph.UserId == user.Id && ph.PasswordHash == user.PasswordHash),
+            It.Is<PasswordHistory>(ph => ph.UserId == user.Id && ph.PasswordHash == previousHash),
             It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ExternalOnlyUserWithoutPassword_DispatchesPasswordCreatedNotChanged()
+    {
+        // THE CENTRAL REGRESSION GUARD. Before this change the handler dispatched nothing at
+        // all, so the moment an external-only super-admin acquired its first credential left
+        // no audit row. It must be recorded, and recorded as a creation, not a rotation.
+        var user = TestHelpers.CreateUser(email: "external@example.com", passwordHash: null);
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+
+        SetupValidResetScenario(user, resetToken, command);
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        _dispatchedEvents.Should().ContainSingle();
+        var created = _dispatchedEvents[0].Should().BeOfType<PasswordCreatedEvent>().Subject;
+        created.UserId.Should().Be(user.Id);
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(user, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_UserWithAnExistingPassword_DispatchesPasswordChanged()
+    {
+        // The other side of the same branch: a rotation stays a rotation.
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+
+        SetupValidResetScenario(user, resetToken, command);
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        _dispatchedEvents.Should().ContainSingle();
+        _dispatchedEvents[0].Should().BeOfType<PasswordChangedEvent>();
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(user, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_RejectedReset_DispatchesNothing()
+    {
+        // A reset that never happened must not announce that one did.
+        var command = new ResetPasswordCommand("wrong-token", "NewPass1!");
+
+        _passwordResetTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PasswordResetToken?)null);
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        _dispatchedEvents.Should().BeEmpty();
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(It.IsAny<AggregateRoot>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private void SetupValidResetScenario(User user, PasswordResetToken resetToken, ResetPasswordCommand command)

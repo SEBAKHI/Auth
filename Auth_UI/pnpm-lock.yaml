@@ -286,6 +286,9 @@ importers:
       '@authsystem/api':
         specifier: workspace:*
         version: link:../api
+      '@authsystem/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@authsystem/i18n':
         specifier: workspace:*
         version: link:../i18n
@@ -363,6 +366,9 @@ importers:
       '@authsystem/i18n':
         specifier: workspace:*
         version: link:../i18n
+      '@authsystem/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@hookform/resolvers':
         specifier: ^5.4.0
         version: 5.4.0(react-hook-form@7.80.0(react@19.2.7))

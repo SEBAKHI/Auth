@@ -176,6 +176,7 @@ export const zh: TranslationResources = {
     resetLinkExpiresIn: "链接将在 {{time}} 后失效",
     resetLinkExpired: "链接已失效，请重新获取。",
     resendResetLink: "没有收到？重新发送",
+    resendAvailableIn: "{{time}} 后可再次发送",
     resetLinkInvalidTitle: "此链接已失效",
     resetLinkInvalidDescription:
       "密码重置链接只能使用一次，并会在一段时间后过期。",
@@ -1694,6 +1695,10 @@ export const zh: TranslationResources = {
     signedInAt: "登录时间",
     changePassword: "修改密码",
     passwordChanged: "密码已修改。",
+    setPassword: "设置密码",
+    setPasswordBody:
+      "此账户尚未设置密码——您一直通过 Google 等关联账户登录。我们会向您发送创建密码的链接，之后两种方式都可以使用。",
+    emailSetPasswordLink: "给我发送链接",
     twoFactor: "双重认证",
     twoFactorEnabled: "双重认证已启用。",
     twoFactorDisabled: "双重认证已禁用。",

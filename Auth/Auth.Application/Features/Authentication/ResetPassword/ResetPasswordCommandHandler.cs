@@ -25,6 +25,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly PasswordSettings _passwordSettings;
     private readonly SessionSettings _sessionSettings;
+    private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
 
     public ResetPasswordCommandHandler(
@@ -38,6 +39,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IPasswordBreachEvaluator breachEvaluator,
         IOptionsSnapshot<PasswordSettings> passwordSettings,
         IOptionsSnapshot<SessionSettings> sessionSettings,
+        IDomainEventDispatcher eventDispatcher,
         ILogger<ResetPasswordCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -50,6 +52,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _breachEvaluator = breachEvaluator;
         _passwordSettings = passwordSettings.Value;
         _sessionSettings = sessionSettings.Value;
+        _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
 
@@ -131,6 +134,23 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
             await _passwordHistoryRepository.AddAsync(passwordHistory, cancellationToken);
         }
 
+        // Let the aggregate decide which event this is, BEFORE the write. An external-only
+        // account (Google, Apple) has no hash, so this reset is the first credential it has
+        // ever had - a different security event from a rotation. Until now this handler
+        // mutated nothing and dispatched nothing, so a reset left no audit trail at all.
+        if (user.PasswordHash is null)
+        {
+            var initialPassword = user.SetInitialPassword(newPasswordHash, user.Id);
+            if (initialPassword.IsError)
+            {
+                return initialPassword.Errors;
+            }
+        }
+        else
+        {
+            user.ChangePassword(newPasswordHash, user.Id);
+        }
+
         // Update the password
         await _userRepository.UpdatePasswordAsync(
             user.Id,
@@ -169,6 +189,10 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
                 "Password reset for user {UserId}, sessions preserved per request/configuration",
                 user.Id);
         }
+
+        // Dispatched last, mirroring ChangePasswordCommandHandler: the password is persisted
+        // and the sessions are settled before anything reacts to the event.
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 
         return Result.Success;
     }

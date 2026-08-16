@@ -595,6 +595,9 @@
   <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
     <value>پاس ورڈ کی حفاظتی جانچ عارضی طور پر دستیاب نہیں ہے۔ براہ کرم بعد میں دوبارہ کوشش کریں۔</value>
   </data>
+  <data name="User.PasswordAlreadySet" xml:space="preserve">
+    <value>اس اکاؤنٹ کا پہلے سے پاس ورڈ موجود ہے۔ نیا پاس ورڈ مقرر کرنے کے بجائے موجودہ پاس ورڈ تبدیل کریں۔</value>
+  </data>
   <data name="User.RoleAlreadyAssigned" xml:space="preserve">
     <value>صارف کے پاس پہلے سے کردار '{0}' موجود ہے۔</value>
   </data>

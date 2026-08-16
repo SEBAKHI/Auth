@@ -5,14 +5,27 @@ A pnpm workspace hosting the frontend apps of the Auth system, built with
 
 - `apps/console` — the admin console: users, roles,
   permissions, applications, API/webhook keys, audit logs, signing secrets,
-  dashboard.
+  dashboard. Signs in with email + Google.
 - `apps/accounts` — the end-user self-service app:
   sign in/up (email + Google), password flows, invitations, profile,
-  organization self-service. Google Identity Services needs
-  `VITE_GOOGLE_CLIENT_ID` and the GSI origins in its CSP (accounts only).
+  organization self-service.
+
+> **Google Identity Services applies to BOTH apps.** The buttons live in
+> `packages/auth/src/external/`; each app fills the shared login page's
+> `providers` slot with them. Every origin that renders one needs
+> `https://accounts.google.com` in its `script-src`, `connect-src` **and**
+> `frame-src` (the last one for the personalized-button iframe), and must be
+> listed as an Authorized JavaScript origin on the Google OAuth client — GSI
+> renders *nothing at all*, silently, when it is not. The console's CSP
+> deliberately kept those origins out until the console gained the button; see
+> the comment in `apps/console/public/web.config` for what that costs.
+> The public client id is served at runtime by
+> `GET /api/v1/Auth/external-providers`; `VITE_GOOGLE_CLIENT_ID` is only a
+> build-time fallback for an API older than the build.
 - `packages/api` — typed API client (openapi-fetch + generated schema), token
   store/JWT, upload helpers, error normalization, query client.
-- `packages/auth` — AuthProvider, route/permission guards.
+- `packages/auth` — AuthProvider, route/permission guards, the shared auth
+  pages, and the external-provider buttons (`external/`).
 - `packages/i18n` — i18next setup, the 7 locales, RTL DirectionProvider,
   timezone display helpers.
 - `packages/ui` — shadcn primitives, shared widgets (`common/`), hooks,

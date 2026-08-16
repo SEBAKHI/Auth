@@ -178,6 +178,7 @@ export const tr: TranslationResources = {
     resetLinkExpiresIn: "Bağlantının süresi {{time}} içinde doluyor",
     resetLinkExpired: "Bağlantının süresi doldu. Yenisini isteyin.",
     resendResetLink: "Ulaşmadı mı? Tekrar gönder",
+    resendAvailableIn: "{{time}} sonra tekrar gönderebilirsiniz",
     resetLinkInvalidTitle: "Bu bağlantı artık geçerli değil",
     resetLinkInvalidDescription:
       "Parola sıfırlama bağlantıları yalnızca bir kez kullanılabilir ve bir süre sonra geçerliliğini yitirir.",
@@ -1783,6 +1784,10 @@ export const tr: TranslationResources = {
     signedInAt: "Oturum açılma",
     changePassword: "Parolayı değiştir",
     passwordChanged: "Parola değiştirildi.",
+    setPassword: "Parola belirle",
+    setPasswordBody:
+      "Bu hesabın henüz bir parolası yok; şimdiye kadar yalnızca Google gibi bağlı bir hesapla giriş yaptınız. Parola oluşturmanız için size bir bağlantı göndereceğiz; sonrasında iki yöntem de çalışır.",
+    emailSetPasswordLink: "Bana bir bağlantı gönder",
     twoFactor: "İki adımlı doğrulama",
     twoFactorEnabled: "İki adımlı doğrulama etkin.",
     twoFactorDisabled: "İki adımlı doğrulama devre dışı.",

@@ -595,6 +595,9 @@
   <data name="User.PasswordBreachCheckUnavailable" xml:space="preserve">
     <value>بررسی امنیتی رمز عبور موقتاً در دسترس نیست. لطفاً بعداً دوباره تلاش کنید.</value>
   </data>
+  <data name="User.PasswordAlreadySet" xml:space="preserve">
+    <value>این حساب از قبل رمز عبور دارد. به‌جای تعیین رمز جدید، آن را تغییر دهید.</value>
+  </data>
   <data name="User.RoleAlreadyAssigned" xml:space="preserve">
     <value>کاربر از قبل نقش '{0}' را دارد.</value>
   </data>

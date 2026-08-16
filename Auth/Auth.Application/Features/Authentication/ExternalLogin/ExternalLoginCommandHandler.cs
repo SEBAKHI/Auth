@@ -22,6 +22,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly IExternalAuthProviderFactory _providerFactory;
     private readonly IUserExternalLoginRepository _externalLoginRepository;
     private readonly IUserRepository _userRepository;
+    private readonly IPermissionRepository _permissionRepository;
     private readonly IAccountDeletionRequestRepository _accountDeletionRequestRepository;
     private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IEnumerable<IExternalTokenLifecycle> _tokenLifecycles;
@@ -37,6 +38,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         IExternalAuthProviderFactory providerFactory,
         IUserExternalLoginRepository externalLoginRepository,
         IUserRepository userRepository,
+        IPermissionRepository permissionRepository,
         IAccountDeletionRequestRepository accountDeletionRequestRepository,
         IdentifierReservationGuard reservationGuard,
         IEnumerable<IExternalTokenLifecycle> tokenLifecycles,
@@ -51,6 +53,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         _providerFactory = providerFactory;
         _externalLoginRepository = externalLoginRepository;
         _userRepository = userRepository;
+        _permissionRepository = permissionRepository;
         _accountDeletionRequestRepository = accountDeletionRequestRepository;
         _reservationGuard = reservationGuard;
         _tokenLifecycles = tokenLifecycles;
@@ -129,6 +132,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         {
             // New external login — check if user exists by email
             user = await _userRepository.GetByEmailAsync(externalUser.Email, cancellationToken);
+            var linkedToExistingAccount = user != null;
 
             if (user != null)
             {
@@ -202,6 +206,12 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
 
             await _externalLoginRepository.CreateAsync(externalLogin, cancellationToken);
             existingExternalLogin = externalLogin;
+
+            if (linkedToExistingAccount)
+            {
+                await RecordProviderLinkAsync(
+                    user, request.Provider, externalUser.ProviderUserId, cancellationToken);
+            }
         }
 
         // Store the provider's revocable refresh token (Apple) for
@@ -297,6 +307,38 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
 
     private static string FirstNonEmpty(string providerValue, string? requestValue) =>
         !string.IsNullOrWhiteSpace(providerValue) ? providerValue : requestValue?.Trim() ?? "";
+
+    /// <summary>
+    /// Announces that a provider was attached to an account that already existed.
+    /// </summary>
+    /// <remarks>
+    /// Dispatched HERE rather than at the end of the sign-in, and that placement is the whole
+    /// point. The link row is committed by this line, but the two-factor gate and the
+    /// session-limit check both return before the dispatch at the end and drop whatever is
+    /// pending, on the stated grounds that nobody logged in. The link happened regardless — so
+    /// deferring would have silenced this event for precisely the hardened accounts it exists
+    /// to report. Nothing else is queued on the aggregate on this path: it was loaded by email
+    /// a few lines above and only its avatar has been touched, which raises nothing.
+    ///
+    /// The wildcard lookup runs only on this branch, which is once per account per provider.
+    /// </remarks>
+    private async Task RecordProviderLinkAsync(
+        User user,
+        string provider,
+        string providerUserId,
+        CancellationToken cancellationToken)
+    {
+        var permissions = await _permissionRepository.GetUserEffectivePermissionsAsync(
+            user.Id, cancellationToken);
+
+        // Same semantics the authorization handler enforces: "*" grants everything and
+        // "prefix:*" grants a whole area. Either one makes this link worth a warning.
+        var holdsWildcard = permissions.Any(code =>
+            code == "*" || code.EndsWith(":*", StringComparison.Ordinal));
+
+        user.RecordExternalProviderLink(provider, providerUserId, holdsWildcard);
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
+    }
 
     /// <summary>
     /// Exchanges the sign-in authorization code for the provider's refresh

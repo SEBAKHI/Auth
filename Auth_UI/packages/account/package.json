@@ -5,6 +5,7 @@
   "type": "module",
   "dependencies": {
     "@authsystem/api": "workspace:*",
+    "@authsystem/auth": "workspace:*",
     "@authsystem/i18n": "workspace:*",
     "@authsystem/ui": "workspace:*",
     "@hookform/resolvers": "^5.4.0",

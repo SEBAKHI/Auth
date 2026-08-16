@@ -1,7 +1,9 @@
 using Auth.Domain.Enums;
+using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Primitives;
 using Auth.Domain.ValueObjects;
+using ErrorOr;
 
 namespace Auth.Domain.Entities;
 
@@ -340,7 +342,48 @@ public class User : AggregateRoot
         PasswordChangedAt = DateTime.UtcNow;
         MustChangePassword = false;
         SetModified(modifiedBy);
-        RaiseDomainEvent(new PasswordChangedEvent(Id, modifiedBy));
+        RaiseDomainEvent(new PasswordChangedEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName()));
+    }
+
+    /// <summary>
+    /// Sets the first password on an account that has never had one - the path an
+    /// external-only sign-up (Google, Apple) takes to acquire local credentials.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="ChangePassword"/> for two reasons. Its caller cannot prove
+    /// knowledge of a current password, because there is none; and the event it raises has to be
+    /// distinguishable in the audit log from a rotation. The "never had one" invariant lives here
+    /// rather than in a handler so that no future caller can overwrite an existing password
+    /// through a path that asks for nothing.
+    /// </remarks>
+    public ErrorOr<Success> SetInitialPassword(string passwordHash, Guid modifiedBy)
+    {
+        if (PasswordHash is not null)
+            return UserErrors.PasswordAlreadySet;
+
+        PasswordHash = passwordHash;
+        PasswordChangedAt = DateTime.UtcNow;
+        MustChangePassword = false;
+        SetModified(modifiedBy);
+        RaiseDomainEvent(new PasswordCreatedEvent(Id, modifiedBy, Email, DisplayName ?? GetFullName()));
+        return Result.Success;
+    }
+
+    /// <summary>
+    /// Records that an external provider identity was attached to this existing account.
+    /// </summary>
+    /// <remarks>
+    /// Nothing on the user changes - the link itself is a separate entity. This exists so the
+    /// event has an aggregate to be raised from: UserExternalLogin is an EntityBase, and
+    /// RaiseDomainEvent is protected, so no code outside an aggregate can announce this.
+    /// </remarks>
+    public void RecordExternalProviderLink(
+        string provider,
+        string providerUserId,
+        bool holdsWildcardPermission)
+    {
+        RaiseDomainEvent(new ExternalProviderLinkedEvent(
+            Id, Email, provider, providerUserId, holdsWildcardPermission));
     }
 
     public void RecordSuccessfulLogin(string? ipAddress = null, string? userAgent = null)
