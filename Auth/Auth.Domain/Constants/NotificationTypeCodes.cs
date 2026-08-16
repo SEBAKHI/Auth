@@ -57,6 +57,21 @@ public static class NotificationTypeCodes
     public const string SecretOperationChallenge = "secret-operation-challenge";
 
     /// <summary>
+    /// A password was added to an account that had none — an external-only (Google, Apple)
+    /// sign-up acquiring local credentials. A SEPARATE type from
+    /// <see cref="PasswordChanged"/> on purpose: the account did not merely rotate a secret,
+    /// it became reachable by a second means it was not reachable by before, and only the
+    /// owner can say whether that was them.
+    /// </summary>
+    public const string PasswordCreated = "password-created";
+
+    /// <summary>
+    /// An existing password was replaced, whether from the profile screen or through a reset
+    /// link. Until this type existed the system changed passwords in total silence.
+    /// </summary>
+    public const string PasswordChanged = "password-changed";
+
+    /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
@@ -80,7 +95,12 @@ public static class NotificationTypeCodes
             // operation would be unavailable rather than unprotected, but the
             // control is not something an operator should be able to switch off
             // from the template screen either way.
-            SecretOperationChallenge
+            SecretOperationChallenge,
+            // Both password notices: an account's credentials changing without its owner
+            // hearing about it is the quietest possible takeover, and these are the only
+            // messages that break that silence.
+            PasswordCreated,
+            PasswordChanged
         ];
 
     /// <summary>

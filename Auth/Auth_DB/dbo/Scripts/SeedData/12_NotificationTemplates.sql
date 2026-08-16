@@ -2039,3 +2039,330 @@ BEGIN
     PRINT 'secret-operation-challenge template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 17: password-created (global, Email channel)
+--
+-- Sent when an account that had NO password acquires one. The distinction from
+-- template 18 is the whole reason this type exists: a rotation changes a secret
+-- the owner already had, while this changes what the account can be opened
+-- with. An external-only account was previously reachable only by whoever held
+-- the Google or Apple account; now a typed password opens it too.
+--
+-- The link goes to the ordinary security page, never a tokenized one-click
+-- undo: mail scanners prefetch links, so anything that revoked a credential
+-- would fire before a human read the message.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000017')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000017', '40000000-0000-0000-0000-000000000017', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000017', '42000000-0000-0000-0000-000000000017', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0017-000000000001', '43000000-0000-0000-0000-000000000017', N'en', N'A password was added to your account',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>A password was added to your account</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">Until now your {{ Platform.Name }} account had no password — you signed in through a connected account. A password has just been added, so from now on either way will sign you in.</p>
+<div class="notice">
+    <p class="notice-title">When</p>
+    <p class="notice-text">{{ SetAt }}</p>
+</div>
+<p class="message">If that was you, there is nothing else to do.</p>
+<p class="message">If it was not, someone else can now sign in with a password you did not choose. Change it immediately and review your security settings.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Review your security settings</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0017-000000000002', '43000000-0000-0000-0000-000000000017', N'ar', N'أُضيفت كلمة مرور إلى حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>أُضيفت كلمة مرور إلى حسابك</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">لم تكن لحسابك على {{ Platform.Name }} كلمة مرور حتى الآن، إذ كنت تدخل عبر حساب مرتبط. وقد أُضيفت كلمة مرور للتوّ، فصار بإمكانك الدخول بأي من الطريقتين.</p>
+<div class="notice">
+    <p class="notice-title">الوقت</p>
+    <p class="notice-text">{{ SetAt }}</p>
+</div>
+<p class="message">إن كنت أنت من فعل ذلك، فلا حاجة إلى أي إجراء.</p>
+<p class="message">وإن لم تكن أنت، فبإمكان شخص آخر الآن الدخول بكلمة مرور لم تخترها. غيّرها فورًا وراجع إعدادات الأمان.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">مراجعة إعدادات الأمان</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0017-000000000003', '43000000-0000-0000-0000-000000000017', N'tr', N'Hesabınıza bir parola eklendi',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>Hesabınıza bir parola eklendi</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{{ Platform.Name }} hesabınızın şimdiye kadar parolası yoktu; bağlı bir hesapla giriş yapıyordunuz. Az önce bir parola eklendi, artık iki yöntemle de giriş yapabilirsiniz.</p>
+<div class="notice">
+    <p class="notice-title">Zaman</p>
+    <p class="notice-text">{{ SetAt }}</p>
+</div>
+<p class="message">Bunu siz yaptıysanız yapmanız gereken başka bir şey yok.</p>
+<p class="message">Siz yapmadıysanız, artık bir başkası sizin seçmediğiniz bir parolayla giriş yapabilir. Parolayı hemen değiştirin ve güvenlik ayarlarınızı gözden geçirin.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Güvenlik ayarlarını gözden geçir</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0017-000000000004', '43000000-0000-0000-0000-000000000017', N'fr', N'Un mot de passe a été ajouté à votre compte',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>Un mot de passe a été ajouté à votre compte</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Jusqu''ici, votre compte {{ Platform.Name }} n''avait pas de mot de passe : vous vous connectiez avec un compte associé. Un mot de passe vient d''être ajouté ; désormais, les deux méthodes vous connectent.</p>
+<div class="notice">
+    <p class="notice-title">Quand</p>
+    <p class="notice-text">{{ SetAt }}</p>
+</div>
+<p class="message">Si c''était vous, il n''y a rien d''autre à faire.</p>
+<p class="message">Sinon, quelqu''un peut désormais se connecter avec un mot de passe que vous n''avez pas choisi. Changez-le immédiatement et vérifiez vos paramètres de sécurité.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Vérifier vos paramètres de sécurité</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0017-000000000005', '43000000-0000-0000-0000-000000000017', N'zh', N'您的账户已添加密码',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>您的账户已添加密码</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">此前您的 {{ Platform.Name }} 账户没有密码，您一直通过关联账户登录。刚刚已为账户添加密码，今后两种方式都可以登录。</p>
+<div class="notice">
+    <p class="notice-title">时间</p>
+    <p class="notice-text">{{ SetAt }}</p>
+</div>
+<p class="message">如果这是您本人操作，无需其他处理。</p>
+<p class="message">如果不是，他人现在可以用您未设置的密码登录。请立即修改密码并检查安全设置。</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">检查安全设置</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请将此链接复制到浏览器：</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0017-000000000006', '43000000-0000-0000-0000-000000000017', N'ur', N'آپ کے اکاؤنٹ میں پاس ورڈ شامل کر دیا گیا',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>آپ کے اکاؤنٹ میں پاس ورڈ شامل کر دیا گیا</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">اب تک آپ کے {{ Platform.Name }} اکاؤنٹ کا کوئی پاس ورڈ نہیں تھا؛ آپ منسلک اکاؤنٹ سے سائن اِن کرتے تھے۔ ابھی ایک پاس ورڈ شامل کیا گیا ہے، اس لیے اب دونوں طریقوں سے سائن اِن ہو سکے گا۔</p>
+<div class="notice">
+    <p class="notice-title">وقت</p>
+    <p class="notice-text">{{ SetAt }}</p>
+</div>
+<p class="message">اگر یہ آپ نے کیا ہے تو مزید کچھ کرنے کی ضرورت نہیں۔</p>
+<p class="message">اگر آپ نے نہیں کیا تو اب کوئی اور ایسے پاس ورڈ سے سائن اِن کر سکتا ہے جو آپ نے منتخب نہیں کیا۔ فوراً پاس ورڈ تبدیل کریں اور حفاظتی ترتیبات کا جائزہ لیں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">حفاظتی ترتیبات کا جائزہ لیں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0017-000000000007', '43000000-0000-0000-0000-000000000017', N'fa', N'رمز عبوری به حساب شما افزوده شد',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>رمز عبوری به حساب شما افزوده شد</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">تا کنون حساب شما در {{ Platform.Name }} رمز عبوری نداشت و با یک حساب متصل وارد می‌شدید. هم‌اکنون رمز عبوری افزوده شد، بنابراین از این پس هر دو روش شما را وارد می‌کند.</p>
+<div class="notice">
+    <p class="notice-title">زمان</p>
+    <p class="notice-text">{{ SetAt }}</p>
+</div>
+<p class="message">اگر این کار را شما انجام داده‌اید، اقدام دیگری لازم نیست.</p>
+<p class="message">اگر شما نبوده‌اید، اکنون شخص دیگری می‌تواند با رمزی که شما انتخاب نکرده‌اید وارد شود. بی‌درنگ آن را تغییر دهید و تنظیمات امنیتی را بررسی کنید.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">بررسی تنظیمات امنیتی</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000017'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000017';
+
+    PRINT 'Created password-created template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'password-created template already exists';
+END
+GO
+
+-- ============================================================
+-- Template 18: password-changed (global, Email channel)
+--
+-- Sent whenever an existing password is replaced, from the profile screen or
+-- through a reset link. The copy deliberately does not name which route was
+-- used: the aggregate cannot tell them apart, and a message that guessed wrong
+-- would teach the reader to distrust the accurate parts too.
+--
+-- Session termination is described conditionally because it is configurable
+-- (Session:TerminateSessionsOnPasswordChange / …OnPasswordReset). Promising a
+-- sign-out that did not happen is worse than describing the possibility.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000018')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000018', '40000000-0000-0000-0000-000000000018', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000018', '42000000-0000-0000-0000-000000000018', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0018-000000000001', '43000000-0000-0000-0000-000000000018', N'en', N'Your password was changed',
+N'<div class="header">
+    <p class="eyebrow">Account security</p>
+    <h1>Your password was changed</h1>
+</div>
+<p class="message">Hello {{ UserName }},</p>
+<p class="message">The password on your {{ Platform.Name }} account was just changed. Depending on your settings, this may also have signed you out on your other devices.</p>
+<div class="notice">
+    <p class="notice-title">When</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+<p class="message">If that was you, there is nothing else to do.</p>
+<p class="message">If it was not, whoever made the change can sign in as you right now. Change your password immediately and review your security settings.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Review your security settings</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0018-000000000002', '43000000-0000-0000-0000-000000000018', N'ar', N'تم تغيير كلمة مرور حسابك',
+N'<div class="header">
+    <p class="eyebrow">أمان الحساب</p>
+    <h1>تم تغيير كلمة مرور حسابك</h1>
+</div>
+<p class="message">مرحبًا {{ UserName }}،</p>
+<p class="message">غُيّرت للتوّ كلمة مرور حسابك على {{ Platform.Name }}. وقد يكون ذلك أنهى جلساتك على أجهزتك الأخرى، بحسب الإعدادات.</p>
+<div class="notice">
+    <p class="notice-title">الوقت</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+<p class="message">إن كنت أنت من غيّرها، فلا حاجة إلى أي إجراء.</p>
+<p class="message">وإن لم تكن أنت، فمن أجرى التغيير يستطيع الدخول باسمك الآن. غيّر كلمة المرور فورًا وراجع إعدادات الأمان.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">مراجعة إعدادات الأمان</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0018-000000000003', '43000000-0000-0000-0000-000000000018', N'tr', N'Parolanız değiştirildi',
+N'<div class="header">
+    <p class="eyebrow">Hesap güvenliği</p>
+    <h1>Parolanız değiştirildi</h1>
+</div>
+<p class="message">Merhaba {{ UserName }},</p>
+<p class="message">{{ Platform.Name }} hesabınızın parolası az önce değiştirildi. Ayarlarınıza bağlı olarak bu, diğer cihazlarınızdaki oturumlarınızı da kapatmış olabilir.</p>
+<div class="notice">
+    <p class="notice-title">Zaman</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+<p class="message">Bunu siz yaptıysanız yapmanız gereken başka bir şey yok.</p>
+<p class="message">Siz yapmadıysanız, değişikliği yapan kişi şu anda sizin adınıza giriş yapabilir. Parolanızı hemen değiştirin ve güvenlik ayarlarınızı gözden geçirin.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Güvenlik ayarlarını gözden geçir</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0018-000000000004', '43000000-0000-0000-0000-000000000018', N'fr', N'Votre mot de passe a été modifié',
+N'<div class="header">
+    <p class="eyebrow">Sécurité du compte</p>
+    <h1>Votre mot de passe a été modifié</h1>
+</div>
+<p class="message">Bonjour {{ UserName }},</p>
+<p class="message">Le mot de passe de votre compte {{ Platform.Name }} vient d''être modifié. Selon vos paramètres, cela peut aussi vous avoir déconnecté sur vos autres appareils.</p>
+<div class="notice">
+    <p class="notice-title">Quand</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+<p class="message">Si c''était vous, il n''y a rien d''autre à faire.</p>
+<p class="message">Sinon, la personne qui a fait ce changement peut se connecter à votre place dès maintenant. Changez votre mot de passe immédiatement et vérifiez vos paramètres de sécurité.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">Vérifier vos paramètres de sécurité</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0018-000000000005', '43000000-0000-0000-0000-000000000018', N'zh', N'您的密码已修改',
+N'<div class="header">
+    <p class="eyebrow">账户安全</p>
+    <h1>您的密码已修改</h1>
+</div>
+<p class="message">您好 {{ UserName }}，</p>
+<p class="message">您的 {{ Platform.Name }} 账户密码刚刚被修改。视您的设置而定，这可能同时让您在其他设备上退出了登录。</p>
+<div class="notice">
+    <p class="notice-title">时间</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+<p class="message">如果这是您本人操作，无需其他处理。</p>
+<p class="message">如果不是，进行此修改的人现在就能以您的身份登录。请立即修改密码并检查安全设置。</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">检查安全设置</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请将此链接复制到浏览器：</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0018-000000000006', '43000000-0000-0000-0000-000000000018', N'ur', N'آپ کا پاس ورڈ تبدیل کر دیا گیا',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی حفاظت</p>
+    <h1>آپ کا پاس ورڈ تبدیل کر دیا گیا</h1>
+</div>
+<p class="message">السلام علیکم {{ UserName }}،</p>
+<p class="message">آپ کے {{ Platform.Name }} اکاؤنٹ کا پاس ورڈ ابھی تبدیل کیا گیا ہے۔ آپ کی ترتیبات کے مطابق ممکن ہے اس سے آپ کے دوسرے آلات پر بھی سائن آؤٹ ہو گیا ہو۔</p>
+<div class="notice">
+    <p class="notice-title">وقت</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+<p class="message">اگر یہ آپ نے کیا ہے تو مزید کچھ کرنے کی ضرورت نہیں۔</p>
+<p class="message">اگر آپ نے نہیں کیا تو جس نے یہ تبدیلی کی ہے وہ ابھی آپ کی حیثیت سے سائن اِن کر سکتا ہے۔ فوراً پاس ورڈ تبدیل کریں اور حفاظتی ترتیبات کا جائزہ لیں۔</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">حفاظتی ترتیبات کا جائزہ لیں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>'),
+    ('44000000-0000-0000-0018-000000000007', '43000000-0000-0000-0000-000000000018', N'fa', N'رمز عبور شما تغییر کرد',
+N'<div class="header">
+    <p class="eyebrow">امنیت حساب</p>
+    <h1>رمز عبور شما تغییر کرد</h1>
+</div>
+<p class="message">سلام {{ UserName }}،</p>
+<p class="message">رمز عبور حساب شما در {{ Platform.Name }} هم‌اکنون تغییر کرد. بسته به تنظیمات شما، ممکن است این کار شما را روی دستگاه‌های دیگرتان نیز خارج کرده باشد.</p>
+<div class="notice">
+    <p class="notice-title">زمان</p>
+    <p class="notice-text">{{ ChangedAt }}</p>
+</div>
+<p class="message">اگر این کار را شما انجام داده‌اید، اقدام دیگری لازم نیست.</p>
+<p class="message">اگر شما نبوده‌اید، هر کس این تغییر را انجام داده هم‌اکنون می‌تواند به جای شما وارد شود. بی‌درنگ رمز عبور را تغییر دهید و تنظیمات امنیتی را بررسی کنید.</p>
+<div class="button-container">
+    <a class="button" href="{{ ManageSecurityLink }}">بررسی تنظیمات امنیتی</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ ManageSecurityLink }}">{{ ManageSecurityLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000018'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000018';
+
+    PRINT 'Created password-changed template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'password-changed template already exists';
+END
+GO

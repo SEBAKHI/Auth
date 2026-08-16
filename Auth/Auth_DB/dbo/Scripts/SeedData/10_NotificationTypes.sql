@@ -275,4 +275,42 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created secret-operation-challenge notification type';
 END
+
+-- password-created (an account that had NO password now has one). Kept apart
+-- from password-changed because the two say different things: a rotation is
+-- routine, while an external-only account gaining local credentials means the
+-- account can now be reached by a means it could not be reached by yesterday.
+-- Only the owner can say whether that was them, so the message has to reach them.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000017')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000017',
+        N'password-created',
+        N'Password Added',
+        N'Tells the owner that an account which previously had no password (Google/Apple sign-in only) now has one',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"SetAt","description":"UTC timestamp when the password was added","example":"2026-08-16 09:14:00Z","required":true},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true}]',
+        N'{"UserName":"Jane Doe","SetAt":"2026-08-16 09:14:00Z","ManageSecurityLink":"https://example.com/profile?tab=security"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created password-created notification type';
+END
+
+-- password-changed (an existing password was replaced, from the profile screen
+-- or through a reset link). Both routes end at User.ChangePassword, so one type
+-- covers both; the copy deliberately does not guess which was used.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000018')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000018',
+        N'password-changed',
+        N'Password Changed',
+        N'Tells the owner that the account password was replaced, whether from the profile screen or via a reset link',
+        1,
+        N'[{"name":"UserName","description":"Recipient display name","example":"Jane Doe","required":true},{"name":"ChangedAt","description":"UTC timestamp when the password was replaced","example":"2026-08-16 09:14:00Z","required":true},{"name":"ManageSecurityLink","description":"Absolute URL of the profile security page","example":"https://example.com/profile?tab=security","required":true}]',
+        N'{"UserName":"Jane Doe","ChangedAt":"2026-08-16 09:14:00Z","ManageSecurityLink":"https://example.com/profile?tab=security"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created password-changed notification type';
+END
 GO
