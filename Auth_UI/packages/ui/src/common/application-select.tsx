@@ -51,13 +51,20 @@ export function ApplicationSelect({
   // empty popover (an empty Radix Select inside a Dialog can otherwise leak a
   // dismiss that closes the dialog).
   const isEmpty = apps.length === 0 && !allowAll
+  // "You may not see this list" is a different fact from "this list is empty",
+  // and only one of them is the reader's to fix. Conflating them left a holder
+  // of apikeys:create staring at a disabled picker reading "No applications"
+  // with no hint that applications:read was the missing piece.
+  const isForbidden = !options && shared.isForbidden
   // Distinguish "still loading" from "genuinely empty" so the trigger does not
   // briefly read "No applications" before the list arrives.
   const placeholder_ = isLoading
     ? t("common.loading")
-    : isEmpty
-      ? t("common.noApplications")
-      : (placeholder ?? t("common.selectApplication"))
+    : isForbidden
+      ? t("common.applicationsUnavailable")
+      : isEmpty
+        ? t("common.noApplications")
+        : (placeholder ?? t("common.selectApplication"))
 
   return (
     <Select

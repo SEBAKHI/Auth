@@ -584,6 +584,10 @@ builder.Services.AddScoped<Auth.Application.Features.Users.Common.OwnedOrganizat
 builder.Services.AddScoped<Auth.Application.Features.Users.Common.IdentifierReservationGuard>();
 builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRequestor>();
 builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRecoverer>();
+// No principal may grant a permission it does not itself hold. Scoped, because
+// it reads the actor's live permissions per request rather than trusting the
+// token's claims, which outlive a revocation.
+builder.Services.AddScoped<Auth.Application.Common.PermissionGrantGuard>();
 builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.DeletionOtpService>();
 // Step-up confirmation behind every destructive secret operation.
 builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.SecretOperationChallengeService>();

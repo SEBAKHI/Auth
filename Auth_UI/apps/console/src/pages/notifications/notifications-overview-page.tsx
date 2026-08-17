@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom"
 
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
+import { useAuth } from "@authsystem/auth/auth-context"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import {
@@ -17,6 +18,7 @@ import {
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { formatDate, formatDateTime } from "@authsystem/ui/format"
 import { Skeleton } from "@authsystem/ui/skeleton"
+import { PERMISSIONS } from "@/lib/constants"
 import { StatTile } from "@/pages/dashboard/stat-tile"
 import { NotificationsTabs } from "./components/notifications-tabs"
 
@@ -28,6 +30,7 @@ import { NotificationsTabs } from "./components/notifications-tabs"
 export function NotificationsOverviewPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { hasPermission } = useAuth()
 
   const query = useQuery({
     queryKey: ["notifications-summary"],
@@ -35,9 +38,15 @@ export function NotificationsOverviewPage() {
       unwrap(api.GET("/api/v1/notification-templates/summary", {})),
   })
 
+  // The privacy notice is a separate duty with a separate permission, so this
+  // section's own guard does not imply it. Unconditional, the query ran for
+  // every notifications operator and 403'd, leaving the tile and the card
+  // permanently in their error state on an otherwise working page.
+  const canReadPolicy = hasPermission(PERMISSIONS.privacyPolicy.read)
   const policyQuery = useQuery({
     queryKey: ["privacy-policy-versions"],
     queryFn: () => unwrap(api.GET("/api/v1/privacy-policy/versions")),
+    enabled: canReadPolicy,
   })
 
   const summary = query.data
@@ -54,16 +63,24 @@ export function NotificationsOverviewPage() {
 
       <NotificationsTabs />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        <StatTile
-          title={t("notifications.tabPolicy")}
-          value={publishedPolicy?.version ?? "—"}
-          icon={ShieldCheck}
-          loading={policyQuery.isLoading}
-          hint={t("notifications.overviewPolicyHint", {
-            count: (publishedPolicy?.languages ?? []).length,
-          })}
-        />
+      <div
+        className={
+          canReadPolicy
+            ? "grid gap-4 sm:grid-cols-2 xl:grid-cols-5"
+            : "grid gap-4 sm:grid-cols-2 xl:grid-cols-4"
+        }
+      >
+        {canReadPolicy ? (
+          <StatTile
+            title={t("notifications.tabPolicy")}
+            value={publishedPolicy?.version ?? "—"}
+            icon={ShieldCheck}
+            loading={policyQuery.isLoading}
+            hint={t("notifications.overviewPolicyHint", {
+              count: (publishedPolicy?.languages ?? []).length,
+            })}
+          />
+        ) : null}
         <StatTile
           title={t("notifications.tabTemplates")}
           value={summary?.templates?.total}
@@ -103,6 +120,13 @@ export function NotificationsOverviewPage() {
         />
       </div>
 
+      {/*
+        Hidden rather than shown-and-broken. Without the permission the query is
+        disabled, the list would render empty, and the button below it navigates
+        to a route that now refuses this holder — three ways of saying "nothing
+        here" where absence says it once and correctly.
+      */}
+      {canReadPolicy ? (
       <Card>
         <CardHeader>
           <CardTitle>{t("notifications.overviewPolicy")}</CardTitle>
@@ -171,6 +195,7 @@ export function NotificationsOverviewPage() {
           )}
         </CardContent>
       </Card>
+      ) : null}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>

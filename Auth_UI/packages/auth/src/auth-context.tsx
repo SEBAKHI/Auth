@@ -21,6 +21,8 @@ import { setActiveTimeZone } from "@authsystem/i18n/timezone"
 import { setDataTableScope } from "@authsystem/ui/data-table/storage"
 import type { UserInfo } from "@authsystem/api/types"
 
+import { permissionMatches } from "./permission-matching"
+
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
 
 /**
@@ -380,7 +382,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const hasPermission = React.useCallback(
     (permission: string | undefined) => {
       if (!permission) return true
-      return permissions.includes("*") || permissions.includes(permission)
+      return permissionMatches(permissions, permission)
     },
     [permissions]
   )

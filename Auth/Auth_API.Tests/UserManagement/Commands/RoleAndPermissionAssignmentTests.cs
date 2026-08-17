@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Features.Users.AssignRole;
 using Auth.Application.Features.Users.RemoveUserRole;
 using Auth.Application.Features.Users.GrantUserPermission;
@@ -18,15 +19,32 @@ public class AssignRoleCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
     private readonly Mock<IApplicationRepository> _applicationRepositoryMock = new();
+    private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
     private readonly AssignRoleCommandHandler _handler;
 
     public AssignRoleCommandHandlerTests()
     {
+        // The actor holds "*" unless a test says otherwise: these cases are
+        // about assignment mechanics, not about the no-amplification rule,
+        // which has its own suite.
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(["*"]);
+        // Roles carry nothing here. Set explicitly rather than left to Moq's
+        // default, which is null: the handler is deliberately NOT null-tolerant,
+        // because a guard that treats a failed lookup as "no permissions to
+        // check" fails open.
+        _permissionRepositoryMock
+            .Setup(r => r.GetRolePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
         _handler = new AssignRoleCommandHandler(
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
             _applicationRepositoryMock.Object,
+            _permissionRepositoryMock.Object,
+            new PermissionGrantGuard(_permissionRepositoryMock.Object),
             _publisherMock.Object,
             new Mock<ILogger<AssignRoleCommandHandler>>().Object);
     }
@@ -156,9 +174,16 @@ public class GrantUserPermissionCommandHandlerTests
 
     public GrantUserPermissionCommandHandlerTests()
     {
+        // The actor holds "*" unless a test says otherwise — see the note on
+        // AssignRoleCommandHandlerTests.
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(["*"]);
+
         _handler = new GrantUserPermissionCommandHandler(
             _userRepositoryMock.Object,
             _permissionRepositoryMock.Object,
+            new PermissionGrantGuard(_permissionRepositoryMock.Object),
             new Mock<ILogger<GrantUserPermissionCommandHandler>>().Object);
     }
 

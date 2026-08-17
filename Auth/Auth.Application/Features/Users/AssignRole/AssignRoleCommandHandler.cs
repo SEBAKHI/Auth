@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
@@ -15,6 +16,8 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IApplicationRepository _applicationRepository;
+    private readonly IPermissionRepository _permissionRepository;
+    private readonly PermissionGrantGuard _grantGuard;
     private readonly IPublisher _publisher;
     private readonly ILogger<AssignRoleCommandHandler> _logger;
 
@@ -22,12 +25,16 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IApplicationRepository applicationRepository,
+        IPermissionRepository permissionRepository,
+        PermissionGrantGuard grantGuard,
         IPublisher publisher,
         ILogger<AssignRoleCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _applicationRepository = applicationRepository;
+        _permissionRepository = permissionRepository;
+        _grantGuard = grantGuard;
         _publisher = publisher;
         _logger = logger;
     }
@@ -62,6 +69,28 @@ public class AssignRoleCommandHandler : IRequestHandler<AssignRoleCommand, Error
             {
                 return RoleErrors.NotFound(request.RoleId);
             }
+        }
+
+        // No amplification. Assigning a role hands over every permission that
+        // role carries, so it is a grant by another name — and the one with the
+        // widest blast radius, because super-admin is just a role and nothing
+        // else stopped a users:manage-roles holder from assigning it to itself.
+        // Checked against the role's CURRENT permissions: a role that gains one
+        // later is re-evaluated on the next assignment, and existing assignments
+        // are a separate concern from who may create new ones.
+        var rolePermissions = await _permissionRepository.GetRolePermissionsAsync(
+            request.RoleId, cancellationToken);
+
+        var canGrant = await _grantGuard.EnsureCanGrantAsync(
+            request.AssignedBy,
+            rolePermissions.Select(p => p.Code.Value),
+            cancellationToken);
+        if (canGrant.IsError)
+        {
+            _logger.LogWarning(
+                "Blocked assignment of role {RoleId} ({RoleName}) to user {UserId}: actor {AssignedBy} does not hold every permission the role carries",
+                request.RoleId, role.Name, request.UserId, request.AssignedBy);
+            return canGrant.Errors;
         }
 
         // Scoped by (role, application): a platform-wide assignment of the same

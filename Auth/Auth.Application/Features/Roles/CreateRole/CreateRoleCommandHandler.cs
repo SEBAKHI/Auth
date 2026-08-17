@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
@@ -14,15 +15,18 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Error
 {
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly PermissionGrantGuard _grantGuard;
     private readonly ILogger<CreateRoleCommandHandler> _logger;
 
     public CreateRoleCommandHandler(
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
+        PermissionGrantGuard grantGuard,
         ILogger<CreateRoleCommandHandler> logger)
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _grantGuard = grantGuard;
         _logger = logger;
     }
 
@@ -32,6 +36,34 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Error
         if (await _roleRepository.ExistsByCodeAsync(request.ApplicationId, request.Code, cancellationToken))
         {
             return RoleErrors.DuplicateCode(request.Code, request.ApplicationId);
+        }
+
+        // No amplification. Creating a role stocked with permissions the creator
+        // does not hold would launder them: the role is assignable afterwards,
+        // so the restriction on granting would be one indirection away from
+        // meaningless. Checked BEFORE the role is written, so a refusal leaves
+        // nothing behind — the permission loop below is not transactional.
+        var requestedCodes = new List<string>();
+        if (request.PermissionIds is { Count: > 0 })
+        {
+            foreach (var permissionId in request.PermissionIds)
+            {
+                var requested = await _permissionRepository.GetByIdAsync(permissionId, cancellationToken);
+                if (requested is not null)
+                {
+                    requestedCodes.Add(requested.Code);
+                }
+            }
+
+            var canGrant = await _grantGuard.EnsureCanGrantAsync(
+                request.CreatedBy, requestedCodes, cancellationToken);
+            if (canGrant.IsError)
+            {
+                _logger.LogWarning(
+                    "Blocked creation of role {RoleCode}: actor {CreatedBy} does not hold every permission requested for it",
+                    request.Code, request.CreatedBy);
+                return canGrant.Errors;
+            }
         }
 
         // Create role

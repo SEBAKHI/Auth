@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Features.Roles.CreateRole;
 using Auth.Application.Features.Roles.UpdateRole;
 using Auth.Application.Features.Roles.DeleteRole;
@@ -26,9 +27,16 @@ public class CreateRoleCommandHandlerTests
         _permissionRepositoryMock = new Mock<IPermissionRepository>();
         _loggerMock = new Mock<ILogger<CreateRoleCommandHandler>>();
 
+        // The actor holds "*" unless a test says otherwise: these cases cover
+        // role creation, not the no-amplification rule, which has its own suite.
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(["*"]);
+
         _handler = new CreateRoleCommandHandler(
             _roleRepositoryMock.Object,
             _permissionRepositoryMock.Object,
+            new PermissionGrantGuard(_permissionRepositoryMock.Object),
             _loggerMock.Object);
     }
 
