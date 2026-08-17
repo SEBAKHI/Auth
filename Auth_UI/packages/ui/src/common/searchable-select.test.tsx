@@ -5,68 +5,62 @@ import { describe, expect, it } from "vitest"
 import { SearchableSelect } from "./searchable-select"
 
 /**
- * Direction here follows the CONTENT, not the page.
+ * Direction is the page's to decide, and this component must not decide it.
  *
- * Left alone inside a right-to-left page, a code ending in a neutral character
- * has that character resolved to the paragraph direction, so `org:members:*` is
- * painted as `*:org:members` — the same characters reading as a different
- * permission. Measured in a browser rather than deduced: with the run declared
- * left-to-right the visual order is `apikeys:*`, without it `*:apikeys`.
+ * A permission code is a sequence of directional islands separated by neutral
+ * characters, not an opaque token. In `org:members:*` the trailing `:` and `*`
+ * neighbour no island on their right, so the bidirectional algorithm resolves
+ * them to the paragraph direction: on an Arabic page they move left of the
+ * Latin islands and the line paints as `*:org:members`. A reader of that page
+ * scans islands right to left — `org:members`, then `:`, then `*` — and reads
+ * the code in order, in their own reading direction. On an English page the
+ * same markup paints and reads `org:members:*`.
  *
- * Isolating the run WITHOUT moving the column was tried and rejected in
- * between. It fixes the character order and leaves the code right-aligned, so
- * the trailing `*` sits against the right edge and is the first glyph an Arabic
- * reader meets — correct, and unreadable.
- *
- * Every case opens the popover first. An earlier version of this file did not,
- * so its assertions landed on the trigger button and passed while saying
- * nothing about the list they were written for.
+ * Three earlier versions forced `dir="ltr"` here, on the inherited assumption
+ * that identifiers are always left-to-right. That convention comes from
+ * interfaces that only ever had one direction. Forcing it puts the `*` at the
+ * edge an Arabic reader starts from, which is the one arrangement that does
+ * read wrong — and this test exists so the assumption cannot come back.
  */
 describe("SearchableSelect", () => {
   const options = [{ id: "1", label: "org:members:*", description: "Members" }]
 
-  async function openList(ltr: boolean) {
+  async function openList() {
     const user = userEvent.setup()
     const view = render(
-      <SearchableSelect
-        value={undefined}
-        options={options}
-        onChange={() => {}}
-        ltr={ltr}
-      />
+      <SearchableSelect value={undefined} options={options} onChange={() => {}} />
     )
     await user.click(screen.getByRole("combobox"))
     return view
   }
 
-  /**
-   * The wrapper this component owns, holding the label and description. Asked
-   * for by name rather than with `closest("[dir]")`, which walks straight past
-   * it into Radix's own root — that carries a dir of its own and answered the
-   * question about somebody else's element.
-   */
-  const optionContent = (label: HTMLElement) => label.parentElement!
+  it("declares no direction of its own", async () => {
+    const { baseElement } = await openList()
 
-  it("declares left-to-right on the option when the content is Latin", async () => {
-    await openList(true)
-
+    // Scoped to what this component renders. Radix's own roots carry a dir,
+    // which is theirs to set and follows the DirectionProvider.
     const label = await screen.findByText("org:members:*")
-    expect(optionContent(label).getAttribute("dir")).toBe("ltr")
+    const option = label.closest("[cmdk-item]") ?? label.parentElement!.parentElement!
+
+    expect(option.querySelector("[dir]")).toBeNull()
+    expect(baseElement.querySelector("bdi")).toBeNull()
   })
 
-  it("leaves direction to the page otherwise", async () => {
-    // Role labels carry Arabic and belong on the page's own side.
-    await openList(false)
+  it("aligns to the start of the line, whichever side that is", async () => {
+    // `text-start` resolves to the right on an RTL page and the left on an LTR
+    // one, so one rule serves both. A hardcoded text-left or text-right would
+    // be correct in exactly one language.
+    await openList()
 
     const label = await screen.findByText("org:members:*")
-    expect(optionContent(label).hasAttribute("dir")).toBe(false)
+    expect(label.parentElement!.className).toContain("text-start")
   })
 
   it("wraps the description instead of truncating it", async () => {
     // The description is the only thing telling an operator what
     // users:manage-roles actually does, and the longest ones — the org roles —
     // were the ones running out past the popover edge.
-    await openList(true)
+    await openList()
 
     const description = await screen.findByText("Members")
     expect(description.className).not.toContain("truncate")

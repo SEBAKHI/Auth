@@ -9,7 +9,6 @@ import { toast } from "sonner"
 import { ApplicationSelect } from "@authsystem/ui/common/application-select"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { PageHeader } from "@authsystem/ui/common/page-header"
-import { PermissionCode } from "@authsystem/ui/common/permission-code"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
 import { Button } from "@authsystem/ui/button"
@@ -92,10 +91,7 @@ export function PermissionsPage() {
           className="text-start hover:underline"
           onClick={() => navigate(`/permissions/${row.original.id}`)}
         >
-          <PermissionCode
-            code={row.original.code ?? ""}
-            className="font-mono text-sm"
-          />
+          <span className="font-mono text-sm">{row.original.code}</span>
         </button>
       ),
     },

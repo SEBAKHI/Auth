@@ -7,7 +7,6 @@ import { useNavigate, useParams } from "react-router-dom"
 import { DetailList } from "@authsystem/ui/common/detail-list"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { PageHeader } from "@authsystem/ui/common/page-header"
-import { PermissionCode } from "@authsystem/ui/common/permission-code"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
@@ -326,10 +325,7 @@ function RolePermissionsTab({
       header: t("common.code"),
       meta: { label: t("common.code") },
       cell: ({ row }) => (
-        <PermissionCode
-          code={row.original.code ?? ""}
-          className="font-mono text-sm"
-        />
+        <span className="font-mono text-sm">{row.original.code}</span>
       ),
     },
   ]

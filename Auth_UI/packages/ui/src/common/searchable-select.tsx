@@ -42,7 +42,6 @@ export function SearchableSelect({
   onChange,
   placeholder,
   className,
-  ltr = false,
 }: {
   id?: string
   value: string | undefined
@@ -50,25 +49,6 @@ export function SearchableSelect({
   onChange: (id: string | undefined) => void
   placeholder?: string
   className?: string
-  /**
-   * Renders the options left-to-right, for lists whose content is always Latin
-   * — permission codes and their untranslated names.
-   *
-   * Direction here follows the CONTENT, not the page, and the two cannot both
-   * be satisfied. Isolating the run without moving the column was tried and
-   * rejected: it puts the code in the right character order but right-aligns
-   * it, so the trailing `*` of `org:members:*` lands against the right edge and
-   * is the first glyph an Arabic reader meets. Left-aligning the Latin run is
-   * what makes it read as `org:members` first.
-   *
-   * Left alone, the bidirectional algorithm resolves that trailing `*` to the
-   * paragraph direction and paints the code as `*:org:members` outright — the
-   * same characters in an order that reads as a different permission. Measured
-   * in a browser, not deduced.
-   *
-   * Role lists keep the page's direction: their labels carry Arabic.
-   */
-  ltr?: boolean
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
@@ -86,10 +66,7 @@ export function SearchableSelect({
           aria-expanded={open}
           className={cn("w-full justify-between font-normal", className)}
         >
-          <span
-            className="truncate text-start"
-            dir={selected && ltr ? "ltr" : undefined}
-          >
+          <span className="truncate text-start">
             {selected?.label ?? placeholder ?? t("common.search")}
           </span>
           <ChevronsUpDown className="opacity-50" />
@@ -131,10 +108,32 @@ export function SearchableSelect({
                         value === option.id ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <span
-                      dir={ltr ? "ltr" : undefined}
-                      className="flex min-w-0 flex-1 flex-col text-start"
-                    >
+                    {/*
+                      No direction override, anywhere, deliberately.
+
+                      A permission code is a sequence of directional islands
+                      with neutral characters between them, not an opaque token
+                      that must be forced left-to-right. In `apikeys:*` the
+                      trailing `:` and `*` neighbour no island on their right, so
+                      the bidirectional algorithm resolves them to the PARAGRAPH
+                      direction. On an Arabic page they move to the left of the
+                      Latin island and the line paints as `*:apikeys`.
+
+                      That is not the code being mangled. A reader of an RTL page
+                      scans ISLANDS right to left — meeting `apikeys`, then `:`,
+                      then `*` — and so reads `apikeys:*`, in order, in their own
+                      reading direction. On an English page the same markup
+                      paints `apikeys:*` left to right and reads identically.
+
+                      Three earlier attempts forced `dir="ltr"` here, in one form
+                      or another, on the inherited assumption that identifiers
+                      are always left-to-right. That convention comes from
+                      interfaces that only ever had one direction; it is not a
+                      property of the code. Forcing it puts the `*` at the edge
+                      the Arabic reader starts from, which is the one arrangement
+                      that genuinely does read wrong.
+                    */}
+                    <span className="flex min-w-0 flex-1 flex-col text-start">
                       <span className="truncate font-medium">
                         {option.label}
                       </span>

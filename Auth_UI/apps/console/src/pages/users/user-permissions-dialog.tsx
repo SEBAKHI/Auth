@@ -97,8 +97,6 @@ export function UserPermissionsDialog({
               seeded the catalogue runs past fifty entries, and a Select offers
               no way to reach one except scrolling past the rest.
             */}
-            {/* Left-to-right: the content is pure Latin, so its direction is a
-                property of the content and not of the page. */}
             <SearchableSelect
               value={selected}
               options={available.map((permission) => ({
@@ -108,7 +106,6 @@ export function UserPermissionsDialog({
               }))}
               onChange={setSelected}
               placeholder={t("users.grantPermission")}
-              ltr
             />
           </AssignmentPicker>
         )
