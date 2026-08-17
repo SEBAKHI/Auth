@@ -55,7 +55,7 @@ public interface IRoleRepository
     /// <summary>
     /// Checks if a role code exists in an application.
     /// </summary>
-    Task<bool> ExistsByCodeAsync(Guid applicationId, string code, CancellationToken cancellationToken);
+    Task<bool> ExistsByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates a new role.

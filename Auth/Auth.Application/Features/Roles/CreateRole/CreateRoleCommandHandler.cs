@@ -35,7 +35,7 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Error
         // Check for duplicate code
         if (await _roleRepository.ExistsByCodeAsync(request.ApplicationId, request.Code, cancellationToken))
         {
-            return RoleErrors.DuplicateCode(request.Code, request.ApplicationId);
+            return RoleErrors.DuplicateCode(request.Code, request.ApplicationId ?? Guid.Empty);
         }
 
         // No amplification. Creating a role stocked with permissions the creator

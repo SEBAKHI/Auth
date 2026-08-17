@@ -8,6 +8,8 @@ using Auth.Application.Features.Roles.GetRoleApplications;
 using Auth.Application.Features.Roles.GetRoleById;
 using Auth.Application.Features.Roles.GetRoles;
 using Auth.Application.Features.Roles.GetRoleUsers;
+using Auth.Application.Features.Roles.GrantRolePermission;
+using Auth.Application.Features.Roles.RevokeRolePermission;
 using Auth.Application.Features.Roles.UpdateRole;
 using Auth.Application.DTOs;
 using Auth.Domain.Enums;
@@ -196,4 +198,60 @@ public class RolesController : ApiController
             errors => Problem(errors));
     }
 
+    /// <summary>
+    /// Add a permission to a role.
+    /// </summary>
+    /// <remarks>
+    /// Gated on roles:update — changing what a role grants is changing the role.
+    /// The handler additionally refuses any permission the caller does not
+    /// itself hold, because a role is assignable and stocking one is granting
+    /// by proxy.
+    /// </remarks>
+    [HttpPost("{id:guid}/permissions")]
+    [RequirePermission("roles:update")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GrantRolePermission(
+        Guid id,
+        [FromBody] GrantRolePermissionRequest request,
+        CancellationToken cancellationToken)
+    {
+        var command = new GrantRolePermissionCommand(id, request.PermissionId)
+        {
+            GrantedBy = GetCurrentUserId()
+        };
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Remove a permission from a role.
+    /// </summary>
+    [HttpDelete("{id:guid}/permissions/{permissionId:guid}")]
+    [RequirePermission("roles:update")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> RevokeRolePermission(
+        Guid id,
+        Guid permissionId,
+        CancellationToken cancellationToken)
+    {
+        var command = new RevokeRolePermissionCommand(id, permissionId)
+        {
+            RevokedBy = GetCurrentUserId()
+        };
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
 }

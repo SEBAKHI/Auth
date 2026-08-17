@@ -43,9 +43,10 @@ export function RoleFormDialog({
   // In edit mode the API only updates name/description and the
   // application/code fields are not rendered, so they are not required.
   const schema = z.object({
-    applicationId: isEdit
-      ? z.string()
-      : z.string().min(1, t("validation.required")),
+    // Optional: an empty value is the platform's own scope, which is where
+    // every seeded role lives and the only scope that exists at all until an
+    // application is registered.
+    applicationId: z.string(),
     code: isEdit ? z.string() : z.string().min(1, t("validation.required")),
     name: z.string().min(1, t("validation.required")),
     description: z.string().optional(),
@@ -87,7 +88,8 @@ export function RoleFormDialog({
       }
       const { error } = await api.POST("/api/v1/Roles", {
         body: {
-          applicationId: values.applicationId,
+          // Empty means the platform itself; "" would fail binding on a Guid?.
+          applicationId: emptyToNull(values.applicationId),
           code: values.code,
           name: values.name,
           description: emptyToNull(values.description),
@@ -127,6 +129,7 @@ export function RoleFormDialog({
                   <ApplicationSelect
                     value={field.value || undefined}
                     onChange={(value) => field.onChange(value ?? "")}
+                    allowPlatform
                     className="w-full"
                   />
                 </FormControl>

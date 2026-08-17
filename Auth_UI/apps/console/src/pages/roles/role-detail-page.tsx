@@ -23,6 +23,7 @@ import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
 import type { Schemas } from "@authsystem/api/types"
 import { RoleFormDialog } from "./role-form-dialog"
+import { RolePermissionsDialog } from "./role-permissions-dialog"
 
 function RoleUsersTab({ roleId }: { roleId: string }) {
   const { t } = useTranslation()
@@ -300,8 +301,19 @@ function RoleApplicationsTab({ roleId }: { roleId: string }) {
   )
 }
 
-function RolePermissionsTab({ permissions }: { permissions: string[] }) {
+function RolePermissionsTab({
+  roleId,
+  roleName,
+  permissions,
+  canUpdate,
+}: {
+  roleId: string
+  roleName: string
+  permissions: string[]
+  canUpdate: boolean
+}) {
   const { t } = useTranslation()
+  const [manageOpen, setManageOpen] = React.useState(false)
 
   const data = React.useMemo(
     () => permissions.map((code) => ({ code })),
@@ -323,14 +335,32 @@ function RolePermissionsTab({ permissions }: { permissions: string[] }) {
   ]
 
   return (
-    <DataTable
-      tableId="role-perms"
-      globalSearch
-      columns={columns}
-      data={data}
-      emptyMessage={t("common.empty")}
-      enableRowDetail={false}
-    />
+    <div className="flex flex-col gap-4">
+      {canUpdate ? (
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={() => setManageOpen(true)}>
+            {t("users.managePermissions")}
+          </Button>
+        </div>
+      ) : null}
+      <DataTable
+        tableId="role-perms"
+        globalSearch
+        columns={columns}
+        data={data}
+        emptyMessage={t("common.empty")}
+        enableRowDetail={false}
+      />
+      {canUpdate ? (
+        <RolePermissionsDialog
+          open={manageOpen}
+          onOpenChange={setManageOpen}
+          roleId={roleId}
+          roleName={roleName}
+          grantedCodes={permissions}
+        />
+      ) : null}
+    </div>
   )
 }
 
@@ -424,7 +454,12 @@ export function RoleDetailPage() {
           <RoleApplicationsTab roleId={roleId} />
         </TabsContent>
         <TabsContent value="permissions" className="mt-4">
-          <RolePermissionsTab permissions={role?.permissions ?? []} />
+          <RolePermissionsTab
+            roleId={roleId}
+            roleName={role?.name ?? ""}
+            permissions={role?.permissions ?? []}
+            canUpdate={canUpdate}
+          />
         </TabsContent>
       </Tabs>
 

@@ -6,14 +6,7 @@ import {
   AssignmentDialog,
   AssignmentPicker,
 } from "@authsystem/ui/common/assignment-dialog"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@authsystem/ui/select"
+import { SearchableSelect } from "@authsystem/ui/common/searchable-select"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
@@ -107,20 +100,20 @@ export function UserRolesDialog({
               setExpiresAt("")
             }}
           >
-            <Select value={selectedRole} onValueChange={setSelectedRole}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t("users.assignRole")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {available.map((role) => (
-                    <SelectItem key={role.id} value={role.id as string}>
-                      {roleLabel(role)}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            {/* Searchable for the same reason the permission picker is: the
+                list grows with every role anyone defines, and a Select offers
+                no way to reach one except scrolling. Role names follow the
+                interface language, so no direction override here. */}
+            <SearchableSelect
+              value={selectedRole}
+              options={available.map((role) => ({
+                id: role.id,
+                label: roleLabel(role),
+                description: role.description ?? undefined,
+              }))}
+              onChange={setSelectedRole}
+              placeholder={t("users.assignRole")}
+            />
           </AssignmentPicker>
         )
       }}

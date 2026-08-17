@@ -158,13 +158,19 @@ public class RoleRepository : IRoleRepository
     }
 
     /// <inheritdoc />
-    public async Task<bool> ExistsByCodeAsync(Guid applicationId, string code, CancellationToken cancellationToken)
+    public async Task<bool> ExistsByCodeAsync(Guid? applicationId, string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // A null application is the platform's own scope, and the seeded roles
+        // live there. Compared with IS NULL rather than =, because `NULL = NULL`
+        // is unknown in SQL: the equality form silently reported that no
+        // platform role existed and would have let a duplicate through.
         var count = await connection.ExecuteScalarAsync<int>(@"
             SELECT COUNT(1) FROM [dbo].[Roles]
-            WHERE [ApplicationId] = @ApplicationId AND [Code] = @Code",
+            WHERE [Code] = @Code
+              AND (([ApplicationId] IS NULL AND @ApplicationId IS NULL)
+                   OR [ApplicationId] = @ApplicationId)",
             new { ApplicationId = applicationId, Code = code.ToUpperInvariant() });
 
         return count > 0;

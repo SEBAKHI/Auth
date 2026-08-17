@@ -6,7 +6,7 @@ import {
   AssignmentDialog,
   AssignmentPicker,
 } from "@authsystem/ui/common/assignment-dialog"
-import { PermissionSelect } from "@authsystem/ui/common/permission-select"
+import { SearchableSelect } from "@authsystem/ui/common/searchable-select"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
@@ -97,11 +97,19 @@ export function UserPermissionsDialog({
               seeded the catalogue runs past fifty entries, and a Select offers
               no way to reach one except scrolling past the rest.
             */}
-            <PermissionSelect
+            {/* dir="ltr": codes and their untranslated names are Latin, and on
+                an Arabic page a right-aligned Latin column is both ragged and,
+                for a code ending in ":*", reordered by the bidi algorithm. */}
+            <SearchableSelect
               value={selected}
-              options={available}
+              options={available.map((permission) => ({
+                id: permission.id,
+                label: permission.code,
+                description: permission.name ?? undefined,
+              }))}
               onChange={setSelected}
               placeholder={t("users.grantPermission")}
+              dir="ltr"
             />
           </AssignmentPicker>
         )

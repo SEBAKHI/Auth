@@ -366,8 +366,14 @@ export function AssignmentPicker({
   addLabel: string
   canAdd: boolean
   onAdd: () => void
-  expiresAt: string
-  onExpiresAtChange: (value: string) => void
+  /**
+   * Expiry, for the assignments that can carry one. Omit both together and the
+   * date control is not rendered: a role's permission set has no expiry — the
+   * RolePermissions row has no column for it — and showing a date field that
+   * silently does nothing would be a promise the API cannot keep.
+   */
+  expiresAt?: string
+  onExpiresAtChange?: (value: string) => void
   children: React.ReactNode
 }) {
   const { t } = useTranslation()
@@ -376,13 +382,15 @@ export function AssignmentPicker({
     <Field>
       {children}
       <Field orientation="responsive">
-        <DatePicker
-          value={expiresAt}
-          onChange={(value) => onExpiresAtChange(value ?? "")}
-          minDate={new Date()}
-          maxDate={monthsFromNow(10)}
-          placeholder={t("common.expiresAt")}
-        />
+        {onExpiresAtChange ? (
+          <DatePicker
+            value={expiresAt}
+            onChange={(value) => onExpiresAtChange(value ?? "")}
+            minDate={new Date()}
+            maxDate={monthsFromNow(10)}
+            placeholder={t("common.expiresAt")}
+          />
+        ) : null}
         <Button onClick={onAdd} disabled={!canAdd}>
           <Plus data-icon="inline-start" />
           {addLabel}
