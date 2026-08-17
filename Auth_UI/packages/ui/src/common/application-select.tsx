@@ -18,6 +18,7 @@ export function ApplicationSelect({
   value,
   onChange,
   allowAll = false,
+  allowPlatform = false,
   placeholder,
   className,
   options,
@@ -28,6 +29,17 @@ export function ApplicationSelect({
   value: string | undefined
   onChange: (value: string | undefined) => void
   allowAll?: boolean
+  /**
+   * Offers "no application" as a real choice meaning the platform itself, for
+   * the screens where an absent application is a scope rather than a blank.
+   *
+   * Distinct from `allowAll`, which is a filter meaning "do not narrow". Both
+   * resolve to `undefined`; they differ in what that says. Permissions are the
+   * case: every code the API enforces on itself is stored with a null
+   * ApplicationId, so without this the console could define a permission for a
+   * registered application and not for the platform.
+   */
+  allowPlatform?: boolean
   placeholder?: string
   className?: string
   /**
@@ -50,7 +62,7 @@ export function ApplicationSelect({
   // With no selectable options, keep the trigger disabled so it never opens an
   // empty popover (an empty Radix Select inside a Dialog can otherwise leak a
   // dismiss that closes the dialog).
-  const isEmpty = apps.length === 0 && !allowAll
+  const isEmpty = apps.length === 0 && !allowAll && !allowPlatform
   // "You may not see this list" is a different fact from "this list is empty",
   // and only one of them is the reader's to fix. Conflating them left a holder
   // of apikeys:create staring at a disabled picker reading "No applications"
@@ -68,7 +80,7 @@ export function ApplicationSelect({
 
   return (
     <Select
-      value={value ?? (allowAll ? ALL_VALUE : undefined)}
+      value={value ?? (allowAll || allowPlatform ? ALL_VALUE : undefined)}
       onValueChange={(next) => onChange(next === ALL_VALUE ? undefined : next)}
       disabled={isEmpty || isLoading}
     >
@@ -77,8 +89,10 @@ export function ApplicationSelect({
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
-          {allowAll ? (
-            <SelectItem value={ALL_VALUE}>{t("common.all")}</SelectItem>
+          {allowAll || allowPlatform ? (
+            <SelectItem value={ALL_VALUE}>
+              {allowPlatform ? t("common.platformScope") : t("common.all")}
+            </SelectItem>
           ) : null}
           {apps.map((app) => (
             <SelectItem key={app.id} value={app.id as string}>

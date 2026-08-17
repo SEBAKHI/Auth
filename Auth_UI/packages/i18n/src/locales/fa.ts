@@ -98,6 +98,7 @@ export const fa: TranslationResources = {
     selectApplication: "یک برنامه انتخاب کنید",
     noApplications: "برنامه‌ای وجود ندارد",
     applicationsUnavailable: "به مجوز applications:read نیاز دارد",
+    platformScope: "پلتفرم (بدون برنامه)",
     application: "برنامه",
     role: "نقش",
     type: "نوع",

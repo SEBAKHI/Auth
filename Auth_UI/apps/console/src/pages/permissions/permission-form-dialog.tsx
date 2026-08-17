@@ -43,9 +43,11 @@ export function PermissionFormDialog({
   // In edit mode the API only updates name/description and the
   // application/code fields are not rendered, so they are not required.
   const schema = z.object({
-    applicationId: isEdit
-      ? z.string()
-      : z.string().min(1, t("validation.required")),
+    // Optional on create as well as on edit: an empty value is the platform's
+    // own scope, which is how every permission the API enforces is stored.
+    // Requiring it made the console able to define a permission for a
+    // registered application and unable to define one for the platform.
+    applicationId: z.string(),
     code: isEdit ? z.string() : z.string().min(1, t("validation.required")),
     name: z.string().min(1, t("validation.required")),
     description: z.string().optional(),
@@ -87,7 +89,9 @@ export function PermissionFormDialog({
       }
       const { error } = await api.POST("/api/v1/Permissions", {
         body: {
-          applicationId: values.applicationId,
+          // Empty means the platform itself, and the API reads null that way.
+          // Sending "" would fail model binding on a Guid?.
+          applicationId: emptyToNull(values.applicationId),
           code: values.code,
           name: values.name,
           description: emptyToNull(values.description),
@@ -129,6 +133,7 @@ export function PermissionFormDialog({
                   <ApplicationSelect
                     value={field.value || undefined}
                     onChange={(value) => field.onChange(value ?? "")}
+                    allowPlatform
                     className="w-full"
                   />
                 </FormControl>

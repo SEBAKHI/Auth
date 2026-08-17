@@ -7,6 +7,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { DetailList } from "@authsystem/ui/common/detail-list"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { PermissionCode } from "@authsystem/ui/common/permission-code"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
@@ -243,7 +244,10 @@ function PermissionImplicationsTab({ permissionId }: { permissionId: string }) {
           className="text-start hover:underline"
           onClick={() => navigate(`/permissions/${row.original.id}`)}
         >
-          <span className="font-mono text-sm">{row.original.code}</span>
+          <PermissionCode
+            code={row.original.code ?? ""}
+            className="font-mono text-sm"
+          />
         </button>
       ),
     },

@@ -28,18 +28,28 @@ public class CreatePermissionCommandHandler : IRequestHandler<CreatePermissionCo
 
     public async Task<ErrorOr<PermissionDto>> Handle(CreatePermissionCommand request, CancellationToken cancellationToken)
     {
-        // Verify application exists
-        var application = await _applicationRepository.GetByIdAsync(request.ApplicationId, cancellationToken);
-        if (application == null)
+        // Verify application exists. A null id is the platform's own scope, not
+        // a missing value: it is what every permission the API enforces on
+        // itself is seeded with.
+        if (request.ApplicationId.HasValue)
         {
-            return ApplicationErrors.NotFound(request.ApplicationId);
+            var application = await _applicationRepository.GetByIdAsync(
+                request.ApplicationId.Value, cancellationToken);
+            if (application == null)
+            {
+                return ApplicationErrors.NotFound(request.ApplicationId.Value);
+            }
         }
 
-        // Check for duplicate code within application
+        // Check for duplicate code. UQ_Permissions_Code spans [Code] alone, so
+        // the same code cannot exist twice regardless of scope - comparing the
+        // application as well would let a second insert through to fail on the
+        // index instead of returning a domain error.
         var existingPermission = await _permissionRepository.GetByCodeAsync(request.Code, cancellationToken);
-        if (existingPermission != null && existingPermission.ApplicationId == request.ApplicationId)
+        if (existingPermission != null)
         {
-            return PermissionErrors.DuplicateCode(request.Code, request.ApplicationId);
+            return PermissionErrors.DuplicateCode(
+                request.Code, request.ApplicationId ?? Guid.Empty);
         }
 
         // Verify parent permission exists if specified

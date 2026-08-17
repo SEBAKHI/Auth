@@ -98,6 +98,7 @@ export const ur: TranslationResources = {
     selectApplication: "ایک ایپلیکیشن منتخب کریں",
     noApplications: "کوئی ایپلیکیشن نہیں",
     applicationsUnavailable: "applications:read اجازت درکار ہے",
+    platformScope: "پلیٹ فارم (کوئی ایپلیکیشن نہیں)",
     application: "ایپلیکیشن",
     role: "کردار",
     type: "قسم",

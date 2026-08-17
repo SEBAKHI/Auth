@@ -616,6 +616,20 @@ PRINT 'Step 13: Creating system settings permissions...';
 GO
 
 -- ============================================
+-- STEP 14: PLATFORM PERMISSIONS
+-- ============================================
+-- Runs LAST on purpose. It seeds every code the API enforces, grants them to the
+-- built-in roles, and then retires the codes no controller asks for - including
+-- the auth:-prefixed rows Step 3 creates a few hundred lines above. Ordering it
+-- after Step 3 is what lets a fresh database and an upgraded one end up with the
+-- same permission set.
+PRINT '';
+PRINT 'Step 14: Creating platform permissions and role grants...';
+
+:r ..\Scripts\SeedData\18_PlatformPermissions.sql
+GO
+
+-- ============================================
 -- COMPLETION
 -- ============================================
 PRINT '';

@@ -11,6 +11,7 @@ import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { DetailList } from "@authsystem/ui/common/detail-list"
 import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { PermissionCode } from "@authsystem/ui/common/permission-code"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
@@ -350,7 +351,7 @@ function UserPermissionsTab({ userId }: { userId: string }) {
         >
           <p className="truncate font-medium">{row.original.permissionName}</p>
           <p className="truncate text-xs text-muted-foreground">
-            {row.original.permissionCode}
+            <PermissionCode code={row.original.permissionCode ?? ""} />
           </p>
         </button>
       ),

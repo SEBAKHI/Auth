@@ -98,6 +98,7 @@ export const fr: TranslationResources = {
     selectApplication: "Sélectionnez une application",
     noApplications: "Aucune application",
     applicationsUnavailable: "Requiert la permission applications:read",
+    platformScope: "Plateforme (aucune application)",
     application: "Application",
     role: "Rôle",
     type: "Type",

@@ -6,14 +6,7 @@ import {
   AssignmentDialog,
   AssignmentPicker,
 } from "@authsystem/ui/common/assignment-dialog"
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@authsystem/ui/select"
+import { PermissionSelect } from "@authsystem/ui/common/permission-select"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
@@ -99,23 +92,17 @@ export function UserPermissionsDialog({
               setExpiresAt("")
             }}
           >
-            <Select value={selected} onValueChange={setSelected}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder={t("users.grantPermission")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {available.map((permission) => (
-                    <SelectItem
-                      key={permission.id}
-                      value={permission.id as string}
-                    >
-                      {permission.code}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
+            {/*
+              A searchable picker rather than a Select: with every enforced code
+              seeded the catalogue runs past fifty entries, and a Select offers
+              no way to reach one except scrolling past the rest.
+            */}
+            <PermissionSelect
+              value={selected}
+              options={available}
+              onChange={setSelected}
+              placeholder={t("users.grantPermission")}
+            />
           </AssignmentPicker>
         )
       }}

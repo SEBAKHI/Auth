@@ -98,6 +98,7 @@ export const tr: TranslationResources = {
     selectApplication: "Bir uygulama seçin",
     noApplications: "Uygulama yok",
     applicationsUnavailable: "applications:read izni gerekiyor",
+    platformScope: "Platform (uygulama yok)",
     application: "Uygulama",
     role: "Rol",
     type: "Tür",

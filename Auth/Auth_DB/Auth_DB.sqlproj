@@ -166,6 +166,7 @@
     <None Include="dbo\Scripts\SeedData\15_PrivacyPolicyPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\16_PrivacyPolicyContent.sql" />
     <None Include="dbo\Scripts\SeedData\17_SystemSettingsPermissions.sql" />
+    <None Include="dbo\Scripts\SeedData\18_PlatformPermissions.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-07-20_PurgeInactiveUserAssignments.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-07-26_RetirePlatformApplication.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-07-31_EmailLayoutLogoPlatformDriven.sql" />

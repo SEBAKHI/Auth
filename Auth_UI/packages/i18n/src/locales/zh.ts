@@ -98,6 +98,7 @@ export const zh: TranslationResources = {
     selectApplication: "选择应用",
     noApplications: "暂无应用",
     applicationsUnavailable: "需要 applications:read 权限",
+    platformScope: "平台（不属于任何应用）",
     application: "应用",
     role: "角色",
     type: "类型",

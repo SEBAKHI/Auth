@@ -12595,7 +12595,7 @@ export interface components {
         };
         CreatePermissionRequest: {
             /** Format: uuid */
-            applicationId: string;
+            applicationId: null | string;
             code: string;
             name: string;
             description?: null | string;

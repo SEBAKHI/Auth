@@ -98,6 +98,7 @@ export const ar: TranslationResources = {
     selectApplication: "اختر تطبيقًا",
     noApplications: "لا توجد تطبيقات",
     applicationsUnavailable: "يتطلب صلاحية applications:read",
+    platformScope: "المنصة (بلا تطبيق)",
     application: "التطبيق",
     role: "الدور",
     type: "النوع",

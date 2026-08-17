@@ -93,6 +93,7 @@ export const en = {
     selectApplication: "Select an application",
     noApplications: "No applications",
     applicationsUnavailable: "Needs the applications:read permission",
+    platformScope: "Platform (no application)",
     application: "Application",
     role: "Role",
     type: "Type",
