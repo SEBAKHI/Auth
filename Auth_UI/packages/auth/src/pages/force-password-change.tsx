@@ -2,7 +2,6 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -13,6 +12,7 @@ import { Button } from "@authsystem/ui/button"
 import { FieldGroup } from "@authsystem/ui/field"
 import { Skeleton } from "@authsystem/ui/skeleton"
 
+import { useLoginCompletion } from "../login-completion"
 import { SetPasswordPanel } from "../set-password-panel"
 import {
   Form,
@@ -70,7 +70,10 @@ export function ForcePasswordChangePage() {
 
 function ForcePasswordChangeForm() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
+  // This screen stands between a successful sign-in and the session the user
+  // actually asked for, so it ends the authentication like any other screen
+  // that can: a pending authorize request has to survive it, not die here.
+  const { complete } = useLoginCompletion()
 
   const schema = z
     .object({
@@ -101,7 +104,7 @@ function ForcePasswordChangeForm() {
       })
       if (error) throw error
       toast.success(t("profile.passwordChanged"))
-      navigate("/", { replace: true })
+      complete({ requiresPasswordChange: false })
     } catch (error) {
       toast.error(getErrorMessage(error))
     }

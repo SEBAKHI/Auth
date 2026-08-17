@@ -3,7 +3,7 @@ import { TriangleAlert } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Link, useLocation, useNavigate } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -11,6 +11,7 @@ import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useAuth, type LoginResult } from "@authsystem/auth/auth-context"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import type { ExternalCredential } from "@authsystem/auth/external/recovery-navigation"
+import { useLoginCompletion } from "@authsystem/auth/login-completion"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
@@ -59,9 +60,9 @@ interface LocationState {
 export function AccountRecoveryPage() {
   const { t } = useTranslation()
   const { recoverAccount, recoverAccountExternal } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LocationState | null
+  const { complete, challenge } = useLoginCompletion()
 
   // Seeded from router state (arrived from a failed sign-in) and otherwise
   // filled by the provider buttons (arrived cold from the email).
@@ -94,18 +95,13 @@ export function AccountRecoveryPage() {
     (result: LoginResult) => {
       // Defensive: recovery answers 2FA inline, but honor a challenge anyway.
       if (result.status === "twoFactorRequired") {
-        navigate("/two-factor", {
-          replace: true,
-          state: { challengeToken: result.challengeToken, from: "/" },
-        })
+        challenge(result.challengeToken)
         return
       }
       toast.success(t("accountDeletion.restored"))
-      navigate(result.requiresPasswordChange ? "/force-password-change" : "/", {
-        replace: true,
-      })
+      complete(result)
     },
-    [navigate, t]
+    [challenge, complete, t]
   )
 
   const handleRecoveryError = React.useCallback(

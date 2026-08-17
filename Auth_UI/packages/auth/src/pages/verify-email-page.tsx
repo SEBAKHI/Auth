@@ -18,6 +18,8 @@ import {
   REGEXP_ONLY_DIGITS,
 } from "@authsystem/ui/input-otp"
 
+import { useLoginCompletion } from "../login-completion"
+
 const CODE_LENGTH = 6
 
 interface LocationState {
@@ -27,8 +29,6 @@ interface LocationState {
   maskedEmail?: string
   /** Expiry of a code the caller just triggered (register), so we don't resend. */
   expiresAt?: string
-  /** Where to land after auto-login; defaults to the profile. */
-  from?: string
 }
 
 /**
@@ -47,7 +47,9 @@ export function VerifyEmailPage() {
   const state = location.state as LocationState | null
 
   const email = state?.email ?? ""
-  const from = state?.from ?? "/profile"
+  const { complete, challenge, interstitial } = useLoginCompletion({
+    defaultFrom: "/profile",
+  })
 
   const [otp, setOtp] = React.useState("")
   const [expiresAt, setExpiresAt] = React.useState<Date | null>(() =>
@@ -111,17 +113,11 @@ export function VerifyEmailPage() {
       try {
         const result = await completeEmailVerification(email, value)
         if (result.status === "twoFactorRequired") {
-          navigate("/two-factor", {
-            replace: true,
-            state: { challengeToken: result.challengeToken, from },
-          })
+          challenge(result.challengeToken)
           return
         }
         toast.success(t("auth.welcomeBack"))
-        navigate(
-          result.requiresPasswordChange ? "/force-password-change" : from,
-          { replace: true }
-        )
+        complete(result)
       } catch (error) {
         // Already verified: nothing left to confirm, so route to a normal login.
         if (
@@ -130,7 +126,10 @@ export function VerifyEmailPage() {
           )
         ) {
           toast.success(t("auth.emailVerifiedSuccess"))
-          navigate("/login", { replace: true })
+          // Back to sign-in still carrying the pending request: the address is
+          // confirmed, so the only thing left between this user and the relying
+          // party is entering their password.
+          interstitial("/login", undefined, { replace: true })
           return
         }
         setErrorMessage(getErrorMessage(error))
@@ -139,7 +138,7 @@ export function VerifyEmailPage() {
         setSubmitting(false)
       }
     },
-    [completeEmailVerification, countdown.expired, email, expiresAt, from, navigate, submitting, t]
+    [completeEmailVerification, countdown.expired, complete, challenge, interstitial, email, expiresAt, submitting, t]
   )
 
   if (!email) {

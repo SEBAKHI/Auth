@@ -17,14 +17,21 @@ const AUTHORIZE_PATH_RE = /^\/api\/v\d+\/auth\/authorize$/i
 const STEP_UP_PARAMS = ["prompt", "max_age"]
 
 /**
- * Validates the `returnTo` query parameter of the hosted login page.
+ * Validates a raw pending-authorize URL, wherever it came from.
  * Accepts only an absolute URL on the API origin whose path is the OAuth
  * authorize endpoint; anything else returns null and the login behaves as a
  * plain first-party sign-in. The step-up parameters (prompt, max_age) are
  * removed so resuming the authorize request after login cannot loop.
+ *
+ * Exported separately from `getValidReturnTo` because the value does not only
+ * arrive in the query string: it is threaded through router state across the
+ * interstitial screens (2FA, email verification, forced password change,
+ * recovery). Those hops must be re-validated at the point of use rather than
+ * trusted, so that exactly one rule decides what is a legal destination.
  */
-export function getValidReturnTo(search: string): string | null {
-  const raw = new URLSearchParams(search).get("returnTo")
+export function validateReturnToUrl(
+  raw: string | null | undefined
+): string | null {
   if (!raw) return null
 
   try {
@@ -40,6 +47,26 @@ export function getValidReturnTo(search: string): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * Validates the `returnTo` query parameter of the hosted login page — the
+ * entry point of the flow, where the authorize endpoint's redirect lands.
+ */
+export function getValidReturnTo(search: string): string | null {
+  const raw = new URLSearchParams(search).get("returnTo")
+
+  if (import.meta.env.DEV && raw && !validateReturnToUrl(raw)) {
+    // Silent rejection is indistinguishable from "no pending request at all":
+    // the user simply lands on the default page, which is exactly what the
+    // resume bug looked like. The usual cause is a PublicBaseUrl on the API
+    // that does not match VITE_API_BASE_URL here, so say so out loud in dev.
+    console.warn(
+      `[auth] returnTo rejected: ${raw} — expected an authorize URL on ${API_BASE_URL}`
+    )
+  }
+
+  return validateReturnToUrl(raw)
 }
 
 /**

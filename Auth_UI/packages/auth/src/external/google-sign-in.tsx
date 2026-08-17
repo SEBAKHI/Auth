@@ -1,12 +1,13 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { useTheme } from "@authsystem/ui/theme-provider"
 
+import { useLoginCompletion } from "../login-completion"
 import { navigateToRecovery } from "./recovery-navigation"
 import { useExternalProviders } from "./use-external-providers"
 
@@ -97,10 +98,6 @@ function loadGsiScript(language: string): Promise<void> {
   return promise
 }
 
-interface LocationState {
-  from?: { pathname?: string; search?: string }
-}
-
 interface GoogleSignInProps {
   /**
    * Where to send an account that is pending deletion — a route in this app, or
@@ -147,15 +144,10 @@ export function GoogleSignIn({
   const { loginExternal } = useAuth()
   const { resolvedTheme } = useTheme()
   const navigate = useNavigate()
-  const location = useLocation()
   const containerRef = React.useRef<HTMLDivElement>(null)
   const nonceRef = React.useRef<string>(crypto.randomUUID())
   const { googleEnabled, googleClientId } = useExternalProviders()
-
-  const state = location.state as LocationState | null
-  const from = state?.from?.pathname
-    ? state.from.pathname + (state.from.search ?? "")
-    : "/"
+  const { complete, challenge } = useLoginCompletion()
 
   const handleCredential = React.useCallback(
     async (credential: string) => {
@@ -176,18 +168,11 @@ export function GoogleSignIn({
           nonceRef.current
         )
         if (result.status === "twoFactorRequired") {
-          navigate("/two-factor", {
-            replace: true,
-            state: { challengeToken: result.challengeToken, from },
-          })
+          challenge(result.challengeToken)
           return
         }
         toast.success(t("auth.welcomeBack"))
-        if (result.requiresPasswordChange) {
-          navigate("/force-password-change", { replace: true })
-        } else {
-          navigate(from, { replace: true })
-        }
+        complete(result)
       } catch (error) {
         // Pending deletion (the ID token itself was valid): carry the still-
         // fresh credential to the recovery screen so restoring is one click.
@@ -209,7 +194,7 @@ export function GoogleSignIn({
         toast.error(getErrorMessage(error))
       }
     },
-    [loginExternal, navigate, from, t, recoveryPath, onCredential]
+    [loginExternal, navigate, complete, challenge, t, recoveryPath, onCredential]
   )
 
   React.useEffect(() => {

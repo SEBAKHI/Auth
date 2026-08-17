@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useLocation, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
@@ -9,6 +9,7 @@ import { Button } from "@authsystem/ui/button"
 
 import { Spinner } from "@authsystem/ui/spinner"
 
+import { useLoginCompletion } from "../login-completion"
 import { navigateToRecovery } from "./recovery-navigation"
 import { useExternalProviders } from "./use-external-providers"
 
@@ -81,10 +82,6 @@ function isUserCancelled(error: unknown): boolean {
   return code === "popup_closed_by_user" || code === "user_cancelled_authorize"
 }
 
-interface LocationState {
-  from?: { pathname?: string; search?: string }
-}
-
 interface AppleSignInProps {
   /**
    * Where to send a pending-deletion account — a route in this app, or an
@@ -120,15 +117,10 @@ export function AppleSignIn({
   const { i18n, t } = useTranslation()
   const { loginExternal } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
   const nonceRef = React.useRef<string>(crypto.randomUUID())
   const [pending, setPending] = React.useState(false)
   const { appleEnabled, appleServicesId } = useExternalProviders()
-
-  const state = location.state as LocationState | null
-  const from = state?.from?.pathname
-    ? state.from.pathname + (state.from.search ?? "")
-    : "/"
+  const { complete, challenge } = useLoginCompletion()
 
   const signIn = React.useCallback(async () => {
     setPending(true)
@@ -167,18 +159,11 @@ export function AppleSignIn({
         }
       )
       if (result.status === "twoFactorRequired") {
-        navigate("/two-factor", {
-          replace: true,
-          state: { challengeToken: result.challengeToken, from },
-        })
+        challenge(result.challengeToken)
         return
       }
       toast.success(t("auth.welcomeBack"))
-      if (result.requiresPasswordChange) {
-        navigate("/force-password-change", { replace: true })
-      } else {
-        navigate(from, { replace: true })
-      }
+      complete(result)
     } catch (error) {
       if (isUserCancelled(error)) return
       // Pending deletion (the ID token itself was valid): carry the still-
@@ -204,7 +189,8 @@ export function AppleSignIn({
     }
   }, [
     appleServicesId,
-    from,
+    complete,
+    challenge,
     i18n.language,
     loginExternal,
     navigate,

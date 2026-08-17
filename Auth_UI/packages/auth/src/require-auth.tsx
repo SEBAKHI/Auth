@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom"
 import { Spinner } from "@authsystem/ui/spinner"
 
 import { useAuth } from "./auth-context"
+import { getValidReturnTo } from "./return-to"
 
 /** Full-screen loading state shown while the session is being established. */
 function FullScreenLoader() {
@@ -37,6 +38,17 @@ export function RequireAnonymous() {
 
   if (status === "loading") return <FullScreenLoader />
   if (status === "authenticated") {
+    // A pending authorize request outranks the guard, and the page must be
+    // SHOWN rather than resumed. Being authenticated here is not the same as
+    // holding a valid IdP session — the two have separate lifetimes — and the
+    // authorize endpoint only bounced the browser back because it found no
+    // usable one. Redirecting to the pending request would therefore be sent
+    // straight back here, forever; rendering the form lets the interactive
+    // sign-in mint the session that ends the flow. The same is true of a
+    // step-up demand, where re-authenticating is the entire point.
+    if (getValidReturnTo(location.search)) return <Outlet />
+
+
     // Honor the post-login return target; this guard races the login page's
     // own navigate(from) once the session flips to authenticated, so both
     // must agree on the destination (including the query string).

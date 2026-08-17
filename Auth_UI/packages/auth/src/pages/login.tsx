@@ -23,14 +23,14 @@ import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { useBranding } from "@authsystem/ui/branding"
 
 import { isAbsoluteUrl } from "../external/recovery-navigation"
-import { getReturnToClientId, getValidReturnTo } from "../return-to"
+import { useLoginCompletion } from "../login-completion"
+import { getReturnToClientId } from "../return-to"
 import { useAppBranding } from "../use-app-branding"
 import { Spinner } from "@authsystem/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 interface LocationState {
-  from?: { pathname?: string; search?: string }
   email?: string
 }
 
@@ -66,14 +66,11 @@ export function LoginPage({
   const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LocationState | null
-  const from = state?.from?.pathname
-    ? state.from.pathname + (state.from.search ?? "")
-    : "/"
   const presetEmail = state?.email ?? ""
 
   // Pending OAuth authorize request (hosted-login flow): strictly validated —
   // only the auth origin's authorize endpoint is ever a legal destination.
-  const returnTo = getValidReturnTo(location.search)
+  const { returnTo, complete, challenge, interstitial } = useLoginCompletion()
   const appBranding = useAppBranding(getReturnToClientId(returnTo))
   const { name: platformName, isPending: brandingPending } = useBranding()
 
@@ -100,30 +97,17 @@ export function LoginPage({
     try {
       const result = await login(values.email, values.password)
       if (result.status === "twoFactorRequired") {
-        navigate("/two-factor", {
-          replace: true,
-          state: { challengeToken: result.challengeToken, from, returnTo },
-        })
+        challenge(result.challengeToken)
         return
       }
       toast.success(t("auth.welcomeBack"))
-      if (result.requiresPasswordChange) {
-        navigate("/force-password-change", { replace: true })
-      } else if (returnTo) {
-        // Resume the pending authorize request: a top-level navigation so the
-        // freshly set IdP session cookie rides along and the code is issued.
-        window.location.assign(returnTo)
-      } else {
-        navigate(from, { replace: true })
-      }
+      complete(result)
     } catch (error) {
       // Unconfirmed email: send the user to enter the verification code, which
       // confirms the address and signs them in — no dead-end and no second
       // manual login. The password was already accepted, so it isn't needed.
       if (getErrorCodes(error).includes("User.EmailNotConfirmed")) {
-        navigate("/verify-email", {
-          state: { email: values.email, from },
-        })
+        interstitial("/verify-email", { email: values.email })
         return
       }
       // Pending deletion (only surfaced on VALID credentials): route to the

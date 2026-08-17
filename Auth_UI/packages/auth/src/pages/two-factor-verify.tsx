@@ -16,19 +16,18 @@ import {
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { AuthenticatorApps } from "@authsystem/ui/common/authenticator-apps"
 import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { useAuth } from "@authsystem/auth/auth-context"
+
+import { useLoginCompletion } from "../login-completion"
 import {
   clearPendingTwoFactorChallenge,
   getPendingTwoFactorChallenge,
-  useAuth,
-} from "@authsystem/auth/auth-context"
+} from "../pending-challenge"
 
 const CODE_LENGTH = 6
 
 interface LocationState {
   challengeToken?: string
-  from?: string
-  /** Validated pending authorize URL carried over from the login page. */
-  returnTo?: string | null
 }
 
 /**
@@ -53,10 +52,12 @@ export function TwoFactorVerifyPage({
   const location = useLocation()
   const state = location.state as LocationState | null
 
+  // The in-memory fallbacks are paired: this is the one screen reachable after
+  // the navigation state that carried both was lost, so it is the one screen
+  // allowed to resume from them.
   const challengeToken =
     state?.challengeToken ?? getPendingTwoFactorChallenge()
-  const from = state?.from ?? "/"
-  const returnTo = state?.returnTo ?? null
+  const { complete } = useLoginCompletion({ resumePending: true })
 
   const [code, setCode] = React.useState("")
   const [useRecoveryCode, setUseRecoveryCode] = React.useState(false)
@@ -88,15 +89,7 @@ export function TwoFactorVerifyPage({
         useRecoveryCode
       )
       toast.success(t("auth.welcomeBack"))
-      if (result.requiresPasswordChange) {
-        navigate("/force-password-change", { replace: true })
-      } else if (returnTo) {
-        // Resume the pending authorize request (top-level navigation so the
-        // IdP session cookie set by the verify response rides along).
-        window.location.assign(returnTo)
-      } else {
-        navigate(from, { replace: true })
-      }
+      complete(result)
     } catch (error) {
       // The challenge is single-use and short-lived; once it dies the only
       // way forward is a fresh password sign-in.

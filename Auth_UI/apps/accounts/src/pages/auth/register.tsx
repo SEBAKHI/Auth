@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Link, useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -24,6 +24,7 @@ import {
 import { Input } from "@authsystem/ui/input"
 
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
+import { useLoginCompletion } from "@authsystem/auth/login-completion"
 import { Spinner } from "@authsystem/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -31,7 +32,10 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 /** Public email/password self-registration (plus external providers). */
 export function RegisterPage() {
   const { t, i18n } = useTranslation()
-  const navigate = useNavigate()
+  // Registering from the hosted login is still the relying party's flow: the
+  // verification code signs the user in, so the pending request has to reach
+  // the screen that ends it.
+  const { interstitial } = useLoginCompletion()
 
   const schema = z
     .object({
@@ -80,12 +84,10 @@ export function RegisterPage() {
       // A code was just emailed; go straight to entering it. Verifying there
       // signs the user in, so they never see the login screen. Pass the expiry
       // so the page shows a countdown without requesting a fresh code.
-      navigate("/verify-email", {
-        state: {
-          email: values.email,
-          maskedEmail: data.maskedEmail,
-          expiresAt: data.verificationCodeExpiresAt,
-        },
+      interstitial("/verify-email", {
+        email: values.email,
+        maskedEmail: data.maskedEmail,
+        expiresAt: data.verificationCodeExpiresAt,
       })
     } catch (error) {
       toast.error(getErrorMessage(error))

@@ -21,6 +21,10 @@ import { setActiveTimeZone } from "@authsystem/i18n/timezone"
 import { setDataTableScope } from "@authsystem/ui/data-table/storage"
 import type { UserInfo } from "@authsystem/api/types"
 
+import {
+  clearPendingTwoFactorChallenge,
+  setPendingTwoFactorChallenge,
+} from "./pending-challenge"
 import { permissionMatches } from "./permission-matching"
 
 type AuthStatus = "loading" | "authenticated" | "unauthenticated"
@@ -39,26 +43,6 @@ export interface ExternalLoginExtras {
 export type LoginResult =
   | { status: "authenticated"; requiresPasswordChange: boolean }
   | { status: "twoFactorRequired"; challengeToken: string }
-
-/**
- * In-memory fallback for the pending 2FA challenge so a lost navigation state
- * (e.g. a re-render race) doesn't strand the verify page. Never persisted —
- * a page refresh intentionally sends the user back to /login.
- */
-let pendingTwoFactorChallenge: string | null = null
-
-export function getPendingTwoFactorChallenge(): string | null {
-  return pendingTwoFactorChallenge
-}
-
-/**
- * Drops the pending challenge when the user abandons the 2FA step to sign in as
- * someone else. Without this the verify page would still find a challenge for
- * the previous account and send them straight back to it.
- */
-export function clearPendingTwoFactorChallenge(): void {
-  pendingTwoFactorChallenge = null
-}
 
 interface AuthContextValue {
   status: AuthStatus
@@ -202,7 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       twoFactorChallengeToken?: string | null
     }): LoginResult => {
       if (data.twoFactorChallengeToken) {
-        pendingTwoFactorChallenge = data.twoFactorChallengeToken
+        setPendingTwoFactorChallenge(data.twoFactorChallengeToken)
         return {
           status: "twoFactorRequired",
           challengeToken: data.twoFactorChallengeToken,
@@ -212,7 +196,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error("Login failed")
       }
 
-      pendingTwoFactorChallenge = null
+      // The challenge is settled, so its mirrored destination has served its
+      // purpose too. Leaving it set would let a later sign-in in the same tab
+      // pick up a stale pending request and resume someone else's flow.
+      clearPendingTwoFactorChallenge()
       // Before the tokens, not after: from this line on every query in the
       // cache would be read as belonging to the incoming account. The other
       // three resets should have left nothing behind, which is exactly why this
