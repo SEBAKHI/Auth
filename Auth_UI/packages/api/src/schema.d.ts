@@ -9085,11 +9085,9 @@ export interface paths {
                     pageSize?: number | string;
                     userId?: string;
                     applicationId?: string;
-                    actionType?: string;
                     action?: string;
                     fromDate?: string;
                     toDate?: string;
-                    isSuccess?: boolean;
                     sortBy?: string;
                     sortDirection?: components["schemas"]["SortDirection"];
                 };
@@ -12725,13 +12723,11 @@ export interface components {
             userId?: null | string;
             /** Format: uuid */
             applicationId?: null | string;
-            actionType?: null | string;
             action?: null | string;
             /** Format: date-time */
             fromDate?: null | string;
             /** Format: date-time */
             toDate?: null | string;
-            isSuccess?: null | boolean;
             /**
              * Format: int32
              * @default 10000
@@ -12774,12 +12770,33 @@ export interface components {
             expiresAt: string;
             maskedEmail: string;
         };
+        GatewayRateLimitsResponse: {
+            /** Format: int32 */
+            globalPermitLimit: number | string;
+            /** Format: int32 */
+            globalWindowSeconds: number | string;
+            /** Format: int32 */
+            globalQueueLimit: number | string;
+            /** Format: int32 */
+            authPermitLimit: number | string;
+            /** Format: int32 */
+            authWindowSeconds: number | string;
+            /** Format: int32 */
+            apiPermitLimit: number | string;
+            /** Format: int32 */
+            apiWindowSeconds: number | string;
+            /** Format: int32 */
+            adminPermitLimit: number | string;
+            /** Format: int32 */
+            adminWindowSeconds: number | string;
+        };
         GatewayRuntimeSettingsResponse: {
             /** Format: int32 */
             version: number | string;
             corsAllowedOrigins: string[];
             corsAllowCredentials: boolean;
             healthChecksExposeErrorDetails: boolean;
+            rateLimits: components["schemas"]["GatewayRateLimitsResponse"];
         };
         GatewayTokenGenerationResponse: {
             success?: boolean;

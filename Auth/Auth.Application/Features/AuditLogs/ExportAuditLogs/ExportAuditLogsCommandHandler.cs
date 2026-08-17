@@ -43,11 +43,9 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
             request.MaxRecords,
             request.UserId,
             request.ApplicationId,
-            request.ActionType,
             request.Action,
             request.FromDate,
             request.ToDate,
-            request.IsSuccess,
             request.SortBy,
             request.SortDirection,
             cancellationToken);

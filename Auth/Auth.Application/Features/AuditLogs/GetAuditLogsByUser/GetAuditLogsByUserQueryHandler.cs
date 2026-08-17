@@ -42,11 +42,9 @@ public class GetAuditLogsByUserQueryHandler : IRequestHandler<GetAuditLogsByUser
             request.PageSize,
             request.UserId,
             null, // applicationId
-            null, // actionType
             null, // action
             request.FromDate,
             request.ToDate,
-            null, // isSuccess
             request.SortBy,
             request.SortDirection,
             cancellationToken);

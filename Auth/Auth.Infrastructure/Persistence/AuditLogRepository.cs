@@ -85,17 +85,20 @@ public class AuditLogRepository : IAuditLogRepository
         int pageSize,
         Guid? userId,
         Guid? applicationId,
-        string? actionType,
         string? action,
         DateTime? fromDate,
         DateTime? toDate,
-        bool? isSuccess,
         string? sortBy,
         SortDirection sortDirection,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // `actionType` and `isSuccess` used to be accepted here and then simply
+        // not used — no WHERE fragment, no parameter, no error. AuditLogs has no
+        // such columns; ToEntity below fills them with "System" and true for
+        // every row. A caller filtering on either got the unfiltered page back
+        // and no way to tell.
         var whereClause = new StringBuilder("WHERE 1=1");
         var parameters = new DynamicParameters();
 
@@ -175,18 +178,6 @@ public class AuditLogRepository : IAuditLogRepository
             new { EntityType = entityType, EntityId = entityId });
 
         return dtos.Select(dto => dto.ToEntity()).ToList();
-    }
-
-    /// <inheritdoc />
-    public async Task<IReadOnlyList<AuditLog>> GetByCorrelationIdAsync(
-        string correlationId,
-        CancellationToken cancellationToken)
-    {
-        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
-
-        // Note: The current AuditLogs table may not have a CorrelationId column
-        // This is a placeholder implementation
-        return [];
     }
 
     /// <inheritdoc />

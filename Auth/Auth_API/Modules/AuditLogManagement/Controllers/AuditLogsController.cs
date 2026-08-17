@@ -44,18 +44,23 @@ public class AuditLogsController : ApiController
         [FromQuery] int pageSize = 50,
         [FromQuery] Guid? userId = null,
         [FromQuery] Guid? applicationId = null,
-        [FromQuery] string? actionType = null,
         [FromQuery] string? action = null,
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
-        [FromQuery] bool? isSuccess = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
+        // `actionType` and `isSuccess` used to be documented here and are gone:
+        // the AuditLogs table has no such columns, the repository dropped both
+        // before building its WHERE clause, and every row reports "System" and
+        // true regardless. Removing them costs no consumer anything — an unknown
+        // query parameter is ignored by model binding, so a caller still sending
+        // them gets the same unfiltered page it has always received, minus the
+        // 400 that a malformed `isSuccess` used to produce.
         var query = new GetAuditLogsQuery(
             pageNumber, pageSize, userId, applicationId,
-            actionType, action, fromDate, toDate, isSuccess, sortBy, sortDirection);
+            action, fromDate, toDate, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -149,11 +154,9 @@ public class AuditLogsController : ApiController
             request.Format,
             request.UserId,
             request.ApplicationId,
-            request.ActionType,
             request.Action,
             request.FromDate,
             request.ToDate,
-            request.IsSuccess,
             request.MaxRecords,
             request.SortBy,
             request.SortDirection)

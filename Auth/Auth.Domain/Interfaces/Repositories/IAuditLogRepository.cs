@@ -27,11 +27,9 @@ public interface IAuditLogRepository
         int pageSize,
         Guid? userId,
         Guid? applicationId,
-        string? actionType,
         string? action,
         DateTime? fromDate,
         DateTime? toDate,
-        bool? isSuccess,
         string? sortBy,
         Enums.SortDirection sortDirection,
         CancellationToken cancellationToken);
@@ -47,12 +45,9 @@ public interface IAuditLogRepository
         Enums.SortDirection sortDirection,
         CancellationToken cancellationToken);
 
-    /// <summary>
-    /// Gets audit logs by correlation ID.
-    /// </summary>
-    Task<IReadOnlyList<AuditLog>> GetByCorrelationIdAsync(
-        string correlationId,
-        CancellationToken cancellationToken);
+    // GetByCorrelationIdAsync used to sit here. Its implementation returned an
+    // empty list unconditionally under a "placeholder" comment, AuditLogs has no
+    // CorrelationId column to query, and nothing ever called it.
 
     /// <summary>
     /// Cleans up old audit logs.
