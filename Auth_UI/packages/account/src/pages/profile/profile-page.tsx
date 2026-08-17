@@ -315,7 +315,16 @@ export function ProfilePage({
           {meQuery.isLoading || !meQuery.data ? (
             <Skeleton className="h-64 w-full" />
           ) : (
-            <div className="flex flex-col gap-6">
+            // Keyed by account id so a change of identity REMOUNTS these
+            // rather than re-rendering them. AccountTab seeds react-hook-form
+            // from `defaultValues` once, at mount, and never resets on a new
+            // `me`: without the key, a page that mounted on the previous
+            // account's cached row keeps that person's name and phone in the
+            // inputs while the header silently corrects itself, and submitting
+            // writes their details onto this account. The cache reset in
+            // auth-context is the primary fix; this is the guard that holds
+            // even when a refetch — not a sign-out — is what changed the user.
+            <div key={meQuery.data.id} className="flex flex-col gap-6">
               <AccountTab me={meQuery.data} />
               {showDangerZone ? <ProfileDangerZone me={meQuery.data} /> : null}
             </div>
@@ -328,7 +337,7 @@ export function ProfilePage({
           {meQuery.isLoading || !meQuery.data ? (
             <Skeleton className="h-64 w-full" />
           ) : (
-            <ProfileSecurity me={meQuery.data} />
+            <ProfileSecurity key={meQuery.data.id} me={meQuery.data} />
           )}
         </TabsContent>
       </Tabs>

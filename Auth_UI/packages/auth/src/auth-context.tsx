@@ -1,8 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
+import { useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 
 import { api, SESSION_EXPIRED_EVENT } from "@authsystem/api/client"
 import { claimToArray, decodeJwt } from "@authsystem/api/jwt"
+import { resetUserScopedCache } from "@authsystem/api/query"
 import {
   clearTokens,
   getAccessToken,
@@ -118,6 +120,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     getRefreshToken() ? "loading" : "unauthenticated"
   )
   const [user, setUser] = React.useState<UserInfo | null>(null)
+  // Read from context rather than importing the singleton: the provider is
+  // mounted inside QueryClientProvider in both apps, and a test that renders
+  // AuthProvider with its own client must be able to observe the reset.
+  const queryClient = useQueryClient()
 
   const { roles, permissions } = React.useMemo(() => derive(user), [user])
 
@@ -149,12 +155,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTokens()
       setUser(null)
       setStatus("unauthenticated")
+      // The session is gone but the tab is not: whatever the previous account
+      // left in the cache would otherwise be waiting for whoever signs in next.
+      void resetUserScopedCache(queryClient)
       return
     }
     setUser(data)
     setStatus("authenticated")
     applyProfilePreferences(data)
-  }, [applyProfilePreferences])
+  }, [applyProfilePreferences, queryClient])
 
   // Bootstrap an existing session on first load (silent refresh via middleware).
   React.useEffect(() => {
@@ -170,10 +179,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStatus("unauthenticated")
       setActiveTimeZone(null)
       setDataTableScope(null)
+      // The most dangerous of the four resets. An expiry ends the session
+      // without anyone choosing to leave, so the app is mid-screen with its
+      // queries populated, and the next sign-in on this tab is the likeliest of
+      // all to be a different person. Note that scoping a key by user id could
+      // not have covered this case: there is no id to scope by here.
+      void resetUserScopedCache(queryClient)
     }
     window.addEventListener(SESSION_EXPIRED_EVENT, handler)
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, handler)
-  }, [])
+  }, [queryClient])
 
   // Shared tail of every login variant: either a 2FA challenge (no tokens
   // yet, the verify step completes the session) or a full token response.
@@ -196,6 +211,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       pendingTwoFactorChallenge = null
+      // Before the tokens, not after: from this line on every query in the
+      // cache would be read as belonging to the incoming account. The other
+      // three resets should have left nothing behind, which is exactly why this
+      // one is worth keeping — it is the only reset that runs on the path where
+      // a mistake becomes someone else's data.
+      void resetUserScopedCache(queryClient)
       setTokens(data.token.accessToken, data.token.refreshToken)
       setUser(data.user)
       setStatus("authenticated")
@@ -206,7 +227,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         requiresPasswordChange: data.requiresPasswordChange ?? false,
       }
     },
-    [applyProfilePreferences]
+    [applyProfilePreferences, queryClient]
   )
 
   const login = React.useCallback(
@@ -350,7 +371,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // in restores them. Only the *next* account is prevented from inheriting.
     setDataTableScope(null)
     languageAdoptedRef.current = false
-  }, [])
+    // Awaited here, unlike the other three call sites: this is the one path
+    // with somewhere to await from, and the logout request above may well have
+    // raced a page's refetch that would otherwise land after the removal.
+    await resetUserScopedCache(queryClient)
+  }, [queryClient])
 
   const hasPermission = React.useCallback(
     (permission: string | undefined) => {
