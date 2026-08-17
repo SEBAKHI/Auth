@@ -7,6 +7,7 @@ import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { useTheme } from "@authsystem/ui/theme-provider"
 
+import { navigateToRecovery } from "./recovery-navigation"
 import { useExternalProviders } from "./use-external-providers"
 
 /** Minimal typings for the Google Identity Services (GSI) client. */
@@ -102,16 +103,29 @@ interface LocationState {
 
 interface GoogleSignInProps {
   /**
-   * Where to send an account that is pending deletion. Optional because not every
-   * host app has a recovery screen: the console does not, and sending it to a route
-   * it lacks would be a 404 instead of a message. Two things make the fallback the
-   * better answer there rather than a cross-origin redirect — the still-fresh
-   * credential lives in router state and cannot survive a navigation to another
-   * origin, and the recovery form's other path asks for a password an external-only
-   * account does not have. Without this prop the branch degrades to the error toast,
-   * which shows the server's own localized pending-deletion message.
+   * Where to send an account that is pending deletion — a route in this app, or
+   * an absolute URL when the recovery screen lives on another origin (the
+   * console points at the accounts app). Without it the branch degrades to the
+   * error toast, which is a dead end: the toast states that the account is
+   * scheduled for deletion and offers nothing to act on.
    */
   recoveryPath?: string
+  /**
+   * Capture mode. When supplied, the button does NOT sign in: it hands the
+   * provider credential to the caller and does nothing else.
+   *
+   * This exists for the recovery screen, which needs the same credential for a
+   * different call (`/deletion/recover-external` rather than `/external-login`).
+   * The alternative considered was to let it sign in normally, fail with the
+   * pending-deletion error and re-enter the screen carrying the credential —
+   * cheaper to write, but it makes a deliberately failing request a control
+   * flow, and it breaks the day failed external logins get rate-limited.
+   */
+  onCredential?: (credential: {
+    provider: string
+    idToken: string
+    nonce?: string
+  }) => void
 }
 
 /**
@@ -125,7 +139,10 @@ interface GoogleSignInProps {
  * it is generated in the browser and never issued, stored or spent server-side,
  * and the API skips the check when none is sent. It is not replay protection.
  */
-export function GoogleSignIn({ recoveryPath }: GoogleSignInProps = {}) {
+export function GoogleSignIn({
+  recoveryPath,
+  onCredential,
+}: GoogleSignInProps = {}) {
   const { i18n, t } = useTranslation()
   const { loginExternal } = useAuth()
   const { resolvedTheme } = useTheme()
@@ -140,8 +157,18 @@ export function GoogleSignIn({ recoveryPath }: GoogleSignInProps = {}) {
     ? state.from.pathname + (state.from.search ?? "")
     : "/"
 
-  const onCredential = React.useCallback(
+  const handleCredential = React.useCallback(
     async (credential: string) => {
+      // Capture mode: the caller wants the credential, not a session.
+      if (onCredential) {
+        onCredential({
+          provider: "google",
+          idToken: credential,
+          nonce: nonceRef.current,
+        })
+        return
+      }
+
       try {
         const result = await loginExternal(
           "google",
@@ -169,14 +196,12 @@ export function GoogleSignIn({ recoveryPath }: GoogleSignInProps = {}) {
           recoveryPath &&
           getErrorCodes(error).includes("User.AccountPendingDeletion")
         ) {
-          navigate(recoveryPath, {
-            state: {
-              message: getErrorMessage(error),
-              external: {
-                provider: "google",
-                idToken: credential,
-                nonce: nonceRef.current,
-              },
+          navigateToRecovery(navigate, recoveryPath, {
+            message: getErrorMessage(error),
+            external: {
+              provider: "google",
+              idToken: credential,
+              nonce: nonceRef.current,
             },
           })
           return
@@ -184,7 +209,7 @@ export function GoogleSignIn({ recoveryPath }: GoogleSignInProps = {}) {
         toast.error(getErrorMessage(error))
       }
     },
-    [loginExternal, navigate, from, t, recoveryPath]
+    [loginExternal, navigate, from, t, recoveryPath, onCredential]
   )
 
   React.useEffect(() => {
@@ -197,7 +222,7 @@ export function GoogleSignIn({ recoveryPath }: GoogleSignInProps = {}) {
         window.google.accounts.id.initialize({
           client_id: googleClientId,
           nonce: nonceRef.current,
-          callback: (response) => void onCredential(response.credential),
+          callback: (response) => void handleCredential(response.credential),
         })
         containerRef.current.replaceChildren()
         window.google.accounts.id.renderButton(containerRef.current, {
@@ -220,7 +245,13 @@ export function GoogleSignIn({ recoveryPath }: GoogleSignInProps = {}) {
     return () => {
       cancelled = true
     }
-  }, [googleEnabled, googleClientId, i18n.language, resolvedTheme, onCredential])
+  }, [
+    googleEnabled,
+    googleClientId,
+    i18n.language,
+    resolvedTheme,
+    handleCredential,
+  ])
 
   if (!googleEnabled) return null
 

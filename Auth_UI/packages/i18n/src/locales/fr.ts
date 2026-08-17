@@ -97,6 +97,7 @@ export const fr: TranslationResources = {
     selectedCount: "{{count}} sélectionné(s)",
     selectApplication: "Sélectionnez une application",
     noApplications: "Aucune application",
+    applicationsUnavailable: "Requiert la permission applications:read",
     application: "Application",
     role: "Rôle",
     type: "Type",
@@ -1888,7 +1889,9 @@ export const fr: TranslationResources = {
     daysToRecover: "{{days}} jours pour récupérer",
     recoveryTitle: "Restaurer votre compte",
     recoveryFallback:
-      "La suppression de ce compte est programmée. Confirmez vos identifiants ci-dessous pour annuler la suppression et le restaurer.",
+      "Ce compte est désactivé et sa suppression est programmée. Il peut être restauré jusqu'à cette date.",
+    confirmCredentials:
+      "Confirmez vos identifiants ci-dessous pour annuler la suppression et le restaurer.",
     restoreAccount: "Restaurer mon compte",
     restored: "Votre compte a été restauré. Bon retour !",
     twoFactorCode: "Code de double authentification",

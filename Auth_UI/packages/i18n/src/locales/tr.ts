@@ -97,6 +97,7 @@ export const tr: TranslationResources = {
     selectedCount: "{{count}} seçildi",
     selectApplication: "Bir uygulama seçin",
     noApplications: "Uygulama yok",
+    applicationsUnavailable: "applications:read izni gerekiyor",
     application: "Uygulama",
     role: "Rol",
     type: "Tür",
@@ -1827,7 +1828,9 @@ export const tr: TranslationResources = {
     daysToRecover: "Kurtarmak için {{days}} gün",
     recoveryTitle: "Hesabınızı geri yükleyin",
     recoveryFallback:
-      "Bu hesabın silinmesi planlandı. Silmeyi iptal etmek ve hesabı geri yüklemek için aşağıda kimlik bilgilerinizi doğrulayın.",
+      "Bu hesap devre dışı bırakıldı ve silinmesi planlandı. O tarihe kadar geri yüklenebilir.",
+    confirmCredentials:
+      "Silmeyi iptal etmek ve hesabı geri yüklemek için aşağıda kimlik bilgilerinizi doğrulayın.",
     restoreAccount: "Hesabımı geri yükle",
     restored: "Hesabınız geri yüklendi. Tekrar hoş geldiniz!",
     twoFactorCode: "İki adımlı doğrulama kodu",

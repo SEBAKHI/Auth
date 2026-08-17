@@ -8,10 +8,21 @@ import { useExternalProviders } from "./use-external-providers"
 
 interface ExternalProvidersProps {
   /**
-   * Route to send a pending-deletion account to, forwarded to every provider
-   * button. Omit it in an app that has no recovery screen — see GoogleSignIn.
+   * Where to send a pending-deletion account, forwarded to every provider
+   * button. A route in this app, or an absolute URL when the recovery screen
+   * lives on another origin — see GoogleSignIn.
    */
   recoveryPath?: string
+  /**
+   * Capture mode, forwarded to every provider button: hand the credential to
+   * the caller instead of signing in. The recovery screen uses this to obtain
+   * the credential the emailed link could not carry.
+   */
+  onCredential?: (credential: {
+    provider: string
+    idToken: string
+    nonce?: string
+  }) => void
 }
 
 /**
@@ -23,7 +34,10 @@ interface ExternalProvidersProps {
  * app and the console mount the same shared LoginPage and fill its `providers`
  * slot with this; a provider added here reaches both at once.
  */
-export function ExternalProviders({ recoveryPath }: ExternalProvidersProps = {}) {
+export function ExternalProviders({
+  recoveryPath,
+  onCredential,
+}: ExternalProvidersProps = {}) {
   const { t } = useTranslation()
   const { googleEnabled, appleEnabled } = useExternalProviders()
 
@@ -38,8 +52,8 @@ export function ExternalProviders({ recoveryPath }: ExternalProvidersProps = {})
         </span>
         <Separator className="flex-1" />
       </div>
-      <GoogleSignIn recoveryPath={recoveryPath} />
-      <AppleSignIn recoveryPath={recoveryPath} />
+      <GoogleSignIn recoveryPath={recoveryPath} onCredential={onCredential} />
+      <AppleSignIn recoveryPath={recoveryPath} onCredential={onCredential} />
     </div>
   )
 }

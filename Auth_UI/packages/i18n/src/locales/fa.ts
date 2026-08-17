@@ -97,6 +97,7 @@ export const fa: TranslationResources = {
     selectedCount: "{{count}} انتخاب شد",
     selectApplication: "یک برنامه انتخاب کنید",
     noApplications: "برنامه‌ای وجود ندارد",
+    applicationsUnavailable: "به مجوز applications:read نیاز دارد",
     application: "برنامه",
     role: "نقش",
     type: "نوع",
@@ -1832,7 +1833,9 @@ export const fa: TranslationResources = {
     daysToRecover: "{{days}} روز برای بازیابی",
     recoveryTitle: "بازیابی حساب شما",
     recoveryFallback:
-      "حذف این حساب زمان‌بندی شده است. برای لغو حذف و بازیابی، اطلاعات ورود خود را در زیر تأیید کنید.",
+      "این حساب غیرفعال شده و حذف آن زمان‌بندی شده است. تا آن تاریخ می‌توان آن را بازیابی کرد.",
+    confirmCredentials:
+      "برای لغو حذف و بازیابی، اطلاعات ورود خود را در زیر تأیید کنید.",
     restoreAccount: "بازیابی حساب من",
     restored: "حساب شما بازیابی شد. خوش برگشتید!",
     twoFactorCode: "کد تأیید دومرحله‌ای",

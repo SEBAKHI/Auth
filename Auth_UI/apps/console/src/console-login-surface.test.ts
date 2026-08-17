@@ -76,6 +76,30 @@ describe("the console login surface", () => {
   })
 
   it("mounts the login page with its providers slot filled", () => {
-    expect(routes).toContain("<LoginPage providers={<ExternalProviders />} />")
+    expect(routes).toContain("<ExternalProviders recoveryPath=")
+    expect(routes).toMatch(/<LoginPage\s+recoveryPath=/)
+  })
+
+  it("gives both sign-in paths somewhere to send a pending-deletion account", () => {
+    // Two independent dead ends lived here. The Google branch is guarded on
+    // `recoveryPath &&`, so without the prop it short-circuited to a toast that
+    // named the deletion and offered nothing to act on. The password branch
+    // used to navigate to a hardcoded "/account-recovery" — a route only the
+    // accounts app has — and fell through to the catch-all 404. Neither is
+    // reachable by any test that renders a component, because both need an
+    // account that is pending deletion.
+    expect(routes).toContain(
+      "const CONSOLE_RECOVERY_URL = `${ACCOUNTS_URL}/account-recovery`"
+    )
+    expect(routes).toContain("recoveryPath={CONSOLE_RECOVERY_URL}")
+  })
+
+  it("never derives the recovery target from anything user-controlled", () => {
+    // An absolute recoveryPath reaches window.location.assign. Built from a
+    // build-time constant it is a handoff; built from a query string or from
+    // router state it is an open redirect.
+    const declaration = routes.match(/const CONSOLE_RECOVERY_URL = [^\n]*/)?.[0]
+    expect(declaration).toBeTruthy()
+    expect(declaration).not.toMatch(/location|search|params|state|window/i)
   })
 })

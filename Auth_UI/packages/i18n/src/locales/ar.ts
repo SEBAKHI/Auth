@@ -97,6 +97,7 @@ export const ar: TranslationResources = {
     selectedCount: "{{count}} محدد",
     selectApplication: "اختر تطبيقًا",
     noApplications: "لا توجد تطبيقات",
+    applicationsUnavailable: "يتطلب صلاحية applications:read",
     application: "التطبيق",
     role: "الدور",
     type: "النوع",
@@ -1786,7 +1787,9 @@ export const ar: TranslationResources = {
     daysToRecover: "{{days}} يومًا للاستعادة",
     recoveryTitle: "استعادة حسابك",
     recoveryFallback:
-      "هذا الحساب مقرر حذفه. أكد بيانات اعتمادك أدناه لإلغاء الحذف واستعادته.",
+      "هذا الحساب معطل ومقرر حذفه. يمكن استعادته حتى ذلك الحين.",
+    confirmCredentials:
+      "أكد بيانات اعتمادك أدناه لإلغاء الحذف واستعادته.",
     restoreAccount: "استعادة حسابي",
     restored: "تمت استعادة حسابك. مرحبًا بعودتك!",
     twoFactorCode: "رمز التحقق بخطوتين",

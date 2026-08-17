@@ -27,6 +27,16 @@ import { PERMISSIONS } from "@/lib/constants"
  */
 
 /**
+ * The accounts app owns account recovery; this app hands off to it.
+ *
+ * A module constant, never derived from the URL or from router state: an
+ * absolute value reaches `window.location.assign`, so anything user-controlled
+ * flowing in here would be an open redirect. console-login-surface.test.ts
+ * pins that it stays built from ACCOUNTS_URL.
+ */
+const CONSOLE_RECOVERY_URL = `${ACCOUNTS_URL}/account-recovery`
+
+/**
  * Invitations are an end-user flow owned by the accounts app. Links in old
  * emails may still point here, so forward them (token and all) instead of 404.
  */
@@ -78,10 +88,28 @@ export const router = createBrowserRouter([
       {
         // An administrator whose account was created by signing in with Google has
         // no password to type here, so without this slot the console was closed to
-        // them entirely. No `recoveryPath`: this app has no /account-recovery route,
-        // and the pending-deletion branch falls back to the server's own message.
+        // them entirely.
+        //
+        // `recoveryPath` is the accounts origin, not a route here, and that is the
+        // decision rather than an accident. This app has no /account-recovery and
+        // should not grow one: account lifecycle is the accounts app's job, and the
+        // recovery screen needs a provider button, which means yet another surface
+        // holding a sign-in. Until this line existed both doors were dead — the
+        // Google branch is guarded on `recoveryPath &&`, so it short-circuited into
+        // a toast that named the deletion and offered nothing, while the password
+        // branch navigated to a route this router does not have and rendered the
+        // catch-all 404.
+        //
+        // Crossing origins drops the captured credential, which used to be the
+        // argument against doing this. It no longer is: the recovery screen now
+        // obtains its own credential, so arriving empty-handed costs a click.
         path: "/login",
-        element: <LoginPage providers={<ExternalProviders />} />,
+        element: (
+          <LoginPage
+            recoveryPath={CONSOLE_RECOVERY_URL}
+            providers={<ExternalProviders recoveryPath={CONSOLE_RECOVERY_URL} />}
+          />
+        ),
       },
       {
         path: "/forgot-password",
@@ -359,33 +387,55 @@ export const router = createBrowserRouter([
                     ),
                   },
                   {
-                    path: "policy",
-                    lazy: lazyRoute(
-                      () =>
-                        import("@/pages/notifications/notification-policy-page"),
-                      (m) => m.NotificationPolicyPage
+                    // The privacy notice sits under /notifications for
+                    // navigation, but it is a different duty with different
+                    // permissions, so it carries its own guard rather than
+                    // inheriting the section's.
+                    //
+                    // Inheriting was wrong in both directions: a policy officer
+                    // holding only privacy-policy:* was bounced to /403 and
+                    // could never reach the editor, while a notifications
+                    // operator reached it and watched every request 403,
+                    // because PrivacyPolicyController asks for
+                    // privacy-policy:read and never for a templates permission.
+                    element: (
+                      <PermissionRoute
+                        permission={PERMISSIONS.privacyPolicy.read}
+                      />
                     ),
-                    handle: crumb(
-                      "notificationPolicy",
-                      "/notifications/policy"
-                    ),
-                  },
-                  {
-                    // Keyed by the revision's id, not its version string: the
-                    // string is editable, so a URL built on it dies on rename.
-                    path: "policy/:id",
-                    lazy: lazyRoute(
-                      () =>
-                        import(
-                          "@/pages/notifications/notification-policy-detail-page"
+                    children: [
+                      {
+                        path: "policy",
+                        lazy: lazyRoute(
+                          () =>
+                            import(
+                              "@/pages/notifications/notification-policy-page"
+                            ),
+                          (m) => m.NotificationPolicyPage
                         ),
-                      (m) => m.NotificationPolicyDetailPage
-                    ),
-                    handle: crumb(
-                      "notificationPolicy",
-                      "/notifications/policy",
-                      true
-                    ),
+                        handle: crumb(
+                          "notificationPolicy",
+                          "/notifications/policy"
+                        ),
+                      },
+                      {
+                        // Keyed by the revision's id, not its version string: the
+                        // string is editable, so a URL built on it dies on rename.
+                        path: "policy/:id",
+                        lazy: lazyRoute(
+                          () =>
+                            import(
+                              "@/pages/notifications/notification-policy-detail-page"
+                            ),
+                          (m) => m.NotificationPolicyDetailPage
+                        ),
+                        handle: crumb(
+                          "notificationPolicy",
+                          "/notifications/policy",
+                          true
+                        ),
+                      },
+                    ],
                   },
                 ],
               },

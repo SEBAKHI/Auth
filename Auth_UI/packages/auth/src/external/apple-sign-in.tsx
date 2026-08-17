@@ -9,6 +9,7 @@ import { Button } from "@authsystem/ui/button"
 
 import { Spinner } from "@authsystem/ui/spinner"
 
+import { navigateToRecovery } from "./recovery-navigation"
 import { useExternalProviders } from "./use-external-providers"
 
 /** Minimal typings for the Sign in with Apple JS client. */
@@ -85,8 +86,21 @@ interface LocationState {
 }
 
 interface AppleSignInProps {
-  /** Where to send a pending-deletion account; omitted in apps without a recovery screen. */
+  /**
+   * Where to send a pending-deletion account — a route in this app, or an
+   * absolute URL when the recovery screen lives on another origin.
+   */
   recoveryPath?: string
+  /**
+   * Capture mode: hand the credential to the caller instead of signing in.
+   * See GoogleSignIn for why this is a prop rather than a deliberately failing
+   * sign-in round-trip.
+   */
+  onCredential?: (credential: {
+    provider: string
+    idToken: string
+    nonce?: string
+  }) => void
 }
 
 /**
@@ -99,7 +113,10 @@ interface AppleSignInProps {
  * deletion revoke the Apple grant — and, on first authorization only, the
  * user's name (Apple never repeats it).
  */
-export function AppleSignIn({ recoveryPath }: AppleSignInProps = {}) {
+export function AppleSignIn({
+  recoveryPath,
+  onCredential,
+}: AppleSignInProps = {}) {
   const { i18n, t } = useTranslation()
   const { loginExternal } = useAuth()
   const navigate = useNavigate()
@@ -128,6 +145,16 @@ export function AppleSignIn({ recoveryPath }: AppleSignInProps = {}) {
         usePopup: true,
       })
       response = await window.AppleID.auth.signIn()
+
+      // Capture mode: the caller wants the credential, not a session.
+      if (onCredential) {
+        onCredential({
+          provider: "apple",
+          idToken: response.authorization.id_token,
+          nonce: nonceRef.current,
+        })
+        return
+      }
 
       const result = await loginExternal(
         "apple",
@@ -161,14 +188,12 @@ export function AppleSignIn({ recoveryPath }: AppleSignInProps = {}) {
         response &&
         getErrorCodes(error).includes("User.AccountPendingDeletion")
       ) {
-        navigate(recoveryPath, {
-          state: {
-            message: getErrorMessage(error),
-            external: {
-              provider: "apple",
-              idToken: response.authorization.id_token,
-              nonce: nonceRef.current,
-            },
+        navigateToRecovery(navigate, recoveryPath, {
+          message: getErrorMessage(error),
+          external: {
+            provider: "apple",
+            idToken: response.authorization.id_token,
+            nonce: nonceRef.current,
           },
         })
         return
@@ -177,7 +202,16 @@ export function AppleSignIn({ recoveryPath }: AppleSignInProps = {}) {
     } finally {
       setPending(false)
     }
-  }, [appleServicesId, from, i18n.language, loginExternal, navigate, t, recoveryPath])
+  }, [
+    appleServicesId,
+    from,
+    i18n.language,
+    loginExternal,
+    navigate,
+    t,
+    recoveryPath,
+    onCredential,
+  ])
 
   if (!appleEnabled) return null
 

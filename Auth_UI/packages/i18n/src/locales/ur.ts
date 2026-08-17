@@ -97,6 +97,7 @@ export const ur: TranslationResources = {
     selectedCount: "{{count}} منتخب",
     selectApplication: "ایک ایپلیکیشن منتخب کریں",
     noApplications: "کوئی ایپلیکیشن نہیں",
+    applicationsUnavailable: "applications:read اجازت درکار ہے",
     application: "ایپلیکیشن",
     role: "کردار",
     type: "قسم",
@@ -1811,7 +1812,9 @@ export const ur: TranslationResources = {
     daysToRecover: "بحالی کے لیے {{days}} دن",
     recoveryTitle: "اپنا اکاؤنٹ بحال کریں",
     recoveryFallback:
-      "اس اکاؤنٹ کو حذف کرنا طے ہے۔ حذف منسوخ کرنے اور اکاؤنٹ بحال کرنے کے لیے نیچے اپنی معلومات کی تصدیق کریں۔",
+      "یہ اکاؤنٹ غیر فعال ہے اور اسے حذف کرنا طے ہے۔ اس تاریخ تک بحال کیا جا سکتا ہے۔",
+    confirmCredentials:
+      "حذف منسوخ کرنے اور اکاؤنٹ بحال کرنے کے لیے نیچے اپنی معلومات کی تصدیق کریں۔",
     restoreAccount: "میرا اکاؤنٹ بحال کریں",
     restored: "آپ کا اکاؤنٹ بحال کر دیا گیا ہے۔ خوش آمدید!",
     twoFactorCode: "دو مرحلہ تصدیقی کوڈ",

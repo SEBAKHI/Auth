@@ -92,6 +92,7 @@ export const en = {
     selectedCount: "{{count}} selected",
     selectApplication: "Select an application",
     noApplications: "No applications",
+    applicationsUnavailable: "Needs the applications:read permission",
     application: "Application",
     role: "Role",
     type: "Type",
@@ -1813,7 +1814,9 @@ export const en = {
     daysToRecover: "{{days}} days to recover",
     recoveryTitle: "Restore your account",
     recoveryFallback:
-      "This account is scheduled for deletion. Confirm your credentials below to cancel the deletion and restore it.",
+      "This account is deactivated and scheduled for deletion. It can be restored until that date.",
+    confirmCredentials:
+      "Confirm your credentials below to cancel the deletion and restore it.",
     restoreAccount: "Restore my account",
     restored: "Your account has been restored. Welcome back!",
     twoFactorCode: "Two-factor code",

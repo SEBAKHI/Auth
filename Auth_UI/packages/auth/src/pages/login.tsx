@@ -22,6 +22,7 @@ import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { useBranding } from "@authsystem/ui/branding"
 
+import { isAbsoluteUrl } from "../external/recovery-navigation"
 import { getReturnToClientId, getValidReturnTo } from "../return-to"
 import { useAppBranding } from "../use-app-branding"
 import { Spinner } from "@authsystem/ui/spinner"
@@ -38,6 +39,7 @@ export function LoginPage({
   footer,
   pageFooter,
   subtitle,
+  recoveryPath,
 }: {
   /** External sign-in options rendered under the credentials form. */
   providers?: React.ReactNode
@@ -47,6 +49,17 @@ export function LoginPage({
   pageFooter?: React.ReactNode
   /** Overrides the console-flavored default subtitle. */
   subtitle?: string
+  /**
+   * Where to send an account that is pending deletion — a route in this app, or
+   * an absolute URL when the recovery screen lives on another origin.
+   *
+   * This used to be the literal "/account-recovery", which is a route only the
+   * accounts app has: in the console the same branch fell through the router to
+   * the catch-all and rendered a 404, so valid credentials for a recoverable
+   * account produced a not-found page. A prop, like the one the provider
+   * buttons already took.
+   */
+  recoveryPath?: string
 } = {}) {
   const { t } = useTranslation()
   const { login } = useAuth()
@@ -116,8 +129,17 @@ export function LoginPage({
       // Pending deletion (only surfaced on VALID credentials): route to the
       // recovery screen instead of a dead-end error. The server's localized
       // message carries the deletion deadline.
-      if (getErrorCodes(error).includes("User.AccountPendingDeletion")) {
-        navigate("/account-recovery", {
+      if (
+        recoveryPath &&
+        getErrorCodes(error).includes("User.AccountPendingDeletion")
+      ) {
+        if (isAbsoluteUrl(recoveryPath)) {
+          // Another origin owns the recovery screen; the email prefill cannot
+          // ride along, and the screen asks for it anyway.
+          window.location.assign(recoveryPath)
+          return
+        }
+        navigate(recoveryPath, {
           state: { email: values.email, message: getErrorMessage(error) },
         })
         return

@@ -21,6 +21,7 @@ export function AccountsLoginPage() {
   return (
     <LoginPage
       subtitle={t("auth.signInSubtitleAccounts")}
+      recoveryPath="/account-recovery"
       providers={<ExternalProviders recoveryPath="/account-recovery" />}
       footer={
         <span>

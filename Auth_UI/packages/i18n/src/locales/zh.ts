@@ -97,6 +97,7 @@ export const zh: TranslationResources = {
     selectedCount: "已选择 {{count}} 项",
     selectApplication: "选择应用",
     noApplications: "暂无应用",
+    applicationsUnavailable: "需要 applications:read 权限",
     application: "应用",
     role: "角色",
     type: "类型",
@@ -1735,8 +1736,8 @@ export const zh: TranslationResources = {
       "您的账户已停用并在所有设备上退出登录，将于 {{date}} 被永久删除。详情和恢复说明已发送至您的邮箱。",
     daysToRecover: "{{days}} 天内可恢复",
     recoveryTitle: "恢复您的账户",
-    recoveryFallback:
-      "该账户已被安排删除。请在下方确认您的凭据以取消删除并恢复账户。",
+    recoveryFallback: "该账户已停用并被安排删除。在该日期之前仍可恢复。",
+    confirmCredentials: "请在下方确认您的凭据以取消删除并恢复账户。",
     restoreAccount: "恢复我的账户",
     restored: "您的账户已恢复。欢迎回来！",
     twoFactorCode: "两步验证码",
