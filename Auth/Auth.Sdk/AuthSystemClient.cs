@@ -214,13 +214,25 @@ public class AuthSystemClient
         await _tokenStore.ClearAsync(cancellationToken);
     }
 
-    private HttpClient CreateClient()
-    {
-        var client = _httpClientFactory.CreateClient(AuthSystemConstants.HttpClientName);
-        client.BaseAddress = new Uri(_options.BaseUrl);
-        client.DefaultRequestHeaders.Add(AuthSystemConstants.GatewayTokenHeaderName, _options.GatewayToken);
-        return client;
-    }
+    /// <summary>
+    /// Resolves the named client, already carrying the base address and the
+    /// gateway token from its registration.
+    /// </summary>
+    /// <remarks>
+    /// This method used to set both again. IHttpClientFactory runs the
+    /// registration delegate for EVERY CreateClient call, so the second
+    /// DefaultRequestHeaders.Add appended rather than replaced: X-Gateway-Token
+    /// is a custom header with no parser, so it accepts multiple values and went
+    /// on the wire as "token, token". The API compares the header as a single
+    /// string, so the length check failed before the comparison and every SDK
+    /// call through a token-validating API came back 403.
+    ///
+    /// It survived because Gateway:ValidationEnabled is false in Development and
+    /// true in Production, so the defect existed only where nobody was running
+    /// it, and the SDK had no tests at all.
+    /// </remarks>
+    private HttpClient CreateClient() =>
+        _httpClientFactory.CreateClient(AuthSystemConstants.HttpClientName);
 
     /// <summary>
     /// Computes a SHA256 hash of the raw key for use as a cache key.

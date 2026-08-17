@@ -111,15 +111,27 @@ builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
     .AddTransforms(builderContext =>
     {
-        // Add gateway token to all proxied requests (only if configured)
-        if (!string.IsNullOrEmpty(gatewayToken))
+        // Add gateway token to all proxied requests (only if configured).
+        //
+        // The Remove is not defensive tidying and it deliberately sits OUTSIDE
+        // the configured-token check. YARP copies inbound request headers by
+        // default and nothing in this project's ReverseProxy configuration turns
+        // that off, so a client that sends its own X-Gateway-Token has it
+        // forwarded — and a bare Add would append to it, producing the two-value
+        // header "theirs, ours". The API compares the header as a single string
+        // (StringValues.ToString()), so that never matches and every such
+        // request is rejected with 403. Stripping it unconditionally also means
+        // a gateway running without a token cannot be used to smuggle one
+        // through to the API. Same shape as the correlation-id transform below.
+        builderContext.AddRequestTransform(context =>
         {
-            builderContext.AddRequestTransform(context =>
+            context.ProxyRequest.Headers.Remove("X-Gateway-Token");
+            if (!string.IsNullOrEmpty(gatewayToken))
             {
                 context.ProxyRequest.Headers.Add("X-Gateway-Token", gatewayToken);
-                return ValueTask.CompletedTask;
-            });
-        }
+            }
+            return ValueTask.CompletedTask;
+        });
 
         // Forward client IP
         builderContext.AddXForwardedFor();
