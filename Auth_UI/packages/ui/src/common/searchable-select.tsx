@@ -15,6 +15,15 @@ import { Popover, PopoverContent, PopoverTrigger } from "@authsystem/ui/popover"
 import { ScrollArea } from "@authsystem/ui/scroll-area"
 import { cn } from "@authsystem/ui/utils"
 
+/**
+ * The label, isolated as a left-to-right run when asked. `bdi` is the whole
+ * mechanism: it stops the surrounding direction from reaching into the run, and
+ * stops the run from disturbing the line around it — without moving either.
+ */
+function Label({ value, ltr }: { value: string; ltr: boolean }) {
+  return ltr ? <bdi dir="ltr">{value}</bdi> : <>{value}</>
+}
+
 export interface SearchableOption {
   id?: string
   /** The line the reader scans for, and the primary search target. */
@@ -42,7 +51,7 @@ export function SearchableSelect({
   onChange,
   placeholder,
   className,
-  dir,
+  ltrLabel = false,
 }: {
   id?: string
   value: string | undefined
@@ -51,16 +60,21 @@ export function SearchableSelect({
   placeholder?: string
   className?: string
   /**
-   * Direction of the option text. Pass "ltr" for content that is always Latin —
-   * permission codes and their untranslated English names. Left to the page
-   * otherwise, so role names follow the interface language.
+   * Isolates the label as a left-to-right run, for content that is always Latin
+   * — permission codes above all.
    *
-   * Not cosmetic on an Arabic page: right-aligned Latin lines produce a ragged
-   * column that is hard to scan, and a code ending in a neutral character
-   * (org:members:*) is reordered outright by the bidirectional algorithm unless
-   * something declares its direction.
+   * Isolation only. ALIGNMENT still follows the page, so the list reads down a
+   * straight edge on the same side as every other list in the interface. An
+   * earlier version set `dir="ltr"` on the whole option and got both at once:
+   * the codes came out in the right order and the column jumped to the other
+   * side of the popover, which is not what "fix the direction" asked for.
+   *
+   * What isolation buys on its own: a code ending in a neutral character, like
+   * `org:members:*`, has that character resolved to the paragraph direction by
+   * the bidirectional algorithm and is painted as `*:org:members` — the same
+   * characters in an order that reads as a different permission.
    */
-  dir?: "ltr" | "rtl"
+  ltrLabel?: boolean
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
@@ -78,8 +92,12 @@ export function SearchableSelect({
           aria-expanded={open}
           className={cn("w-full justify-between font-normal", className)}
         >
-          <span className="truncate" dir={selected ? dir : undefined}>
-            {selected?.label ?? placeholder ?? t("common.search")}
+          <span className="truncate">
+            {selected?.label ? (
+              <Label value={selected.label} ltr={ltrLabel} />
+            ) : (
+              (placeholder ?? t("common.search"))
+            )}
           </span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
@@ -116,12 +134,9 @@ export function SearchableSelect({
                         value === option.id ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <span
-                      dir={dir}
-                      className="flex min-w-0 flex-col text-start"
-                    >
+                    <span className="flex min-w-0 flex-col text-start">
                       <span className="truncate font-medium">
-                        {option.label}
+                        <Label value={option.label ?? ""} ltr={ltrLabel} />
                       </span>
                       {option.description ? (
                         <span className="truncate text-xs text-muted-foreground">
