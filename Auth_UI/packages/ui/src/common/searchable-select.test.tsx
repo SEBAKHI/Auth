@@ -1,58 +1,75 @@
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { describe, expect, it } from "vitest"
 
 import { SearchableSelect } from "./searchable-select"
 
 /**
- * The bug this pins is invisible in the DOM and obvious on screen: a permission
- * code ending in a neutral character is REORDERED by the bidirectional
- * algorithm inside a right-to-left page, so `org:members:*` is painted as
- * `*:org:members` — the same characters reading as a different permission.
+ * Direction here follows the CONTENT, not the page.
  *
- * The first fix set `dir="ltr"` on the whole option and took the column's
- * alignment with it, moving the list to the other side of the popover. So both
- * halves are asserted: the label's run is isolated, and nothing declares a
- * direction on the row that would drag the alignment along.
+ * Left alone inside a right-to-left page, a code ending in a neutral character
+ * has that character resolved to the paragraph direction, so `org:members:*` is
+ * painted as `*:org:members` — the same characters reading as a different
+ * permission. Measured in a browser rather than deduced: with the run declared
+ * left-to-right the visual order is `apikeys:*`, without it `*:apikeys`.
+ *
+ * Isolating the run WITHOUT moving the column was tried and rejected in
+ * between. It fixes the character order and leaves the code right-aligned, so
+ * the trailing `*` sits against the right edge and is the first glyph an Arabic
+ * reader meets — correct, and unreadable.
+ *
+ * Every case opens the popover first. An earlier version of this file did not,
+ * so its assertions landed on the trigger button and passed while saying
+ * nothing about the list they were written for.
  */
 describe("SearchableSelect", () => {
   const options = [{ id: "1", label: "org:members:*", description: "Members" }]
 
-  it("isolates the label when asked", () => {
-    render(
+  async function openList(ltr: boolean) {
+    const user = userEvent.setup()
+    const view = render(
       <SearchableSelect
-        value="1"
+        value={undefined}
         options={options}
         onChange={() => {}}
-        ltrLabel
+        ltr={ltr}
       />
     )
+    await user.click(screen.getByRole("combobox"))
+    return view
+  }
 
-    const isolated = screen.getByText("org:members:*")
-    expect(isolated.tagName).toBe("BDI")
-    expect(isolated.getAttribute("dir")).toBe("ltr")
+  /**
+   * The wrapper this component owns, holding the label and description. Asked
+   * for by name rather than with `closest("[dir]")`, which walks straight past
+   * it into Radix's own root — that carries a dir of its own and answered the
+   * question about somebody else's element.
+   */
+  const optionContent = (label: HTMLElement) => label.parentElement!
+
+  it("declares left-to-right on the option when the content is Latin", async () => {
+    await openList(true)
+
+    const label = await screen.findByText("org:members:*")
+    expect(optionContent(label).getAttribute("dir")).toBe("ltr")
   })
 
-  it("leaves the label alone by default, for names that follow the page", () => {
-    render(
-      <SearchableSelect value="1" options={options} onChange={() => {}} />
-    )
+  it("leaves direction to the page otherwise", async () => {
+    // Role labels carry Arabic and belong on the page's own side.
+    await openList(false)
 
-    expect(screen.getByText("org:members:*").tagName).not.toBe("BDI")
+    const label = await screen.findByText("org:members:*")
+    expect(optionContent(label).hasAttribute("dir")).toBe(false)
   })
 
-  it("never sets a direction outside the label", () => {
-    const { container } = render(
-      <SearchableSelect
-        value="1"
-        options={options}
-        onChange={() => {}}
-        ltrLabel
-      />
-    )
+  it("wraps the description instead of truncating it", async () => {
+    // The description is the only thing telling an operator what
+    // users:manage-roles actually does, and the longest ones — the org roles —
+    // were the ones running out past the popover edge.
+    await openList(true)
 
-    // Alignment follows the page. Anything carrying `dir` other than the bdi
-    // would pull the column to the opposite side of the interface.
-    const directed = [...container.querySelectorAll("[dir]")]
-    expect(directed.every((node) => node.tagName === "BDI")).toBe(true)
+    const description = await screen.findByText("Members")
+    expect(description.className).not.toContain("truncate")
+    expect(description.className).toContain("break-words")
   })
 })

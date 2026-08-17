@@ -103,8 +103,8 @@ export function RolePermissionsDialog({
               setSelected(undefined)
             }}
           >
-            {/* Isolation, not alignment: the code keeps its own character
-                order, the column keeps the page's. */}
+            {/* Left-to-right: pure Latin content. Role lists keep the page's
+                direction, because their labels carry Arabic. */}
             <SearchableSelect
               value={selected}
               options={available.map((permission) => ({
@@ -114,7 +114,7 @@ export function RolePermissionsDialog({
               }))}
               onChange={setSelected}
               placeholder={t("users.grantPermission")}
-              ltrLabel
+              ltr
             />
           </AssignmentPicker>
         )

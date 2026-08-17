@@ -15,15 +15,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@authsystem/ui/popover"
 import { ScrollArea } from "@authsystem/ui/scroll-area"
 import { cn } from "@authsystem/ui/utils"
 
-/**
- * The label, isolated as a left-to-right run when asked. `bdi` is the whole
- * mechanism: it stops the surrounding direction from reaching into the run, and
- * stops the run from disturbing the line around it — without moving either.
- */
-function Label({ value, ltr }: { value: string; ltr: boolean }) {
-  return ltr ? <bdi dir="ltr">{value}</bdi> : <>{value}</>
-}
-
 export interface SearchableOption {
   id?: string
   /** The line the reader scans for, and the primary search target. */
@@ -51,7 +42,7 @@ export function SearchableSelect({
   onChange,
   placeholder,
   className,
-  ltrLabel = false,
+  ltr = false,
 }: {
   id?: string
   value: string | undefined
@@ -60,21 +51,24 @@ export function SearchableSelect({
   placeholder?: string
   className?: string
   /**
-   * Isolates the label as a left-to-right run, for content that is always Latin
-   * — permission codes above all.
+   * Renders the options left-to-right, for lists whose content is always Latin
+   * — permission codes and their untranslated names.
    *
-   * Isolation only. ALIGNMENT still follows the page, so the list reads down a
-   * straight edge on the same side as every other list in the interface. An
-   * earlier version set `dir="ltr"` on the whole option and got both at once:
-   * the codes came out in the right order and the column jumped to the other
-   * side of the popover, which is not what "fix the direction" asked for.
+   * Direction here follows the CONTENT, not the page, and the two cannot both
+   * be satisfied. Isolating the run without moving the column was tried and
+   * rejected: it puts the code in the right character order but right-aligns
+   * it, so the trailing `*` of `org:members:*` lands against the right edge and
+   * is the first glyph an Arabic reader meets. Left-aligning the Latin run is
+   * what makes it read as `org:members` first.
    *
-   * What isolation buys on its own: a code ending in a neutral character, like
-   * `org:members:*`, has that character resolved to the paragraph direction by
-   * the bidirectional algorithm and is painted as `*:org:members` — the same
-   * characters in an order that reads as a different permission.
+   * Left alone, the bidirectional algorithm resolves that trailing `*` to the
+   * paragraph direction and paints the code as `*:org:members` outright — the
+   * same characters in an order that reads as a different permission. Measured
+   * in a browser, not deduced.
+   *
+   * Role lists keep the page's direction: their labels carry Arabic.
    */
-  ltrLabel?: boolean
+  ltr?: boolean
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = React.useState(false)
@@ -92,12 +86,11 @@ export function SearchableSelect({
           aria-expanded={open}
           className={cn("w-full justify-between font-normal", className)}
         >
-          <span className="truncate">
-            {selected?.label ? (
-              <Label value={selected.label} ltr={ltrLabel} />
-            ) : (
-              (placeholder ?? t("common.search"))
-            )}
+          <span
+            className="truncate text-start"
+            dir={selected && ltr ? "ltr" : undefined}
+          >
+            {selected?.label ?? placeholder ?? t("common.search")}
           </span>
           <ChevronsUpDown className="opacity-50" />
         </Button>
@@ -127,6 +120,10 @@ export function SearchableSelect({
                       onChange(option.id)
                       setOpen(false)
                     }}
+                    // CommandItem centres its children; with a description that
+                    // now wraps to two or three lines, the tick would float in
+                    // the middle of the block instead of marking its first line.
+                    className="items-start"
                   >
                     <Check
                       className={cn(
@@ -134,12 +131,22 @@ export function SearchableSelect({
                         value === option.id ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    <span className="flex min-w-0 flex-col text-start">
+                    <span
+                      dir={ltr ? "ltr" : undefined}
+                      className="flex min-w-0 flex-1 flex-col text-start"
+                    >
                       <span className="truncate font-medium">
-                        <Label value={option.label ?? ""} ltr={ltrLabel} />
+                        {option.label}
                       </span>
                       {option.description ? (
-                        <span className="truncate text-xs text-muted-foreground">
+                        // Wraps rather than truncates. A description is the only
+                        // thing telling an operator what users:manage-roles
+                        // actually does, and the longest ones — the org roles —
+                        // were the ones being cut off. `min-w-0 flex-1` on the
+                        // column is what makes the wrap take effect: without a
+                        // constrained width the flex item sizes to its content
+                        // and the text simply ran out past the popover edge.
+                        <span className="break-words text-xs text-muted-foreground">
                           {option.description}
                         </span>
                       ) : null}

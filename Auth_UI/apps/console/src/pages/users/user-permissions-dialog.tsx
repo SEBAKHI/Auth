@@ -97,9 +97,8 @@ export function UserPermissionsDialog({
               seeded the catalogue runs past fifty entries, and a Select offers
               no way to reach one except scrolling past the rest.
             */}
-            {/* Isolation, not alignment: a code ending in ":*" is reordered by
-                the bidi algorithm unless its run is isolated, but the column
-                still belongs on the page's own side. */}
+            {/* Left-to-right: the content is pure Latin, so its direction is a
+                property of the content and not of the page. */}
             <SearchableSelect
               value={selected}
               options={available.map((permission) => ({
@@ -109,7 +108,7 @@ export function UserPermissionsDialog({
               }))}
               onChange={setSelected}
               placeholder={t("users.grantPermission")}
-              ltrLabel
+              ltr
             />
           </AssignmentPicker>
         )
