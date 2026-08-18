@@ -1464,6 +1464,8 @@ export const en = {
         "The span admin requests are counted over. Shortening it hands an administrator a fresh allowance sooner after a refusal; lengthening it makes a single refusal last longer.",
     },
     externalAuth: {
+      requireNonce: "Require a server-issued nonce",
+      requireNonceHint: "Makes a provider sign-in present a one-time value this server issued to that browser, so a stolen provider token minted for someone else's browser is refused. Turn it on only once the deployed app is fetching nonces; until then a browser-generated value is accepted, which proves nothing. Recommended: on.",
       title: "External sign-in (Google / Apple)",
       description:
         "Social sign-in providers. The client IDs here are public identifiers; private keys live under Secret management. The provider must ALSO be enabled in its directory row for the button to appear.",
@@ -1548,6 +1550,10 @@ export const en = {
         "Max verification codes one address can request per window. Recommended: 3 — stops mail-bombing.",
     },
     notificationsSection: {
+      newDeviceAlertEnabled: "Alert on sign-in from a new device",
+      newDeviceAlertEnabledHint: "Emails the account owner the first time a sign-in arrives from a device they have not used before. Recommended: on.",
+      newDeviceAlertMinIntervalMinutes: "Minimum gap between alerts (minutes)",
+      newDeviceAlertMinIntervalMinutesHint: "Stops a burst of sign-ins producing a burst of emails. 0 sends one for every new device. Recommended: 60.",
       title: "Notification delivery",
       description:
         "How outgoing notifications are delivered: directly, or through a durable outbox that retries failures and survives restarts. Content and templates are managed on the Notifications pages.",
@@ -1564,6 +1570,14 @@ export const en = {
       staleClaimMinutes: "Stale claim (minutes)",
       staleClaimMinutesHint:
         "A message claimed by a crashed worker is retried after this long. Recommended: 5.",
+    },
+    geoIp: {
+      title: "IP geolocation",
+      description: "Resolves sign-in IP addresses to a country and city, so login history and new-device alerts can say where an attempt came from. Needs a local MaxMind database file; without one the feature stays off and locations read as unknown.",
+      enabled: "Enable IP geolocation",
+      enabledHint: "Requires a database file at the path below. Takes effect after a restart.",
+      databasePath: "Database file path",
+      databasePathHint: "Absolute path to the MaxMind GeoLite2 .mmdb file on the server. Takes effect after a restart.",
     },
     imageStorage: {
       title: "Image storage",
@@ -1629,6 +1643,30 @@ export const en = {
       verbisNoHint: "Optional. Fill only if the controller meets Türkiye's registration thresholds.",
       kepAddress: "Registered email (KEP)",
       kepAddressHint: "Optional. A Turkish registered e-mail address, one of the KVKK application channels.",
+    },
+    expiredDataCleanup: {
+      title: "Expired-data cleanup",
+      description: "How long rows that already fell out of use are kept before the daily sweep deletes them. These are not validity windows — every row here is already dead. They set how long it stays useful as EVIDENCE: a revoked refresh token is what turns a stolen token into a detected theft, and a consumed authorization code is what proves a replay.",
+      enabled: "Run the daily cleanup",
+      enabledHint: "Off leaves every table untouched, and they grow without bound. Recommended: on.",
+      workerPollMinutes: "Check interval (minutes)",
+      workerPollMinutesHint: "How often the worker wakes to see whether today's sweep has run. The sweep itself runs once a day. Recommended: 15.",
+      batchSize: "Rows per statement",
+      batchSizeHint: "Kept under the ~5000 row locks at which SQL Server escalates to a whole-table lock, which would block every live query against that table. Recommended: 4000.",
+      maxRowsPerTablePerRun: "Ceiling per table per run",
+      maxRowsPerTablePerRunHint: "Bounds the first run, the only one facing everything accumulated since deployment. Whatever is left goes the next day. Recommended: 200000.",
+      authorizationCodeDays: "Authorization codes (days)",
+      authorizationCodeDaysHint: "They live about 60 seconds; this window exists to investigate a replay, not to keep them valid. Recommended: 7.",
+      twoFactorChallengeDays: "Two-factor challenges (days)",
+      twoFactorChallengeDaysHint: "Long enough to investigate a guessing run. Recommended: 7.",
+      passwordResetTokenDays: "Password-reset tokens (days)",
+      passwordResetTokenDaysHint: "Recommended: 7.",
+      emailVerificationTokenDays: "Email-verification tokens (days)",
+      emailVerificationTokenDaysHint: "Recommended: 7.",
+      idpSessionDays: "Single sign-on (SSO) sessions (days)",
+      idpSessionDaysHint: "Counted from expiry or revocation, not from creation. Recommended: 30.",
+      refreshTokenDays: "Refresh tokens (days)",
+      refreshTokenDaysHint: "The longest window and the one that matters most: a revoked row is the only thing that turns a stolen token into a detected theft, and the dashboard reports revocations over up to 90 days. Floored at 90 in code whatever is set here.",
     },
     dataRetention: {
       title: "Privacy & data retention",

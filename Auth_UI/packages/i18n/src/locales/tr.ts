@@ -1478,6 +1478,8 @@ export const tr: TranslationResources = {
         "Yönetim isteklerinin sayıldığı süre. Kısaltmak, bir retten sonra yöneticiye yeni hakkı daha çabuk verir; uzatmak ise tek bir retin daha uzun sürmesine yol açar.",
     },
     externalAuth: {
+      requireNonce: "Sunucunun verdiği nonce zorunlu olsun",
+      requireNonceHint: "Sağlayıcı ile girişin, bu sunucunun o tarayıcıya verdiği tek kullanımlık bir değeri sunmasını zorunlu kılar; böylece başkasının tarayıcısı için üretilmiş çalıntı bir sağlayıcı jetonu reddedilir. Yalnızca dağıtılmış uygulama bu değerleri almaya başladıktan sonra açın; o zamana kadar tarayıcının ürettiği bir değer kabul edilir ve bu hiçbir şey kanıtlamaz. Önerilen: açık.",
       title: "Harici oturum açma (Google / Apple)",
       description:
         "Sosyal oturum açma sağlayıcıları. Buradaki istemci kimlikleri genel tanımlayıcılardır; özel anahtarlar Gizli anahtar yönetimi altında durur. Düğmenin görünmesi için sağlayıcının AYRICA kendi dizin satırında da etkinleştirilmesi gerekir.",
@@ -1562,6 +1564,10 @@ export const tr: TranslationResources = {
         "Bir adresin pencere başına isteyebileceği en fazla doğrulama kodu. Önerilen: 3 — posta bombardımanını durdurur.",
     },
     notificationsSection: {
+      newDeviceAlertEnabled: "Yeni cihazdan girişte uyar",
+      newDeviceAlertEnabledHint: "Daha önce kullanılmamış bir cihazdan ilk giriş geldiğinde hesap sahibine e-posta gönderir. Önerilen: açık.",
+      newDeviceAlertMinIntervalMinutes: "Uyarılar arası en az süre (dakika)",
+      newDeviceAlertMinIntervalMinutesHint: "Art arda gelen girişlerin art arda e-postaya dönüşmesini engeller. 0, her yeni cihaz için bir uyarı gönderir. Önerilen: 60.",
       title: "Bildirim teslimatı",
       description:
         "Giden bildirimlerin nasıl teslim edildiği: doğrudan ya da hataları yeniden deneyen ve yeniden başlatmalara dayanan kalıcı bir giden kutusu üzerinden. İçerik ve şablonlar Bildirimler sayfalarında yönetilir.",
@@ -1578,6 +1584,14 @@ export const tr: TranslationResources = {
       staleClaimMinutes: "Bayat üstlenme (dakika)",
       staleClaimMinutesHint:
         "Çöken bir işleyicinin üstlendiği mesaj bu süre sonunda yeniden denenir. Önerilen: 5.",
+    },
+    geoIp: {
+      title: "IP coğrafi konumu",
+      description: "Oturum açma IP adreslerini ülke ve şehre çevirir; böylece giriş geçmişi ve yeni cihaz uyarıları denemenin nereden geldiğini söyleyebilir. Yerel bir MaxMind veritabanı dosyası gerektirir; o olmadan özellik kapalı kalır ve konumlar bilinmiyor görünür.",
+      enabled: "IP coğrafi konumunu etkinleştir",
+      enabledHint: "Aşağıdaki yolda bir veritabanı dosyası gerektirir. Yeniden başlatmadan sonra geçerli olur.",
+      databasePath: "Veritabanı dosya yolu",
+      databasePathHint: "Sunucudaki MaxMind GeoLite2 .mmdb dosyasının tam yolu. Yeniden başlatmadan sonra geçerli olur.",
     },
     imageStorage: {
       title: "Görsel depolama",
@@ -1643,6 +1657,30 @@ export const tr: TranslationResources = {
       verbisNoHint: "İsteğe bağlı. Yalnızca veri sorumlusu VERBİS kayıt eşiklerini karşılıyorsa doldurun.",
       kepAddress: "Kayıtlı e-posta (KEP)",
       kepAddressHint: "İsteğe bağlı. KVKK başvuru kanallarından biri olan kayıtlı elektronik posta adresi.",
+    },
+    expiredDataCleanup: {
+      title: "Süresi dolmuş veri temizliği",
+      description: "Kullanım dışı kalmış satırların günlük süpürme onları silmeden önce ne kadar tutulacağı. Bunlar geçerlilik süreleri değil — buradaki her satır zaten ölü. KANIT olarak ne kadar işe yarar kalacağını belirlerler: iptal edilmiş bir yenileme jetonu, çalınmış bir jetonu tespit edilmiş bir hırsızlığa dönüştüren şeydir; kullanılmış bir yetkilendirme kodu ise tekrar oynatmayı kanıtlayan şeydir.",
+      enabled: "Günlük temizliği çalıştır",
+      enabledHint: "Kapalıyken hiçbir tabloya dokunulmaz ve hepsi sınırsız büyür. Önerilen: açık.",
+      workerPollMinutes: "Kontrol aralığı (dakika)",
+      workerPollMinutesHint: "Servisin, günün süpürmesinin yapılıp yapılmadığına ne sıklıkla baktığı. Süpürmenin kendisi günde bir kez çalışır. Önerilen: 15.",
+      batchSize: "İfade başına satır",
+      batchSizeHint: "SQL Server'ın tüm tabloyu kilitlemeye geçtiği ~5000 satır kilidinin altında tutulur; aksi hâlde o tablodaki her canlı sorgu engellenir. Önerilen: 4000.",
+      maxRowsPerTablePerRun: "Çalıştırma başına tablo tavanı",
+      maxRowsPerTablePerRunHint: "Dağıtımdan bu yana birikmiş her şeyle karşılaşan tek çalıştırma olan ilkini sınırlar. Kalanı ertesi gün alınır. Önerilen: 200000.",
+      authorizationCodeDays: "Yetkilendirme kodları (gün)",
+      authorizationCodeDaysHint: "Yaklaşık 60 saniye yaşarlar; bu pencere onları geçerli tutmak için değil, bir tekrarı soruşturmak içindir. Önerilen: 7.",
+      twoFactorChallengeDays: "İki adımlı doğrulama kodları (gün)",
+      twoFactorChallengeDaysHint: "Bir deneme dizisini soruşturmaya yetecek kadar. Önerilen: 7.",
+      passwordResetTokenDays: "Parola sıfırlama jetonları (gün)",
+      passwordResetTokenDaysHint: "Önerilen: 7.",
+      emailVerificationTokenDays: "E-posta doğrulama jetonları (gün)",
+      emailVerificationTokenDaysHint: "Önerilen: 7.",
+      idpSessionDays: "Çoklu oturum açma (SSO) oturumları (gün)",
+      idpSessionDaysHint: "Oluşturmadan değil, sona ermeden veya iptalden itibaren sayılır. Önerilen: 30.",
+      refreshTokenDays: "Yenileme jetonları (gün)",
+      refreshTokenDaysHint: "En uzun ve en önemli pencere: iptal edilmiş satır, çalınmış bir jetonu tespit edilmiş bir hırsızlığa dönüştüren tek şeydir ve pano iptalleri en fazla 90 güne kadar raporlar. Burada ne girilirse girilsin kodda 90 gün alt sınırı uygulanır.",
     },
     dataRetention: {
       title: "Gizlilik ve veri saklama",

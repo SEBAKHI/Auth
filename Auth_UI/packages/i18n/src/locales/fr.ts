@@ -1506,6 +1506,8 @@ export const fr: TranslationResources = {
         "Durée sur laquelle les requêtes d'administration sont comptées. La raccourcir rend plus vite un nouveau quota à l'administrateur après un refus ; l'allonger fait durer un seul refus plus longtemps.",
     },
     externalAuth: {
+      requireNonce: "Exiger un nonce émis par le serveur",
+      requireNonceHint: "Oblige une connexion via fournisseur à présenter une valeur à usage unique émise par ce serveur pour ce navigateur, de sorte qu'un jeton volé émis pour le navigateur d'un autre soit refusé. À activer une fois seulement que l'application déployée demande ces valeurs ; avant cela une valeur générée par le navigateur est acceptée, ce qui ne prouve rien. Recommandé : activé.",
       title: "Connexion externe (Google / Apple)",
       description:
         "Fournisseurs de connexion sociale. Les ID client ici sont des identifiants publics ; les clés privées vivent sous Gestion des secrets. Le fournisseur doit AUSSI être activé dans sa fiche de l'annuaire pour que le bouton apparaisse.",
@@ -1601,6 +1603,10 @@ export const fr: TranslationResources = {
         "Nombre maximal de codes de vérification qu'une même adresse peut demander par fenêtre. Recommandé : 3 — stoppe le bombardement d'e-mails.",
     },
     notificationsSection: {
+      newDeviceAlertEnabled: "Alerter en cas de connexion depuis un nouvel appareil",
+      newDeviceAlertEnabledHint: "Envoie un e-mail au titulaire du compte la première fois qu'une connexion arrive depuis un appareil inconnu. Recommandé : activé.",
+      newDeviceAlertMinIntervalMinutes: "Écart minimal entre alertes (minutes)",
+      newDeviceAlertMinIntervalMinutesHint: "Empêche une rafale de connexions de produire une rafale d'e-mails. 0 envoie une alerte pour chaque nouvel appareil. Recommandé : 60.",
       title: "Livraison des notifications",
       description:
         "Comment les notifications sortantes sont livrées : directement, ou via une boîte d'envoi durable qui réessaie les échecs et survit aux redémarrages. Le contenu et les modèles se gèrent sur les pages Notifications.",
@@ -1618,6 +1624,14 @@ export const fr: TranslationResources = {
       staleClaimMinutes: "Réclamation périmée (minutes)",
       staleClaimMinutesHint:
         "Un message pris en charge par un worker planté est réessayé après ce délai. Recommandé : 5.",
+    },
+    geoIp: {
+      title: "Géolocalisation IP",
+      description: "Traduit les adresses IP de connexion en pays et ville, pour que l'historique de connexion et les alertes de nouvel appareil puissent indiquer d'où venait la tentative. Nécessite un fichier de base MaxMind local ; sans lui la fonction reste désactivée et les emplacements s'affichent comme inconnus.",
+      enabled: "Activer la géolocalisation IP",
+      enabledHint: "Nécessite un fichier de base au chemin ci-dessous. Prend effet après un redémarrage.",
+      databasePath: "Chemin du fichier de base",
+      databasePathHint: "Chemin absolu du fichier MaxMind GeoLite2 .mmdb sur le serveur. Prend effet après un redémarrage.",
     },
     imageStorage: {
       title: "Stockage des images",
@@ -1697,6 +1711,30 @@ export const fr: TranslationResources = {
       kepAddress: "Courriel enregistré (KEP)",
       kepAddressHint:
         "Facultatif. Adresse électronique enregistrée turque, l'un des canaux de demande prévus par la KVKK.",
+    },
+    expiredDataCleanup: {
+      title: "Nettoyage des données expirées",
+      description: "Combien de temps les lignes déjà hors d'usage sont conservées avant que le balayage quotidien ne les supprime. Ce ne sont pas des durées de validité — chaque ligne ici est déjà morte. Elles fixent sa durée d'utilité comme PREUVE : un jeton de rafraîchissement révoqué est ce qui transforme un jeton volé en vol détecté, et un code d'autorisation consommé est ce qui prouve un rejeu.",
+      enabled: "Exécuter le nettoyage quotidien",
+      enabledHint: "Désactivé, aucune table n'est touchée et toutes croissent sans limite. Recommandé : activé.",
+      workerPollMinutes: "Intervalle de vérification (minutes)",
+      workerPollMinutesHint: "À quelle fréquence le service vérifie si le balayage du jour a eu lieu. Le balayage lui-même s'exécute une fois par jour. Recommandé : 15.",
+      batchSize: "Lignes par instruction",
+      batchSizeHint: "Maintenu sous les ~5000 verrous de ligne à partir desquels SQL Server verrouille la table entière, ce qui bloquerait toute requête active dessus. Recommandé : 4000.",
+      maxRowsPerTablePerRun: "Plafond par table et par exécution",
+      maxRowsPerTablePerRunHint: "Borne la première exécution, la seule à affronter tout ce qui s'est accumulé depuis le déploiement. Le reste passe le lendemain. Recommandé : 200000.",
+      authorizationCodeDays: "Codes d'autorisation (jours)",
+      authorizationCodeDaysHint: "Ils vivent environ 60 secondes ; cette fenêtre sert à enquêter sur un rejeu, pas à les garder valides. Recommandé : 7.",
+      twoFactorChallengeDays: "Défis à deux facteurs (jours)",
+      twoFactorChallengeDaysHint: "Assez long pour enquêter sur une série de tentatives. Recommandé : 7.",
+      passwordResetTokenDays: "Jetons de réinitialisation (jours)",
+      passwordResetTokenDaysHint: "Recommandé : 7.",
+      emailVerificationTokenDays: "Jetons de vérification d'e-mail (jours)",
+      emailVerificationTokenDaysHint: "Recommandé : 7.",
+      idpSessionDays: "Sessions d'authentification unique (SSO) (jours)",
+      idpSessionDaysHint: "Comptés depuis l'expiration ou la révocation, pas depuis la création. Recommandé : 30.",
+      refreshTokenDays: "Jetons de rafraîchissement (jours)",
+      refreshTokenDaysHint: "La plus longue fenêtre et la plus importante : une ligne révoquée est la seule chose qui transforme un jeton volé en vol détecté, et le tableau de bord rapporte les révocations sur 90 jours au maximum. Plancher de 90 imposé dans le code quelle que soit la valeur saisie.",
     },
     dataRetention: {
       title: "Confidentialité et conservation des données",
