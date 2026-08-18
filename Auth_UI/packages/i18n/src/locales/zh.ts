@@ -1394,6 +1394,8 @@ export const zh: TranslationResources = {
         "统计管理请求的时间跨度。缩短它可让管理员在被拒后更快拿到新配额；延长它则会让一次拒绝持续更久。",
     },
     externalAuth: {
+      requireNonce: "要求由服务器签发的一次性随机值",
+      requireNonceHint: "要求第三方登录出示本服务器为该浏览器签发的一次性值，使为他人浏览器签发的被盗令牌被拒绝。仅在已部署的前端开始获取该值之后再开启；在此之前将接受浏览器自行生成的值，而那并不能证明任何事。推荐：开启。",
       title: "外部登录（Google / Apple）",
       description:
         "社交登录提供方。此处的客户端 ID 是公开标识符；私钥保存在机密页面。提供方还必须在其目录条目中启用，登录按钮才会显示。",
@@ -1477,6 +1479,10 @@ export const zh: TranslationResources = {
         "单个地址在每个窗口内可请求的验证码上限。推荐：3——防止邮件轰炸。",
     },
     notificationsSection: {
+      newDeviceAlertEnabled: "新设备登录时提醒",
+      newDeviceAlertEnabledHint: "当首次从未使用过的设备登录时，向账户所有者发送邮件。推荐：开启。",
+      newDeviceAlertMinIntervalMinutes: "提醒之间的最小间隔（分钟）",
+      newDeviceAlertMinIntervalMinutesHint: "避免密集登录产生密集邮件。填 0 则每台新设备都发送一封。推荐：60。",
       title: "通知投递",
       description:
         "外发通知的投递方式：直接发送，或通过可靠发件箱——失败自动重试、重启后不丢失。内容和模板在通知页面管理。",
@@ -1493,6 +1499,14 @@ export const zh: TranslationResources = {
       staleClaimMinutes: "失效领取（分钟）",
       staleClaimMinutesHint:
         "被崩溃的工作进程领取的消息，将在此时长后重新尝试投递。推荐：5。",
+    },
+    geoIp: {
+      title: "IP 地理定位",
+      description: "将登录 IP 地址解析为国家和城市，使登录历史与新设备提醒能够说明尝试来自何处。需要本地的 MaxMind 数据库文件；没有该文件则功能保持关闭，位置显示为未知。",
+      enabled: "启用 IP 地理定位",
+      enabledHint: "需要下方路径处存在数据库文件。重启后生效。",
+      databasePath: "数据库文件路径",
+      databasePathHint: "服务器上 MaxMind GeoLite2 .mmdb 文件的绝对路径。重启后生效。",
     },
     imageStorage: {
       title: "图片存储",
@@ -1557,6 +1571,30 @@ export const zh: TranslationResources = {
       verbisNoHint: "可选。仅当控制者达到土耳其注册门槛时填写。",
       kepAddress: "注册邮箱（KEP）",
       kepAddressHint: "可选。土耳其注册电子邮件地址，是 KVKK 申请渠道之一。",
+    },
+    expiredDataCleanup: {
+      title: "过期数据清理",
+      description: "已不再使用的数据行在每日清理删除它们之前保留多久。这不是有效期——这里的每一行都已失效。它们决定该行作为证据还能有多大用处：被吊销的刷新令牌是把被盗令牌变成已发现盗用的关键，被使用过的授权码则是证明重放的关键。",
+      enabled: "运行每日清理",
+      enabledHint: "关闭后所有表都不会被触碰，会无限增长。推荐：开启。",
+      workerPollMinutes: "检查间隔（分钟）",
+      workerPollMinutesHint: "后台服务多久检查一次当天的清理是否已执行。清理本身每天运行一次。推荐：15。",
+      batchSize: "每条语句的行数",
+      batchSizeHint: "保持在 SQL Server 将行锁升级为整表锁的约 5000 个锁之下，否则会阻塞该表上的所有活动查询。推荐：4000。",
+      maxRowsPerTablePerRun: "每次运行每表上限",
+      maxRowsPerTablePerRunHint: "限制首次运行——只有它需要面对自部署以来积累的全部数据。剩余部分次日继续。推荐：200000。",
+      authorizationCodeDays: "授权码（天）",
+      authorizationCodeDaysHint: "它们只存活约 60 秒；这个窗口用于调查重放，而非让其保持有效。推荐：7。",
+      twoFactorChallengeDays: "双因素验证码（天）",
+      twoFactorChallengeDaysHint: "足以调查一轮猜测尝试。推荐：7。",
+      passwordResetTokenDays: "密码重置令牌（天）",
+      passwordResetTokenDaysHint: "推荐：7。",
+      emailVerificationTokenDays: "邮箱验证令牌（天）",
+      emailVerificationTokenDaysHint: "推荐：7。",
+      idpSessionDays: "单点登录（SSO）会话（天）",
+      idpSessionDaysHint: "从过期或吊销起算，而非从创建起算。推荐：30。",
+      refreshTokenDays: "刷新令牌（天）",
+      refreshTokenDaysHint: "最长也最关键的窗口：被吊销的记录是把被盗令牌变成已发现盗用的唯一凭据，而仪表板最多按 90 天统计吊销情况。无论此处填写多少，代码中都以 90 天为下限。",
     },
     dataRetention: {
       title: "隐私与数据保留",
