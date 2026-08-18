@@ -72,7 +72,8 @@ public class EndSessionCommandHandlerTests
             new EndSessionCommand(ClientId, "xyz", "sso-token"), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.RequiresConfirmation.Should().BeTrue();
+        // Asserted through the destination rather than a flag beside it: the URL
+        // IS the decision, and a second field restating it could disagree.
         result.Value.RedirectUrl.Should().StartWith($"{AccountsBase}/logout?");
         result.Value.RedirectUrl.Should().Contain("client_id=CRM").And.Contain("state=xyz");
 
@@ -140,7 +141,6 @@ public class EndSessionCommandHandlerTests
             new EndSessionCommand(ClientId, null, token), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.RequiresConfirmation.Should().BeFalse();
         result.Value.RedirectUrl.Should().StartWith($"{AccountsBase}/signed-out");
     }
 

@@ -35,6 +35,7 @@ public class CredentialRevocationServiceTests
             _idpSessionRepositoryMock.Object,
             _blacklistServiceMock.Object,
             _tokenKeyServiceMock.Object,
+            TestHelpers.CreateOptions(new Auth.Application.Configuration.JwtSettings()),
             new Mock<ILogger<CredentialRevocationService>>().Object);
     }
 

@@ -77,10 +77,19 @@ public class ExpiredDataCleanupWorker : BackgroundService
     }
 
     /// <summary>
-    /// Runs the sweep once per UTC day. The date advances only on a completed
-    /// sweep, so a failed one is retried on the next poll rather than skipped
-    /// until tomorrow.
+    /// Runs the sweep once per UTC day.
     /// </summary>
+    /// <remarks>
+    /// The date advances once the pass completes, and a pass completes even when
+    /// individual tables failed — each is caught and logged so one bad table
+    /// cannot stop the other six, which means a table that failed waits until
+    /// tomorrow rather than retrying on the next poll.
+    /// <para>
+    /// Only a failure OUTSIDE the per-table loop — a scope that cannot be built,
+    /// a database that cannot be reached at all — leaves the date untouched, and
+    /// that one is retried on the next poll.
+    /// </para>
+    /// </remarks>
     public async Task RunDailySweepIfDueAsync(CancellationToken cancellationToken)
     {
         if (!_settings.CurrentValue.Enabled)

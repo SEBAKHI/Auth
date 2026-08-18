@@ -164,10 +164,28 @@ public class ExchangeAuthorizationCodeCommandHandler
         // Bind the code to what it just minted. Until this line a replay has
         // nothing to revoke, which is precisely the state the old code was
         // permanently in.
+        //
+        // Guarded, because by this point the sign-in has fully landed: the
+        // refresh token, the session row and the login record are all committed
+        // and the code is spent. Letting a transient database fault throw here
+        // would answer 500 with no tokens for a sign-in that actually succeeded,
+        // and the client could not even retry — the code is consumed, so the
+        // retry reads as a replay. Losing the stamp costs one replay detection;
+        // throwing costs the whole sign-in. Every sibling write on this path is
+        // guarded for the same reason.
         if (loginResponse.SessionId is Guid issuedSessionId)
         {
-            await _authorizationCodeRepository.RecordIssuedSessionAsync(
-                code.Id, issuedSessionId, cancellationToken);
+            try
+            {
+                await _authorizationCodeRepository.RecordIssuedSessionAsync(
+                    code.Id, issuedSessionId, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Could not bind authorization code {CodeId} to session {SessionId}; a replay of this code will have nothing to revoke",
+                    code.Id, issuedSessionId);
+            }
         }
 
         _logger.LogInformation(

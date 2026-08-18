@@ -1,7 +1,9 @@
+using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Infrastructure.Authentication;
 
@@ -18,6 +20,7 @@ public class CredentialRevocationService : ICredentialRevocationService
     private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly ITokenBlacklistService _blacklistService;
     private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly IOptionsMonitor<JwtSettings> _jwtSettings;
     private readonly ILogger<CredentialRevocationService> _logger;
 
     public CredentialRevocationService(
@@ -26,6 +29,7 @@ public class CredentialRevocationService : ICredentialRevocationService
         IIdpSessionRepository idpSessionRepository,
         ITokenBlacklistService blacklistService,
         IRefreshTokenKeyService tokenKeyService,
+        IOptionsMonitor<JwtSettings> jwtSettings,
         ILogger<CredentialRevocationService> logger)
     {
         _sessionRepository = sessionRepository;
@@ -33,6 +37,7 @@ public class CredentialRevocationService : ICredentialRevocationService
         _idpSessionRepository = idpSessionRepository;
         _blacklistService = blacklistService;
         _tokenKeyService = tokenKeyService;
+        _jwtSettings = jwtSettings;
         _logger = logger;
     }
 
@@ -158,11 +163,20 @@ public class CredentialRevocationService : ICredentialRevocationService
         await _refreshTokenRepository.RevokeBySessionIdAsync(
             sessionId, revokedBy, reason, cancellationToken);
 
-        // Blacklisted to the far edge of any access-token lifetime. The session
-        // row's own expiry is not read back here: it may already be gone, and
-        // this must stay one round trip on a path that answers an attack.
+        // Held until the last moment a token issued right now could still be
+        // accepted. That is NOT the access-token lifetime alone: validation adds
+        // ClockSkew on top of exp, so a flat one-day horizon could lapse while a
+        // token was still being honoured — the settings ceiling for the lifetime
+        // is exactly one day, leaving no room for the skew. Computed from the
+        // live settings so it follows them if either ceiling moves.
+        //
+        // The session row's own expiry is deliberately not read back: it may
+        // already be gone, and this must stay one round trip on a path that is
+        // answering an attack in progress.
+        var jwt = _jwtSettings.CurrentValue;
         _blacklistService.BlacklistSession(
-            sessionId.ToString(), DateTime.UtcNow.AddDays(1));
+            sessionId.ToString(),
+            DateTime.UtcNow + jwt.AccessTokenLifetime + jwt.ClockSkew);
 
         _logger.LogInformation(
             "Terminated session {SessionId}: {Reason}", sessionId, reason);

@@ -7641,7 +7641,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/problem+json": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
                     };
                 };
             };
@@ -7912,7 +7912,38 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: {
+            parameters: {
+                query?: {
+                    client_id?: string;
+                    state?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Found */
+                302: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
         put?: never;
         post: {
             parameters: {
@@ -7928,7 +7959,9 @@ export interface paths {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": unknown;
+                    };
                 };
             };
         };
@@ -8520,9 +8553,11 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["RevokeTokenRequest"];
-                    "text/json": components["schemas"]["RevokeTokenRequest"];
-                    "application/*+json": components["schemas"]["RevokeTokenRequest"];
+                    "application/x-www-form-urlencoded": {
+                        token?: string;
+                        token_type_hint?: string;
+                        ParsedTokenTypeHint?: components["schemas"]["TokenTypeHint"];
+                    };
                 };
             };
             responses: {
@@ -8570,9 +8605,11 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["IntrospectTokenRequest"];
-                    "text/json": components["schemas"]["IntrospectTokenRequest"];
-                    "application/*+json": components["schemas"]["IntrospectTokenRequest"];
+                    "application/x-www-form-urlencoded": {
+                        token?: string;
+                        token_type_hint?: string;
+                        ParsedTokenTypeHint?: components["schemas"]["TokenTypeHint"];
+                    };
                 };
             };
             responses: {
@@ -12926,6 +12963,7 @@ export interface components {
             claims_supported?: string[];
             grant_types_supported?: string[];
             code_challenge_methods_supported?: null | string[];
+            prompt_values_supported?: null | string[];
         };
         DraftTranslationRequest: {
             languageCode: string;
@@ -12973,9 +13011,6 @@ export interface components {
             iconUrl: null | string;
             clientId: string;
         };
-        ExternalNonceResponse: {
-            nonce: string;
-        };
         ExternalLoginRequest: {
             provider: string;
             idToken: string;
@@ -12985,6 +13020,9 @@ export interface components {
             givenName?: null | string;
             familyName?: null | string;
             deviceId?: null | string;
+        };
+        ExternalNonceResponse: {
+            nonce: string;
         };
         FileContentResult: {
             /** Format: byte */
@@ -13077,10 +13115,6 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
             targetEmailMasked: string;
-        };
-        IntrospectTokenRequest: {
-            token: string;
-            tokenTypeHint?: null | components["schemas"]["TokenTypeHint"];
         };
         IntrospectTokenResponse: {
             active?: boolean;
@@ -14049,10 +14083,6 @@ export interface components {
         RevokeApiKeyRequest: {
             reason?: null | string;
         };
-        RevokeTokenRequest: {
-            token: string;
-            tokenTypeHint?: null | components["schemas"]["TokenTypeHint"];
-        };
         RevokeWebhookKeyRequest: {
             reason?: null | string;
         };
@@ -14512,6 +14542,7 @@ export interface components {
         UserInfo: {
             /** Format: uuid */
             id: string;
+            sub?: null | string;
             email: string;
             firstName: string;
             lastName: string;

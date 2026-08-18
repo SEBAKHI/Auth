@@ -29,8 +29,18 @@ public record EndSessionCommand(
     string? IdpSessionToken) : IRequest<ErrorOr<EndSessionResult>>;
 
 /// <summary>
-/// Where the browser goes next, and whether anything still needs confirming.
+/// Where the browser goes next.
 /// </summary>
+/// <remarks>
+/// One field, on purpose. Whether a confirmation is still needed is already
+/// carried by WHICH page the URL names, and a second field restating it would be
+/// a fact that can disagree with itself.
+/// <para>
+/// Arriving with nothing to revoke is not an error and must not look like one: a
+/// second click, a refresh, or a stale tab all land on the signed-out page,
+/// because all of them are already in the state they asked for.
+/// </para>
+/// </remarks>
 public record EndSessionResult
 {
     /// <summary>
@@ -38,15 +48,4 @@ public record EndSessionResult
     /// </summary>
     public required string RedirectUrl { get; init; }
 
-    /// <summary>
-    /// Gets whether the browser is being sent to ask the user, rather than to
-    /// the finished-signing-out page.
-    /// </summary>
-    /// <remarks>
-    /// False when there was no live session to end. Arriving with nothing to
-    /// revoke is not an error and must not look like one: a second click, a
-    /// refresh, or a stale tab all land here, and all of them should simply see
-    /// that they are signed out.
-    /// </remarks>
-    public bool RequiresConfirmation { get; init; }
 }

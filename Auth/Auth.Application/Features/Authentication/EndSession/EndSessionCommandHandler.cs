@@ -75,8 +75,7 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
             // them are already in the state they asked for.
             return new EndSessionResult
             {
-                RedirectUrl = BuildSignedOutUrl(request.ClientId, request.State),
-                RequiresConfirmation = false
+                RedirectUrl = BuildSignedOutUrl(request.ClientId, request.State)
             };
         }
 
@@ -86,8 +85,7 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
 
         return new EndSessionResult
         {
-            RedirectUrl = BuildConfirmationUrl(request.ClientId, request.State),
-            RequiresConfirmation = true
+            RedirectUrl = BuildConfirmationUrl(request.ClientId, request.State)
         };
     }
 
