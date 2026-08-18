@@ -184,6 +184,16 @@ public class JwtTokenService : IJwtTokenService, IDisposable
         {
             return AuthErrors.InvalidToken;
         }
+        catch (ArgumentException)
+        {
+            // A string that is not a JWT at all — the header will not base64url
+            // decode. IdentityModel raises this as an ArgumentException, which
+            // slipped past the SecurityTokenException filter above and escaped
+            // the handler, so an anonymous caller posting "aaa.bbb.ccc" to the
+            // revocation endpoint was answered 400 carrying IdentityModel's own
+            // diagnostic text. Unparseable is simply invalid, and says so.
+            return AuthErrors.InvalidToken;
+        }
     }
 
     /// <inheritdoc />

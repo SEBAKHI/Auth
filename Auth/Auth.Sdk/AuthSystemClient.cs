@@ -130,9 +130,17 @@ public class AuthSystemClient
         try
         {
             var client = CreateClient();
-            var response = await client.PostAsJsonAsync(
+
+            // Form-encoded, not JSON: RFC 7662 defines the introspection request
+            // as application/x-www-form-urlencoded, and the endpoint enforces it.
+            // This client sent JSON and was answered 415 — the whole point of an
+            // SDK is to speak the protocol correctly on the caller's behalf.
+            var response = await client.PostAsync(
                 "/api/v1/auth/introspect",
-                new { Token = token },
+                new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["token"] = token,
+                }),
                 cancellationToken);
 
             if (!response.IsSuccessStatusCode)

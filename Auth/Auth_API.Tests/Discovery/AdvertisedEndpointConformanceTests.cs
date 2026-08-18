@@ -95,4 +95,32 @@ public class AdvertisedEndpointConformanceTests
         // token it was fetched with is worse than one with no "sub" at all.
         Property<UserInfo>(nameof(UserInfo.Sub)).CanWrite.Should().BeFalse();
     }
+    // --- RFC 7009 2.2: an invalid token is a 200, not an error ---
+
+    [Fact]
+    public void RevocationRequest_IsWhatTheFirstPartySdkActuallySends()
+    {
+        // The regression this guards. Adding [Consumes(form-urlencoded)] to the
+        // endpoint answered the shipped C# SDK 415, because it posted JSON. The
+        // audit that caught it also caught the claim in the commit message that
+        // there were no JSON callers — which had only checked Auth_UI.
+        var sdk = File.ReadAllText(SdkClientPath());
+
+        sdk.Should().Contain("FormUrlEncodedContent",
+            "the SDK must speak the media type RFC 7662 defines");
+        sdk.Should().NotContain("PostAsJsonAsync(" + Environment.NewLine + "                \"/api/v1/auth/introspect\"",
+            "posting JSON to introspection is answered 415");
+    }
+
+    private static string SdkClientPath()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "Auth.Sdk")))
+        {
+            dir = dir.Parent;
+        }
+
+        dir.Should().NotBeNull("the Auth.Sdk project must be locatable from the test output");
+        return Path.Combine(dir!.FullName, "Auth.Sdk", "AuthSystemClient.cs");
+    }
 }

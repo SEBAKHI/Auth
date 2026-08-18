@@ -81,8 +81,16 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
                 return Result.Success;
             }
 
-            _logger.LogWarning("Failed to revoke access token - could not extract JTI");
-            return AuthErrors.InvalidToken;
+            // RFC 7009 2.2: "the authorization server responds with HTTP status
+            // code 200 if the token has been revoked successfully OR IF THE CLIENT
+            // SUBMITTED AN INVALID TOKEN." Answering an error would tell an
+            // anonymous caller whether a token was real — turning the revocation
+            // endpoint into an oracle for guessing valid tokens. Nothing was
+            // revoked because there was nothing to revoke, which is the outcome
+            // the caller asked for.
+            _logger.LogInformation(
+                "Revocation requested for a token that could not be parsed; nothing to revoke");
+            return Result.Success;
         }
 
         var claims = validationResult.Value;
