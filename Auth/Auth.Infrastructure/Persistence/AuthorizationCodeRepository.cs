@@ -61,7 +61,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
                 INSERTED.[Id], INSERTED.[ApplicationId], INSERTED.[UserId],
                 INSERTED.[CodeHash], INSERTED.[RedirectUri], INSERTED.[CodeChallenge],
                 INSERTED.[ExpiresAt], INSERTED.[ConsumedAt], INSERTED.[CreatedAt],
-                INSERTED.[IpAddress]
+                INSERTED.[IpAddress], INSERTED.[IssuedSessionId]
             WHERE [CodeHash] = @CodeHash
               AND [ConsumedAt] IS NULL",
             new { CodeHash = codeHash });
@@ -77,7 +77,8 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
         var dto = await connection.QueryFirstOrDefaultAsync<AuthorizationCodeDto>(@"
             SELECT
                 [Id], [ApplicationId], [UserId], [CodeHash], [RedirectUri],
-                [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress]
+                [CodeChallenge], [ExpiresAt], [ConsumedAt], [CreatedAt], [IpAddress],
+                [IssuedSessionId]
             FROM [dbo].[AuthorizationCodes]
             WHERE [CodeHash] = @CodeHash",
             new { CodeHash = codeHash });
@@ -99,6 +100,22 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
         return deleted;
     }
 
+    /// <inheritdoc />
+    public async Task RecordIssuedSessionAsync(
+        Guid codeId, Guid sessionId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Written after the exchange succeeded, not during it: until tokens
+        // actually exist there is nothing a replay would need to revoke, and a
+        // failure here must never undo a sign-in that already completed.
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[AuthorizationCodes] SET
+                [IssuedSessionId] = @SessionId
+            WHERE [Id] = @CodeId",
+            new { CodeId = codeId, SessionId = sessionId });
+    }
+
     // Internal DTO for mapping from database
     private record AuthorizationCodeDto
     {
@@ -112,6 +129,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
         public DateTime? ConsumedAt { get; init; }
         public DateTime CreatedAt { get; init; }
         public string? IpAddress { get; init; }
+        public Guid? IssuedSessionId { get; init; }
 
         public AuthorizationCode ToEntity() => new(
             Id,
@@ -123,6 +141,7 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
             CreatedAt,
             ExpiresAt,
             ConsumedAt,
-            IpAddress);
+            IpAddress,
+            IssuedSessionId);
     }
 }

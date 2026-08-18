@@ -10,6 +10,15 @@ CREATE TABLE [dbo].[AuthorizationCodes]
     [ConsumedAt] DATETIME2 NULL,
     [CreatedAt] DATETIME2 NOT NULL CONSTRAINT [DF_AuthorizationCodes_CreatedAt] DEFAULT GETUTCDATE(),
     [IpAddress] NVARCHAR(45) NULL,
+    -- The session the successful exchange produced, stamped after the fact.
+    -- RFC 6749 4.1.2 asks the server to revoke everything issued from a code
+    -- once that code is seen twice, and nothing else in the schema links a code
+    -- to what it minted. NULL means either the exchange never completed or the
+    -- row predates this column, and the replay path treats both as nothing to
+    -- revoke rather than as an error. Deliberately no FK to UserSessions: the
+    -- retention sweep is free to remove a session row, and a dangling id here
+    -- must not block that or fail the delete.
+    [IssuedSessionId] UNIQUEIDENTIFIER NULL,
 
     CONSTRAINT [PK_AuthorizationCodes] PRIMARY KEY CLUSTERED ([Id]),
     -- Codes are ephemeral (<=60s) throwaway artifacts scoped to the client, so

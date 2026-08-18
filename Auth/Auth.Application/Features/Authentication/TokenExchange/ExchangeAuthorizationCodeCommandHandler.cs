@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
+using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -30,6 +32,7 @@ public class ExchangeAuthorizationCodeCommandHandler
     private readonly IUserRepository _userRepository;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly ILogger<ExchangeAuthorizationCodeCommandHandler> _logger;
 
     public ExchangeAuthorizationCodeCommandHandler(
@@ -39,6 +42,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         IUserRepository userRepository,
         IRefreshTokenKeyService refreshTokenKeyService,
         ILoginResponseBuilder loginResponseBuilder,
+        ICredentialRevocationService credentialRevocation,
         ILogger<ExchangeAuthorizationCodeCommandHandler> logger)
     {
         _authorizationCodeRepository = authorizationCodeRepository;
@@ -47,6 +51,7 @@ public class ExchangeAuthorizationCodeCommandHandler
         _userRepository = userRepository;
         _refreshTokenKeyService = refreshTokenKeyService;
         _loginResponseBuilder = loginResponseBuilder;
+        _credentialRevocation = credentialRevocation;
         _logger = logger;
     }
 
@@ -79,6 +84,8 @@ public class ExchangeAuthorizationCodeCommandHandler
                 _logger.LogWarning(
                     "Authorization code replay detected for client {ClientId}, user {UserId}. IP: {IpAddress}",
                     request.ClientId, existing.UserId, request.IpAddress);
+
+                await RevokeWhatTheCodeIssuedAsync(existing, request, cancellationToken);
             }
 
             return AuthErrors.AuthorizationCodeInvalid;
@@ -154,6 +161,15 @@ public class ExchangeAuthorizationCodeCommandHandler
 
         var loginResponse = built.Value;
 
+        // Bind the code to what it just minted. Until this line a replay has
+        // nothing to revoke, which is precisely the state the old code was
+        // permanently in.
+        if (loginResponse.SessionId is Guid issuedSessionId)
+        {
+            await _authorizationCodeRepository.RecordIssuedSessionAsync(
+                code.Id, issuedSessionId, cancellationToken);
+        }
+
         _logger.LogInformation(
             "Authorization code exchanged for tokens: client {ClientId}, user {UserId}",
             request.ClientId, user.Id);
@@ -187,5 +203,59 @@ public class ExchangeAuthorizationCodeCommandHandler
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
+    }
+    /// <summary>
+    /// Revokes what a replayed code produced the first time it was redeemed.
+    /// </summary>
+    /// <remarks>
+    /// RFC 6749 4.1.2: on a repeated code the server SHOULD revoke everything
+    /// previously issued from it. Detecting the replay and leaving those tokens
+    /// alive is the worst of both — the theft is recorded and the thief keeps
+    /// working access.
+    /// <para>
+    /// Which of the two callers was the thief is unknowable: whoever redeemed
+    /// first holds the tokens, and that may be the attacker racing the client or
+    /// the client racing the attacker. Revoking is right either way. Both parties
+    /// must authenticate again, and only one of them cannot.
+    /// </para>
+    /// <para>
+    /// Never throws into the response: the caller is answering an attack and the
+    /// answer must stay a flat invalid-code either way, revealing nothing about
+    /// whether anything was found to revoke.
+    /// </para>
+    /// </remarks>
+    private async Task RevokeWhatTheCodeIssuedAsync(
+        AuthorizationCode replayed,
+        ExchangeAuthorizationCodeCommand request,
+        CancellationToken cancellationToken)
+    {
+        if (replayed.IssuedSessionId is not Guid sessionId)
+        {
+            // The first exchange never completed, or the row predates the column.
+            // Nothing was issued, so there is nothing to take back.
+            _logger.LogWarning(
+                "Replayed code for user {UserId} names no issued session; nothing to revoke",
+                replayed.UserId);
+            return;
+        }
+
+        try
+        {
+            await _credentialRevocation.TerminateSessionAsync(
+                sessionId,
+                revokedBy: null, // a system reaction, not an administrator acting now
+                TokenRevocationReasons.AuthorizationCodeReplay,
+                cancellationToken);
+
+            _logger.LogWarning(
+                "Revoked session {SessionId} issued from the replayed code for user {UserId}. IP: {IpAddress}",
+                sessionId, replayed.UserId, request.IpAddress);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Failed to revoke session {SessionId} after a code replay for user {UserId}",
+                sessionId, replayed.UserId);
+        }
     }
 }

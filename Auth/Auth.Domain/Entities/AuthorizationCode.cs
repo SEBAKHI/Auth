@@ -57,6 +57,17 @@ public class AuthorizationCode : EntityBase
     public string? IpAddress { get; private set; }
 
     /// <summary>
+    /// Gets the session the successful exchange produced, when one completed.
+    /// </summary>
+    /// <remarks>
+    /// The only link between a code and what it minted, and therefore the only
+    /// way to honour RFC 6749 4.1.2 when the same code is presented twice: it
+    /// names exactly what has to be revoked. Null means the exchange never got
+    /// that far, which the replay path treats as nothing to revoke.
+    /// </remarks>
+    public Guid? IssuedSessionId { get; private set; }
+
+    /// <summary>
     /// Gets whether the code has been redeemed.
     /// </summary>
     public bool IsConsumed => ConsumedAt.HasValue;
@@ -75,7 +86,8 @@ public class AuthorizationCode : EntityBase
         DateTime createdAt,
         DateTime expiresAt,
         DateTime? consumedAt,
-        string? ipAddress) : base(id)
+        string? ipAddress,
+        Guid? issuedSessionId = null) : base(id)
     {
         ApplicationId = applicationId;
         UserId = userId;
@@ -86,6 +98,7 @@ public class AuthorizationCode : EntityBase
         ExpiresAt = expiresAt;
         ConsumedAt = consumedAt;
         IpAddress = ipAddress;
+        IssuedSessionId = issuedSessionId;
     }
 
     public static AuthorizationCode Create(

@@ -146,6 +146,29 @@ public class CredentialRevocationService : ICredentialRevocationService
     }
 
     /// <inheritdoc />
+    public async Task TerminateSessionAsync(
+        Guid sessionId, Guid? revokedBy, string reason, CancellationToken cancellationToken)
+    {
+        // Same three moves every other path here makes, aimed at one session:
+        // end the row, revoke what can mint a new access token, and blacklist
+        // the id so the access token already out there stops working now. Doing
+        // only the first would end nothing — the refresh token would walk the
+        // session straight back in.
+        await _sessionRepository.TerminateAsync(sessionId, reason, cancellationToken);
+        await _refreshTokenRepository.RevokeBySessionIdAsync(
+            sessionId, revokedBy, reason, cancellationToken);
+
+        // Blacklisted to the far edge of any access-token lifetime. The session
+        // row's own expiry is not read back here: it may already be gone, and
+        // this must stay one round trip on a path that answers an attack.
+        _blacklistService.BlacklistSession(
+            sessionId.ToString(), DateTime.UtcNow.AddDays(1));
+
+        _logger.LogInformation(
+            "Terminated session {SessionId}: {Reason}", sessionId, reason);
+    }
+
+    /// <inheritdoc />
     public Task<int> RevokeAllCredentialsAsync(
         Guid userId,
         Guid? revokedBy,

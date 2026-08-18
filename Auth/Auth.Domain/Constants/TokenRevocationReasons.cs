@@ -24,6 +24,14 @@ public static class TokenRevocationReasons
     public const string RefreshTokenReuse = "Detected refresh token reuse";
 
     /// <summary>
+    /// An authorization code that had already been redeemed was presented again.
+    /// Only the session that code produced is revoked, not the account: the code
+    /// bought entry to one application on one device, so that is the whole of
+    /// what a thief holding it could have taken.
+    /// </summary>
+    public const string AuthorizationCodeReplay = "Detected authorization code replay";
+
+    /// <summary>
     /// The holder lost their entitlement to the application this token is scoped
     /// to — their invitation was withdrawn, or the application stopped being open
     /// to everyone. Only that application's token is revoked; tokens for other

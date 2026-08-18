@@ -61,6 +61,27 @@ public interface ICredentialRevocationService
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Kills exactly one session: ends the row, revokes the refresh tokens
+    /// issued under it, and blacklists its id so the access token already in
+    /// circulation stops being accepted now rather than at its expiry.
+    /// </summary>
+    /// <remarks>
+    /// Narrower than every other method here on purpose. The caller is the token
+    /// exchange reacting to a replayed authorization code, where the thing to
+    /// revoke is precisely what that one code produced — not the account, and
+    /// not the user's other devices.
+    /// <para>
+    /// Idempotent: a session already ended costs one no-op UPDATE, which is what
+    /// keeps a flood of replays cheap.
+    /// </para>
+    /// </remarks>
+    /// <param name="sessionId">The session to kill.</param>
+    /// <param name="revokedBy">Actor recorded on the revocations.</param>
+    /// <param name="reason">Human-readable reason recorded on the row.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task TerminateSessionAsync(Guid sessionId, Guid? revokedBy, string reason, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Full credential wipe for account deletion/deactivation: terminates every
     /// session, revokes ALL refresh tokens (including session-less ones) and
     /// removes the user's IdP SSO sessions.
