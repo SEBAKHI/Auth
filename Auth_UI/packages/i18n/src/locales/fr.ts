@@ -1428,7 +1428,7 @@ export const fr: TranslationResources = {
       terminateSessionsOnPasswordReset:
         "Déconnexion partout à la réinitialisation du mot de passe",
       terminateSessionsOnPasswordResetHint:
-        "Quand un mot de passe est réinitialisé via un lien e-mail, toutes les sessions existantes prennent fin. Recommandé : activé — les réinitialisations font souvent suite à une compromission soupçonnée. L'authentification unique prend toujours fin, même lorsque ce réglage est désactivé.",
+        "Quand un mot de passe est réinitialisé via un lien e-mail, toutes les sessions existantes prennent fin. Recommandé : activé — les réinitialisations font souvent suite à une compromission soupçonnée. La session d'authentification unique (SSO) — la capacité de l'utilisateur à accéder aux autres applications sans mot de passe — prend toujours fin, même lorsque ce réglage est désactivé.",
     },
     gateway: {
       title: "Protection de la passerelle",

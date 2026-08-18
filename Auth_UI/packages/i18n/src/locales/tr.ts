@@ -1400,7 +1400,7 @@ export const tr: TranslationResources = {
         "Bir kullanıcı parolasını değiştirdiğinde diğer tüm oturumları sona erer. Önerilen: açık — değiştirilen bir parola genellikle eskisine artık güvenilmediği anlamına gelir.",
       terminateSessionsOnPasswordReset: "Parola sıfırlamada her yerde oturumu kapat",
       terminateSessionsOnPasswordResetHint:
-        "Parola e-posta bağlantısıyla sıfırlandığında mevcut tüm oturumlar sona erer. Önerilen: açık — sıfırlamalar çoğu zaman bir ele geçirilme şüphesinin ardından gelir. Çoklu oturum açma bu kapalıyken bile her zaman sona erer.",
+        "Parola e-posta bağlantısıyla sıfırlandığında mevcut tüm oturumlar sona erer. Önerilen: açık — sıfırlamalar çoğu zaman bir ele geçirilme şüphesinin ardından gelir. Çoklu oturum açma (SSO) oturumu — kullanıcının diğer uygulamalara parolasız girebilmesi — bu kapalıyken bile her zaman sona erer.",
     },
     gateway: {
       title: "Ağ geçidi koruması",
