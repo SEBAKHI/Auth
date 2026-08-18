@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router-dom"
 
 import { api } from "@authsystem/api/client"
+import { useAuth } from "@authsystem/auth/auth-context"
 import { useAppBranding } from "@authsystem/auth/use-app-branding"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
@@ -27,9 +28,10 @@ export function LogoutConfirmPage() {
   const clientId = params.get("client_id")
   const state = params.get("state")
   const branding = useAppBranding(clientId)
+  const { status, logout } = useAuth()
   const [pending, setPending] = React.useState(false)
 
-  const appName = branding?.name ?? clientId ?? ""
+  const appName = branding?.name
 
   const signOut = React.useCallback(async () => {
     setPending(true)
@@ -38,27 +40,39 @@ export function LogoutConfirmPage() {
       // from another site and holds none. Same-site, so the Lax cookie rides
       // along — and a cross-site page could not have made this call at all.
       await api.POST("/api/v1/Auth/end-session", {})
+
+      // And this account app's OWN session, when there is one. Ending only the
+      // SSO session would leave the visitor signed in right here while being
+      // told they had been signed out — and would bounce them off /login on the
+      // next screen, straight back into the profile they just left.
+      if (status === "authenticated") {
+        await logout()
+      }
     } finally {
-      // Leave regardless of the outcome. A failure here means the session
-      // survived, but the signed-out page is still where the user asked to go,
-      // and the next authorize request discovers the truth either way.
+      // Leave regardless of the outcome. A failure means a session survived, but
+      // the signed-out page is still where the user asked to go, and the next
+      // authorize request discovers the truth either way.
       const query = new URLSearchParams()
       if (clientId) query.set("client_id", clientId)
       if (state) query.set("state", state)
-      window.location.assign(`/signed-out?${query.toString()}`)
+
+      const search = query.toString()
+      window.location.assign(search ? `/signed-out?${search}` : "/signed-out")
     }
-  }, [clientId, state])
+  }, [clientId, state, status, logout])
 
   return (
     <AuthLayout
-      title={t("auth.signOutTitle", { name: appName })}
-      appName={branding?.name}
+      title={
+        appName
+          ? t("auth.signOutTitle", { name: appName })
+          : t("auth.signOutTitleNoApp")
+      }
+      appName={appName}
       appLogoUrl={branding?.logoUrl ?? undefined}
     >
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-muted-foreground">
-          {t("auth.signOutBody", { name: appName })}
-        </p>
+        <p className="text-sm text-muted-foreground">{t("auth.signOutBody")}</p>
         <Button onClick={signOut} disabled={pending} className="w-full">
           {pending ? <Spinner /> : t("auth.signOutConfirm")}
         </Button>

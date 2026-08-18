@@ -46,22 +46,25 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
     public async Task<ErrorOr<EndSessionResult>> Handle(
         EndSessionCommand request, CancellationToken cancellationToken)
     {
-        // An unknown client is refused outright rather than redirected anywhere,
-        // matching how the authorize endpoint treats one. Every destination this
-        // handler can name is on our own origin, so there is no open redirect to
-        // guard against — but a caller who cannot name a real application has no
-        // business steering our users at all.
-        if (string.IsNullOrWhiteSpace(request.ClientId))
+        // client_id is OPTIONAL in RP-Initiated Logout, and requiring it would
+        // have recreated the very fault this endpoint was built to fix: an address
+        // the discovery document advertises that a conformant client cannot use.
+        // A logout request that names nobody is legal and must work.
+        //
+        // Present, though, it has to name a real and active application. There is
+        // no open redirect to guard against — every destination below is on our
+        // own origin — but a caller inventing a client id is malformed, and the
+        // name is what the confirmation screen shows the user to tell them WHICH
+        // application is asking them to sign out.
+        if (!string.IsNullOrWhiteSpace(request.ClientId))
         {
-            return AuthErrors.InvalidClient;
-        }
-
-        var application = await _applicationRepository.GetByCodeAsync(request.ClientId, cancellationToken);
-        if (application is null || !application.IsActive)
-        {
-            _logger.LogWarning(
-                "End-session request for unknown or inactive client {ClientId}", request.ClientId);
-            return AuthErrors.InvalidClient;
+            var application = await _applicationRepository.GetByCodeAsync(request.ClientId, cancellationToken);
+            if (application is null || !application.IsActive)
+            {
+                _logger.LogWarning(
+                    "End-session request for unknown or inactive client {ClientId}", request.ClientId);
+                return AuthErrors.InvalidClient;
+            }
         }
 
         var session = await ResolveSessionAsync(request.IdpSessionToken, cancellationToken);
@@ -101,10 +104,10 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
         return session is not null && session.IsValid() ? session : null;
     }
 
-    private string BuildConfirmationUrl(string clientId, string? state) =>
+    private string BuildConfirmationUrl(string? clientId, string? state) =>
         BuildAccountsUrl("logout", clientId, state);
 
-    private string BuildSignedOutUrl(string clientId, string? state) =>
+    private string BuildSignedOutUrl(string? clientId, string? state) =>
         BuildAccountsUrl("signed-out", clientId, state);
 
     /// <summary>
@@ -115,13 +118,23 @@ public class EndSessionCommandHandler : IRequestHandler<EndSessionCommand, Error
     /// state is carried through so the relying party can match the round trip,
     /// and is only ever a query value — never rendered, never interpreted here.
     /// </remarks>
-    private string BuildAccountsUrl(string path, string clientId, string? state)
+    private string BuildAccountsUrl(string path, string? clientId, string? state)
     {
         var accountsBase = _idpSettings.AccountsBaseUrl.TrimEnd('/');
-        var url = $"{accountsBase}/{path}?client_id={Uri.EscapeDataString(clientId)}";
 
-        return string.IsNullOrEmpty(state)
-            ? url
-            : $"{url}&state={Uri.EscapeDataString(state)}";
+        var query = new List<string>();
+        if (!string.IsNullOrWhiteSpace(clientId))
+        {
+            query.Add($"client_id={Uri.EscapeDataString(clientId)}");
+        }
+
+        if (!string.IsNullOrEmpty(state))
+        {
+            query.Add($"state={Uri.EscapeDataString(state)}");
+        }
+
+        return query.Count == 0
+            ? $"{accountsBase}/{path}"
+            : $"{accountsBase}/{path}?{string.Join('&', query)}";
     }
 }
