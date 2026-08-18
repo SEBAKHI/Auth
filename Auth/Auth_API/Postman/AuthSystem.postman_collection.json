@@ -538,10 +538,13 @@
 					"name": "Revoke Token",
 					"request": {
 						"method": "POST",
-						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
 						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"token\": \"{{refreshToken}}\"\n}"
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "token", "value": "{{refreshToken}}" },
+								{ "key": "token_type_hint", "value": "refresh_token", "disabled": true }
+							]
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/revoke",
@@ -555,10 +558,13 @@
 					"name": "Introspect Token",
 					"request": {
 						"method": "POST",
-						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"header": [{ "key": "Content-Type", "value": "application/x-www-form-urlencoded" }],
 						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"token\": \"{{accessToken}}\"\n}"
+							"mode": "urlencoded",
+							"urlencoded": [
+								{ "key": "token", "value": "{{accessToken}}" },
+								{ "key": "token_type_hint", "value": "access_token", "disabled": true }
+							]
 						},
 						"url": {
 							"raw": "{{baseUrl}}/api/v1/auth/introspect",

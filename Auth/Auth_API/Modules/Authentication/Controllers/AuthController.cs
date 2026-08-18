@@ -698,15 +698,18 @@ public class AuthController : ApiController
     /// <returns>Success status</returns>
     [HttpPost("revoke")]
     [AllowAnonymous]
+    // The media type RFC 7009 mandates, and the one the discovery document
+    // promises by listing this address as revocation_endpoint.
+    [Consumes("application/x-www-form-urlencoded")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> RevokeToken([FromBody] RevokeTokenRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> RevokeToken([FromForm] RevokeTokenRequest request, CancellationToken cancellationToken)
     {
         var userId = GetCurrentUserId();
 
         var command = new RevokeTokenCommand(
             request.Token,
-            request.TokenTypeHint,
+            request.ParsedTokenTypeHint,
             userId);
 
         var result = await _sender.Send(command, cancellationToken);
@@ -723,13 +726,15 @@ public class AuthController : ApiController
     /// <returns>Token metadata including active status</returns>
     [HttpPost("introspect")]
     [Authorize]
+    // The media type RFC 7662 mandates; see the note on revoke above.
+    [Consumes("application/x-www-form-urlencoded")]
     [ProducesResponseType(typeof(IntrospectTokenResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> IntrospectToken([FromBody] IntrospectTokenRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> IntrospectToken([FromForm] IntrospectTokenRequest request, CancellationToken cancellationToken)
     {
         var query = new IntrospectTokenQuery(
             request.Token,
-            request.TokenTypeHint);
+            request.ParsedTokenTypeHint);
 
         var result = await _sender.Send(query, cancellationToken);
 

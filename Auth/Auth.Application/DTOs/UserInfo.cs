@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Auth.Application.DTOs;
 
 /// <summary>
@@ -9,6 +11,19 @@ public record UserInfo
     /// Gets the user's unique identifier.
     /// </summary>
     public required Guid Id { get; init; }
+
+    /// <summary>
+    /// The stable subject identifier, the one claim OIDC Core 5.3 requires a
+    /// userinfo response to carry.
+    /// </summary>
+    /// <remarks>
+    /// Computed from <see cref="Id"/> rather than stored beside it, so the two
+    /// cannot drift apart. A standard client library reads "sub" to know which
+    /// user it is looking at; without it the response is unusable to anything
+    /// that follows the spec, however complete the rest of the fields are.
+    /// </remarks>
+    [JsonPropertyName("sub")]
+    public string Sub => Id.ToString();
 
     /// <summary>
     /// Gets the user's email address.
