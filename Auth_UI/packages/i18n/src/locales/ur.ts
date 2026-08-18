@@ -172,6 +172,12 @@ export const ur: TranslationResources = {
     forgotSubtitle: "اپنی ای میل درج کریں اور ہم آپ کو ری سیٹ لنک بھیجیں گے۔",
     sendResetLink: "ری سیٹ لنک بھیجیں",
     backToSignIn: "سائن ان پر واپس جائیں",
+    signOutTitle: "کیا {{name}} سے سائن آؤٹ کریں؟",
+    signOutBody: "آپ {{name}} سے اور اس اکاؤنٹ کے ذریعے رسائی حاصل کی گئی ہر دوسری ایپلی کیشن سے سائن آؤٹ ہو جائیں گے۔",
+    signOutConfirm: "سائن آؤٹ",
+    signOutCancel: "سائن اِن رہیں",
+    signedOutTitle: "آپ سائن آؤٹ ہو چکے ہیں",
+    signedOutBody: "آپ کا سنگل سائن آن سیشن ختم ہو گیا۔ دوبارہ سائن اِن پر پاس ورڈ طلب کیا جائے گا۔",
     useDifferentAccount: "دوسرا اکاؤنٹ استعمال کریں",
     resetLinkSentTitle: "اپنی ای میل دیکھیں",
     resetLinkSentDescription:

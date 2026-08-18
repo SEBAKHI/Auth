@@ -35,7 +35,10 @@ public class GetDiscoveryDocumentQueryHandler
             AuthorizationEndpoint = $"{baseUrl}/api/{apiVersion}/auth/authorize",
             TokenEndpoint = $"{baseUrl}/api/{apiVersion}/auth/token",
             UserinfoEndpoint = $"{baseUrl}/api/{apiVersion}/auth/me",
-            EndSessionEndpoint = $"{baseUrl}/api/{apiVersion}/auth/logout",
+            // Not /auth/logout: that one is POST + bearer, which no browser
+            // navigation can satisfy. A relying party following the spec was
+            // answered 405 or 401 by an address this very document told it to use.
+            EndSessionEndpoint = $"{baseUrl}/api/{apiVersion}/auth/end-session",
             RevocationEndpoint = $"{baseUrl}/api/{apiVersion}/auth/revoke",
             IntrospectionEndpoint = $"{baseUrl}/api/{apiVersion}/auth/introspect",
             ResponseTypesSupported = ["code"],

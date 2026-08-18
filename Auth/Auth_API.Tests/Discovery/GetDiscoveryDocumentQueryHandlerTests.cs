@@ -39,7 +39,9 @@ public class GetDiscoveryDocumentQueryHandlerTests
         document.AuthorizationEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/authorize");
         document.TokenEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/token");
         document.UserinfoEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/me");
-        document.EndSessionEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/logout");
+        // Not /auth/logout: that one is POST + bearer, which the browser
+        // navigation this endpoint is defined as cannot satisfy.
+        document.EndSessionEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/end-session");
         document.RevocationEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/revoke");
         document.IntrospectionEndpoint.Should().Be($"{BaseUrl}/api/v1/auth/introspect");
     }

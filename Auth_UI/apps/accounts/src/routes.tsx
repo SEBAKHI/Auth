@@ -157,6 +157,24 @@ export const router = createBrowserRouter([
       (m) => m.DeletionScheduledPage
     ),
   },
+  // Both top-level and unguarded for the same reason as the route above, and
+  // one more: they are reached mid-logout, when the local token state may not
+  // have caught up yet and RequireAnonymous would bounce an apparently
+  // still-authenticated visitor away from the page confirming their exit.
+  {
+    path: "/logout",
+    lazy: lazyRoute(
+      () => import("@/pages/logout"),
+      (m) => m.LogoutConfirmPage
+    ),
+  },
+  {
+    path: "/signed-out",
+    lazy: lazyRoute(
+      () => import("@/pages/signed-out"),
+      (m) => m.SignedOutPage
+    ),
+  },
   // No /privacy route. Publishing writes complete HTML to the persistent IIS
   // virtual directory, so the notice survives frontend deploys and API outages
   // and needs no script to be readable. Links to it are plain anchors built

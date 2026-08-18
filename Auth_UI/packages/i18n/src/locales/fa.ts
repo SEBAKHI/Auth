@@ -173,6 +173,12 @@ export const fa: TranslationResources = {
       "ایمیل خود را وارد کنید تا پیوند بازنشانی برایتان ارسال شود.",
     sendResetLink: "ارسال پیوند بازنشانی",
     backToSignIn: "بازگشت به ورود",
+    signOutTitle: "از {{name}} خارج می‌شوید؟",
+    signOutBody: "شما از {{name}} و از هر برنامه دیگری که با این حساب به آن دسترسی دارید خارج خواهید شد.",
+    signOutConfirm: "خروج",
+    signOutCancel: "وارد بمانید",
+    signedOutTitle: "شما خارج شدید",
+    signedOutBody: "نشست ورود یکپارچه شما پایان یافت. ورود دوباره رمز عبور را می‌خواهد.",
     useDifferentAccount: "استفاده از حساب دیگر",
     resetLinkSentTitle: "ایمیل خود را بررسی کنید",
     resetLinkSentDescription:

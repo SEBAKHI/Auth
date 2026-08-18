@@ -173,6 +173,12 @@ export const fr: TranslationResources = {
       "Saisissez votre e-mail et nous vous enverrons un lien de réinitialisation.",
     sendResetLink: "Envoyer le lien de réinitialisation",
     backToSignIn: "Retour à la connexion",
+    signOutTitle: "Se déconnecter de {{name}} ?",
+    signOutBody: "Vous serez déconnecté de {{name}} et de toutes les autres applications accessibles avec ce compte.",
+    signOutConfirm: "Se déconnecter",
+    signOutCancel: "Rester connecté",
+    signedOutTitle: "Vous êtes déconnecté",
+    signedOutBody: "Votre session d'authentification unique a pris fin. Une nouvelle connexion demandera votre mot de passe.",
     useDifferentAccount: "Utiliser un autre compte",
     resetLinkSentTitle: "Consultez vos e-mails",
     resetLinkSentDescription:
