@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Asp.Versioning;
 using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Authorize;
+using Auth.Application.Features.Authentication.EndSession;
 using Auth.Application.Features.Authentication.ChangePassword;
 using Auth.Application.Features.AccountDeletion.ConfirmPublicDeletion;
 using Auth.Application.Features.AccountDeletion.PublicRequestDeletion;
@@ -365,6 +366,66 @@ public class AuthController : ApiController
             default:
                 return Problem([Auth.Domain.Errors.AuthErrors.UnsupportedGrantType]);
         }
+    }
+
+    /// <summary>
+    /// OIDC RP-Initiated Logout: where a relying party sends the browser to end
+    /// the single sign-on session it cannot reach itself.
+    /// </summary>
+    /// <remarks>
+    /// A GET, because the specification defines this as a navigation rather than
+    /// an API call — the browser arrives carrying the SSO cookie and no bearer
+    /// token. It does not sign anyone out on its own: with no id_token_hint to
+    /// prove who is asking (this provider issues no id tokens), acting here would
+    /// let any page sign our users out by loading this URL in an image tag. It
+    /// decides where to send the browser, and the user answers on the next screen.
+    /// </remarks>
+    [HttpGet("end-session")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status302Found)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> EndSession(
+        [FromQuery(Name = "client_id")] string? clientId,
+        [FromQuery(Name = "state")] string? state,
+        CancellationToken cancellationToken)
+    {
+        var command = new EndSessionCommand(
+            clientId, state, IdpSessionCookie.Read(Request, _idpSettings));
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Redirect(response.RedirectUrl),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Ends the single sign-on session after the user confirmed it on the
+    /// logout screen.
+    /// </summary>
+    /// <remarks>
+    /// Anonymous by necessity, not by oversight: the browser was steered here by
+    /// another site and carries no bearer token. The SSO cookie is the credential,
+    /// and its SameSite=Lax setting is what stops a cross-site page from forging
+    /// this call — Lax withholds the cookie from cross-site POSTs, so a forged
+    /// request arrives with nothing to act on.
+    /// </remarks>
+    [HttpPost("end-session")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> ConfirmEndSession(CancellationToken cancellationToken)
+    {
+        var command = new ConfirmEndSessionCommand(IdpSessionCookie.Read(Request, _idpSettings));
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ =>
+            {
+                IdpSessionCookie.Delete(Response, _idpSettings);
+                return NoContent();
+            },
+            errors => Problem(errors));
     }
 
     /// <summary>

@@ -167,6 +167,13 @@ export const en = {
     forgotSubtitle: "Enter your email and we'll send you a reset link.",
     sendResetLink: "Send reset link",
     backToSignIn: "Back to sign in",
+    signOutTitle: "Sign out of {{name}}?",
+    signOutTitleNoApp: "Sign out?",
+    signOutBody: "This ends your single sign-on (SSO) session — the one that lets you into other applications without typing your password again. An application you are already inside keeps its own session until that application ends it.",
+    signOutConfirm: "Sign out",
+    signOutCancel: "Stay signed in",
+    signedOutTitle: "You are signed out",
+    signedOutBody: "Your single sign-on session has ended. Signing in again will ask for your password.",
     useDifferentAccount: "Use a different account",
     resetLinkSentTitle: "Check your email",
     resetLinkSentDescription:

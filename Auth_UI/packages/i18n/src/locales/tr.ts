@@ -173,6 +173,13 @@ export const tr: TranslationResources = {
       "E-postanızı girin, size bir sıfırlama bağlantısı gönderelim.",
     sendResetLink: "Sıfırlama bağlantısı gönder",
     backToSignIn: "Oturum açmaya dön",
+    signOutTitle: "{{name}} oturumunuz kapatılsın mı?",
+    signOutTitleNoApp: "Çıkış yapılsın mı?",
+    signOutBody: "Bu, çoklu oturum açma (SSO) oturumunuzu sonlandırır — parolanızı yeniden yazmadan diğer uygulamalara girmenizi sağlayan oturumu. Hâlihazırda içinde olduğunuz bir uygulama, kendi oturumunu sonlandırana kadar onu korur.",
+    signOutConfirm: "Çıkış yap",
+    signOutCancel: "Oturumu açık tut",
+    signedOutTitle: "Çıkış yaptınız",
+    signedOutBody: "Çoklu oturum açma oturumunuz sona erdi. Tekrar giriş yaparken parolanız istenecek.",
     useDifferentAccount: "Farklı bir hesap kullan",
     resetLinkSentTitle: "E-postanızı kontrol edin",
     resetLinkSentDescription:

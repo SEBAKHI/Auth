@@ -171,6 +171,13 @@ export const ar: TranslationResources = {
     forgotSubtitle: "أدخل بريدك الإلكتروني وسنرسل لك رابط إعادة التعيين.",
     sendResetLink: "إرسال رابط إعادة التعيين",
     backToSignIn: "العودة لتسجيل الدخول",
+    signOutTitle: "تسجيل الخروج من {{name}}؟",
+    signOutTitleNoApp: "تسجيل الخروج؟",
+    signOutBody: "هذا يُنهي جلسة الدخول الموحّد (SSO) — أي التي تُدخلك التطبيقات الأخرى دون كتابة كلمة المرور من جديد. أمّا تطبيق أنت داخله بالفعل فيحتفظ بجلسته الخاصة حتى يُنهيها هو.",
+    signOutConfirm: "تسجيل الخروج",
+    signOutCancel: "البقاء مسجَّلًا",
+    signedOutTitle: "تم تسجيل خروجك",
+    signedOutBody: "انتهت جلسة الدخول الموحّد. سيُطلب منك كلمة المرور عند الدخول من جديد.",
     useDifferentAccount: "استخدام حساب آخر",
     resetLinkSentTitle: "تفقّد بريدك الإلكتروني",
     resetLinkSentDescription:

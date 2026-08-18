@@ -172,6 +172,13 @@ export const ur: TranslationResources = {
     forgotSubtitle: "اپنی ای میل درج کریں اور ہم آپ کو ری سیٹ لنک بھیجیں گے۔",
     sendResetLink: "ری سیٹ لنک بھیجیں",
     backToSignIn: "سائن ان پر واپس جائیں",
+    signOutTitle: "کیا {{name}} سے سائن آؤٹ کریں؟",
+    signOutTitleNoApp: "سائن آؤٹ کریں؟",
+    signOutBody: "یہ آپ کا سنگل سائن آن (SSO) سیشن ختم کرتا ہے — یعنی وہ سیشن جو آپ کو پاس ورڈ دوبارہ لکھے بغیر دوسری ایپلی کیشنز میں داخل کرتا ہے۔ جس ایپلی کیشن میں آپ پہلے سے موجود ہیں وہ اپنا سیشن اُس وقت تک رکھتی ہے جب تک وہ خود اسے ختم نہ کرے۔",
+    signOutConfirm: "سائن آؤٹ",
+    signOutCancel: "سائن اِن رہیں",
+    signedOutTitle: "آپ سائن آؤٹ ہو چکے ہیں",
+    signedOutBody: "آپ کا سنگل سائن آن سیشن ختم ہو گیا۔ دوبارہ سائن اِن پر پاس ورڈ طلب کیا جائے گا۔",
     useDifferentAccount: "دوسرا اکاؤنٹ استعمال کریں",
     resetLinkSentTitle: "اپنی ای میل دیکھیں",
     resetLinkSentDescription:

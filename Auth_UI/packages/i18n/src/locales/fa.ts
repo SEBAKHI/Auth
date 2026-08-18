@@ -173,6 +173,13 @@ export const fa: TranslationResources = {
       "ایمیل خود را وارد کنید تا پیوند بازنشانی برایتان ارسال شود.",
     sendResetLink: "ارسال پیوند بازنشانی",
     backToSignIn: "بازگشت به ورود",
+    signOutTitle: "از {{name}} خارج می‌شوید؟",
+    signOutTitleNoApp: "خروج از حساب؟",
+    signOutBody: "این کار نشست ورود یکپارچه (SSO) شما را پایان می‌دهد — همان نشستی که بدون تایپ دوباره رمز عبور شما را به برنامه‌های دیگر راه می‌دهد. برنامه‌ای که هم‌اکنون در آن هستید نشست خودش را تا زمانی که خودش پایانش دهد نگه می‌دارد.",
+    signOutConfirm: "خروج",
+    signOutCancel: "وارد بمانید",
+    signedOutTitle: "شما خارج شدید",
+    signedOutBody: "نشست ورود یکپارچه شما پایان یافت. ورود دوباره رمز عبور را می‌خواهد.",
     useDifferentAccount: "استفاده از حساب دیگر",
     resetLinkSentTitle: "ایمیل خود را بررسی کنید",
     resetLinkSentDescription:

@@ -3,6 +3,9 @@ using System.Text.Json.Serialization;
 using Auth.Application.DTOs;
 using Auth.Domain.Enums;
 using Auth_API.Modules.Authentication.Contracts;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
+using Auth_API.Modules.Authentication.Controllers;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Auth_API.Tests.Discovery;
@@ -122,5 +125,42 @@ public class AdvertisedEndpointConformanceTests
 
         dir.Should().NotBeNull("the Auth.Sdk project must be locatable from the test output");
         return Path.Combine(dir!.FullName, "Auth.Sdk", "AuthSystemClient.cs");
+    }
+
+    // --- OIDC RP-Initiated Logout: end_session_endpoint ---
+
+    [Fact]
+    public void EndSession_IsAdvertisedAtAnAddressABrowserCanNavigateTo()
+    {
+        // The entry used to name /auth/logout, which is POST + [Authorize]. A
+        // relying party following the spec navigates the user agent to this
+        // address, so it got 405 for the GET, or 401 for a POST navigation that
+        // carries no bearer header. The document promised an endpoint that could
+        // not be reached the only way the standard reaches it.
+
+        var endSession = typeof(AuthController).GetMethod(nameof(AuthController.EndSession));
+        endSession.Should().NotBeNull("end_session_endpoint must resolve to a real action");
+
+        endSession!.GetCustomAttributes<HttpGetAttribute>().Should().ContainSingle()
+            .Which.Template.Should().Be("end-session");
+        endSession.GetCustomAttributes<AuthorizeAttribute>().Should().BeEmpty(
+            "a browser navigation from another site carries no bearer token");
+        endSession.GetCustomAttributes<AllowAnonymousAttribute>().Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void EndSessionConfirmation_IsAnonymousAndRateLimited()
+    {
+        // The cookie is the credential here, not a bearer token. SameSite=Lax is
+        // what stops a cross-site page forging this POST — Lax withholds the
+        // cookie from cross-site POSTs, so a forged call arrives with nothing to
+        // act on. The rate limit covers the rest.
+        var confirm = typeof(AuthController).GetMethod(nameof(AuthController.ConfirmEndSession));
+        confirm.Should().NotBeNull();
+
+        confirm!.GetCustomAttributes<HttpPostAttribute>().Should().ContainSingle()
+            .Which.Template.Should().Be("end-session");
+        confirm.GetCustomAttributes<AllowAnonymousAttribute>().Should().NotBeEmpty();
+        confirm.GetCustomAttributes<EnableRateLimitingAttribute>().Should().NotBeEmpty();
     }
 }

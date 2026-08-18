@@ -171,6 +171,13 @@ export const zh: TranslationResources = {
     forgotSubtitle: "输入您的邮箱，我们将向您发送重置链接。",
     sendResetLink: "发送重置链接",
     backToSignIn: "返回登录",
+    signOutTitle: "要退出 {{name}} 吗？",
+    signOutTitleNoApp: "退出登录？",
+    signOutBody: "这将结束您的单点登录（SSO）会话——即让您无需再次输入密码即可进入其他应用的那个会话。您已经进入的应用会保留自己的会话，直到该应用将其结束。",
+    signOutConfirm: "退出登录",
+    signOutCancel: "保持登录",
+    signedOutTitle: "您已退出登录",
+    signedOutBody: "您的单点登录会话已结束。再次登录时将需要输入密码。",
     useDifferentAccount: "使用其他账号",
     resetLinkSentTitle: "请查看您的邮箱",
     resetLinkSentDescription:
