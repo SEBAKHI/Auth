@@ -32,3 +32,11 @@ GO
 CREATE NONCLUSTERED INDEX [IX_IdpSessions_ExpiresAt]
 ON [dbo].[IdpSessions] ([ExpiresAt]);
 GO
+
+-- Serves the revoked half of the retention sweep, which runs as two statements
+-- rather than one OR so each half lands on an index: the expiry half uses
+-- IX_IdpSessions_ExpiresAt above, this one covers the revoked half.
+CREATE NONCLUSTERED INDEX [IX_IdpSessions_RevokedAt]
+ON [dbo].[IdpSessions] ([RevokedAt])
+WHERE [RevokedAt] IS NOT NULL;
+GO

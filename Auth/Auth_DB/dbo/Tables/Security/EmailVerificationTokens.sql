@@ -35,3 +35,10 @@ CREATE NONCLUSTERED INDEX [IX_EmailVerificationTokens_Email_CreatedAt]
 ON [dbo].[EmailVerificationTokens] ([Email], [CreatedAt] DESC)
 WHERE [UsedAt] IS NULL;
 GO
+
+-- Serves the retention sweep, which deletes used and unused rows alike.
+-- IX_EmailVerificationTokens_ExpiresAt is filtered to UsedAt IS NULL and so
+-- covers only half the set; without this index each batch scans the table.
+CREATE NONCLUSTERED INDEX [IX_EmailVerificationTokens_Cleanup]
+ON [dbo].[EmailVerificationTokens] ([ExpiresAt]);
+GO

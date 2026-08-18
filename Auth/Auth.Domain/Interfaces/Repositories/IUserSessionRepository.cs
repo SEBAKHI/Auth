@@ -126,7 +126,16 @@ public interface IUserSessionRepository
     Task TerminateForUserAndApplicationAsync(Guid userId, Guid applicationId, string reason, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Cleans up expired sessions.
+    /// Stamps sessions that have passed their expiry as ended, at most
+    /// <paramref name="batchSize"/> per call, and reports how many were stamped.
     /// </summary>
-    Task CleanupExpiredAsync(CancellationToken cancellationToken);
+    /// <remarks>
+    /// This one does NOT delete, which is why it is not called CleanupExpired:
+    /// a session row is history a user can see, so the sweep corrects its
+    /// EndReason instead of erasing it. Untouched rows were already invisible
+    /// to every active-session query, so this changes what the history SAYS,
+    /// never who is signed in.
+    /// </remarks>
+    /// <returns>Rows stamped; below <paramref name="batchSize"/> means none are left.</returns>
+    Task<int> MarkExpiredSessionsEndedAsync(int batchSize, CancellationToken cancellationToken);
 }

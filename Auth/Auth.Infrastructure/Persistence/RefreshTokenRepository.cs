@@ -229,14 +229,22 @@ public class RefreshTokenRepository : IRefreshTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupExpiredAsync(DateTime olderThan, CancellationToken cancellationToken)
+    public async Task<int> CleanupExpiredAsync(
+        DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[RefreshTokens]
-            WHERE ([ExpiresAt] < @OlderThan OR [RevokedAt] < @OlderThan)",
-            new { OlderThan = olderThan });
+        var deleted = await connection.ExecuteAsync(@"
+            DELETE TOP (@BatchSize) FROM [dbo].[RefreshTokens]
+            WHERE [RevokedAt] IS NOT NULL AND [RevokedAt] < @OlderThan",
+            new { OlderThan = olderThanUtc, BatchSize = batchSize });
+
+        deleted += await connection.ExecuteAsync(@"
+            DELETE TOP (@BatchSize) FROM [dbo].[RefreshTokens]
+            WHERE [RevokedAt] IS NULL AND [ExpiresAt] < @OlderThan",
+            new { OlderThan = olderThanUtc, BatchSize = batchSize });
+
+        return deleted;
     }
 
     private record RefreshTokenDto

@@ -46,7 +46,21 @@ public interface IIdpSessionRepository
     Task<int> RevokeAllForUserExceptAsync(Guid userId, string? exceptTokenHash, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Deletes expired or revoked sessions older than the specified date.
+    /// Deletes at most <paramref name="batchSize"/> rows that fell out of use
+    /// before <paramref name="olderThanUtc"/>, and reports how many went.
     /// </summary>
-    Task CleanupExpiredAsync(DateTime olderThan, CancellationToken cancellationToken);
+    /// <remarks>
+    /// One bounded batch per call, deliberately. The caller loops, which keeps
+    /// the row count of a single statement below the ~5000 locks at which SQL
+    /// Server escalates to a table lock, and keeps each batch in its own implicit
+    /// transaction so the log can be truncated between them. An unbounded DELETE
+    /// over a table that accumulated for months would hold both.
+    /// <para>
+    /// The cutoff is passed in rather than computed here so every table is swept
+    /// against one clock — the application's — instead of each statement reading
+    /// the database server's.
+    /// </para>
+    /// </remarks>
+    /// <returns>Rows deleted; a value below <paramref name="batchSize"/> means the table is drained.</returns>
+    Task<int> CleanupExpiredAsync(DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken);
 }

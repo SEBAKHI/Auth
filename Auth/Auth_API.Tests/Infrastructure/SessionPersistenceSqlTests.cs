@@ -125,8 +125,10 @@ public class SessionPersistenceSqlTests
     public void EvictionCountsOnlyLiveSessions()
     {
         // An ended or expired row still sitting in the table must not occupy a
-        // slot — CleanupExpiredAsync has no caller, so expired rows accumulate
-        // indefinitely and would otherwise evict live sessions on their behalf.
+        // slot. The retention sweep now stamps expired rows as ended, but it
+        // runs once a day and never deletes them, so the eviction query cannot
+        // lean on that: between sweeps, and forever after one, expired rows sit
+        // in the table and would evict live sessions on their behalf.
         var method = EvictionMethod();
 
         method.Should().Contain("[EndedAt] IS NULL");

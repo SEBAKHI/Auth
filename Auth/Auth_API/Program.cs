@@ -112,6 +112,7 @@ builder.Services.Configure<NotificationSettings>(builder.Configuration.GetSectio
 builder.Services.Configure<GeoIpSettings>(builder.Configuration.GetSection(GeoIpSettings.SectionName));
 builder.Services.Configure<ExternalAuthSettings>(builder.Configuration.GetSection(ExternalAuthSettings.SectionName));
 builder.Services.Configure<AccountDeletionSettings>(builder.Configuration.GetSection(AccountDeletionSettings.SectionName));
+builder.Services.Configure<DataRetentionSettings>(builder.Configuration.GetSection(DataRetentionSettings.SectionName));
 builder.Services.Configure<DataControllerSettings>(builder.Configuration.GetSection(DataControllerSettings.SectionName));
 builder.Services.Configure<ImageStorageSettings>(builder.Configuration.GetSection(ImageStorageSettings.SectionName));
 builder.Services.PostConfigure<ImageStorageSettings>(SettingsArrayNormalizer.Apply);
@@ -602,6 +603,10 @@ builder.Services.AddScoped<Auth.Application.Features.Secrets.Common.SecretOperat
 builder.Services.AddHostedService<EncryptionMigrationService>();
 // Grace-period executor + daily retention/destruction sweep.
 builder.Services.AddHostedService<Auth.Infrastructure.AccountDeletion.AccountDeletionWorker>();
+// Empties the tables that fill with rows nobody reads again: expired tokens,
+// spent authorization codes, dead sessions. Every repository already had a
+// cleanup method and none had a caller, so they had grown since day one.
+builder.Services.AddHostedService<Auth.Infrastructure.Maintenance.ExpiredDataCleanupWorker>();
 
 // Breached-password policy. Request-scoped warning sink + evaluator are always registered (cheap);
 // the actual checker is HIBP only when enabled, otherwise a no-op with NO HttpClient registered.

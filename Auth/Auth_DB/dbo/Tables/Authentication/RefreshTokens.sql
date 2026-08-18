@@ -55,3 +55,18 @@ CREATE NONCLUSTERED INDEX [IX_RefreshTokens_ApplicationId]
 ON [dbo].[RefreshTokens] ([ApplicationId])
 WHERE [RevokedAt] IS NULL;
 GO
+
+-- Serves the revoked half of the retention sweep. The sweep runs as two
+-- statements rather than one OR, so each half lands on an index: the live half
+-- (RevokedAt IS NULL AND ExpiresAt < cutoff) uses IX_RefreshTokens_ExpiresAt
+-- above, and the revoked half uses this one. A single OR across both columns
+-- could use neither well.
+--
+-- This is the largest table in the schema by row count: with refresh-token
+-- rotation on, every refresh revokes a row, so an active session leaves one
+-- roughly every access-token lifetime. Filtered to revoked rows only, which is
+-- what the sweep reads and a small fraction of what the live paths read.
+CREATE NONCLUSTERED INDEX [IX_RefreshTokens_RevokedAt]
+ON [dbo].[RefreshTokens] ([RevokedAt])
+WHERE [RevokedAt] IS NOT NULL;
+GO

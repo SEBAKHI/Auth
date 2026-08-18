@@ -82,14 +82,17 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupExpiredAsync(CancellationToken cancellationToken)
+    public async Task<int> CleanupExpiredAsync(
+        DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // Delete tokens that are expired and older than 7 days
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[PasswordResetTokens]
-            WHERE [ExpiresAt] < DATEADD(DAY, -7, GETUTCDATE())");
+        var deleted = await connection.ExecuteAsync(@"
+            DELETE TOP (@BatchSize) FROM [dbo].[PasswordResetTokens]
+            WHERE [ExpiresAt] < @OlderThan",
+            new { OlderThan = olderThanUtc, BatchSize = batchSize });
+
+        return deleted;
     }
 
     // Internal DTO for mapping from database

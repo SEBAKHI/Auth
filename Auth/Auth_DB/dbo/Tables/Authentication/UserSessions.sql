@@ -26,9 +26,14 @@ GO
 -- EndReason: written by the code, not constrained. Current writers are 'logout',
 -- 'User terminated', 'User terminated all sessions', 'User terminated all other
 -- sessions', 'Password changed', 'device_forgotten', 'session_limit', 'Account
--- deleted' and "Account locked: {reason}". CleanupExpiredAsync would write
--- 'timeout' but has no caller, so expired rows are never stamped — they simply
--- stop matching the active-session filter.
+-- deleted' and "Account locked: {reason}". 'timeout' is written by the daily
+-- retention sweep (ExpiredDataCleanupWorker), which stamps rows that passed
+-- ExpiresAt without being ended by anything else. It backdates EndedAt to
+-- ExpiresAt rather than to the sweep time, so the history says when the
+-- session actually lapsed. Unstamped rows were already invisible to the
+-- active-session filter; the sweep changes what the record says, not who is
+-- signed in. This table is never emptied — a session is history a user can
+-- see, so it is corrected rather than deleted.
 --
 -- 'session_limit': the account was over Session:MaxConcurrentSessions and this
 -- was one of its least recently used sessions. Written by

@@ -387,15 +387,25 @@ public class UserSessionRepository : IUserSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupExpiredAsync(CancellationToken cancellationToken)
+    public async Task<int> MarkExpiredSessionsEndedAsync(
+        int batchSize, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            UPDATE [dbo].[UserSessions] SET
-                [EndedAt] = GETUTCDATE(),
+        // EndedAt is stamped with ExpiresAt, NOT with the current time: the
+        // session ended when it expired, not when this sweep happened to notice.
+        // Writing GETUTCDATE() would date every historical session to the day
+        // the job first ran, turning "ended at" into "swept at".
+        //
+        // This is the one cleanup path in the schema whose index already fits:
+        // IX_UserSessions_ExpiresAt is filtered on EndedAt IS NULL, which is
+        // exactly this predicate. Nothing new had to be added for it.
+        return await connection.ExecuteAsync(@"
+            UPDATE TOP (@BatchSize) [dbo].[UserSessions] SET
+                [EndedAt] = [ExpiresAt],
                 [EndReason] = 'timeout'
             WHERE [EndedAt] IS NULL
-              AND [ExpiresAt] < GETUTCDATE()");
+              AND [ExpiresAt] < GETUTCDATE()",
+            new { BatchSize = batchSize });
     }
 }

@@ -101,15 +101,22 @@ public class IdpSessionRepository : IIdpSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupExpiredAsync(DateTime olderThan, CancellationToken cancellationToken)
+    public async Task<int> CleanupExpiredAsync(
+        DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[IdpSessions]
-            WHERE ([ExpiresAt] < @OlderThan)
-               OR ([RevokedAt] IS NOT NULL AND [RevokedAt] < @OlderThan)",
-            new { OlderThan = olderThan });
+        var deleted = await connection.ExecuteAsync(@"
+            DELETE TOP (@BatchSize) FROM [dbo].[IdpSessions]
+            WHERE [RevokedAt] IS NOT NULL AND [RevokedAt] < @OlderThan",
+            new { OlderThan = olderThanUtc, BatchSize = batchSize });
+
+        deleted += await connection.ExecuteAsync(@"
+            DELETE TOP (@BatchSize) FROM [dbo].[IdpSessions]
+            WHERE [RevokedAt] IS NULL AND [ExpiresAt] < @OlderThan",
+            new { OlderThan = olderThanUtc, BatchSize = batchSize });
+
+        return deleted;
     }
 
     // Internal DTO for mapping from database

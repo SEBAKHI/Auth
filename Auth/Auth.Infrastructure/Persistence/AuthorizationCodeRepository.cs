@@ -86,14 +86,17 @@ public class AuthorizationCodeRepository : IAuthorizationCodeRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupExpiredAsync(DateTime olderThan, CancellationToken cancellationToken)
+    public async Task<int> CleanupExpiredAsync(
+        DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[AuthorizationCodes]
+        var deleted = await connection.ExecuteAsync(@"
+            DELETE TOP (@BatchSize) FROM [dbo].[AuthorizationCodes]
             WHERE [ExpiresAt] < @OlderThan",
-            new { OlderThan = olderThan });
+            new { OlderThan = olderThanUtc, BatchSize = batchSize });
+
+        return deleted;
     }
 
     // Internal DTO for mapping from database

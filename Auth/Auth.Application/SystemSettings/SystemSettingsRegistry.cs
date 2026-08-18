@@ -249,6 +249,44 @@ public static class SystemSettingsRegistry
             ]),
 
         new SettingSectionDefinition(
+            // Sits beside the DataRetention section below, which keeps the
+            // audit and login-attempt records. That one answers how long a
+            // RECORD is owed to the user; this one answers how long a dead
+            // CREDENTIAL row is still worth keeping as evidence. Different
+            // question, different config root, so a separate section.
+            Key: "ExpiredDataCleanup",
+            ConfigRoot: "DataRetention",
+            Group: SettingGroups.Operations,
+            Editable: true,
+            // How long a row that already fell out of use is kept. Not a
+            // validity question - every row these govern is dead already. The
+            // question is how long it stays USEFUL, and the use is detection:
+            // a revoked refresh token is the only artifact that turns a stolen
+            // token into a caught theft, and a consumed authorization code is
+            // the only proof a code was replayed. Sweep either too early and
+            // the attack still happens, silently, with nothing left to see it
+            // by. Minimums are ALSO enforced in DataRetentionSettings, because
+            // the console is not the only way a value gets set and a zero here
+            // would put the cutoff at now.
+            //
+            // RefreshTokenDays floors at 90 in code whatever is entered: the
+            // dashboard reports revocations over a trailing window the console
+            // allows up to 90 days, so anything shorter makes those figures
+            // quietly wrong instead of visibly absent.
+            Fields:
+            [
+                new SettingFieldDefinition("Enabled", SettingKind.Bool, DefaultValue: true),
+                new SettingFieldDefinition("WorkerPollMinutes", SettingKind.Int, Min: 1, Max: 1440, DefaultValue: 15),
+                new SettingFieldDefinition("BatchSize", SettingKind.Int, Min: 100, Max: 4000, DefaultValue: 4000),
+                new SettingFieldDefinition("MaxRowsPerTablePerRun", SettingKind.Int, Min: 1000, Max: 5000000, DefaultValue: 200000),
+                new SettingFieldDefinition("AuthorizationCodeDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 7),
+                new SettingFieldDefinition("TwoFactorChallengeDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 7),
+                new SettingFieldDefinition("PasswordResetTokenDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 7),
+                new SettingFieldDefinition("EmailVerificationTokenDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 7),
+                new SettingFieldDefinition("IdpSessionDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 30),
+                new SettingFieldDefinition("RefreshTokenDays", SettingKind.Int, Min: 90, Max: 730, DefaultValue: 90)
+            ]),
+        new SettingSectionDefinition(
             Key: "IdentityProvider",
             ConfigRoot: "IdentityProvider",
             Group: SettingGroups.Access,

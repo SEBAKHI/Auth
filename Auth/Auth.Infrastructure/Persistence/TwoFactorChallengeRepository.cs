@@ -98,14 +98,17 @@ public class TwoFactorChallengeRepository : ITwoFactorChallengeRepository
     }
 
     /// <inheritdoc />
-    public async Task CleanupExpiredAsync(CancellationToken cancellationToken)
+    public async Task<int> CleanupExpiredAsync(
+        DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // Delete challenges that expired more than 7 days ago
-        await connection.ExecuteAsync(@"
-            DELETE FROM [dbo].[TwoFactorChallenges]
-            WHERE [ExpiresAt] < DATEADD(DAY, -7, GETUTCDATE())");
+        var deleted = await connection.ExecuteAsync(@"
+            DELETE TOP (@BatchSize) FROM [dbo].[TwoFactorChallenges]
+            WHERE [ExpiresAt] < @OlderThan",
+            new { OlderThan = olderThanUtc, BatchSize = batchSize });
+
+        return deleted;
     }
 
     // Internal DTO for mapping from database

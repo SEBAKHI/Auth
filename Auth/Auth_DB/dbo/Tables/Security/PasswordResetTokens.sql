@@ -35,3 +35,11 @@ CREATE NONCLUSTERED INDEX [IX_PasswordResetTokens_ExpiresAt]
 ON [dbo].[PasswordResetTokens] ([ExpiresAt])
 WHERE [UsedAt] IS NULL;
 GO
+
+-- The retention sweep deletes rows past their grace window regardless of
+-- UsedAt, so IX_PasswordResetTokens_ExpiresAt above cannot serve it: that index
+-- is filtered to UNUSED rows, which is the opposite set. Without this one the
+-- sweep scans the whole table on every batch.
+CREATE NONCLUSTERED INDEX [IX_PasswordResetTokens_Cleanup]
+ON [dbo].[PasswordResetTokens] ([ExpiresAt]);
+GO

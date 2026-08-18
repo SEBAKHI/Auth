@@ -32,3 +32,10 @@ CREATE NONCLUSTERED INDEX [IX_TwoFactorChallenges_ExpiresAt]
 ON [dbo].[TwoFactorChallenges] ([ExpiresAt])
 WHERE [UsedAt] IS NULL;
 GO
+
+-- Serves the retention sweep, which deletes used and unused challenges alike.
+-- IX_TwoFactorChallenges_ExpiresAt is filtered to UsedAt IS NULL, the opposite
+-- of what the sweep mostly removes.
+CREATE NONCLUSTERED INDEX [IX_TwoFactorChallenges_Cleanup]
+ON [dbo].[TwoFactorChallenges] ([ExpiresAt]);
+GO
