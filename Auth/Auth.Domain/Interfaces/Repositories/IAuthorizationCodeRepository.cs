@@ -27,6 +27,17 @@ public interface IAuthorizationCodeRepository
     Task<AuthorizationCode?> GetByCodeHashAsync(string codeHash, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Records which session a successful exchange produced, so a later replay
+    /// of the same code knows exactly what to revoke.
+    /// </summary>
+    /// <remarks>
+    /// Nothing else in the schema links a code to what it minted, and RFC 6749
+    /// 4.1.2 asks the server to revoke everything issued from a code the moment
+    /// that code is presented a second time.
+    /// </remarks>
+    Task RecordIssuedSessionAsync(Guid codeId, Guid sessionId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Deletes expired codes older than the specified date.
     /// </summary>
     Task CleanupExpiredAsync(DateTime olderThan, CancellationToken cancellationToken);

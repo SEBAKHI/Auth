@@ -42,4 +42,18 @@ public record LoginResponse
     /// </summary>
     [JsonIgnore]
     public string? IdpSessionToken { get; init; }
+
+    /// <summary>
+    /// Gets the session this sign-in created, for callers that must be able to
+    /// revoke exactly this one later.
+    /// </summary>
+    /// <remarks>
+    /// [JsonIgnore] like the SSO token above. It is not a secret - it already
+    /// travels inside the access token as "sid" - but nothing in the response
+    /// body needs it, and a field on the wire is a field someone starts relying
+    /// on. The token exchange stamps it onto the authorization code so a replay
+    /// of that code can revoke what the code produced.
+    /// </remarks>
+    [JsonIgnore]
+    public Guid? SessionId { get; init; }
 }

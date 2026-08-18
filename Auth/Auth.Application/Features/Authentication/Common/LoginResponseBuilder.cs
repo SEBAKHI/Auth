@@ -332,7 +332,8 @@ public class LoginResponseBuilder : ILoginResponseBuilder
             // Tokens are only issued once 2FA is satisfied (or not enabled),
             // so a built response never requires further verification.
             RequiresTwoFactor = false,
-            IdpSessionToken = idpSessionToken
+            IdpSessionToken = idpSessionToken,
+            SessionId = sessionId
         };
     }
 

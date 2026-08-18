@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using System.Security.Cryptography;
 using System.Text;
 using Auth.Application.DTOs;
@@ -28,6 +29,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock = new();
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock = new();
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly ExchangeAuthorizationCodeCommandHandler _handler;
 
     public ExchangeAuthorizationCodeCommandHandlerTests()
@@ -43,6 +45,7 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
             _userRepositoryMock.Object,
             _refreshTokenKeyServiceMock.Object,
             _loginResponseBuilderMock.Object,
+            _credentialRevocationMock.Object,
             new Mock<ILogger<ExchangeAuthorizationCodeCommandHandler>>().Object);
     }
 
@@ -386,4 +389,134 @@ public class ExchangeAuthorizationCodeCommandHandlerTests
     }
 
     #endregion
+    [Fact]
+    public async Task Handle_ReplayedCode_RevokesTheSessionThatCodeIssued()
+    {
+        // The gap this closes. Detecting the replay and leaving the tokens alive
+        // is the worst of both: the theft is recorded and the thief keeps working
+        // access until the refresh token expires (RFC 6749 4.1.2).
+        var sessionId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AuthorizationCode?)null);
+
+        var consumed = new AuthorizationCode(
+            Guid.NewGuid(), Guid.NewGuid(), userId, "code-hash", RedirectUri,
+            Challenge, DateTime.UtcNow.AddSeconds(-30), DateTime.UtcNow.AddSeconds(30),
+            DateTime.UtcNow.AddSeconds(-5), "127.0.0.1", sessionId);
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.GetByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(consumed);
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.FirstError.Should().Be(AuthErrors.AuthorizationCodeInvalid);
+        _credentialRevocationMock.Verify(
+            s => s.TerminateSessionAsync(
+                sessionId, null, TokenRevocationReasons.AuthorizationCodeReplay, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_ReplayedCode_WithNoIssuedSession_RevokesNothingAndStillRefuses()
+    {
+        // A code consumed before this column existed, or an exchange that died
+        // between consuming and issuing. Nothing was minted, so there is nothing
+        // to take back — and the caller must still be refused identically.
+        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AuthorizationCode?)null);
+
+        var consumed = new AuthorizationCode(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "code-hash", RedirectUri,
+            Challenge, DateTime.UtcNow.AddSeconds(-30), DateTime.UtcNow.AddSeconds(30),
+            DateTime.UtcNow.AddSeconds(-5), "127.0.0.1", issuedSessionId: null);
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.GetByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(consumed);
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.FirstError.Should().Be(AuthErrors.AuthorizationCodeInvalid);
+        _credentialRevocationMock.Verify(
+            s => s.TerminateSessionAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ReplayedCode_RevocationThrowing_StillAnswersInvalidCode()
+    {
+        // The response must not change shape because the revocation failed. A
+        // caller probing with a stolen code learns nothing either way.
+        var sessionId = Guid.NewGuid();
+        _refreshTokenKeyServiceMock.Setup(s => s.ComputeTokenHash("plain-code")).Returns("code-hash");
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.ConsumeByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((AuthorizationCode?)null);
+
+        var consumed = new AuthorizationCode(
+            Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), "code-hash", RedirectUri,
+            Challenge, DateTime.UtcNow.AddSeconds(-30), DateTime.UtcNow.AddSeconds(30),
+            DateTime.UtcNow.AddSeconds(-5), "127.0.0.1", sessionId);
+        _authorizationCodeRepositoryMock
+            .Setup(r => r.GetByCodeHashAsync("code-hash", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(consumed);
+        _credentialRevocationMock
+            .Setup(s => s.TerminateSessionAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("database unreachable"));
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Should().Be(AuthErrors.AuthorizationCodeInvalid);
+    }
+    [Fact]
+    public async Task Handle_ValidExchange_BindsTheCodeToTheSessionItIssued()
+    {
+        // Without this stamp a replay has nothing to revoke — which is the state
+        // every code was permanently in before. It is written after the tokens
+        // exist, so it records something real rather than an intention.
+        var (_, code, userId) = SetupHappyPath(Challenge);
+        var sessionId = Guid.NewGuid();
+
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.IsAny<User>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<CancellationToken>(), false, It.IsAny<string?>(), It.IsAny<Guid?>()))
+            .ReturnsAsync(new LoginResponse
+            {
+                Token = new TokenResponse
+                {
+                    AccessToken = "access-jwt",
+                    RefreshToken = "refresh-token",
+                    ExpiresIn = 900,
+                    RefreshExpiresIn = 604800
+                },
+                SessionId = sessionId
+            });
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _authorizationCodeRepositoryMock.Verify(
+            r => r.RecordIssuedSessionAsync(code.Id, sessionId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_SessionIdIsNeverPutOnTheWire()
+    {
+        // It already travels inside the access token as "sid"; the response body
+        // has no need of it, and a field on the wire becomes a field someone
+        // depends on.
+        var property = typeof(LoginResponse).GetProperty(nameof(LoginResponse.SessionId));
+
+        property!.GetCustomAttributes(typeof(System.Text.Json.Serialization.JsonIgnoreAttribute), false)
+            .Should().NotBeEmpty();
+    }
 }
