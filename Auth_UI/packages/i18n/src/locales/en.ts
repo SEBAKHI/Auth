@@ -1386,7 +1386,7 @@ export const en = {
         "When a user changes their password, all their other sessions end. Recommended: on — a changed password usually means the old one is no longer trusted.",
       terminateSessionsOnPasswordReset: "Sign out everywhere on password reset",
       terminateSessionsOnPasswordResetHint:
-        "When a password is reset via email link, all existing sessions end. Recommended: on — resets often follow a suspected compromise.",
+        "When a password is reset via email link, all existing sessions end. Recommended: on — resets often follow a suspected compromise. Single sign-on always ends, even with this off.",
     },
     gateway: {
       title: "Gateway protection",

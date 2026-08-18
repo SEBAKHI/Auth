@@ -66,7 +66,13 @@ function ChangePasswordCard() {
   const mutation = useMutation({
     mutationFn: async (values: z.infer<typeof schema>) => {
       const { error } = await api.POST("/api/v1/Auth/change-password", {
-        body: { ...values, terminateSessions: false },
+        // terminateSessions is deliberately NOT sent. Omitting it leaves the
+        // decision to the operator's Session:TerminateSessionsOnPasswordChange
+        // setting, which defaults to true. Sending false overrode that switch
+        // outright, so the console offered "sign out everywhere on password
+        // change", showed it turned on, and every other browser stayed signed
+        // in — the reset page never sent it, which is why only reset worked.
+        body: values,
       })
       if (error) throw error
     },

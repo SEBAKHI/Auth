@@ -1316,7 +1316,7 @@ export const zh: TranslationResources = {
         "用户修改密码后，其所有其他会话都会结束。推荐：开启——修改密码通常意味着旧密码已不再可信。",
       terminateSessionsOnPasswordReset: "重置密码时退出所有设备",
       terminateSessionsOnPasswordResetHint:
-        "通过邮件链接重置密码后，所有现有会话都会结束。推荐：开启——重置操作往往发生在怀疑账户被盗之后。",
+        "通过邮件链接重置密码后，所有现有会话都会结束。推荐：开启——重置操作往往发生在怀疑账户被盗之后。 无论此项是否关闭，单点登录会话始终结束。",
     },
     gateway: {
       title: "网关保护",
