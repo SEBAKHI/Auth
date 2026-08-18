@@ -18,15 +18,23 @@ public class CredentialRevocationServiceTests
     private readonly Mock<IRefreshTokenRepository> _refreshTokenRepositoryMock = new();
     private readonly Mock<IIdpSessionRepository> _idpSessionRepositoryMock = new();
     private readonly Mock<ITokenBlacklistService> _blacklistServiceMock = new();
+    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
     private readonly CredentialRevocationService _service;
 
     public CredentialRevocationServiceTests()
     {
+        // The hash is what storage is keyed by, so the spare-this-one tests need a
+        // deterministic stand-in rather than a real HMAC.
+        _tokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
+            .Returns((string token) => $"hash:{token}");
+
         _service = new CredentialRevocationService(
             _sessionRepositoryMock.Object,
             _refreshTokenRepositoryMock.Object,
             _idpSessionRepositoryMock.Object,
             _blacklistServiceMock.Object,
+            _tokenKeyServiceMock.Object,
             new Mock<ILogger<CredentialRevocationService>>().Object);
     }
 
@@ -192,6 +200,59 @@ public class CredentialRevocationServiceTests
         _refreshTokenRepositoryMock.Verify(
             r => r.RevokeAllForUserAsync(userId, revokedBy, "Account deleted", It.IsAny<CancellationToken>()), Times.Once);
         _idpSessionRepositoryMock.Verify(
-            r => r.RevokeAllForUserAsync(userId, It.IsAny<CancellationToken>()), Times.Once);
+            r => r.RevokeAllForUserExceptAsync(userId, null, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RevokeCredentialsAsync_RevokesTheSsoSessionsToo()
+    {
+        // The gap this whole change exists to close: ending UserSessions rows
+        // evicts nobody, because nothing on the refresh path consults them and the
+        // SSO cookie lives in a table of its own.
+        var userId = Guid.NewGuid();
+        SetupActiveSessions(userId, TestHelpers.CreateUserSession(userId: userId, isActive: true));
+
+        await _service.RevokeCredentialsAsync(
+            userId, exceptSessionId: null, exceptIdpSessionToken: null,
+            revokedBy: userId, "Password reset", CancellationToken.None);
+
+        _idpSessionRepositoryMock.Verify(
+            r => r.RevokeAllForUserExceptAsync(userId, null, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RevokeCredentialsAsync_SparesTheCallersOwnBrowser()
+    {
+        var userId = Guid.NewGuid();
+        var currentSession = TestHelpers.CreateUserSession(userId: userId, isActive: true);
+        SetupActiveSessions(userId, currentSession);
+
+        await _service.RevokeCredentialsAsync(
+            userId, currentSession.Id, exceptIdpSessionToken: "cookie-token",
+            revokedBy: userId, "Password changed", CancellationToken.None);
+
+        // Spared by HASH, never by the plain value — that is what storage holds.
+        _idpSessionRepositoryMock.Verify(
+            r => r.RevokeAllForUserExceptAsync(userId, "hash:cookie-token", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task RevokeCredentialsAsync_SparingASession_LeavesSessionlessTokensAlone()
+    {
+        // The blanket sweep would take the spared session's own refresh token with
+        // it, so it is deliberately skipped whenever something is being kept.
+        var userId = Guid.NewGuid();
+        var currentSession = TestHelpers.CreateUserSession(userId: userId, isActive: true);
+        SetupActiveSessions(userId, currentSession);
+
+        await _service.RevokeCredentialsAsync(
+            userId, currentSession.Id, exceptIdpSessionToken: null,
+            revokedBy: userId, "Password changed", CancellationToken.None);
+
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeAllForUserAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

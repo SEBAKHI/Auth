@@ -74,16 +74,30 @@ public class IdpSessionRepository : IIdpSessionRepository
     }
 
     /// <inheritdoc />
-    public async Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken)
+    public Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        return RevokeAllForUserExceptAsync(userId, exceptTokenHash: null, cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public async Task<int> RevokeAllForUserExceptAsync(
+        Guid userId,
+        string? exceptTokenHash,
+        CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
+        // The hash comparison is a plain equality test on a value this server
+        // computed itself (HMAC-SHA256 of the cookie token), so there is nothing
+        // attacker-controlled to time: a caller who guesses wrong simply loses
+        // the session they were trying to keep.
+        return await connection.ExecuteAsync(@"
             UPDATE [dbo].[IdpSessions] SET
                 [RevokedAt] = GETUTCDATE()
             WHERE [UserId] = @UserId
-              AND [RevokedAt] IS NULL",
-            new { UserId = userId });
+              AND [RevokedAt] IS NULL
+              AND (@ExceptTokenHash IS NULL OR [TokenHash] <> @ExceptTokenHash)",
+            new { UserId = userId, ExceptTokenHash = exceptTokenHash });
     }
 
     /// <inheritdoc />

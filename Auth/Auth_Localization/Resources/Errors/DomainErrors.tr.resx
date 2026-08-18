@@ -505,6 +505,9 @@
   <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
     <value>E-posta adresi harici sağlayıcı tarafından doğrulanmamış.</value>
   </data>
+  <data name="ExternalAuth.NonceRequired" xml:space="preserve">
+    <value>Oturum açma doğrulanamadı. Lütfen tekrar deneyin.</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>Bu {0} hesabı zaten başka bir kullanıcıya bağlı.</value>
   </data>

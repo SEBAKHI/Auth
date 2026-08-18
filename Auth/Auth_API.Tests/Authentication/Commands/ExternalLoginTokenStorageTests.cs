@@ -67,6 +67,7 @@ public class ExternalLoginTokenStorageTests
             new Mock<IPersonalOrganizationCreator>().Object,
             loginResponseBuilderMock.Object,
             new Mock<ITwoFactorChallengeService>().Object,
+            TestHelpers.CreateExternalNonceGuard(),
             new Mock<IDomainEventDispatcher>().Object,
             new Mock<ILogger<ExternalLoginCommandHandler>>().Object);
     }

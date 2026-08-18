@@ -18,6 +18,11 @@ namespace Auth.Application.Features.Authentication.ExternalLogin;
 /// registration.
 /// </param>
 /// <param name="FamilyName">Client-supplied last name (see <paramref name="GivenName"/>).</param>
+/// <param name="NonceCookie">
+/// The hash this server stored when it issued <paramref name="Nonce"/>, read
+/// from the browser's HttpOnly cookie. Pairing the two is what shows the nonce
+/// was issued to THIS browser rather than invented by whoever is calling.
+/// </param>
 public record ExternalLoginCommand(
     string Provider,
     string IdToken,
@@ -28,4 +33,5 @@ public record ExternalLoginCommand(
     string? DeviceId = null,
     string? AuthorizationCode = null,
     string? GivenName = null,
-    string? FamilyName = null) : IRequest<ErrorOr<LoginResponse>>;
+    string? FamilyName = null,
+    string? NonceCookie = null) : IRequest<ErrorOr<LoginResponse>>;

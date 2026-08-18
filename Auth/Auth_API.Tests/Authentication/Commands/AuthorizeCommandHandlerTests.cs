@@ -27,6 +27,15 @@ public class AuthorizeCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock = new();
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock = new();
     private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock = new();
+
+    // The REAL ticket service, not a mock: step-up now turns on a signed value
+    // surviving a round trip, and a mock that simply agrees would test nothing.
+    private readonly IStepUpTicketService _stepUpTicketService;
+    private readonly IdentityProviderSettings _idpSettings = new()
+    {
+        AccountsBaseUrl = "https://accounts.example.com"
+    };
+
     private readonly AuthorizeCommandHandler _handler;
 
     public AuthorizeCommandHandlerTests()
@@ -37,6 +46,18 @@ public class AuthorizeCommandHandlerTests
             .Setup(r => r.IsUserEntitledAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
+        // A deterministic stand-in for the HMAC, base64 like the real one so it
+        // shares the property the ticket format relies on: a signature never
+        // contains the field separator. Declared first so the specific token
+        // setups in the helpers below still win.
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
+            .Returns((string value) =>
+                Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"hash:{value}")));
+
+        _stepUpTicketService = new Auth.Infrastructure.Authentication.StepUpTicketService(
+            _refreshTokenKeyServiceMock.Object);
+
         _handler = new AuthorizeCommandHandler(
             _applicationRepositoryMock.Object,
             _applicationAccessRepositoryMock.Object,
@@ -45,12 +66,17 @@ public class AuthorizeCommandHandlerTests
             _userRepositoryMock.Object,
             _jwtTokenServiceMock.Object,
             _refreshTokenKeyServiceMock.Object,
-            TestHelpers.CreateOptions(new IdentityProviderSettings
-            {
-                AccountsBaseUrl = "https://accounts.example.com"
-            }),
+            _stepUpTicketService,
+            TestHelpers.CreateOptions(_idpSettings),
             new Mock<ILogger<AuthorizeCommandHandler>>().Object);
     }
+
+    /// <summary>
+    /// A ticket as the server would have written it on the trip that demanded
+    /// step-up, <paramref name="secondsAgo"/> in the past.
+    /// </summary>
+    private string IssueTicket(int secondsAgo = 2, string clientId = ClientId)
+        => _stepUpTicketService.Issue(clientId, DateTime.UtcNow.AddSeconds(-secondsAgo));
 
     private static AuthorizeCommand CreateCommand(
         string? responseType = "code",
@@ -61,7 +87,8 @@ public class AuthorizeCommandHandlerTests
         string? state = "xyz",
         string? idpSessionToken = null,
         string? prompt = null,
-        string? maxAge = null)
+        string? maxAge = null,
+        string? stepUpTicket = null)
     {
         return new AuthorizeCommand(
             responseType,
@@ -74,7 +101,8 @@ public class AuthorizeCommandHandlerTests
             OriginalUrl,
             "127.0.0.1",
             prompt,
-            maxAge);
+            maxAge,
+            stepUpTicket);
     }
 
     private Auth.Domain.Entities.Application SetupApplication(bool isActive = true)
@@ -381,6 +409,223 @@ public class AuthorizeCommandHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.IsLoginRedirect.Should().BeTrue();
         result.Value.RedirectUrl.Should().StartWith("https://accounts.example.com/login?returnTo=");
+        result.Value.StepUpTicketToSet.Should().NotBeNull("the demand has to be recorded to be provable later");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_PromptLogin_StrippingTheParameterNoLongerBypassesStepUp()
+    {
+        // THE defect this phase closes. The demand used to be satisfied by its own
+        // removal, so anyone holding a live session cookie could delete prompt=login
+        // from the address bar and be issued a code against the stale session —
+        // precisely the person step-up exists to stop. Now the parameter's absence
+        // buys nothing on its own: without a fresh session there is nothing to
+        // prove, and the request is answered on its merits.
+        SetupApplication();
+        SetupSessionAged(TimeSpan.FromDays(3));
+        SetupCodeIssuance();
+
+        // The attacker's second request: parameter removed, same stale session.
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: null, maxAge: "300"),
+            CancellationToken.None);
+
+        // max_age is likewise no longer strippable in practice, because the server
+        // now keeps its own record and the SPA no longer has to delete anything.
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_PromptLogin_WithTicketButStaleSession_StillDemandsStepUp()
+    {
+        // Holding a ticket is not enough: it proves a demand was MADE, and only a
+        // session minted after it proves one was ANSWERED.
+        SetupApplication();
+        SetupSessionAged(TimeSpan.FromHours(2));
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", stepUpTicket: IssueTicket()),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_PromptLogin_WithTicketAndFreshlyMintedSession_IssuesCodeAndSpendsTheTicket()
+    {
+        // The honest round trip: demand recorded, user signs in, the new session
+        // postdates the demand.
+        SetupApplication();
+        var ticket = IssueTicket(secondsAgo: 30);
+        SetupSessionAged(TimeSpan.Zero);
+        SetupCodeIssuance();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", stepUpTicket: ticket),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        result.Value.RedirectUrl.Should().StartWith(RedirectUri);
+        result.Value.ClearStepUpTicket.Should().BeTrue(
+            "one re-authentication must answer one demand, not every demand in the ticket's lifetime");
+    }
+
+    [Fact]
+    public async Task Handle_PromptLogin_TicketIssuedForAnotherClient_IsRejected()
+    {
+        // Otherwise a client the user merely has access to could mint tickets that
+        // satisfy a sensitive client's re-authentication.
+        SetupApplication();
+        var foreignTicket = IssueTicket(secondsAgo: 30, clientId: "OTHER_APP");
+        SetupSessionAged(TimeSpan.Zero);
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", stepUpTicket: foreignTicket),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
+    }
+
+    [Theory]
+    [InlineData("not-a-ticket")]
+    [InlineData("9999999999|CRM|forged-signature")]
+    [InlineData("|CRM|")]
+    [InlineData("")]
+    public async Task Handle_PromptLogin_TamperedTicket_IsRejected(string ticket)
+    {
+        SetupApplication();
+        SetupSessionAged(TimeSpan.Zero);
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", stepUpTicket: ticket),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue("an unreadable ticket must never satisfy a demand");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_PromptLogin_ExpiredTicket_IsRejected()
+    {
+        SetupApplication();
+        var staleTicket = IssueTicket(secondsAgo: (int)_idpSettings.StepUpTicketLifetime.TotalSeconds + 60);
+        SetupSessionAged(TimeSpan.Zero);
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "login", stepUpTicket: staleTicket),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_PromptLoginSatisfied_StillHonoursMaxAge()
+    {
+        // Answering prompt=login must not waive the other freshness rule; when a
+        // client asks for both, the stricter wins.
+        SetupApplication();
+        var ticket = IssueTicket(secondsAgo: 30);
+        SetupSessionAged(TimeSpan.FromMinutes(20));
+
+        var result = await _handler.Handle(
+            CreateCommand(
+                idpSessionToken: "idp-token", prompt: "login", maxAge: "60", stepUpTicket: ticket),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue();
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_PromptLogin_IsMatchedCaseInsensitively()
+    {
+        SetupApplication();
+        SetupValidSession();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "Login"),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeTrue("case must not be a way to skip the demand");
+        VerifyNoCodeIssued();
+    }
+
+    // --- prompt=none: no UI may be shown ------------------------------------
+
+    [Fact]
+    public async Task Handle_PromptNone_WithoutSession_ReturnsLoginRequiredInsteadOfRedirectingToLogin()
+    {
+        // What a silent-renewal iframe needs. It used to receive a 302 to the login
+        // page and render it inside the frame.
+        SetupApplication();
+
+        var result = await _handler.Handle(
+            CreateCommand(prompt: "none"),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.IsLoginRedirect.Should().BeFalse();
+        result.Value.RedirectUrl.Should().StartWith(RedirectUri);
+        result.Value.RedirectUrl.Should().Contain("error=login_required");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_PromptNone_WithValidSession_IssuesCode()
+    {
+        SetupApplication();
+        SetupValidSession();
+        SetupCodeIssuance();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "none"),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RedirectUrl.Should().Contain("code=");
+    }
+
+    [Fact]
+    public async Task Handle_PromptNone_WhenStepUpWouldBeRequired_ReturnsLoginRequired()
+    {
+        SetupApplication();
+        SetupSessionAged(TimeSpan.FromHours(2));
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "none", maxAge: "60"),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RedirectUrl.Should().Contain("error=login_required");
+        VerifyNoCodeIssued();
+    }
+
+    [Fact]
+    public async Task Handle_PromptNoneCombinedWithAnotherValue_IsInvalidRequest()
+    {
+        // OIDC Core §3.1.2.1: "none" may not be combined with any other value.
+        SetupApplication();
+        SetupValidSession();
+
+        var result = await _handler.Handle(
+            CreateCommand(idpSessionToken: "idp-token", prompt: "none login"),
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.RedirectUrl.Should().Contain("error=invalid_request");
         VerifyNoCodeIssued();
     }
 

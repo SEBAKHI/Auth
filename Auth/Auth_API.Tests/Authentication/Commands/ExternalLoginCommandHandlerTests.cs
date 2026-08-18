@@ -76,6 +76,7 @@ public class ExternalLoginCommandHandlerTests
             _personalOrgCreatorMock.Object,
             _loginResponseBuilderMock.Object,
             _twoFactorChallengeServiceMock.Object,
+            TestHelpers.CreateExternalNonceGuard(),
             _eventDispatcherMock.Object,
             _loggerMock.Object);
     }
@@ -115,6 +116,116 @@ public class ExternalLoginCommandHandlerTests
             LastName = "User"
         }
     };
+
+    /// <summary>
+    /// A handler whose nonce guard is switched on, for the enforcement tests.
+    /// </summary>
+    private ExternalLoginCommandHandler CreateHandlerRequiringNonce()
+        => new(
+            _providerFactoryMock.Object,
+            _externalLoginRepositoryMock.Object,
+            _userRepositoryMock.Object,
+            _permissionRepositoryMock.Object,
+            _accountDeletionRequestRepositoryMock.Object,
+            new Auth.Application.Features.Users.Common.IdentifierReservationGuard(
+                _tombstoneRepositoryMock.Object, new Mock<IIdentifierHasher>().Object),
+            _tokenLifecycles,
+            _perUserCryptoMock.Object,
+            _avatarImporterMock.Object,
+            _personalOrgCreatorMock.Object,
+            _loginResponseBuilderMock.Object,
+            _twoFactorChallengeServiceMock.Object,
+            TestHelpers.CreateExternalNonceGuard(requireNonce: true),
+            _eventDispatcherMock.Object,
+            _loggerMock.Object);
+
+    [Fact]
+    public async Task Handle_NonceRequired_WithoutCookie_IsRejectedBeforeTheTokenIsEvenLookedAt()
+    {
+        // Order matters and is asserted: a value the caller invented says nothing
+        // about the token, so there is no reason to spend a signature validation
+        // — or a round trip to the provider's key endpoint — establishing that a
+        // replayed token is genuine. It always was.
+        _providerFactoryMock.Setup(f => f.GetProvider("google")).Returns(_providerMock.Object);
+
+        var result = await CreateHandlerRequiringNonce().Handle(
+            CreateCommand(nonce: "locally-invented"), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("ExternalAuth.NonceRequired");
+        _providerMock.Verify(
+            p => p.ValidateTokenAsync(It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_NonceRequired_WithMatchingCookie_ProceedsToTheProvider()
+    {
+        _providerFactoryMock.Setup(f => f.GetProvider("google")).Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync("valid-id-token", "issued-nonce", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateExternalUserInfo());
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync("google", "provider-user-123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("external@test.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(email: "external@test.com"));
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.IsAny<Auth.Domain.Entities.User>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<string?>(), It.IsAny<CancellationToken>(), true, null, null))
+            .ReturnsAsync(CreateLoginResponse());
+
+        var command = CreateCommand(nonce: "issued-nonce") with { NonceCookie = "hash:issued-nonce" };
+        var result = await CreateHandlerRequiringNonce().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _providerMock.Verify(
+            p => p.ValidateTokenAsync("valid-id-token", "issued-nonce", It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_NonceRequired_CookieFromAnotherBrowser_IsRejected()
+    {
+        // The replayed-token case end to end: the stolen token's nonce belongs to
+        // the victim's browser, and the cookie in the caller's browser vouches
+        // for a different one.
+        _providerFactoryMock.Setup(f => f.GetProvider("google")).Returns(_providerMock.Object);
+
+        var command = CreateCommand(nonce: "victims-nonce") with { NonceCookie = "hash:attackers-nonce" };
+        var result = await CreateHandlerRequiringNonce().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("ExternalAuth.NonceRequired");
+    }
+
+    [Fact]
+    public async Task Handle_NonceNotRequired_StillSignsInWithoutOne()
+    {
+        // The shipped default, and what makes deploying the two halves in either
+        // order safe. Every other test in this class runs through this path.
+        _providerFactoryMock.Setup(f => f.GetProvider("google")).Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync("valid-id-token", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateExternalUserInfo());
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync("google", "provider-user-123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("external@test.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(email: "external@test.com"));
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.IsAny<Auth.Domain.Entities.User>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<string?>(), It.IsAny<CancellationToken>(), true, null, null))
+            .ReturnsAsync(CreateLoginResponse());
+
+        var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
 
     [Fact]
     public async Task Handle_ProviderNotFound_ReturnsError()

@@ -9,6 +9,7 @@ import { useTheme } from "@authsystem/ui/theme-provider"
 
 import { useLoginCompletion } from "../login-completion"
 import { navigateToRecovery } from "./recovery-navigation"
+import { requestExternalNonce } from "./request-nonce"
 import { useExternalProviders } from "./use-external-providers"
 
 /** Minimal typings for the Google Identity Services (GSI) client. */
@@ -130,11 +131,13 @@ interface GoogleSignInProps {
  * the API lists an enabled "google" provider AND a client id is configured.
  * The surrounding divider lives in ExternalProviders.
  *
- * A fresh nonce is generated per mount and sent BOTH to Google (echoed inside
- * the signed ID token) and to the API, which rejects the login on mismatch.
- * Note what that is and is not: the nonce binds this response to this mount, but
- * it is generated in the browser and never issued, stored or spent server-side,
- * and the API skips the check when none is sent. It is not replay protection.
+ * A fresh nonce is fetched from the API per mount and sent BOTH to Google (which
+ * seals it inside the signed ID token) and back to the API at sign-in. Because
+ * the server issued it and holds the matching half in an HttpOnly cookie, the
+ * pair shows the token was minted for THIS browser — which is what makes a
+ * stolen token useless here. The value used to be generated locally, and a
+ * locally generated one proves nothing: whoever holds the token can read the
+ * nonce out of it and send the matching pair.
  */
 export function GoogleSignIn({
   recoveryPath,
@@ -145,6 +148,9 @@ export function GoogleSignIn({
   const { resolvedTheme } = useTheme()
   const navigate = useNavigate()
   const containerRef = React.useRef<HTMLDivElement>(null)
+  // Replaced with the server-issued value before Google is initialised; the
+  // local seed only covers the window before that resolves, when no sign-in can
+  // have happened yet.
   const nonceRef = React.useRef<string>(crypto.randomUUID())
   const { googleEnabled, googleClientId } = useExternalProviders()
   const { complete, challenge } = useLoginCompletion()
@@ -201,9 +207,14 @@ export function GoogleSignIn({
     if (!googleEnabled) return
     let cancelled = false
 
-    void loadGsiScript(i18n.language)
-      .then(() => {
+    // The nonce has to be in hand BEFORE initialize(), because Google seals
+    // whatever it is given into the token it mints — there is no adding it
+    // afterwards. Fetched alongside the script rather than before it, so the
+    // round trip costs nothing the script load was not already spending.
+    void Promise.all([loadGsiScript(i18n.language), requestExternalNonce()])
+      .then(([, nonce]) => {
         if (cancelled || !containerRef.current || !window.google) return
+        nonceRef.current = nonce
         window.google.accounts.id.initialize({
           client_id: googleClientId,
           nonce: nonceRef.current,

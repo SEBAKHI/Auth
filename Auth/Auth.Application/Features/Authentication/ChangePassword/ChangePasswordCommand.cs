@@ -16,9 +16,15 @@ namespace Auth.Application.Features.Authentication.ChangePassword;
 /// <param name="CurrentSessionId">
 /// Optional current session ID to exclude from termination.
 /// </param>
+/// <param name="IdpSessionToken">
+/// The caller's SSO cookie value, if the browser presented one, so the sweep
+/// ends every OTHER browser's SSO session without ending the one being used to
+/// change the password.
+/// </param>
 public record ChangePasswordCommand(
     Guid UserId,
     string CurrentPassword,
     string NewPassword,
     bool? TerminateSessions = null,
-    Guid? CurrentSessionId = null) : IRequest<ErrorOr<Success>>;
+    Guid? CurrentSessionId = null,
+    string? IdpSessionToken = null) : IRequest<ErrorOr<Success>>;

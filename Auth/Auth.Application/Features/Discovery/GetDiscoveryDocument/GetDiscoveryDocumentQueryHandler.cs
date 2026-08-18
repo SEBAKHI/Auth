@@ -46,7 +46,8 @@ public class GetDiscoveryDocumentQueryHandler
             TokenEndpointAuthMethodsSupported = ["none"],
             ClaimsSupported = ["sub", "email", "name", "roles", "permissions", "iat", "exp", "aud", "iss"],
             GrantTypesSupported = ["authorization_code", "refresh_token"],
-            CodeChallengeMethodsSupported = ["S256"]
+            CodeChallengeMethodsSupported = ["S256"],
+            PromptValuesSupported = ["login", "none"]
         };
 
         return Task.FromResult<ErrorOr<DiscoveryDocumentDto>>(document);

@@ -8,20 +8,25 @@ import { API_BASE_URL } from "@authsystem/api/env"
 const AUTHORIZE_PATH_RE = /^\/api\/v\d+\/auth\/authorize$/i
 
 /**
- * Step-up parameters that force re-authentication on the authorize endpoint.
- * They are stripped from returnTo once the user reaches the login page: the
- * interactive sign-in about to happen IS the fresh authentication they demand,
- * so carrying them back to authorize would make it demand step-up again and
- * loop the browser between authorize and login forever.
- */
-const STEP_UP_PARAMS = ["prompt", "max_age"]
-
-/**
  * Validates a raw pending-authorize URL, wherever it came from.
  * Accepts only an absolute URL on the API origin whose path is the OAuth
  * authorize endpoint; anything else returns null and the login behaves as a
- * plain first-party sign-in. The step-up parameters (prompt, max_age) are
- * removed so resuming the authorize request after login cannot loop.
+ * plain first-party sign-in.
+ *
+ * The request is passed back to the authorize endpoint EXACTLY as it arrived.
+ * This used to delete `prompt` and `max_age` before resuming, to stop the
+ * browser looping between authorize and login — the server demanded step-up on
+ * the literal presence of `prompt=login`, so the only way out was to remove the
+ * demand. That made re-authentication satisfiable by deleting the request for
+ * it: anyone holding a live session cookie could strip the parameter by hand and
+ * be issued a code against the stale session, which is exactly the person
+ * step-up exists to stop. The server now records its own demand in a signed
+ * HttpOnly cookie and checks that the session was minted after it, so the loop
+ * ends on evidence and this client has nothing left to remove.
+ *
+ * REQUIRES the API to be deployed first. Against an older API — one that still
+ * returns step-up on the bare parameter — carrying `prompt=login` through would
+ * loop the browser.
  *
  * Exported separately from `getValidReturnTo` because the value does not only
  * arrive in the query string: it is threaded through router state across the
@@ -40,8 +45,6 @@ export function validateReturnToUrl(
 
     if (url.origin !== apiOrigin) return null
     if (!AUTHORIZE_PATH_RE.test(url.pathname)) return null
-
-    for (const param of STEP_UP_PARAMS) url.searchParams.delete(param)
 
     return url.toString()
   } catch {

@@ -17,6 +17,7 @@ public class CredentialRevocationService : ICredentialRevocationService
     private readonly IRefreshTokenRepository _refreshTokenRepository;
     private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly ITokenBlacklistService _blacklistService;
+    private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly ILogger<CredentialRevocationService> _logger;
 
     public CredentialRevocationService(
@@ -24,12 +25,14 @@ public class CredentialRevocationService : ICredentialRevocationService
         IRefreshTokenRepository refreshTokenRepository,
         IIdpSessionRepository idpSessionRepository,
         ITokenBlacklistService blacklistService,
+        IRefreshTokenKeyService tokenKeyService,
         ILogger<CredentialRevocationService> logger)
     {
         _sessionRepository = sessionRepository;
         _refreshTokenRepository = refreshTokenRepository;
         _idpSessionRepository = idpSessionRepository;
         _blacklistService = blacklistService;
+        _tokenKeyService = tokenKeyService;
         _logger = logger;
     }
 
@@ -143,24 +146,65 @@ public class CredentialRevocationService : ICredentialRevocationService
     }
 
     /// <inheritdoc />
-    public async Task<int> RevokeAllCredentialsAsync(
+    public Task<int> RevokeAllCredentialsAsync(
         Guid userId,
         Guid? revokedBy,
         string reason,
         CancellationToken cancellationToken)
     {
-        var terminated = await TerminateSessionsAsync(
-            userId, exceptSessionId: null, revokedBy, reason, cancellationToken);
+        return RevokeCredentialsAsync(
+            userId,
+            exceptSessionId: null,
+            exceptIdpSessionToken: null,
+            revokedBy,
+            reason,
+            cancellationToken);
+    }
 
-        // Session-less refresh tokens (legacy/device flows) and the IdP SSO
-        // sessions used by the OIDC authorize flow.
-        await _refreshTokenRepository.RevokeAllForUserAsync(userId, revokedBy, reason, cancellationToken);
-        await _idpSessionRepository.RevokeAllForUserAsync(userId, cancellationToken);
+    /// <inheritdoc />
+    public async Task<int> RevokeCredentialsAsync(
+        Guid userId,
+        Guid? exceptSessionId,
+        string? exceptIdpSessionToken,
+        Guid? revokedBy,
+        string reason,
+        CancellationToken cancellationToken)
+    {
+        var terminated = await TerminateSessionsAsync(
+            userId, exceptSessionId, revokedBy, reason, cancellationToken);
+
+        // Session-less refresh tokens (legacy/device flows) are reachable only by
+        // a blanket revocation, which would also kill the spared session's token
+        // — so they are swept only when nothing is being spared.
+        if (exceptSessionId is null)
+        {
+            await _refreshTokenRepository.RevokeAllForUserAsync(userId, revokedBy, reason, cancellationToken);
+        }
+
+        // The IdP SSO sessions behind the OIDC authorize flow. These live in
+        // their own table with their own lifetime and are invisible to every
+        // UserSessions operation, so they have to be named explicitly here.
+        var idpRevoked = await RevokeIdpSessionsAsync(
+            userId, exceptIdpSessionToken, cancellationToken);
 
         _logger.LogInformation(
-            "Revoked all credentials for user {UserId}: {Reason}",
-            userId, reason);
+            "Revoked credentials for user {UserId}: {SessionCount} sessions, {IdpSessionCount} SSO sessions. {Reason}",
+            userId, terminated, idpRevoked, reason);
 
         return terminated;
+    }
+
+    /// <inheritdoc />
+    public Task<int> RevokeIdpSessionsAsync(
+        Guid userId,
+        string? exceptIdpSessionToken,
+        CancellationToken cancellationToken)
+    {
+        var exceptTokenHash = string.IsNullOrEmpty(exceptIdpSessionToken)
+            ? null
+            : _tokenKeyService.ComputeTokenHash(exceptIdpSessionToken);
+
+        return _idpSessionRepository.RevokeAllForUserExceptAsync(
+            userId, exceptTokenHash, cancellationToken);
     }
 }

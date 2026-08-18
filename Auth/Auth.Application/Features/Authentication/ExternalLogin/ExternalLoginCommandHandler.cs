@@ -31,6 +31,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
+    private readonly ExternalNonceGuard _nonceGuard;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<ExternalLoginCommandHandler> _logger;
 
@@ -47,6 +48,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         IPersonalOrganizationCreator personalOrganizationCreator,
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
+        ExternalNonceGuard nonceGuard,
         IDomainEventDispatcher eventDispatcher,
         ILogger<ExternalLoginCommandHandler> logger)
     {
@@ -62,6 +64,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         _personalOrganizationCreator = personalOrganizationCreator;
         _loginResponseBuilder = loginResponseBuilder;
         _twoFactorChallengeService = twoFactorChallengeService;
+        _nonceGuard = nonceGuard;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -75,7 +78,20 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         if (provider is null)
             return ExternalAuthErrors.ProviderNotSupported(request.Provider);
 
-        // 2. Validate ID token (signature, expiry, audience, nonce)
+        // 2. The nonce must be one this server issued to this browser. Checked
+        // BEFORE the token is validated: a value the caller invented tells us
+        // nothing about the token, so there is no point examining the token
+        // against it.
+        var nonceCheck = _nonceGuard.Validate(request.Nonce, request.NonceCookie);
+        if (nonceCheck.IsError)
+        {
+            _logger.LogWarning(
+                "External login rejected for provider {Provider}: the nonce was absent or not issued to this browser",
+                request.Provider);
+            return nonceCheck.Errors;
+        }
+
+        // 3. Validate ID token (signature, expiry, audience, nonce)
         var tokenResult = await provider.ValidateTokenAsync(request.IdToken, request.Nonce, cancellationToken);
         if (tokenResult.IsError)
             return tokenResult.Errors;

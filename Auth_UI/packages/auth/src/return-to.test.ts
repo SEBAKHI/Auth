@@ -47,18 +47,22 @@ describe("validateReturnToUrl", () => {
     expect(validateReturnToUrl(raw)).toBeNull()
   })
 
-  it("strips the step-up parameters that would loop the browser", () => {
-    // The authorize endpoint sends prompt=login back in returnTo and re-demands
-    // step-up on sight of it. The interactive sign-in about to happen IS the
-    // fresh authentication it wants, so carrying them home would loop forever.
+  it("carries the step-up parameters home instead of deleting them", () => {
+    // The inverse of what this once asserted, and the point of the change.
+    // Stripping prompt=login was how the loop was broken, which meant the demand
+    // for a fresh authentication was met by removing the demand — so a stale
+    // session sailed through and anyone who deleted the parameter by hand got a
+    // code. The server now keeps its own signed record of having demanded
+    // step-up and checks the session was minted after it, so the client has
+    // nothing to remove and re-authentication is proved rather than assumed.
     const result = validateReturnToUrl(
       `${AUTHORIZE}?client_id=app&prompt=login&max_age=0&state=xyz`
     )
 
     expect(result).not.toBeNull()
     const params = new URL(result!).searchParams
-    expect(params.get("prompt")).toBeNull()
-    expect(params.get("max_age")).toBeNull()
+    expect(params.get("prompt")).toBe("login")
+    expect(params.get("max_age")).toBe("0")
     expect(params.get("state")).toBe("xyz")
   })
 

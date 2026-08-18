@@ -29,4 +29,12 @@ public static class ExternalAuthErrors
         code: "ExternalAuth.AccountLinkConflict",
         description: $"This {provider} account is already linked to another user.",
         metadata: new() { ["args"] = new object[] { provider } });
+
+    /// <summary>
+    /// The sign-in presented no nonce, or one this server did not issue to this
+    /// browser. Deliberately says nothing about which of the two it was.
+    /// </summary>
+    public static Error NonceRequired => Error.Validation(
+        code: "ExternalAuth.NonceRequired",
+        description: "The sign-in could not be verified. Please try again.");
 }

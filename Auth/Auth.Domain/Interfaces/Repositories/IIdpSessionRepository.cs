@@ -28,6 +28,24 @@ public interface IIdpSessionRepository
     Task RevokeAllForUserAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Revokes the user's active SSO sessions, optionally sparing the one whose
+    /// cookie token hashes to <paramref name="exceptTokenHash"/>.
+    /// </summary>
+    /// <remarks>
+    /// The exception exists for the authenticated paths that must not sign the
+    /// caller out of the browser they are acting from — changing a password
+    /// should end every OTHER browser's SSO session, not the current one. There
+    /// is no link between a <c>UserSessions</c> row and an <c>IdpSessions</c>
+    /// row, so the caller identifies the survivor by its token hash (read from
+    /// the request cookie) rather than by session id.
+    /// </remarks>
+    /// <param name="userId">The user whose SSO sessions to revoke.</param>
+    /// <param name="exceptTokenHash">Token hash to spare, or null to revoke all.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of sessions revoked.</returns>
+    Task<int> RevokeAllForUserExceptAsync(Guid userId, string? exceptTokenHash, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Deletes expired or revoked sessions older than the specified date.
     /// </summary>
     Task CleanupExpiredAsync(DateTime olderThan, CancellationToken cancellationToken);

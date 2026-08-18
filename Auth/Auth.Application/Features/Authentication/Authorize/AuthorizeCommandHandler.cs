@@ -43,6 +43,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
     private readonly IUserRepository _userRepository;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
+    private readonly IStepUpTicketService _stepUpTicketService;
     private readonly IdentityProviderSettings _idpSettings;
     private readonly ILogger<AuthorizeCommandHandler> _logger;
 
@@ -54,6 +55,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         IUserRepository userRepository,
         IJwtTokenService jwtTokenService,
         IRefreshTokenKeyService refreshTokenKeyService,
+        IStepUpTicketService stepUpTicketService,
         IOptionsSnapshot<IdentityProviderSettings> idpSettings,
         ILogger<AuthorizeCommandHandler> logger)
     {
@@ -64,6 +66,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         _userRepository = userRepository;
         _jwtTokenService = jwtTokenService;
         _refreshTokenKeyService = refreshTokenKeyService;
+        _stepUpTicketService = stepUpTicketService;
         _idpSettings = idpSettings.Value;
         _logger = logger;
     }
@@ -115,46 +118,37 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
             return ErrorRedirect(request, "invalid_request");
         }
 
+        if (!TryParsePrompt(request.Prompt, out var prompt))
+        {
+            return ErrorRedirect(request, "invalid_request");
+        }
+
         // --- IdP session: no valid session means the browser goes to login ---
 
         var session = await ResolveSessionAsync(request.IdpSessionToken, cancellationToken);
         if (session is null)
         {
-            return new AuthorizeResult
-            {
-                RedirectUrl = BuildLoginRedirect(request.OriginalRequestUrl),
-                IsLoginRedirect = true
-            };
+            return LoginRequired(request, prompt, demandStepUp: false);
         }
 
         var user = await _userRepository.GetByIdAsync(session.UserId, cancellationToken);
         if (user is null || user.IsLockedOut())
         {
             // Force a fresh interactive login instead of leaking account state.
-            return new AuthorizeResult
-            {
-                RedirectUrl = BuildLoginRedirect(request.OriginalRequestUrl),
-                IsLoginRedirect = true
-            };
+            return LoginRequired(request, prompt, demandStepUp: false);
         }
 
-        // --- Step-up: an SSO session that is too old must re-authenticate ---
+        // --- Step-up: the authentication behind this session must be fresh ---
         // A valid session exists, but the app's policy (ReauthenticationMaxAgeMinutes)
-        // or the request's prompt=login / max_age may demand a fresher authentication.
-        // We send the browser back to login; the accounts app strips prompt/max_age
-        // from returnTo after a successful login, so the freshly minted session (age ~0)
-        // is honored on the return trip and the flow cannot loop.
-        if (RequiresStepUp(request, application, session))
+        // or the request's prompt=login / max_age may demand a fresher one.
+        var stepUp = EvaluateStepUp(request, application, session, prompt);
+        if (stepUp.Required)
         {
             _logger.LogInformation(
                 "Step-up re-authentication required for client {ClientId} and user {UserId}",
                 request.ClientId, user.Id);
 
-            return new AuthorizeResult
-            {
-                RedirectUrl = BuildLoginRedirect(request.OriginalRequestUrl),
-                IsLoginRedirect = true
-            };
+            return LoginRequired(request, prompt, demandStepUp: true);
         }
 
         // --- Entitlement: is this user allowed into THIS application? ---
@@ -192,8 +186,103 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
 
         return new AuthorizeResult
         {
-            RedirectUrl = AppendQuery(request.RedirectUri, "code", plainCode, request.State)
+            RedirectUrl = AppendQuery(request.RedirectUri, "code", plainCode, request.State),
+            // The demand has been answered, so spend the ticket. Leaving it to
+            // expire on its own would let one re-authentication satisfy every
+            // prompt=login this client made within the ticket's lifetime.
+            ClearStepUpTicket = stepUp.TicketSpent
         };
+    }
+
+    /// <summary>
+    /// The response for "this browser has to authenticate (again)": normally a
+    /// redirect to the hosted login page, carrying a fresh step-up ticket when a
+    /// demand is being raised.
+    /// </summary>
+    /// <remarks>
+    /// Under <c>prompt=none</c> the relying party has forbidden any UI, so the
+    /// answer is the OIDC error instead of a redirect the client cannot show.
+    /// This is what a hidden-iframe silent renewal needs: previously it received a
+    /// 302 to the login page and rendered it inside the frame.
+    /// </remarks>
+    private AuthorizeResult LoginRequired(AuthorizeCommand request, PromptValues prompt, bool demandStepUp)
+    {
+        if (prompt.None)
+        {
+            return ErrorRedirect(request, "login_required");
+        }
+
+        return new AuthorizeResult
+        {
+            RedirectUrl = BuildLoginRedirect(request.OriginalRequestUrl),
+            IsLoginRedirect = true,
+            StepUpTicketToSet = demandStepUp
+                ? _stepUpTicketService.Issue(request.ClientId!, DateTime.UtcNow)
+                : null
+        };
+    }
+
+    /// <summary>
+    /// Parses the OIDC <c>prompt</c> parameter — a space-delimited list, matched
+    /// case-insensitively.
+    /// </summary>
+    /// <returns>
+    /// False when the combination is invalid, which the caller answers with
+    /// <c>invalid_request</c>.
+    /// </returns>
+    private static bool TryParsePrompt(string? prompt, out PromptValues values)
+    {
+        values = default;
+
+        if (string.IsNullOrWhiteSpace(prompt))
+        {
+            return true;
+        }
+
+        var tokens = prompt.Split(
+            ' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var none = false;
+        var login = false;
+
+        foreach (var token in tokens)
+        {
+            if (token.Equals("none", StringComparison.OrdinalIgnoreCase))
+            {
+                none = true;
+            }
+            else if (token.Equals("login", StringComparison.OrdinalIgnoreCase))
+            {
+                login = true;
+            }
+
+            // consent and select_account are recognised OIDC values this provider
+            // has no screen for, and unknown values may be client extensions.
+            // Both are ignored rather than rejected, as before.
+        }
+
+        // OIDC Core §3.1.2.1: "none" may not be combined with any other value.
+        if (none && tokens.Length > 1)
+        {
+            return false;
+        }
+
+        values = new PromptValues(none, login);
+        return true;
+    }
+
+    /// <summary>
+    /// Which of the OIDC prompt values this request carries.
+    /// </summary>
+    private readonly record struct PromptValues(bool None, bool Login);
+
+    /// <summary>
+    /// The outcome of the freshness check: whether to demand re-authentication,
+    /// and whether a step-up ticket was consumed proving one already happened.
+    /// </summary>
+    private readonly record struct StepUpDecision(bool Required, bool TicketSpent)
+    {
+        public static StepUpDecision Demand() => new(Required: true, TicketSpent: false);
     }
 
     /// <summary>
@@ -203,12 +292,48 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
     /// max_age. When both a policy and a max_age apply, the more restrictive
     /// (smaller) window wins.
     /// </summary>
-    private static bool RequiresStepUp(AuthorizeCommand request, Auth.Domain.Entities.Application application, IdpSession session)
+    /// <remarks>
+    /// <c>prompt=login</c> is satisfied by EVIDENCE, never by the absence of the
+    /// parameter. The evidence is a step-up ticket this server signed on the trip
+    /// that raised the demand, plus a session minted after that moment — which
+    /// only an interactive sign-in produces, since every sign-in inserts a new
+    /// session row rather than refreshing the old one.
+    /// <para>
+    /// Before this, the branch returned true on the literal string and the accounts
+    /// app deleted the parameter to stop the browser looping. That made the demand
+    /// self-cancelling: anyone holding a live session cookie could delete the
+    /// parameter by hand and be issued a code against the stale session, which is
+    /// exactly the person step-up exists to stop.
+    /// </para>
+    /// </remarks>
+    private StepUpDecision EvaluateStepUp(
+        AuthorizeCommand request,
+        Auth.Domain.Entities.Application application,
+        IdpSession session,
+        PromptValues prompt)
     {
-        // prompt=login unconditionally forces a fresh interactive authentication.
-        if (string.Equals(request.Prompt, "login", StringComparison.Ordinal))
+        var now = DateTime.UtcNow;
+        var ticketSpent = false;
+
+        if (prompt.Login)
         {
-            return true;
+            var proven =
+                _stepUpTicketService.TryValidate(
+                    request.StepUpTicket,
+                    request.ClientId!,
+                    now,
+                    _idpSettings.StepUpTicketLifetime,
+                    out var demandedAtUtc)
+                && session.CreatedAt >= demandedAtUtc;
+
+            if (!proven)
+            {
+                return StepUpDecision.Demand();
+            }
+
+            // Proved. max_age still applies below — a client may ask for both, and
+            // the stricter of the two must win.
+            ticketSpent = true;
         }
 
         int? maxAgeSeconds = null;
@@ -227,11 +352,13 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
 
         if (maxAgeSeconds is not int thresholdSeconds)
         {
-            return false;
+            return new StepUpDecision(Required: false, ticketSpent);
         }
 
-        var sessionAgeSeconds = (DateTime.UtcNow - session.CreatedAt).TotalSeconds;
-        return sessionAgeSeconds > thresholdSeconds;
+        var sessionAgeSeconds = (now - session.CreatedAt).TotalSeconds;
+        return sessionAgeSeconds > thresholdSeconds
+            ? StepUpDecision.Demand()
+            : new StepUpDecision(Required: false, ticketSpent);
     }
 
     /// <summary>

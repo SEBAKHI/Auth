@@ -505,6 +505,9 @@
   <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
     <value>ای میل ایڈریس بیرونی فراہم کنندہ کی طرف سے تصدیق شدہ نہیں ہے۔</value>
   </data>
+  <data name="ExternalAuth.NonceRequired" xml:space="preserve">
+    <value>سائن اِن کی تصدیق نہیں ہو سکی۔ براہِ کرم دوبارہ کوشش کریں۔</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>یہ {0} اکاؤنٹ پہلے سے کسی اور صارف سے منسلک ہے۔</value>
   </data>

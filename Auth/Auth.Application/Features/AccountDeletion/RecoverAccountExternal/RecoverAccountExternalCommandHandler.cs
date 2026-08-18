@@ -23,19 +23,22 @@ public class RecoverAccountExternalCommandHandler
     private readonly IUserRepository _userRepository;
     private readonly IAccountDeletionRequestRepository _requestRepository;
     private readonly AccountDeletionRecoverer _recoverer;
+    private readonly Auth.Application.Features.Authentication.Common.ExternalNonceGuard _nonceGuard;
 
     public RecoverAccountExternalCommandHandler(
         IExternalAuthProviderFactory providerFactory,
         IUserExternalLoginRepository externalLoginRepository,
         IUserRepository userRepository,
         IAccountDeletionRequestRepository requestRepository,
-        AccountDeletionRecoverer recoverer)
+        AccountDeletionRecoverer recoverer,
+        Auth.Application.Features.Authentication.Common.ExternalNonceGuard nonceGuard)
     {
         _providerFactory = providerFactory;
         _externalLoginRepository = externalLoginRepository;
         _userRepository = userRepository;
         _requestRepository = requestRepository;
         _recoverer = recoverer;
+        _nonceGuard = nonceGuard;
     }
 
     public async Task<ErrorOr<LoginResponse>> Handle(
@@ -45,6 +48,12 @@ public class RecoverAccountExternalCommandHandler
         if (provider is null)
         {
             return ExternalAuthErrors.ProviderNotSupported(request.Provider);
+        }
+
+        var nonceCheck = _nonceGuard.Validate(request.Nonce, request.NonceCookie);
+        if (nonceCheck.IsError)
+        {
+            return nonceCheck.Errors;
         }
 
         var tokenResult = await provider.ValidateTokenAsync(request.IdToken, request.Nonce, cancellationToken);

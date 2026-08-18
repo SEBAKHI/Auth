@@ -65,4 +65,15 @@ public record DiscoveryDocumentDto
 
     [JsonPropertyName("code_challenge_methods_supported")]
     public IReadOnlyList<string>? CodeChallengeMethodsSupported { get; init; }
+
+    /// <summary>
+    /// The prompt values the authorize endpoint honours. Advertised only now that
+    /// both are actually enforced server-side: <c>login</c> demands a fresh
+    /// authentication and verifies one happened, and <c>none</c> returns
+    /// <c>login_required</c> instead of redirecting to a login page a silent
+    /// request cannot display. <c>consent</c> and <c>select_account</c> stay
+    /// unlisted because there is no screen behind either.
+    /// </summary>
+    [JsonPropertyName("prompt_values_supported")]
+    public IReadOnlyList<string>? PromptValuesSupported { get; init; }
 }

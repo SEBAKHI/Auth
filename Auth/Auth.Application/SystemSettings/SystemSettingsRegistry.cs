@@ -239,7 +239,13 @@ public static class SystemSettingsRegistry
                 // needs a restart.
                 new SettingFieldDefinition("AvatarImport:Enabled", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("AvatarImport:TimeoutMs", SettingKind.Int, Min: 500, Max: 30000, DefaultValue: 3000),
-                new SettingFieldDefinition("AvatarImport:MaxBytes", SettingKind.Int, Min: 65536, Max: 4194304, DefaultValue: 2097152)
+                new SettingFieldDefinition("AvatarImport:MaxBytes", SettingKind.Int, Min: 65536, Max: 4194304, DefaultValue: 2097152),
+                // The rollout switch for browser-bound nonces. Off by default so
+                // deploying the server half cannot lock out every provider user
+                // before the app half ships; turned on once the deployed app is
+                // fetching its nonce from /auth/external-nonce. Read per sign-in,
+                // so it takes effect — and can be reverted — without a restart.
+                new SettingFieldDefinition("RequireNonce", SettingKind.Bool, DefaultValue: false)
             ]),
 
         new SettingSectionDefinition(

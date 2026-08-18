@@ -19,7 +19,7 @@ public class ChangePasswordCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPasswordHistoryRepository> _passwordHistoryRepositoryMock;
-    private readonly Mock<IUserSessionRepository> _userSessionRepositoryMock;
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
     private readonly Mock<ILogger<ChangePasswordCommandHandler>> _loggerMock;
@@ -32,7 +32,7 @@ public class ChangePasswordCommandHandlerTests
     {
         _userRepositoryMock = new Mock<IUserRepository>();
         _passwordHistoryRepositoryMock = new Mock<IPasswordHistoryRepository>();
-        _userSessionRepositoryMock = new Mock<IUserSessionRepository>();
+        _credentialRevocationMock = new Mock<ICredentialRevocationService>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
         _loggerMock = new Mock<ILogger<ChangePasswordCommandHandler>>();
@@ -46,7 +46,7 @@ public class ChangePasswordCommandHandlerTests
         _handler = new ChangePasswordCommandHandler(
             _userRepositoryMock.Object,
             _passwordHistoryRepositoryMock.Object,
-            _userSessionRepositoryMock.Object,
+            _credentialRevocationMock.Object,
             _passwordHasherMock.Object,
             _passwordValidator,
             TestHelpers.CreatePassingBreachEvaluator(),
@@ -324,28 +324,33 @@ public class ChangePasswordCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_TerminateSessionsTrue_WithCurrentSessionId_TerminatesOtherSessions()
+    public async Task Handle_TerminateSessionsTrue_WithCurrentSessionId_RevokesOtherCredentialsAndSparesThisBrowser()
     {
         // Arrange
         var userId = Guid.NewGuid();
         var currentSessionId = Guid.NewGuid();
         var user = TestHelpers.CreateUser(id: userId);
-        var command = new ChangePasswordCommand(userId, "OldPass1!", "NewPass1!", TerminateSessions: true, CurrentSessionId: currentSessionId);
+        var command = new ChangePasswordCommand(
+            userId, "OldPass1!", "NewPass1!",
+            TerminateSessions: true,
+            CurrentSessionId: currentSessionId,
+            IdpSessionToken: "sso-cookie");
 
         SetupSuccessfulPasswordChange(userId, user);
 
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
-        _userSessionRepositoryMock.Verify(r => r.TerminateOtherSessionsAsync(
-            userId, currentSessionId, "Password changed", It.IsAny<CancellationToken>()), Times.Once);
-        _userSessionRepositoryMock.Verify(r => r.TerminateAllForUserAsync(
-            It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        // Assert — through the revocation service, which is what also revokes the
+        // refresh tokens, blacklists the session ids and revokes the SSO sessions.
+        // Terminating session rows alone left every one of those alive.
+        _credentialRevocationMock.Verify(s => s.RevokeCredentialsAsync(
+            userId, currentSessionId, "sso-cookie", userId, "Password changed",
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_TerminateSessionsTrue_WithoutCurrentSessionId_TerminatesAllSessions()
+    public async Task Handle_TerminateSessionsTrue_WithoutCurrentSessionId_RevokesEverything()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -358,12 +363,13 @@ public class ChangePasswordCommandHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        _userSessionRepositoryMock.Verify(r => r.TerminateAllForUserAsync(
-            userId, "Password changed", It.IsAny<CancellationToken>()), Times.Once);
+        _credentialRevocationMock.Verify(s => s.RevokeCredentialsAsync(
+            userId, null, null, userId, "Password changed",
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_TerminateSessionsFalse_DoesNotTerminateSessions()
+    public async Task Handle_TerminateSessionsFalse_RevokesNothing()
     {
         // Arrange
         var userId = Guid.NewGuid();
@@ -376,10 +382,9 @@ public class ChangePasswordCommandHandlerTests
         await _handler.Handle(command, CancellationToken.None);
 
         // Assert
-        _userSessionRepositoryMock.Verify(r => r.TerminateOtherSessionsAsync(
-            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
-        _userSessionRepositoryMock.Verify(r => r.TerminateAllForUserAsync(
-            It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _credentialRevocationMock.Verify(s => s.RevokeCredentialsAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<Guid?>(),
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

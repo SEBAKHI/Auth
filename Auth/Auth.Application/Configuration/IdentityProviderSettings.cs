@@ -53,6 +53,26 @@ public class IdentityProviderSettings
     public int IdpSessionLifetimeDays { get; set; } = 7;
 
     /// <summary>
+    /// Gets or sets the name of the HttpOnly step-up cookie. It carries the
+    /// signed record of a <c>prompt=login</c> demand across the login bounce so
+    /// the server can tell that the re-authentication actually happened, rather
+    /// than trusting the client to drop the parameter.
+    /// </summary>
+    public string StepUpCookieName { get; set; } = "auth_stepup";
+
+    /// <summary>
+    /// Gets or sets how long a step-up demand stays answerable, in minutes.
+    /// This is the window the user has to finish signing in; short by design,
+    /// because a stale ticket would let an old sign-in satisfy a new demand.
+    /// </summary>
+    public int StepUpTicketLifetimeMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// Gets the step-up ticket lifetime as a TimeSpan.
+    /// </summary>
+    public TimeSpan StepUpTicketLifetime => TimeSpan.FromMinutes(StepUpTicketLifetimeMinutes);
+
+    /// <summary>
     /// Gets the authorization code lifetime as a TimeSpan.
     /// </summary>
     public TimeSpan AuthorizationCodeLifetime => TimeSpan.FromSeconds(AuthorizationCodeLifetimeSeconds);

@@ -507,6 +507,9 @@
   <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
     <value>لم يتم التحقق من عنوان البريد الإلكتروني بواسطة المزود الخارجي.</value>
   </data>
+  <data name="ExternalAuth.NonceRequired" xml:space="preserve">
+    <value>تعذّر التحقق من عملية تسجيل الدخول. يرجى المحاولة من جديد.</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>حساب {0} هذا مرتبط بالفعل بمستخدم آخر.</value>
   </data>

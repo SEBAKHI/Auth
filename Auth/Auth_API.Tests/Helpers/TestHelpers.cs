@@ -787,6 +787,39 @@ public static class TestHelpers
     }
 
     /// <summary>
+    /// Creates an <see cref="Auth.Application.Features.Authentication.Common.ExternalNonceGuard"/>
+    /// for handler tests.
+    /// </summary>
+    /// <param name="requireNonce">
+    /// Left off by default, matching production and the shipped setting: tests
+    /// that are not about the nonce must exercise the same path a live sign-in
+    /// takes today.
+    /// </param>
+    /// <param name="keyService">
+    /// The hasher. Defaults to a deterministic stand-in so a test can pair a
+    /// nonce with its cookie value without reproducing an HMAC.
+    /// </param>
+    public static Auth.Application.Features.Authentication.Common.ExternalNonceGuard CreateExternalNonceGuard(
+        bool requireNonce = false,
+        IRefreshTokenKeyService? keyService = null)
+    {
+        if (keyService is null)
+        {
+            var mock = new Mock<IRefreshTokenKeyService>();
+            mock.Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
+                .Returns((string value) => $"hash:{value}");
+            keyService = mock.Object;
+        }
+
+        return new Auth.Application.Features.Authentication.Common.ExternalNonceGuard(
+            keyService,
+            CreateOptions(new Auth.Application.Configuration.ExternalAuthSettings
+            {
+                RequireNonce = requireNonce
+            }));
+    }
+
+    /// <summary>
     /// Creates an <see cref="IPasswordBreachEvaluator"/> that always allows the password
     /// (the breached-password check disabled / no-op), for handler tests not exercising that policy.
     /// </summary>

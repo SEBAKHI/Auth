@@ -505,6 +505,9 @@
   <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
     <value>邮箱地址尚未被外部提供商验证。</value>
   </data>
+  <data name="ExternalAuth.NonceRequired" xml:space="preserve">
+    <value>无法验证此次登录，请重试。</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>此{0}账户已关联到其他用户。</value>
   </data>

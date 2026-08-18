@@ -22,6 +22,28 @@ public class ExternalAuthSettings
     /// per sign-in, so all three take effect without a restart.
     /// </summary>
     public ExternalAvatarImportSettings AvatarImport { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets whether a provider sign-in must present a nonce this server
+    /// issued to this browser. When false the older, weaker check still runs
+    /// (the value is compared to the token's claim only when one is sent).
+    /// </summary>
+    /// <remarks>
+    /// Defaults to FALSE so enabling the server half cannot lock every provider
+    /// user out before the browser half is deployed: an older app sends a
+    /// self-generated value that no cookie backs, and turning this on rejects it.
+    /// Turn it on once the deployed app is fetching nonces from
+    /// <c>/auth/external-nonce</c>. Read per sign-in, so it takes effect without
+    /// a restart and can be turned straight back off.
+    /// <para>
+    /// What it buys: a browser-generated nonce proves nothing, because the same
+    /// request supplies both the token and the value it is checked against — a
+    /// replayer simply reads the value out of the stolen token and sends it. A
+    /// server-issued one is bound by cookie to the browser it was issued to, so a
+    /// token minted for someone else's browser no longer matches.
+    /// </para>
+    /// </remarks>
+    public bool RequireNonce { get; set; }
 }
 
 /// <summary>

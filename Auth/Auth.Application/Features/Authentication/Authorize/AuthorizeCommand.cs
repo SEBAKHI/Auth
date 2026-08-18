@@ -17,8 +17,13 @@ namespace Auth.Application.Features.Authentication.Authorize;
 /// <param name="IdpSessionToken">The plain IdP session cookie value, if present.</param>
 /// <param name="OriginalRequestUrl">The full authorize URL, used as returnTo for the login redirect.</param>
 /// <param name="IpAddress">The client's IP address.</param>
-/// <param name="Prompt">The OIDC prompt parameter; "login" forces a fresh interactive re-authentication (step-up).</param>
+/// <param name="Prompt">The OIDC prompt parameter; a space-delimited list. "login" forces a fresh interactive re-authentication (step-up), "none" forbids any UI.</param>
 /// <param name="MaxAge">The OIDC max_age parameter (seconds); an SSO session older than this must re-authenticate (step-up).</param>
+/// <param name="StepUpTicket">
+/// The step-up cookie value, if the browser holds one: the server's signed
+/// record of having already demanded a fresh authentication, and the only thing
+/// that lets it recognise that the demand was answered.
+/// </param>
 public record AuthorizeCommand(
     string? ResponseType,
     string? ClientId,
@@ -30,7 +35,8 @@ public record AuthorizeCommand(
     string OriginalRequestUrl,
     string? IpAddress,
     string? Prompt = null,
-    string? MaxAge = null) : IRequest<ErrorOr<AuthorizeResult>>;
+    string? MaxAge = null,
+    string? StepUpTicket = null) : IRequest<ErrorOr<AuthorizeResult>>;
 
 /// <summary>
 /// Where the authorize endpoint should send the browser (always a 302).
@@ -48,4 +54,21 @@ public record AuthorizeResult
     /// valid IdP session was presented.
     /// </summary>
     public bool IsLoginRedirect { get; init; }
+
+    /// <summary>
+    /// Gets the step-up ticket the API layer must write to the cookie, set when
+    /// this response is demanding a fresh authentication.
+    /// </summary>
+    /// <remarks>
+    /// Carried out to the controller rather than written here because cookies are
+    /// an HTTP concern; the handler decides, the API layer transports — the same
+    /// split the IdP session cookie already uses.
+    /// </remarks>
+    public string? StepUpTicketToSet { get; init; }
+
+    /// <summary>
+    /// Gets whether the API layer should expire the step-up cookie, set once a
+    /// demand has been answered so the same ticket cannot answer a later one.
+    /// </summary>
+    public bool ClearStepUpTicket { get; init; }
 }

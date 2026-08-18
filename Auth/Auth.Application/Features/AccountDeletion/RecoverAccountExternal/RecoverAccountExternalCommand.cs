@@ -10,6 +10,12 @@ namespace Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
 /// 2FA is enabled). Success cancels the deletion, restores the account and
 /// signs the user in.
 /// </summary>
+/// <param name="NonceCookie">
+/// The hash this server stored when it issued <paramref name="Nonce"/>. This
+/// endpoint takes a provider token from an anonymous caller exactly as sign-in
+/// does, so it is held to the same rule — guarding only one of the two would
+/// move the way in rather than close it.
+/// </param>
 public record RecoverAccountExternalCommand(
     string Provider,
     string IdToken,
@@ -17,4 +23,5 @@ public record RecoverAccountExternalCommand(
     string? TwoFactorCode,
     string? IpAddress,
     string? UserAgent,
-    string? DeviceId = null) : IRequest<ErrorOr<LoginResponse>>;
+    string? DeviceId = null,
+    string? NonceCookie = null) : IRequest<ErrorOr<LoginResponse>>;

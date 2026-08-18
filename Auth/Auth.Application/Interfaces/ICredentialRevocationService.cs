@@ -71,4 +71,64 @@ public interface ICredentialRevocationService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of sessions terminated.</returns>
     Task<int> RevokeAllCredentialsAsync(Guid userId, Guid? revokedBy, string reason, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The credential wipe every "lock the intruder out" path must use: session
+    /// termination WITH refresh-token revocation and session-id blacklisting,
+    /// plus revocation of the IdP SSO sessions — optionally sparing the caller's
+    /// own session and browser.
+    /// </summary>
+    /// <remarks>
+    /// This exists because ending a <c>UserSessions</c> row on its own evicts
+    /// nobody, and three paths used to do exactly that. Nothing on the refresh
+    /// path consults the session row: <c>RefreshTokenCommandHandler</c> validates
+    /// the refresh-token row and re-mints an access token even when the session
+    /// it belongs to was ended, so an unrevoked refresh token walks a terminated
+    /// session straight back in. Access tokens already issued likewise stay valid
+    /// until they expire unless the session id is blacklisted, and the SSO cookie
+    /// keeps minting authorization codes until it is revoked in its own table.
+    /// <para>
+    /// Session-less refresh tokens (legacy/device flows) are swept only when
+    /// nothing is spared — the blanket revocation that reaches them would also
+    /// kill the spared session's token.
+    /// </para>
+    /// </remarks>
+    /// <param name="userId">The user whose credentials to revoke.</param>
+    /// <param name="exceptSessionId">Session to spare (the caller's current one), or null for all.</param>
+    /// <param name="exceptIdpSessionToken">
+    /// The caller's own SSO cookie value, spared so the browser they are acting
+    /// from stays signed in. Pass the PLAIN cookie token — hashing it to match
+    /// storage happens inside, so no caller has to know how sessions are keyed.
+    /// Null or empty spares nothing.
+    /// </param>
+    /// <param name="revokedBy">Actor recorded on the revocations.</param>
+    /// <param name="reason">Human-readable reason recorded on the terminations/revocations.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of sessions terminated.</returns>
+    Task<int> RevokeCredentialsAsync(
+        Guid userId,
+        Guid? exceptSessionId,
+        string? exceptIdpSessionToken,
+        Guid? revokedBy,
+        string reason,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Revokes the user's IdP SSO sessions alone, sparing the caller's own
+    /// browser when its cookie value is supplied.
+    /// </summary>
+    /// <remarks>
+    /// For the paths that deliberately leave application sessions alone but must
+    /// still end single sign-on — password reset with session preservation
+    /// configured, where keeping the user's app sessions is a usability choice
+    /// but keeping an SSO cookie that predates the reset is not.
+    /// </remarks>
+    /// <param name="userId">The user whose SSO sessions to revoke.</param>
+    /// <param name="exceptIdpSessionToken">The plain SSO cookie value to spare, or null for all.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The number of SSO sessions revoked.</returns>
+    Task<int> RevokeIdpSessionsAsync(
+        Guid userId,
+        string? exceptIdpSessionToken,
+        CancellationToken cancellationToken);
 }

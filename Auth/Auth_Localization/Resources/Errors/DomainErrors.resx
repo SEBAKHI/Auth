@@ -507,6 +507,9 @@
   <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
     <value>The email address has not been verified by the external provider.</value>
   </data>
+  <data name="ExternalAuth.NonceRequired" xml:space="preserve">
+    <value>The sign-in could not be verified. Please try again.</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>This {0} account is already linked to another user.</value>
   </data>

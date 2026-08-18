@@ -505,6 +505,9 @@
   <data name="ExternalAuth.EmailNotVerified" xml:space="preserve">
     <value>آدرس ایمیل توسط ارائه‌دهنده خارجی تأیید نشده است.</value>
   </data>
+  <data name="ExternalAuth.NonceRequired" xml:space="preserve">
+    <value>ورود قابل تأیید نبود. لطفاً دوباره تلاش کنید.</value>
+  </data>
   <data name="ExternalAuth.AccountLinkConflict" xml:space="preserve">
     <value>این حساب {0} قبلاً به کاربر دیگری متصل شده است.</value>
   </data>

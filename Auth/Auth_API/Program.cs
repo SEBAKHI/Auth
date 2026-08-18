@@ -580,6 +580,12 @@ builder.Services.AddScoped<IPermissionChecker, PermissionChecker>();
 // owned-organization and identifier-reservation rules, and the request /
 // recovery / OTP pipelines used by every deletion flow.
 builder.Services.AddScoped<ICredentialRevocationService, CredentialRevocationService>();
+// The server's own signed memory of a prompt=login demand, so re-authentication
+// is proved rather than assumed from the client having dropped the parameter.
+builder.Services.AddSingleton<IStepUpTicketService, StepUpTicketService>();
+// The one rule binding a provider sign-in's nonce to the browser it was issued
+// to, shared by both anonymous endpoints that accept a provider ID token.
+builder.Services.AddScoped<Auth.Application.Features.Authentication.Common.ExternalNonceGuard>();
 builder.Services.AddScoped<Auth.Application.Features.Users.Common.OwnedOrganizationDeletionGuard>();
 builder.Services.AddScoped<Auth.Application.Features.Users.Common.IdentifierReservationGuard>();
 builder.Services.AddScoped<Auth.Application.Features.AccountDeletion.Common.AccountDeletionRequestor>();

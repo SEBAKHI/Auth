@@ -17,7 +17,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
 {
     private readonly IUserRepository _userRepository;
     private readonly IPasswordHistoryRepository _passwordHistoryRepository;
-    private readonly IUserSessionRepository _userSessionRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPasswordHasher _passwordHasher;
     private readonly PasswordValidator _passwordValidator;
     private readonly IPasswordBreachEvaluator _breachEvaluator;
@@ -29,7 +29,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
     public ChangePasswordCommandHandler(
         IUserRepository userRepository,
         IPasswordHistoryRepository passwordHistoryRepository,
-        IUserSessionRepository userSessionRepository,
+        ICredentialRevocationService credentialRevocation,
         IPasswordHasher passwordHasher,
         PasswordValidator passwordValidator,
         IPasswordBreachEvaluator breachEvaluator,
@@ -40,7 +40,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
     {
         _userRepository = userRepository;
         _passwordHistoryRepository = passwordHistoryRepository;
-        _userSessionRepository = userSessionRepository;
+        _credentialRevocation = credentialRevocation;
         _passwordHasher = passwordHasher;
         _passwordValidator = passwordValidator;
         _breachEvaluator = breachEvaluator;
@@ -146,31 +146,25 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
 
         if (shouldTerminateSessions)
         {
-            if (request.CurrentSessionId.HasValue)
-            {
-                // Terminate all sessions except the current one
-                await _userSessionRepository.TerminateOtherSessionsAsync(
-                    request.UserId,
-                    request.CurrentSessionId.Value,
-                    "Password changed",
-                    cancellationToken);
+            // Through the revocation service, never the session repository alone.
+            // Ending a UserSessions row evicts nobody: nothing on the refresh path
+            // consults it, so an unrevoked refresh token mints a new access token
+            // and walks the ended session straight back in. The service is what
+            // also revokes the refresh tokens, blacklists the session ids so
+            // already-issued access tokens die now, and revokes the SSO sessions.
+            await _credentialRevocation.RevokeCredentialsAsync(
+                request.UserId,
+                request.CurrentSessionId,
+                request.IdpSessionToken,
+                revokedBy: request.UserId,
+                "Password changed",
+                cancellationToken);
 
-                _logger.LogInformation(
-                    "Password changed for user {UserId}, terminated other sessions (current session preserved)",
-                    request.UserId);
-            }
-            else
-            {
-                // Terminate all sessions
-                await _userSessionRepository.TerminateAllForUserAsync(
-                    request.UserId,
-                    "Password changed",
-                    cancellationToken);
-
-                _logger.LogInformation(
-                    "Password changed for user {UserId}, terminated all sessions",
-                    request.UserId);
-            }
+            _logger.LogInformation(
+                request.CurrentSessionId.HasValue
+                    ? "Password changed for user {UserId}, revoked other credentials (current session preserved)"
+                    : "Password changed for user {UserId}, revoked all credentials",
+                request.UserId);
         }
         else
         {

@@ -11,6 +11,7 @@ import { Spinner } from "@authsystem/ui/spinner"
 
 import { useLoginCompletion } from "../login-completion"
 import { navigateToRecovery } from "./recovery-navigation"
+import { requestExternalNonce } from "./request-nonce"
 import { useExternalProviders } from "./use-external-providers"
 
 /** Minimal typings for the Sign in with Apple JS client. */
@@ -117,6 +118,7 @@ export function AppleSignIn({
   const { i18n, t } = useTranslation()
   const { loginExternal } = useAuth()
   const navigate = useNavigate()
+  // Replaced with the server-issued value before Apple is initialised.
   const nonceRef = React.useRef<string>(crypto.randomUUID())
   const [pending, setPending] = React.useState(false)
   const { appleEnabled, appleServicesId } = useExternalProviders()
@@ -126,8 +128,15 @@ export function AppleSignIn({
     setPending(true)
     let response: AppleSignInResponse | null = null
     try {
-      await loadAppleScript(i18n.language)
+      // Fetched per sign-in rather than per mount: this button starts the flow on
+      // click, so this is the last moment the value can still reach Apple, which
+      // seals whatever it is given into the token it mints.
+      const [, nonce] = await Promise.all([
+        loadAppleScript(i18n.language),
+        requestExternalNonce(),
+      ])
       if (!window.AppleID) throw new Error("Failed to load Sign in with Apple")
+      nonceRef.current = nonce
 
       window.AppleID.auth.init({
         clientId: appleServicesId,

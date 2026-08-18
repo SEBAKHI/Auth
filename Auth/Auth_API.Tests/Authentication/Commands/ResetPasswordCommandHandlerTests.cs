@@ -25,7 +25,7 @@ public class ResetPasswordCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPasswordResetTokenRepository> _passwordResetTokenRepositoryMock;
     private readonly Mock<IPasswordHistoryRepository> _passwordHistoryRepositoryMock;
-    private readonly Mock<IUserSessionRepository> _userSessionRepositoryMock;
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock;
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
@@ -41,7 +41,7 @@ public class ResetPasswordCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _passwordResetTokenRepositoryMock = new Mock<IPasswordResetTokenRepository>();
         _passwordHistoryRepositoryMock = new Mock<IPasswordHistoryRepository>();
-        _userSessionRepositoryMock = new Mock<IUserSessionRepository>();
+        _credentialRevocationMock = new Mock<ICredentialRevocationService>();
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _tokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
         _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
@@ -72,7 +72,7 @@ public class ResetPasswordCommandHandlerTests
             _userRepositoryMock.Object,
             _passwordResetTokenRepositoryMock.Object,
             _passwordHistoryRepositoryMock.Object,
-            _userSessionRepositoryMock.Object,
+            _credentialRevocationMock.Object,
             _passwordHasherMock.Object,
             _tokenKeyServiceMock.Object,
             _passwordValidator,
@@ -271,7 +271,7 @@ public class ResetPasswordCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_TerminateSessionsTrue_TerminatesAllSessions()
+    public async Task Handle_TerminateSessionsTrue_RevokesEveryCredential()
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
@@ -283,13 +283,15 @@ public class ResetPasswordCommandHandlerTests
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
-        _userSessionRepositoryMock.Verify(r => r.TerminateAllForUserAsync(
-            user.Id, "Password reset", It.IsAny<CancellationToken>()), Times.Once);
+        // Assert — the full wipe, not a session-row termination. Ending the rows
+        // left the refresh tokens alive, and nothing on the refresh path consults
+        // the session, so the reset used to lock nobody out.
+        _credentialRevocationMock.Verify(s => s.RevokeAllCredentialsAsync(
+            user.Id, user.Id, "Password reset", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task Handle_TerminateSessionsFalse_DoesNotTerminateSessions()
+    public async Task Handle_TerminateSessionsFalse_StillRevokesTheSsoSessions()
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
@@ -301,9 +303,15 @@ public class ResetPasswordCommandHandlerTests
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert
-        _userSessionRepositoryMock.Verify(r => r.TerminateAllForUserAsync(
-            It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        // Assert — preserving application sessions is a choice the operator may
+        // make; preserving single sign-on is not. An SSO cookie that predates the
+        // reset still mints authorization codes for every entitled application, so
+        // it goes regardless of the flag and no caller can opt out.
+        _credentialRevocationMock.Verify(s => s.RevokeAllCredentialsAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid?>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _credentialRevocationMock.Verify(s => s.RevokeIdpSessionsAsync(
+            user.Id, null, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

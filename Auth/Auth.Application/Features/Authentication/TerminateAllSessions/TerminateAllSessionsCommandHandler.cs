@@ -25,9 +25,15 @@ public class TerminateAllSessionsCommandHandler : IRequestHandler<TerminateAllSe
             ? "User terminated all other sessions"
             : "User terminated all sessions";
 
-        return await _credentialRevocation.TerminateSessionsAsync(
+        // Revoke, not merely terminate: the SSO session lives in its own table
+        // and outlives every UserSessions operation, so a "sign out everywhere"
+        // that skipped it left the browser still able to mint authorization
+        // codes for every entitled application — the button would report a
+        // number and lock nothing out.
+        return await _credentialRevocation.RevokeCredentialsAsync(
             request.UserId,
             request.ExceptSessionId,
+            request.IdpSessionToken,
             revokedBy: request.UserId,
             reason,
             cancellationToken);

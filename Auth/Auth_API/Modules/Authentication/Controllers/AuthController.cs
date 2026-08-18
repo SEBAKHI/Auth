@@ -148,6 +148,40 @@ public class AuthController : ApiController
     }
 
     /// <summary>
+    /// Issues a single-use nonce for a provider sign-in that is about to start.
+    /// </summary>
+    /// <remarks>
+    /// Called immediately before the provider's SDK is initialised. The plain
+    /// value goes to the provider, which seals it into the signed ID token; the
+    /// matching hash is stored in an HttpOnly cookie here. The sign-in then has to
+    /// present a value this server issued to this browser, which a replayed token
+    /// minted for someone else's browser cannot do.
+    /// <para>
+    /// POST, not GET: it hands out a fresh value and writes a cookie every time,
+    /// and no cache anywhere may serve one browser's nonce to another.
+    /// </para>
+    /// </remarks>
+    /// <returns>The plain nonce for the caller to pass to the provider.</returns>
+    [HttpPost("external-nonce")]
+    [AllowAnonymous]
+    [EnableRateLimiting("login")]
+    [ProducesResponseType(typeof(ExternalNonceResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> IssueExternalNonce(CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new IssueExternalNonceCommand(), cancellationToken);
+
+        return result.Match<IActionResult>(
+            issued =>
+            {
+                ExternalNonceCookie.Apply(Response, issued.CookieValue);
+                Response.Headers.CacheControl = "no-store";
+                return Ok(new ExternalNonceResponse(issued.Nonce));
+            },
+            errors => Problem(errors));
+    }
+
+    /// <summary>
     /// Authenticates a user via an external provider (e.g., Google).
     /// Creates a new account if the user doesn't exist, or logs in if they do.
     /// </summary>
@@ -173,7 +207,8 @@ public class AuthController : ApiController
             DeviceId: GetDeviceId(request.DeviceId),
             AuthorizationCode: request.AuthorizationCode,
             GivenName: request.GivenName,
-            FamilyName: request.FamilyName);
+            FamilyName: request.FamilyName,
+            NonceCookie: ExternalNonceCookie.Read(Request));
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -250,12 +285,26 @@ public class AuthController : ApiController
             originalRequestUrl,
             GetClientIpAddress(),
             prompt,
-            maxAge);
+            maxAge,
+            StepUpCookie.Read(Request, _idpSettings));
 
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            response => Redirect(response.RedirectUrl),
+            response =>
+            {
+                // Cookie writes belong to this layer; the handler only decides.
+                if (response.StepUpTicketToSet is { } ticket)
+                {
+                    StepUpCookie.Apply(Response, ticket, _idpSettings);
+                }
+                else if (response.ClearStepUpTicket)
+                {
+                    StepUpCookie.Delete(Response, _idpSettings);
+                }
+
+                return Redirect(response.RedirectUrl);
+            },
             errors => Problem(errors));
     }
 
@@ -378,7 +427,8 @@ public class AuthController : ApiController
             request.CurrentPassword,
             request.NewPassword,
             request.TerminateSessions,
-            GetCurrentSessionId());
+            GetCurrentSessionId(),
+            IdpSessionCookie.Read(Request, _idpSettings));
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -502,8 +552,12 @@ public class AuthController : ApiController
             return Unauthorized();
         }
 
-        // Exclude current session
-        var command = new TerminateAllSessionsCommand(userId, GetCurrentSessionId());
+        // Exclude the current session and, if this browser holds one, its SSO
+        // session — signing out everywhere should not sign out here.
+        var command = new TerminateAllSessionsCommand(
+            userId,
+            GetCurrentSessionId(),
+            IdpSessionCookie.Read(Request, _idpSettings));
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
@@ -870,7 +924,8 @@ public class AuthController : ApiController
                 request.TwoFactorCode,
                 HttpContext.Connection.RemoteIpAddress?.ToString(),
                 Request.Headers.UserAgent.ToString(),
-                GetDeviceId()),
+                GetDeviceId(),
+                ExternalNonceCookie.Read(Request)),
             cancellationToken);
 
         return result.Match<IActionResult>(

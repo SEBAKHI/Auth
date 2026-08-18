@@ -18,7 +18,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
     private readonly IUserRepository _userRepository;
     private readonly IPasswordResetTokenRepository _passwordResetTokenRepository;
     private readonly IPasswordHistoryRepository _passwordHistoryRepository;
-    private readonly IUserSessionRepository _userSessionRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly PasswordValidator _passwordValidator;
@@ -32,7 +32,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         IUserRepository userRepository,
         IPasswordResetTokenRepository passwordResetTokenRepository,
         IPasswordHistoryRepository passwordHistoryRepository,
-        IUserSessionRepository userSessionRepository,
+        ICredentialRevocationService credentialRevocation,
         IPasswordHasher passwordHasher,
         IRefreshTokenKeyService tokenKeyService,
         PasswordValidator passwordValidator,
@@ -45,7 +45,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         _userRepository = userRepository;
         _passwordResetTokenRepository = passwordResetTokenRepository;
         _passwordHistoryRepository = passwordHistoryRepository;
-        _userSessionRepository = userSessionRepository;
+        _credentialRevocation = credentialRevocation;
         _passwordHasher = passwordHasher;
         _tokenKeyService = tokenKeyService;
         _passwordValidator = passwordValidator;
@@ -173,21 +173,36 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
 
         if (shouldTerminateSessions)
         {
-            // Terminate all existing sessions for security
-            await _userSessionRepository.TerminateAllForUserAsync(
+            // The full wipe, not a session-row termination. Ending the rows alone
+            // evicts nobody: nothing on the refresh path consults the session, so
+            // an unrevoked refresh token mints a fresh access token and the reset
+            // locks nothing out. This also revokes the SSO sessions.
+            await _credentialRevocation.RevokeAllCredentialsAsync(
                 user.Id,
+                revokedBy: user.Id,
                 "Password reset",
                 cancellationToken);
 
             _logger.LogInformation(
-                "Password reset for user {UserId}, terminated all sessions",
+                "Password reset for user {UserId}, revoked all credentials",
                 user.Id);
         }
         else
         {
+            // Preserving application sessions is a usability choice the operator
+            // may make. Preserving single sign-on is not: this is the action
+            // someone takes when they believe they have been compromised, and an
+            // SSO cookie that predates the reset still mints authorization codes
+            // for every application the account can enter. So it goes regardless
+            // of the flag, and no caller can opt out.
+            var idpRevoked = await _credentialRevocation.RevokeIdpSessionsAsync(
+                user.Id,
+                exceptIdpSessionToken: null,
+                cancellationToken);
+
             _logger.LogInformation(
-                "Password reset for user {UserId}, sessions preserved per request/configuration",
-                user.Id);
+                "Password reset for user {UserId}, application sessions preserved per request/configuration; revoked {IdpSessionCount} SSO sessions",
+                user.Id, idpRevoked);
         }
 
         // Dispatched last, mirroring ChangePasswordCommandHandler: the password is persisted
