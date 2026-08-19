@@ -108,10 +108,19 @@ public class RoleRepository : IRoleRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // Platform authority ONLY — the same boundary PermissionRepository's
+        // platform overload enforces, and for the same reason: these role codes
+        // become the token's "roles" claim, so an application-scoped role
+        // returned here would present that application's authority as the
+        // platform's. Both scope columns are checked, because a role may be
+        // application-owned (Roles.ApplicationId) or merely assigned within one
+        // (UserRoles.ApplicationId), and either alone leaves half the door open.
         var dtos = await connection.QueryAsync<RoleDto>(@"
             SELECT r.* FROM [dbo].[Roles] r
             INNER JOIN [dbo].[UserRoles] ur ON r.[Id] = ur.[RoleId]
             WHERE ur.[UserId] = @UserId
+              AND ur.[ApplicationId] IS NULL
+              AND r.[ApplicationId] IS NULL
               AND ur.[IsActive] = 1
               AND r.[IsActive] = 1
               AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())

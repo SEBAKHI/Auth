@@ -1,5 +1,6 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -16,6 +17,7 @@ public class GrantPermissionCommandHandler : IRequestHandler<GrantPermissionComm
     private readonly IApplicationRepository _applicationRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly IUserRepository _userRepository;
+    private readonly OrganizationGrantGuard _grantGuard;
     private readonly ILogger<GrantPermissionCommandHandler> _logger;
 
     public GrantPermissionCommandHandler(
@@ -23,12 +25,14 @@ public class GrantPermissionCommandHandler : IRequestHandler<GrantPermissionComm
         IApplicationRepository applicationRepository,
         IPermissionRepository permissionRepository,
         IUserRepository userRepository,
+        OrganizationGrantGuard grantGuard,
         ILogger<GrantPermissionCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _applicationRepository = applicationRepository;
         _permissionRepository = permissionRepository;
         _userRepository = userRepository;
+        _grantGuard = grantGuard;
         _logger = logger;
     }
 
@@ -81,6 +85,25 @@ public class GrantPermissionCommandHandler : IRequestHandler<GrantPermissionComm
         if (permission.ApplicationId != request.ApplicationId)
         {
             return OrganizationErrors.PermissionNotForApplication(request.PermissionId, request.ApplicationId);
+        }
+
+        // No amplification. The endpoint gate asked who may grant; this asks
+        // what may be granted. Without it, org:permissions:manage — which the
+        // seeded org-admin role carries — was enough to hand any member, itself
+        // included, every permission of every application the organization has
+        // enabled, regardless of what the actor holds there.
+        var canGrant = await _grantGuard.EnsureCanGrantAsync(
+            request.OrganizationId,
+            request.GrantedBy,
+            request.ApplicationId,
+            [permission.Code.Value],
+            cancellationToken);
+        if (canGrant.IsError)
+        {
+            _logger.LogWarning(
+                "Blocked grant of permission {PermissionCode} to user {UserId} in org {OrganizationId} for app {ApplicationId}: actor {GrantedBy} does not hold it",
+                permission.Code.Value, request.UserId, request.OrganizationId, request.ApplicationId, request.GrantedBy);
+            return canGrant.Errors;
         }
 
         // Check if already granted

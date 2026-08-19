@@ -75,15 +75,19 @@ public class AppleAuthProvider : IExternalAuthProvider
 
             var jwt = (JwtSecurityToken)validatedToken;
 
-            // Nonce validation for token replay prevention
-            if (nonce != null)
+            // Nonce validation for token replay prevention.
+            //
+            // Driven by the TOKEN, not by the caller — see the same reasoning
+            // spelled out in GoogleAuthProvider. Comparing only when the caller
+            // supplied a value let a replayer strip the field and have the check
+            // skipped entirely. A token carrying no nonce claim is unaffected.
+            var payloadNonce = jwt.Claims.FirstOrDefault(c => c.Type == "nonce")?.Value;
+            if (!ExternalNonceComparison.IsSatisfied(payloadNonce, nonce))
             {
-                var payloadNonce = jwt.Claims.FirstOrDefault(c => c.Type == "nonce")?.Value;
-                if (payloadNonce != nonce)
-                {
-                    _logger.LogWarning("Apple ID token nonce mismatch");
-                    return ExternalAuthErrors.TokenVerificationFailed;
-                }
+                _logger.LogWarning(
+                    "Apple ID token nonce mismatch (token carried a nonce: {TokenHasNonce}, caller presented one: {CallerHasNonce})",
+                    !string.IsNullOrEmpty(payloadNonce), !string.IsNullOrEmpty(nonce));
+                return ExternalAuthErrors.TokenVerificationFailed;
             }
 
             var email = jwt.Claims.FirstOrDefault(c => c.Type == JwtRegisteredClaimNames.Email)?.Value;

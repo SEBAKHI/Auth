@@ -1,5 +1,6 @@
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -15,20 +16,26 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IApplicationRepository _applicationRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IPermissionRepository _permissionRepository;
     private readonly IUserRepository _userRepository;
+    private readonly OrganizationGrantGuard _grantGuard;
     private readonly ILogger<AssignAppRoleCommandHandler> _logger;
 
     public AssignAppRoleCommandHandler(
         IOrganizationRepository organizationRepository,
         IApplicationRepository applicationRepository,
         IRoleRepository roleRepository,
+        IPermissionRepository permissionRepository,
         IUserRepository userRepository,
+        OrganizationGrantGuard grantGuard,
         ILogger<AssignAppRoleCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _applicationRepository = applicationRepository;
         _roleRepository = roleRepository;
+        _permissionRepository = permissionRepository;
         _userRepository = userRepository;
+        _grantGuard = grantGuard;
         _logger = logger;
     }
 
@@ -81,6 +88,29 @@ public class AssignAppRoleCommandHandler : IRequestHandler<AssignAppRoleCommand,
         if (role.ApplicationId != request.ApplicationId)
         {
             return OrganizationErrors.RoleNotForApplication(request.RoleId, request.ApplicationId);
+        }
+
+        // No amplification. Assigning a role hands over every permission that
+        // role carries, so it is a grant by another name — the same reasoning
+        // the platform AssignRole path applies, and the reason checking only
+        // "who may assign" leaves the more important question unasked.
+        // Checked against the role's CURRENT permissions: a role that gains one
+        // later is re-evaluated on the next assignment.
+        var rolePermissions = await _permissionRepository.GetRolePermissionsAsync(
+            request.RoleId, cancellationToken);
+
+        var canGrant = await _grantGuard.EnsureCanGrantAsync(
+            request.OrganizationId,
+            request.AssignedBy,
+            request.ApplicationId,
+            rolePermissions.Select(permission => permission.Code.Value),
+            cancellationToken);
+        if (canGrant.IsError)
+        {
+            _logger.LogWarning(
+                "Blocked assignment of app role {RoleId} ({RoleName}) to user {UserId} in org {OrganizationId}: actor {AssignedBy} does not hold every permission the role carries",
+                request.RoleId, role.Name, request.UserId, request.OrganizationId, request.AssignedBy);
+            return canGrant.Errors;
         }
 
         // Check if already assigned

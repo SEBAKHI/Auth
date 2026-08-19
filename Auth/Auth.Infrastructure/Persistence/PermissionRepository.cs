@@ -129,7 +129,20 @@ public class PermissionRepository : IPermissionRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // Get permissions from roles and direct grants
+        // Platform authority ONLY. A grant carrying an ApplicationId is confined
+        // to that application by everything the operator sees — the request
+        // contract, the console's application selector and the column itself —
+        // so returning it here would hand application-scoped authority to the
+        // platform token, and to PermissionGrantGuard, which reads this same
+        // query and would then agree the holder may re-grant it globally.
+        //
+        // The boundary sits on the scope of the GRANT (UserPermissions) and of
+        // the ASSIGNMENT and the ROLE (UserRoles, Roles), not on the scope of
+        // the referenced permission row: handing someone a platform permission
+        // "but only inside CRM" is exactly the case this must exclude.
+        //
+        // Twin of the application-scoped overload below, which enforces the same
+        // boundary from the other side. Change one, change the other.
         var permissions = await connection.QueryAsync<string>(@"
             WITH RolePermissions AS (
                 -- Permissions from roles
@@ -137,8 +150,12 @@ public class PermissionRepository : IPermissionRepository
                 FROM [dbo].[Permissions] p
                 INNER JOIN [dbo].[RolePermissions] rp ON p.[Id] = rp.[PermissionId]
                 INNER JOIN [dbo].[UserRoles] ur ON rp.[RoleId] = ur.[RoleId]
+                INNER JOIN [dbo].[Roles] r ON r.[Id] = ur.[RoleId]
                 WHERE ur.[UserId] = @UserId
+                  AND ur.[ApplicationId] IS NULL
+                  AND r.[ApplicationId] IS NULL
                   AND ur.[IsActive] = 1
+                  AND r.[IsActive] = 1
                   AND p.[IsActive] = 1
                   AND (ur.[ExpiresAt] IS NULL OR ur.[ExpiresAt] > GETUTCDATE())
             ),
@@ -148,6 +165,7 @@ public class PermissionRepository : IPermissionRepository
                 FROM [dbo].[Permissions] p
                 INNER JOIN [dbo].[UserPermissions] up ON p.[Id] = up.[PermissionId]
                 WHERE up.[UserId] = @UserId
+                  AND up.[ApplicationId] IS NULL
                   AND up.[IsActive] = 1
                   AND p.[IsActive] = 1
                   AND (up.[ExpiresAt] IS NULL OR up.[ExpiresAt] > GETUTCDATE())

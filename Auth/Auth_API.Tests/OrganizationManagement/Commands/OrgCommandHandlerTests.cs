@@ -7,6 +7,7 @@ using Auth.Application.Features.Organizations.EnableApplication;
 using Auth.Application.Features.Organizations.DisableApplication;
 using Auth.Application.Features.Organizations.AssignAppRole;
 using Auth.Application.Features.Organizations.GrantPermission;
+using Auth.Application.Common;
 using Auth.Application.Interfaces;
 using Auth.Application.Notifications;
 using Auth.Domain.Entities;
@@ -504,16 +505,34 @@ public class AssignAppRoleCommandHandlerTests
     private readonly Mock<IOrganizationRepository> _orgRepoMock = new();
     private readonly Mock<IApplicationRepository> _appRepoMock = new();
     private readonly Mock<IRoleRepository> _roleRepoMock = new();
+    private readonly Mock<IPermissionRepository> _permRepoMock = new();
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly AssignAppRoleCommandHandler _handler;
 
     public AssignAppRoleCommandHandlerTests()
     {
+        // Assigning a role hands over its permissions, so the handler now asks
+        // whether the actor holds them. These defaults put the actor in the
+        // ordinary case — a platform operator carrying the global wildcard —
+        // so the existing cases keep testing what they were written to test.
+        _permRepoMock
+            .Setup(r => r.GetRolePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<Permission>());
+        _permRepoMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "*" });
+        _orgRepoMock
+            .Setup(r => r.GetEffectivePermissionCodesAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
+
         _handler = new AssignAppRoleCommandHandler(
             _orgRepoMock.Object,
             _appRepoMock.Object,
             _roleRepoMock.Object,
+            _permRepoMock.Object,
             _userRepoMock.Object,
+            new OrganizationGrantGuard(_orgRepoMock.Object, _permRepoMock.Object),
             new Mock<ILogger<AssignAppRoleCommandHandler>>().Object);
     }
 
@@ -564,6 +583,49 @@ public class AssignAppRoleCommandHandlerTests
 
         result.IsError.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task Handle_ActorDoesNotHoldWhatTheRoleCarries_IsRefused()
+    {
+        // Assigning a role is granting its permissions by another name, and it
+        // has the widest blast radius of the two paths. Until the guard landed,
+        // org:permissions:manage was enough to assign a member — or oneself —
+        // any application role the organization had enabled.
+        var orgId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var appId = Guid.NewGuid();
+        var roleId = Guid.NewGuid();
+        var assignedBy = Guid.NewGuid();
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, isActive: true));
+        _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: userId));
+        _appRepoMock.Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: appId));
+        _orgRepoMock.Setup(r => r.IsApplicationEnabledAsync(orgId, appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _roleRepoMock.Setup(r => r.GetByIdAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(id: roleId, applicationId: appId));
+
+        // The role carries authority the actor does not hold anywhere.
+        _permRepoMock.Setup(r => r.GetRolePermissionsAsync(roleId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { TestHelpers.CreatePermission(code: "crm:admin", applicationId: appId) });
+        _permRepoMock.Setup(r => r.GetUserEffectivePermissionsAsync(assignedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "org:permissions:manage" });
+        _orgRepoMock.Setup(r => r.GetEffectivePermissionCodesAsync(
+                orgId, assignedBy, appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "crm:leads:read" });
+
+        var result = await _handler.Handle(
+            new AssignAppRoleCommand(orgId, userId, appId, roleId) { AssignedBy = assignedBy },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        _orgRepoMock.Verify(
+            r => r.AssignAppRoleAsync(It.IsAny<OrganizationUserRole>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
 }
 
 public class OrgGrantPermissionCommandHandlerTests
@@ -576,11 +638,24 @@ public class OrgGrantPermissionCommandHandlerTests
 
     public OrgGrantPermissionCommandHandlerTests()
     {
+        // The handler now asks whether the actor holds what it is handing over.
+        // These defaults put the actor in the ordinary case — a platform
+        // operator carrying the global wildcard — so the existing cases keep
+        // testing what they were written to test.
+        _permRepoMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "*" });
+        _orgRepoMock
+            .Setup(r => r.GetEffectivePermissionCodesAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
+
         _handler = new GrantPermissionCommandHandler(
             _orgRepoMock.Object,
             _appRepoMock.Object,
             _permRepoMock.Object,
             _userRepoMock.Object,
+            new OrganizationGrantGuard(_orgRepoMock.Object, _permRepoMock.Object),
             new Mock<ILogger<GrantPermissionCommandHandler>>().Object);
     }
 
@@ -630,5 +705,88 @@ public class OrgGrantPermissionCommandHandlerTests
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Handle_ActorDoesNotHoldThePermission_IsRefused()
+    {
+        // The endpoint gate asks who may grant; this asks what may be granted.
+        // Without it, org:permissions:manage — which the seeded org-admin role
+        // carries — was enough to hand any member, itself included, every
+        // permission of every enabled application.
+        var orgId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var appId = Guid.NewGuid();
+        var permId = Guid.NewGuid();
+        var grantedBy = Guid.NewGuid();
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, isActive: true));
+        _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: userId));
+        _appRepoMock.Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: appId));
+        _orgRepoMock.Setup(r => r.IsApplicationEnabledAsync(orgId, appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _permRepoMock.Setup(r => r.GetByIdAsync(permId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreatePermission(id: permId, code: "crm:admin", applicationId: appId));
+
+        // The actor administers grants here, but holds only a narrow code.
+        _permRepoMock.Setup(r => r.GetUserEffectivePermissionsAsync(grantedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "org:permissions:manage" });
+        _orgRepoMock.Setup(r => r.GetEffectivePermissionCodesAsync(
+                orgId, grantedBy, appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "crm:leads:read" });
+
+        var result = await _handler.Handle(
+            new GrantPermissionCommand(orgId, userId, appId, permId) { GrantedBy = grantedBy },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        _orgRepoMock.Verify(
+            r => r.GrantPermissionAsync(It.IsAny<OrganizationUserPermission>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ActorHoldsItInTheOrganization_IsAllowed()
+    {
+        // The other half of the boundary: an organization administrator that
+        // does hold the code must still be able to delegate it, or the fix
+        // would have removed the feature rather than bounded it.
+        var orgId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var appId = Guid.NewGuid();
+        var permId = Guid.NewGuid();
+        var grantedBy = Guid.NewGuid();
+
+        _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganization(id: orgId, isActive: true));
+        _orgRepoMock.Setup(r => r.GetMembershipAsync(orgId, userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateOrganizationUser(organizationId: orgId, userId: userId));
+        _appRepoMock.Setup(r => r.GetByIdAsync(appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: appId));
+        _orgRepoMock.Setup(r => r.IsApplicationEnabledAsync(orgId, appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _permRepoMock.Setup(r => r.GetByIdAsync(permId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreatePermission(id: permId, code: "crm:leads:read", applicationId: appId));
+        _orgRepoMock.Setup(r => r.HasPermissionAsync(orgId, userId, appId, permId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _userRepoMock.Setup(r => r.GetByIdAsync(grantedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateUser(id: grantedBy));
+        _orgRepoMock.Setup(r => r.GrantPermissionAsync(It.IsAny<OrganizationUserPermission>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationUserPermission grant, CancellationToken _) => grant);
+
+        _permRepoMock.Setup(r => r.GetUserEffectivePermissionsAsync(grantedBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<string>());
+        _orgRepoMock.Setup(r => r.GetEffectivePermissionCodesAsync(
+                orgId, grantedBy, appId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { "crm:*" });
+
+        var result = await _handler.Handle(
+            new GrantPermissionCommand(orgId, userId, appId, permId) { GrantedBy = grantedBy },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
     }
 }

@@ -50,15 +50,24 @@ public class GoogleAuthProvider : IExternalAuthProvider
 
             var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, validationSettings);
 
-            // Nonce validation for token replay prevention
-            if (nonce != null)
+            // Nonce validation for token replay prevention.
+            //
+            // Driven by the TOKEN, not by the caller. Comparing only when the
+            // caller supplied a value let a replayer strip the field: a captured
+            // token minted with a nonce validated on signature, audience and
+            // expiry alone, and the binding it was minted with was never
+            // examined. The caller is the attacker in that scenario, so it must
+            // not be the one deciding whether the check runs.
+            //
+            // A token carrying no nonce claim is unaffected, so this cannot
+            // break a provider or client that never used one.
+            var payloadNonce = ExtractNonceFromJwt(idToken);
+            if (!ExternalNonceComparison.IsSatisfied(payloadNonce, nonce))
             {
-                var payloadNonce = ExtractNonceFromJwt(idToken);
-                if (payloadNonce != nonce)
-                {
-                    _logger.LogWarning("Google ID token nonce mismatch");
-                    return ExternalAuthErrors.TokenVerificationFailed;
-                }
+                _logger.LogWarning(
+                    "Google ID token nonce mismatch (token carried a nonce: {TokenHasNonce}, caller presented one: {CallerHasNonce})",
+                    !string.IsNullOrEmpty(payloadNonce), !string.IsNullOrEmpty(nonce));
+                return ExternalAuthErrors.TokenVerificationFailed;
             }
 
             var firstName = payload.GivenName ?? payload.Name?.Split(' ').FirstOrDefault() ?? "";
