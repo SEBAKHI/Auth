@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
-import type { ColumnDef, SortingState } from "@tanstack/react-table"
+import type { ColumnDef } from "@tanstack/react-table"
 import { Download, Eye } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
@@ -22,13 +22,39 @@ import { api } from "@authsystem/api/client"
 import { toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
+import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import {
+  dateUrlFilter,
+  stringUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import { AuditLogDetailDialog } from "./audit-log-detail-dialog"
 
 type AuditLogDto = Schemas["AuditLogDto"]
+
+type AuditLogListFilters = {
+  applicationId: string
+  action: string
+  from: string
+  to: string
+}
+
+const AUDIT_LOGS_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: SORTABLE_COLUMNS.auditLogs,
+  defaultSorting: [{ id: "timestamp", desc: true }],
+  filters: {
+    applicationId: stringUrlFilter({ maxLength: 128 }),
+    action: stringUrlFilter({ maxLength: 100 }),
+    from: dateUrlFilter(),
+    to: dateUrlFilter(),
+  },
+} satisfies ListUrlStateOptions<AuditLogListFilters>
 
 function startOfDay(date: string): string {
   return new Date(`${date}T00:00:00`).toISOString()
@@ -41,25 +67,26 @@ export function AuditLogsPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
 
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  const [applicationId, setApplicationId] = React.useState<string>()
-  const [actionInput, setActionInput] = React.useState("")
+  const {
+    pageIndex: page,
+    pageSize,
+    sorting,
+    filters: { applicationId, action: actionInput, from: fromDate, to: toDate },
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+    setFilter,
+    setFilters,
+  } = useListUrlState(AUDIT_LOGS_LIST_URL_OPTIONS)
   const action = useDebouncedValue(actionInput)
-  const [fromDate, setFromDate] = React.useState("")
-  const [toDate, setToDate] = React.useState("")
   const [detail, setDetail] = React.useState<AuditLogDto | undefined>()
-  // Server-side sort over the whole dataset; initial value mirrors the API default.
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "timestamp", desc: true },
-  ])
   const { sortBy, sortDirection } = toSortParams(sorting)
 
   const canExport = hasPermission(PERMISSIONS.auditLogs.export)
 
   const filters = React.useMemo(
     () => ({
-      applicationId,
+      applicationId: applicationId || undefined,
       action: action || undefined,
       fromDate: fromDate ? startOfDay(fromDate) : undefined,
       toDate: toDate ? endOfDay(toDate) : undefined,
@@ -68,7 +95,10 @@ export function AuditLogsPage() {
   )
 
   const query = useQuery({
-    queryKey: ["audit-logs", { page, pageSize, filters, sortBy, sortDirection }],
+    queryKey: [
+      "audit-logs",
+      { page, pageSize, filters, sortBy, sortDirection },
+    ],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/audit-logs", {
@@ -213,30 +243,22 @@ export function AuditLogsPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <ApplicationSelect
-          value={applicationId}
-          onChange={(value) => {
-            setApplicationId(value)
-            setPage(0)
-          }}
+          value={applicationId || undefined}
+          onChange={(value) => setFilter("applicationId", value ?? "")}
           allowAll
           className="w-full"
         />
         <Input
           value={actionInput}
-          onChange={(e) => {
-            setActionInput(e.target.value)
-            setPage(0)
-          }}
+          onChange={(e) => setFilter("action", e.target.value)}
           placeholder={t("auditLogs.searchAction")}
         />
         <DateRangePicker
           from={fromDate || undefined}
           to={toDate || undefined}
-          onChange={({ from, to }) => {
-            setFromDate(from ?? "")
-            setToDate(to ?? "")
-            setPage(0)
-          }}
+          onChange={({ from, to }) =>
+            setFilters({ from: from ?? "", to: to ?? "" })
+          }
         />
       </div>
 
@@ -253,20 +275,14 @@ export function AuditLogsPage() {
         enableExport={false}
         enableRowDetail={false}
         sorting={sorting}
-        onSortingChange={(next) => {
-          setSorting(next)
-          setPage(0)
-        }}
+        onSortingChange={setSorting}
         pagination={{
           pageIndex: page,
           pageSize,
           pageCount: toNumber(query.data?.totalPages),
           totalCount: toNumber(query.data?.totalCount),
           onPageChange: setPage,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPage(0)
-          },
+          onPageSizeChange: setPageSize,
         }}
       />
 

@@ -33,13 +33,9 @@ export function ManageVariablesDialog({
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const [rows, setRows] = React.useState<TemplateVariable[]>([])
-
-  React.useEffect(() => {
-    if (open) {
-      setRows(parseVariables(template.typeVariablesJson))
-    }
-  }, [open, template.typeVariablesJson])
+  const [rows, setRows] = React.useState<TemplateVariable[]>(() =>
+    parseVariables(template.typeVariablesJson)
+  )
 
   const patch = (index: number, change: Partial<TemplateVariable>) =>
     setRows((current) => current.map((row, i) => (i === index ? { ...row, ...change } : row)))

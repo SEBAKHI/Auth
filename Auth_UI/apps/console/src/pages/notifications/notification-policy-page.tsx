@@ -17,6 +17,7 @@ import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 
 import { PolicyLanguageGapNotice } from "./components/policy-language-gap-notice"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import {
   Dialog,
@@ -31,6 +32,7 @@ import { Field, FieldGroup, FieldLabel } from "@authsystem/ui/field"
 import { formatDate, formatDateTime } from "@authsystem/ui/format"
 import { Textarea } from "@authsystem/ui/textarea"
 import { PERMISSIONS } from "@/lib/constants"
+import { policyRevisionHref } from "@/lib/record-hrefs"
 import { ClonePolicyDialog } from "./components/clone-policy-dialog"
 import { NotificationsTabs } from "./components/notifications-tabs"
 import { PolicyVersionField } from "./components/policy-version-field"
@@ -91,7 +93,8 @@ export function NotificationPolicyPage() {
       setNewChangeNote("")
       toast.success(t("notifications.policyCreatedToast"))
       // Straight into the editor: a version without content is not useful.
-      if (created?.id) navigate(`/notifications/policy/${created.id}`)
+      const href = policyRevisionHref(created?.id)
+      if (href) navigate(href)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -129,10 +132,9 @@ export function NotificationPolicyPage() {
       header: t("notifications.policyVersion"),
       meta: { label: t("notifications.policyVersion") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={policyRevisionHref(row.original.id)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/notifications/policy/${row.original.id}`)}
         >
           {/* The direction belongs on an inline `bdi`, not on the `p`. `dir` on a
               block re-resolves the inherited `text-align: start` against that
@@ -146,7 +148,7 @@ export function NotificationPolicyPage() {
               {row.original.changeNote || t("notifications.policyNoChangeNote")}
             </bdi>
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -354,12 +356,15 @@ export function NotificationPolicyPage() {
         </DialogContent>
       </Dialog>
 
-      <ClonePolicyDialog
-        source={cloneSource}
-        onOpenChange={(open) => {
-          if (!open) setCloneSource(null)
-        }}
-      />
+      {cloneSource ? (
+        <ClonePolicyDialog
+          key={cloneSource.id ?? cloneSource.version}
+          source={cloneSource}
+          onOpenChange={(open) => {
+            if (!open) setCloneSource(null)
+          }}
+        />
+      ) : null}
 
       <ConfirmDialog
         open={publishTarget !== null}

@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
-import type { ColumnDef, SortingState } from "@tanstack/react-table"
+import type { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
@@ -24,12 +25,23 @@ import { Field, FieldLabel } from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
 import { Switch } from "@authsystem/ui/switch"
 import { api } from "@authsystem/api/client"
-import { collectAllPages, toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
+import {
+  collectAllPages,
+  toSortParams,
+  unwrap,
+  toNumber,
+} from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
+import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
+import { userHref } from "@/lib/record-hrefs"
 import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
-import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
+import {
+  booleanUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import { useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
@@ -38,22 +50,32 @@ import { UserRolesDialog } from "./user-roles-dialog"
 
 type UserDto = Schemas["UserDto"]
 
+type UserListFilters = { includeDeleted: boolean }
+
+const USERS_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: SORTABLE_COLUMNS.users,
+  defaultSorting: [{ id: "createdAt", desc: true }],
+  filters: { includeDeleted: booleanUrlFilter() },
+} satisfies ListUrlStateOptions<UserListFilters>
+
 export function UsersPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
-  const navigate = useNavigate()
 
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  // A term the command palette handed over, so arriving from "see all N"
-  // lands on those rows rather than on the whole list again.
-  const handoff = useSearchHandoff()
-  const [searchInput, setSearchInput] = React.useState(handoff)
+  const {
+    pageIndex: page,
+    pageSize,
+    search: searchInput,
+    sorting,
+    filters: { includeDeleted: showDeleted },
+    setSearch: setSearchInput,
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+    setFilter,
+  } = useListUrlState(USERS_LIST_URL_OPTIONS)
   const search = useDebouncedValue(searchInput)
-  // Server-side sort over the whole dataset; initial value mirrors the API default.
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "createdAt", desc: true },
-  ])
   const { sortBy, sortDirection } = toSortParams(sorting)
 
   const [formOpen, setFormOpen] = React.useState(false)
@@ -61,10 +83,14 @@ export function UsersPage() {
   const [rolesUser, setRolesUser] = React.useState<UserDto | undefined>()
   const [permsUser, setPermsUser] = React.useState<UserDto | undefined>()
   const [lockUser, setLockUser] = React.useState<UserDto | undefined>()
+  const [deactivateUser, setDeactivateUser] = React.useState<
+    UserDto | undefined
+  >()
   const [lockReason, setLockReason] = React.useState("")
   const [deleteUser, setDeleteUser] = React.useState<UserDto | undefined>()
-  const [showDeleted, setShowDeleted] = React.useState(false)
-  const [hardDeleteUser, setHardDeleteUser] = React.useState<UserDto | undefined>()
+  const [hardDeleteUser, setHardDeleteUser] = React.useState<
+    UserDto | undefined
+  >()
   const [hardDeleteConfirm, setHardDeleteConfirm] = React.useState("")
 
   const canCreate = hasPermission(PERMISSIONS.users.create)
@@ -129,6 +155,7 @@ export function UsersPage() {
     onStatusChanged: () => {
       setLockUser(undefined)
       setLockReason("")
+      setDeactivateUser(undefined)
     },
     onDeleted: () => setDeleteUser(undefined),
     onHardDeleted: () => {
@@ -147,7 +174,8 @@ export function UsersPage() {
     {
       id: "name",
       accessorFn: (row) =>
-        row.displayName || fullName(row.firstName, row.lastName, row.email ?? ""),
+        row.displayName ||
+        fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => {
@@ -163,13 +191,12 @@ export function UsersPage() {
           )
         }
         return (
-          <button
-            type="button"
+          <RecordLink
+            href={userHref(user.id)}
             className="min-w-0 text-start hover:underline"
-            onClick={() => navigate(`/users/${user.id}`)}
           >
             <p className="truncate font-medium">{name}</p>
-          </button>
+          </RecordLink>
         )
       },
     },
@@ -199,9 +226,7 @@ export function UsersPage() {
       },
       cell: ({ row }) => {
         if (row.original.isDeleted) {
-          return (
-            <Badge variant="destructive">{t("users.deletedStatus")}</Badge>
-          )
+          return <Badge variant="destructive">{t("users.deletedStatus")}</Badge>
         }
         const meta = userStatusMeta(row.original.status)
         return <Badge variant={meta.variant}>{t(`common.${meta.key}`)}</Badge>
@@ -209,6 +234,9 @@ export function UsersPage() {
     },
     {
       id: "roles",
+      // The API cannot order by a user's role count; offering the header would
+      // send a sortBy the endpoint rejects.
+      enableSorting: false,
       accessorFn: (row) => row.roles?.length ?? 0,
       header: t("users.roles"),
       meta: { label: t("users.roles") },
@@ -244,157 +272,152 @@ export function UsersPage() {
       ),
     },
     ...[
-          {
-            id: "actions",
-            enableSorting: false,
-            enableHiding: false,
-            header: () => (
-              <span className="sr-only">{t("common.actions")}</span>
-            ),
-            cell: ({ row }) => {
-              const user = row.original
-              const isLocked = userStatusMeta(user.status).key === "locked"
-              // A deleted account supports exactly one action: permanent
-              // removal, offered only to user managers.
-              if (user.isDeleted) {
-                if (!canManage) return null
-                return (
-                  <div className="text-end">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          aria-label={t("common.actions")}
-                        >
-                          <MoreHorizontal />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
-                        <DropdownMenuGroup>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            onClick={() => {
-                              setHardDeleteConfirm("")
-                              setHardDeleteUser(user)
-                            }}
-                          >
-                            {t("users.hardDelete")}
-                          </DropdownMenuItem>
-                        </DropdownMenuGroup>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                )
-              }
-              return (
-                <div className="text-end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={t("common.actions")}
+      {
+        id: "actions",
+        enableSorting: false,
+        enableHiding: false,
+        header: () => <span className="sr-only">{t("common.actions")}</span>,
+        cell: ({ row }) => {
+          const user = row.original
+          const viewHref = userHref(user.id)
+          const isLocked = userStatusMeta(user.status).key === "locked"
+          // A deleted account supports exactly one action: permanent
+          // removal, offered only to user managers.
+          if (user.isDeleted) {
+            if (!canManage) return null
+            return (
+              <div className="text-end">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={t("common.actions")}
+                    >
+                      <MoreHorizontal />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuGroup>
+                      <DropdownMenuItem
+                        variant="destructive"
+                        onClick={() => {
+                          setHardDeleteConfirm("")
+                          setHardDeleteUser(user)
+                        }}
                       >
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48">
+                        {t("users.hardDelete")}
+                      </DropdownMenuItem>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )
+          }
+          return (
+            <div className="text-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("common.actions")}
+                  >
+                    <MoreHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuGroup>
+                    {viewHref ? (
+                      <DropdownMenuItem asChild>
+                        <Link to={viewHref}>{t("common.view")}</Link>
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canUpdate ? (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditing(user)
+                          setFormOpen(true)
+                        }}
+                      >
+                        {t("common.edit")}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canManageRoles ? (
+                      <DropdownMenuItem onClick={() => setRolesUser(user)}>
+                        {t("users.manageRoles")}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canManagePerms ? (
+                      <DropdownMenuItem onClick={() => setPermsUser(user)}>
+                        {t("users.managePermissions")}
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuGroup>
+                  {canManage ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuGroup>
+                        {isLocked ? (
+                          <DropdownMenuItem
+                            onClick={() =>
+                              user.id &&
+                              statusAction.mutate({
+                                id: user.id,
+                                action: "unlock",
+                              })
+                            }
+                          >
+                            {t("users.unlock")}
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onClick={() => setLockUser(user)}>
+                            {t("users.lock")}
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() =>
+                            user.id &&
+                            statusAction.mutate({
+                              id: user.id,
+                              action: "activate",
+                            })
+                          }
+                        >
+                          {t("users.activate")}
+                        </DropdownMenuItem>
+                        {/* Activating and unlocking restore access, so they act
+                            on the click. Deactivating removes it - the account
+                            is signed out everywhere - and a row menu is one
+                            mis-aimed pointer away from the wrong person. */}
+                        <DropdownMenuItem
+                          onClick={() => setDeactivateUser(user)}
+                        >
+                          {t("users.deactivate")}
+                        </DropdownMenuItem>
+                      </DropdownMenuGroup>
+                    </>
+                  ) : null}
+                  {canDelete ? (
+                    <>
+                      <DropdownMenuSeparator />
                       <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() => navigate(`/users/${user.id}`)}
+                          variant="destructive"
+                          onClick={() => setDeleteUser(user)}
                         >
-                          {t("common.view")}
+                          {t("common.delete")}
                         </DropdownMenuItem>
-                        {canUpdate ? (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditing(user)
-                              setFormOpen(true)
-                            }}
-                          >
-                            {t("common.edit")}
-                          </DropdownMenuItem>
-                        ) : null}
-                        {canManageRoles ? (
-                          <DropdownMenuItem onClick={() => setRolesUser(user)}>
-                            {t("users.manageRoles")}
-                          </DropdownMenuItem>
-                        ) : null}
-                        {canManagePerms ? (
-                          <DropdownMenuItem onClick={() => setPermsUser(user)}>
-                            {t("users.managePermissions")}
-                          </DropdownMenuItem>
-                        ) : null}
                       </DropdownMenuGroup>
-                      {canManage ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            {isLocked ? (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  user.id &&
-                                  statusAction.mutate({
-                                    id: user.id,
-                                    action: "unlock",
-                                  })
-                                }
-                              >
-                                {t("users.unlock")}
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem
-                                onClick={() => setLockUser(user)}
-                              >
-                                {t("users.lock")}
-                              </DropdownMenuItem>
-                            )}
-                            <DropdownMenuItem
-                              onClick={() =>
-                                user.id &&
-                                statusAction.mutate({
-                                  id: user.id,
-                                  action: "activate",
-                                })
-                              }
-                            >
-                              {t("users.activate")}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() =>
-                                user.id &&
-                                statusAction.mutate({
-                                  id: user.id,
-                                  action: "deactivate",
-                                })
-                              }
-                            >
-                              {t("users.deactivate")}
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </>
-                      ) : null}
-                      {canDelete ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => setDeleteUser(user)}
-                            >
-                              {t("common.delete")}
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </>
-                      ) : null}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )
-            },
-          } satisfies ColumnDef<UserDto, unknown>,
-        ],
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        },
+      } satisfies ColumnDef<UserDto, unknown>,
+    ],
   ]
 
   return (
@@ -419,23 +442,19 @@ export function UsersPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <SearchInput
-        value={searchInput}
-        onChange={(value) => {
-              setSearchInput(value)
-              setPage(0)
-            }}
-        placeholder={t("users.searchPlaceholder")}
-        className="w-full max-w-sm"
-      />
+          value={searchInput}
+          onChange={setSearchInput}
+          placeholder={t("users.searchPlaceholder")}
+          className="w-full max-w-sm"
+        />
         {canManage ? (
           <Field orientation="horizontal" className="w-auto">
             <Switch
               id="show-deleted-users"
               checked={showDeleted}
-              onCheckedChange={(checked) => {
-                setShowDeleted(checked)
-                setPage(0)
-              }}
+              onCheckedChange={(checked) =>
+                setFilter("includeDeleted", checked)
+              }
             />
             <FieldLabel htmlFor="show-deleted-users">
               {t("users.showDeleted")}
@@ -454,10 +473,7 @@ export function UsersPage() {
         onRetry={() => query.refetch()}
         onExportAll={exportAll}
         sorting={sorting}
-        onSortingChange={(next) => {
-          setSorting(next)
-          setPage(0)
-        }}
+        onSortingChange={setSorting}
         enableRowDetail={false}
         pagination={{
           pageIndex: page,
@@ -465,10 +481,7 @@ export function UsersPage() {
           pageCount: toNumber(query.data?.totalPages),
           totalCount: toNumber(query.data?.totalCount),
           onPageChange: setPage,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPage(0)
-          },
+          onPageSizeChange: setPageSize,
         }}
       />
 
@@ -491,6 +504,31 @@ export function UsersPage() {
           user={permsUser}
         />
       ) : null}
+
+      <ConfirmDialog
+        open={Boolean(deactivateUser)}
+        onOpenChange={(open) => !open && setDeactivateUser(undefined)}
+        title={t("users.deactivateTitle")}
+        description={t("users.deactivateBody", {
+          name:
+            deactivateUser?.displayName ||
+            fullName(
+              deactivateUser?.firstName,
+              deactivateUser?.lastName,
+              deactivateUser?.email ?? ""
+            ),
+        })}
+        confirmLabel={t("users.deactivate")}
+        destructive
+        loading={statusAction.isPending}
+        onConfirm={() =>
+          deactivateUser?.id &&
+          statusAction.mutate({
+            id: deactivateUser.id,
+            action: "deactivate",
+          })
+        }
+      />
 
       <ConfirmDialog
         open={Boolean(lockUser)}

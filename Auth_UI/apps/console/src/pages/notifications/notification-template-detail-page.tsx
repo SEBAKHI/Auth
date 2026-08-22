@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, History, MoreHorizontal, Send } from "lucide-react"
+import { Ban, Check, History, Save, Send, Trash2, X } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
@@ -11,29 +11,30 @@ import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { directionForLanguage, SUPPORTED_LANGUAGES } from "@authsystem/i18n"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
+import {
+  PageActionSurface,
+  type PageAction,
+} from "@authsystem/ui/common/page-action-surface"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@authsystem/ui/dropdown-menu"
 import { Field, FieldGroup, FieldLabel, FieldTitle } from "@authsystem/ui/field"
+import { formatDateTime } from "@authsystem/ui/format"
 import { Input } from "@authsystem/ui/input"
+import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import { Textarea } from "@authsystem/ui/textarea"
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror"
 import { PERMISSIONS } from "@/lib/constants"
-import { CodeEditor, insertAtCursor } from "./components/code-editor"
+import { CodeEditor } from "./components/code-editor"
+import { insertAtCursor } from "./components/code-editor-utils"
 import { ManageVariablesDialog } from "./components/manage-variables-dialog"
+import { PublishConfirmationSummary } from "./components/publish-confirmation-summary"
 import { TemplatePreview } from "./components/template-preview"
 import { TestSendDialog } from "./components/test-send-dialog"
+import { useSingleFlightConfirm } from "./components/use-single-flight-confirm"
 import { VariablePalette } from "./components/variable-palette"
 import { VersionHistorySheet } from "./components/version-history-sheet"
 import {
@@ -43,7 +44,56 @@ import {
   type TranslationDraft,
 } from "./lib"
 
-const EMPTY_DRAFT: TranslationDraft = { subject: "", bodyHtml: "", bodyText: "" }
+const EMPTY_DRAFT: TranslationDraft = {
+  subject: "",
+  bodyHtml: "",
+  bodyText: "",
+}
+
+interface TemplateVersionTarget {
+  item: string
+  applicationName: string | null
+  versionId: string
+  versionNumber: number | string
+}
+
+interface TemplatePublishTarget extends TemplateVersionTarget {
+  revisionAt: string
+}
+
+interface TemplateDraftState {
+  source: unknown
+  drafts: Record<string, TranslationDraft>
+  changeNote: string
+}
+
+interface TemplateSaveSnapshot {
+  drafts: Record<string, TranslationDraft>
+  baseline: Record<string, TranslationDraft>
+  changeNote: string
+  expectedModifiedAt: string | null
+}
+
+function cloneTranslationDrafts(
+  drafts: Record<string, TranslationDraft>
+): Record<string, TranslationDraft> {
+  return Object.fromEntries(
+    Object.entries(drafts).map(([language, draft]) => [
+      language,
+      { ...draft },
+    ])
+  )
+}
+
+function templateDraftMatchesSnapshot(
+  draft: Pick<TemplateDraftState, "drafts" | "changeNote">,
+  snapshot: TemplateSaveSnapshot
+) {
+  return (
+    draft.changeNote === snapshot.changeNote &&
+    JSON.stringify(draft.drafts) === JSON.stringify(snapshot.drafts)
+  )
+}
 
 /**
  * The template editor: per-language tabs over the draft version, a variable
@@ -76,32 +126,63 @@ export function NotificationTemplateDetailPage() {
 
   usePageBreadcrumb(template ? template.typeName : undefined)
 
-  // Local editing state: seeded from the draft version when one exists, else
-  // from the published version (the first save creates the draft server-side).
-  const [drafts, setDrafts] = React.useState<Record<string, TranslationDraft>>({})
-  const [baseline, setBaseline] = React.useState<Record<string, TranslationDraft>>({})
-  const [activeLanguage, setActiveLanguage] = React.useState("en")
-  const [changeNote, setChangeNote] = React.useState("")
+  // State is keyed by the query object that seeded it. A refetch adopts the
+  // new server snapshot without an effect-driven reset render.
+  const loadedDraft = React.useMemo<TemplateDraftState>(() => {
+    const source = template?.draftVersion ?? template?.publishedVersion
+    return {
+      source: template,
+      drafts: toTranslationDrafts(source?.translations),
+      changeNote: template?.draftVersion?.changeNote ?? "",
+    }
+  }, [template])
+  const [editedDraft, setEditedDraft] = React.useState<TemplateDraftState | null>(
+    null
+  )
+  const currentDraft =
+    editedDraft !== null && editedDraft.source === template
+      ? editedDraft
+      : loadedDraft
+  const { drafts, changeNote } = currentDraft
+  const baseline = loadedDraft.drafts
+  const setDrafts = (
+    next: React.SetStateAction<Record<string, TranslationDraft>>
+  ) =>
+    setEditedDraft((current) => {
+      const base =
+        current !== null && current.source === template ? current : loadedDraft
+      return {
+        ...base,
+        drafts:
+          typeof next === "function" ? next(base.drafts) : next,
+      }
+    })
+  const setChangeNote = (next: React.SetStateAction<string>) =>
+    setEditedDraft((current) => {
+      const base =
+        current !== null && current.source === template ? current : loadedDraft
+      return {
+        ...base,
+        changeNote:
+          typeof next === "function" ? next(base.changeNote) : next,
+      }
+    })
+  const [selectedLanguage, setActiveLanguage] = React.useState("en")
   const [historyOpen, setHistoryOpen] = React.useState(false)
   const [variablesOpen, setVariablesOpen] = React.useState(false)
   const [testSendOpen, setTestSendOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [discardOpen, setDiscardOpen] = React.useState(false)
+  const [publishTarget, setPublishTarget] =
+    React.useState<TemplatePublishTarget | null>(null)
+  const [unpublishTarget, setUnpublishTarget] =
+    React.useState<TemplateVersionTarget | null>(null)
 
-  React.useEffect(() => {
-    if (!template) return
-    const source = template.draftVersion ?? template.publishedVersion
-    const loaded = toTranslationDrafts(source?.translations)
-    setDrafts(loaded)
-    setBaseline(loaded)
-    setChangeNote(template.draftVersion?.changeNote ?? "")
-    setActiveLanguage((current) =>
-      loaded[current] || current === (template.defaultLanguage ?? "en")
-        ? current
-        : (template.defaultLanguage ?? "en")
-    )
-  }, [template])
-
+  const defaultLanguage = template?.defaultLanguage ?? "en"
+  const activeLanguage =
+    drafts[selectedLanguage] || selectedLanguage === defaultLanguage
+      ? selectedLanguage
+      : defaultLanguage
   const active: TranslationDraft = drafts[activeLanguage] ?? EMPTY_DRAFT
   // Direction of the translation being edited, not of the console. `dir="auto"`
   // cannot stand in for it: it resolves from the value, so an untranslated field
@@ -117,73 +198,125 @@ export function NotificationTemplateDetailPage() {
   const updateActive = (patch: Partial<TranslationDraft>) =>
     setDrafts((current) => ({
       ...current,
-      [activeLanguage]: { ...(current[activeLanguage] ?? EMPTY_DRAFT), ...patch },
+      [activeLanguage]: {
+        ...(current[activeLanguage] ?? EMPTY_DRAFT),
+        ...patch,
+      },
     }))
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["notification-template", id] })
+    void queryClient.invalidateQueries({
+      queryKey: ["notification-template", id],
+    })
     void queryClient.invalidateQueries({ queryKey: ["notification-templates"] })
   }
 
   const saveMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (snapshot: TemplateSaveSnapshot) =>
       unwrap(
         api.PUT("/api/v1/notification-templates/{id}/draft", {
           params: { path: { id } },
           body: {
-            translations: Object.entries(drafts)
-              .filter(([, draft]) => draft.subject.trim() || draft.bodyHtml.trim())
+            translations: Object.entries(snapshot.drafts)
+              .filter(
+                ([, draft]) => draft.subject.trim() || draft.bodyHtml.trim()
+              )
               .map(([languageCode, draft]) => ({
                 languageCode,
                 subject: draft.subject,
                 bodyHtml: draft.bodyHtml,
                 bodyText: draft.bodyText || null,
               })),
-            removeLanguages: Object.entries(baseline)
+            removeLanguages: Object.entries(snapshot.baseline)
               .filter(
                 ([language, previous]) =>
                   (previous.subject || previous.bodyHtml) &&
-                  !(drafts[language]?.subject.trim() || drafts[language]?.bodyHtml.trim())
+                  !(
+                    snapshot.drafts[language]?.subject.trim() ||
+                    snapshot.drafts[language]?.bodyHtml.trim()
+                  )
               )
               .map(([language]) => language),
-            changeNote: changeNote || null,
-            expectedModifiedAt: template?.modifiedAt ?? null,
+            changeNote: snapshot.changeNote || null,
+            expectedModifiedAt: snapshot.expectedModifiedAt,
+          },
+        })
+      ),
+    onSuccess: (data, snapshot) => {
+      const cached =
+        queryClient.setQueryData<typeof data>(
+          ["notification-template", id],
+          data
+        ) ?? data
+      setEditedDraft((current) => {
+        const latest =
+          current !== null && current.source === template
+            ? current
+            : loadedDraft
+        return templateDraftMatchesSnapshot(latest, snapshot)
+          ? {
+              source: cached,
+              drafts: toTranslationDrafts(
+                (cached.draftVersion ?? cached.publishedVersion)?.translations
+              ),
+              changeNote: cached.draftVersion?.changeNote ?? "",
+            }
+          : { ...latest, source: cached }
+      })
+      toast.success(t("notifications.draftSaved"))
+      void queryClient.invalidateQueries({
+        queryKey: ["notification-templates"],
+      })
+    },
+    onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  const saveDraft = () =>
+    saveMutation.mutate({
+      drafts: cloneTranslationDrafts(drafts),
+      baseline: cloneTranslationDrafts(baseline),
+      changeNote,
+      expectedModifiedAt: template?.modifiedAt ?? null,
+    })
+
+  const publishFlight = useSingleFlightConfirm()
+  const unpublishFlight = useSingleFlightConfirm()
+
+  const publishMutation = useMutation({
+    mutationFn: (target: { versionId: string; revisionAt: string }) =>
+      unwrap(
+        api.POST("/api/v1/notification-templates/{id}/publish", {
+          params: { path: { id } },
+          body: {
+            expectedDraftVersionId: target.versionId,
+            expectedRevisionAt: target.revisionAt,
           },
         })
       ),
     onSuccess: () => {
-      toast.success(t("notifications.draftSaved"))
-      invalidate()
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
-
-  const publishMutation = useMutation({
-    mutationFn: () =>
-      unwrap(
-        api.POST("/api/v1/notification-templates/{id}/publish", {
-          params: { path: { id } },
-        })
-      ),
-    onSuccess: () => {
+      setPublishTarget(null)
       toast.success(t("notifications.publishedToast"))
       invalidate()
     },
     onError: (error) => toast.error(getErrorMessage(error)),
+    onSettled: publishFlight.release,
   })
 
   const unpublishMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (expectedPublishedVersionId: string) =>
       unwrap(
         api.POST("/api/v1/notification-templates/{id}/unpublish", {
           params: { path: { id } },
+          body: { expectedPublishedVersionId },
         })
       ),
     onSuccess: () => {
+      setUnpublishTarget(null)
       toast.success(t("notifications.unpublishedToast"))
       invalidate()
     },
     onError: (error) => toast.error(getErrorMessage(error)),
+    onSettled: unpublishFlight.release,
   })
 
   const discardMutation = useMutation({
@@ -210,10 +343,17 @@ export function NotificationTemplateDetailPage() {
       ),
     onSuccess: () => {
       toast.success(t("notifications.templateDeleted"))
-      void queryClient.invalidateQueries({ queryKey: ["notification-templates"] })
+      void queryClient.invalidateQueries({
+        queryKey: ["notification-templates"],
+      })
       navigate("/notifications/templates")
     },
     onError: (error) => toast.error(getErrorMessage(error)),
+  })
+
+  const unsavedPrompt = useUnsavedChangesPrompt({
+    isDirty,
+    isSaving: saveMutation.isPending,
   })
 
   if (query.isLoading || !template) {
@@ -225,7 +365,104 @@ export function NotificationTemplateDetailPage() {
     )
   }
 
-  const isSystemGlobal = Boolean(template.typeIsSystem && !template.applicationId)
+  const isSystemGlobal = Boolean(
+    template.typeIsSystem && !template.applicationId
+  )
+  const openPublishConfirmation = () => {
+    if (!template.draftVersionId || !template.draftVersion) return
+    const revisionAt = template.modifiedAt ?? template.createdAt
+    if (!revisionAt) return
+    setPublishTarget({
+      item: template.typeName ?? "",
+      applicationName: template.applicationName ?? null,
+      versionId: template.draftVersionId,
+      versionNumber: template.draftVersion.versionNumber ?? 0,
+      revisionAt,
+    })
+  }
+  const openUnpublishConfirmation = () => {
+    if (!template.publishedVersionId || !template.publishedVersion) return
+    setUnpublishTarget({
+      item: template.typeName ?? "",
+      applicationName: template.applicationName ?? null,
+      versionId: template.publishedVersionId,
+      versionNumber: template.publishedVersion.versionNumber ?? 0,
+    })
+  }
+  const templateActions: PageAction[] = [
+    ...(canManage
+      ? [
+          {
+            id: "save",
+            label: t("notifications.saveDraft"),
+            icon: Save,
+            disabled: !isDirty,
+            pending: saveMutation.isPending,
+            onAction: saveDraft,
+          },
+          {
+            id: "test-send",
+            label: t("notifications.testSend"),
+            icon: Send,
+            onAction: () => setTestSendOpen(true),
+          },
+        ]
+      : []),
+    ...(canPublish
+      ? [
+          {
+            id: "publish",
+            label: t("notifications.publish"),
+            icon: Check,
+            variant: "default" as const,
+            disabled: !template.draftVersionId || isDirty,
+            pending: publishMutation.isPending,
+            onAction: openPublishConfirmation,
+          },
+        ]
+      : []),
+    {
+      id: "history",
+      label: t("notifications.versionHistory"),
+      icon: History,
+      onAction: () => setHistoryOpen(true),
+    },
+    ...(canPublish && template.publishedVersionId && !isSystemGlobal
+      ? [
+          {
+            id: "unpublish",
+            label: t("notifications.unpublish"),
+            icon: Ban,
+            pending: unpublishMutation.isPending,
+            onAction: openUnpublishConfirmation,
+          },
+        ]
+      : []),
+    ...(canManage && template.draftVersionId
+      ? [
+          {
+            id: "discard",
+            label: t("notifications.discardDraft"),
+            icon: X,
+            variant: "destructive" as const,
+            pending: discardMutation.isPending,
+            onAction: () => setDiscardOpen(true),
+          },
+        ]
+      : []),
+    ...(canManage && !isSystemGlobal
+      ? [
+          {
+            id: "delete",
+            label: t("common.delete"),
+            icon: Trash2,
+            variant: "destructive" as const,
+            pending: deleteMutation.isPending,
+            onAction: () => setDeleteOpen(true),
+          },
+        ]
+      : []),
+  ]
 
   return (
     // From `xl` the page fills the shell's height and the editor/preview pair
@@ -242,72 +479,10 @@ export function NotificationTemplateDetailPage() {
             : t("notifications.globalScopeDescription")
         }
         actions={
-          <div className="flex flex-wrap items-center gap-2">
-            {canManage ? (
-              <Button
-                variant="outline"
-                disabled={!isDirty || saveMutation.isPending}
-                onClick={() => saveMutation.mutate()}
-              >
-                {t("notifications.saveDraft")}
-              </Button>
-            ) : null}
-            {canPublish ? (
-              <Button
-                disabled={!template.draftVersionId || isDirty || publishMutation.isPending}
-                onClick={() => publishMutation.mutate()}
-              >
-                <Check data-icon="inline-start" />
-                {t("notifications.publish")}
-              </Button>
-            ) : null}
-            <Button variant="ghost" size="icon" onClick={() => setHistoryOpen(true)}>
-              <History />
-              <span className="sr-only">{t("notifications.versionHistory")}</span>
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label={t("common.actions")}>
-                  <MoreHorizontal />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuGroup>
-                  {canManage ? (
-                    <DropdownMenuItem onClick={() => setTestSendOpen(true)}>
-                      <Send />
-                      {t("notifications.testSend")}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canManage && template.draftVersionId ? (
-                    <DropdownMenuItem onClick={() => setDiscardOpen(true)}>
-                      {t("notifications.discardDraft")}
-                    </DropdownMenuItem>
-                  ) : null}
-                  {canPublish && template.publishedVersionId && !isSystemGlobal ? (
-                    <DropdownMenuItem
-                      onClick={() => unpublishMutation.mutate()}
-                    >
-                      {t("notifications.unpublish")}
-                    </DropdownMenuItem>
-                  ) : null}
-                </DropdownMenuGroup>
-                {canManage && !isSystemGlobal ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={() => setDeleteOpen(true)}
-                      >
-                        {t("common.delete")}
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          <PageActionSurface
+            actions={templateActions}
+            label={t("common.actions")}
+          />
         }
       />
 
@@ -353,7 +528,9 @@ export function NotificationTemplateDetailPage() {
             <TabsList className="h-auto! flex-wrap">
               {SUPPORTED_LANGUAGES.map((language) => {
                 const draft = drafts[language.code]
-                const filled = Boolean(draft?.subject.trim() || draft?.bodyHtml.trim())
+                const filled = Boolean(
+                  draft?.subject.trim() || draft?.bodyHtml.trim()
+                )
                 return (
                   <TabsTrigger key={language.code} value={language.code}>
                     <span dir="ltr" className="uppercase">
@@ -392,26 +569,39 @@ export function NotificationTemplateDetailPage() {
                 ariaLabel={t("notifications.bodyHtml")}
                 allowImages
                 contentDir={contentDir}
+                readOnly={!canManage}
               />
             </Field>
 
             <div className="flex flex-col gap-4">
               <VariablePalette
                 variables={variables}
-                onInsert={(placeholder) => {
-                  if (!insertAtCursor(editorRef, placeholder)) {
-                    updateActive({ bodyHtml: active.bodyHtml + placeholder })
-                  }
-                }}
+                onInsert={
+                  canManage
+                    ? (placeholder) => {
+                        if (!insertAtCursor(editorRef, placeholder)) {
+                          updateActive({
+                            bodyHtml: active.bodyHtml + placeholder,
+                          })
+                        }
+                      }
+                    : undefined
+                }
               />
               <VariablePalette
                 title={t("notifications.globalVariables")}
                 variables={rendererGlobals}
-                onInsert={(placeholder) => {
-                  if (!insertAtCursor(editorRef, placeholder)) {
-                    updateActive({ bodyHtml: active.bodyHtml + placeholder })
-                  }
-                }}
+                onInsert={
+                  canManage
+                    ? (placeholder) => {
+                        if (!insertAtCursor(editorRef, placeholder)) {
+                          updateActive({
+                            bodyHtml: active.bodyHtml + placeholder,
+                          })
+                        }
+                      }
+                    : undefined
+                }
               />
               {canManage ? (
                 // `self-start` because the parent is now `flex flex-col`: under the
@@ -482,11 +672,13 @@ export function NotificationTemplateDetailPage() {
         canManage={canManage}
       />
 
-      <ManageVariablesDialog
-        open={variablesOpen}
-        onOpenChange={setVariablesOpen}
-        template={template}
-      />
+      {variablesOpen ? (
+        <ManageVariablesDialog
+          open
+          onOpenChange={setVariablesOpen}
+          template={template}
+        />
+      ) : null}
 
       <TestSendDialog
         open={testSendOpen}
@@ -494,6 +686,75 @@ export function NotificationTemplateDetailPage() {
         templateId={id}
         defaultLanguage={template.defaultLanguage ?? "en"}
       />
+
+      <ConfirmDialog
+        open={publishTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !publishMutation.isPending) setPublishTarget(null)
+        }}
+        title={t("notifications.publishConfirmTitle", {
+          item: publishTarget?.item ?? "",
+        })}
+        description={t("notifications.publishConfirmBody")}
+        confirmLabel={t("notifications.publish")}
+        loading={publishMutation.isPending}
+        onConfirm={() => {
+          if (publishTarget) {
+            publishFlight.run(() => {
+              publishMutation.mutate({
+                versionId: publishTarget.versionId,
+                revisionAt: publishTarget.revisionAt,
+              })
+            })
+          }
+        }}
+      >
+        {publishTarget ? (
+          <PublishConfirmationSummary
+            item={publishTarget.item}
+            revision={`${t("notifications.draftVersion", {
+              version: publishTarget.versionNumber,
+            })} · ${formatDateTime(publishTarget.revisionAt)}`}
+            scope={
+              publishTarget.applicationName ?? t("notifications.globalTemplate")
+            }
+          />
+        ) : null}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={unpublishTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !unpublishMutation.isPending) setUnpublishTarget(null)
+        }}
+        title={t("notifications.unpublishConfirmTitle", {
+          item: unpublishTarget?.item ?? "",
+        })}
+        description={t("notifications.unpublishConfirmBody")}
+        confirmLabel={t("notifications.unpublish")}
+        destructive
+        loading={unpublishMutation.isPending}
+        onConfirm={() => {
+          if (unpublishTarget) {
+            unpublishFlight.run(() => {
+              unpublishMutation.mutate(unpublishTarget.versionId)
+            })
+          }
+        }}
+      >
+        {unpublishTarget ? (
+          <PublishConfirmationSummary
+            item={unpublishTarget.item}
+            revision={t("notifications.publishedVersion", {
+              version: unpublishTarget.versionNumber,
+            })}
+            scope={
+              unpublishTarget.applicationName ??
+              t("notifications.globalTemplate")
+            }
+          />
+        ) : null}
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={discardOpen}
@@ -516,6 +777,7 @@ export function NotificationTemplateDetailPage() {
         loading={deleteMutation.isPending}
         onConfirm={() => deleteMutation.mutate()}
       />
+      {unsavedPrompt}
     </div>
   )
 }

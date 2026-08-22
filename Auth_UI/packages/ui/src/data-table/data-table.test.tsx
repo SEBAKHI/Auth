@@ -2,6 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import type { ColumnDef } from "@tanstack/react-table"
+import {
+  Link,
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom"
 
 import "@authsystem/i18n"
 import { DataTable } from "./data-table"
@@ -39,7 +46,9 @@ const columns: ColumnDef<Person, unknown>[] = [
 /** First-column text of each body row, in display order. */
 function nameColumnOrder(): string[] {
   const rows = screen.getAllByRole("row").slice(1) // drop the header row
-  return rows.map((row) => within(row).getAllByRole("cell")[0].textContent ?? "")
+  return rows.map(
+    (row) => within(row).getAllByRole("cell")[0].textContent ?? ""
+  )
 }
 
 /** Visible header labels, in display order. */
@@ -85,6 +94,10 @@ function storedLayout(store: Map<string, string>, tableId: string): unknown {
   return JSON.parse(store.get(`dt:${SCOPE}:${tableId}`) ?? "null")
 }
 
+function ShowPath() {
+  return <span data-testid="path">{useLocation().pathname}</span>
+}
+
 describe("DataTable", () => {
   it("renders every row", () => {
     render(<DataTable columns={columns} data={data} />)
@@ -110,6 +123,57 @@ describe("DataTable", () => {
     expect(nameColumnOrder()).toEqual(["Charlie", "Alice", "Bob"])
   })
 
+  it("accepts URL-owned controlled filters and reports resets", async () => {
+    const user = userEvent.setup()
+    const onColumnFiltersChange = vi.fn()
+    const { rerender } = render(
+      <DataTable
+        columns={columns}
+        data={data}
+        columnFilters={[{ id: "name", value: "Ali" }]}
+        onColumnFiltersChange={onColumnFiltersChange}
+      />
+    )
+
+    expect(nameColumnOrder()).toEqual(["Alice"])
+    rerender(
+      <DataTable
+        columns={columns}
+        data={data}
+        columnFilters={[{ id: "name", value: "Bob" }]}
+        onColumnFiltersChange={onColumnFiltersChange}
+      />
+    )
+    expect(nameColumnOrder()).toEqual(["Bob"])
+
+    await user.click(screen.getByRole("button", { name: /reset/i }))
+    expect(onColumnFiltersChange).toHaveBeenCalledWith([])
+  })
+
+  it("keeps controlled URL search and sorting local for a fully-loaded table", async () => {
+    const user = userEvent.setup()
+    const onGlobalFilterChange = vi.fn()
+    const onSortingChange = vi.fn()
+
+    render(
+      <DataTable
+        columns={columns}
+        data={data}
+        globalSearch
+        globalFilter="Ali"
+        onGlobalFilterChange={onGlobalFilterChange}
+        sorting={[{ id: "name", desc: false }]}
+        onSortingChange={onSortingChange}
+      />
+    )
+
+    expect(nameColumnOrder()).toEqual(["Alice"])
+    await user.clear(screen.getByRole("searchbox"))
+    expect(onGlobalFilterChange).toHaveBeenCalled()
+    await user.click(screen.getByRole("button", { name: "Name" }))
+    expect(onSortingChange).toHaveBeenCalled()
+  })
+
   it("sorts rows when a sortable header is clicked", async () => {
     const user = userEvent.setup()
     render(<DataTable columns={columns} data={data} />)
@@ -124,9 +188,7 @@ describe("DataTable", () => {
 
   it("exposes a column-visibility (Columns) button for hideable columns", () => {
     render(<DataTable columns={columns} data={data} />)
-    expect(
-      screen.getByRole("button", { name: /columns/i })
-    ).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /columns/i })).toBeInTheDocument()
   })
 
   it("opens the detail panel when a row is clicked", async () => {
@@ -165,6 +227,54 @@ describe("DataTable", () => {
 
     expect(onAction).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("navigates instead of opening the detail panel when a row link is clicked", async () => {
+    const user = userEvent.setup()
+    const withLink: ColumnDef<Person, unknown>[] = [
+      {
+        id: "name",
+        accessorKey: "name",
+        header: "Name",
+        cell: ({ row }) => (
+          <Link to={`/people/${row.original.name}`}>{row.original.name}</Link>
+        ),
+      },
+      ...columns.slice(1),
+    ]
+
+    // The table stays mounted across this navigation on purpose. Routing away
+    // would unmount it and hide the very thing under test: an unguarded row
+    // would answer the same click twice, navigating AND opening the panel.
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <Routes>
+          <Route
+            path="/*"
+            element={
+              <>
+                <DataTable columns={withLink} data={data} />
+                <ShowPath />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    )
+
+    await user.click(screen.getByRole("link", { name: "Alice" }))
+
+    expect(await screen.findByTestId("path")).toHaveTextContent("/people/Alice")
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+  })
+
+  it("still opens the detail panel when the click misses every control", async () => {
+    const user = userEvent.setup()
+    render(<DataTable columns={columns} data={data} />)
+
+    await user.click(screen.getAllByRole("row")[1])
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument()
   })
 
   it("lifts sorting to the page without reordering rows when server sorting is on", async () => {
@@ -226,7 +336,9 @@ describe("DataTable", () => {
 
     // "city" stays hidden, which is already the default, so it must not be
     // written — otherwise the blob grows by one entry per API field forever.
-    expect(storedLayout(store, "prune")).toMatchObject({ cols: { email: true } })
+    expect(storedLayout(store, "prune")).toMatchObject({
+      cols: { email: true },
+    })
   })
 
   it("reorders columns from the menu, announces it and persists the order", async () => {
@@ -254,10 +366,7 @@ describe("DataTable", () => {
 
   it("restores a persisted column order on mount", () => {
     const store = stubLocalStorage()
-    store.set(
-      `dt:${SCOPE}:restore`,
-      JSON.stringify({ order: ["age", "name"] })
-    )
+    store.set(`dt:${SCOPE}:restore`, JSON.stringify({ order: ["age", "name"] }))
 
     render(<DataTable columns={columns} data={data} tableId="restore" />)
 
@@ -284,7 +393,12 @@ describe("DataTable", () => {
     )
     const withActions: ColumnDef<Person, unknown>[] = [
       ...columns,
-      { id: "actions", enableSorting: false, enableHiding: false, header: () => null },
+      {
+        id: "actions",
+        enableSorting: false,
+        enableHiding: false,
+        header: () => null,
+      },
     ]
 
     render(<DataTable columns={withActions} data={data} tableId="pinned" />)

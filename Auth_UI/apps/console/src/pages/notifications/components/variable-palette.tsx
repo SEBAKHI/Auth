@@ -21,7 +21,12 @@ export function VariablePalette({
   title,
 }: {
   variables: TemplateVariable[]
-  onInsert: (placeholder: string) => void
+  /**
+   * Omitted for someone who may read the template but not save it. The catalog
+   * still reads as documentation - the names, their meaning and an example -
+   * it just stops offering an edit that could never be kept.
+   */
+  onInsert?: (placeholder: string) => void
   /** Heading override; defaults to the "Variables" label. */
   title?: string
 }) {
@@ -40,7 +45,10 @@ export function VariablePalette({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => onInsert(variable.insertText ?? `{{ ${variable.name} }}`)}
+                disabled={!onInsert}
+                onClick={() =>
+                  onInsert?.(variable.insertText ?? `{{ ${variable.name} }}`)
+                }
               >
                 {variable.name}
                 {variable.required ? (

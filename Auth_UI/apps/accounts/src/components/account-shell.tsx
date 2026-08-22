@@ -2,7 +2,7 @@ import { Building2, UserRound } from "lucide-react"
 
 import { AppShell, type AppNavItem } from "@authsystem/ui/common/app-shell"
 
-import { PolicyUpdateNotice } from "@/components/policy-update-notice"
+import { PolicyUpdateNotice } from "./policy-update-notice"
 
 const NAV: AppNavItem[] = [
   { titleKey: "profile", url: "/profile", icon: UserRound },

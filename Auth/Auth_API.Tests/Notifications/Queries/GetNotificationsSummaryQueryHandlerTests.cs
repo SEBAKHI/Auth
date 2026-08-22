@@ -110,7 +110,7 @@ public class GetNotificationsSummaryQueryHandlerTests
     {
         var published = NotificationLayout.Create(
             null, NotificationChannelType.Email, "Global", "<html></html>", "{}", Guid.NewGuid()).Value;
-        published.Publish(Guid.NewGuid());
+        published.Publish(published.ModifiedAt ?? published.CreatedAt, Guid.NewGuid());
         var draftOnly = NotificationLayout.Create(
             Guid.NewGuid(), NotificationChannelType.Email, "App", "<html></html>", "{}", Guid.NewGuid()).Value;
 

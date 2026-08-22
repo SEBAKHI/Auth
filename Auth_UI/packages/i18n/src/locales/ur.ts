@@ -89,7 +89,8 @@ export const ur: TranslationResources = {
     resizeColumn: "کالم {{column}} کی چوڑائی تبدیل کریں",
     moveColumnUp: "کالم {{column}} کو آگے کریں",
     moveColumnDown: "کالم {{column}} کو پیچھے کریں",
-    columnMoved: "کالم {{column}} کو {{total}} میں سے {{position}} ویں جگہ منتقل کیا گیا",
+    columnMoved:
+      "کالم {{column}} کو {{total}} میں سے {{position}} ویں جگہ منتقل کیا گیا",
     sortAscending: "صعودی ترتیب",
     sortDescending: "نزولی ترتیب",
     reset: "دوبارہ ترتیب دیں",
@@ -118,6 +119,9 @@ export const ur: TranslationResources = {
     discardTitle: "تبدیلیاں مسترد کریں؟",
     discardBody:
       "آپ کی غیر محفوظ شدہ تبدیلیاں ہیں۔ اگر آپ ابھی نکل گئے تو وہ ضائع ہو جائیں گی۔",
+    saveInProgressTitle: "محفوظ کرنا جاری ہے",
+    saveInProgressBody:
+      "محفوظ ہونے کا عمل مکمل ہونے کا انتظار کریں، یا یہ نیویگیشن منسوخ کر کے صفحے پر رہیں۔",
     saveWithCount: "محفوظ کریں ({{count}})",
     changesSaved: "تبدیلیاں محفوظ ہو گئیں",
     applyChangesTitle: "کیا یہ تبدیلیاں لاگو کی جائیں؟",
@@ -174,11 +178,13 @@ export const ur: TranslationResources = {
     backToSignIn: "سائن ان پر واپس جائیں",
     signOutTitle: "کیا {{name}} سے سائن آؤٹ کریں؟",
     signOutTitleNoApp: "سائن آؤٹ کریں؟",
-    signOutBody: "یہ آپ کا سنگل سائن آن (SSO) سیشن ختم کرتا ہے — یعنی وہ سیشن جو آپ کو پاس ورڈ دوبارہ لکھے بغیر دوسری ایپلی کیشنز میں داخل کرتا ہے۔ جس ایپلی کیشن میں آپ پہلے سے موجود ہیں وہ اپنا سیشن اُس وقت تک رکھتی ہے جب تک وہ خود اسے ختم نہ کرے۔",
+    signOutBody:
+      "یہ آپ کا سنگل سائن آن (SSO) سیشن ختم کرتا ہے — یعنی وہ سیشن جو آپ کو پاس ورڈ دوبارہ لکھے بغیر دوسری ایپلی کیشنز میں داخل کرتا ہے۔ جس ایپلی کیشن میں آپ پہلے سے موجود ہیں وہ اپنا سیشن اُس وقت تک رکھتی ہے جب تک وہ خود اسے ختم نہ کرے۔",
     signOutConfirm: "سائن آؤٹ",
     signOutCancel: "سائن اِن رہیں",
     signedOutTitle: "آپ سائن آؤٹ ہو چکے ہیں",
-    signedOutBody: "آپ کا سنگل سائن آن سیشن ختم ہو گیا۔ دوبارہ سائن اِن پر پاس ورڈ طلب کیا جائے گا۔",
+    signedOutBody:
+      "آپ کا سنگل سائن آن سیشن ختم ہو گیا۔ دوبارہ سائن اِن پر پاس ورڈ طلب کیا جائے گا۔",
     useDifferentAccount: "دوسرا اکاؤنٹ استعمال کریں",
     resetLinkSentTitle: "اپنی ای میل دیکھیں",
     resetLinkSentDescription:
@@ -278,11 +284,14 @@ export const ur: TranslationResources = {
     newUsers: "نئے صارفین",
     attention: "توجہ درکار ہے",
     alertRateDrop: "سائن اِن کی کامیابی کی شرح گر گئی",
-    alertRateDropBody: "گزشتہ مدت کے مقابلے {{points}} پوائنٹ کمی، اب {{rate}}% ہے۔",
+    alertRateDropBody:
+      "گزشتہ مدت کے مقابلے {{points}} پوائنٹ کمی، اب {{rate}}% ہے۔",
     alertLockedOut: "{{count}} اکاؤنٹ مقفل ہیں",
-    alertLockedOutBody: "قفل ختم ہونے یا ہٹائے جانے تک وہ سائن اِن نہیں کر سکتے۔",
+    alertLockedOutBody:
+      "قفل ختم ہونے یا ہٹائے جانے تک وہ سائن اِن نہیں کر سکتے۔",
     alertFailingIp: "ایک پتہ مسلسل ناکام کوششیں پیدا کر رہا ہے",
-    alertFailingIpBody: "{{ip}} نے {{users}} صارف ناموں پر {{count}} ناکام کوششیں کیں۔",
+    alertFailingIpBody:
+      "{{ip}} نے {{users}} صارف ناموں پر {{count}} ناکام کوششیں کیں۔",
     alertStaleSessions: "{{count}} سیشن اپنی مدت گزار چکے ہیں",
     alertStaleSessionsBody: "وہ اب بھی کھلے ہیں اور کبھی بند نہیں کیے گئے۔",
     alertExpiringEnablements: "{{count}} سبسکرپشنز ختم ہو رہی ہیں",
@@ -309,7 +318,8 @@ export const ur: TranslationResources = {
     failedAttemptsSubtitle: "ہر مدت میں مسترد شدہ سائن اِن کوششیں۔",
     whereSignIns: "سائن اِن کہاں ہوتے ہیں",
     whereSignInsSubtitle: "ہر ایپلی کیشن کی کوششیں، کامیابی کی شرح اور رسائی۔",
-    whereSignInsOrgNote: "سائن اِن کرنے والے صارف کی رکنیتوں کے مطابق منسوب کیا جاتا ہے، اس لیے متعدد تنظیموں کا رکن صارف ہر ایک میں شمار ہوتا ہے اور مجموعہ اصل کوششوں سے زیادہ ہو سکتا ہے۔",
+    whereSignInsOrgNote:
+      "سائن اِن کرنے والے صارف کی رکنیتوں کے مطابق منسوب کیا جاتا ہے، اس لیے متعدد تنظیموں کا رکن صارف ہر ایک میں شمار ہوتا ہے اور مجموعہ اصل کوششوں سے زیادہ ہو سکتا ہے۔",
     applications: "ایپلی کیشنز",
     organizations: "تنظیمیں",
     colName: "نام",
@@ -438,6 +448,8 @@ export const ur: TranslationResources = {
     unlock: "قفل کھولیں",
     activate: "فعال کریں",
     deactivate: "غیر فعال کریں",
+    deactivateTitle: "کیا یہ اکاؤنٹ غیر فعال کر دیا جائے؟",
+    deactivateBody: "{{name}} ہر جگہ سے سائن آؤٹ ہو جائے گا اور اکاؤنٹ دوبارہ فعال ہونے تک سائن اِن نہیں کر سکے گا۔",
     lockTitle: "اکاؤنٹ مقفل کریں",
     lockReason: "وجہ",
     lockReasonPlaceholder: "نامعلوم ڈیوائس سے بار بار ناکام سائن اِن کوششیں",
@@ -978,9 +990,19 @@ export const ur: TranslationResources = {
     discardDraftBody: "تمام زبانوں کی غیر شائع شدہ ترامیم ضائع ہو جائیں گی۔",
     draftDiscarded: "مسودہ مسترد ہو گیا",
     publish: "شائع کریں",
+    publishConfirmTitle: "{{item}} شائع کریں؟",
+    publishConfirmBody:
+      "محفوظ شدہ مسودہ ذیل میں دکھائے گئے دائرۂ کار کے لیے فعال ہو جائے گا۔",
     publishedToast: "شائع ہو گیا",
     unpublish: "غیر شائع کریں",
+    unpublishConfirmTitle: "{{item}} کو غیر شائع کریں؟",
+    unpublishConfirmBody:
+      "شائع شدہ سانچہ ذیل میں دکھائے گئے دائرۂ کار کے لیے استعمال ہونا بند ہو جائے گا۔",
     unpublishedToast: "غیر شائع ہو گیا",
+    confirmationItem: "آئٹم",
+    confirmationVersion: "نسخہ",
+    confirmationScope: "دائرۂ کار",
+    savedDraftRevision: "محفوظ شدہ مسودہ · {{modifiedAt}}",
     unsavedChanges: "غیر محفوظ تبدیلیاں",
     unpublishedChanges: "غیر شائع تبدیلیاں",
     deleteTitle: "سانچہ حذف کریں؟",
@@ -1033,6 +1055,7 @@ export const ur: TranslationResources = {
     tabLayouts: "لے آؤٹس",
     tabDeliveryLog: "ترسیلی ریکارڈ",
     tabPolicy: "رازداری کی پالیسی",
+    sectionsNavLabel: "اطلاعات کے حصے",
     policyTitle: "رازداری کی پالیسی کے ورژن",
     policySubtitle:
       "پالیسی کی ترامیم پر نظر رکھیں اور اہم تبدیلیوں کی اطلاع صارفین کو دیں۔",
@@ -1061,15 +1084,18 @@ export const ur: TranslationResources = {
     policyMissingLanguagesTitle: "ابھی تمام زبانوں کا ترجمہ نہیں ہوا",
     policyMissingLanguagesBody:
       "{{languages}} کے قارئین کو انگریزی دستاویز دکھائی جائے گی، ساتھ ان کی اپنی زبان میں اس کی وضاحت ہوگی۔ بہرحال شائع کریں، یا پہلے ترجمے شامل کریں۔",
-    policyDisclosureDriftTitle: "شائع شدہ پالیسی اب ترتیبات سے مطابقت نہیں رکھتی",
+    policyDisclosureDriftTitle:
+      "شائع شدہ پالیسی اب ترتیبات سے مطابقت نہیں رکھتی",
     policyDisclosureDriftBody:
       "اس ورژن کی اشاعت کے بعد سسٹم کی ترتیبات بدل گئیں، اس لیے پیش کی جانے والی دستاویز اب بھی پرانی قدریں نقل کر رہی ہے۔ اسے خودکار طور پر دوبارہ تیار نہیں کیا جاتا — یہ ایسی اطلاع میں ترمیم ہوگی جو لوگوں کو پہلے ہی دکھائی جا چکی ہے۔ اپ ڈیٹ کے لیے دوبارہ شائع کریں۔",
     policyPublishTitle: "پالیسی کا یہ ورژن شائع کریں؟",
-    policyPublishBody: "یہ تمام صارفین کو دکھائی جانے والی پالیسی بن جائے گی۔ پہلے انگریزی دستاویز کا ہونا لازمی ہے۔",
+    policyPublishBody:
+      "یہ تمام صارفین کو دکھائی جانے والی پالیسی بن جائے گی۔ پہلے انگریزی دستاویز کا ہونا لازمی ہے۔",
     policyPublishedToast: "پالیسی ورژن شائع کر دیا گیا۔",
     policyEditContent: "مواد میں ترمیم",
     policyContentTitle: "پالیسی کا مواد — {{version}}",
-    policyContentDescription: "شائع شدہ پالیسی متن کو ہر زبان کے لیے ترمیم کریں۔ ڈیٹابیس میں محفوظ؛ تعیناتی کی ضرورت نہیں۔",
+    policyContentDescription:
+      "شائع شدہ پالیسی متن کو ہر زبان کے لیے ترمیم کریں۔ ڈیٹابیس میں محفوظ؛ تعیناتی کی ضرورت نہیں۔",
     policyContentSaved: "پالیسی کا مواد محفوظ ہو گیا۔",
     policyTokens: "زندہ اقدار (ہارڈ کوڈ نہ کریں):",
     policyPreview: "پیش منظر",
@@ -1112,43 +1138,51 @@ export const ur: TranslationResources = {
     policySectionNumber: "حصہ {{number}}",
     policyRemoveSection: "حصہ ہٹائیں",
     policyRemoveSectionTitle: "یہ حصہ ہٹا دیں؟",
-    policyRemoveSectionBody: "اس کی سرخی، پیراگراف اور نکات اس زبان کی دستاویز سے حذف ہو جائیں گے۔ دیگر زبانیں متاثر نہیں ہوں گی۔",
+    policyRemoveSectionBody:
+      "اس کی سرخی، پیراگراف اور نکات اس زبان کی دستاویز سے حذف ہو جائیں گے۔ دیگر زبانیں متاثر نہیں ہوں گی۔",
     policyRemoveParagraph: "پیراگراف ہٹائیں",
     policyRemoveBullet: "نکتہ ہٹائیں",
     policyRemoveRow: "قطار ہٹائیں",
-    "policyJsonTab": "JSON",
-    "policyChangeNote": "تبدیلی کا نوٹ",
-    "policyChangeNoteHint": "اس ترمیم میں کیا تبدیل ہوا؟",
-    "policyNoChangeNote": "کوئی نوٹ نہیں",
-    "policySearchPlaceholder": "ورژن یا نوٹ تلاش کریں…",
-    "policyNotifiedFilterSent": "اطلاع دی گئی",
-    "policyNotifiedBadge": "اطلاع دی گئی · {{count}} وصول کنندگان",
-    "policyVersionDetails": "ورژن کی تفصیلات",
-    "policyNotFound": "یہ پالیسی ورژن اب موجود نہیں ہے۔ ممکن ہے اس کا نام تبدیل ہوا ہو یا اسے ہٹا دیا گیا ہو — ورژن کی فہرست سے دوبارہ کھولیں۔",
+    policyJsonTab: "JSON",
+    policyChangeNote: "تبدیلی کا نوٹ",
+    policyChangeNoteHint: "اس ترمیم میں کیا تبدیل ہوا؟",
+    policyNoChangeNote: "کوئی نوٹ نہیں",
+    policySearchPlaceholder: "ورژن یا نوٹ تلاش کریں…",
+    policyNotifiedFilterSent: "اطلاع دی گئی",
+    policyNotifiedBadge: "اطلاع دی گئی · {{count}} وصول کنندگان",
+    policyVersionDetails: "ورژن کی تفصیلات",
+    policyNotFound:
+      "یہ پالیسی ورژن اب موجود نہیں ہے۔ ممکن ہے اس کا نام تبدیل ہوا ہو یا اسے ہٹا دیا گیا ہو — ورژن کی فہرست سے دوبارہ کھولیں۔",
     policyClone: "نقل",
     policyCloneTitle: "اس پالیسی ورژن کی نقل بنائیں",
-    policyCloneDescription: "نیا ورژن بناتا ہے اور {{source}} سے تمام {{count}} زبانوں کی دستاویزات نقل کرتا ہے، تاکہ آپ خالی صفحے کے بجائے مسودہ ترمیم کریں۔",
+    policyCloneDescription:
+      "نیا ورژن بناتا ہے اور {{source}} سے تمام {{count}} زبانوں کی دستاویزات نقل کرتا ہے، تاکہ آپ خالی صفحے کے بجائے مسودہ ترمیم کریں۔",
     policyCloneProgress: "زبانیں نقل ہو رہی ہیں… {{total}} میں سے {{done}}",
     policyClonedToast: "ورژن {{count}} زبانوں کے ساتھ نقل ہو گیا۔",
     policyVersionRenameHint: "مسودوں کا نام اب بھی تبدیل کیا جا سکتا ہے۔",
-    policyVersionLockedHint: "مقفل: شائع شدہ یا اعلان شدہ ورژن حذف کے ریکارڈ میں مذکور ہوتے ہیں۔",
-    "policyTokenHint": "کرسر کی جگہ داخل کرنے کے لیے کلک کریں۔",
-    "policyToken_graceDays": "حذف حتمی ہونے سے پہلے بحالی کی مدت (دن)۔",
-    "policyToken_otpValidityMinutes": "حذف کے تصدیقی کوڈ کی میعاد (منٹ)۔",
-    "policyToken_loginAttemptRetentionDays": "سائن اِن کوششوں کے ریکارڈ کی مدتِ حفاظت (دن)۔",
-    "policyToken_outboxRetentionDays": "بھیجی گئی ای میلز کے ریکارڈ کی مدتِ حفاظت (دن)۔",
-    "policyToken_identifierReservationDays":
+    policyVersionLockedHint:
+      "مقفل: شائع شدہ یا اعلان شدہ ورژن حذف کے ریکارڈ میں مذکور ہوتے ہیں۔",
+    policyTokenHint: "کرسر کی جگہ داخل کرنے کے لیے کلک کریں۔",
+    policyToken_graceDays: "حذف حتمی ہونے سے پہلے بحالی کی مدت (دن)۔",
+    policyToken_otpValidityMinutes: "حذف کے تصدیقی کوڈ کی میعاد (منٹ)۔",
+    policyToken_loginAttemptRetentionDays:
+      "سائن اِن کوششوں کے ریکارڈ کی مدتِ حفاظت (دن)۔",
+    policyToken_outboxRetentionDays:
+      "بھیجی گئی ای میلز کے ریکارڈ کی مدتِ حفاظت (دن)۔",
+    policyToken_identifierReservationDays:
       "حذف شدہ ای میل کتنے دن دوبارہ رجسٹریشن سے بند رہتی ہے (دن)۔",
-    "policyToken_legalName": "ڈیٹا کنٹرولر کا رجسٹرڈ قانونی نام۔",
-    "policyToken_address": "ڈیٹا کنٹرولر کا رجسٹرڈ پتہ۔",
-    "policyToken_privacyEmail": "رازداری اور حقوق کی درخواستوں کے لیے زیرِ نگرانی ان باکس۔",
-    "policyToken_emailProvider": "اشتراک کے حصے میں مذکور ای میل ترسیل فراہم کنندہ۔",
-    "policyToken_hostingProvider": "اشتراک کے حصے میں مذکور ہوسٹنگ فراہم کنندہ۔",
-    "policyToken_hostingCountry": "وہ ملک جہاں سروس ہوسٹ ہے (صرف نام)۔",
-    "overviewPolicy": "رازداری پالیسی کے ورژن",
-    "overviewViewPolicy": "پالیسی دیکھیں",
-    "overviewPolicyHint": "{{count}} زبانیں لکھی گئیں",
-    "overviewNoPolicy": "ابھی تک کوئی پالیسی ورژن درج نہیں۔",
+    policyToken_legalName: "ڈیٹا کنٹرولر کا رجسٹرڈ قانونی نام۔",
+    policyToken_address: "ڈیٹا کنٹرولر کا رجسٹرڈ پتہ۔",
+    policyToken_privacyEmail:
+      "رازداری اور حقوق کی درخواستوں کے لیے زیرِ نگرانی ان باکس۔",
+    policyToken_emailProvider:
+      "اشتراک کے حصے میں مذکور ای میل ترسیل فراہم کنندہ۔",
+    policyToken_hostingProvider: "اشتراک کے حصے میں مذکور ہوسٹنگ فراہم کنندہ۔",
+    policyToken_hostingCountry: "وہ ملک جہاں سروس ہوسٹ ہے (صرف نام)۔",
+    overviewPolicy: "رازداری پالیسی کے ورژن",
+    overviewViewPolicy: "پالیسی دیکھیں",
+    overviewPolicyHint: "{{count}} زبانیں لکھی گئیں",
+    overviewNoPolicy: "ابھی تک کوئی پالیسی ورژن درج نہیں۔",
     policyButtonLabel: "حذف بٹن کا متن",
     policyButtonLabelPlaceholder: "میرا اکاؤنٹ حذف کریں",
     policySignedInHint: "سائن اِن اشارہ",
@@ -1354,9 +1388,11 @@ export const ur: TranslationResources = {
       argon2MemorySizeHint:
         "ہر پاس ورڈ کو ہیش کرنے میں استعمال ہونے والی میموری۔ تجویز: 19456 (یعنی 19 MiB، OWASP کی کم از کم حد)۔ زیادہ قدر مضبوط تر ہے مگر ہر سائن ان کو سست کرتی ہے۔",
       argon2Iterations: "Argon2 تکرار",
-      argon2IterationsHint: "تجویز: 2 (اس میموری سائز کے لیے OWASP کی کم از کم حد)۔",
+      argon2IterationsHint:
+        "تجویز: 2 (اس میموری سائز کے لیے OWASP کی کم از کم حد)۔",
       argon2Parallelism: "Argon2 متوازیت",
-      argon2ParallelismHint: "تجویز: 1 (OWASP)۔ تبدیلی کے بعد موجودہ پاس ورڈ کام کرتے رہتے ہیں — اگلے سائن ان پر انہیں اپ گریڈ کر دیا جاتا ہے۔",
+      argon2ParallelismHint:
+        "تجویز: 1 (OWASP)۔ تبدیلی کے بعد موجودہ پاس ورڈ کام کرتے رہتے ہیں — اگلے سائن ان پر انہیں اپ گریڈ کر دیا جاتا ہے۔",
       saltSize: "سالٹ کا سائز (بائٹس)",
       saltSizeHint: "OWASP کی تجویز کردہ قدر پر مقرر؛ قابلِ ترتیب نہیں۔",
       hashSize: "ہیش کا سائز (بائٹس)",
@@ -1408,7 +1444,8 @@ export const ur: TranslationResources = {
       exemptPathsHint:
         "وہ راستے جو گیٹ وے ہیڈر کے بغیر فراہم کیے جاتے ہیں — ہیلتھ پروبس اور عوامی ڈسکوری دستاویزات۔ اندراجات کا آغاز '/' سے ہونا لازمی ہے؛ آخر میں '/' پورے سابقے سے مماثل ہوتا ہے۔",
       tokenHeaderName: "ہیڈر کا نام",
-      tokenHeaderNameHint: "گیٹ وے کی جانب مقرر؛ یہاں صرف حوالے کے لیے دکھایا گیا ہے۔",
+      tokenHeaderNameHint:
+        "گیٹ وے کی جانب مقرر؛ یہاں صرف حوالے کے لیے دکھایا گیا ہے۔",
       expectedToken: "گیٹ وے ٹوکن",
     },
     cors: {
@@ -1473,7 +1510,8 @@ export const ur: TranslationResources = {
     },
     externalAuth: {
       requireNonce: "سرور کا جاری کردہ نونس لازمی کریں",
-      requireNonceHint: "فراہم کنندہ کے ذریعے سائن اِن کو پابند کرتا ہے کہ وہ ایک بار استعمال ہونے والی وہ قدر پیش کرے جو اس سرور نے اسی براؤزر کو جاری کی تھی، تاکہ کسی اور کے براؤزر کے لیے بنایا گیا چوری شدہ ٹوکن مسترد ہو۔ اسے تبھی آن کریں جب تعینات شدہ ایپ یہ قدریں لینا شروع کر دے؛ اس سے پہلے براؤزر کی خود ساختہ قدر قبول ہوتی ہے، جو کچھ ثابت نہیں کرتی۔ تجویز: آن۔",
+      requireNonceHint:
+        "فراہم کنندہ کے ذریعے سائن اِن کو پابند کرتا ہے کہ وہ ایک بار استعمال ہونے والی وہ قدر پیش کرے جو اس سرور نے اسی براؤزر کو جاری کی تھی، تاکہ کسی اور کے براؤزر کے لیے بنایا گیا چوری شدہ ٹوکن مسترد ہو۔ اسے تبھی آن کریں جب تعینات شدہ ایپ یہ قدریں لینا شروع کر دے؛ اس سے پہلے براؤزر کی خود ساختہ قدر قبول ہوتی ہے، جو کچھ ثابت نہیں کرتی۔ تجویز: آن۔",
       title: "بیرونی سائن ان (Google / Apple)",
       description:
         "سوشل سائن ان فراہم کنندگان۔ یہاں دیے گئے کلائنٹ ID عوامی شناختیں ہیں؛ نجی کلیدیں راز کے صفحے پر رہتی ہیں۔ بٹن ظاہر ہونے کے لیے فراہم کنندہ کو اس کی ڈائریکٹری قطار میں بھی فعال ہونا لازمی ہے۔",
@@ -1486,7 +1524,8 @@ export const ur: TranslationResources = {
       appleEnabledHint:
         "Services ID، Team ID، Key ID اور «رازوں کا انتظام» کے تحت .p8 کلید درکار ہیں۔",
       appleServicesId: "Apple Services ID",
-      appleServicesIdHint: "مثلاً com.example.accounts، Apple Developer پورٹل سے۔",
+      appleServicesIdHint:
+        "مثلاً com.example.accounts، Apple Developer پورٹل سے۔",
       appleTeamId: "Apple Team ID",
       appleTeamIdHint: "Apple Developer پورٹل سے 10 حرفی ٹیم شناخت کنندہ۔",
       appleKeyId: "Apple Key ID",
@@ -1536,32 +1575,40 @@ export const ur: TranslationResources = {
       smtpPortHint:
         "587 = STARTTLS (تجویز کردہ)، 465 = براہِ راست TLS، 25 = عموماً ہوسٹس کی جانب سے بند۔",
       useSsl: "TLS لازمی",
-      useSslHint: "تجویز: آن۔ بند صرف مقامی ڈیویلپمنٹ میں موقع پرستانہ TLS کی اجازت دیتا ہے۔",
+      useSslHint:
+        "تجویز: آن۔ بند صرف مقامی ڈیویلپمنٹ میں موقع پرستانہ TLS کی اجازت دیتا ہے۔",
       username: "SMTP صارف نام",
-      usernameHint: "عموماً پورا میل باکس پتہ۔ غیر تصدیقی ریلے کے لیے خالی چھوڑیں۔",
+      usernameHint:
+        "عموماً پورا میل باکس پتہ۔ غیر تصدیقی ریلے کے لیے خالی چھوڑیں۔",
       password: "SMTP پاس ورڈ",
       senderEmail: "بھیجنے والے کا پتہ",
-      senderEmailHint: "From پتہ۔ آپ کے ڈومین کے SPF/DKIM ریکارڈز سے مجاز ہونا لازمی ہے۔",
+      senderEmailHint:
+        "From پتہ۔ آپ کے ڈومین کے SPF/DKIM ریکارڈز سے مجاز ہونا لازمی ہے۔",
       senderName: "بھیجنے والے کا نام",
-      senderNameHint: "وہ ظاہری نام جو وصول کنندگان دیکھتے ہیں؛ سانچوں میں پلیٹ فارم نام کا متبادل بھی۔",
+      senderNameHint:
+        "وہ ظاہری نام جو وصول کنندگان دیکھتے ہیں؛ سانچوں میں پلیٹ فارم نام کا متبادل بھی۔",
       frontendBaseUrl: "لنکس کا بنیادی URL",
       frontendBaseUrlHint:
         "اکاؤنٹس ایپ کا مکمل پتہ؛ ای میل میں بھیجا گیا ہر لنک (ری سیٹ، تصدیق) اسی پر بنتا ہے۔ جب تک بھیجنا فعال ہے لازمی۔",
       otpExpirationMinutes: "تصدیقی کوڈ کی مدت (منٹ)",
-      otpExpirationMinutesHint: "تجویز: 5–15 — لکھنے کے لیے کافی، چوری کے لیے ناکافی۔",
+      otpExpirationMinutesHint:
+        "تجویز: 5–15 — لکھنے کے لیے کافی، چوری کے لیے ناکافی۔",
       resetTokenExpirationMinutes: "ری سیٹ لنک کی مدت (منٹ)",
       resetTokenExpirationMinutesHint: "تجویز: 30–60۔",
       rateLimitWindowSeconds: "بھیجنے کی شرح کی ونڈو (سیکنڈ)",
-      rateLimitWindowSecondsHint: "نیچے دی گئی فی پتہ بھیجنے کی حد کی ونڈو۔ تجویز: 60۔",
+      rateLimitWindowSecondsHint:
+        "نیچے دی گئی فی پتہ بھیجنے کی حد کی ونڈو۔ تجویز: 60۔",
       maxOtpRequestsPerWindow: "کوڈ فی ونڈو",
       maxOtpRequestsPerWindowHint:
         "ایک پتہ فی ونڈو زیادہ سے زیادہ کتنے تصدیقی کوڈ مانگ سکتا ہے۔ تجویز: 3 — میل بمباری روکتا ہے۔",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "نئے آلے سے سائن اِن پر اطلاع",
-      newDeviceAlertEnabledHint: "جب پہلی بار کسی ایسے آلے سے سائن اِن ہو جو پہلے استعمال نہ ہوا ہو، اکاؤنٹ مالک کو ای میل بھیجتا ہے۔ تجویز: آن۔",
+      newDeviceAlertEnabledHint:
+        "جب پہلی بار کسی ایسے آلے سے سائن اِن ہو جو پہلے استعمال نہ ہوا ہو، اکاؤنٹ مالک کو ای میل بھیجتا ہے۔ تجویز: آن۔",
       newDeviceAlertMinIntervalMinutes: "اطلاعات کے درمیان کم سے کم وقفہ (منٹ)",
-      newDeviceAlertMinIntervalMinutesHint: "یکے بعد دیگرے سائن اِن کو یکے بعد دیگرے ای میلوں میں بدلنے سے روکتا ہے۔ 0 ہر نئے آلے کے لیے ایک بھیجتا ہے۔ تجویز: 60۔",
+      newDeviceAlertMinIntervalMinutesHint:
+        "یکے بعد دیگرے سائن اِن کو یکے بعد دیگرے ای میلوں میں بدلنے سے روکتا ہے۔ 0 ہر نئے آلے کے لیے ایک بھیجتا ہے۔ تجویز: 60۔",
       title: "اطلاعات کی ترسیل",
       description:
         "جانے والی اطلاعات کیسے پہنچائی جاتی ہیں: براہِ راست، یا ایک پائیدار آؤٹ باکس کے ذریعے جو ناکامیوں پر دوبارہ کوشش کرتا ہے اور دوبارہ آغاز سے محفوظ رہتا ہے۔ مواد اور سانچوں کا انتظام اطلاعات کے صفحات پر ہوتا ہے۔",
@@ -1569,7 +1616,8 @@ export const ur: TranslationResources = {
       useOutboxHint:
         "تجویز: پروڈکشن میں آن — پیغامات پہلے ذخیرہ ہوتے ہیں اور ناکامی پر گم ہونے کے بجائے دوبارہ آزمائے جاتے ہیں۔",
       pollIntervalSeconds: "پول وقفہ (سیکنڈ)",
-      pollIntervalSecondsHint: "جب کوئی بھیجنے کا اشارہ نہ آئے تو متبادل بیداری۔ تجویز: 30۔",
+      pollIntervalSecondsHint:
+        "جب کوئی بھیجنے کا اشارہ نہ آئے تو متبادل بیداری۔ تجویز: 30۔",
       batchSize: "بیچ کا سائز",
       batchSizeHint: "فی ترسیلی چکر اٹھائے جانے والے پیغامات۔ تجویز: 20۔",
       maxAttempts: "زیادہ سے زیادہ کوششیں",
@@ -1581,35 +1629,45 @@ export const ur: TranslationResources = {
     },
     geoIp: {
       title: "آئی پی جغرافیائی محلِ وقوع",
-      description: "سائن اِن کے آئی پی پتوں کو ملک اور شہر میں بدلتا ہے، تاکہ لاگ اِن تاریخ اور نئے آلے کی اطلاعات بتا سکیں کہ کوشش کہاں سے آئی۔ اس کے لیے مقامی MaxMind ڈیٹابیس فائل درکار ہے؛ اس کے بغیر یہ خصوصیت بند رہتی ہے اور مقامات نامعلوم دکھائی دیتے ہیں۔",
+      description:
+        "سائن اِن کے آئی پی پتوں کو ملک اور شہر میں بدلتا ہے، تاکہ لاگ اِن تاریخ اور نئے آلے کی اطلاعات بتا سکیں کہ کوشش کہاں سے آئی۔ اس کے لیے مقامی MaxMind ڈیٹابیس فائل درکار ہے؛ اس کے بغیر یہ خصوصیت بند رہتی ہے اور مقامات نامعلوم دکھائی دیتے ہیں۔",
       enabled: "آئی پی جغرافیائی محلِ وقوع فعال کریں",
-      enabledHint: "نیچے دیے گئے راستے پر ڈیٹابیس فائل درکار ہے۔ دوبارہ شروع کرنے کے بعد نافذ ہوتا ہے۔",
+      enabledHint:
+        "نیچے دیے گئے راستے پر ڈیٹابیس فائل درکار ہے۔ دوبارہ شروع کرنے کے بعد نافذ ہوتا ہے۔",
       databasePath: "ڈیٹابیس فائل کا راستہ",
-      databasePathHint: "سرور پر MaxMind GeoLite2 ‎.mmdb فائل کا مکمل راستہ۔ دوبارہ شروع کرنے کے بعد نافذ ہوتا ہے۔",
+      databasePathHint:
+        "سرور پر MaxMind GeoLite2 ‎.mmdb فائل کا مکمل راستہ۔ دوبارہ شروع کرنے کے بعد نافذ ہوتا ہے۔",
     },
     imageStorage: {
       title: "تصویری ذخیرہ",
       description:
         "اپ لوڈ شدہ لوگو اور پروفائل تصاویر: ڈسک پر کہاں محفوظ ہوتی ہیں، کیسے پیش کی جاتی ہیں، اور اپ لوڈ پر لاگو سائز کی حدیں۔",
       provider: "ذخیرے کا فراہم کنندہ",
-      providerHint: "فائل سسٹم ذخیرہ؛ سرور تنصیب کا حصہ، یہاں قابلِ ترمیم نہیں۔",
+      providerHint:
+        "فائل سسٹم ذخیرہ؛ سرور تنصیب کا حصہ، یہاں قابلِ ترمیم نہیں۔",
       physicalPath: "ذخیرے کا فولڈر",
-      physicalPathHint: "سرور ڈسک کا مقام؛ تبدیلی کے لیے فائلیں منتقل کرنا پڑتی ہیں — یہ تنصیب کا کام ہے۔",
+      physicalPathHint:
+        "سرور ڈسک کا مقام؛ تبدیلی کے لیے فائلیں منتقل کرنا پڑتی ہیں — یہ تنصیب کا کام ہے۔",
       publicBaseUrl: "عوامی بنیادی URL",
       publicBaseUrlHint:
         "ہر واپس کیے گئے تصویری URL کا سابقہ۔ API کے عوامی پتے (یا جڑ سے شروع ہونے والے راستے) پر مقرر کریں تاکہ لوگو گیٹ وے کے ذریعے نظر آئیں۔",
       requestPath: "پیش کاری کا راستہ",
-      requestPathHint: "وہ URL راستہ جس کے تحت تصاویر پیش ہوتی ہیں؛ آغاز پر پائپ لائن میں شامل ہو جاتا ہے۔",
+      requestPathHint:
+        "وہ URL راستہ جس کے تحت تصاویر پیش ہوتی ہیں؛ آغاز پر پائپ لائن میں شامل ہو جاتا ہے۔",
       maxSizeBytes: "زیادہ سے زیادہ اپ لوڈ سائز (بائٹس)",
       maxSizeBytesHint: "تجویز: 4194304 (4 MB) — لوگو اور اوتار کے لیے وافر۔",
       maxMegapixels: "زیادہ سے زیادہ میگا پکسلز",
-      maxMegapixelsHint: "پروسیسنگ سے پہلے ڈی کمپریشن بم مسترد کرتا ہے۔ تجویز: 50۔",
+      maxMegapixelsHint:
+        "پروسیسنگ سے پہلے ڈی کمپریشن بم مسترد کرتا ہے۔ تجویز: 50۔",
       maxEdgePx: "زیادہ سے زیادہ کنارہ (پکسلز)",
-      maxEdgePxHint: "بڑی تصاویر اس کنارے تک چھوٹی کر دی جاتی ہیں۔ تجویز: 1024۔",
+      maxEdgePxHint:
+        "بڑی تصاویر اس کنارے تک چھوٹی کر دی جاتی ہیں۔ تجویز: 1024۔",
       webpQuality: "WebP معیار",
-      webpQualityHint: "اپ لوڈز اس معیار پر WebP میں دوبارہ انکوڈ ہوتی ہیں۔ تجویز: 90۔",
+      webpQualityHint:
+        "اپ لوڈز اس معیار پر WebP میں دوبارہ انکوڈ ہوتی ہیں۔ تجویز: 90۔",
       allowedContentTypes: "اجازت یافتہ مواد کی اقسام",
-      allowedContentTypesHint: "اپ لوڈ پر قبول کی جانے والی image/* MIME اقسام۔",
+      allowedContentTypesHint:
+        "اپ لوڈ پر قبول کی جانے والی image/* MIME اقسام۔",
     },
     accountDeletionSection: {
       title: "اکاؤنٹ کا حذف",
@@ -1623,9 +1681,11 @@ export const ur: TranslationResources = {
       workerBatchSize: "ورکر بیچ کا سائز",
       workerBatchSizeHint: "فی چکر انجام دیے جانے والے حذف۔ تجویز: 25۔",
       maxExecutionAttempts: "زیادہ سے زیادہ تنفیذی کوششیں",
-      maxExecutionAttemptsHint: "ناکام حذف کے تعمیل الارم اٹھانے سے پہلے دوبارہ کوششیں۔ تجویز: 5۔",
+      maxExecutionAttemptsHint:
+        "ناکام حذف کے تعمیل الارم اٹھانے سے پہلے دوبارہ کوششیں۔ تجویز: 5۔",
       otpExpirationMinutes: "تصدیقی کوڈ کی مدت (منٹ)",
-      otpExpirationMinutesHint: "عوامی حذف درخواست کی تصدیق کرنے والا کوڈ۔ تجویز: 15۔",
+      otpExpirationMinutesHint:
+        "عوامی حذف درخواست کی تصدیق کرنے والا کوڈ۔ تجویز: 15۔",
       identifierHmacKeyPlain: "شناخت کنندہ ہیش کلید",
     },
     dataController: {
@@ -1637,43 +1697,59 @@ export const ur: TranslationResources = {
       address: "رجسٹرڈ پتہ",
       addressHint: "مکمل ڈاک کا پتہ جیسا پالیسی میں ظاہر ہونا چاہیے۔",
       privacyEmail: "رازداری رابطہ ای میل",
-      privacyEmailHint: "ایسا ان باکس جس کی نگرانی ہوتی ہو — حقوق کی درخواستیں یہاں آتی ہیں اور 30 دن میں جواب لازم ہے۔",
+      privacyEmailHint:
+        "ایسا ان باکس جس کی نگرانی ہوتی ہو — حقوق کی درخواستیں یہاں آتی ہیں اور 30 دن میں جواب لازم ہے۔",
       emailProvider: "ای میل ترسیل فراہم کنندہ",
-      emailProviderHint: "«ہم ڈیٹا کس کے ساتھ شیئر کرتے ہیں» میں اس کا نام آتا ہے۔",
+      emailProviderHint:
+        "«ہم ڈیٹا کس کے ساتھ شیئر کرتے ہیں» میں اس کا نام آتا ہے۔",
       hostingProvider: "ہوسٹنگ فراہم کنندہ",
-      hostingProviderHint: "«ہم ڈیٹا کس کے ساتھ شیئر کرتے ہیں» میں اس کا نام آتا ہے۔",
+      hostingProviderHint:
+        "«ہم ڈیٹا کس کے ساتھ شیئر کرتے ہیں» میں اس کا نام آتا ہے۔",
       hostingCountry: "ہوسٹنگ کا ملک",
-      hostingCountryHint: "صرف ملک کا نام، کوئی حرفِ جار نہیں — ترکی اور فرانسیسی جملے اپنا خود شامل کرتے ہیں۔",
+      hostingCountryHint:
+        "صرف ملک کا نام، کوئی حرفِ جار نہیں — ترکی اور فرانسیسی جملے اپنا خود شامل کرتے ہیں۔",
       dpoContact: "ڈیٹا پروٹیکشن آفیسر",
-      dpoContactHint: "اختیاری۔ خالی چھوڑنے پر یہ سطر ظاہر نہیں ہوتی؛ GDPR صرف مخصوص صورتوں میں لازم کرتا ہے۔",
+      dpoContactHint:
+        "اختیاری۔ خالی چھوڑنے پر یہ سطر ظاہر نہیں ہوتی؛ GDPR صرف مخصوص صورتوں میں لازم کرتا ہے۔",
       verbisNo: "VERBİS رجسٹریشن نمبر",
-      verbisNoHint: "اختیاری۔ صرف اُس وقت بھریں جب کنٹرولر ترکیہ کی رجسٹریشن حدود پر پورا اترتا ہو۔",
+      verbisNoHint:
+        "اختیاری۔ صرف اُس وقت بھریں جب کنٹرولر ترکیہ کی رجسٹریشن حدود پر پورا اترتا ہو۔",
       kepAddress: "رجسٹرڈ ای میل (KEP)",
-      kepAddressHint: "اختیاری۔ ترکیہ کا رجسٹرڈ ای میل پتہ، جو KVKK درخواست کے ذرائع میں سے ایک ہے۔",
+      kepAddressHint:
+        "اختیاری۔ ترکیہ کا رجسٹرڈ ای میل پتہ، جو KVKK درخواست کے ذرائع میں سے ایک ہے۔",
     },
     expiredDataCleanup: {
       title: "میعاد ختم شدہ ڈیٹا کی صفائی",
-      description: "جو قطاریں پہلے ہی بےکار ہو چکی ہیں وہ روزانہ کی صفائی سے حذف ہونے سے پہلے کتنی دیر رکھی جائیں۔ یہ میعاد کی مدت نہیں — یہاں ہر قطار پہلے ہی مردہ ہے۔ یہ طے کرتی ہیں کہ وہ بطور ثبوت کتنی دیر کارآمد رہے گی: منسوخ شدہ ریفریش ٹوکن ہی وہ چیز ہے جو چوری شدہ ٹوکن کو پکڑی گئی چوری میں بدلتی ہے، اور استعمال شدہ اجازت کوڈ ہی دوبارہ استعمال کو ثابت کرتا ہے۔",
+      description:
+        "جو قطاریں پہلے ہی بےکار ہو چکی ہیں وہ روزانہ کی صفائی سے حذف ہونے سے پہلے کتنی دیر رکھی جائیں۔ یہ میعاد کی مدت نہیں — یہاں ہر قطار پہلے ہی مردہ ہے۔ یہ طے کرتی ہیں کہ وہ بطور ثبوت کتنی دیر کارآمد رہے گی: منسوخ شدہ ریفریش ٹوکن ہی وہ چیز ہے جو چوری شدہ ٹوکن کو پکڑی گئی چوری میں بدلتی ہے، اور استعمال شدہ اجازت کوڈ ہی دوبارہ استعمال کو ثابت کرتا ہے۔",
       enabled: "روزانہ صفائی چلائیں",
-      enabledHint: "بند ہونے پر کوئی ٹیبل نہیں چھوا جاتا اور سب بےحد بڑھتے ہیں۔ تجویز: آن۔",
+      enabledHint:
+        "بند ہونے پر کوئی ٹیبل نہیں چھوا جاتا اور سب بےحد بڑھتے ہیں۔ تجویز: آن۔",
       workerPollMinutes: "جانچ کا وقفہ (منٹ)",
-      workerPollMinutesHint: "سروس کتنی دیر بعد دیکھتی ہے کہ آج کی صفائی ہوئی یا نہیں۔ صفائی خود دن میں ایک بار چلتی ہے۔ تجویز: 15۔",
+      workerPollMinutesHint:
+        "سروس کتنی دیر بعد دیکھتی ہے کہ آج کی صفائی ہوئی یا نہیں۔ صفائی خود دن میں ایک بار چلتی ہے۔ تجویز: 15۔",
       batchSize: "فی بیان قطاریں",
-      batchSizeHint: "اُس ~5000 رو لاک کی حد سے نیچے رکھا جاتا ہے جہاں SQL Server پورے ٹیبل کو لاک کر دیتا ہے، جس سے اُس ٹیبل پر ہر زندہ کوئری رک جاتی۔ تجویز: 4000۔",
+      batchSizeHint:
+        "اُس ~5000 رو لاک کی حد سے نیچے رکھا جاتا ہے جہاں SQL Server پورے ٹیبل کو لاک کر دیتا ہے، جس سے اُس ٹیبل پر ہر زندہ کوئری رک جاتی۔ تجویز: 4000۔",
       maxRowsPerTablePerRun: "فی ٹیبل فی رن حد",
-      maxRowsPerTablePerRunHint: "پہلے رن کو محدود کرتا ہے، جو تعیناتی کے بعد سے جمع شدہ ہر چیز کا سامنا کرنے والا واحد رن ہے۔ باقی اگلے دن۔ تجویز: 200000۔",
+      maxRowsPerTablePerRunHint:
+        "پہلے رن کو محدود کرتا ہے، جو تعیناتی کے بعد سے جمع شدہ ہر چیز کا سامنا کرنے والا واحد رن ہے۔ باقی اگلے دن۔ تجویز: 200000۔",
       authorizationCodeDays: "اجازت کوڈز (دن)",
-      authorizationCodeDaysHint: "یہ تقریباً 60 سیکنڈ زندہ رہتے ہیں؛ یہ مدت دوبارہ استعمال کی تحقیق کے لیے ہے، اُنہیں مؤثر رکھنے کے لیے نہیں۔ تجویز: 7۔",
+      authorizationCodeDaysHint:
+        "یہ تقریباً 60 سیکنڈ زندہ رہتے ہیں؛ یہ مدت دوبارہ استعمال کی تحقیق کے لیے ہے، اُنہیں مؤثر رکھنے کے لیے نہیں۔ تجویز: 7۔",
       twoFactorChallengeDays: "دو مرحلہ توثیقی کوڈز (دن)",
-      twoFactorChallengeDaysHint: "اندازہ لگانے کی کوشش کی تحقیق کے لیے کافی۔ تجویز: 7۔",
+      twoFactorChallengeDaysHint:
+        "اندازہ لگانے کی کوشش کی تحقیق کے لیے کافی۔ تجویز: 7۔",
       passwordResetTokenDays: "پاس ورڈ ری سیٹ ٹوکنز (دن)",
       passwordResetTokenDaysHint: "تجویز: 7۔",
       emailVerificationTokenDays: "ای میل توثیقی ٹوکنز (دن)",
       emailVerificationTokenDaysHint: "تجویز: 7۔",
       idpSessionDays: "سنگل سائن آن (SSO) سیشنز (دن)",
-      idpSessionDaysHint: "تخلیق سے نہیں بلکہ میعاد ختم ہونے یا منسوخی سے شمار۔ تجویز: 30۔",
+      idpSessionDaysHint:
+        "تخلیق سے نہیں بلکہ میعاد ختم ہونے یا منسوخی سے شمار۔ تجویز: 30۔",
       refreshTokenDays: "ریفریش ٹوکنز (دن)",
-      refreshTokenDaysHint: "سب سے طویل اور سب سے اہم مدت: منسوخ شدہ قطار ہی واحد چیز ہے جو چوری شدہ ٹوکن کو پکڑی گئی چوری میں بدلتی ہے، اور ڈیش بورڈ زیادہ سے زیادہ 90 دن تک منسوخیاں دکھاتا ہے۔ یہاں جو بھی رکھا جائے، کوڈ میں 90 دن کی کم از کم حد نافذ ہے۔",
+      refreshTokenDaysHint:
+        "سب سے طویل اور سب سے اہم مدت: منسوخ شدہ قطار ہی واحد چیز ہے جو چوری شدہ ٹوکن کو پکڑی گئی چوری میں بدلتی ہے، اور ڈیش بورڈ زیادہ سے زیادہ 90 دن تک منسوخیاں دکھاتا ہے۔ یہاں جو بھی رکھا جائے، کوڈ میں 90 دن کی کم از کم حد نافذ ہے۔",
     },
     dataRetention: {
       title: "پرائیویسی اور ڈیٹا کی برقراری",
@@ -1686,7 +1762,8 @@ export const ur: TranslationResources = {
       loginAttemptRetentionDaysHint:
         "سلامتی لاگ کی برقراری؛ اپنی رازداری پالیسی سے ہم آہنگ رکھیں۔ تجویز: 365۔",
       outboxRetentionDays: "آؤٹ باکس کی برقراری (دن)",
-      outboxRetentionDaysHint: "پہنچائی گئی اطلاعات کے لاگ کی برقراری۔ تجویز: 180۔",
+      outboxRetentionDaysHint:
+        "پہنچائی گئی اطلاعات کے لاگ کی برقراری۔ تجویز: 180۔",
       auditLogRetentionDays: "آڈٹ لاگ کی برقراری (دن)",
       auditLogRetentionDaysHint:
         "آڈٹ ہسٹری کی برقراری۔ کم سے کم حد وہی تین سال ہیں جن کا شائع شدہ پالیسی میں وعدہ کیا گیا ہے۔ تجویز: 1095۔",
@@ -1718,7 +1795,8 @@ export const ur: TranslationResources = {
       minimumLevelDefaultHint:
         "معمول کے آپریشن کے لیے Information؛ صرف تفتیش کے دوران Debug (بہت تفصیلی اور درخواست کی مزید تفصیل شامل ہو سکتی ہے)؛ خاموش پروڈکشن لاگز کے لیے Warning۔",
       minimumLevelOverrideMicrosoft: "Microsoft نیم اسپیس سطح",
-      minimumLevelOverrideMicrosoftHint: "فریم ورک کے شور کا فلٹر۔ تجویز: Warning۔",
+      minimumLevelOverrideMicrosoftHint:
+        "فریم ورک کے شور کا فلٹر۔ تجویز: Warning۔",
       minimumLevelOverrideMicrosoftHostingLifetime: "ہوسٹ لائف ٹائم سطح",
       minimumLevelOverrideMicrosoftHostingLifetimeHint:
         "آغاز/بندش کے پیغامات۔ تجویز: Information۔",
@@ -1791,7 +1869,8 @@ export const ur: TranslationResources = {
       "{{name}} ہٹا دیا جائے گا، اور اس پر کھلا کوئی بھی سیشن سائن آؤٹ کر دیا جائے گا۔ دوبارہ اسی سے سائن اِن کرنے پر اسے نئی ڈیوائس سمجھا جائے گا۔",
     browserForgotten: "براؤزر بھلا دیا گیا۔",
     unattributedSessions: "دیگر سیشنز",
-    unattributedHelp: "ایسے سیشنز جنہوں نے کوئی براؤزر ظاہر نہیں کیا، جیسے منسلک ایپس۔",
+    unattributedHelp:
+      "ایسے سیشنز جنہوں نے کوئی براؤزر ظاہر نہیں کیا، جیسے منسلک ایپس۔",
     noBrowsers: "کوئی سائن اِن نہیں",
     noBrowsersBody: "جن براؤزرز سے آپ سائن اِن کریں گے وہ یہاں دکھائی دیں گے۔",
     loadFailed: "یہ لوڈ نہیں ہو سکا",
@@ -1806,7 +1885,8 @@ export const ur: TranslationResources = {
     loginIncompleteHint: "آپ کا پاس ورڈ درج ہوا مگر تصدیقی کوڈ کبھی نہیں آیا۔",
     loginCodeAttempts: "مسترد کوڈ: {{count}}",
     noLoginActivity: "ابھی کچھ ریکارڈ نہیں ہوا",
-    unrecognisedActivity: "یہاں کوئی چیز پہچان نہیں پا رہے؟ اپنا پاس ورڈ تبدیل کریں۔",
+    unrecognisedActivity:
+      "یہاں کوئی چیز پہچان نہیں پا رہے؟ اپنا پاس ورڈ تبدیل کریں۔",
     browserOnOs: "{{os}} پر {{browser}}",
     unknownBrowser: "نامعلوم براؤزر",
     ipAddress: "IP پتہ",
@@ -1835,7 +1915,8 @@ export const ur: TranslationResources = {
   },
   accountDeletion: {
     dangerZone: "خطرے کا علاقہ",
-    dangerZoneSubtitle: "اس اکاؤنٹ اور اس کے ذاتی ڈیٹا کو مستقل طور پر حذف کریں۔",
+    dangerZoneSubtitle:
+      "اس اکاؤنٹ اور اس کے ذاتی ڈیٹا کو مستقل طور پر حذف کریں۔",
     deleteAccount: "اکاؤنٹ حذف کریں",
     deleteWarning:
       "آپ کا اکاؤنٹ فوری طور پر غیر فعال کر دیا جائے گا اور {{days}} دن بعد مستقل طور پر حذف ہو جائے گا۔ اس مدت میں آپ سائن اِن کر کے اسے بحال کر سکتے ہیں۔",
@@ -1868,7 +1949,8 @@ export const ur: TranslationResources = {
     publicSubtitle: "سائن اِن کیے بغیر اپنے اکاؤنٹ کے حذف کی درخواست دیں۔",
     publicEmailBody:
       "جس اکاؤنٹ کو حذف کرنا چاہتے ہیں اس کا ای میل ایڈریس درج کریں۔ اگر اکاؤنٹ موجود ہوا تو ہم اس پر تصدیقی کوڈ بھیجیں گے۔",
-    publicCodeBody: "وہ 6 ہندسوں کا کوڈ درج کریں جو ہم نے {{email}} پر بھیجا ہے۔",
+    publicCodeBody:
+      "وہ 6 ہندسوں کا کوڈ درج کریں جو ہم نے {{email}} پر بھیجا ہے۔",
     publicDoneTitle: "درخواست موصول ہو گئی",
     publicDoneBody:
       "اگر {{email}} کے لیے کوئی اکاؤنٹ موجود ہے تو اس کا حذف طے کر دیا گیا ہے۔ تصدیق اور بحالی کی ہدایات کے لیے اِن باکس دیکھیں۔",
@@ -1926,5 +2008,39 @@ export const ur: TranslationResources = {
     unexpectedTitle: "کچھ غلط ہو گیا",
     reload: "صفحہ دوبارہ لوڈ کریں",
     uploadFailed: "تصویر اپ لوڈ ناکام (HTTP {{status}})۔",
+    feedback: {
+      title: "کارروائی مکمل نہیں ہو سکی",
+      retry: "دوبارہ کوشش کریں",
+      fieldInvalid: "اس قدر کو جانچیں، پھر دوبارہ کوشش کریں۔",
+      validation:
+        "کچھ معلومات قبول نہیں ہوئیں۔ نمایاں فیلڈز درست کر کے فارم دوبارہ جمع کریں۔",
+      authentication:
+        "آپ کا سیشن اب درست نہیں ہے۔ دوبارہ سائن ان کریں، پھر کارروائی دہرائیں۔",
+      authorization:
+        "آپ کو یہ کارروائی مکمل کرنے کی اجازت نہیں ہے۔ منتظم سے رسائی طلب کریں۔",
+      notFound:
+        "یہ آئٹم اب دستیاب نہیں ہے۔ صفحہ تازہ کریں اور موجود آئٹم منتخب کریں۔",
+      conflict:
+        "کارروائی مکمل ہونے سے پہلے ڈیٹا بدل گیا۔ دوبارہ لوڈ کریں، تازہ اقدار دیکھیں، پھر کوشش کریں۔",
+      rateLimit:
+        "بہت زیادہ درخواستیں بھیجی گئیں۔ دوبارہ کوشش سے پہلے کچھ دیر انتظار کریں۔",
+      server:
+        "سروس کارروائی مکمل نہیں کر سکی۔ دوبارہ کوشش کریں؛ مسئلہ برقرار رہے تو معاونت سے رابطہ کریں۔",
+      network: "سرور تک رسائی نہیں ہو سکی۔ کنکشن جانچیں، پھر دوبارہ کوشش کریں۔",
+      unknown:
+        "کارروائی مکمل نہیں ہوئی۔ دوبارہ کوشش کریں؛ مسئلہ برقرار رہے تو معاونت سے رابطہ کریں۔",
+      duplicateEmail:
+        "یہ ای میل پتہ پہلے سے استعمال میں ہے۔ دوسرا پتہ درج کر کے فارم دوبارہ جمع کریں۔",
+      invalidCredentials:
+        "ای میل پتہ یا پاس ورڈ قبول نہیں ہوا۔ دونوں جانچیں، پھر دوبارہ کوشش کریں۔",
+      pendingDeletion:
+        "یہ اکاؤنٹ حذف ہونے کے لیے طے ہے۔ سائن ان سے پہلے اکاؤنٹ ریکوری استعمال کریں۔",
+      staleData:
+        "یہ آئٹم لوڈ ہونے کے بعد بدل گیا۔ دوبارہ لوڈ کریں، تازہ نسخہ دیکھیں، پھر کارروائی دہرائیں۔",
+      invalidChallengeCode:
+        "تصدیقی کوڈ قبول نہیں ہوا۔ تازہ ترین کوڈ درج کر کے دوبارہ کوشش کریں۔",
+      connectionUnreachable:
+        "کنکشن کی تصدیق نہیں ہو سکی۔ کنکشن کی تفصیلات جانچیں، یا صرف اس صورت میں پھر بھی محفوظ کریں جب آپ نے انہیں کسی اور ذریعے سے تصدیق کر لیا ہو۔",
+    },
   },
 }

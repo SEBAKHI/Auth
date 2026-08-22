@@ -2,6 +2,7 @@ import { OrganizationDetailPage } from "@authsystem/account/pages/organizations/
 import { OrganizationsPage } from "@authsystem/account/pages/organizations/organizations-page"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { PERMISSIONS } from "@/lib/constants"
+import { applicationHref, userHref } from "@/lib/record-hrefs"
 import { OrganizationsAdminPage } from "./organizations-admin-page"
 
 /**
@@ -28,8 +29,8 @@ export function ConsoleOrganizationDetailPage() {
   return (
     <OrganizationDetailPage
       canManagePlatform={hasPermission(PERMISSIONS.organizations.manage)}
-      userHref={(userId) => `/users/${userId}`}
-      applicationHref={(applicationId) => `/applications/${applicationId}`}
+      userHref={userHref}
+      applicationHref={applicationHref}
     />
   )
 }

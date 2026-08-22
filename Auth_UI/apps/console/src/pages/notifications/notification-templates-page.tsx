@@ -1,25 +1,46 @@
 import { useQuery } from "@tanstack/react-query"
-import type { ColumnDef, SortingState } from "@tanstack/react-table"
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
 import { Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
 
 import { api } from "@authsystem/api/client"
 import { toNumber, toSortParams, unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import { formatDateTime } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
-import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
+import {
+  enumArrayUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
+import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
+import { notificationTemplateHref } from "@/lib/record-hrefs"
 import { CreateTemplateDialog } from "./components/create-template-dialog"
 import { NotificationsTabs } from "./components/notifications-tabs"
 import type { NotificationTemplateDto } from "./lib"
+
+type TemplateListFilters = {
+  channels: Array<"Email">
+  statuses: Array<"published" | "unpublished">
+}
+
+const TEMPLATE_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: SORTABLE_COLUMNS.notificationTemplates,
+  defaultSorting: [{ id: "typeName", desc: false }],
+  filters: {
+    channels: enumArrayUrlFilter(["Email"], "channel"),
+    statuses: enumArrayUrlFilter(["published", "unpublished"], "status"),
+  },
+} satisfies ListUrlStateOptions<TemplateListFilters>
 
 /**
  * Admin list of notification templates. All message content lives in the
@@ -29,27 +50,50 @@ import type { NotificationTemplateDto } from "./lib"
 export function NotificationTemplatesPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
-  const navigate = useNavigate()
 
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  // A term the command palette handed over, so arriving from "see all N"
-  // lands on those rows rather than on the whole list again.
-  const handoff = useSearchHandoff()
-  const [searchInput, setSearchInput] = React.useState(handoff)
+  const {
+    pageIndex: page,
+    pageSize,
+    search: searchInput,
+    sorting,
+    filters: { channels, statuses },
+    setSearch: setSearchInput,
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+    setFilters,
+  } = useListUrlState(TEMPLATE_LIST_URL_OPTIONS)
   const search = useDebouncedValue(searchInput)
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "typeName", desc: false },
-  ])
   const { sortBy, sortDirection } = toSortParams(sorting)
   const [createOpen, setCreateOpen] = React.useState(false)
+
+  const columnFilters: ColumnFiltersState = [
+    ...(channels.length ? [{ id: "channel", value: channels }] : []),
+    ...(statuses.length ? [{ id: "status", value: statuses }] : []),
+  ]
+  const onColumnFiltersChange = (next: ColumnFiltersState) => {
+    setFilters({
+      channels:
+        (next.find((filter) => filter.id === "channel")?.value as
+          | Array<"Email">
+          | undefined) ?? [],
+      statuses:
+        (next.find((filter) => filter.id === "status")?.value as
+          | Array<"published" | "unpublished">
+          | undefined) ?? [],
+    })
+  }
+
+  const channel = channels.length === 1 ? 1 : undefined
+  const isPublished =
+    statuses.length === 1 ? statuses[0] === "published" : undefined
 
   const canManage = hasPermission(PERMISSIONS.notificationTemplates.manage)
 
   const query = useQuery({
     queryKey: [
       "notification-templates",
-      { page, pageSize, search, sortBy, sortDirection },
+      { page, pageSize, search, channel, isPublished, sortBy, sortDirection },
     ],
     queryFn: () =>
       unwrap(
@@ -58,6 +102,8 @@ export function NotificationTemplatesPage() {
             query: {
               pageNumber: page + 1,
               pageSize,
+              channel,
+              isPublished,
               searchTerm: search || undefined,
               sortBy,
               sortDirection,
@@ -81,10 +127,9 @@ export function NotificationTemplatesPage() {
       cell: ({ row }) => {
         const template = row.original
         return (
-          <button
-            type="button"
+          <RecordLink
+            href={notificationTemplateHref(template.id)}
             className="min-w-0 text-start hover:underline"
-            onClick={() => navigate(`/notifications/templates/${template.id}`)}
           >
             {/* The direction belongs on an inline `bdi`, not on the `p`: `dir` on
                 a block re-resolves the inherited `text-align: start` against that
@@ -96,7 +141,7 @@ export function NotificationTemplatesPage() {
             <p className="truncate text-xs text-muted-foreground">
               <bdi dir="ltr">{template.typeCode}</bdi>
             </p>
-          </button>
+          </RecordLink>
         )
       },
     },
@@ -120,7 +165,9 @@ export function NotificationTemplatesPage() {
       meta: {
         label: t("notifications.channel"),
         filterVariant: "faceted",
-        filterOptions: [{ value: "Email", label: t("notifications.channelEmail") }],
+        filterOptions: [
+          { value: "Email", label: t("notifications.channelEmail") },
+        ],
       },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
@@ -133,6 +180,8 @@ export function NotificationTemplatesPage() {
     {
       id: "status",
       accessorFn: (row) => (row.isPublished ? "published" : "unpublished"),
+      // Filterable, but not in the endpoint's sortBy allow-list.
+      enableSorting: false,
       filterFn: "faceted",
       header: t("notifications.status"),
       meta: {
@@ -160,7 +209,9 @@ export function NotificationTemplatesPage() {
               <Badge variant="secondary">{t("notifications.draft")}</Badge>
             ) : null}
             {template.typeIsSystem && !template.applicationId ? (
-              <Badge variant="destructive">{t("notifications.systemBadge")}</Badge>
+              <Badge variant="destructive">
+                {t("notifications.systemBadge")}
+              </Badge>
             ) : null}
           </div>
         )
@@ -172,7 +223,7 @@ export function NotificationTemplatesPage() {
       header: t("notifications.defaultLanguage"),
       meta: { label: t("notifications.defaultLanguage") },
       cell: ({ row }) => (
-        <span className="text-sm uppercase text-muted-foreground" dir="ltr">
+        <span className="text-sm text-muted-foreground uppercase" dir="ltr">
           {row.original.defaultLanguage}
         </span>
       ),
@@ -221,10 +272,7 @@ export function NotificationTemplatesPage() {
 
       <SearchInput
         value={searchInput}
-        onChange={(value) => {
-            setSearchInput(value)
-            setPage(0)
-          }}
+        onChange={setSearchInput}
         placeholder={t("notifications.templatesSearchPlaceholder")}
       />
 
@@ -236,11 +284,10 @@ export function NotificationTemplatesPage() {
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
         sorting={sorting}
-        onSortingChange={(next) => {
-          setSorting(next)
-          setPage(0)
-        }}
+        onSortingChange={setSorting}
         enableRowDetail={false}
         pagination={{
           pageIndex: page,
@@ -248,10 +295,7 @@ export function NotificationTemplatesPage() {
           pageCount: toNumber(query.data?.totalPages),
           totalCount: toNumber(query.data?.totalCount),
           onPageChange: setPage,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPage(0)
-          },
+          onPageSizeChange: setPageSize,
         }}
       />
 

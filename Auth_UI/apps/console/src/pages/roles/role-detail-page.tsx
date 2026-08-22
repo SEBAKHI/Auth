@@ -1,12 +1,13 @@
 import { useQuery } from "@tanstack/react-query"
-import type { ColumnDef, SortingState } from "@tanstack/react-table"
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 
 import { DetailList } from "@authsystem/ui/common/detail-list"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
@@ -14,28 +15,71 @@ import { Button } from "@authsystem/ui/button"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import { api } from "@authsystem/api/client"
-import { collectAllPages, toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
+import {
+  collectAllPages,
+  toSortParams,
+  unwrap,
+  toNumber,
+} from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
+import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
+import { applicationHref, userHref } from "@/lib/record-hrefs"
 import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import {
+  enumArrayUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
+import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { RoleFormDialog } from "./role-form-dialog"
 import { RolePermissionsDialog } from "./role-permissions-dialog"
 
+type RoleUsersUrlFilters = {
+  status: Array<"active" | "inactive" | "locked" | "pending">
+}
+
+const ROLE_USERS_URL_OPTIONS = {
+  namespace: "users",
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: SORTABLE_COLUMNS.roleUsers,
+  defaultSorting: [{ id: "email", desc: false }],
+  filters: {
+    status: enumArrayUrlFilter(["active", "inactive", "locked", "pending"]),
+  },
+} satisfies ListUrlStateOptions<RoleUsersUrlFilters>
+
+const ROLE_DETAIL_TABS = ["users", "applications", "permissions"] as const
+
 function RoleUsersTab({ roleId }: { roleId: string }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  const [searchInput, setSearchInput] = React.useState("")
+  const {
+    pageIndex: page,
+    pageSize,
+    search: searchInput,
+    sorting,
+    filters,
+    setSearch: setSearchInput,
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+    setFilters,
+  } = useListUrlState(ROLE_USERS_URL_OPTIONS)
   const search = useDebouncedValue(searchInput)
-  // Server-side sort over the whole dataset; initial value mirrors the API default.
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "email", desc: false },
-  ])
   const { sortBy, sortDirection } = toSortParams(sorting)
+  const columnFilters: ColumnFiltersState = filters.status.length
+    ? [{ id: "status", value: filters.status }]
+    : []
+  const onColumnFiltersChange = (next: ColumnFiltersState) =>
+    setFilters({
+      status:
+        (next.find((filter) => filter.id === "status")?.value as
+          | RoleUsersUrlFilters["status"]
+          | undefined) ?? [],
+    })
 
   const query = useQuery({
     queryKey: [
@@ -95,14 +139,14 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
     {
       id: "firstName",
       accessorFn: (row) =>
-        row.displayName || fullName(row.firstName, row.lastName, row.email ?? ""),
+        row.displayName ||
+        fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={userHref(row.original.userId)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/users/${row.original.userId}`)}
         >
           <p className="truncate font-medium">
             {row.original.displayName ||
@@ -115,7 +159,7 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
           <p className="truncate text-xs text-muted-foreground">
             {row.original.email}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -179,10 +223,7 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
     <div className="flex flex-col gap-4">
       <SearchInput
         value={searchInput}
-        onChange={(value) => {
-            setSearchInput(value)
-            setPage(0)
-          }}
+        onChange={setSearchInput}
         placeholder={t("users.searchPlaceholder")}
       />
       <DataTable
@@ -194,21 +235,17 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
         onRetry={() => query.refetch()}
         onExportAll={exportAll}
         enableRowDetail={false}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
         sorting={sorting}
-        onSortingChange={(next) => {
-          setSorting(next)
-          setPage(0)
-        }}
+        onSortingChange={setSorting}
         pagination={{
           pageIndex: page,
           pageSize,
           pageCount: toNumber(query.data?.totalPages),
           totalCount: toNumber(query.data?.totalCount),
           onPageChange: setPage,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPage(0)
-          },
+          onPageSizeChange: setPageSize,
         }}
       />
     </div>
@@ -217,7 +254,6 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
 
 function RoleApplicationsTab({ roleId }: { roleId: string }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
 
   const query = useQuery({
     queryKey: ["role-apps", roleId],
@@ -241,16 +277,15 @@ function RoleApplicationsTab({ roleId }: { roleId: string }) {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={applicationHref(row.original.applicationId)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/applications/${row.original.applicationId}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -365,6 +400,7 @@ export function RoleDetailPage() {
   const { id } = useParams<{ id: string }>()
   const roleId = id as string
   const { hasPermission } = useAuth()
+  const [activeTab, setActiveTab] = useTabParam(ROLE_DETAIL_TABS)
   const canUpdate = hasPermission(PERMISSIONS.roles.update)
   const [editOpen, setEditOpen] = React.useState(false)
 
@@ -435,7 +471,7 @@ export function RoleDetailPage() {
         </>
       )}
 
-      <Tabs defaultValue="users">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="users">{t("nav.users")}</TabsTrigger>
           <TabsTrigger value="applications">

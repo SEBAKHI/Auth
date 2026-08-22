@@ -1,14 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef, SortingState } from "@tanstack/react-table"
+import type { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
@@ -31,32 +32,42 @@ import {
 import { getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
+import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
+import { organizationHref } from "@/lib/record-hrefs"
 import { formatDateTime } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
-import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
+import {
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import { OrganizationFormDialog } from "@authsystem/account/pages/organizations/organization-form-dialog"
 
 type OrganizationDto = Schemas["OrganizationDto"]
 
+const ORGANIZATIONS_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: SORTABLE_COLUMNS.organizations,
+  defaultSorting: [{ id: "name", desc: false }],
+} satisfies ListUrlStateOptions
+
 /** Platform administration over ALL organizations (server-side paged). */
 export function OrganizationsAdminPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  // A term the command palette handed over, so arriving from "see all N"
-  // lands on those rows rather than on the whole list again.
-  const handoff = useSearchHandoff()
-  const [searchInput, setSearchInput] = React.useState(handoff)
+  const {
+    pageIndex: page,
+    pageSize,
+    search: searchInput,
+    sorting,
+    setSearch: setSearchInput,
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+  } = useListUrlState(ORGANIZATIONS_LIST_URL_OPTIONS)
   const search = useDebouncedValue(searchInput)
-  // Server-side sort over the whole dataset; initial value mirrors the API default.
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "name", desc: false },
-  ])
   const { sortBy, sortDirection } = toSortParams(sorting)
 
   const [deleting, setDeleting] = React.useState<OrganizationDto | undefined>()
@@ -135,16 +146,15 @@ export function OrganizationsAdminPage() {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={organizationHref(row.original.id)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/organizations/${row.original.id}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -214,6 +224,7 @@ export function OrganizationsAdminPage() {
       header: () => <span className="sr-only">{t("common.actions")}</span>,
       cell: ({ row }) => {
         const org = row.original
+        const viewHref = organizationHref(org.id)
         return (
           <div className="text-end">
             <DropdownMenu>
@@ -228,11 +239,11 @@ export function OrganizationsAdminPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => navigate(`/organizations/${org.id}`)}
-                  >
-                    {t("common.view")}
-                  </DropdownMenuItem>
+                  {viewHref ? (
+                    <DropdownMenuItem asChild>
+                      <Link to={viewHref}>{t("common.view")}</Link>
+                    </DropdownMenuItem>
+                  ) : null}
                 </DropdownMenuGroup>
                 {canManage ? (
                   <>
@@ -272,10 +283,7 @@ export function OrganizationsAdminPage() {
 
       <SearchInput
         value={searchInput}
-        onChange={(value) => {
-            setSearchInput(value)
-            setPage(0)
-          }}
+        onChange={setSearchInput}
         placeholder={t("organizations.searchPlaceholder")}
       />
 
@@ -289,10 +297,7 @@ export function OrganizationsAdminPage() {
         onRetry={() => query.refetch()}
         onExportAll={exportAll}
         sorting={sorting}
-        onSortingChange={(next) => {
-          setSorting(next)
-          setPage(0)
-        }}
+        onSortingChange={setSorting}
         enableRowDetail={false}
         pagination={{
           pageIndex: page,
@@ -300,10 +305,7 @@ export function OrganizationsAdminPage() {
           pageCount: toNumber(query.data?.totalPages),
           totalCount: toNumber(query.data?.totalCount),
           onPageChange: setPage,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPage(0)
-          },
+          onPageSizeChange: setPageSize,
         }}
       />
 

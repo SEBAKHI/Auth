@@ -35,6 +35,15 @@ public interface INotificationLayoutRepository
     Task UpdateAsync(NotificationLayout layout, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Persists a publish transition only while the saved layout revision still
+    /// matches the revision reviewed by the caller.
+    /// </summary>
+    Task<bool> TryPublishAsync(
+        NotificationLayout layout,
+        DateTime expectedRevisionAt,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Gets the published layout content for the exact (channel, application)
     /// scope, or null when none is published there. The caller performs
     /// app-to-global fallback by probing the application scope first.

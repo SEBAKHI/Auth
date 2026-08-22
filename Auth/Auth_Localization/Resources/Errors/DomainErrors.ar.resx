@@ -668,6 +668,12 @@
   <data name="Notification.ConcurrencyConflict" xml:space="preserve">
     <value>تم تعديل القالب من قبل شخص آخر. أعد تحميل أحدث مسودة وطبّق تغييراتك مجددًا.</value>
   </data>
+  <data name="Notification.PublishTargetChanged" xml:space="preserve">
+    <value>تغيّرت المسودة المحفوظة المحددة للنشر. أعد التحميل وراجع أحدث مسودة قبل النشر.</value>
+  </data>
+  <data name="Notification.UnpublishTargetChanged" xml:space="preserve">
+    <value>تغيّر الإصدار المنشور المحدد لإلغاء النشر. أعد التحميل وراجع النشر الحالي قبل المتابعة.</value>
+  </data>
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>لم يتم العثور على تخطيط الإشعار بالمعرف '{0}'.</value>
   </data>
@@ -682,6 +688,9 @@
   </data>
   <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
     <value>التخطيط لا يعرض جسم الرسالة: يجب أن يحتوي على عنصر المحتوى، وإلا وصلت كل الرسائل فارغة.</value>
+  </data>
+  <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
+    <value>تغيّرت مسودة التخطيط المحفوظة المحددة للنشر. أعد التحميل وراجع أحدث مسودة قبل النشر.</value>
   </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>يحتوي القالب على صيغة غير صالحة: {0}</value>

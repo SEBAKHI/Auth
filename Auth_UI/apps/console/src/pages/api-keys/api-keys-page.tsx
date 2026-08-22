@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
 import { MoreHorizontal, Plus, ShieldCheck } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
@@ -45,15 +45,38 @@ import { FieldConstraints } from "@authsystem/ui/common/field-constraints"
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
-import { PERMISSIONS } from "@/lib/constants"
+import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { daysUntil, formatDateTime } from "@authsystem/ui/format"
-import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
+import {
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import { ApiKeyCreateDialog } from "./api-key-create-dialog"
 import { Spinner } from "@authsystem/ui/spinner"
+import {
+  CREDENTIAL_KEY_URL_FILTERS,
+  credentialColumnFilters,
+  credentialFiltersFromColumns,
+  type CredentialKeyListFilters,
+} from "../credential-key-list-url"
 
 type ApiKeyDto = Schemas["ApiKeyDto"]
+
+const API_KEYS_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: [
+    "name",
+    "environment",
+    "status",
+    "expiresAt",
+    "lastUsedAt",
+    "createdAt",
+  ],
+  defaultSorting: [],
+  filters: CREDENTIAL_KEY_URL_FILTERS,
+} satisfies ListUrlStateOptions<CredentialKeyListFilters>
 
 /**
  * Matches the server's default credential-expiry horizon, so the rows this page
@@ -85,14 +108,6 @@ function ValidateApiKeyDialog({
       unwrap(api.POST("/api/v1/ApiKeys/validate", { body: { apiKey } })),
     onError: (error) => toast.error(getErrorMessage(error)),
   })
-
-  React.useEffect(() => {
-    if (open) {
-      setValue("")
-      mutation.reset()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
 
   const result = mutation.data
 
@@ -156,8 +171,19 @@ export function ApiKeysPage() {
   // undefined now means "every application", not "nothing chosen": the table
   // renders on arrival instead of waiting for a picker the reader may not even be
   // allowed to load (the picker needs applications:read; this page does not).
-  const [applicationId, setApplicationId] = React.useState<string>()
-  const initialExpiry = useSearchHandoff("expiry")
+  const {
+    search,
+    sorting,
+    filters,
+    setSearch,
+    setSorting,
+    setFilter,
+    setFilters,
+  } = useListUrlState(API_KEYS_LIST_URL_OPTIONS)
+  const { applicationId } = filters
+  const columnFilters = credentialColumnFilters(filters)
+  const onColumnFiltersChange = (next: ColumnFiltersState) =>
+    setFilters(credentialFiltersFromColumns(next))
   const [createOpen, setCreateOpen] = React.useState(false)
   const [validateOpen, setValidateOpen] = React.useState(false)
   const [revealValue, setRevealValue] = React.useState<string>()
@@ -395,8 +421,8 @@ export function ApiKeysPage() {
 
       <div className="max-w-xs">
         <ApplicationSelect
-          value={applicationId}
-          onChange={setApplicationId}
+          value={applicationId || undefined}
+          onChange={(value) => setFilter("applicationId", value ?? "")}
           allowAll
           className="w-full"
         />
@@ -406,16 +432,17 @@ export function ApiKeysPage() {
         fillHeight
         tableId="api-keys"
         globalSearch
+        globalFilter={search}
+        onGlobalFilterChange={setSearch}
+        sorting={sorting}
+        onSortingChange={setSorting}
         columns={columns}
         data={query.data ?? []}
         // A key that slipped past its date while the alert was up is the most
         // urgent row here, so the link that was meant to surface it must not
         // filter it out: "expiring soon" opens on soon AND already expired.
-        initialColumnFilters={
-          initialExpiry === "soon"
-            ? [{ id: "expiresAt", value: ["soon", "expired"] }]
-            : []
-        }
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
@@ -430,10 +457,9 @@ export function ApiKeysPage() {
         />
       ) : null}
 
-      <ValidateApiKeyDialog
-        open={validateOpen}
-        onOpenChange={setValidateOpen}
-      />
+      {validateOpen ? (
+        <ValidateApiKeyDialog open onOpenChange={setValidateOpen} />
+      ) : null}
 
       <SecretRevealDialog
         open={Boolean(revealValue)}

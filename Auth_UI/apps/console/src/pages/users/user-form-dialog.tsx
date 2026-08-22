@@ -1,11 +1,14 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { CircleAlert, RotateCw } from "lucide-react"
 import * as React from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { z } from "zod"
 
+import { Alert, AlertDescription, AlertTitle } from "@authsystem/ui/alert"
+import { Button } from "@authsystem/ui/button"
 import { FormDialog } from "@authsystem/ui/common/form-dialog"
 import { LanguageSelect } from "@authsystem/ui/common/language-select"
 import { TimeZoneSelect } from "@authsystem/ui/common/timezone-select"
@@ -17,9 +20,14 @@ import {
   FormMessage,
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
+import { Spinner } from "@authsystem/ui/spinner"
 import { api } from "@authsystem/api/client"
 import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
-import { getErrorMessage } from "@authsystem/api/errors"
+import {
+  getErrorFeedback,
+  getFieldErrors,
+  type ApiErrorFeedback,
+} from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -62,11 +70,16 @@ export function UserFormDialog({
                 message: t("validation.email"),
               })
             }
-            if (!values.password || values.password.length < PASSWORD_LENGTH_FLOOR) {
+            if (
+              !values.password ||
+              values.password.length < PASSWORD_LENGTH_FLOOR
+            ) {
               ctx.addIssue({
                 code: "custom",
                 path: ["password"],
-                message: t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR }),
+                message: t("validation.minLength", {
+                  count: PASSWORD_LENGTH_FLOOR,
+                }),
               })
             }
           }
@@ -75,6 +88,7 @@ export function UserFormDialog({
   )
 
   type Values = z.infer<typeof schema>
+  type FormFailure = { feedback: ApiErrorFeedback; values: Values }
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -88,6 +102,7 @@ export function UserFormDialog({
       timeZone: "",
     },
   })
+  const [formFailure, setFormFailure] = React.useState<FormFailure | null>(null)
 
   // Reset the form when opening for a different record.
   React.useEffect(() => {
@@ -135,35 +150,108 @@ export function UserFormDialog({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["users"] })
       toast.success(isEdit ? t("users.updated") : t("users.created"))
+      setFormFailure(null)
       onOpenChange(false)
     },
-    onError: (error) => toast.error(getErrorMessage(error)),
+    onError: (error, values) => {
+      const fieldErrors = getFieldErrors(error)
+      const availableFields: ReadonlyArray<keyof Values> = isEdit
+        ? [
+            "firstName",
+            "lastName",
+            "phoneNumber",
+            "preferredLanguage",
+            "timeZone",
+          ]
+        : [
+            "email",
+            "password",
+            "firstName",
+            "lastName",
+            "phoneNumber",
+            "preferredLanguage",
+            "timeZone",
+          ]
+      const invalidFields = availableFields.filter(
+        (field) => fieldErrors[field]
+      )
+
+      if (invalidFields.length > 0) {
+        setFormFailure(null)
+        for (const field of invalidFields) {
+          form.setError(field, { type: "server", message: fieldErrors[field] })
+        }
+        form.setFocus(invalidFields[0])
+        return
+      }
+
+      setFormFailure({ feedback: getErrorFeedback(error), values })
+    },
   })
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) setFormFailure(null)
+    onOpenChange(nextOpen)
+  }
 
   return (
     <FormDialog
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       form={form}
       title={isEdit ? t("users.editTitle") : t("users.createTitle")}
       description={t("users.subtitle")}
       formId="user-form"
-      onSubmit={(values) => mutation.mutate(values)}
+      onSubmit={(values) => {
+        setFormFailure(null)
+        mutation.mutate(values)
+      }}
       submitLabel={isEdit ? t("common.save") : t("common.create")}
       pending={mutation.isPending}
       size="xl"
     >
+      {formFailure ? (
+        <Alert variant="destructive">
+          <CircleAlert />
+          <AlertTitle>{formFailure.feedback.title}</AlertTitle>
+          <AlertDescription>
+            <p>{formFailure.feedback.description}</p>
+            {formFailure.feedback.retryable ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={mutation.isPending}
+                onClick={() => mutation.mutate(formFailure.values)}
+              >
+                {mutation.isPending ? (
+                  <Spinner data-icon="inline-start" aria-hidden="true" />
+                ) : (
+                  <RotateCw data-icon="inline-start" />
+                )}
+                {formFailure.feedback.actionLabel}
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       <div className="grid gap-7 sm:grid-cols-2">
         {!isEdit ? (
           <>
             <FormField
               control={form.control}
               name="email"
-              render={({ field }) => (
-                <FormItem>
+              render={({ field, fieldState }) => (
+                <FormItem data-invalid={fieldState.invalid}>
                   <FormLabel>{t("common.email")}</FormLabel>
                   <FormControl>
-                    <Input type="email" placeholder="name@example.com" dir="ltr" {...field} />
+                    <Input
+                      type="email"
+                      placeholder="name@example.com"
+                      dir="ltr"
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -172,8 +260,8 @@ export function UserFormDialog({
             <FormField
               control={form.control}
               name="password"
-              render={({ field }) => (
-                <FormItem>
+              render={({ field, fieldState }) => (
+                <FormItem data-invalid={fieldState.invalid}>
                   <FormLabel>{t("users.password")}</FormLabel>
                   <FormControl>
                     <Input
@@ -192,8 +280,8 @@ export function UserFormDialog({
         <FormField
           control={form.control}
           name="firstName"
-          render={({ field }) => (
-            <FormItem>
+          render={({ field, fieldState }) => (
+            <FormItem data-invalid={fieldState.invalid}>
               <FormLabel>{t("users.firstName")}</FormLabel>
               <FormControl>
                 <Input {...field} />
@@ -205,8 +293,8 @@ export function UserFormDialog({
         <FormField
           control={form.control}
           name="lastName"
-          render={({ field }) => (
-            <FormItem>
+          render={({ field, fieldState }) => (
+            <FormItem data-invalid={fieldState.invalid}>
               <FormLabel>{t("users.lastName")}</FormLabel>
               <FormControl>
                 <Input {...field} />
@@ -218,8 +306,8 @@ export function UserFormDialog({
         <FormField
           control={form.control}
           name="phoneNumber"
-          render={({ field }) => (
-            <FormItem>
+          render={({ field, fieldState }) => (
+            <FormItem data-invalid={fieldState.invalid}>
               <FormLabel>{t("users.phoneNumber")}</FormLabel>
               <FormControl>
                 <Input placeholder="+966 50 000 0000" dir="ltr" {...field} />
@@ -231,8 +319,8 @@ export function UserFormDialog({
         <FormField
           control={form.control}
           name="preferredLanguage"
-          render={({ field }) => (
-            <FormItem>
+          render={({ field, fieldState }) => (
+            <FormItem data-invalid={fieldState.invalid}>
               <FormLabel>{t("users.preferredLanguage")}</FormLabel>
               <FormControl>
                 <LanguageSelect
@@ -248,8 +336,8 @@ export function UserFormDialog({
         <FormField
           control={form.control}
           name="timeZone"
-          render={({ field }) => (
-            <FormItem>
+          render={({ field, fieldState }) => (
+            <FormItem data-invalid={fieldState.invalid}>
               <FormLabel>{t("users.timeZone")}</FormLabel>
               <FormControl>
                 <TimeZoneSelect value={field.value} onChange={field.onChange} />

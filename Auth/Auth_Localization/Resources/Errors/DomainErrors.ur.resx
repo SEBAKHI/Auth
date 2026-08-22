@@ -666,6 +666,12 @@
   <data name="Notification.ConcurrencyConflict" xml:space="preserve">
     <value>سانچے میں کسی اور نے ترمیم کی ہے۔ تازہ ترین مسودہ دوبارہ لوڈ کریں اور اپنی تبدیلیاں دوبارہ لاگو کریں۔</value>
   </data>
+  <data name="Notification.PublishTargetChanged" xml:space="preserve">
+    <value>اشاعت کے لیے منتخب محفوظ شدہ مسودہ تبدیل ہو گیا ہے۔ اشاعت سے پہلے تازہ ترین مسودہ دوبارہ لوڈ کر کے جائزہ لیں۔</value>
+  </data>
+  <data name="Notification.UnpublishTargetChanged" xml:space="preserve">
+    <value>اشاعت ختم کرنے کے لیے منتخب شائع شدہ نسخہ تبدیل ہو گیا ہے۔ جاری رکھنے سے پہلے موجودہ اشاعت دوبارہ لوڈ کر کے جائزہ لیں۔</value>
+  </data>
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>شناخت '{0}' والا اطلاعی لے آؤٹ نہیں ملا۔</value>
   </data>
@@ -680,6 +686,9 @@
   </data>
   <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
     <value>لے آؤٹ پیغام کا متن نہیں دکھاتا: اس میں مواد کا مقام شامل ہونا لازمی ہے، ورنہ تمام پیغامات خالی پہنچیں گے۔</value>
+  </data>
+  <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
+    <value>اشاعت کے لیے منتخب محفوظ شدہ لے آؤٹ مسودہ تبدیل ہو گیا ہے۔ اشاعت سے پہلے تازہ ترین مسودہ دوبارہ لوڈ کر کے جائزہ لیں۔</value>
   </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>سانچے میں غلط ساخت موجود ہے: {0}</value>

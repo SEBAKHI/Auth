@@ -217,15 +217,39 @@ public class NotificationTemplate : AggregateRoot
     }
 
     /// <summary>
-    /// Publishes the pending draft: the published pointer moves to the draft
-    /// version and all its translations go live atomically.
+    /// Verifies that the pending draft is the exact version reviewed by the caller.
     /// </summary>
-    public ErrorOr<Success> Publish(Guid userId)
+    public ErrorOr<Success> ValidatePublishTarget(
+        Guid expectedDraftVersionId,
+        DateTime expectedRevisionAt)
     {
         if (DraftVersion is not { } draft)
         {
             return NotificationErrors.NoDraftToPublish;
         }
+
+        return draft.Id == expectedDraftVersionId &&
+               (ModifiedAt ?? CreatedAt) == expectedRevisionAt
+            ? Result.Success
+            : NotificationErrors.PublishTargetChanged;
+    }
+
+    /// <summary>
+    /// Publishes the pending draft only when it is the exact version reviewed by
+    /// the caller.
+    /// </summary>
+    public ErrorOr<Success> Publish(
+        Guid expectedDraftVersionId,
+        DateTime expectedRevisionAt,
+        Guid userId)
+    {
+        var targetResult = ValidatePublishTarget(expectedDraftVersionId, expectedRevisionAt);
+        if (targetResult.IsError)
+        {
+            return targetResult.Errors;
+        }
+
+        var draft = DraftVersion!;
 
         if (draft.FindTranslation(DefaultLanguage) is null)
         {
@@ -247,7 +271,10 @@ public class NotificationTemplate : AggregateRoot
     /// type because critical auth flows depend on it (<paramref name="isSystemType"/>
     /// comes from the owning NotificationType).
     /// </summary>
-    public ErrorOr<Success> Unpublish(bool isSystemType, Guid userId)
+    public ErrorOr<Success> Unpublish(
+        bool isSystemType,
+        Guid expectedPublishedVersionId,
+        Guid userId)
     {
         if (isSystemType && ApplicationId is null)
         {
@@ -257,6 +284,11 @@ public class NotificationTemplate : AggregateRoot
         if (PublishedVersionId is not { } publishedId)
         {
             return NotificationErrors.NotPublished;
+        }
+
+        if (publishedId != expectedPublishedVersionId)
+        {
+            return NotificationErrors.UnpublishTargetChanged;
         }
 
         PublishedVersionId = null;

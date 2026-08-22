@@ -11,7 +11,7 @@ import { AuthProvider } from "@authsystem/auth/auth-context"
 import { BrandingProvider } from "@authsystem/ui/branding"
 import { DirectionProvider } from "@authsystem/i18n/direction"
 import { queryClient } from "@authsystem/api/query"
-import { router } from "@/routes"
+import { router } from "./routes"
 
 export function App() {
   return (

@@ -29,7 +29,7 @@ public class NotificationLayoutTests
         var layout = NotificationLayout.Create(
             null, NotificationChannelType.Email, "Default",
             "<html>{{ content | raw }}</html>", draftStringsJson, _userId).Value;
-        layout.Publish(_userId);
+        layout.Publish(layout.ModifiedAt ?? layout.CreatedAt, _userId);
         return layout;
     }
 
@@ -98,5 +98,19 @@ public class NotificationLayoutTests
         layout.UpdateDraft("Renamed", layout.DraftContent, layout.DraftStringsJson, _userId);
 
         layout.HasUnpublishedChanges.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Publish_StaleRevision_ReturnsConflictWithoutPublishing()
+    {
+        var layout = NotificationLayout.Create(
+            null, NotificationChannelType.Email, "Default",
+            "<html>{{ content | raw }}</html>", "{}", _userId).Value;
+
+        var result = layout.Publish(layout.CreatedAt.AddMinutes(-1), _userId);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.LayoutPublishTargetChanged");
+        layout.IsPublished.Should().BeFalse();
     }
 }

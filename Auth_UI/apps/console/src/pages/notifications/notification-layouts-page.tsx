@@ -3,22 +3,38 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
 
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
-import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
+import {
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import { formatDateTime } from "@authsystem/ui/format"
-import { PERMISSIONS } from "@/lib/constants"
+import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
+import { notificationLayoutHref } from "@/lib/record-hrefs"
 import { CreateLayoutDialog } from "./components/create-layout-dialog"
 import { NotificationsTabs } from "./components/notifications-tabs"
 import type { NotificationLayoutDto } from "./lib"
+
+const LAYOUTS_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: [
+    "name",
+    "applicationName",
+    "channel",
+    "status",
+    "modifiedAt",
+  ],
+  defaultSorting: [],
+} satisfies ListUrlStateOptions
 
 /**
  * Notification layouts: the shared visual identity (header/footer/CSS) wrapped
@@ -28,12 +44,10 @@ import type { NotificationLayoutDto } from "./lib"
 export function NotificationLayoutsPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
-  const navigate = useNavigate()
   const [createOpen, setCreateOpen] = React.useState(false)
-  // A term the command palette handed over, so arriving from "see all N in
-  // Layouts" lands on those rows rather than on the whole list again.
-  const handoff = useSearchHandoff()
-  const [search, setSearch] = React.useState(handoff)
+  const { search, sorting, setSearch, setSorting } = useListUrlState(
+    LAYOUTS_LIST_URL_OPTIONS
+  )
 
   const canManage = hasPermission(PERMISSIONS.notificationLayouts.manage)
 
@@ -60,13 +74,12 @@ export function NotificationLayoutsPage() {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={notificationLayoutHref(row.original.id)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/notifications/layouts/${row.original.id}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -94,7 +107,9 @@ export function NotificationLayoutsPage() {
             <Badge variant="outline">{t("notifications.unpublished")}</Badge>
           )}
           {row.original.hasUnpublishedChanges ? (
-            <Badge variant="secondary">{t("notifications.unpublishedChanges")}</Badge>
+            <Badge variant="secondary">
+              {t("notifications.unpublishedChanges")}
+            </Badge>
           ) : null}
         </div>
       ),
@@ -143,6 +158,8 @@ export function NotificationLayoutsPage() {
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        sorting={sorting}
+        onSortingChange={setSorting}
         enableRowDetail={false}
       />
 

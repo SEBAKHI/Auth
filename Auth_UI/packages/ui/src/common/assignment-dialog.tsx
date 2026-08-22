@@ -42,35 +42,7 @@ export interface AssignmentPickerContext<TDraft> {
   add: (item: StagedAddition<TDraft>) => void
 }
 
-/**
- * Editor for a list of assignments (roles, permissions, app roles) where adding
- * and removing are staged locally and applied together.
- *
- * Nothing reaches the API until the user saves: chips are added and removed in
- * place, `Save` asks for confirmation with a summary of what will change, and
- * closing with pending edits warns before discarding them. That makes an
- * accidental click on a chip's ✕ harmless, which it was not while every click
- * fired its own request.
- *
- * Additions and removals are applied one by one and independently: a single
- * rejected change (a role deleted by someone else, a permission conflict) leaves
- * the others applied, stays staged, and is reported — the dialog then shows
- * server truth again rather than a stale optimistic list.
- */
-export function AssignmentDialog<TDraft>({
-  open,
-  onOpenChange,
-  title,
-  description,
-  items,
-  loading = false,
-  emptyLabel,
-  assignedLabel,
-  picker,
-  onAdd,
-  onRemove,
-  onApplied,
-}: {
+interface AssignmentDialogProps<TDraft> {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: React.ReactNode
@@ -89,21 +61,49 @@ export function AssignmentDialog<TDraft>({
   onRemove: (key: string) => Promise<void>
   /** Invalidate the queries backing `items` — called after every apply. */
   onApplied: () => void
-}) {
+}
+
+/**
+ * Editor for a list of assignments (roles, permissions, app roles) where adding
+ * and removing are staged locally and applied together.
+ *
+ * Nothing reaches the API until the user saves: chips are added and removed in
+ * place, `Save` asks for confirmation with a summary of what will change, and
+ * closing with pending edits warns before discarding them. That makes an
+ * accidental click on a chip's ✕ harmless, which it was not while every click
+ * fired its own request.
+ *
+ * Additions and removals are applied one by one and independently: a single
+ * rejected change (a role deleted by someone else, a permission conflict) leaves
+ * the others applied, stays staged, and is reported — the dialog then shows
+ * server truth again rather than a stale optimistic list.
+ */
+export function AssignmentDialog<TDraft>(
+  props: AssignmentDialogProps<TDraft>
+) {
+  return props.open ? <OpenAssignmentDialog {...props} /> : null
+}
+
+/** A fresh staging session; unmounting on close guarantees no draft leakage. */
+function OpenAssignmentDialog<TDraft>({
+  open,
+  onOpenChange,
+  title,
+  description,
+  items,
+  loading = false,
+  emptyLabel,
+  assignedLabel,
+  picker,
+  onAdd,
+  onRemove,
+  onApplied,
+}: AssignmentDialogProps<TDraft>) {
   const { t } = useTranslation()
   const [added, setAdded] = React.useState<StagedAddition<TDraft>[]>([])
   const [removed, setRemoved] = React.useState<string[]>([])
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [applying, setApplying] = React.useState(false)
-
-  // Reopening always starts from server truth; a previous session's staged
-  // edits must never leak into the next one.
-  React.useEffect(() => {
-    if (open) {
-      setAdded([])
-      setRemoved([])
-    }
-  }, [open])
 
   const isDirty = added.length > 0 || removed.length > 0
   const { requestOpenChange, discardDialog } = useDirtyClose({

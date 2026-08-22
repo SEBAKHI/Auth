@@ -37,6 +37,20 @@ function packageOf(id: string): string | null {
  * Most specific first: `react` would otherwise swallow `react-i18next`.
  */
 const GROUPS: Array<[chunk: string, packages: RegExp]> = [
+  // The source editor is one 586 kB chunk, entirely CodeMirror, and a third of
+  // it is `@codemirror/view` alone. Splitting that one package off is enough to
+  // clear the 400 kB warning, and it costs the login screen nothing: the whole
+  // editor is reachable only from the two notification detail routes, which are
+  // lazy, so neither half is ever in the eager set.
+  //
+  // Only `view` is named, not the family. Returning three names collapses them
+  // back into one chunk - rolldown merges sibling groups produced by a single
+  // name function - so two is what this build can actually express.
+  //
+  // `login-payload.spec.ts` is the guard: it measures what the browser fetches
+  // on the login screen, because the last attempt at chunking here made that
+  // screen heavier rather than lighter.
+  ["codemirror-view", /^@codemirror\/view$/],
   // `react-query` is eager (the providers wrap the whole app) but `react-table` is
   // only reached from list pages, which are lazy — grouping them together would
   // have pulled the table library into the initial load.

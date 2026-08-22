@@ -1,18 +1,18 @@
 import { redo, undo } from "@codemirror/commands"
 import { liquid } from "@codemirror/lang-liquid"
-import CodeMirror, { EditorView, type ReactCodeMirrorRef } from "@uiw/react-codemirror"
+import CodeMirror, {
+  EditorView,
+  type ReactCodeMirrorRef,
+} from "@uiw/react-codemirror"
 import { Image, Redo2, Undo2 } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { Button } from "@authsystem/ui/button"
 import { useTheme } from "@authsystem/ui/theme-provider"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@authsystem/ui/tooltip"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@authsystem/ui/tooltip"
 import { InsertImageDialog } from "./insert-image-dialog"
+import { insertAtCursor } from "./code-editor-utils"
 
 /**
  * Liquid-in-HTML source editor for template bodies and layouts, with an undo/redo
@@ -35,6 +35,12 @@ export const CodeEditor = React.forwardRef<
      * layout's HTML — where that copy follows the console instead.
      */
     contentDir?: "ltr" | "rtl"
+    /**
+     * Read-only for someone who may look but not save. Without it the page
+     * offers an edit that can never be kept, and the unsaved-changes guard then
+     * asks them to discard work they were never allowed to do.
+     */
+    readOnly?: boolean
   }
 >(function CodeEditor(
   {
@@ -44,6 +50,7 @@ export const CodeEditor = React.forwardRef<
     ariaLabel,
     allowImages = false,
     contentDir,
+    readOnly = false,
   },
   forwardedRef
 ) {
@@ -53,9 +60,15 @@ export const CodeEditor = React.forwardRef<
   const [imageOpen, setImageOpen] = React.useState(false)
 
   // Expose the CodeMirror ref to the parent while keeping our own handle.
-  React.useImperativeHandle(forwardedRef, () => innerRef.current as ReactCodeMirrorRef)
+  React.useImperativeHandle(
+    forwardedRef,
+    () => innerRef.current as ReactCodeMirrorRef
+  )
 
-  const extensions = React.useMemo(() => [liquid(), EditorView.lineWrapping], [])
+  const extensions = React.useMemo(
+    () => [liquid(), EditorView.lineWrapping],
+    []
+  )
 
   const runHistory = (command: typeof undo) => {
     const view = innerRef.current?.view
@@ -68,45 +81,49 @@ export const CodeEditor = React.forwardRef<
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t("notifications.undo")}
-              onClick={() => runHistory(undo)}
-            >
-              <Undo2 />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("notifications.undo")}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t("notifications.redo")}
-              onClick={() => runHistory(redo)}
-            >
-              <Redo2 />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>{t("notifications.redo")}</TooltipContent>
-        </Tooltip>
-        {allowImages ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => setImageOpen(true)}
-          >
-            <Image data-icon="inline-start" />
-            {t("notifications.insertImage")}
-          </Button>
-        ) : null}
+        {readOnly ? null : (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("notifications.undo")}
+                  onClick={() => runHistory(undo)}
+                >
+                  <Undo2 />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("notifications.undo")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("notifications.redo")}
+                  onClick={() => runHistory(redo)}
+                >
+                  <Redo2 />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("notifications.redo")}</TooltipContent>
+            </Tooltip>
+            {allowImages ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setImageOpen(true)}
+              >
+                <Image data-icon="inline-start" />
+                {t("notifications.insertImage")}
+              </Button>
+            ) : null}
+          </>
+        )}
       </div>
 
       <div
@@ -121,6 +138,7 @@ export const CodeEditor = React.forwardRef<
           ref={innerRef}
           value={value}
           onChange={onChange}
+          readOnly={readOnly}
           extensions={extensions}
           theme={resolvedTheme === "dark" ? "dark" : "light"}
           minHeight={minHeight}
@@ -133,7 +151,7 @@ export const CodeEditor = React.forwardRef<
         />
       </div>
 
-      {allowImages ? (
+      {allowImages && !readOnly ? (
         <InsertImageDialog
           open={imageOpen}
           onOpenChange={setImageOpen}
@@ -144,20 +162,3 @@ export const CodeEditor = React.forwardRef<
     </div>
   )
 })
-
-/** Inserts text at the current cursor position of a CodeMirror instance. */
-export function insertAtCursor(
-  editorRef: React.RefObject<ReactCodeMirrorRef | null>,
-  text: string
-): boolean {
-  const view = editorRef.current?.view
-  if (!view) return false
-
-  const { from, to } = view.state.selection.main
-  view.dispatch({
-    changes: { from, to, insert: text },
-    selection: { anchor: from + text.length },
-  })
-  view.focus()
-  return true
-}

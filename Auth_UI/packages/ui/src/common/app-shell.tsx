@@ -21,7 +21,7 @@ import {
 import { useActiveTimeZone } from "@authsystem/i18n/timezone"
 import { useLanguage } from "@authsystem/i18n/direction"
 import { BrandingLogo, useBranding } from "@authsystem/ui/branding"
-import { AppBreadcrumbs } from "@authsystem/ui/common/app-breadcrumbs"
+import { AppBreadcrumbs, ParentLink } from "@authsystem/ui/common/app-breadcrumbs"
 import { LanguageToggle } from "@authsystem/ui/common/language-toggle"
 import { ThemeToggle } from "@authsystem/ui/common/theme-toggle"
 import { UserMenu } from "@authsystem/ui/common/user-menu"
@@ -168,7 +168,11 @@ export function AppShell({
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
           <SidebarTrigger />
           <Separator orientation="vertical" className="h-6" />
-          <AppBreadcrumbs homeKey={homeKey} />
+          {/* The header carries the trail only where it fits. Below `lg` the
+              search box, language, theme and account controls leave it about a
+              hundred pixels for three crumbs and two separators, and every
+              crumb truncates to two characters. `ParentLink` takes over there. */}
+          <AppBreadcrumbs homeKey={homeKey} className="hidden lg:flex" />
           <div className="ms-auto flex items-center gap-1">
             {headerExtras}
             <LanguageToggle />
@@ -181,6 +185,11 @@ export function AppShell({
             fill the height (list pages with their own scrolling table) render a
             `h-full` root and never make this scroll. */}
         <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-4 md:p-6">
+          {/* Above the page title, where it has the full content width and sits
+              next to the heading it relates to rather than next to global
+              controls it has nothing to do with. `shrink-0` so it never eats
+              into a page that manages its own height. */}
+          <ParentLink homeKey={homeKey} className="shrink-0 lg:hidden" />
           <ZonedOutlet />
         </main>
       </SidebarInset>

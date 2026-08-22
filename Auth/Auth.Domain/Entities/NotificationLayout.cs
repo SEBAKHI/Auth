@@ -166,13 +166,30 @@ public class NotificationLayout : AggregateRoot
     }
 
     /// <summary>
-    /// Publishes the draft: copies the draft columns to the published columns atomically.
+    /// Verifies that the saved draft is the exact revision reviewed by the caller.
     /// </summary>
-    public ErrorOr<Success> Publish(Guid userId)
+    public ErrorOr<Success> ValidatePublishTarget(DateTime expectedRevisionAt)
+    {
+        return (ModifiedAt ?? CreatedAt) == expectedRevisionAt
+            ? Result.Success
+            : NotificationErrors.LayoutPublishTargetChanged;
+    }
+
+    /// <summary>
+    /// Publishes the saved draft only when it is the exact revision reviewed by
+    /// the caller.
+    /// </summary>
+    public ErrorOr<Success> Publish(DateTime expectedRevisionAt, Guid userId)
     {
         if (string.IsNullOrWhiteSpace(DraftContent))
         {
             return NotificationErrors.LayoutContentRequired;
+        }
+
+        var targetResult = ValidatePublishTarget(expectedRevisionAt);
+        if (targetResult.IsError)
+        {
+            return targetResult.Errors;
         }
 
         PublishedContent = DraftContent;

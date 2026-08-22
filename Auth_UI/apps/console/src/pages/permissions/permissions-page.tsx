@@ -3,14 +3,19 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApplicationSelect } from "@authsystem/ui/common/application-select"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
-import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
+import {
+  stringUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
@@ -23,7 +28,8 @@ import {
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
-import { PERMISSIONS } from "@/lib/constants"
+import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
+import { permissionHref } from "@/lib/record-hrefs"
 import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 import { PermissionFormDialog } from "./permission-form-dialog"
@@ -31,17 +37,28 @@ import { PermissionImplicationsDialog } from "./permission-implications-dialog"
 
 type PermissionDto = Schemas["PermissionDto"]
 
+type PermissionListFilters = { applicationId: string }
+
+const PERMISSIONS_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: ["code", "name", "description"],
+  defaultSorting: [],
+  filters: { applicationId: stringUrlFilter({ maxLength: 128 }) },
+} satisfies ListUrlStateOptions<PermissionListFilters>
+
 export function PermissionsPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // A term the command palette handed over, so arriving from "see all N in
-  // Permissions" lands on those rows rather than on the whole list again.
-  const handoff = useSearchHandoff()
-
-  const [applicationId, setApplicationId] = React.useState<string>()
+  const {
+    search,
+    sorting,
+    filters: { applicationId },
+    setSearch,
+    setSorting,
+    setFilter,
+  } = useListUrlState(PERMISSIONS_LIST_URL_OPTIONS)
   const [formOpen, setFormOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<PermissionDto | undefined>()
   const [implications, setImplications] = React.useState<
@@ -86,13 +103,12 @@ export function PermissionsPage() {
       header: t("common.code"),
       meta: { label: t("common.code") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={permissionHref(row.original.id)}
           className="text-start hover:underline"
-          onClick={() => navigate(`/permissions/${row.original.id}`)}
         >
           <span className="font-mono text-sm">{row.original.code}</span>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -112,72 +128,69 @@ export function PermissionsPage() {
       ),
     },
     ...[
-          {
-            id: "actions",
-            enableSorting: false,
-            enableHiding: false,
-            header: () => (
-              <span className="sr-only">{t("common.actions")}</span>
-            ),
-            cell: ({ row }) => {
-              const perm = row.original
-              return (
-                <div className="text-end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={t("common.actions")}
+      {
+        id: "actions",
+        enableSorting: false,
+        enableHiding: false,
+        header: () => <span className="sr-only">{t("common.actions")}</span>,
+        cell: ({ row }) => {
+          const perm = row.original
+          const viewHref = permissionHref(perm.id)
+          return (
+            <div className="text-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("common.actions")}
+                  >
+                    <MoreHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuGroup>
+                    {viewHref ? (
+                      <DropdownMenuItem asChild>
+                        <Link to={viewHref}>{t("common.view")}</Link>
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canUpdate ? (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditing(perm)
+                          setFormOpen(true)
+                        }}
                       >
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                        {t("common.edit")}
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canManage ? (
+                      <DropdownMenuItem onClick={() => setImplications(perm)}>
+                        {t("permissions.implications")}
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuGroup>
+                  {canDelete ? (
+                    <>
+                      <DropdownMenuSeparator />
                       <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() => navigate(`/permissions/${perm.id}`)}
+                          variant="destructive"
+                          onClick={() => setDeleting(perm)}
                         >
-                          {t("common.view")}
+                          {t("common.delete")}
                         </DropdownMenuItem>
-                        {canUpdate ? (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditing(perm)
-                              setFormOpen(true)
-                            }}
-                          >
-                            {t("common.edit")}
-                          </DropdownMenuItem>
-                        ) : null}
-                        {canManage ? (
-                          <DropdownMenuItem
-                            onClick={() => setImplications(perm)}
-                          >
-                            {t("permissions.implications")}
-                          </DropdownMenuItem>
-                        ) : null}
                       </DropdownMenuGroup>
-                      {canDelete ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => setDeleting(perm)}
-                            >
-                              {t("common.delete")}
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </>
-                      ) : null}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )
-            },
-          } satisfies ColumnDef<PermissionDto, unknown>,
-        ],
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        },
+      } satisfies ColumnDef<PermissionDto, unknown>,
+    ],
   ]
 
   return (
@@ -202,8 +215,8 @@ export function PermissionsPage() {
 
       <div className="max-w-xs">
         <ApplicationSelect
-          value={applicationId}
-          onChange={setApplicationId}
+          value={applicationId || undefined}
+          onChange={(value) => setFilter("applicationId", value ?? "")}
           allowAll
           className="w-full"
         />
@@ -213,7 +226,10 @@ export function PermissionsPage() {
         fillHeight
         tableId="permissions"
         globalSearch
-        initialGlobalFilter={handoff}
+        globalFilter={search}
+        onGlobalFilterChange={setSearch}
+        sorting={sorting}
+        onSortingChange={setSorting}
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}
@@ -226,7 +242,7 @@ export function PermissionsPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         permission={editing}
-        defaultApplicationId={applicationId}
+        defaultApplicationId={applicationId || undefined}
       />
       {implications ? (
         <PermissionImplicationsDialog

@@ -101,7 +101,7 @@ async function performRefresh(
     return false
   }
 
-  let data: Schemas["TokenResponse"] | null = null
+  let data: Schemas["TokenResponse"]
   try {
     data = (await res.json()) as Schemas["TokenResponse"]
   } catch {

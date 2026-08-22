@@ -124,6 +124,9 @@ interface DataTableProps<TData> {
    * making the user type it a second time.
    */
   initialGlobalFilter?: string
+  /** Controlled global search for URL-owned client-side list state. */
+  globalFilter?: string
+  onGlobalFilterChange?: (value: string) => void
   /**
    * Column filters the table opens with. Seeded the same way as
    * `initialGlobalFilter`: a page arriving from a deep link ("show me the keys
@@ -131,6 +134,12 @@ interface DataTableProps<TData> {
    * and the reader can still clear the filter without the URL re-applying it.
    */
   initialColumnFilters?: ColumnFiltersState
+  /**
+   * Controlled filters for URL-owned list state. Pass both props together;
+   * omit them to retain the table's existing in-memory behavior.
+   */
+  columnFilters?: ColumnFiltersState
+  onColumnFiltersChange?: (filters: ColumnFiltersState) => void
   searchPlaceholder?: string
   /** Page-owned filter controls to merge into the toolbar. */
   toolbarExtras?: React.ReactNode
@@ -233,7 +242,9 @@ function SortableHeader<TData>({ header }: { header: Header<TData, unknown> }) {
       className="-ms-2.5 h-8"
       onClick={header.column.getToggleSortingHandler()}
     >
-      <span>{flexRender(header.column.columnDef.header, header.getContext())}</span>
+      <span>
+        {flexRender(header.column.columnDef.header, header.getContext())}
+      </span>
       {sorted === "asc" ? (
         <ArrowUp />
       ) : sorted === "desc" ? (
@@ -252,6 +263,14 @@ function SortableHeader<TData>({ header }: { header: Header<TData, unknown> }) {
  * empty states. Server pagination stays opt-in via `pagination`; sorting and
  * filtering then operate on the loaded page only.
  */
+/**
+ * Anything in a row that answers a click itself. The row's own click opens the
+ * detail panel, so it has to stand aside for these - links above all, since a
+ * link that also opened an overlay would be two answers to one click.
+ */
+const INTERACTIVE_IN_ROW =
+  "a[href], button, input, select, textarea, label, [role='button'], [role='link'], [role='menuitem'], [role='checkbox'], [role='switch'], [contenteditable='true']"
+
 export function DataTable<TData>({
   columns,
   data,
@@ -276,8 +295,14 @@ export function DataTable<TData>({
   getDetailTitle,
   sorting: controlledSorting,
   onSortingChange: onControlledSortingChange,
+  columnFilters: controlledColumnFilters,
+  onColumnFiltersChange: onControlledColumnFiltersChange,
+  globalFilter: controlledGlobalFilter,
+  onGlobalFilterChange: onControlledGlobalFilterChange,
   fillHeight = false,
 }: DataTableProps<TData>) {
+  "use no memo"
+
   const { t, i18n } = useTranslation()
   const direction = directionForLanguage(i18n.language)
   const isRtl = direction === "rtl"
@@ -286,20 +311,20 @@ export function DataTable<TData>({
   // Seeded exactly like the global filter below, so a page can open pre-filtered
   // from a deep link and the table owns it from there — clearing the filter then
   // does not fight the URL that set it.
-  const [columnFilters, setColumnFilters] =
+  const [internalColumnFilters, setInternalColumnFilters] =
     React.useState<ColumnFiltersState>(initialColumnFilters)
   // Seeded, not controlled: the caller says what the table opens with and the
   // table owns it from there, so typing does not have to round-trip through
   // the page that mounted it.
-  const [globalFilter, setGlobalFilter] = React.useState(initialGlobalFilter)
+  const [internalGlobalFilter, setInternalGlobalFilter] =
+    React.useState(initialGlobalFilter)
   // One stored document per table, read synchronously so the first paint is
   // already the user's layout rather than the default rearranging itself.
   const [initialLayout] = React.useState<TableLayout>(() =>
     readTableLayout(tableId)
   )
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>(
-    () => initialLayout.cols ?? {}
-  )
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>(() => initialLayout.cols ?? {})
   const [columnSizing, setColumnSizing] = React.useState<ColumnSizingState>(
     () => initialLayout.size ?? {}
   )
@@ -342,14 +367,43 @@ export function DataTable<TData>({
     })
   }, [tableId])
 
-  // Server-controlled sorting is active when the page lifts the sort state.
-  const isManualSorting =
+  const hasControlledSorting =
     controlledSorting !== undefined && Boolean(onControlledSortingChange)
-  const sorting = isManualSorting ? (controlledSorting as SortingState) : internalSorting
+  // Paginated tables delegate sorting to the endpoint. Fully-loaded tables can
+  // lift sorting into the URL while TanStack still orders their local rows.
+  const isManualSorting = hasControlledSorting && Boolean(pagination)
+  const sorting = hasControlledSorting
+    ? (controlledSorting as SortingState)
+    : internalSorting
   const handleSortingChange: OnChangeFn<SortingState> = (updater) => {
     const next = typeof updater === "function" ? updater(sorting) : updater
-    if (isManualSorting) onControlledSortingChange?.(next)
+    if (hasControlledSorting) onControlledSortingChange?.(next)
     else setInternalSorting(next)
+  }
+  const hasControlledColumnFilters =
+    controlledColumnFilters !== undefined &&
+    Boolean(onControlledColumnFiltersChange)
+  const columnFilters = hasControlledColumnFilters
+    ? (controlledColumnFilters as ColumnFiltersState)
+    : internalColumnFilters
+  const handleColumnFiltersChange: OnChangeFn<ColumnFiltersState> = (
+    updater
+  ) => {
+    const next =
+      typeof updater === "function" ? updater(columnFilters) : updater
+    if (hasControlledColumnFilters) onControlledColumnFiltersChange?.(next)
+    else setInternalColumnFilters(next)
+  }
+  const hasControlledGlobalFilter =
+    controlledGlobalFilter !== undefined &&
+    Boolean(onControlledGlobalFilterChange)
+  const globalFilter = hasControlledGlobalFilter
+    ? controlledGlobalFilter
+    : internalGlobalFilter
+  const handleGlobalFilterChange: OnChangeFn<string> = (updater) => {
+    const next = typeof updater === "function" ? updater(globalFilter) : updater
+    if (hasControlledGlobalFilter) onControlledGlobalFilterChange?.(next)
+    else setInternalGlobalFilter(next)
   }
 
   // Augment the page's curated columns with one hidden column per remaining
@@ -413,7 +467,11 @@ export function DataTable<TData>({
   React.useEffect(() => {
     if (!tableId) return
     const next: TableLayout = {
-      cols: pruneVisibility(columnVisibility, autoHiddenDefaults, knownColumnIds),
+      cols: pruneVisibility(
+        columnVisibility,
+        autoHiddenDefaults,
+        knownColumnIds
+      ),
       size: columnSizing,
       order: columnOrder,
     }
@@ -430,6 +488,11 @@ export function DataTable<TData>({
     columnOrder,
   ])
 
+  // TanStack Table intentionally returns a mutable facade. React Compiler
+  // already skips this component (`use no memo` above); this boundary is the
+  // library's documented contract, not an application value crossing into a
+  // memoized child.
+  // eslint-disable-next-line react-hooks/incompatible-library -- compiler interop boundary
   const table = useReactTable({
     data,
     columns: effectiveColumns,
@@ -441,13 +504,13 @@ export function DataTable<TData>({
     getFacetedUniqueValues: getFacetedUniqueValues(),
     manualSorting: isManualSorting,
     onSortingChange: handleSortingChange,
-    onColumnFiltersChange: setColumnFilters,
+    onColumnFiltersChange: handleColumnFiltersChange,
     onColumnVisibilityChange: (updater) =>
       setColumnVisibility((prev) => {
         const current = { ...autoHiddenDefaults, ...prev }
         return typeof updater === "function" ? updater(current) : updater
       }),
-    onGlobalFilterChange: setGlobalFilter,
+    onGlobalFilterChange: handleGlobalFilterChange,
     onColumnOrderChange: (updater) =>
       setColumnOrder(
         typeof updater === "function" ? updater(effectiveOrder) : updater
@@ -586,7 +649,9 @@ export function DataTable<TData>({
 
       // The handle sits at the column's inline end, so the key that widens is
       // the one pointing away from the column: Right in LTR, Left in RTL.
-      const widens = isRtl ? event.key === "ArrowLeft" : event.key === "ArrowRight"
+      const widens = isRtl
+        ? event.key === "ArrowLeft"
+        : event.key === "ArrowRight"
       const step = event.shiftKey ? RESIZE_STEP_LARGE : RESIZE_STEP
       const min = header.column.columnDef.minSize ?? MIN_COLUMN_WIDTH
       const max = header.column.columnDef.maxSize ?? MAX_COLUMN_WIDTH
@@ -740,10 +805,7 @@ export function DataTable<TData>({
                         )
                         setDraggedColumnId(null)
                       }}
-                      className={cn(
-                        "relative",
-                        isDropTarget && "bg-muted/50"
-                      )}
+                      className={cn("relative", isDropTarget && "bg-muted/50")}
                       style={
                         resizedWidth != null
                           ? {
@@ -812,7 +874,7 @@ export function DataTable<TData>({
                           }
                           onKeyDown={(event) => resizeByKeyboard(event, header)}
                           className={cn(
-                            "absolute inset-y-0 end-0 z-10 w-1.5 cursor-col-resize touch-none select-none outline-none",
+                            "absolute inset-y-0 end-0 z-10 w-1.5 cursor-col-resize touch-none outline-none select-none",
                             header.column.getIsResizing()
                               ? "bg-primary/50"
                               : "hover:bg-border focus-visible:bg-primary"
@@ -829,11 +891,13 @@ export function DataTable<TData>({
             {isLoading ? (
               Array.from({ length: 6 }).map((_, rowIdx) => (
                 <TableRow key={`skeleton-${rowIdx}`}>
-                  {Array.from({ length: skeletonColumnCount }).map((__, cellIdx) => (
-                    <TableCell key={`skeleton-${rowIdx}-${cellIdx}`}>
-                      <Skeleton className="h-5 w-full" />
-                    </TableCell>
-                  ))}
+                  {Array.from({ length: skeletonColumnCount }).map(
+                    (__, cellIdx) => (
+                      <TableCell key={`skeleton-${rowIdx}-${cellIdx}`}>
+                        <Skeleton className="h-5 w-full" />
+                      </TableCell>
+                    )
+                  )}
                 </TableRow>
               ))
             ) : error ? (
@@ -886,7 +950,21 @@ export function DataTable<TData>({
                         tabIndex: 0,
                         "aria-label": t("common.details"),
                         className: "cursor-pointer",
-                        onClick: () => setDetailRow(row.original),
+                        onClick: (event: React.MouseEvent) => {
+                          // A control inside the row owns its own click. A
+                          // record name is a link, so clicking it must navigate
+                          // and nothing else; opening this panel at the same
+                          // time would replace the page the person just asked
+                          // for with an overlay describing the row they left.
+                          if (
+                            (event.target as HTMLElement).closest(
+                              INTERACTIVE_IN_ROW
+                            )
+                          ) {
+                            return
+                          }
+                          setDetailRow(row.original)
+                        },
                         onKeyDown: (event: React.KeyboardEvent) => {
                           // Only when the row itself is focused, so an inner
                           // button keeps its own keyboard behavior.
@@ -910,7 +988,9 @@ export function DataTable<TData>({
                         // Cells are whitespace-nowrap; the explicit max width
                         // is what lets a narrowed column truncate instead of
                         // forcing the table wider.
-                        className={resizedWidth != null ? "truncate" : undefined}
+                        className={
+                          resizedWidth != null ? "truncate" : undefined
+                        }
                         style={
                           resizedWidth != null
                             ? {
@@ -920,12 +1000,6 @@ export function DataTable<TData>({
                               }
                             : undefined
                         }
-                        {...(enableRowDetail && cell.column.id === "actions"
-                          ? {
-                              onClick: (event: React.MouseEvent) =>
-                                event.stopPropagation(),
-                            }
-                          : {})}
                       >
                         {flexRender(
                           cell.column.columnDef.cell,

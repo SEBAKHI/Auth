@@ -1,13 +1,14 @@
 import { useQuery } from "@tanstack/react-query"
 import { FileText, Layers, MailCheck, MailWarning, ShieldCheck } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import {
   Card,
   CardAction,
@@ -19,6 +20,11 @@ import { PageHeader } from "@authsystem/ui/common/page-header"
 import { formatDate, formatDateTime } from "@authsystem/ui/format"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { PERMISSIONS } from "@/lib/constants"
+import {
+  notificationLayoutHref,
+  notificationTemplateHref,
+  policyRevisionHref,
+} from "@/lib/record-hrefs"
 import { StatTile } from "@/pages/dashboard/stat-tile"
 import { NotificationsTabs } from "./components/notifications-tabs"
 
@@ -29,7 +35,6 @@ import { NotificationsTabs } from "./components/notifications-tabs"
  */
 export function NotificationsOverviewPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const { hasPermission } = useAuth()
 
   const query = useQuery({
@@ -122,8 +127,8 @@ export function NotificationsOverviewPage() {
 
       {/*
         Hidden rather than shown-and-broken. Without the permission the query is
-        disabled, the list would render empty, and the button below it navigates
-        to a route that now refuses this holder — three ways of saying "nothing
+        disabled, the list would render empty, and the link beside it points
+        at a route that now refuses this holder — three ways of saying "nothing
         here" where absence says it once and correctly.
       */}
       {canReadPolicy ? (
@@ -131,12 +136,8 @@ export function NotificationsOverviewPage() {
         <CardHeader>
           <CardTitle>{t("notifications.overviewPolicy")}</CardTitle>
           <CardAction>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/notifications/policy")}
-            >
-              {t("notifications.overviewViewPolicy")}
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/notifications/policy">{t("notifications.overviewViewPolicy")}</Link>
             </Button>
           </CardAction>
         </CardHeader>
@@ -145,13 +146,10 @@ export function NotificationsOverviewPage() {
             <SummaryListSkeleton />
           ) : versions.length ? (
             versions.slice(0, 4).map((version) => (
-              <button
+              <RecordLink
                 key={version.id}
-                type="button"
+                href={policyRevisionHref(version.id)}
                 className="flex w-full items-start justify-between gap-3 rounded-lg p-2 text-start hover:bg-muted"
-                onClick={() =>
-                  navigate("/notifications/policy/" + version.id)
-                }
               >
                 <span className="flex min-w-0 flex-col gap-0.5">
                   {/* `block` makes this a block box, so a `dir` on it would
@@ -188,7 +186,7 @@ export function NotificationsOverviewPage() {
                     </Badge>
                   )}
                 </span>
-              </button>
+              </RecordLink>
             ))
           ) : (
             <EmptyLine text={t("notifications.overviewNoPolicy")} />
@@ -201,13 +199,9 @@ export function NotificationsOverviewPage() {
           <CardHeader>
             <CardTitle>{t("notifications.overviewPublishedTemplates")}</CardTitle>
             <CardAction>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/notifications/templates")}
-              >
-                {t("notifications.overviewViewTemplates")}
-              </Button>
+              <Button variant="outline" size="sm" asChild>
+              <Link to="/notifications/templates">{t("notifications.overviewViewTemplates")}</Link>
+            </Button>
             </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -215,13 +209,10 @@ export function NotificationsOverviewPage() {
               <SummaryListSkeleton />
             ) : summary?.publishedTemplates?.length ? (
               summary.publishedTemplates.map((template) => (
-                <button
+                <RecordLink
                   key={template.id}
-                  type="button"
+                  href={notificationTemplateHref(template.id)}
                   className="flex w-full items-start justify-between gap-3 rounded-lg p-2 text-start hover:bg-muted"
-                  onClick={() =>
-                    navigate(`/notifications/templates/${template.id}`)
-                  }
                 >
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="block truncate font-medium">
@@ -253,7 +244,7 @@ export function NotificationsOverviewPage() {
                       </Badge>
                     ) : null}
                   </span>
-                </button>
+                </RecordLink>
               ))
             ) : (
               <EmptyLine text={t("notifications.overviewNoPublished")} />
@@ -265,13 +256,9 @@ export function NotificationsOverviewPage() {
           <CardHeader>
             <CardTitle>{t("notifications.overviewLayouts")}</CardTitle>
             <CardAction>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate("/notifications/layouts")}
-              >
-                {t("notifications.overviewViewLayouts")}
-              </Button>
+              <Button variant="outline" size="sm" asChild>
+              <Link to="/notifications/layouts">{t("notifications.overviewViewLayouts")}</Link>
+            </Button>
             </CardAction>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -279,11 +266,10 @@ export function NotificationsOverviewPage() {
               <SummaryListSkeleton />
             ) : summary?.publishedLayouts?.length ? (
               summary.publishedLayouts.map((layout) => (
-                <button
+                <RecordLink
                   key={layout.id}
-                  type="button"
+                  href={notificationLayoutHref(layout.id)}
                   className="flex w-full items-start justify-between gap-3 rounded-lg p-2 text-start hover:bg-muted"
-                  onClick={() => navigate(`/notifications/layouts/${layout.id}`)}
                 >
                   <span className="flex min-w-0 flex-col gap-0.5">
                     <span className="block truncate font-medium">
@@ -315,7 +301,7 @@ export function NotificationsOverviewPage() {
                       </Badge>
                     ) : null}
                   </span>
-                </button>
+                </RecordLink>
               ))
             ) : (
               <EmptyLine text={t("notifications.overviewNoLayouts")} />

@@ -666,6 +666,12 @@
   <data name="Notification.ConcurrencyConflict" xml:space="preserve">
     <value>该模板已被其他人修改。请重新加载最新草稿并重新应用您的更改。</value>
   </data>
+  <data name="Notification.PublishTargetChanged" xml:space="preserve">
+    <value>所选的已保存待发布草稿已发生变化。请重新加载并检查最新草稿后再发布。</value>
+  </data>
+  <data name="Notification.UnpublishTargetChanged" xml:space="preserve">
+    <value>所选的待取消发布版本已发生变化。请重新加载并检查当前发布版本后再继续。</value>
+  </data>
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>未找到 ID 为“{0}”的通知布局。</value>
   </data>
@@ -680,6 +686,9 @@
   </data>
   <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
     <value>该布局未渲染消息正文：必须包含内容占位符，否则所有消息都将为空。</value>
+  </data>
+  <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
+    <value>所选的已保存待发布布局草稿已发生变化。请重新加载并检查最新草稿后再发布。</value>
   </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>模板包含无效语法：{0}</value>

@@ -13,10 +13,10 @@ export function PageHeader({
   leading?: React.ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
         {leading}
-        <div className="flex flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-1">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           {description ? (
             <p className="text-sm text-muted-foreground">{description}</p>
@@ -24,7 +24,9 @@ export function PageHeader({
         </div>
       </div>
       {actions ? (
-        <div className="flex items-center gap-2">{actions}</div>
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 xl:w-auto xl:flex-1 xl:justify-end">
+          {actions}
+        </div>
       ) : null}
     </div>
   )

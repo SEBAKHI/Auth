@@ -117,6 +117,9 @@ export const ar: TranslationResources = {
     discard: "تجاهل",
     discardTitle: "تجاهل التغييرات؟",
     discardBody: "لديك تغييرات غير محفوظة. إذا خرجت الآن فسوف تُفقد.",
+    saveInProgressTitle: "الحفظ قيد التنفيذ",
+    saveInProgressBody:
+      "انتظر حتى يكتمل الحفظ، أو ألغِ هذا الانتقال وابقَ في الصفحة.",
     saveWithCount: "حفظ ({{count}})",
     changesSaved: "تم حفظ التغييرات",
     applyChangesTitle: "هل تريد تطبيق هذه التغييرات؟",
@@ -173,11 +176,13 @@ export const ar: TranslationResources = {
     backToSignIn: "العودة لتسجيل الدخول",
     signOutTitle: "تسجيل الخروج من {{name}}؟",
     signOutTitleNoApp: "تسجيل الخروج؟",
-    signOutBody: "هذا يُنهي جلسة الدخول الموحّد (SSO) — أي التي تُدخلك التطبيقات الأخرى دون كتابة كلمة المرور من جديد. أمّا تطبيق أنت داخله بالفعل فيحتفظ بجلسته الخاصة حتى يُنهيها هو.",
+    signOutBody:
+      "هذا يُنهي جلسة الدخول الموحّد (SSO) — أي التي تُدخلك التطبيقات الأخرى دون كتابة كلمة المرور من جديد. أمّا تطبيق أنت داخله بالفعل فيحتفظ بجلسته الخاصة حتى يُنهيها هو.",
     signOutConfirm: "تسجيل الخروج",
     signOutCancel: "البقاء مسجَّلًا",
     signedOutTitle: "تم تسجيل خروجك",
-    signedOutBody: "انتهت جلسة الدخول الموحّد. سيُطلب منك كلمة المرور عند الدخول من جديد.",
+    signedOutBody:
+      "انتهت جلسة الدخول الموحّد. سيُطلب منك كلمة المرور عند الدخول من جديد.",
     useDifferentAccount: "استخدام حساب آخر",
     resetLinkSentTitle: "تفقّد بريدك الإلكتروني",
     resetLinkSentDescription:
@@ -267,7 +272,8 @@ export const ar: TranslationResources = {
     windowCustom: "عدد الأيام",
     windowLabel: "آخر {{days}} يومًا.",
     granularity: "التجميع",
-    granularityHint: "هل تمثل كل نقطة على المحور الزمني يومًا واحدًا أم أسبوعًا.",
+    granularityHint:
+      "هل تمثل كل نقطة على المحور الزمني يومًا واحدًا أم أسبوعًا.",
     tabOverview: "نظرة عامة",
     tabSecurity: "الدخول والأمان",
     tabPeople: "المستخدمون",
@@ -278,11 +284,13 @@ export const ar: TranslationResources = {
     newUsers: "مستخدمون جدد",
     attention: "يستدعي الانتباه",
     alertRateDrop: "انخفض معدل نجاح تسجيل الدخول",
-    alertRateDropBody: "انخفاض بمقدار {{points}} نقطة عن المدة السابقة، وهو الآن {{rate}}%.",
+    alertRateDropBody:
+      "انخفاض بمقدار {{points}} نقطة عن المدة السابقة، وهو الآن {{rate}}%.",
     alertLockedOut: "{{count}} حساب مقفل",
     alertLockedOutBody: "لا يمكنها تسجيل الدخول حتى ينتهي القفل أو يُرفع.",
     alertFailingIp: "عنوان واحد يولّد محاولات فاشلة متكررة",
-    alertFailingIpBody: "أنتج {{ip}} عدد {{count}} محاولة فاشلة على {{users}} اسم مستخدم.",
+    alertFailingIpBody:
+      "أنتج {{ip}} عدد {{count}} محاولة فاشلة على {{users}} اسم مستخدم.",
     alertStaleSessions: "{{count}} جلسة تجاوزت مدة صلاحيتها",
     alertStaleSessionsBody: "لا تزال مفتوحة ولم تُغلق قط.",
     alertExpiringEnablements: "{{count}} اشتراك على وشك الانتهاء",
@@ -310,7 +318,8 @@ export const ar: TranslationResources = {
     failedAttemptsSubtitle: "محاولات تسجيل الدخول المرفوضة في كل مدة.",
     whereSignIns: "أين يحدث تسجيل الدخول",
     whereSignInsSubtitle: "المحاولات ومعدل النجاح والانتشار لكل تطبيق.",
-    whereSignInsOrgNote: "يُنسب بحسب عضويات المستخدم المسجِّل، فالمستخدم المنتسب إلى عدة منظمات يُحتسب في كل واحدة منها، ولذلك قد يتجاوز المجموع عدد المحاولات الفعلي.",
+    whereSignInsOrgNote:
+      "يُنسب بحسب عضويات المستخدم المسجِّل، فالمستخدم المنتسب إلى عدة منظمات يُحتسب في كل واحدة منها، ولذلك قد يتجاوز المجموع عدد المحاولات الفعلي.",
     applications: "التطبيقات",
     organizations: "المنظمات",
     colName: "الاسم",
@@ -438,6 +447,8 @@ export const ar: TranslationResources = {
     unlock: "إلغاء القفل",
     activate: "تفعيل",
     deactivate: "تعطيل",
+    deactivateTitle: "إلغاء تفعيل هذا الحساب؟",
+    deactivateBody: "سيُسجَّل خروج {{name}} من كل الأجهزة، ولن يتمكن من تسجيل الدخول حتى يُعاد تفعيل الحساب.",
     lockTitle: "قفل الحساب",
     lockReason: "السبب",
     lockReasonPlaceholder: "محاولات تسجيل دخول فاشلة متكررة من جهاز غير معروف",
@@ -961,9 +972,17 @@ export const ar: TranslationResources = {
     discardDraftBody: "ستُفقد التعديلات غير المنشورة في جميع اللغات.",
     draftDiscarded: "تم تجاهل المسودة",
     publish: "نشر",
+    publishConfirmTitle: "نشر {{item}}؟",
+    publishConfirmBody: "ستصبح المسودة المحفوظة فعالة للنطاق الموضح أدناه.",
     publishedToast: "تم النشر",
     unpublish: "إلغاء النشر",
+    unpublishConfirmTitle: "إلغاء نشر {{item}}؟",
+    unpublishConfirmBody: "سيتوقف استخدام القالب المنشور للنطاق الموضح أدناه.",
     unpublishedToast: "تم إلغاء النشر",
+    confirmationItem: "العنصر",
+    confirmationVersion: "الإصدار",
+    confirmationScope: "النطاق",
+    savedDraftRevision: "مسودة محفوظة · {{modifiedAt}}",
     unsavedChanges: "تغييرات غير محفوظة",
     unpublishedChanges: "تغييرات غير منشورة",
     deleteTitle: "حذف القالب؟",
@@ -1015,8 +1034,10 @@ export const ar: TranslationResources = {
     tabLayouts: "التخطيطات",
     tabDeliveryLog: "سجل التسليم",
     tabPolicy: "سياسة الخصوصية",
+    sectionsNavLabel: "أقسام الإشعارات",
     policyTitle: "إصدارات سياسة الخصوصية",
-    policySubtitle: "تتبّع مراجعات السياسة وإخطار المستخدمين بالتغييرات الجوهرية.",
+    policySubtitle:
+      "تتبّع مراجعات السياسة وإخطار المستخدمين بالتغييرات الجوهرية.",
     policyVersion: "الإصدار",
     policyVersionYear: "السنة",
     policyVersionMonth: "الشهر",
@@ -1046,11 +1067,13 @@ export const ar: TranslationResources = {
     policyDisclosureDriftBody:
       "تغيّرت إعدادات النظام بعد نشر هذا الإصدار، فما زال المستند المخدوم يقتبس القيم السابقة. لا يُعاد تصييره تلقائيًا لأن ذلك تعديل لإشعار عُرض على الناس بالفعل. أعد النشر لتحديثه.",
     policyPublishTitle: "نشر هذا الإصدار من السياسة؟",
-    policyPublishBody: "سيصبح السياسة المعروضة لكل المستخدمين. يجب أن يوجد المستند الإنجليزي أولًا.",
+    policyPublishBody:
+      "سيصبح السياسة المعروضة لكل المستخدمين. يجب أن يوجد المستند الإنجليزي أولًا.",
     policyPublishedToast: "تم نشر إصدار السياسة.",
     policyEditContent: "تحرير المحتوى",
     policyContentTitle: "محتوى السياسة — {{version}}",
-    policyContentDescription: "حرّر نص السياسة المنشور لكل لغة. يُخزَّن في قاعدة البيانات؛ لا حاجة إلى نشر إصدار جديد.",
+    policyContentDescription:
+      "حرّر نص السياسة المنشور لكل لغة. يُخزَّن في قاعدة البيانات؛ لا حاجة إلى نشر إصدار جديد.",
     policyContentSaved: "تم حفظ محتوى السياسة.",
     policyTokens: "قيم حيّة (لا تكتبها يدويًا):",
     policyPreview: "معاينة",
@@ -1092,43 +1115,49 @@ export const ar: TranslationResources = {
     policySectionNumber: "القسم {{number}}",
     policyRemoveSection: "إزالة القسم",
     policyRemoveSectionTitle: "إزالة هذا القسم؟",
-    policyRemoveSectionBody: "سيُحذف عنوانه وفقراته ونقاطه من مستند هذه اللغة. ولن تتأثر اللغات الأخرى.",
+    policyRemoveSectionBody:
+      "سيُحذف عنوانه وفقراته ونقاطه من مستند هذه اللغة. ولن تتأثر اللغات الأخرى.",
     policyRemoveParagraph: "إزالة الفقرة",
     policyRemoveBullet: "إزالة النقطة",
     policyRemoveRow: "إزالة الصف",
-    "policyJsonTab": "JSON",
-    "policyChangeNote": "ملاحظة التغيير",
-    "policyChangeNoteHint": "ما الذي تغيّر في هذه المراجعة؟",
-    "policyNoChangeNote": "لا توجد ملاحظة تغيير",
-    "policySearchPlaceholder": "ابحث بالإصدار أو ملاحظة التغيير…",
-    "policyNotifiedFilterSent": "تم الإخطار",
-    "policyNotifiedBadge": "تم الإخطار · {{count}} مستلمًا",
-    "policyVersionDetails": "تفاصيل الإصدار",
-    "policyNotFound": "لم يعد إصدار السياسة هذا موجودًا. ربما أُعيدت تسميته أو حُذف — افتحه من جديد من قائمة الإصدارات.",
+    policyJsonTab: "JSON",
+    policyChangeNote: "ملاحظة التغيير",
+    policyChangeNoteHint: "ما الذي تغيّر في هذه المراجعة؟",
+    policyNoChangeNote: "لا توجد ملاحظة تغيير",
+    policySearchPlaceholder: "ابحث بالإصدار أو ملاحظة التغيير…",
+    policyNotifiedFilterSent: "تم الإخطار",
+    policyNotifiedBadge: "تم الإخطار · {{count}} مستلمًا",
+    policyVersionDetails: "تفاصيل الإصدار",
+    policyNotFound:
+      "لم يعد إصدار السياسة هذا موجودًا. ربما أُعيدت تسميته أو حُذف — افتحه من جديد من قائمة الإصدارات.",
     policyClone: "نسخ",
     policyCloneTitle: "نسخ إصدار السياسة هذا",
-    policyCloneDescription: "يُنشئ إصدارًا جديدًا وينسخ إليه مستندات اللغات الـ{{count}} من {{source}}، فتُحرِّر مسودة بدلًا من البدء من صفحة فارغة.",
+    policyCloneDescription:
+      "يُنشئ إصدارًا جديدًا وينسخ إليه مستندات اللغات الـ{{count}} من {{source}}، فتُحرِّر مسودة بدلًا من البدء من صفحة فارغة.",
     policyCloneProgress: "جارٍ نسخ اللغات… {{done}} من {{total}}",
     policyClonedToast: "تم نسخ الإصدار مع {{count}} لغات.",
     policyVersionRenameHint: "يمكن إعادة تسمية المسودات.",
-    policyVersionLockedHint: "مقفل: الإصدارات المنشورة أو المُعلن عنها مُشار إليها في سجلات الحذف.",
-    "policyTokenHint": "انقر للإدراج عند المؤشر.",
-    "policyToken_graceDays": "مدة الاسترداد قبل أن يصبح الحذف نهائيًا، بالأيام.",
-    "policyToken_otpValidityMinutes": "مدة صلاحية رمز التحقق من الحذف، بالدقائق.",
-    "policyToken_loginAttemptRetentionDays": "مدة الاحتفاظ بسجلات محاولات تسجيل الدخول، بالأيام.",
-    "policyToken_outboxRetentionDays": "مدة الاحتفاظ بسجلات الرسائل المرسلة، بالأيام.",
-    "policyToken_identifierReservationDays":
+    policyVersionLockedHint:
+      "مقفل: الإصدارات المنشورة أو المُعلن عنها مُشار إليها في سجلات الحذف.",
+    policyTokenHint: "انقر للإدراج عند المؤشر.",
+    policyToken_graceDays: "مدة الاسترداد قبل أن يصبح الحذف نهائيًا، بالأيام.",
+    policyToken_otpValidityMinutes: "مدة صلاحية رمز التحقق من الحذف، بالدقائق.",
+    policyToken_loginAttemptRetentionDays:
+      "مدة الاحتفاظ بسجلات محاولات تسجيل الدخول، بالأيام.",
+    policyToken_outboxRetentionDays:
+      "مدة الاحتفاظ بسجلات الرسائل المرسلة، بالأيام.",
+    policyToken_identifierReservationDays:
       "المدة التي يظل فيها البريد المحذوف ممنوعًا من إعادة التسجيل، بالأيام.",
-    "policyToken_legalName": "الاسم القانوني المسجَّل للمتحكم بالبيانات.",
-    "policyToken_address": "العنوان المسجَّل للمتحكم بالبيانات.",
-    "policyToken_privacyEmail": "صندوق البريد المُراقَب لطلبات الخصوصية والحقوق.",
-    "policyToken_emailProvider": "مزود إرسال البريد المذكور في قسم المشاركة.",
-    "policyToken_hostingProvider": "مزود الاستضافة المذكور في قسم المشاركة.",
-    "policyToken_hostingCountry": "بلد استضافة الخدمة (الاسم مجردًا).",
-    "overviewPolicy": "إصدارات سياسة الخصوصية",
-    "overviewViewPolicy": "عرض السياسة",
-    "overviewPolicyHint": "{{count}} لغات مكتوبة",
-    "overviewNoPolicy": "لم يُسجَّل أي إصدار للسياسة بعد.",
+    policyToken_legalName: "الاسم القانوني المسجَّل للمتحكم بالبيانات.",
+    policyToken_address: "العنوان المسجَّل للمتحكم بالبيانات.",
+    policyToken_privacyEmail: "صندوق البريد المُراقَب لطلبات الخصوصية والحقوق.",
+    policyToken_emailProvider: "مزود إرسال البريد المذكور في قسم المشاركة.",
+    policyToken_hostingProvider: "مزود الاستضافة المذكور في قسم المشاركة.",
+    policyToken_hostingCountry: "بلد استضافة الخدمة (الاسم مجردًا).",
+    overviewPolicy: "إصدارات سياسة الخصوصية",
+    overviewViewPolicy: "عرض السياسة",
+    overviewPolicyHint: "{{count}} لغات مكتوبة",
+    overviewNoPolicy: "لم يُسجَّل أي إصدار للسياسة بعد.",
     policyButtonLabel: "نص زر الحذف",
     policyButtonLabelPlaceholder: "حذف حسابي",
     policySignedInHint: "تلميح المستخدم المسجل",
@@ -1330,9 +1359,11 @@ export const ar: TranslationResources = {
       argon2MemorySizeHint:
         "الذاكرة المستخدمة لتجزئة كل كلمة مرور. الموصى به: 19456 (أي 19 MiB، الحد الأدنى لدى OWASP). القيم الأعلى أقوى لكنها تبطئ كل تسجيل دخول.",
       argon2Iterations: "تكرارات Argon2",
-      argon2IterationsHint: "الموصى به: 2 (الحد الأدنى لدى OWASP لهذا الحجم من الذاكرة).",
+      argon2IterationsHint:
+        "الموصى به: 2 (الحد الأدنى لدى OWASP لهذا الحجم من الذاكرة).",
       argon2Parallelism: "توازي Argon2",
-      argon2ParallelismHint: "الموصى به: 1 (OWASP). كلمات المرور الحالية تظل تعمل بعد التغيير — إذ تُرقى عند تسجيل الدخول التالي.",
+      argon2ParallelismHint:
+        "الموصى به: 1 (OWASP). كلمات المرور الحالية تظل تعمل بعد التغيير — إذ تُرقى عند تسجيل الدخول التالي.",
       saltSize: "حجم الملح (بايت)",
       saltSizeHint: "ثابت عند القيمة الموصى بها من OWASP؛ غير قابل للتعديل.",
       hashSize: "حجم التجزئة (بايت)",
@@ -1366,10 +1397,12 @@ export const ar: TranslationResources = {
       terminateOldestOnMax: "إنهاء أقدم جلسة بدلًا من رفض الدخول",
       terminateOldestOnMaxHint:
         "ما الذي يحدث عند بلوغ الحدّ. مفعّل: تُنهى الجلسات التي مضى على استعمالها أطول مدة، وينجح تسجيل الدخول الجديد. معطّل: يُرفض تسجيل الدخول الجديد. الموصى به: مفعّل — فالرفض يحبس الناس خارج حساباتهم حين يتعذّر عليهم الوصول إلى أجهزتهم القديمة. ولا أثر له ما دام الحدّ 0.",
-      terminateSessionsOnPasswordChange: "تسجيل الخروج من كل مكان عند تغيير كلمة المرور",
+      terminateSessionsOnPasswordChange:
+        "تسجيل الخروج من كل مكان عند تغيير كلمة المرور",
       terminateSessionsOnPasswordChangeHint:
         "عندما يغيّر المستخدم كلمة مروره، تُنهى جميع جلساته الأخرى. الموصى به: مفعّل — فتغيير كلمة المرور يعني عادةً أن القديمة لم تعد موثوقة.",
-      terminateSessionsOnPasswordReset: "تسجيل الخروج من كل مكان عند إعادة تعيين كلمة المرور",
+      terminateSessionsOnPasswordReset:
+        "تسجيل الخروج من كل مكان عند إعادة تعيين كلمة المرور",
       terminateSessionsOnPasswordResetHint:
         "عند إعادة تعيين كلمة المرور عبر رابط البريد الإلكتروني، تُنهى جميع الجلسات القائمة. الموصى به: مفعّل — فإعادة التعيين كثيرًا ما تأتي بعد اشتباه في اختراق. وتنتهي في الحالتين جلسةُ الدخول الموحّد (SSO) — أي قدرةُ المستخدم على دخول التطبيقات الأخرى دون كلمة مرور — حتى لو كان هذا المفتاح معطّلًا.",
     },
@@ -1384,8 +1417,7 @@ export const ar: TranslationResources = {
       exemptPathsHint:
         "مسارات تُخدم دون ترويسة البوابة — فحوصات الصحة ووثائق الاكتشاف العامة. يجب أن تبدأ الإدخالات بـ '/'؛ و'/' في النهاية تطابق البادئة كاملة.",
       tokenHeaderName: "اسم الترويسة",
-      tokenHeaderNameHint:
-        "ثابت على جانب البوابة؛ ويُعرض هنا للاطلاع.",
+      tokenHeaderNameHint: "ثابت على جانب البوابة؛ ويُعرض هنا للاطلاع.",
       expectedToken: "رمز البوابة",
     },
     cors: {
@@ -1450,7 +1482,8 @@ export const ar: TranslationResources = {
     },
     externalAuth: {
       requireNonce: "اشتراط رقم تحقّق يُصدره الخادم",
-      requireNonceHint: "يُلزم الدخول عبر مزوّد خارجي بتقديم قيمة تُستعمل مرّة واحدة أصدرها هذا الخادم لذلك المتصفّح، فيُرفض رمز مزوّد مسروق سُكّ لمتصفّح آخر. لا تُفعّله إلا بعد أن تصير الواجهة المنشورة تطلب هذه القيمة؛ وقبل ذلك تُقبل قيمة يولّدها المتصفّح، وهي لا تُثبت شيئًا. الموصى به: مفعّل.",
+      requireNonceHint:
+        "يُلزم الدخول عبر مزوّد خارجي بتقديم قيمة تُستعمل مرّة واحدة أصدرها هذا الخادم لذلك المتصفّح، فيُرفض رمز مزوّد مسروق سُكّ لمتصفّح آخر. لا تُفعّله إلا بعد أن تصير الواجهة المنشورة تطلب هذه القيمة؛ وقبل ذلك تُقبل قيمة يولّدها المتصفّح، وهي لا تُثبت شيئًا. الموصى به: مفعّل.",
       title: "تسجيل الدخول الخارجي (Google / Apple)",
       description:
         "مزودو تسجيل الدخول الاجتماعي. معرّفات العملاء هنا معرّفات عامة؛ أما المفاتيح الخاصة فتُحفظ ضمن «إدارة الأسرار». يجب أيضًا تفعيل المزود في صفّه بالدليل حتى يظهر الزر.",
@@ -1513,32 +1546,39 @@ export const ar: TranslationResources = {
       smtpPortHint:
         "المنفذ 587 = STARTTLS (الموصى به)، والمنفذ 465 = TLS ضمني، والمنفذ 25 = يحجبه المستضيفون عادةً.",
       useSsl: "اشتراط TLS",
-      useSslHint: "الموصى به: مفعّل. أما التعطيل فيسمح بـ TLS الانتهازي في التطوير المحلي فقط.",
+      useSslHint:
+        "الموصى به: مفعّل. أما التعطيل فيسمح بـ TLS الانتهازي في التطوير المحلي فقط.",
       username: "اسم مستخدم SMTP",
-      usernameHint: "عادةً عنوان صندوق البريد الكامل. اتركه فارغًا لخوادم الترحيل غير الموثقة.",
+      usernameHint:
+        "عادةً عنوان صندوق البريد الكامل. اتركه فارغًا لخوادم الترحيل غير الموثقة.",
       password: "كلمة مرور SMTP",
       senderEmail: "عنوان المرسل",
       senderEmailHint: "عنوان الحقل «من». يجب أن تخوّله سجلات SPF/DKIM لنطاقك.",
       senderName: "اسم المرسل",
-      senderNameHint: "الاسم الظاهر الذي يراه المستلمون؛ وهو أيضًا اسم المنصة الاحتياطي في القوالب.",
+      senderNameHint:
+        "الاسم الظاهر الذي يراه المستلمون؛ وهو أيضًا اسم المنصة الاحتياطي في القوالب.",
       frontendBaseUrl: "الرابط الأساسي لروابط البريد",
       frontendBaseUrlHint:
         "العنوان المطلق لتطبيق الحسابات؛ يُبنى عليه كل رابط يُرسل بالبريد (إعادة التعيين، التحقق). مطلوب ما دام الإرسال مفعّلًا.",
       otpExpirationMinutes: "مدة صلاحية رمز التحقق (دقائق)",
-      otpExpirationMinutesHint: "الموصى به: 5–15 — طويلة بما يكفي للإدخال، وقصيرة بما لا يتيح سرقة شيء.",
+      otpExpirationMinutesHint:
+        "الموصى به: 5–15 — طويلة بما يكفي للإدخال، وقصيرة بما لا يتيح سرقة شيء.",
       resetTokenExpirationMinutes: "مدة صلاحية رابط إعادة التعيين (دقائق)",
       resetTokenExpirationMinutesHint: "الموصى به: 30–60.",
       rateLimitWindowSeconds: "نافذة معدل الإرسال (ثوانٍ)",
-      rateLimitWindowSecondsHint: "النافذة الخاصة بحد الإرسال لكل عنوان أدناه. الموصى به: 60.",
+      rateLimitWindowSecondsHint:
+        "النافذة الخاصة بحد الإرسال لكل عنوان أدناه. الموصى به: 60.",
       maxOtpRequestsPerWindow: "الرموز لكل نافذة",
       maxOtpRequestsPerWindowHint:
         "أقصى عدد من رموز التحقق يمكن لعنوان واحد طلبه في النافذة. الموصى به: 3 — يوقف القصف البريدي.",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "تنبيه عند الدخول من جهاز جديد",
-      newDeviceAlertEnabledHint: "يُرسل بريدًا إلى صاحب الحساب أوّل مرّة يأتي فيها دخول من جهاز لم يستعمله من قبل. الموصى به: مفعّل.",
+      newDeviceAlertEnabledHint:
+        "يُرسل بريدًا إلى صاحب الحساب أوّل مرّة يأتي فيها دخول من جهاز لم يستعمله من قبل. الموصى به: مفعّل.",
       newDeviceAlertMinIntervalMinutes: "أقلّ فاصل بين التنبيهات (دقائق)",
-      newDeviceAlertMinIntervalMinutesHint: "يمنع دفعةً من عمليات الدخول أن تُنتج دفعةً من الرسائل. القيمة 0 تُرسل تنبيهًا لكل جهاز جديد. الموصى به: 60.",
+      newDeviceAlertMinIntervalMinutesHint:
+        "يمنع دفعةً من عمليات الدخول أن تُنتج دفعةً من الرسائل. القيمة 0 تُرسل تنبيهًا لكل جهاز جديد. الموصى به: 60.",
       title: "تسليم الإشعارات",
       description:
         "كيفية تسليم الإشعارات الصادرة: مباشرة، أو عبر صندوق صادر متين يعيد المحاولة عند الفشل ويصمد أمام إعادة التشغيل. المحتوى والقوالب يُداران في صفحات الإشعارات.",
@@ -1546,9 +1586,11 @@ export const ar: TranslationResources = {
       useOutboxHint:
         "الموصى به: مفعّل في الإنتاج — تُخزن الرسائل أولًا ويُعاد إرسالها عند الفشل بدلًا من فقدانها.",
       pollIntervalSeconds: "فاصل الاستطلاع (ثوانٍ)",
-      pollIntervalSecondsHint: "استيقاظ احتياطي عندما لا تصل إشارة إرسال. الموصى به: 30.",
+      pollIntervalSecondsHint:
+        "استيقاظ احتياطي عندما لا تصل إشارة إرسال. الموصى به: 30.",
       batchSize: "حجم الدفعة",
-      batchSizeHint: "عدد الرسائل المستحوذ عليها في كل دورة إرسال. الموصى به: 20.",
+      batchSizeHint:
+        "عدد الرسائل المستحوذ عليها في كل دورة إرسال. الموصى به: 20.",
       maxAttempts: "أقصى عدد للمحاولات",
       maxAttemptsHint:
         "محاولات التسليم (بتراجع أُسّي) قبل تحويل الرسالة إلى الرسائل المتعذرة. الموصى به: 5.",
@@ -1558,33 +1600,41 @@ export const ar: TranslationResources = {
     },
     geoIp: {
       title: "تحديد الموقع الجغرافي",
-      description: "يحوّل عناوين IP الخاصة بتسجيل الدخول إلى بلد ومدينة، فيستطيع سجلّ الدخول وتنبيهات الأجهزة الجديدة أن تقول من أين جاءت المحاولة. يحتاج ملف قاعدة بيانات MaxMind محليًّا؛ وبدونه تبقى الميزة معطّلة وتظهر المواقع مجهولة.",
+      description:
+        "يحوّل عناوين IP الخاصة بتسجيل الدخول إلى بلد ومدينة، فيستطيع سجلّ الدخول وتنبيهات الأجهزة الجديدة أن تقول من أين جاءت المحاولة. يحتاج ملف قاعدة بيانات MaxMind محليًّا؛ وبدونه تبقى الميزة معطّلة وتظهر المواقع مجهولة.",
       enabled: "تفعيل تحديد الموقع الجغرافي",
-      enabledHint: "يتطلّب ملف قاعدة بيانات في المسار أدناه. يسري بعد إعادة التشغيل.",
+      enabledHint:
+        "يتطلّب ملف قاعدة بيانات في المسار أدناه. يسري بعد إعادة التشغيل.",
       databasePath: "مسار ملف قاعدة البيانات",
-      databasePathHint: "المسار المطلق لملف MaxMind GeoLite2 بامتداد ‎.mmdb على الخادم. يسري بعد إعادة التشغيل.",
+      databasePathHint:
+        "المسار المطلق لملف MaxMind GeoLite2 بامتداد ‎.mmdb على الخادم. يسري بعد إعادة التشغيل.",
     },
     imageStorage: {
       title: "تخزين الصور",
       description:
         "الشعارات وصور الملفات الشخصية المرفوعة: أين تُخزن على القرص، وكيف تُقدَّم، وحدود الحجم المطبقة عند الرفع.",
       provider: "مزود التخزين",
-      providerHint: "تخزين على نظام الملفات؛ وهو جزء من نشر الخادم ولا يُعدل هنا.",
+      providerHint:
+        "تخزين على نظام الملفات؛ وهو جزء من نشر الخادم ولا يُعدل هنا.",
       physicalPath: "مجلد التخزين",
-      physicalPathHint: "موقع على قرص الخادم؛ وتغييره يتطلب نقل الملفات — وهي مهمة نشر.",
+      physicalPathHint:
+        "موقع على قرص الخادم؛ وتغييره يتطلب نقل الملفات — وهي مهمة نشر.",
       publicBaseUrl: "الرابط الأساسي العام",
       publicBaseUrlHint:
         "بادئة كل رابط صورة يُعاد. اضبطه على العنوان العام لواجهة API (أو مسار متجذر) لتُعرض الشعارات عبر البوابة.",
       requestPath: "مسار التقديم",
-      requestPathHint: "مسار URL الذي تُقدَّم الصور تحته؛ يُثبَّت في خط المعالجة عند بدء التشغيل.",
+      requestPathHint:
+        "مسار URL الذي تُقدَّم الصور تحته؛ يُثبَّت في خط المعالجة عند بدء التشغيل.",
       maxSizeBytes: "أقصى حجم للرفع (بايت)",
-      maxSizeBytesHint: "الموصى به: 4194304 (أي 4 MB) — يكفي ويزيد للشعارات والصور الرمزية.",
+      maxSizeBytesHint:
+        "الموصى به: 4194304 (أي 4 MB) — يكفي ويزيد للشعارات والصور الرمزية.",
       maxMegapixels: "أقصى عدد للميغابكسل",
       maxMegapixelsHint: "يرفض قنابل فك الضغط قبل المعالجة. الموصى به: 50.",
       maxEdgePx: "أقصى طول للضلع (بكسل)",
       maxEdgePxHint: "تُصغَّر الصور الأكبر إلى هذا الضلع. الموصى به: 1024.",
       webpQuality: "جودة WebP",
-      webpQualityHint: "يُعاد ترميز المرفوعات إلى WebP بهذه الجودة. الموصى به: 90.",
+      webpQualityHint:
+        "يُعاد ترميز المرفوعات إلى WebP بهذه الجودة. الموصى به: 90.",
       allowedContentTypes: "أنواع المحتوى المسموح بها",
       allowedContentTypesHint: "أنواع MIME من صنف image/* المقبولة عند الرفع.",
     },
@@ -1596,13 +1646,16 @@ export const ar: TranslationResources = {
       graceDaysHint:
         "مهلة للعدول عن القرار قبل الحذف النهائي. الموصى به: 30 (الممارسة التنظيمية الشائعة).",
       workerPollMinutes: "استطلاع العامل (دقائق)",
-      workerPollMinutesHint: "وتيرة تنفيذ عمليات الحذف المستحقة. الموصى به: 15.",
+      workerPollMinutesHint:
+        "وتيرة تنفيذ عمليات الحذف المستحقة. الموصى به: 15.",
       workerBatchSize: "حجم دفعة العامل",
       workerBatchSizeHint: "عمليات الحذف المنفذة في كل دورة. الموصى به: 25.",
       maxExecutionAttempts: "أقصى عدد لمحاولات التنفيذ",
-      maxExecutionAttemptsHint: "إعادة المحاولة قبل أن يطلق الحذفُ الفاشل إنذارَ الامتثال. الموصى به: 5.",
+      maxExecutionAttemptsHint:
+        "إعادة المحاولة قبل أن يطلق الحذفُ الفاشل إنذارَ الامتثال. الموصى به: 5.",
       otpExpirationMinutes: "مدة صلاحية رمز التأكيد (دقائق)",
-      otpExpirationMinutesHint: "الرمز الذي يؤكد طلب حذف علنيًا. الموصى به: 15.",
+      otpExpirationMinutesHint:
+        "الرمز الذي يؤكد طلب حذف علنيًا. الموصى به: 15.",
       identifierHmacKeyPlain: "مفتاح تجزئة المعرّفات",
     },
     dataController: {
@@ -1614,7 +1667,8 @@ export const ar: TranslationResources = {
       address: "العنوان المسجَّل",
       addressHint: "العنوان البريدي الكامل كما يجب أن يظهر في السياسة.",
       privacyEmail: "بريد التواصل بشأن الخصوصية",
-      privacyEmailHint: "صندوق بريد مُراقَب — تصل إليه طلبات الحقوق ويجب الرد خلال 30 يومًا.",
+      privacyEmailHint:
+        "صندوق بريد مُراقَب — تصل إليه طلبات الحقوق ويجب الرد خلال 30 يومًا.",
       emailProvider: "مزود إرسال البريد الإلكتروني",
       emailProviderHint: "يُذكر في قسم «مع من نشارك البيانات».",
       hostingProvider: "مزود الاستضافة",
@@ -1623,35 +1677,47 @@ export const ar: TranslationResources = {
       hostingCountryHint:
         "اسم البلد مجردًا بلا حرف جر — الجملتان التركية والفرنسية تضيفان حرفهما الخاص.",
       dpoContact: "مسؤول حماية البيانات",
-      dpoContactHint: "اختياري. اتركه فارغًا لحذف السطر؛ لا يشترط GDPR تعيينه إلا في حالات محددة.",
+      dpoContactHint:
+        "اختياري. اتركه فارغًا لحذف السطر؛ لا يشترط GDPR تعيينه إلا في حالات محددة.",
       verbisNo: "رقم التسجيل في سجل VERBİS",
-      verbisNoHint: "اختياري. يُملأ فقط إذا انطبقت عتبات التسجيل التركية على المتحكم.",
+      verbisNoHint:
+        "اختياري. يُملأ فقط إذا انطبقت عتبات التسجيل التركية على المتحكم.",
       kepAddress: "البريد الإلكتروني المسجل (KEP)",
-      kepAddressHint: "اختياري. عنوان بريد مسجَّل تركي، وهو أحد قنوات تقديم الطلبات بموجب KVKK.",
+      kepAddressHint:
+        "اختياري. عنوان بريد مسجَّل تركي، وهو أحد قنوات تقديم الطلبات بموجب KVKK.",
     },
     expiredDataCleanup: {
       title: "تنظيف البيانات المنتهية",
-      description: "كم تبقى الصفوف التي خرجت من الاستعمال قبل أن تحذفها الكنسة اليومية. وهذه ليست مُدد صلاحية — كل صفّ هنا ميت أصلًا. إنها تحدّد كم يبقى مفيدًا بوصفه دليلًا: فرمز التجديد المُبطَل هو ما يحوّل رمزًا مسروقًا إلى سرقة مكتشَفة، ورمز التفويض المستهلَك هو ما يُثبت إعادة الاستعمال.",
+      description:
+        "كم تبقى الصفوف التي خرجت من الاستعمال قبل أن تحذفها الكنسة اليومية. وهذه ليست مُدد صلاحية — كل صفّ هنا ميت أصلًا. إنها تحدّد كم يبقى مفيدًا بوصفه دليلًا: فرمز التجديد المُبطَل هو ما يحوّل رمزًا مسروقًا إلى سرقة مكتشَفة، ورمز التفويض المستهلَك هو ما يُثبت إعادة الاستعمال.",
       enabled: "تشغيل التنظيف اليومي",
-      enabledHint: "تعطيله يترك كل الجداول بلا مساس فتنمو بلا حدّ. الموصى به: مفعّل.",
+      enabledHint:
+        "تعطيله يترك كل الجداول بلا مساس فتنمو بلا حدّ. الموصى به: مفعّل.",
       workerPollMinutes: "فترة الفحص (دقائق)",
-      workerPollMinutesHint: "كل كم يستيقظ العامل ليرى إن كانت كنسة اليوم قد جرت. أما الكنسة نفسها فمرّة واحدة يوميًّا. الموصى به: 15.",
+      workerPollMinutesHint:
+        "كل كم يستيقظ العامل ليرى إن كانت كنسة اليوم قد جرت. أما الكنسة نفسها فمرّة واحدة يوميًّا. الموصى به: 15.",
       batchSize: "عدد الصفوف في الأمر الواحد",
-      batchSizeHint: "يبقى دون عتبة ~5000 قفل صفّ التي يرفع عندها SQL Server القفل إلى الجدول كاملًا، فيحجب كل استعلام حيّ عليه. الموصى به: 4000.",
+      batchSizeHint:
+        "يبقى دون عتبة ~5000 قفل صفّ التي يرفع عندها SQL Server القفل إلى الجدول كاملًا، فيحجب كل استعلام حيّ عليه. الموصى به: 4000.",
       maxRowsPerTablePerRun: "الحدّ الأقصى لكل جدول في التشغيلة",
-      maxRowsPerTablePerRunHint: "يحدّ التشغيلة الأولى، وهي وحدها التي تواجه ما تراكم منذ النشر. وما يتبقّى يُؤخذ في اليوم التالي. الموصى به: 200000.",
+      maxRowsPerTablePerRunHint:
+        "يحدّ التشغيلة الأولى، وهي وحدها التي تواجه ما تراكم منذ النشر. وما يتبقّى يُؤخذ في اليوم التالي. الموصى به: 200000.",
       authorizationCodeDays: "رموز التفويض (أيام)",
-      authorizationCodeDaysHint: "تعيش نحو ستين ثانية، وهذه المدّة للتحقيق في إعادة استعمال لا لإبقائها صالحة. الموصى به: 7.",
+      authorizationCodeDaysHint:
+        "تعيش نحو ستين ثانية، وهذه المدّة للتحقيق في إعادة استعمال لا لإبقائها صالحة. الموصى به: 7.",
       twoFactorChallengeDays: "أكواد التحقّق بخطوتين (أيام)",
-      twoFactorChallengeDaysHint: "مدّة تكفي لتتبّع محاولة تخمين. الموصى به: 7.",
+      twoFactorChallengeDaysHint:
+        "مدّة تكفي لتتبّع محاولة تخمين. الموصى به: 7.",
       passwordResetTokenDays: "رموز إعادة تعيين كلمة المرور (أيام)",
       passwordResetTokenDaysHint: "الموصى به: 7.",
       emailVerificationTokenDays: "رموز تأكيد البريد (أيام)",
       emailVerificationTokenDaysHint: "الموصى به: 7.",
       idpSessionDays: "جلسات الدخول الموحّد (SSO) (أيام)",
-      idpSessionDaysHint: "تُحسب من الانتهاء أو الإبطال لا من الإنشاء. الموصى به: 30.",
+      idpSessionDaysHint:
+        "تُحسب من الانتهاء أو الإبطال لا من الإنشاء. الموصى به: 30.",
       refreshTokenDays: "رموز التجديد (أيام)",
-      refreshTokenDaysHint: "أطول المدد وأهمّها: الصفّ المُبطَل هو وحده ما يحوّل رمزًا مسروقًا إلى سرقة مكتشَفة، ولوحة المعلومات تعرض الإبطالات حتى تسعين يومًا. والحدّ الأدنى تسعون يومًا مفروض في الكود مهما ضُبط هنا.",
+      refreshTokenDaysHint:
+        "أطول المدد وأهمّها: الصفّ المُبطَل هو وحده ما يحوّل رمزًا مسروقًا إلى سرقة مكتشَفة، ولوحة المعلومات تعرض الإبطالات حتى تسعين يومًا. والحدّ الأدنى تسعون يومًا مفروض في الكود مهما ضُبط هنا.",
     },
     dataRetention: {
       title: "الخصوصية والاحتفاظ بالبيانات",
@@ -1664,7 +1730,8 @@ export const ar: TranslationResources = {
       loginAttemptRetentionDaysHint:
         "مدة الاحتفاظ بالسجل الأمني؛ وائمها مع سياسة الخصوصية لديك. الموصى به: 365.",
       outboxRetentionDays: "الاحتفاظ بالصندوق الصادر (أيام)",
-      outboxRetentionDaysHint: "مدة الاحتفاظ بسجل الإشعارات المسلَّمة. الموصى به: 180.",
+      outboxRetentionDaysHint:
+        "مدة الاحتفاظ بسجل الإشعارات المسلَّمة. الموصى به: 180.",
       auditLogRetentionDays: "الاحتفاظ بسجل التدقيق (أيام)",
       auditLogRetentionDaysHint:
         "مدة الاحتفاظ بسجل التدقيق. الحد الأدنى هو السنوات الثلاث التي تعِد بها السياسة المنشورة. الموصى به: 1095.",
@@ -1696,7 +1763,8 @@ export const ar: TranslationResources = {
       minimumLevelDefaultHint:
         "المستوى Information للتشغيل الاعتيادي؛ وDebug أثناء التحقيق فقط (مسهب وقد يتضمن تفاصيل أكثر عن الطلبات)؛ وWarning لسجلات إنتاج هادئة.",
       minimumLevelOverrideMicrosoft: "مستوى نطاق أسماء Microsoft",
-      minimumLevelOverrideMicrosoftHint: "مرشّح ضجيج إطار العمل. الموصى به: Warning.",
+      minimumLevelOverrideMicrosoftHint:
+        "مرشّح ضجيج إطار العمل. الموصى به: Warning.",
       minimumLevelOverrideMicrosoftHostingLifetime: "مستوى دورة حياة المضيف",
       minimumLevelOverrideMicrosoftHostingLifetimeHint:
         "رسائل بدء التشغيل والإيقاف. الموصى به: Information.",
@@ -1834,8 +1902,7 @@ export const ar: TranslationResources = {
     recoveryTitle: "استعادة حسابك",
     recoveryFallback:
       "هذا الحساب معطل ومقرر حذفه. يمكن استعادته حتى ذلك الحين.",
-    confirmCredentials:
-      "أكد بيانات اعتمادك أدناه لإلغاء الحذف واستعادته.",
+    confirmCredentials: "أكد بيانات اعتمادك أدناه لإلغاء الحذف واستعادته.",
     restoreAccount: "استعادة حسابي",
     restored: "تمت استعادة حسابك. مرحبًا بعودتك!",
     twoFactorCode: "رمز التحقق بخطوتين",
@@ -1901,5 +1968,37 @@ export const ar: TranslationResources = {
     unexpectedTitle: "حدث خطأ غير متوقع",
     reload: "أعد تحميل الصفحة",
     uploadFailed: "فشل رفع الصورة (HTTP {{status}}).",
+    feedback: {
+      title: "تعذّر إكمال الإجراء",
+      retry: "حاول مرة أخرى",
+      fieldInvalid: "تحقق من هذه القيمة ثم حاول مرة أخرى.",
+      validation:
+        "لم تُقبل بعض المعلومات. صحح الحقول المميزة ثم أرسل النموذج مرة أخرى.",
+      authentication:
+        "لم تعد جلستك صالحة. سجّل الدخول مرة أخرى ثم كرر الإجراء.",
+      authorization:
+        "ليست لديك صلاحية لإكمال هذا الإجراء. اطلب الوصول من أحد المسؤولين.",
+      notFound: "لم يعد هذا العنصر متاحًا. حدّث الصفحة واختر عنصرًا موجودًا.",
+      conflict:
+        "تغيرت البيانات قبل اكتمال الإجراء. أعد التحميل وراجع أحدث القيم ثم حاول مرة أخرى.",
+      rateLimit: "أُرسلت طلبات كثيرة. انتظر قليلًا قبل المحاولة مرة أخرى.",
+      server:
+        "تعذّر على الخدمة إكمال الإجراء. حاول مرة أخرى، وإن استمر الخطأ فتواصل مع الدعم.",
+      network: "تعذّر الوصول إلى الخادم. تحقق من اتصالك ثم حاول مرة أخرى.",
+      unknown:
+        "لم يكتمل الإجراء. حاول مرة أخرى، وإن استمر الخطأ فتواصل مع الدعم.",
+      duplicateEmail:
+        "عنوان البريد الإلكتروني مستخدم بالفعل. أدخل عنوانًا آخر ثم أرسل النموذج مرة أخرى.",
+      invalidCredentials:
+        "لم يُقبل البريد الإلكتروني أو كلمة المرور. تحقق منهما ثم حاول مرة أخرى.",
+      pendingDeletion:
+        "هذا الحساب مجدول للحذف. استخدم استرداد الحساب قبل تسجيل الدخول.",
+      staleData:
+        "تغير هذا العنصر بعد تحميله. أعد تحميله وراجع أحدث نسخة ثم كرر الإجراء.",
+      invalidChallengeCode:
+        "لم يُقبل رمز التأكيد. أدخل أحدث رمز ثم حاول مرة أخرى.",
+      connectionUnreachable:
+        "تعذّر التحقق من الاتصال. راجع بيانات الاتصال، أو احفظ على أي حال فقط إذا تحققت منها بوسيلة أخرى.",
+    },
   },
 }

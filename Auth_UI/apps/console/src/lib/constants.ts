@@ -13,90 +13,17 @@ import {
   Webhook,
 } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
+import {
+  notificationLandingPath,
+  type PermissionCheck,
+} from "./notification-destinations"
+import { PERMISSIONS } from "./permissions"
 
 /**
  * Permission codes, mirroring the backend `[RequirePermission]` attributes.
  * Used to gate navigation, routes, and actions in the UI. The API remains the
  * authoritative enforcement point.
  */
-export const PERMISSIONS = {
-  users: {
-    read: "users:read",
-    create: "users:create",
-    update: "users:update",
-    delete: "users:delete",
-    manageRoles: "users:manage-roles",
-    managePermissions: "users:manage-permissions",
-    manage: "users:manage",
-  },
-  roles: {
-    read: "roles:read",
-    create: "roles:create",
-    update: "roles:update",
-    delete: "roles:delete",
-  },
-  permissions: {
-    read: "permissions:read",
-    create: "permissions:create",
-    update: "permissions:update",
-    delete: "permissions:delete",
-    manage: "permissions:manage",
-  },
-  applications: {
-    read: "applications:read",
-    create: "applications:create",
-    update: "applications:update",
-    delete: "applications:delete",
-  },
-  apiKeys: {
-    read: "apikeys:read",
-    create: "apikeys:create",
-    revoke: "apikeys:revoke",
-    validate: "apikeys:validate",
-    rotate: "apikeys:rotate",
-  },
-  webhookKeys: {
-    read: "webhookkeys:read",
-    create: "webhookkeys:create",
-    validate: "webhookkeys:validate",
-    revoke: "webhookkeys:revoke",
-    rotate: "webhookkeys:rotate",
-  },
-  auditLogs: {
-    read: "auditlogs:read",
-    export: "auditlogs:export",
-  },
-  secrets: {
-    manage: "secrets.manage",
-  },
-  platformSettings: {
-    manage: "platform-settings:manage",
-  },
-  systemSettings: {
-    manage: "system-settings:manage",
-  },
-  notificationTemplates: {
-    read: "notification-templates:read",
-    manage: "notification-templates:manage",
-    publish: "notification-templates:publish",
-  },
-  notificationLayouts: {
-    manage: "notification-layouts:manage",
-  },
-  // Publishing legal text is its own duty, separate from operating the
-  // notification system.
-  privacyPolicy: {
-    read: "privacy-policy:read",
-    manage: "privacy-policy:manage",
-  },
-  // Platform-wide administration over ALL organizations — distinct from the
-  // membership-scoped org:* permissions used by self-service.
-  organizations: {
-    read: "organizations:read",
-    manage: "organizations:manage",
-  },
-} as const
-
 export interface NavItem {
   /** i18n key under `nav.*`. */
   titleKey: string
@@ -105,6 +32,8 @@ export interface NavItem {
   icon: LucideIcon
   /** Permission required to see this item; omit for any authenticated user. */
   permission?: string
+  /** Role-aware destination; null hides the item. */
+  resolveUrl?: (hasPermission: PermissionCheck) => string | null
 }
 
 /** Primary sidebar navigation. */
@@ -158,7 +87,7 @@ export const NAV_ITEMS: NavItem[] = [
     titleKey: "notifications",
     url: "/notifications",
     icon: Mail,
-    permission: PERMISSIONS.notificationTemplates.read,
+    resolveUrl: notificationLandingPath,
   },
   // Secret keys are not a sidebar destination of their own: they live under
   // System settings › Secret management, reached from that section's card and
@@ -177,4 +106,5 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ]
 
+export { PERMISSIONS }
 export { DEFAULT_PAGE_SIZE } from "@authsystem/api/constants"

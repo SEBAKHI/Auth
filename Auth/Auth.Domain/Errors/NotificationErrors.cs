@@ -90,6 +90,14 @@ public static class NotificationErrors
         code: "Notification.ConcurrencyConflict",
         description: "The template was modified by someone else. Reload the latest draft and reapply your changes.");
 
+    public static Error PublishTargetChanged => Error.Conflict(
+        code: "Notification.PublishTargetChanged",
+        description: "The saved draft selected for publishing has changed. Reload and review the latest draft before publishing.");
+
+    public static Error UnpublishTargetChanged => Error.Conflict(
+        code: "Notification.UnpublishTargetChanged",
+        description: "The published version selected for unpublishing has changed. Reload and review the current publication before continuing.");
+
     #endregion
 
     #region Layout Errors
@@ -114,6 +122,10 @@ public static class NotificationErrors
     public static Error LayoutContentSlotMissing => Error.Validation(
         code: "Notification.LayoutContentSlotMissing",
         description: "The layout does not render the message body: it must include the {{ content | raw }} slot, otherwise every message would arrive empty.");
+
+    public static Error LayoutPublishTargetChanged => Error.Conflict(
+        code: "Notification.LayoutPublishTargetChanged",
+        description: "The saved layout draft selected for publishing has changed. Reload and review the latest draft before publishing.");
 
     #endregion
 

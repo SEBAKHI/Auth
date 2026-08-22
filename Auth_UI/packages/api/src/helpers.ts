@@ -1,12 +1,23 @@
 /**
  * Unwraps an openapi-fetch result, throwing the API error so it can be caught
  * by React Query / try-catch and surfaced via `getErrorMessage`.
+ *
+ * The status is checked as well as `error`, because a failed response whose
+ * body is empty or is not JSON - a gateway 502 serving an HTML page, a proxy
+ * cutting a connection - leaves `error` unset. Returning that as data made the
+ * failure silent: the caller received `undefined`, and a list rendered "no
+ * results" for what was actually a broken request.
  */
 export async function unwrap<T>(
-  call: Promise<{ data?: T; error?: unknown }>
+  call: Promise<{ data?: T; error?: unknown; response?: Response }>
 ): Promise<T> {
-  const { data, error } = await call
+  const { data, error, response } = await call
   if (error) throw error
+  if (response && !response.ok) {
+    // Shaped like ProblemDetails so it classifies the same way everything else
+    // does; the reason text is never rendered, only the status is read.
+    throw { status: response.status, title: response.statusText }
+  }
   return data as T
 }
 

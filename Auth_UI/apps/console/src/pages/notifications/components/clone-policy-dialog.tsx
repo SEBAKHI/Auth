@@ -6,6 +6,8 @@ import { toast } from "sonner"
 
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
+import { policyRevisionHref } from "@/lib/record-hrefs"
+
 import { unwrap } from "@authsystem/api/helpers"
 import type { Schemas } from "@authsystem/api/types"
 import { Button } from "@authsystem/ui/button"
@@ -40,8 +42,8 @@ export function ClonePolicyDialog({
   source,
   onOpenChange,
 }: {
-  /** Revision to copy from; null closes the dialog. */
-  source: PolicyVersionDto | null
+  /** Revision to copy from; the parent mounts one fresh dialog per session. */
+  source: PolicyVersionDto
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
@@ -53,20 +55,11 @@ export function ClonePolicyDialog({
   const [changeNote, setChangeNote] = React.useState("")
   const [copied, setCopied] = React.useState(0)
 
-  // Reset per open so a previous attempt never leaks into the next one.
-  React.useEffect(() => {
-    if (!source) return
-    setVersion("")
-    setEffectiveDate("")
-    setChangeNote("")
-    setCopied(0)
-  }, [source])
-
-  const languages = source?.languages ?? []
+  const languages = source.languages ?? []
 
   const cloneMutation = useMutation({
     mutationFn: async () => {
-      if (!source?.version) throw new Error("No source version")
+      if (!source.version) throw new Error("No source version")
 
       const created = await unwrap(
         api.POST("/api/v1/privacy-policy/versions", {
@@ -108,7 +101,8 @@ export function ClonePolicyDialog({
       void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
       onOpenChange(false)
       toast.success(t("notifications.policyClonedToast", { count: done }))
-      if (createdId) navigate(`/notifications/policy/${createdId}`)
+      const href = policyRevisionHref(createdId)
+      if (href) navigate(href)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
@@ -117,7 +111,7 @@ export function ClonePolicyDialog({
 
   return (
     <Dialog
-      open={source !== null}
+      open
       onOpenChange={(open) => {
         if (!open && !cloneMutation.isPending) onOpenChange(false)
       }}
@@ -127,7 +121,7 @@ export function ClonePolicyDialog({
           <DialogTitle>{t("notifications.policyCloneTitle")}</DialogTitle>
           <DialogDescription>
             {t("notifications.policyCloneDescription", {
-              source: source?.version ?? "",
+              source: source.version ?? "",
               count: languages.length,
             })}
           </DialogDescription>

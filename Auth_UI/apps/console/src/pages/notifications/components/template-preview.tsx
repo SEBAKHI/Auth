@@ -3,6 +3,7 @@ import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { api } from "@authsystem/api/client"
+import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
 import { directionForLanguage } from "@authsystem/i18n"
 import { Badge } from "@authsystem/ui/badge"
@@ -89,9 +90,10 @@ export function TemplatePreview({
         preview={preview}
         error={
           renderMutation.isError
-            ? renderMutation.error instanceof Error
-              ? renderMutation.error.message
-              : t("notifications.previewFailed")
+            ? getErrorMessage(
+                renderMutation.error,
+                t("notifications.previewFailed")
+              )
             : null
         }
       />

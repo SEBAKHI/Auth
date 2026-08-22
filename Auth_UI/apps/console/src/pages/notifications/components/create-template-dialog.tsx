@@ -6,6 +6,8 @@ import { toast } from "sonner"
 
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
+import { notificationTemplateHref } from "@/lib/record-hrefs"
+
 import { unwrap } from "@authsystem/api/helpers"
 import { SUPPORTED_LANGUAGES } from "@authsystem/i18n"
 import { ApplicationSelect } from "@authsystem/ui/common/application-select"
@@ -65,9 +67,8 @@ export function CreateTemplateDialog({
       toast.success(t("notifications.templateCreated"))
       void queryClient.invalidateQueries({ queryKey: ["notification-templates"] })
       onOpenChange(false)
-      if (created.id) {
-        navigate(`/notifications/templates/${created.id}`)
-      }
+      const href = notificationTemplateHref(created.id)
+      if (href) navigate(href)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })

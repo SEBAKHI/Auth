@@ -51,6 +51,12 @@ public class PublishNotificationLayoutCommandHandler
             return NotificationErrors.LayoutNotFound(request.LayoutId);
         }
 
+        var targetResult = layout.ValidatePublishTarget(request.ExpectedRevisionAt);
+        if (targetResult.IsError)
+        {
+            return targetResult.Errors;
+        }
+
         // Publish gate: the draft must compose cleanly with probe content...
         var probe = await _renderer.RenderContentAsync(
             new NotificationContentRenderRequest
@@ -76,13 +82,20 @@ public class PublishNotificationLayoutCommandHandler
             return NotificationErrors.LayoutContentSlotMissing;
         }
 
-        var result = layout.Publish(request.PublishedBy);
+        var result = layout.Publish(request.ExpectedRevisionAt, request.PublishedBy);
         if (result.IsError)
         {
             return result.Errors;
         }
 
-        await _layoutRepository.UpdateAsync(layout, cancellationToken);
+        var persisted = await _layoutRepository.TryPublishAsync(
+            layout,
+            request.ExpectedRevisionAt,
+            cancellationToken);
+        if (!persisted)
+        {
+            return NotificationErrors.LayoutPublishTargetChanged;
+        }
         _cacheInvalidator.InvalidateLayout(layout.Channel, layout.ApplicationId);
 
         _logger.LogInformation(

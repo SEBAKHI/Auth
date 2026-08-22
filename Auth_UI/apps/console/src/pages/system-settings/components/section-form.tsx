@@ -169,7 +169,9 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
   }, [editable])
 
   const form = useForm<FieldValues>({ defaultValues })
-  const unsavedPrompt = useUnsavedChangesPrompt(form.formState.isDirty)
+  const unsavedPrompt = useUnsavedChangesPrompt({
+    isDirty: form.formState.isDirty,
+  })
 
   const invalidate = React.useCallback(
     () => void queryClient.invalidateQueries({ queryKey: SETTINGS_QUERY_KEY }),

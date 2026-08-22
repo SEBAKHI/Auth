@@ -10,25 +10,39 @@ import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
  * site entirely (native beforeunload prompt, which browsers render themselves
  * and cannot be styled).
  *
- * Render the returned `prompt` anywhere in the page. Programmatic navigation
- * after a successful save is unaffected as long as `isDirty` is cleared first.
+ * Render the returned prompt anywhere in the page. A navigation requested
+ * while saving resumes automatically only when the save also clears dirty
+ * state; a failed save keeps the request blocked for an explicit decision.
  *
  * The dialog-scoped equivalent is `useDirtyClose`.
  */
-export function useUnsavedChangesPrompt(isDirty: boolean): React.ReactElement | null {
+export function useUnsavedChangesPrompt({
+  isDirty,
+  isSaving = false,
+}: {
+  isDirty: boolean
+  isSaving?: boolean
+}): React.ReactElement | null {
   const { t } = useTranslation()
+  const shouldBlock = isDirty || isSaving
 
   const blocker = useBlocker(
     React.useCallback(
       ({ currentLocation, nextLocation }) =>
-        isDirty && currentLocation.pathname !== nextLocation.pathname,
-      [isDirty]
+        shouldBlock && currentLocation.pathname !== nextLocation.pathname,
+      [shouldBlock]
     )
   )
 
+  React.useEffect(() => {
+    if (blocker.state === "blocked" && !shouldBlock) {
+      blocker.proceed()
+    }
+  }, [blocker, shouldBlock])
+
   // Tab close / reload / external link: only the native prompt can stop these.
   React.useEffect(() => {
-    if (!isDirty) return
+    if (!shouldBlock) return
     const handler = (event: BeforeUnloadEvent) => {
       event.preventDefault()
       // Legacy browsers require a returnValue to show their own prompt.
@@ -36,7 +50,7 @@ export function useUnsavedChangesPrompt(isDirty: boolean): React.ReactElement | 
     }
     window.addEventListener("beforeunload", handler)
     return () => window.removeEventListener("beforeunload", handler)
-  }, [isDirty])
+  }, [shouldBlock])
 
   if (blocker.state !== "blocked") return null
 
@@ -46,10 +60,19 @@ export function useUnsavedChangesPrompt(isDirty: boolean): React.ReactElement | 
       onOpenChange={(open) => {
         if (!open) blocker.reset()
       }}
-      title={t("common.discardTitle")}
-      description={t("common.discardBody")}
+      title={
+        isSaving
+          ? t("common.saveInProgressTitle")
+          : t("common.discardTitle")
+      }
+      description={
+        isSaving
+          ? t("common.saveInProgressBody")
+          : t("common.discardBody")
+      }
       confirmLabel={t("common.discard")}
       destructive
+      confirmDisabled={isSaving}
       onConfirm={() => blocker.proceed()}
     />
   )

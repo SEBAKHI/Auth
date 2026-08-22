@@ -179,8 +179,14 @@ public static class AuthDataProtectionExtensions
 
         try
         {
-            // .NET 9+ loader; replaces the obsolete X509Certificate2(path, password) constructor.
-            return X509CertificateLoader.LoadPkcs12FromFile(pfxPath, password);
+            // Keep the private key process-local. Importing into the default Windows key
+            // store fails in service/container accounts without a writable user profile,
+            // even when the PFX itself is valid and readable.
+            return X509CertificateLoader.LoadPkcs12FromFile(
+                pfxPath,
+                password,
+                X509KeyStorageFlags.EphemeralKeySet,
+                loaderLimits: null);
         }
         catch (Exception ex)
         {

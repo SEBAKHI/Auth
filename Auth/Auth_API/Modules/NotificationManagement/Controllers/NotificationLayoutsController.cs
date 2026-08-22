@@ -109,9 +109,16 @@ public class NotificationLayoutsController : ApiController
     [HttpPost("{id:guid}/publish")]
     [RequirePermission("notification-layouts:manage")]
     [ProducesResponseType(typeof(NotificationLayoutDto), StatusCodes.Status200OK)]
-    public async Task<IActionResult> Publish(Guid id, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Publish(
+        Guid id,
+        [FromBody] PublishNotificationLayoutRequest request,
+        CancellationToken cancellationToken)
     {
-        var command = new PublishNotificationLayoutCommand(id) { PublishedBy = GetCurrentUserId() };
+        var command = new PublishNotificationLayoutCommand(id, request.ExpectedRevisionAt)
+        {
+            PublishedBy = GetCurrentUserId()
+        };
         var result = await _sender.Send(command, cancellationToken);
         return result.Match(dto => Ok(dto), Problem);
     }

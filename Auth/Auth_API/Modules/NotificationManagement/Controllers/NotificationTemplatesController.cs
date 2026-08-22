@@ -186,9 +186,19 @@ public class NotificationTemplatesController : ApiController
     [RequirePermission("notification-templates:publish")]
     [ProducesResponseType(typeof(NotificationTemplateDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> Publish(Guid id, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Publish(
+        Guid id,
+        [FromBody] PublishNotificationTemplateRequest request,
+        CancellationToken cancellationToken)
     {
-        var command = new PublishNotificationTemplateCommand(id) { PublishedBy = GetCurrentUserId() };
+        var command = new PublishNotificationTemplateCommand(
+            id,
+            request.ExpectedDraftVersionId,
+            request.ExpectedRevisionAt)
+        {
+            PublishedBy = GetCurrentUserId()
+        };
         var result = await _sender.Send(command, cancellationToken);
         return result.Match(dto => Ok(dto), Problem);
     }
@@ -200,9 +210,16 @@ public class NotificationTemplatesController : ApiController
     [RequirePermission("notification-templates:publish")]
     [ProducesResponseType(typeof(NotificationTemplateDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> Unpublish(Guid id, CancellationToken cancellationToken)
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Unpublish(
+        Guid id,
+        [FromBody] UnpublishNotificationTemplateRequest request,
+        CancellationToken cancellationToken)
     {
-        var command = new UnpublishNotificationTemplateCommand(id) { UnpublishedBy = GetCurrentUserId() };
+        var command = new UnpublishNotificationTemplateCommand(id, request.ExpectedPublishedVersionId)
+        {
+            UnpublishedBy = GetCurrentUserId()
+        };
         var result = await _sender.Send(command, cancellationToken);
         return result.Match(dto => Ok(dto), Problem);
     }

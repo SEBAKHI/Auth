@@ -1,3 +1,4 @@
+import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link, Navigate, useLocation } from "react-router-dom"
 
@@ -21,6 +22,9 @@ export function DeletionScheduledPage() {
   const location = useLocation()
   const state = location.state as LocationState | null
   const graceEndsAtUtc = state?.graceEndsAtUtc
+  // Freeze the reference instant for this mounted confirmation. Re-renders
+  // must not silently change a legal grace-period statement.
+  const [mountedAt] = React.useState(() => Date.now())
 
   if (!graceEndsAtUtc) {
     return <Navigate to="/login" replace />
@@ -28,7 +32,7 @@ export function DeletionScheduledPage() {
 
   const days = Math.max(
     0,
-    Math.ceil((new Date(graceEndsAtUtc).getTime() - Date.now()) / 86_400_000)
+    Math.ceil((new Date(graceEndsAtUtc).getTime() - mountedAt) / 86_400_000)
   )
 
   return (

@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import path from "path"
 import react from "@vitejs/plugin-react"
 import { defineConfig } from "vitest/config"
@@ -25,9 +24,26 @@ export default defineConfig({
       "packages/*/src/**/*.{test,spec}.{ts,tsx}",
     ],
     coverage: {
-      provider: "v8",
-      reporter: ["text", "html"],
-      include: ["packages/*/src/**", "apps/*/src/**"],
+      // Istanbul instruments source files that no test imports. V8 emitted
+      // empty maps for those files here, which excluded real zero-coverage
+      // modules from the denominator and made the repository total unreliable.
+      provider: "istanbul",
+      reporter: ["text", "html", "json", "json-summary"],
+      // Explicit source-file patterns keep declaration and test defaults out
+      // while ensuring both applications and every shared package are counted.
+      include: ["packages/*/src/**/*.{ts,tsx}", "apps/*/src/**/*.{ts,tsx}"],
+      // Truthful all-source baseline after migrating from V8's imported-file
+      // denominator to Istanbul. This ratchet may only move upward; changed
+      // production lines are measured separately by verify-changed-coverage.mjs.
+      // Left far below what the suite achieved, a floor stops protecting
+      // anything: coverage could fall twenty points and still pass. These sit
+      // just under the current run.
+      thresholds: {
+        statements: 56,
+        branches: 45.1,
+        functions: 48.9,
+        lines: 56.9,
+      },
     },
   },
 })

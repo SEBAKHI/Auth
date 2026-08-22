@@ -108,6 +108,47 @@ public class NotificationLayoutRepository : INotificationLayoutRepository
     }
 
     /// <inheritdoc />
+    public async Task<bool> TryPublishAsync(
+        NotificationLayout layout,
+        DateTime expectedRevisionAt,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        var affected = await connection.ExecuteAsync(new CommandDefinition(@"
+            UPDATE [dbo].[NotificationLayouts]
+            SET [Name] = @Name,
+                [DraftContent] = @DraftContent,
+                [DraftStringsJson] = @DraftStringsJson,
+                [PublishedContent] = @PublishedContent,
+                [PublishedStringsJson] = @PublishedStringsJson,
+                [PublishedAt] = @PublishedAt,
+                [PublishedBy] = @PublishedBy,
+                [ModifiedAt] = @ModifiedAt,
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @Id
+              AND (([ModifiedAt] = @ExpectedRevisionAt)
+                   OR ([ModifiedAt] IS NULL AND [CreatedAt] = @ExpectedRevisionAt))",
+            new
+            {
+                layout.Id,
+                layout.Name,
+                layout.DraftContent,
+                layout.DraftStringsJson,
+                layout.PublishedContent,
+                layout.PublishedStringsJson,
+                layout.PublishedAt,
+                layout.PublishedBy,
+                layout.ModifiedAt,
+                layout.ModifiedBy,
+                ExpectedRevisionAt = expectedRevisionAt
+            },
+            cancellationToken: cancellationToken));
+
+        return affected == 1;
+    }
+
+    /// <inheritdoc />
     public async Task<NotificationLayoutRenderSource?> GetPublishedAsync(
         NotificationChannelType channel,
         Guid? applicationId,

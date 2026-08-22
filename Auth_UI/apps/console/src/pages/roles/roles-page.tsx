@@ -1,16 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
 import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApplicationSelect } from "@authsystem/ui/common/application-select"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
-import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
+import {
+  enumArrayUrlFilter,
+  stringUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import {
@@ -24,24 +30,53 @@ import {
 import { api } from "@authsystem/api/client"
 import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
-import { PERMISSIONS } from "@/lib/constants"
+import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
+import { roleHref } from "@/lib/record-hrefs"
 import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
 import { RoleFormDialog } from "./role-form-dialog"
 
 type RoleDto = Schemas["RoleDto"]
 
+type RoleListFilters = {
+  applicationId: string
+  system: Array<"true" | "false">
+}
+
+const ROLES_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: ["name", "description", "permissions", "isSystem"],
+  defaultSorting: [],
+  filters: {
+    applicationId: stringUrlFilter({ maxLength: 128 }),
+    system: enumArrayUrlFilter(["true", "false"], "system"),
+  },
+} satisfies ListUrlStateOptions<RoleListFilters>
+
 export function RolesPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // A term the command palette handed over, so arriving from "see all 12 in
-  // Roles" lands on those twelve rather than on the whole list again.
-  const handoff = useSearchHandoff()
-
-  const [applicationId, setApplicationId] = React.useState<string>()
+  const {
+    search,
+    sorting,
+    filters: { applicationId, system },
+    setSearch,
+    setSorting,
+    setFilter,
+    setFilters,
+  } = useListUrlState(ROLES_LIST_URL_OPTIONS)
+  const columnFilters: ColumnFiltersState = system.length
+    ? [{ id: "isSystem", value: system }]
+    : []
+  const onColumnFiltersChange = (next: ColumnFiltersState) =>
+    setFilters({
+      system:
+        (next.find((filter) => filter.id === "isSystem")?.value as
+          | RoleListFilters["system"]
+          | undefined) ?? [],
+    })
   const [formOpen, setFormOpen] = React.useState(false)
   const [editing, setEditing] = React.useState<RoleDto | undefined>()
   const [deleting, setDeleting] = React.useState<RoleDto | undefined>()
@@ -51,7 +86,7 @@ export function RolesPage() {
   const canDelete = hasPermission(PERMISSIONS.roles.delete)
 
   const query = useQuery({
-    queryKey: ["roles", { applicationId }],
+    queryKey: ["roles", { applicationId: applicationId || undefined }],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/Roles", {
@@ -82,16 +117,15 @@ export function RolesPage() {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={roleHref(row.original.id)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/roles/${row.original.id}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -137,65 +171,64 @@ export function RolesPage() {
         ),
     },
     ...[
-          {
-            id: "actions",
-            enableSorting: false,
-            enableHiding: false,
-            header: () => (
-              <span className="sr-only">{t("common.actions")}</span>
-            ),
-            cell: ({ row }) => {
-              const role = row.original
-              return (
-                <div className="text-end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={t("common.actions")}
+      {
+        id: "actions",
+        enableSorting: false,
+        enableHiding: false,
+        header: () => <span className="sr-only">{t("common.actions")}</span>,
+        cell: ({ row }) => {
+          const role = row.original
+          const viewHref = roleHref(role.id)
+          return (
+            <div className="text-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("common.actions")}
+                  >
+                    <MoreHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuGroup>
+                    {viewHref ? (
+                      <DropdownMenuItem asChild>
+                        <Link to={viewHref}>{t("common.view")}</Link>
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canUpdate ? (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setEditing(role)
+                          setFormOpen(true)
+                        }}
                       >
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                        {t("common.edit")}
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuGroup>
+                  {canDelete && !role.isSystem ? (
+                    <>
+                      <DropdownMenuSeparator />
                       <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() => navigate(`/roles/${role.id}`)}
+                          variant="destructive"
+                          onClick={() => setDeleting(role)}
                         >
-                          {t("common.view")}
+                          {t("common.delete")}
                         </DropdownMenuItem>
-                        {canUpdate ? (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditing(role)
-                              setFormOpen(true)
-                            }}
-                          >
-                            {t("common.edit")}
-                          </DropdownMenuItem>
-                        ) : null}
                       </DropdownMenuGroup>
-                      {canDelete && !role.isSystem ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => setDeleting(role)}
-                            >
-                              {t("common.delete")}
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </>
-                      ) : null}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )
-            },
-          } satisfies ColumnDef<RoleDto, unknown>,
-        ],
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        },
+      } satisfies ColumnDef<RoleDto, unknown>,
+    ],
   ]
 
   return (
@@ -220,8 +253,8 @@ export function RolesPage() {
 
       <div className="max-w-xs">
         <ApplicationSelect
-          value={applicationId}
-          onChange={setApplicationId}
+          value={applicationId || undefined}
+          onChange={(value) => setFilter("applicationId", value ?? "")}
           allowAll
           className="w-full"
         />
@@ -231,7 +264,12 @@ export function RolesPage() {
         fillHeight
         tableId="roles"
         globalSearch
-        initialGlobalFilter={handoff}
+        globalFilter={search}
+        onGlobalFilterChange={setSearch}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
+        sorting={sorting}
+        onSortingChange={setSorting}
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}
@@ -244,7 +282,7 @@ export function RolesPage() {
         open={formOpen}
         onOpenChange={setFormOpen}
         role={editing}
-        defaultApplicationId={applicationId}
+        defaultApplicationId={applicationId || undefined}
       />
 
       <ConfirmDialog

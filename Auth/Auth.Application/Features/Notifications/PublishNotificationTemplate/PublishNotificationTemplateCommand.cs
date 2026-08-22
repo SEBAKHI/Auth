@@ -9,7 +9,10 @@ namespace Auth.Application.Features.Notifications.PublishNotificationTemplate;
 /// the type's sample data first (syntax + unknown-variable gate), so a broken
 /// template can never go live.
 /// </summary>
-public record PublishNotificationTemplateCommand(Guid TemplateId)
+public record PublishNotificationTemplateCommand(
+    Guid TemplateId,
+    Guid ExpectedDraftVersionId,
+    DateTime ExpectedRevisionAt)
     : IRequest<ErrorOr<NotificationTemplateDetailDto>>
 {
     public Guid PublishedBy { get; init; }

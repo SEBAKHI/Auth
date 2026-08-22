@@ -12,11 +12,8 @@ import {
   TooltipTrigger,
 } from "@authsystem/ui/tooltip"
 import type { NotificationPreviewDto } from "../lib"
-import {
-  EmailPreviewFrame,
-  PreviewSchemeToggle,
-  type PreviewScheme,
-} from "./email-preview-frame"
+import { EmailPreviewFrame, PreviewSchemeToggle } from "./email-preview-frame"
+import { usePreviewScheme } from "./use-preview-scheme"
 
 /**
  * Shared rendered-output pane used by both the template and layout previews:
@@ -31,9 +28,14 @@ import {
  * what they are shipping, and a dark-mode regression is only discoverable by sending
  * a real message to a real device. `color-scheme` on the embedding element sets the
  * embedded document's preferred scheme (CSS Color Adjust 1), which drives the media
- * query inside the frame regardless of the console's own theme — the previous
- * behaviour, where the render silently followed whatever theme the admin happened to
- * be using, was not reproducible between two people looking at the same template.
+ * query inside the frame independently of the console's own theme.
+ *
+ * That independence is the point, and it is why the scheme is a remembered choice
+ * rather than a mirror of the site theme: a render has to mean the same thing to two
+ * people looking at one template. What it must not do is fight the reader - a dark
+ * console opening a light preview, every time, one click away from the state the
+ * author wanted. `usePreviewScheme` settles both: the console theme seeds the very
+ * first open, the toggle owns it from then on, and nothing later moves it.
  */
 export function PreviewPane({
   preview,
@@ -47,7 +49,7 @@ export function PreviewPane({
   const { t } = useTranslation()
   const [mode, setMode] = React.useState<"html" | "text">("html")
   const [width, setWidth] = React.useState<"desktop" | "mobile">("desktop")
-  const [scheme, setScheme] = React.useState<PreviewScheme>("light")
+  const [scheme, setScheme] = usePreviewScheme()
 
   return (
     <div className="flex flex-col gap-3">

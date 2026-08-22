@@ -7,19 +7,21 @@ export interface AppBranding {
   logoUrl: string | null
 }
 
+interface BrandingResult {
+  clientId: string
+  branding: AppBranding
+}
+
 /**
  * Fetches the public branding (name + logo) of the application behind a
  * pending authorize request. Anonymous endpoint; any failure — unknown client,
  * network error — resolves to null so the page falls back to platform branding.
  */
 export function useAppBranding(clientId: string | null): AppBranding | null {
-  const [branding, setBranding] = React.useState<AppBranding | null>(null)
+  const [result, setResult] = React.useState<BrandingResult | null>(null)
 
   React.useEffect(() => {
-    if (!clientId) {
-      setBranding(null)
-      return
-    }
+    if (!clientId) return
 
     let cancelled = false
 
@@ -29,7 +31,10 @@ export function useAppBranding(clientId: string | null): AppBranding | null {
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { name?: string; logoUrl?: string | null } | null) => {
         if (!cancelled && data?.name) {
-          setBranding({ name: data.name, logoUrl: data.logoUrl ?? null })
+          setResult({
+            clientId,
+            branding: { name: data.name, logoUrl: data.logoUrl ?? null },
+          })
         }
       })
       .catch(() => {
@@ -41,5 +46,8 @@ export function useAppBranding(clientId: string | null): AppBranding | null {
     }
   }, [clientId])
 
-  return branding
+  // A response belongs only to the client that requested it. Returning null
+  // while a different client is loading prevents the previous application's
+  // name/logo flashing into the next authorization prompt.
+  return clientId && result?.clientId === clientId ? result.branding : null
 }

@@ -113,6 +113,9 @@ export const en = {
     discardTitle: "Discard changes?",
     discardBody:
       "You have unsaved changes. If you leave now, they will be lost.",
+    saveInProgressTitle: "Save in progress",
+    saveInProgressBody:
+      "Wait for the save to finish, or cancel this navigation and stay on the page.",
     saveWithCount: "Save ({{count}})",
     changesSaved: "Changes saved",
     applyChangesTitle: "Apply these changes?",
@@ -169,11 +172,13 @@ export const en = {
     backToSignIn: "Back to sign in",
     signOutTitle: "Sign out of {{name}}?",
     signOutTitleNoApp: "Sign out?",
-    signOutBody: "This ends your single sign-on (SSO) session — the one that lets you into other applications without typing your password again. An application you are already inside keeps its own session until that application ends it.",
+    signOutBody:
+      "This ends your single sign-on (SSO) session — the one that lets you into other applications without typing your password again. An application you are already inside keeps its own session until that application ends it.",
     signOutConfirm: "Sign out",
     signOutCancel: "Stay signed in",
     signedOutTitle: "You are signed out",
-    signedOutBody: "Your single sign-on session has ended. Signing in again will ask for your password.",
+    signedOutBody:
+      "Your single sign-on session has ended. Signing in again will ask for your password.",
     useDifferentAccount: "Use a different account",
     resetLinkSentTitle: "Check your email",
     resetLinkSentDescription:
@@ -275,11 +280,14 @@ export const en = {
     newUsers: "New users",
     attention: "Needs attention",
     alertRateDrop: "Sign-in success rate has fallen",
-    alertRateDropBody: "Down {{points}} points on the previous period, now {{rate}}%.",
+    alertRateDropBody:
+      "Down {{points}} points on the previous period, now {{rate}}%.",
     alertLockedOut: "{{count}} account(s) are locked out",
-    alertLockedOutBody: "They cannot sign in until the lockout expires or is cleared.",
+    alertLockedOutBody:
+      "They cannot sign in until the lockout expires or is cleared.",
     alertFailingIp: "One address is generating repeated failures",
-    alertFailingIpBody: "{{ip}} produced {{count}} failed attempts across {{users}} username(s).",
+    alertFailingIpBody:
+      "{{ip}} produced {{count}} failed attempts across {{users}} username(s).",
     alertStaleSessions: "{{count}} session(s) are past their expiry",
     alertStaleSessionsBody: "They are still open and were never closed out.",
     alertExpiringEnablements: "{{count}} subscription(s) are expiring",
@@ -306,7 +314,8 @@ export const en = {
     failedAttemptsSubtitle: "Rejected sign-in attempts per period.",
     whereSignIns: "Where sign-ins happen",
     whereSignInsSubtitle: "Attempts, success rate and reach per application.",
-    whereSignInsOrgNote: "Attributed by the signing-in user's memberships, so a user in several organizations counts once for each — the total can exceed the raw attempt count.",
+    whereSignInsOrgNote:
+      "Attributed by the signing-in user's memberships, so a user in several organizations counts once for each — the total can exceed the raw attempt count.",
     applications: "Applications",
     organizations: "Organizations",
     colName: "Name",
@@ -435,6 +444,8 @@ export const en = {
     unlock: "Unlock",
     activate: "Activate",
     deactivate: "Deactivate",
+    deactivateTitle: "Deactivate this account?",
+    deactivateBody: "{{name}} will be signed out everywhere and will not be able to sign in until the account is activated again.",
     lockTitle: "Lock account",
     lockReason: "Reason",
     lockReasonPlaceholder: "Repeated failed sign-ins from an unknown device",
@@ -582,7 +593,8 @@ export const en = {
     deactivated: "Application turned off.",
     accessMode: "Who can sign in",
     accessModeEveryone: "Everyone",
-    accessModeEveryoneHint: "Any user on the platform can use this application.",
+    accessModeEveryoneHint:
+      "Any user on the platform can use this application.",
     accessModeRestricted: "Only invited people",
     accessModeRestrictedHint:
       "Only the people you add can sign in. Use this while trying an application out.",
@@ -973,9 +985,19 @@ export const en = {
     discardDraftBody: "Unpublished edits in all languages will be lost.",
     draftDiscarded: "Draft discarded",
     publish: "Publish",
+    publishConfirmTitle: "Publish {{item}}?",
+    publishConfirmBody:
+      "The saved draft will become live for the scope shown below.",
     publishedToast: "Published",
     unpublish: "Unpublish",
+    unpublishConfirmTitle: "Unpublish {{item}}?",
+    unpublishConfirmBody:
+      "The live template will stop being used for the scope shown below.",
     unpublishedToast: "Unpublished",
+    confirmationItem: "Item",
+    confirmationVersion: "Version",
+    confirmationScope: "Scope",
+    savedDraftRevision: "Saved draft · {{modifiedAt}}",
     unsavedChanges: "Unsaved changes",
     unpublishedChanges: "Unpublished changes",
     deleteTitle: "Delete template?",
@@ -1030,6 +1052,7 @@ export const en = {
     tabLayouts: "Layouts",
     tabDeliveryLog: "Delivery Log",
     tabPolicy: "Privacy Policy",
+    sectionsNavLabel: "Notification sections",
     policyTitle: "Privacy policy versions",
     policySubtitle:
       "Track policy revisions and notify users of material changes.",
@@ -1058,15 +1081,18 @@ export const en = {
     policyMissingLanguagesTitle: "Not every language is translated yet",
     policyMissingLanguagesBody:
       "Readers of {{languages}} will be served the English document, with a notice in their own language saying so. Publish anyway, or add the translations first.",
-    policyDisclosureDriftTitle: "The published policy no longer matches settings",
+    policyDisclosureDriftTitle:
+      "The published policy no longer matches settings",
     policyDisclosureDriftBody:
       "System settings changed after this version was published, so the served document still quotes the previous values. It is not rewritten automatically — that would amend a notice people were already shown. Publish again to update it.",
     policyPublishTitle: "Publish this policy version?",
-    policyPublishBody: "It becomes the policy shown to every user. The English document must exist first.",
+    policyPublishBody:
+      "It becomes the policy shown to every user. The English document must exist first.",
     policyPublishedToast: "Policy version published.",
     policyEditContent: "Edit content",
     policyContentTitle: "Policy content — {{version}}",
-    policyContentDescription: "Edit the published policy text per language. Stored in the database; no deployment needed.",
+    policyContentDescription:
+      "Edit the published policy text per language. Stored in the database; no deployment needed.",
     policyContentSaved: "Policy content saved.",
     policyTokens: "Live values (do not hardcode):",
     policyPreview: "Preview",
@@ -1109,43 +1135,55 @@ export const en = {
     policySectionNumber: "Section {{number}}",
     policyRemoveSection: "Remove section",
     policyRemoveSectionTitle: "Remove this section?",
-    policyRemoveSectionBody: "Its heading, paragraphs and bullets are deleted from this language's document. Other languages are unaffected.",
+    policyRemoveSectionBody:
+      "Its heading, paragraphs and bullets are deleted from this language's document. Other languages are unaffected.",
     policyRemoveParagraph: "Remove paragraph",
     policyRemoveBullet: "Remove bullet",
     policyRemoveRow: "Remove row",
-    "policyJsonTab": "JSON",
-    "policyChangeNote": "Change note",
-    "policyChangeNoteHint": "What changed in this revision?",
-    "policyNoChangeNote": "No change note",
-    "policySearchPlaceholder": "Search version or change note...",
-    "policyNotifiedFilterSent": "Notified",
-    "policyNotifiedBadge": "Notified · {{count}} recipients",
-    "policyVersionDetails": "Version details",
-    "policyNotFound": "This policy version no longer exists. It may have been renamed or removed — open it again from the versions list.",
+    policyJsonTab: "JSON",
+    policyChangeNote: "Change note",
+    policyChangeNoteHint: "What changed in this revision?",
+    policyNoChangeNote: "No change note",
+    policySearchPlaceholder: "Search version or change note...",
+    policyNotifiedFilterSent: "Notified",
+    policyNotifiedBadge: "Notified · {{count}} recipients",
+    policyVersionDetails: "Version details",
+    policyNotFound:
+      "This policy version no longer exists. It may have been renamed or removed — open it again from the versions list.",
     policyClone: "Clone",
     policyCloneTitle: "Clone this policy version",
-    policyCloneDescription: "Creates a new version and copies all {{count}} language documents from {{source}}, so you edit a draft instead of starting from a blank page.",
+    policyCloneDescription:
+      "Creates a new version and copies all {{count}} language documents from {{source}}, so you edit a draft instead of starting from a blank page.",
     policyCloneProgress: "Copying languages… {{done}} of {{total}}",
     policyClonedToast: "Version cloned with {{count}} languages.",
     policyVersionRenameHint: "Drafts can still be renamed.",
-    policyVersionLockedHint: "Locked: published or already announced versions are referenced by deletion records.",
-    "policyTokenHint": "Click to insert at the cursor.",
-    "policyToken_graceDays": "Recovery window before deletion becomes final, in days.",
-    "policyToken_otpValidityMinutes": "How long a deletion verification code stays valid, in minutes.",
-    "policyToken_loginAttemptRetentionDays": "How long sign-in attempt records are kept, in days.",
-    "policyToken_outboxRetentionDays": "How long sent-email records are kept, in days.",
-    "policyToken_identifierReservationDays":
+    policyVersionLockedHint:
+      "Locked: published or already announced versions are referenced by deletion records.",
+    policyTokenHint: "Click to insert at the cursor.",
+    policyToken_graceDays:
+      "Recovery window before deletion becomes final, in days.",
+    policyToken_otpValidityMinutes:
+      "How long a deletion verification code stays valid, in minutes.",
+    policyToken_loginAttemptRetentionDays:
+      "How long sign-in attempt records are kept, in days.",
+    policyToken_outboxRetentionDays:
+      "How long sent-email records are kept, in days.",
+    policyToken_identifierReservationDays:
       "How long a deleted email stays blocked from re-registration, in days.",
-    "policyToken_legalName": "Registered legal name of the data controller.",
-    "policyToken_address": "Registered address of the data controller.",
-    "policyToken_privacyEmail": "Monitored inbox for privacy and rights requests.",
-    "policyToken_emailProvider": "Email delivery provider named in the sharing section.",
-    "policyToken_hostingProvider": "Hosting provider named in the sharing section.",
-    "policyToken_hostingCountry": "Country where the service is hosted (bare name).",
-    "overviewPolicy": "Privacy policy versions",
-    "overviewViewPolicy": "View policy",
-    "overviewPolicyHint": "{{count}} languages written",
-    "overviewNoPolicy": "No policy version recorded yet.",
+    policyToken_legalName: "Registered legal name of the data controller.",
+    policyToken_address: "Registered address of the data controller.",
+    policyToken_privacyEmail:
+      "Monitored inbox for privacy and rights requests.",
+    policyToken_emailProvider:
+      "Email delivery provider named in the sharing section.",
+    policyToken_hostingProvider:
+      "Hosting provider named in the sharing section.",
+    policyToken_hostingCountry:
+      "Country where the service is hosted (bare name).",
+    overviewPolicy: "Privacy policy versions",
+    overviewViewPolicy: "View policy",
+    overviewPolicyHint: "{{count}} languages written",
+    overviewNoPolicy: "No policy version recorded yet.",
     policyButtonLabel: "Delete button label",
     policyButtonLabelPlaceholder: "Delete my account",
     policySignedInHint: "Signed-in hint",
@@ -1352,9 +1390,11 @@ export const en = {
       argon2MemorySizeHint:
         "Memory used to hash each password. Recommended: 19456 (19 MiB, the OWASP minimum). Higher is stronger but slows every sign-in.",
       argon2Iterations: "Argon2 iterations",
-      argon2IterationsHint: "Recommended: 2 (OWASP minimum for this memory size).",
+      argon2IterationsHint:
+        "Recommended: 2 (OWASP minimum for this memory size).",
       argon2Parallelism: "Argon2 parallelism",
-      argon2ParallelismHint: "Recommended: 1 (OWASP). Existing passwords keep working after a change — they are upgraded on next sign-in.",
+      argon2ParallelismHint:
+        "Recommended: 1 (OWASP). Existing passwords keep working after a change — they are upgraded on next sign-in.",
       saltSize: "Salt size (bytes)",
       saltSizeHint: "Fixed at the OWASP-recommended value; not configurable.",
       hashSize: "Hash size (bytes)",
@@ -1388,7 +1428,8 @@ export const en = {
       terminateOldestOnMax: "Sign out the oldest session instead of refusing",
       terminateOldestOnMaxHint:
         "What reaching the limit does. On: the sessions the user has gone longest without using end, and the new sign-in succeeds. Off: the new sign-in is refused. Recommended: on — refusing locks people out of their own account when they cannot reach their old devices. No effect while the limit is 0.",
-      terminateSessionsOnPasswordChange: "Sign out everywhere on password change",
+      terminateSessionsOnPasswordChange:
+        "Sign out everywhere on password change",
       terminateSessionsOnPasswordChangeHint:
         "When a user changes their password, all their other sessions end. Recommended: on — a changed password usually means the old one is no longer trusted.",
       terminateSessionsOnPasswordReset: "Sign out everywhere on password reset",
@@ -1472,7 +1513,8 @@ export const en = {
     },
     externalAuth: {
       requireNonce: "Require a server-issued nonce",
-      requireNonceHint: "Makes a provider sign-in present a one-time value this server issued to that browser, so a stolen provider token minted for someone else's browser is refused. Turn it on only once the deployed app is fetching nonces; until then a browser-generated value is accepted, which proves nothing. Recommended: on.",
+      requireNonceHint:
+        "Makes a provider sign-in present a one-time value this server issued to that browser, so a stolen provider token minted for someone else's browser is refused. Turn it on only once the deployed app is fetching nonces; until then a browser-generated value is accepted, which proves nothing. Recommended: on.",
       title: "External sign-in (Google / Apple)",
       description:
         "Social sign-in providers. The client IDs here are public identifiers; private keys live under Secret management. The provider must ALSO be enabled in its directory row for the button to appear.",
@@ -1485,9 +1527,11 @@ export const en = {
       appleEnabledHint:
         "Requires the Services ID, Team ID, Key ID, and the .p8 key under Secret management.",
       appleServicesId: "Apple Services ID",
-      appleServicesIdHint: "e.g. com.example.accounts, from the Apple Developer portal.",
+      appleServicesIdHint:
+        "e.g. com.example.accounts, from the Apple Developer portal.",
       appleTeamId: "Apple Team ID",
-      appleTeamIdHint: "The 10-character team identifier from the Apple Developer portal.",
+      appleTeamIdHint:
+        "The 10-character team identifier from the Apple Developer portal.",
       appleKeyId: "Apple Key ID",
       appleKeyIdHint:
         "Identifier of the .p8 signing key; the key itself lives under Secret management.",
@@ -1535,32 +1579,40 @@ export const en = {
       smtpPortHint:
         "587 = STARTTLS (recommended), 465 = implicit TLS, 25 = usually blocked by hosts.",
       useSsl: "Require TLS",
-      useSslHint: "Recommended: on. Off allows opportunistic TLS only in local development.",
+      useSslHint:
+        "Recommended: on. Off allows opportunistic TLS only in local development.",
       username: "SMTP username",
-      usernameHint: "Usually the full mailbox address. Leave empty for unauthenticated relays.",
+      usernameHint:
+        "Usually the full mailbox address. Leave empty for unauthenticated relays.",
       password: "SMTP password",
       senderEmail: "Sender address",
-      senderEmailHint: "The From address. Must be authorized by your domain's SPF/DKIM records.",
+      senderEmailHint:
+        "The From address. Must be authorized by your domain's SPF/DKIM records.",
       senderName: "Sender name",
-      senderNameHint: "The display name recipients see; also the fallback platform name in templates.",
+      senderNameHint:
+        "The display name recipients see; also the fallback platform name in templates.",
       frontendBaseUrl: "Links base URL",
       frontendBaseUrlHint:
         "Absolute address of the accounts app; every emailed link (reset, verify) is built on it. Required while sending is enabled.",
       otpExpirationMinutes: "Verification code lifetime (minutes)",
-      otpExpirationMinutesHint: "Recommended: 5–15 — long enough to type, short enough to steal nothing.",
+      otpExpirationMinutesHint:
+        "Recommended: 5–15 — long enough to type, short enough to steal nothing.",
       resetTokenExpirationMinutes: "Reset link lifetime (minutes)",
       resetTokenExpirationMinutesHint: "Recommended: 30–60.",
       rateLimitWindowSeconds: "Send-rate window (seconds)",
-      rateLimitWindowSecondsHint: "Window for the per-address send limit below. Recommended: 60.",
+      rateLimitWindowSecondsHint:
+        "Window for the per-address send limit below. Recommended: 60.",
       maxOtpRequestsPerWindow: "Codes per window",
       maxOtpRequestsPerWindowHint:
         "Max verification codes one address can request per window. Recommended: 3 — stops mail-bombing.",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "Alert on sign-in from a new device",
-      newDeviceAlertEnabledHint: "Emails the account owner the first time a sign-in arrives from a device they have not used before. Recommended: on.",
+      newDeviceAlertEnabledHint:
+        "Emails the account owner the first time a sign-in arrives from a device they have not used before. Recommended: on.",
       newDeviceAlertMinIntervalMinutes: "Minimum gap between alerts (minutes)",
-      newDeviceAlertMinIntervalMinutesHint: "Stops a burst of sign-ins producing a burst of emails. 0 sends one for every new device. Recommended: 60.",
+      newDeviceAlertMinIntervalMinutesHint:
+        "Stops a burst of sign-ins producing a burst of emails. 0 sends one for every new device. Recommended: 60.",
       title: "Notification delivery",
       description:
         "How outgoing notifications are delivered: directly, or through a durable outbox that retries failures and survives restarts. Content and templates are managed on the Notifications pages.",
@@ -1568,7 +1620,8 @@ export const en = {
       useOutboxHint:
         "Recommended: on in production — messages are stored first and retried on failure instead of being lost.",
       pollIntervalSeconds: "Poll interval (seconds)",
-      pollIntervalSecondsHint: "Fallback wake-up when no send signal arrives. Recommended: 30.",
+      pollIntervalSecondsHint:
+        "Fallback wake-up when no send signal arrives. Recommended: 30.",
       batchSize: "Batch size",
       batchSizeHint: "Messages claimed per dispatch cycle. Recommended: 20.",
       maxAttempts: "Max attempts",
@@ -1580,33 +1633,43 @@ export const en = {
     },
     geoIp: {
       title: "IP geolocation",
-      description: "Resolves sign-in IP addresses to a country and city, so login history and new-device alerts can say where an attempt came from. Needs a local MaxMind database file; without one the feature stays off and locations read as unknown.",
+      description:
+        "Resolves sign-in IP addresses to a country and city, so login history and new-device alerts can say where an attempt came from. Needs a local MaxMind database file; without one the feature stays off and locations read as unknown.",
       enabled: "Enable IP geolocation",
-      enabledHint: "Requires a database file at the path below. Takes effect after a restart.",
+      enabledHint:
+        "Requires a database file at the path below. Takes effect after a restart.",
       databasePath: "Database file path",
-      databasePathHint: "Absolute path to the MaxMind GeoLite2 .mmdb file on the server. Takes effect after a restart.",
+      databasePathHint:
+        "Absolute path to the MaxMind GeoLite2 .mmdb file on the server. Takes effect after a restart.",
     },
     imageStorage: {
       title: "Image storage",
       description:
         "Uploaded logos and profile pictures: where they are stored on disk, how they are served, and the size limits applied on upload.",
       provider: "Storage provider",
-      providerHint: "Filesystem storage; part of the server deployment, not editable here.",
+      providerHint:
+        "Filesystem storage; part of the server deployment, not editable here.",
       physicalPath: "Storage folder",
-      physicalPathHint: "Server disk location; changing it requires moving files — a deployment task.",
+      physicalPathHint:
+        "Server disk location; changing it requires moving files — a deployment task.",
       publicBaseUrl: "Public base URL",
       publicBaseUrlHint:
         "Prefix of every returned image URL. Set to the API's public address (or a rooted path) so logos render through the gateway.",
       requestPath: "Serving path",
-      requestPathHint: "The URL path images are served under; baked into the pipeline at startup.",
+      requestPathHint:
+        "The URL path images are served under; baked into the pipeline at startup.",
       maxSizeBytes: "Max upload size (bytes)",
-      maxSizeBytesHint: "Recommended: 4194304 (4 MB) — plenty for logos and avatars.",
+      maxSizeBytesHint:
+        "Recommended: 4194304 (4 MB) — plenty for logos and avatars.",
       maxMegapixels: "Max megapixels",
-      maxMegapixelsHint: "Rejects decompression bombs before processing. Recommended: 50.",
+      maxMegapixelsHint:
+        "Rejects decompression bombs before processing. Recommended: 50.",
       maxEdgePx: "Max edge (pixels)",
-      maxEdgePxHint: "Larger images are downscaled to this edge. Recommended: 1024.",
+      maxEdgePxHint:
+        "Larger images are downscaled to this edge. Recommended: 1024.",
       webpQuality: "WebP quality",
-      webpQualityHint: "Uploads are re-encoded to WebP at this quality. Recommended: 90.",
+      webpQualityHint:
+        "Uploads are re-encoded to WebP at this quality. Recommended: 90.",
       allowedContentTypes: "Allowed content types",
       allowedContentTypesHint: "image/* MIME types accepted on upload.",
     },
@@ -1618,13 +1681,16 @@ export const en = {
       graceDaysHint:
         "Time to change one's mind before permanent deletion. Recommended: 30 (common regulatory practice).",
       workerPollMinutes: "Worker poll (minutes)",
-      workerPollMinutesHint: "How often due deletions are executed. Recommended: 15.",
+      workerPollMinutesHint:
+        "How often due deletions are executed. Recommended: 15.",
       workerBatchSize: "Worker batch size",
       workerBatchSizeHint: "Deletions executed per cycle. Recommended: 25.",
       maxExecutionAttempts: "Max execution attempts",
-      maxExecutionAttemptsHint: "Retries before a failed deletion raises the compliance alarm. Recommended: 5.",
+      maxExecutionAttemptsHint:
+        "Retries before a failed deletion raises the compliance alarm. Recommended: 5.",
       otpExpirationMinutes: "Confirmation code lifetime (minutes)",
-      otpExpirationMinutesHint: "Code confirming a public deletion request. Recommended: 15.",
+      otpExpirationMinutesHint:
+        "Code confirming a public deletion request. Recommended: 15.",
       identifierHmacKeyPlain: "Identifier hash key",
     },
     dataController: {
@@ -1632,48 +1698,63 @@ export const en = {
       description:
         "The legal identity published in your privacy policy. A policy cannot be published until the required fields are filled — a disclosure that does not name its controller does not satisfy KVKK Art. 10 or GDPR Art. 13.",
       legalName: "Legal entity name",
-      legalNameHint: "Registered name, exactly as it should appear (e.g. Acme Corp LLC).",
+      legalNameHint:
+        "Registered name, exactly as it should appear (e.g. Acme Corp LLC).",
       address: "Registered address",
       addressHint: "Full postal address as it should appear in the policy.",
       privacyEmail: "Privacy contact email",
-      privacyEmailHint: "A MONITORED inbox — rights requests arrive here and are due within 30 days.",
+      privacyEmailHint:
+        "A MONITORED inbox — rights requests arrive here and are due within 30 days.",
       emailProvider: "Email delivery provider",
-      emailProviderHint: "Named in \"who we share data with\" (e.g. your SMTP vendor).",
+      emailProviderHint:
+        'Named in "who we share data with" (e.g. your SMTP vendor).',
       hostingProvider: "Hosting provider",
-      hostingProviderHint: "Named in \"who we share data with\".",
+      hostingProviderHint: 'Named in "who we share data with".',
       hostingCountry: "Hosting country",
       hostingCountryHint:
         "Bare country name only, no preposition — the Turkish and French sentences add their own.",
       dpoContact: "Data protection officer",
-      dpoContactHint: "Optional. Leave empty to omit the line; GDPR only requires a DPO in specific cases.",
+      dpoContactHint:
+        "Optional. Leave empty to omit the line; GDPR only requires a DPO in specific cases.",
       verbisNo: "VERBİS registration number",
-      verbisNoHint: "Optional. Fill only if the controller meets Türkiye's registration thresholds.",
+      verbisNoHint:
+        "Optional. Fill only if the controller meets Türkiye's registration thresholds.",
       kepAddress: "Registered email (KEP)",
-      kepAddressHint: "Optional. A Turkish registered e-mail address, one of the KVKK application channels.",
+      kepAddressHint:
+        "Optional. A Turkish registered e-mail address, one of the KVKK application channels.",
     },
     expiredDataCleanup: {
       title: "Expired-data cleanup",
-      description: "How long rows that already fell out of use are kept before the daily sweep deletes them. These are not validity windows — every row here is already dead. They set how long it stays useful as EVIDENCE: a revoked refresh token is what turns a stolen token into a detected theft, and a consumed authorization code is what proves a replay.",
+      description:
+        "How long rows that already fell out of use are kept before the daily sweep deletes them. These are not validity windows — every row here is already dead. They set how long it stays useful as EVIDENCE: a revoked refresh token is what turns a stolen token into a detected theft, and a consumed authorization code is what proves a replay.",
       enabled: "Run the daily cleanup",
-      enabledHint: "Off leaves every table untouched, and they grow without bound. Recommended: on.",
+      enabledHint:
+        "Off leaves every table untouched, and they grow without bound. Recommended: on.",
       workerPollMinutes: "Check interval (minutes)",
-      workerPollMinutesHint: "How often the worker wakes to see whether today's sweep has run. The sweep itself runs once a day. Recommended: 15.",
+      workerPollMinutesHint:
+        "How often the worker wakes to see whether today's sweep has run. The sweep itself runs once a day. Recommended: 15.",
       batchSize: "Rows per statement",
-      batchSizeHint: "Kept under the ~5000 row locks at which SQL Server escalates to a whole-table lock, which would block every live query against that table. Recommended: 4000.",
+      batchSizeHint:
+        "Kept under the ~5000 row locks at which SQL Server escalates to a whole-table lock, which would block every live query against that table. Recommended: 4000.",
       maxRowsPerTablePerRun: "Ceiling per table per run",
-      maxRowsPerTablePerRunHint: "Bounds the first run, the only one facing everything accumulated since deployment. Whatever is left goes the next day. Recommended: 200000.",
+      maxRowsPerTablePerRunHint:
+        "Bounds the first run, the only one facing everything accumulated since deployment. Whatever is left goes the next day. Recommended: 200000.",
       authorizationCodeDays: "Authorization codes (days)",
-      authorizationCodeDaysHint: "They live about 60 seconds; this window exists to investigate a replay, not to keep them valid. Recommended: 7.",
+      authorizationCodeDaysHint:
+        "They live about 60 seconds; this window exists to investigate a replay, not to keep them valid. Recommended: 7.",
       twoFactorChallengeDays: "Two-factor challenges (days)",
-      twoFactorChallengeDaysHint: "Long enough to investigate a guessing run. Recommended: 7.",
+      twoFactorChallengeDaysHint:
+        "Long enough to investigate a guessing run. Recommended: 7.",
       passwordResetTokenDays: "Password-reset tokens (days)",
       passwordResetTokenDaysHint: "Recommended: 7.",
       emailVerificationTokenDays: "Email-verification tokens (days)",
       emailVerificationTokenDaysHint: "Recommended: 7.",
       idpSessionDays: "Single sign-on (SSO) sessions (days)",
-      idpSessionDaysHint: "Counted from expiry or revocation, not from creation. Recommended: 30.",
+      idpSessionDaysHint:
+        "Counted from expiry or revocation, not from creation. Recommended: 30.",
       refreshTokenDays: "Refresh tokens (days)",
-      refreshTokenDaysHint: "The longest window and the one that matters most: a revoked row is the only thing that turns a stolen token into a detected theft, and the dashboard reports revocations over up to 90 days. Floored at 90 in code whatever is set here.",
+      refreshTokenDaysHint:
+        "The longest window and the one that matters most: a revoked row is the only thing that turns a stolen token into a detected theft, and the dashboard reports revocations over up to 90 days. Floored at 90 in code whatever is set here.",
     },
     dataRetention: {
       title: "Privacy & data retention",
@@ -1686,7 +1767,8 @@ export const en = {
       loginAttemptRetentionDaysHint:
         "Security log retention; align with your privacy policy. Recommended: 365.",
       outboxRetentionDays: "Outbox retention (days)",
-      outboxRetentionDaysHint: "Delivered-notification log retention. Recommended: 180.",
+      outboxRetentionDaysHint:
+        "Delivered-notification log retention. Recommended: 180.",
       auditLogRetentionDays: "Audit-log retention (days)",
       auditLogRetentionDaysHint:
         "Audit history retention. The floor is the three years the published policy promises. Recommended: 1095.",
@@ -1718,7 +1800,8 @@ export const en = {
       minimumLevelDefaultHint:
         "Information for normal operation; Debug only while investigating (verbose and may include more request detail); Warning for quiet production logs.",
       minimumLevelOverrideMicrosoft: "Microsoft namespace level",
-      minimumLevelOverrideMicrosoftHint: "Framework noise filter. Recommended: Warning.",
+      minimumLevelOverrideMicrosoftHint:
+        "Framework noise filter. Recommended: Warning.",
       minimumLevelOverrideMicrosoftHostingLifetime: "Host lifetime level",
       minimumLevelOverrideMicrosoftHostingLifetimeHint:
         "Startup/shutdown messages. Recommended: Information.",
@@ -1791,7 +1874,8 @@ export const en = {
       "{{name}} will be removed, and any session still open on it will be signed out. Signing in from it again will be treated as a new device.",
     browserForgotten: "Browser forgotten.",
     unattributedSessions: "Other sessions",
-    unattributedHelp: "Sessions that identified no browser, such as connected apps.",
+    unattributedHelp:
+      "Sessions that identified no browser, such as connected apps.",
     noBrowsers: "Nothing signed in",
     noBrowsersBody: "Browsers you sign in from will appear here.",
     loadFailed: "Couldn't load this",
@@ -1838,7 +1922,8 @@ export const en = {
   },
   accountDeletion: {
     dangerZone: "Danger zone",
-    dangerZoneSubtitle: "Permanently delete this account and its personal data.",
+    dangerZoneSubtitle:
+      "Permanently delete this account and its personal data.",
     deleteAccount: "Delete account",
     deleteWarning:
       "Your account will be deactivated immediately and permanently deleted after {{days}} days. During that period you can restore it by signing in.",
@@ -1928,6 +2013,41 @@ export const en = {
     unexpectedTitle: "Something went wrong",
     reload: "Reload the page",
     uploadFailed: "Image upload failed (HTTP {{status}}).",
+    feedback: {
+      title: "Action couldn’t be completed",
+      retry: "Try again",
+      fieldInvalid: "Check this value and try again.",
+      validation:
+        "Some information wasn’t accepted. Correct the highlighted fields and submit again.",
+      authentication:
+        "Your session is no longer valid. Sign in again, then repeat the action.",
+      authorization:
+        "You don’t have permission to complete this action. Ask an administrator for access.",
+      notFound:
+        "This item is no longer available. Refresh the page and choose an existing item.",
+      conflict:
+        "The data changed before this action completed. Reload, review the latest values, and try again.",
+      rateLimit:
+        "Too many requests were sent. Wait a moment before trying again.",
+      server:
+        "The service couldn’t complete the action. Try again; if it continues, contact support.",
+      network:
+        "The server couldn’t be reached. Check your connection and try again.",
+      unknown:
+        "The action wasn’t completed. Try again; if it continues, contact support.",
+      duplicateEmail:
+        "This email address is already in use. Enter another email address and submit again.",
+      invalidCredentials:
+        "The email address or password wasn’t accepted. Check both values and try again.",
+      pendingDeletion:
+        "This account is scheduled for deletion. Use account recovery before signing in.",
+      staleData:
+        "This item changed after it was loaded. Reload it, review the latest version, and repeat the action.",
+      invalidChallengeCode:
+        "The confirmation code wasn’t accepted. Enter the latest code and try again.",
+      connectionUnreachable:
+        "The connection could not be verified. Check the connection details, or save anyway only if you have verified them elsewhere.",
+    },
   },
 }
 

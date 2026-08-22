@@ -1,68 +1,72 @@
 import { useTranslation } from "react-i18next"
-import { useLocation, useNavigate } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 
 import { useAuth } from "@authsystem/auth/auth-context"
-import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
+import { cn } from "@authsystem/ui/utils"
+import { tabsListVariants, tabsTriggerVariants } from "@authsystem/ui/tabs"
 
-import { PERMISSIONS } from "@/lib/constants"
-
-/**
- * `permission` is set only where a tab needs one the section itself does not
- * imply. The privacy notice is such a case: it shares this navigation but not
- * its authority, so without the gate the tab advertised a destination that
- * bounced a notifications operator to /403.
- */
-const TABS = [
-  { value: "overview", path: "/notifications", labelKey: "notifications.tabOverview" },
-  { value: "templates", path: "/notifications/templates", labelKey: "notifications.tabTemplates" },
-  { value: "layouts", path: "/notifications/layouts", labelKey: "notifications.tabLayouts" },
-  { value: "outbox", path: "/notifications/outbox", labelKey: "notifications.tabDeliveryLog" },
-  {
-    value: "policy",
-    path: "/notifications/policy",
-    labelKey: "notifications.tabPolicy",
-    permission: PERMISSIONS.privacyPolicy.read,
-  },
-] as const
+import {
+  NOTIFICATION_DESTINATIONS,
+  visibleNotificationDestinations,
+} from "@/lib/notification-destinations"
 
 /**
- * Shared sub-navigation across the notification screens (overview, templates,
- * layouts, delivery log), so they read as one section with a consistent, always
- * visible way to move between them — matching the tab pattern used elsewhere.
+ * Sub-navigation across the notification screens (overview, templates, layouts,
+ * delivery log, policy), so they read as one section with a consistent, always
+ * visible way to move between them.
+ *
+ * These are links, not tabs. Each one changes the URL, so it has to behave like
+ * an address: middle-click or Ctrl/Cmd-click opens the section in a second tab,
+ * "copy link address" yields something shareable, and the browser shows the
+ * target on hover. Radix's Tabs cannot offer that, and it was actively lying
+ * here: a tab announces `aria-controls` pointing at a panel, and this strip has
+ * no panel - the routed page is the content - so every trigger carried a
+ * dangling reference. Its default automatic activation also meant arrow-keying
+ * along the strip fired a route change per keypress, instead of letting someone
+ * move focus and then choose. The appearance is unchanged: the same class
+ * strips the Tabs primitives use, applied to a nav and its links.
  */
 export function NotificationsTabs() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const { pathname } = useLocation()
   const { hasPermission } = useAuth()
 
-  const visible = TABS.filter(
-    (tab) => !("permission" in tab) || hasPermission(tab.permission)
-  )
+  const visible = visibleNotificationDestinations(hasPermission)
 
   // Longest match first so /notifications/templates does not read as the
   // overview's /notifications prefix. Matched over every tab, not only the
   // visible ones, so a permitted deep link still highlights correctly.
   const active =
-    [...TABS]
-      .sort((a, b) => b.path.length - a.path.length)
-      .find((tab) => pathname.startsWith(tab.path))?.value ?? "overview"
+    [...NOTIFICATION_DESTINATIONS]
+      .sort((a, b) => b.route.length - a.route.length)
+      .find((tab) => pathname.startsWith(tab.route))?.id ?? "overview"
 
   return (
-    <Tabs
-      value={active}
-      onValueChange={(value) => {
-        const tab = TABS.find((item) => item.value === value)
-        if (tab) navigate(tab.path)
-      }}
+    <nav
+      aria-label={t("notifications.sectionsNavLabel")}
+      data-slot="tabs"
+      data-orientation="horizontal"
+      className="group/tabs flex gap-2 data-horizontal:flex-col"
     >
-      <TabsList>
-        {visible.map((tab) => (
-          <TabsTrigger key={tab.value} value={tab.value}>
-            {t(tab.labelKey)}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+      <div data-slot="tabs-list" className={cn(tabsListVariants())}>
+        {visible.map((tab) => {
+          const isActive = tab.id === active
+          return (
+            <Link
+              key={tab.id}
+              to={tab.route}
+              // `aria-current` is what tells assistive tech which section is
+              // open; `data-active` is what draws the pill. The current section
+              // stays a link so it can still be copied or opened in a new tab.
+              aria-current={isActive ? "page" : undefined}
+              data-active={isActive ? "" : undefined}
+              className={cn(tabsTriggerVariants())}
+            >
+              {t(tab.tabLabelKey)}
+            </Link>
+          )
+        })}
+      </div>
+    </nav>
   )
 }

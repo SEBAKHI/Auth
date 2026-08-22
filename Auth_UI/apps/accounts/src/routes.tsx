@@ -6,8 +6,8 @@ import { NotFoundPage } from "@authsystem/ui/error-pages/not-found"
 import { RouteErrorBoundary } from "@authsystem/ui/error-pages/route-error"
 import { lazyRoute, RouteFallback } from "@authsystem/ui/lazy-route"
 
-import { AccountShell } from "@/components/account-shell"
-import { AccountsLoginPage } from "@/pages/auth/login"
+import { AccountShell } from "./components/account-shell"
+import { AccountsLoginPage } from "./pages/auth/login"
 
 /**
  * Every page except the login screen and the shell is loaded on demand.
@@ -32,7 +32,7 @@ export const router = createBrowserRouter([
       { path: "/login", element: <AccountsLoginPage /> },
       {
         path: "/register",
-        lazy: lazyRoute(() => import("@/pages/auth/register"), (m) => m.RegisterPage),
+        lazy: lazyRoute(() => import("./pages/auth/register"), (m) => m.RegisterPage),
       },
       {
         path: "/forgot-password",
@@ -45,7 +45,7 @@ export const router = createBrowserRouter([
       {
         path: "/delete-account",
         lazy: lazyRoute(
-          () => import("@/pages/delete-account"),
+          () => import("./pages/delete-account"),
           (m) => m.DeleteAccountPage
         ),
       },
@@ -101,7 +101,7 @@ export const router = createBrowserRouter([
   {
     path: "/two-factor",
     lazy: lazyRoute(
-      () => import("@/pages/auth/two-factor"),
+      () => import("./pages/auth/two-factor"),
       (m) => m.AccountsTwoFactorPage
     ),
   },
@@ -144,7 +144,7 @@ export const router = createBrowserRouter([
   {
     path: "/account-recovery",
     lazy: lazyRoute(
-      () => import("@/pages/account-recovery"),
+      () => import("./pages/account-recovery"),
       (m) => m.AccountRecoveryPage
     ),
   },
@@ -153,7 +153,7 @@ export const router = createBrowserRouter([
   {
     path: "/deletion-scheduled",
     lazy: lazyRoute(
-      () => import("@/pages/deletion-scheduled"),
+      () => import("./pages/deletion-scheduled"),
       (m) => m.DeletionScheduledPage
     ),
   },
@@ -164,14 +164,14 @@ export const router = createBrowserRouter([
   {
     path: "/logout",
     lazy: lazyRoute(
-      () => import("@/pages/logout"),
+      () => import("./pages/logout"),
       (m) => m.LogoutConfirmPage
     ),
   },
   {
     path: "/signed-out",
     lazy: lazyRoute(
-      () => import("@/pages/signed-out"),
+      () => import("./pages/signed-out"),
       (m) => m.SignedOutPage
     ),
   },

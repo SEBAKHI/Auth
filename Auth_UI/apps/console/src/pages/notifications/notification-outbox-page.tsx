@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef, SortingState } from "@tanstack/react-table"
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
 import { RotateCcw } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
@@ -18,13 +18,49 @@ import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import { formatDateTime } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import {
+  enumArrayUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
+import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
 import { NotificationsTabs } from "./components/notifications-tabs"
 import { OutboxMessageSheet } from "./components/outbox-message-sheet"
 
 type OutboxMessageDto = Schemas["NotificationOutboxMessageDto"]
 
-const STATUS_BADGES: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const OUTBOX_STATUSES = [
+  "Pending",
+  "Processing",
+  "Sent",
+  "Retry",
+  "Dead",
+] as const
+
+const OUTBOX_STATUS_VALUES: Record<(typeof OUTBOX_STATUSES)[number], number> = {
+  Pending: 0,
+  Processing: 1,
+  Sent: 2,
+  Retry: 3,
+  Dead: 4,
+}
+
+type OutboxListFilters = {
+  statuses: Array<(typeof OUTBOX_STATUSES)[number]>
+}
+
+const OUTBOX_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: SORTABLE_COLUMNS.notificationOutbox,
+  defaultSorting: [{ id: "createdAt", desc: true }],
+  filters: { statuses: enumArrayUrlFilter(OUTBOX_STATUSES, "status") },
+} satisfies ListUrlStateOptions<OutboxListFilters>
+
+const STATUS_BADGES: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   Pending: "outline",
   Processing: "secondary",
   Sent: "default",
@@ -43,22 +79,42 @@ export function NotificationOutboxPage() {
   const { hasPermission } = useAuth()
   const queryClient = useQueryClient()
 
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  const [searchInput, setSearchInput] = React.useState("")
+  const {
+    pageIndex: page,
+    pageSize,
+    search: searchInput,
+    sorting,
+    filters: { statuses },
+    setSearch: setSearchInput,
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+    setFilters,
+  } = useListUrlState(OUTBOX_LIST_URL_OPTIONS)
   const search = useDebouncedValue(searchInput)
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "createdAt", desc: true },
-  ])
   const { sortBy, sortDirection } = toSortParams(sorting)
   const [selected, setSelected] = React.useState<OutboxMessageDto | undefined>()
+
+  const columnFilters: ColumnFiltersState = statuses.length
+    ? [{ id: "status", value: statuses }]
+    : []
+  const onColumnFiltersChange = (next: ColumnFiltersState) => {
+    setFilters({
+      statuses:
+        (next.find((filter) => filter.id === "status")?.value as
+          | OutboxListFilters["statuses"]
+          | undefined) ?? [],
+    })
+  }
+  const status =
+    statuses.length === 1 ? OUTBOX_STATUS_VALUES[statuses[0]] : undefined
 
   const canManage = hasPermission(PERMISSIONS.notificationTemplates.manage)
 
   const query = useQuery({
     queryKey: [
       "notification-outbox",
-      { page, pageSize, search, sortBy, sortDirection },
+      { page, pageSize, search, status, sortBy, sortDirection },
     ],
     queryFn: () =>
       unwrap(
@@ -67,6 +123,7 @@ export function NotificationOutboxPage() {
             query: {
               pageNumber: page + 1,
               pageSize,
+              status,
               searchTerm: search || undefined,
               sortBy,
               sortDirection,
@@ -135,7 +192,7 @@ export function NotificationOutboxPage() {
       header: t("notifications.language"),
       meta: { label: t("notifications.language") },
       cell: ({ row }) => (
-        <span className="text-sm uppercase text-muted-foreground" dir="ltr">
+        <span className="text-sm text-muted-foreground uppercase" dir="ltr">
           {row.original.languageCode}
         </span>
       ),
@@ -215,10 +272,13 @@ export function NotificationOutboxPage() {
             id: "actions",
             enableSorting: false,
             enableHiding: false,
-            header: () => <span className="sr-only">{t("common.actions")}</span>,
+            header: () => (
+              <span className="sr-only">{t("common.actions")}</span>
+            ),
             cell: ({ row }) => {
               const message = row.original
-              const retryable = message.status === "Retry" || message.status === "Dead"
+              const retryable =
+                message.status === "Retry" || message.status === "Dead"
               return retryable ? (
                 <div className="text-end">
                   <Button
@@ -226,7 +286,9 @@ export function NotificationOutboxPage() {
                     size="icon-sm"
                     aria-label={t("notifications.retryNow")}
                     disabled={retryMutation.isPending}
-                    onClick={() => message.id && retryMutation.mutate(message.id)}
+                    onClick={() =>
+                      message.id && retryMutation.mutate(message.id)
+                    }
                   >
                     <RotateCcw />
                   </Button>
@@ -249,10 +311,7 @@ export function NotificationOutboxPage() {
 
       <SearchInput
         value={searchInput}
-        onChange={(value) => {
-            setSearchInput(value)
-            setPage(0)
-          }}
+        onChange={setSearchInput}
         placeholder={t("notifications.outboxSearchPlaceholder")}
       />
 
@@ -264,11 +323,10 @@ export function NotificationOutboxPage() {
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
         sorting={sorting}
-        onSortingChange={(next) => {
-          setSorting(next)
-          setPage(0)
-        }}
+        onSortingChange={setSorting}
         enableRowDetail={false}
         pagination={{
           pageIndex: page,
@@ -276,10 +334,7 @@ export function NotificationOutboxPage() {
           pageCount: toNumber(query.data?.totalPages),
           totalCount: toNumber(query.data?.totalCount),
           onPageChange: setPage,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPage(0)
-          },
+          onPageSizeChange: setPageSize,
         }}
       />
 

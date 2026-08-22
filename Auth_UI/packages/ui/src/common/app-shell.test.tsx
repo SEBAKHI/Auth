@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import "@authsystem/i18n"
 import { DirectionProvider } from "@authsystem/i18n/direction"
 import { TooltipProvider } from "@authsystem/ui/tooltip"
+import { crumb } from "@authsystem/ui/crumbs"
 import { AppShell, type AppNavItem } from "./app-shell"
 
 // The header's account, language and theme controls each pull an API-backed
@@ -50,9 +51,19 @@ function renderShell(...initialEntries: string[]) {
             homeKey="dashboard"
           />
         ),
+        handle: crumb("dashboard", "/"),
         children: [
           { index: true, element: <div>dashboard page</div> },
-          { path: "organizations", element: <div>organizations page</div> },
+          {
+            path: "organizations",
+            element: <div>organizations page</div>,
+            handle: crumb("organizations", "/organizations"),
+          },
+          {
+            path: "organizations/:id",
+            element: <div>organization page</div>,
+            handle: crumb("organizations", "/organizations", true),
+          },
         ],
       },
     ],
@@ -161,5 +172,52 @@ describe("AppShell mobile navigation", () => {
     expect(
       document.querySelector('[data-slot="sheet-overlay"]')
     ).not.toBeNull()
+  })
+})
+
+/**
+ * The way back on a screen too narrow for a trail.
+ *
+ * The header gives the trail about a hundred pixels below `lg`, which truncated
+ * every crumb to two characters - a trail that answers neither of the two
+ * questions a breadcrumb exists to answer. These cases pin the replacement:
+ * one link, naming the page one level up.
+ */
+describe("AppShell parent link", () => {
+  const parentLink = () =>
+    screen
+      .queryAllByRole("link")
+      .find((link) =>
+        link.querySelector('[data-slot="parent-link-label"]')
+      )
+
+  it("points a record back at the list it belongs to", () => {
+    renderShell("/organizations/abc")
+
+    const link = parentLink()
+    expect(link).toBeDefined()
+    expect(link).toHaveAttribute("href", "/organizations")
+    expect(link).toHaveTextContent("Organizations")
+  })
+
+  it("points a top-level list back at home", () => {
+    renderShell("/organizations")
+
+    expect(parentLink()).toHaveAttribute("href", "/")
+  })
+
+  it("offers nothing to climb from home itself", () => {
+    renderShell("/")
+
+    expect(parentLink()).toBeUndefined()
+  })
+
+  it("keeps the full trail available for wide screens", () => {
+    renderShell("/organizations/abc")
+
+    // Both surfaces exist in the markup; CSS decides which one the width gets.
+    const trail = document.querySelector('[data-slot="breadcrumb"]')
+    expect(trail).not.toBeNull()
+    expect(trail?.className).toContain("lg:flex")
   })
 })

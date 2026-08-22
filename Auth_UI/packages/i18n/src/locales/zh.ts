@@ -117,6 +117,8 @@ export const zh: TranslationResources = {
     discard: "放弃",
     discardTitle: "放弃更改？",
     discardBody: "您有未保存的更改。如果现在离开，这些更改将丢失。",
+    saveInProgressTitle: "正在保存",
+    saveInProgressBody: "请等待保存完成，或取消此次导航并留在当前页面。",
     saveWithCount: "保存（{{count}}）",
     changesSaved: "更改已保存",
     applyChangesTitle: "要应用这些更改吗？",
@@ -173,7 +175,8 @@ export const zh: TranslationResources = {
     backToSignIn: "返回登录",
     signOutTitle: "要退出 {{name}} 吗？",
     signOutTitleNoApp: "退出登录？",
-    signOutBody: "这将结束您的单点登录（SSO）会话——即让您无需再次输入密码即可进入其他应用的那个会话。您已经进入的应用会保留自己的会话，直到该应用将其结束。",
+    signOutBody:
+      "这将结束您的单点登录（SSO）会话——即让您无需再次输入密码即可进入其他应用的那个会话。您已经进入的应用会保留自己的会话，直到该应用将其结束。",
     signOutConfirm: "退出登录",
     signOutCancel: "保持登录",
     signedOutTitle: "您已退出登录",
@@ -279,7 +282,8 @@ export const zh: TranslationResources = {
     alertLockedOut: "{{count}} 个账户已被锁定",
     alertLockedOutBody: "在锁定到期或被解除之前，它们无法登录。",
     alertFailingIp: "某个地址持续产生失败尝试",
-    alertFailingIpBody: "{{ip}} 针对 {{users}} 个用户名产生了 {{count}} 次失败尝试。",
+    alertFailingIpBody:
+      "{{ip}} 针对 {{users}} 个用户名产生了 {{count}} 次失败尝试。",
     alertStaleSessions: "{{count}} 个会话已超过有效期",
     alertStaleSessionsBody: "它们仍处于打开状态，从未被关闭。",
     alertExpiringEnablements: "{{count}} 项订阅即将到期",
@@ -305,7 +309,8 @@ export const zh: TranslationResources = {
     failedAttemptsSubtitle: "每个周期被拒绝的登录尝试。",
     whereSignIns: "登录发生在哪里",
     whereSignInsSubtitle: "各应用的尝试次数、成功率与覆盖人数。",
-    whereSignInsOrgNote: "按登录用户的成员关系归属：隶属多个组织的用户会在每个组织中各计一次，因此合计可能超过实际尝试次数。",
+    whereSignInsOrgNote:
+      "按登录用户的成员关系归属：隶属多个组织的用户会在每个组织中各计一次，因此合计可能超过实际尝试次数。",
     applications: "应用",
     organizations: "组织",
     colName: "名称",
@@ -429,6 +434,8 @@ export const zh: TranslationResources = {
     unlock: "解锁",
     activate: "激活",
     deactivate: "停用",
+    deactivateTitle: "要停用此账户吗？",
+    deactivateBody: "{{name}} 将在所有设备上退出登录，并且在账户重新启用之前无法登录。",
     lockTitle: "锁定账户",
     lockReason: "原因",
     lockReasonPlaceholder: "来自未知设备的多次登录失败",
@@ -570,7 +577,8 @@ export const zh: TranslationResources = {
     accessModeEveryone: "所有人",
     accessModeEveryoneHint: "平台上的任何用户都可以使用此应用。",
     accessModeRestricted: "仅受邀人员",
-    accessModeRestrictedHint: "只有您添加的人才能登录。试用应用时请使用此模式。",
+    accessModeRestrictedHint:
+      "只有您添加的人才能登录。试用应用时请使用此模式。",
     openToEveryoneNotice:
       "此应用对所有人开放，因此下方列表仅供参考——无论是否列出，任何人都可以登录。",
     manageAccess: "试用用户",
@@ -814,7 +822,8 @@ export const zh: TranslationResources = {
     key: "键",
     value: "值",
     importValuePlaceholder: "按导出时的原样粘贴密钥内容",
-    importBody: "系统会先校验密钥内容，再通过电子邮件发送确认码，之后才会替换任何内容。",
+    importBody:
+      "系统会先校验密钥内容，再通过电子邮件发送确认码，之后才会替换任何内容。",
     rsaPem: "RSA 私钥（PEM）",
     hmacBase64: "HMAC 密钥（base64）",
     tokenValue: "令牌值",
@@ -925,9 +934,17 @@ export const zh: TranslationResources = {
     discardDraftBody: "所有语言的未发布编辑都将丢失。",
     draftDiscarded: "草稿已放弃",
     publish: "发布",
+    publishConfirmTitle: "发布{{item}}？",
+    publishConfirmBody: "已保存的草稿将在下方所示范围内生效。",
     publishedToast: "已发布",
     unpublish: "取消发布",
+    unpublishConfirmTitle: "取消发布{{item}}？",
+    unpublishConfirmBody: "已发布的模板将不再用于下方所示范围。",
     unpublishedToast: "已取消发布",
+    confirmationItem: "项目",
+    confirmationVersion: "版本",
+    confirmationScope: "范围",
+    savedDraftRevision: "已保存草稿 · {{modifiedAt}}",
     unsavedChanges: "未保存的更改",
     unpublishedChanges: "未发布的更改",
     deleteTitle: "删除模板？",
@@ -977,6 +994,7 @@ export const zh: TranslationResources = {
     tabLayouts: "布局",
     tabDeliveryLog: "投递日志",
     tabPolicy: "隐私政策",
+    sectionsNavLabel: "通知分区",
     policyTitle: "隐私政策版本",
     policySubtitle: "跟踪政策修订并将重大变更通知用户。",
     policyVersion: "版本",
@@ -1010,7 +1028,8 @@ export const zh: TranslationResources = {
     policyPublishedToast: "政策版本已发布。",
     policyEditContent: "编辑内容",
     policyContentTitle: "政策内容 — {{version}}",
-    policyContentDescription: "按语言编辑已发布的政策文本。存储于数据库，无需部署。",
+    policyContentDescription:
+      "按语言编辑已发布的政策文本。存储于数据库，无需部署。",
     policyContentSaved: "政策内容已保存。",
     policyTokens: "动态值（请勿硬编码）：",
     policyPreview: "预览",
@@ -1021,7 +1040,8 @@ export const zh: TranslationResources = {
     policyEffectiveLabelPlaceholder: "自 2026 年 7 月 28 日起生效",
     policyVersionLabel: "版本标签",
     policyDraftWarning: "草稿警告",
-    policyDraftWarningPlaceholder: "草稿——在数据控制者信息全部填写完成前请勿发布。",
+    policyDraftWarningPlaceholder:
+      "草稿——在数据控制者信息全部填写完成前请勿发布。",
     policyIntro: "引言",
     policySections: "正文章节",
     policyRetention: "保留期表格",
@@ -1050,46 +1070,51 @@ export const zh: TranslationResources = {
     policySectionNumber: "第 {{number}} 节",
     policyRemoveSection: "删除本节",
     policyRemoveSectionTitle: "删除此节？",
-    policyRemoveSectionBody: "其标题、段落和要点将从该语言的文档中删除。其他语言不受影响。",
+    policyRemoveSectionBody:
+      "其标题、段落和要点将从该语言的文档中删除。其他语言不受影响。",
     policyRemoveParagraph: "删除段落",
     policyRemoveBullet: "删除要点",
     policyRemoveRow: "删除行",
-    "policyJsonTab": "JSON",
-    "policyChangeNote": "变更说明",
-    "policyChangeNoteHint": "本次修订变更了什么？",
-    "policyNoChangeNote": "无变更说明",
-    "policySearchPlaceholder": "搜索版本或变更说明…",
-    "policyNotifiedFilterSent": "已通知",
-    "policyNotifiedBadge": "已通知 · {{count}} 位收件人",
-    "policyVersionDetails": "版本详情",
-    "policyNotFound": "此政策版本已不存在。它可能已被重命名或删除——请从版本列表中重新打开。",
+    policyJsonTab: "JSON",
+    policyChangeNote: "变更说明",
+    policyChangeNoteHint: "本次修订变更了什么？",
+    policyNoChangeNote: "无变更说明",
+    policySearchPlaceholder: "搜索版本或变更说明…",
+    policyNotifiedFilterSent: "已通知",
+    policyNotifiedBadge: "已通知 · {{count}} 位收件人",
+    policyVersionDetails: "版本详情",
+    policyNotFound:
+      "此政策版本已不存在。它可能已被重命名或删除——请从版本列表中重新打开。",
     policyClone: "克隆",
     policyCloneTitle: "克隆此政策版本",
-    policyCloneDescription: "创建新版本并从 {{source}} 复制全部 {{count}} 种语言文档，让您编辑草稿而不是从空白页开始。",
+    policyCloneDescription:
+      "创建新版本并从 {{source}} 复制全部 {{count}} 种语言文档，让您编辑草稿而不是从空白页开始。",
     policyCloneProgress: "正在复制语言…… {{total}} 中的 {{done}}",
     policyClonedToast: "已克隆版本，包含 {{count}} 种语言。",
     policyVersionRenameHint: "草稿仍可重命名。",
     policyVersionLockedHint: "已锁定：已发布或已通知的版本被删除记录引用。",
-    "policyTokenHint": "点击可插入到光标处。",
-    "policyToken_graceDays": "删除生效前的恢复期（天）。",
-    "policyToken_otpValidityMinutes": "删除验证码的有效期（分钟）。",
-    "policyToken_loginAttemptRetentionDays": "登录尝试记录的保存期（天）。",
-    "policyToken_outboxRetentionDays": "已发送邮件记录的保存期（天）。",
-    "policyToken_identifierReservationDays": "已删除邮箱禁止重新注册的时长（天）。",
-    "policyToken_legalName": "数据控制者的注册法律名称。",
-    "policyToken_address": "数据控制者的注册地址。",
-    "policyToken_privacyEmail": "处理隐私与权利请求的受监控邮箱。",
-    "policyToken_emailProvider": "共享一节中列明的邮件发送服务商。",
-    "policyToken_hostingProvider": "共享一节中列明的托管服务商。",
-    "policyToken_hostingCountry": "服务托管所在国家（仅名称）。",
-    "overviewPolicy": "隐私政策版本",
-    "overviewViewPolicy": "查看政策",
-    "overviewPolicyHint": "已撰写 {{count}} 种语言",
-    "overviewNoPolicy": "尚未登记任何政策版本。",
+    policyTokenHint: "点击可插入到光标处。",
+    policyToken_graceDays: "删除生效前的恢复期（天）。",
+    policyToken_otpValidityMinutes: "删除验证码的有效期（分钟）。",
+    policyToken_loginAttemptRetentionDays: "登录尝试记录的保存期（天）。",
+    policyToken_outboxRetentionDays: "已发送邮件记录的保存期（天）。",
+    policyToken_identifierReservationDays:
+      "已删除邮箱禁止重新注册的时长（天）。",
+    policyToken_legalName: "数据控制者的注册法律名称。",
+    policyToken_address: "数据控制者的注册地址。",
+    policyToken_privacyEmail: "处理隐私与权利请求的受监控邮箱。",
+    policyToken_emailProvider: "共享一节中列明的邮件发送服务商。",
+    policyToken_hostingProvider: "共享一节中列明的托管服务商。",
+    policyToken_hostingCountry: "服务托管所在国家（仅名称）。",
+    overviewPolicy: "隐私政策版本",
+    overviewViewPolicy: "查看政策",
+    overviewPolicyHint: "已撰写 {{count}} 种语言",
+    overviewNoPolicy: "尚未登记任何政策版本。",
     policyButtonLabel: "删除按钮文案",
     policyButtonLabelPlaceholder: "删除我的账户",
     policySignedInHint: "已登录提示",
-    policySignedInHintPlaceholder: "已登录？您也可以在个人资料的“账户”标签页中进行此操作。",
+    policySignedInHintPlaceholder:
+      "已登录？您也可以在个人资料的“账户”标签页中进行此操作。",
     policyDpoLabel: "DPO 标签",
     policyDpoLabelPlaceholder: "数据保护官",
     policyVerbisLabel: "VERBİS 标签",
@@ -1186,8 +1211,7 @@ export const zh: TranslationResources = {
   },
   systemSettings: {
     title: "系统设置",
-    subtitle:
-      "配置平台的行为方式——密码策略、令牌、会话等——无需修改配置文件。",
+    subtitle: "配置平台的行为方式——密码策略、令牌、会话等——无需修改配置文件。",
     restartBannerTitle: "需要重启",
     restartBannerBody:
       "部分已保存的更改只有在 API 重启后才会生效。这些更改已安全保存，并将在下次重启时自动应用。",
@@ -1205,8 +1229,7 @@ export const zh: TranslationResources = {
     readOnly: "只读",
     resetSection: "重置为默认值",
     resetConfirmTitle: "重置此部分？",
-    resetConfirmBody:
-      "此部分中所有自定义的值将被移除，默认值将重新生效。",
+    resetConfirmBody: "此部分中所有自定义的值将被移除，默认值将重新生效。",
     saved: "设置已保存。",
     resetDone: "该部分已重置为默认值。",
     conflict:
@@ -1267,8 +1290,7 @@ export const zh: TranslationResources = {
       requireDigit: "要求包含数字",
       requireDigitHint: "拒绝不含 0–9 的密码。",
       requireSpecialCharacter: "要求包含特殊字符",
-      requireSpecialCharacterHint:
-        "拒绝仅由字母和数字组成的密码。",
+      requireSpecialCharacterHint: "拒绝仅由字母和数字组成的密码。",
       historyCount: "记住的历史密码数量",
       historyCountHint:
         "用户不能重复使用的历史密码数量。推荐：3–5。设为 0 则禁用此检查。",
@@ -1284,7 +1306,8 @@ export const zh: TranslationResources = {
       argon2Iterations: "Argon2 迭代次数",
       argon2IterationsHint: "推荐：2（此内存大小下的 OWASP 最低值）。",
       argon2Parallelism: "Argon2 并行度",
-      argon2ParallelismHint: "推荐：1（OWASP）。更改后现有密码仍然可用——将在下次登录时自动升级。",
+      argon2ParallelismHint:
+        "推荐：1（OWASP）。更改后现有密码仍然可用——将在下次登录时自动升级。",
       saltSize: "盐长度（字节）",
       saltSizeHint: "固定为 OWASP 推荐值；不可配置。",
       hashSize: "哈希长度（字节）",
@@ -1336,8 +1359,7 @@ export const zh: TranslationResources = {
       exemptPathsHint:
         "无需网关请求头即可访问的路径——健康探测和公开的发现文档。条目必须以 '/' 开头；结尾的 '/' 匹配整个前缀。",
       tokenHeaderName: "请求头名称",
-      tokenHeaderNameHint:
-        "在网关侧固定；此处仅供参考。",
+      tokenHeaderNameHint: "在网关侧固定；此处仅供参考。",
       expectedToken: "网关令牌",
     },
     cors: {
@@ -1402,7 +1424,8 @@ export const zh: TranslationResources = {
     },
     externalAuth: {
       requireNonce: "要求由服务器签发的一次性随机值",
-      requireNonceHint: "要求第三方登录出示本服务器为该浏览器签发的一次性值，使为他人浏览器签发的被盗令牌被拒绝。仅在已部署的前端开始获取该值之后再开启；在此之前将接受浏览器自行生成的值，而那并不能证明任何事。推荐：开启。",
+      requireNonceHint:
+        "要求第三方登录出示本服务器为该浏览器签发的一次性值，使为他人浏览器签发的被盗令牌被拒绝。仅在已部署的前端开始获取该值之后再开启；在此之前将接受浏览器自行生成的值，而那并不能证明任何事。推荐：开启。",
       title: "外部登录（Google / Apple）",
       description:
         "社交登录提供方。此处的客户端 ID 是公开标识符；私钥保存在机密页面。提供方还必须在其目录条目中启用，登录按钮才会显示。",
@@ -1456,8 +1479,7 @@ export const zh: TranslationResources = {
       description:
         "平台发送邮件的方式——验证码、密码重置、邀请函。更换服务器后，请先使用“发送测试邮件”验证连接，再让真实业务依赖它。",
       enabled: "邮件发送",
-      enabledHint:
-        "总开关。关闭后，需要邮件的流程（验证、重置）将不可用。",
+      enabledHint: "总开关。关闭后，需要邮件的流程（验证、重置）将不可用。",
       smtpHost: "SMTP 服务器",
       smtpHostHint: "邮件服务器的主机名，例如 mail.example.com。",
       smtpPort: "SMTP 端口",
@@ -1476,20 +1498,24 @@ export const zh: TranslationResources = {
       frontendBaseUrlHint:
         "账户应用的绝对地址；所有邮件中的链接（重置、验证）都基于它生成。启用邮件发送时必填。",
       otpExpirationMinutes: "验证码有效期（分钟）",
-      otpExpirationMinutesHint: "推荐：5–15——足够用户输入，又短到无法被窃取利用。",
+      otpExpirationMinutesHint:
+        "推荐：5–15——足够用户输入，又短到无法被窃取利用。",
       resetTokenExpirationMinutes: "重置链接有效期（分钟）",
       resetTokenExpirationMinutesHint: "推荐：30–60。",
       rateLimitWindowSeconds: "发送速率窗口（秒）",
-      rateLimitWindowSecondsHint: "下方按地址发送限制所用的时间窗口。推荐：60。",
+      rateLimitWindowSecondsHint:
+        "下方按地址发送限制所用的时间窗口。推荐：60。",
       maxOtpRequestsPerWindow: "每窗口验证码数量",
       maxOtpRequestsPerWindowHint:
         "单个地址在每个窗口内可请求的验证码上限。推荐：3——防止邮件轰炸。",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "新设备登录时提醒",
-      newDeviceAlertEnabledHint: "当首次从未使用过的设备登录时，向账户所有者发送邮件。推荐：开启。",
+      newDeviceAlertEnabledHint:
+        "当首次从未使用过的设备登录时，向账户所有者发送邮件。推荐：开启。",
       newDeviceAlertMinIntervalMinutes: "提醒之间的最小间隔（分钟）",
-      newDeviceAlertMinIntervalMinutesHint: "避免密集登录产生密集邮件。填 0 则每台新设备都发送一封。推荐：60。",
+      newDeviceAlertMinIntervalMinutesHint:
+        "避免密集登录产生密集邮件。填 0 则每台新设备都发送一封。推荐：60。",
       title: "通知投递",
       description:
         "外发通知的投递方式：直接发送，或通过可靠发件箱——失败自动重试、重启后不丢失。内容和模板在通知页面管理。",
@@ -1509,11 +1535,13 @@ export const zh: TranslationResources = {
     },
     geoIp: {
       title: "IP 地理定位",
-      description: "将登录 IP 地址解析为国家和城市，使登录历史与新设备提醒能够说明尝试来自何处。需要本地的 MaxMind 数据库文件；没有该文件则功能保持关闭，位置显示为未知。",
+      description:
+        "将登录 IP 地址解析为国家和城市，使登录历史与新设备提醒能够说明尝试来自何处。需要本地的 MaxMind 数据库文件；没有该文件则功能保持关闭，位置显示为未知。",
       enabled: "启用 IP 地理定位",
       enabledHint: "需要下方路径处存在数据库文件。重启后生效。",
       databasePath: "数据库文件路径",
-      databasePathHint: "服务器上 MaxMind GeoLite2 .mmdb 文件的绝对路径。重启后生效。",
+      databasePathHint:
+        "服务器上 MaxMind GeoLite2 .mmdb 文件的绝对路径。重启后生效。",
     },
     imageStorage: {
       title: "图片存储",
@@ -1527,7 +1555,8 @@ export const zh: TranslationResources = {
       publicBaseUrlHint:
         "所有返回的图片 URL 的前缀。请设为 API 的公开地址（或以根开头的路径），使徽标能通过网关正常显示。",
       requestPath: "访问路径",
-      requestPathHint: "图片对外提供访问的 URL 路径；在启动时固化到处理管道中。",
+      requestPathHint:
+        "图片对外提供访问的 URL 路径；在启动时固化到处理管道中。",
       maxSizeBytes: "上传大小上限（字节）",
       maxSizeBytesHint: "推荐：4194304（4 MB）——对徽标和头像绰绰有余。",
       maxMegapixels: "百万像素上限",
@@ -1544,8 +1573,7 @@ export const zh: TranslationResources = {
       description:
         "GDPR/KVKK 删除流程：永久擦除前的宽限期、确认码，以及执行删除的后台任务节奏。",
       graceDays: "宽限期（天）",
-      graceDaysHint:
-        "永久删除前允许反悔的时间。推荐：30（常见的合规实践）。",
+      graceDaysHint: "永久删除前允许反悔的时间。推荐：30（常见的合规实践）。",
       workerPollMinutes: "工作进程轮询（分钟）",
       workerPollMinutesHint: "到期删除的执行频率。推荐：15。",
       workerBatchSize: "工作进程批次大小",
@@ -1565,13 +1593,15 @@ export const zh: TranslationResources = {
       address: "注册地址",
       addressHint: "应在政策中显示的完整通信地址。",
       privacyEmail: "隐私联系邮箱",
-      privacyEmailHint: "必须是有人查看的邮箱——权利请求会发送至此，须在 30 天内答复。",
+      privacyEmailHint:
+        "必须是有人查看的邮箱——权利请求会发送至此，须在 30 天内答复。",
       emailProvider: "邮件发送服务商",
       emailProviderHint: "会出现在「我们与谁共享数据」一节中。",
       hostingProvider: "托管服务商",
       hostingProviderHint: "会出现在「我们与谁共享数据」一节中。",
       hostingCountry: "托管国家",
-      hostingCountryHint: "仅填国家名称，不加介词——土耳其语和法语句子会自行添加。",
+      hostingCountryHint:
+        "仅填国家名称，不加介词——土耳其语和法语句子会自行添加。",
       dpoContact: "数据保护官",
       dpoContactHint: "可选。留空则不显示该行；GDPR 仅在特定情形下要求设立。",
       verbisNo: "VERBİS 注册号",
@@ -1581,17 +1611,22 @@ export const zh: TranslationResources = {
     },
     expiredDataCleanup: {
       title: "过期数据清理",
-      description: "已不再使用的数据行在每日清理删除它们之前保留多久。这不是有效期——这里的每一行都已失效。它们决定该行作为证据还能有多大用处：被吊销的刷新令牌是把被盗令牌变成已发现盗用的关键，被使用过的授权码则是证明重放的关键。",
+      description:
+        "已不再使用的数据行在每日清理删除它们之前保留多久。这不是有效期——这里的每一行都已失效。它们决定该行作为证据还能有多大用处：被吊销的刷新令牌是把被盗令牌变成已发现盗用的关键，被使用过的授权码则是证明重放的关键。",
       enabled: "运行每日清理",
       enabledHint: "关闭后所有表都不会被触碰，会无限增长。推荐：开启。",
       workerPollMinutes: "检查间隔（分钟）",
-      workerPollMinutesHint: "后台服务多久检查一次当天的清理是否已执行。清理本身每天运行一次。推荐：15。",
+      workerPollMinutesHint:
+        "后台服务多久检查一次当天的清理是否已执行。清理本身每天运行一次。推荐：15。",
       batchSize: "每条语句的行数",
-      batchSizeHint: "保持在 SQL Server 将行锁升级为整表锁的约 5000 个锁之下，否则会阻塞该表上的所有活动查询。推荐：4000。",
+      batchSizeHint:
+        "保持在 SQL Server 将行锁升级为整表锁的约 5000 个锁之下，否则会阻塞该表上的所有活动查询。推荐：4000。",
       maxRowsPerTablePerRun: "每次运行每表上限",
-      maxRowsPerTablePerRunHint: "限制首次运行——只有它需要面对自部署以来积累的全部数据。剩余部分次日继续。推荐：200000。",
+      maxRowsPerTablePerRunHint:
+        "限制首次运行——只有它需要面对自部署以来积累的全部数据。剩余部分次日继续。推荐：200000。",
       authorizationCodeDays: "授权码（天）",
-      authorizationCodeDaysHint: "它们只存活约 60 秒；这个窗口用于调查重放，而非让其保持有效。推荐：7。",
+      authorizationCodeDaysHint:
+        "它们只存活约 60 秒；这个窗口用于调查重放，而非让其保持有效。推荐：7。",
       twoFactorChallengeDays: "双因素验证码（天）",
       twoFactorChallengeDaysHint: "足以调查一轮猜测尝试。推荐：7。",
       passwordResetTokenDays: "密码重置令牌（天）",
@@ -1601,7 +1636,8 @@ export const zh: TranslationResources = {
       idpSessionDays: "单点登录（SSO）会话（天）",
       idpSessionDaysHint: "从过期或吊销起算，而非从创建起算。推荐：30。",
       refreshTokenDays: "刷新令牌（天）",
-      refreshTokenDaysHint: "最长也最关键的窗口：被吊销的记录是把被盗令牌变成已发现盗用的唯一凭据，而仪表板最多按 90 天统计吊销情况。无论此处填写多少，代码中都以 90 天为下限。",
+      refreshTokenDaysHint:
+        "最长也最关键的窗口：被吊销的记录是把被盗令牌变成已发现盗用的唯一凭据，而仪表板最多按 90 天统计吊销情况。无论此处填写多少，代码中都以 90 天为下限。",
     },
     dataRetention: {
       title: "隐私与数据保留",
@@ -1632,8 +1668,7 @@ export const zh: TranslationResources = {
     },
     healthChecks: {
       title: "健康检查",
-      description:
-        "供网关和监控使用的公开 /health 和 /ready 探测端点。",
+      description: "供网关和监控使用的公开 /health 和 /ready 探测端点。",
       exposeErrorDetails: "暴露错误详情",
       exposeErrorDetailsHint:
         "在探测响应中包含异常消息。推荐：生产环境关闭——这些端点可被公开访问。",
@@ -1846,5 +1881,27 @@ export const zh: TranslationResources = {
     unexpectedTitle: "出了点问题",
     reload: "重新加载页面",
     uploadFailed: "图片上传失败（HTTP {{status}}）。",
+    feedback: {
+      title: "无法完成操作",
+      retry: "重试",
+      fieldInvalid: "请检查此值，然后重试。",
+      validation: "部分信息未被接受。请更正突出显示的字段，然后重新提交。",
+      authentication: "您的会话已失效。请重新登录，然后再次执行此操作。",
+      authorization: "您无权完成此操作。请向管理员申请访问权限。",
+      notFound: "此项目已不可用。请刷新页面并选择现有项目。",
+      conflict: "操作完成前数据已更改。请重新加载并检查最新值，然后重试。",
+      rateLimit: "发送的请求过多。请稍候再试。",
+      server: "服务无法完成此操作。请重试；如果问题持续，请联系支持人员。",
+      network: "无法连接服务器。请检查网络连接，然后重试。",
+      unknown: "操作未完成。请重试；如果问题持续，请联系支持人员。",
+      duplicateEmail: "此电子邮件地址已被使用。请输入其他地址并重新提交。",
+      invalidCredentials: "电子邮件地址或密码未被接受。请检查后重试。",
+      pendingDeletion: "此帐户已计划删除。请先使用帐户恢复，再登录。",
+      staleData:
+        "此项目在加载后已更改。请重新加载并检查最新版本，然后再次操作。",
+      invalidChallengeCode: "确认码未被接受。请输入最新的确认码，然后重试。",
+      connectionUnreachable:
+        "无法验证连接。请检查连接详细信息；只有当您已通过其他方式验证时，才应选择仍然保存。",
+    },
   },
 }

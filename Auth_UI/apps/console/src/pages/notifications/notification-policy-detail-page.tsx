@@ -1,5 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Check, CheckCircle2, Plus, Save, Trash2, TriangleAlert } from "lucide-react"
+import {
+  Check,
+  CheckCircle2,
+  Plus,
+  Save,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
@@ -22,7 +29,12 @@ import {
 } from "@authsystem/ui/common/policy-document"
 import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { DatePicker, monthsFromNow } from "@authsystem/ui/common/date-picker"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@authsystem/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
@@ -37,37 +49,18 @@ import { PolicyLanguageGapNotice } from "./components/policy-language-gap-notice
 import { PolicyPreviewPane } from "./components/policy-preview-pane"
 import { PolicyVersionField } from "./components/policy-version-field"
 import { Spinner } from "@authsystem/ui/spinner"
+import { PolicyTokenPalette } from "./components/policy-token-palette"
+import { useFocusedField } from "./components/use-focused-field"
 import {
-  PolicyTokenPalette,
-  useFocusedField,
-} from "./components/policy-token-palette"
+  parsePolicyDocument,
+  type PolicyContentState,
+} from "./notification-policy-state"
 
-/** Shape used when starting a language that has no document yet. */
-const EMPTY_DOCUMENT: PrivacyPolicyContent = {
-  title: "",
-  effectiveDate: "",
-  versionLabel: "Version",
-  intro: [""],
-  sections: [],
-  retention: {
-    heading: "",
-    intro: "",
-    columns: ["", "", ""],
-    rows: [],
-  },
-  deletion: {
-    heading: "",
-    paragraphs: [""],
-    bullets: [""],
-    button: "",
-    signedInHint: "",
-  },
-  rights: [],
-  closing: [],
-  contactDpoLabel: "",
-  contactVerbisLabel: "",
-  contactKepLabel: "",
-  unfilledWarning: "",
+interface PolicyMetaState {
+  source: unknown
+  versionName: string
+  effectiveDate: string
+  changeNote: string
 }
 
 /**
@@ -91,15 +84,10 @@ export function NotificationPolicyDetailPage() {
   const canManage = hasPermission(PERMISSIONS.privacyPolicy.manage)
 
   const [language, setLanguage] = React.useState("en")
-  const [doc, setDoc] = React.useState<PrivacyPolicyContent | null>(null)
-  const [dirty, setDirty] = React.useState(false)
-  const [parseError, setParseError] = React.useState<string | null>(null)
-  const [pendingLanguage, setPendingLanguage] = React.useState<string | null>(null)
+  const [pendingLanguage, setPendingLanguage] = React.useState<string | null>(
+    null
+  )
   const [confirmingPublish, setConfirmingPublish] = React.useState(false)
-  const [versionName, setVersionName] = React.useState("")
-  const [effectiveDate, setEffectiveDate] = React.useState("")
-  const [changeNote, setChangeNote] = React.useState("")
-  const [metaDirty, setMetaDirty] = React.useState(false)
 
   const { onFocusCapture, insert } = useFocusedField()
 
@@ -114,12 +102,32 @@ export function NotificationPolicyDetailPage() {
 
   usePageBreadcrumb(version || undefined)
 
-  React.useEffect(() => {
-    if (!versionRow || metaDirty) return
-    setVersionName(versionRow.version ?? "")
-    setEffectiveDate((versionRow.effectiveDateUtc ?? "").slice(0, 10))
-    setChangeNote(versionRow.changeNote ?? "")
-  }, [versionRow, metaDirty])
+  const loadedMeta = React.useMemo<PolicyMetaState>(
+    () => ({
+      source: versionRow,
+      versionName: versionRow?.version ?? "",
+      effectiveDate: (versionRow?.effectiveDateUtc ?? "").slice(0, 10),
+      changeNote: versionRow?.changeNote ?? "",
+    }),
+    [versionRow]
+  )
+  const [editedMeta, setEditedMeta] = React.useState<PolicyMetaState | null>(
+    null
+  )
+  const meta =
+    editedMeta !== null && editedMeta.source === versionRow
+      ? editedMeta
+      : loadedMeta
+  const { versionName, effectiveDate, changeNote } = meta
+  const metaDirty = editedMeta !== null && editedMeta.source === versionRow
+  const updateMeta = (patch: Partial<Omit<PolicyMetaState, "source">>) => {
+    setEditedMeta((current) => ({
+      ...(current !== null && current.source === versionRow
+        ? current
+        : loadedMeta),
+      ...patch,
+    }))
+  }
 
   const contentQuery = useQuery({
     queryKey: ["privacy-policy-content", id, language],
@@ -137,26 +145,33 @@ export function NotificationPolicyDetailPage() {
   const publishedQuery = useQuery({
     queryKey: ["privacy-policy-disclosure"],
     queryFn: () =>
-      unwrap(api.GET("/api/v1/privacy-policy/published", { params: { query: {} } })),
+      unwrap(
+        api.GET("/api/v1/privacy-policy/published", { params: { query: {} } })
+      ),
     staleTime: 5 * 60 * 1000,
   })
 
-  React.useEffect(() => {
-    if (!contentQuery.data || dirty) return
-    const raw = contentQuery.data.contentJson
-    if (!raw) {
-      setDoc(structuredClone(EMPTY_DOCUMENT))
-      setParseError(null)
-      return
-    }
-    try {
-      setDoc(JSON.parse(raw) as PrivacyPolicyContent)
-      setParseError(null)
-    } catch (error) {
-      setDoc(null)
-      setParseError((error as Error).message)
-    }
-  }, [contentQuery.data, dirty])
+  const loadedContent = React.useMemo(
+    () => parsePolicyDocument(contentQuery.data, language),
+    [contentQuery.data, language]
+  )
+  const [editedContent, setEditedContent] =
+    React.useState<PolicyContentState | null>(null)
+  const content =
+    editedContent !== null &&
+    editedContent.source === contentQuery.data &&
+    editedContent.language === language
+      ? editedContent
+      : loadedContent
+  const { doc, dirty, parseError } = content
+  const setDirty = (next: boolean) =>
+    setEditedContent((current) =>
+      current !== null &&
+      current.source === contentQuery.data &&
+      current.language === language
+        ? { ...current, dirty: next }
+        : current
+    )
 
   /**
    * One Save for the whole page. Splitting it into "save content" and "save
@@ -196,9 +211,13 @@ export function NotificationPolicyDetailPage() {
     },
     onSuccess: () => {
       setDirty(false)
-      setMetaDirty(false)
-      void queryClient.invalidateQueries({ queryKey: ["privacy-policy-content"] })
-      void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
+      setEditedMeta(null)
+      void queryClient.invalidateQueries({
+        queryKey: ["privacy-policy-content"],
+      })
+      void queryClient.invalidateQueries({
+        queryKey: ["privacy-policy-versions"],
+      })
       toast.success(t("notifications.policyContentSaved"))
     },
     onError: (error) => toast.error(getErrorMessage(error)),
@@ -206,9 +225,15 @@ export function NotificationPolicyDetailPage() {
 
   const publishMutation = useMutation({
     mutationFn: () =>
-      unwrap(api.POST("/api/v1/privacy-policy/versions/publish", { body: { version } })),
+      unwrap(
+        api.POST("/api/v1/privacy-policy/versions/publish", {
+          body: { version },
+        })
+      ),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["privacy-policy-versions"] })
+      void queryClient.invalidateQueries({
+        queryKey: ["privacy-policy-versions"],
+      })
       toast.success(t("notifications.policyPublishedToast"))
       setConfirmingPublish(false)
     },
@@ -216,16 +241,34 @@ export function NotificationPolicyDetailPage() {
   })
 
   // Leaving with unsaved legal text must never be silent.
-  const unsavedPrompt = useUnsavedChangesPrompt(dirty || metaDirty)
+  const unsavedPrompt = useUnsavedChangesPrompt({
+    isDirty: dirty || metaDirty,
+  })
 
-  const patch = React.useCallback((next: Partial<PrivacyPolicyContent>) => {
-    setDoc((current) => (current ? { ...current, ...next } : current))
-    setDirty(true)
-  }, [])
+  const patch = React.useCallback(
+    (next: Partial<PrivacyPolicyContent>) => {
+      setEditedContent((current) => {
+        const base =
+          current !== null &&
+          current.source === contentQuery.data &&
+          current.language === language
+            ? current
+            : loadedContent
+        return {
+          ...base,
+          doc: base.doc ? { ...base.doc, ...next } : base.doc,
+          dirty: true,
+        }
+      })
+    },
+    [contentQuery.data, language, loadedContent]
+  )
 
   const disclosure: PolicyDisclosure = {
     graceDays: Number(publishedQuery.data?.disclosure?.graceDays ?? 30),
-    otpValidityMinutes: Number(publishedQuery.data?.disclosure?.otpValidityMinutes ?? 15),
+    otpValidityMinutes: Number(
+      publishedQuery.data?.disclosure?.otpValidityMinutes ?? 15
+    ),
     loginAttemptRetentionDays: Number(
       publishedQuery.data?.disclosure?.loginAttemptRetentionDays ?? 365
     ),
@@ -266,7 +309,9 @@ export function NotificationPolicyDetailPage() {
 
   // A published or already-announced revision's identifier is referenced by
   // deletion records and by users' inboxes, so it can no longer move.
-  const versionLocked = Boolean(versionRow?.isPublished || versionRow?.notifiedAtUtc)
+  const versionLocked = Boolean(
+    versionRow?.isPublished || versionRow?.notifiedAtUtc
+  )
 
   // Direction of the locale being *edited*, which is not the console's. Every
   // control holding this document's copy takes it, rather than `dir="auto"`:
@@ -283,7 +328,9 @@ export function NotificationPolicyDetailPage() {
           description={t("notifications.policyContentDescription")}
         />
         <Alert variant="destructive">
-          <AlertDescription>{t("notifications.policyNotFound")}</AlertDescription>
+          <AlertDescription>
+            {t("notifications.policyNotFound")}
+          </AlertDescription>
         </Alert>
       </div>
     )
@@ -304,7 +351,9 @@ export function NotificationPolicyDetailPage() {
             <div className="flex items-center gap-2">
               <Button
                 variant="outline"
-                disabled={(!dirty && !metaDirty) || !doc || saveMutation.isPending}
+                disabled={
+                  (!dirty && !metaDirty) || !doc || saveMutation.isPending
+                }
                 onClick={() => saveMutation.mutate()}
               >
                 {saveMutation.isPending ? (
@@ -335,7 +384,9 @@ export function NotificationPolicyDetailPage() {
       {versionRow?.disclosureOutOfDate ? (
         <Alert>
           <TriangleAlert />
-          <AlertTitle>{t("notifications.policyDisclosureDriftTitle")}</AlertTitle>
+          <AlertTitle>
+            {t("notifications.policyDisclosureDriftTitle")}
+          </AlertTitle>
           <AlertDescription>
             {t("notifications.policyDisclosureDriftBody")}
           </AlertDescription>
@@ -358,7 +409,9 @@ export function NotificationPolicyDetailPage() {
             })}
           </Badge>
         ) : (
-          <Badge variant="outline">{t("notifications.policyNotNotified")}</Badge>
+          <Badge variant="outline">
+            {t("notifications.policyNotNotified")}
+          </Badge>
         )}
         {dirty || metaDirty ? (
           <Badge variant="outline">{t("notifications.unsavedChanges")}</Badge>
@@ -465,8 +518,7 @@ export function NotificationPolicyDetailPage() {
                       value={versionName}
                       disabled={!canManage || versionLocked}
                       onChange={(value) => {
-                        setVersionName(value)
-                        setMetaDirty(true)
+                        updateMeta({ versionName: value })
                       }}
                     />
                     <FieldDescription>
@@ -484,8 +536,7 @@ export function NotificationPolicyDetailPage() {
                       value={effectiveDate}
                       disabled={!canManage}
                       onChange={(value) => {
-                        setEffectiveDate(value ?? "")
-                        setMetaDirty(true)
+                        updateMeta({ effectiveDate: value ?? "" })
                       }}
                       minDate={monthsFromNow(-5)}
                       maxDate={monthsFromNow(5)}
@@ -505,8 +556,7 @@ export function NotificationPolicyDetailPage() {
                       value={changeNote}
                       disabled={!canManage}
                       onChange={(e) => {
-                        setChangeNote(e.target.value)
-                        setMetaDirty(true)
+                        updateMeta({ changeNote: e.target.value })
                       }}
                     />
                   </Field>
@@ -573,7 +623,9 @@ export function NotificationPolicyDetailPage() {
                       placeholder={t(
                         "notifications.policyDraftWarningPlaceholder"
                       )}
-                      onChange={(e) => patch({ unfilledWarning: e.target.value })}
+                      onChange={(e) =>
+                        patch({ unfilledWarning: e.target.value })
+                      }
                     />
                   </Field>
                   <StringListEditor
@@ -616,7 +668,10 @@ export function NotificationPolicyDetailPage() {
                       )}
                       onChange={(e) =>
                         patch({
-                          retention: { ...doc.retention, heading: e.target.value },
+                          retention: {
+                            ...doc.retention,
+                            heading: e.target.value,
+                          },
                         })
                       }
                     />
@@ -636,7 +691,10 @@ export function NotificationPolicyDetailPage() {
                       )}
                       onChange={(e) =>
                         patch({
-                          retention: { ...doc.retention, intro: e.target.value },
+                          retention: {
+                            ...doc.retention,
+                            intro: e.target.value,
+                          },
                         })
                       }
                     />
@@ -685,8 +743,13 @@ export function NotificationPolicyDetailPage() {
                                 placeholder={retentionRowPlaceholders[key]}
                                 onChange={(e) => {
                                   const rows = [...doc.retention.rows]
-                                  rows[index] = { ...rows[index], [key]: e.target.value }
-                                  patch({ retention: { ...doc.retention, rows } })
+                                  rows[index] = {
+                                    ...rows[index],
+                                    [key]: e.target.value,
+                                  }
+                                  patch({
+                                    retention: { ...doc.retention, rows },
+                                  })
                                 }}
                               />
                             )
@@ -760,7 +823,10 @@ export function NotificationPolicyDetailPage() {
                       )}
                       onChange={(e) =>
                         patch({
-                          deletion: { ...doc.deletion, heading: e.target.value },
+                          deletion: {
+                            ...doc.deletion,
+                            heading: e.target.value,
+                          },
                         })
                       }
                     />
@@ -819,7 +885,10 @@ export function NotificationPolicyDetailPage() {
                       )}
                       onChange={(e) =>
                         patch({
-                          deletion: { ...doc.deletion, signedInHint: e.target.value },
+                          deletion: {
+                            ...doc.deletion,
+                            signedInHint: e.target.value,
+                          },
                         })
                       }
                     />

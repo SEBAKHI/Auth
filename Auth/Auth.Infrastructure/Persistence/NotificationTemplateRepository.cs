@@ -202,6 +202,68 @@ public class NotificationTemplateRepository : INotificationTemplateRepository
     }
 
     /// <inheritdoc />
+    public async Task<bool> TryPublishAsync(
+        NotificationTemplate template,
+        Guid expectedDraftVersionId,
+        DateTime expectedRevisionAt,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var affected = await connection.ExecuteAsync(new CommandDefinition(@"
+            UPDATE [dbo].[NotificationTemplates]
+            SET [DefaultLanguage] = @DefaultLanguage,
+                [PublishedVersionId] = @PublishedVersionId,
+                [DraftVersionId] = @DraftVersionId,
+                [ModifiedAt] = @ModifiedAt,
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @Id
+              AND [DraftVersionId] = @ExpectedDraftVersionId
+              AND (([ModifiedAt] = @ExpectedRevisionAt)
+                   OR ([ModifiedAt] IS NULL AND [CreatedAt] = @ExpectedRevisionAt))",
+            new
+            {
+                template.Id,
+                template.DefaultLanguage,
+                template.PublishedVersionId,
+                template.DraftVersionId,
+                template.ModifiedAt,
+                template.ModifiedBy,
+                ExpectedDraftVersionId = expectedDraftVersionId,
+                ExpectedRevisionAt = expectedRevisionAt
+            },
+            cancellationToken: cancellationToken));
+
+        return affected == 1;
+    }
+
+    /// <inheritdoc />
+    public async Task<bool> TryUnpublishAsync(
+        NotificationTemplate template,
+        Guid expectedPublishedVersionId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        var affected = await connection.ExecuteAsync(new CommandDefinition(@"
+            UPDATE [dbo].[NotificationTemplates]
+            SET [PublishedVersionId] = @PublishedVersionId,
+                [ModifiedAt] = @ModifiedAt,
+                [ModifiedBy] = @ModifiedBy
+            WHERE [Id] = @Id
+              AND [PublishedVersionId] = @ExpectedPublishedVersionId",
+            new
+            {
+                template.Id,
+                template.PublishedVersionId,
+                template.ModifiedAt,
+                template.ModifiedBy,
+                ExpectedPublishedVersionId = expectedPublishedVersionId
+            },
+            cancellationToken: cancellationToken));
+
+        return affected == 1;
+    }
+
+    /// <inheritdoc />
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

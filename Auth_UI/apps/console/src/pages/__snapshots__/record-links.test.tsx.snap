@@ -1,0 +1,94 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`record destinations are links > application detail 1`] = `
+[
+  "app-orgs.name -> /organizations/66666666-6666-6666-6666-666666666666",
+  "app-perms.name -> /permissions/11111111-1111-1111-1111-111111111111",
+  "app-roles.name -> /roles/11111111-1111-1111-1111-111111111111",
+  "app-users.firstName -> /users/22222222-2222-2222-2222-222222222222",
+]
+`;
+
+exports[`record destinations are links > applications list 1`] = `
+[
+  "applications.name -> /applications/11111111-1111-1111-1111-111111111111",
+]
+`;
+
+exports[`record destinations are links > notification layouts list 1`] = `
+[
+  "notification-layouts.name -> /notifications/layouts/11111111-1111-1111-1111-111111111111",
+]
+`;
+
+exports[`record destinations are links > notification templates list 1`] = `
+[
+  "notification-templates.typeName -> /notifications/templates/11111111-1111-1111-1111-111111111111",
+]
+`;
+
+exports[`record destinations are links > organization detail 1`] = `
+[
+  "org-apps.applicationName -> /applications/55555555-5555-5555-5555-555555555555",
+  "org-members.name -> /users/22222222-2222-2222-2222-222222222222",
+]
+`;
+
+exports[`record destinations are links > organizations list (platform) 1`] = `
+[
+  "organizations-all.name -> /organizations/11111111-1111-1111-1111-111111111111",
+]
+`;
+
+exports[`record destinations are links > organizations list (self-service) 1`] = `
+[
+  "organizations.name -> /organizations/11111111-1111-1111-1111-111111111111",
+]
+`;
+
+exports[`record destinations are links > permission detail 1`] = `
+[
+  "permission-implications.code -> /permissions/11111111-1111-1111-1111-111111111111",
+  "permission-users.firstName -> /users/22222222-2222-2222-2222-222222222222",
+]
+`;
+
+exports[`record destinations are links > permissions list 1`] = `
+[
+  "permissions.code -> /permissions/11111111-1111-1111-1111-111111111111",
+]
+`;
+
+exports[`record destinations are links > policy revisions list 1`] = `
+[
+  "privacy-policy-versions.version -> /notifications/policy/11111111-1111-1111-1111-111111111111",
+]
+`;
+
+exports[`record destinations are links > role detail 1`] = `
+[
+  "role-apps.name -> /applications/55555555-5555-5555-5555-555555555555",
+  "role-users.firstName -> /users/22222222-2222-2222-2222-222222222222",
+]
+`;
+
+exports[`record destinations are links > roles list 1`] = `
+[
+  "roles.name -> /roles/11111111-1111-1111-1111-111111111111",
+]
+`;
+
+exports[`record destinations are links > user detail 1`] = `
+[
+  "user-apps.name -> /applications/55555555-5555-5555-5555-555555555555",
+  "user-orgs.name -> /organizations/11111111-1111-1111-1111-111111111111",
+  "user-perms.permissionName -> /permissions/44444444-4444-4444-4444-444444444444",
+  "user-roles.roleName -> /roles/33333333-3333-3333-3333-333333333333",
+]
+`;
+
+exports[`record destinations are links > users list 1`] = `
+[
+  "users.name -> /users/11111111-1111-1111-1111-111111111111",
+]
+`;

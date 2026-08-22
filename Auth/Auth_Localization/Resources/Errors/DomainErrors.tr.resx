@@ -666,6 +666,12 @@
   <data name="Notification.ConcurrencyConflict" xml:space="preserve">
     <value>Şablon başka biri tarafından değiştirildi. En son taslağı yeniden yükleyip değişikliklerinizi tekrar uygulayın.</value>
   </data>
+  <data name="Notification.PublishTargetChanged" xml:space="preserve">
+    <value>Yayınlanmak üzere seçilen kayıtlı taslak değişti. Yayınlamadan önce yeniden yükleyip en son taslağı gözden geçirin.</value>
+  </data>
+  <data name="Notification.UnpublishTargetChanged" xml:space="preserve">
+    <value>Yayından kaldırılmak üzere seçilen sürüm değişti. Devam etmeden önce yeniden yükleyip mevcut yayını gözden geçirin.</value>
+  </data>
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>'{0}' kimlikli bildirim düzeni bulunamadı.</value>
   </data>
@@ -680,6 +686,9 @@
   </data>
   <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
     <value>Düzen, mesaj gövdesini göstermiyor: içerik yuvasını içermelidir, aksi halde tüm mesajlar boş gider.</value>
+  </data>
+  <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
+    <value>Yayınlanmak üzere seçilen kayıtlı düzen taslağı değişti. Yayınlamadan önce yeniden yükleyip en son taslağı gözden geçirin.</value>
   </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>Şablon geçersiz sözdizimi içeriyor: {0}</value>

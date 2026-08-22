@@ -89,7 +89,8 @@ export const tr: TranslationResources = {
     resizeColumn: "{{column}} sütununu yeniden boyutlandır",
     moveColumnUp: "{{column}} sütununu öne al",
     moveColumnDown: "{{column}} sütununu geriye al",
-    columnMoved: "{{column}} sütunu {{total}} içinde {{position}}. konuma taşındı",
+    columnMoved:
+      "{{column}} sütunu {{total}} içinde {{position}}. konuma taşındı",
     sortAscending: "Artan sırala",
     sortDescending: "Azalan sırala",
     reset: "Sıfırla",
@@ -118,6 +119,9 @@ export const tr: TranslationResources = {
     discardTitle: "Değişiklikler silinsin mi?",
     discardBody:
       "Kaydedilmemiş değişiklikleriniz var. Şimdi çıkarsanız kaybolacaklar.",
+    saveInProgressTitle: "Kaydetme devam ediyor",
+    saveInProgressBody:
+      "Kaydetmenin tamamlanmasını bekleyin veya bu gezintiyi iptal edip sayfada kalın.",
     saveWithCount: "Kaydet ({{count}})",
     changesSaved: "Değişiklikler kaydedildi",
     applyChangesTitle: "Bu değişiklikler uygulansın mı?",
@@ -175,11 +179,13 @@ export const tr: TranslationResources = {
     backToSignIn: "Oturum açmaya dön",
     signOutTitle: "{{name}} oturumunuz kapatılsın mı?",
     signOutTitleNoApp: "Çıkış yapılsın mı?",
-    signOutBody: "Bu, çoklu oturum açma (SSO) oturumunuzu sonlandırır — parolanızı yeniden yazmadan diğer uygulamalara girmenizi sağlayan oturumu. Hâlihazırda içinde olduğunuz bir uygulama, kendi oturumunu sonlandırana kadar onu korur.",
+    signOutBody:
+      "Bu, çoklu oturum açma (SSO) oturumunuzu sonlandırır — parolanızı yeniden yazmadan diğer uygulamalara girmenizi sağlayan oturumu. Hâlihazırda içinde olduğunuz bir uygulama, kendi oturumunu sonlandırana kadar onu korur.",
     signOutConfirm: "Çıkış yap",
     signOutCancel: "Oturumu açık tut",
     signedOutTitle: "Çıkış yaptınız",
-    signedOutBody: "Çoklu oturum açma oturumunuz sona erdi. Tekrar giriş yaparken parolanız istenecek.",
+    signedOutBody:
+      "Çoklu oturum açma oturumunuz sona erdi. Tekrar giriş yaparken parolanız istenecek.",
     useDifferentAccount: "Farklı bir hesap kullan",
     resetLinkSentTitle: "E-postanızı kontrol edin",
     resetLinkSentDescription:
@@ -270,7 +276,8 @@ export const tr: TranslationResources = {
     windowCustom: "Kapsanacak gün sayısı",
     windowLabel: "Son {{days}} gün.",
     granularity: "Ayrıntı düzeyi",
-    granularityHint: "Zaman eksenindeki her noktanın bir gün mü bir hafta mı olduğu.",
+    granularityHint:
+      "Zaman eksenindeki her noktanın bir gün mü bir hafta mı olduğu.",
     tabOverview: "Genel bakış",
     tabSecurity: "Oturum açma ve güvenlik",
     tabPeople: "Kullanıcılar",
@@ -281,11 +288,14 @@ export const tr: TranslationResources = {
     newUsers: "Yeni kullanıcılar",
     attention: "İlgi gerekiyor",
     alertRateDrop: "Oturum açma başarı oranı düştü",
-    alertRateDropBody: "Önceki döneme göre {{points}} puan düşerek %{{rate}} oldu.",
+    alertRateDropBody:
+      "Önceki döneme göre {{points}} puan düşerek %{{rate}} oldu.",
     alertLockedOut: "{{count}} hesap kilitli",
-    alertLockedOutBody: "Kilit sona erene veya kaldırılana kadar giriş yapamazlar.",
+    alertLockedOutBody:
+      "Kilit sona erene veya kaldırılana kadar giriş yapamazlar.",
     alertFailingIp: "Bir adres tekrarlayan hatalar üretiyor",
-    alertFailingIpBody: "{{ip}}, {{users}} kullanıcı adı üzerinde {{count}} başarısız deneme üretti.",
+    alertFailingIpBody:
+      "{{ip}}, {{users}} kullanıcı adı üzerinde {{count}} başarısız deneme üretti.",
     alertStaleSessions: "{{count}} oturum süresini aşmış",
     alertStaleSessionsBody: "Hâlâ açık ve hiç kapatılmamış.",
     alertExpiringEnablements: "{{count}} aboneliğin süresi doluyor",
@@ -313,7 +323,8 @@ export const tr: TranslationResources = {
     failedAttemptsSubtitle: "Dönem başına reddedilen oturum açma denemeleri.",
     whereSignIns: "Oturum açmalar nerede oluyor",
     whereSignInsSubtitle: "Uygulama başına deneme, başarı oranı ve erişim.",
-    whereSignInsOrgNote: "Giriş yapan kullanıcının üyeliklerine göre atanır; birden çok kuruluşta bulunan bir kullanıcı her biri için sayılır, bu yüzden toplam ham deneme sayısını aşabilir.",
+    whereSignInsOrgNote:
+      "Giriş yapan kullanıcının üyeliklerine göre atanır; birden çok kuruluşta bulunan bir kullanıcı her biri için sayılır, bu yüzden toplam ham deneme sayısını aşabilir.",
     applications: "Uygulamalar",
     organizations: "Kuruluşlar",
     colName: "Ad",
@@ -444,6 +455,8 @@ export const tr: TranslationResources = {
     unlock: "Kilidi aç",
     activate: "Etkinleştir",
     deactivate: "Devre dışı bırak",
+    deactivateTitle: "Bu hesap devre dışı bırakılsın mı?",
+    deactivateBody: "{{name}} her yerde oturumu kapatılacak ve hesap yeniden etkinleştirilene kadar giriş yapamayacak.",
     lockTitle: "Hesabı kilitle",
     lockReason: "Neden",
     lockReasonPlaceholder:
@@ -990,9 +1003,19 @@ export const tr: TranslationResources = {
     discardDraftBody: "Tüm dillerdeki yayımlanmamış düzenlemeler kaybolacak.",
     draftDiscarded: "Taslak silindi",
     publish: "Yayımla",
+    publishConfirmTitle: "{{item}} yayımlansın mı?",
+    publishConfirmBody:
+      "Kaydedilen taslak aşağıda gösterilen kapsamda kullanıma alınacak.",
     publishedToast: "Yayımlandı",
     unpublish: "Yayından kaldır",
+    unpublishConfirmTitle: "{{item}} yayından kaldırılsın mı?",
+    unpublishConfirmBody:
+      "Yayındaki şablon aşağıda gösterilen kapsamda artık kullanılmayacak.",
     unpublishedToast: "Yayından kaldırıldı",
+    confirmationItem: "Öğe",
+    confirmationVersion: "Sürüm",
+    confirmationScope: "Kapsam",
+    savedDraftRevision: "Kaydedilmiş taslak · {{modifiedAt}}",
     unsavedChanges: "Kaydedilmemiş değişiklikler",
     unpublishedChanges: "Yayımlanmamış değişiklikler",
     deleteTitle: "Şablon silinsin mi?",
@@ -1046,6 +1069,7 @@ export const tr: TranslationResources = {
     tabLayouts: "Düzenler",
     tabDeliveryLog: "Teslim Günlüğü",
     tabPolicy: "Gizlilik Politikası",
+    sectionsNavLabel: "Bildirim bölümleri",
     policyTitle: "Gizlilik politikası sürümleri",
     policySubtitle:
       "Politika revizyonlarını izleyin ve önemli değişiklikleri kullanıcılara bildirin.",
@@ -1074,15 +1098,18 @@ export const tr: TranslationResources = {
     policyMissingLanguagesTitle: "Her dil henüz çevrilmedi",
     policyMissingLanguagesBody:
       "{{languages}} okuyucularına İngilizce belge sunulacak; kendi dillerinde bunu belirten bir bildirim eşlik edecek. Yine de yayımlayın ya da önce çevirileri ekleyin.",
-    policyDisclosureDriftTitle: "Yayımlanan politika artık ayarlarla eşleşmiyor",
+    policyDisclosureDriftTitle:
+      "Yayımlanan politika artık ayarlarla eşleşmiyor",
     policyDisclosureDriftBody:
       "Bu sürüm yayımlandıktan sonra sistem ayarları değişti; sunulan belge hâlâ önceki değerleri aktarıyor. Otomatik olarak yeniden oluşturulmaz — bu, insanlara zaten gösterilmiş bir bildirimi değiştirmek olurdu. Güncellemek için yeniden yayımlayın.",
     policyPublishTitle: "Bu politika sürümü yayımlansın mı?",
-    policyPublishBody: "Tüm kullanıcılara gösterilen politika olur. Önce İngilizce belge bulunmalıdır.",
+    policyPublishBody:
+      "Tüm kullanıcılara gösterilen politika olur. Önce İngilizce belge bulunmalıdır.",
     policyPublishedToast: "Politika sürümü yayımlandı.",
     policyEditContent: "İçeriği düzenle",
     policyContentTitle: "Politika içeriği — {{version}}",
-    policyContentDescription: "Yayımlanan politika metnini dile göre düzenleyin. Veritabanında saklanır; dağıtım gerekmez.",
+    policyContentDescription:
+      "Yayımlanan politika metnini dile göre düzenleyin. Veritabanında saklanır; dağıtım gerekmez.",
     policyContentSaved: "Politika içeriği kaydedildi.",
     policyTokens: "Canlı değerler (sabit yazmayın):",
     policyPreview: "Önizleme",
@@ -1125,43 +1152,53 @@ export const tr: TranslationResources = {
     policySectionNumber: "Bölüm {{number}}",
     policyRemoveSection: "Bölümü kaldır",
     policyRemoveSectionTitle: "Bu bölüm kaldırılsın mı?",
-    policyRemoveSectionBody: "Başlığı, paragrafları ve maddeleri bu dilin belgesinden silinir. Diğer diller etkilenmez.",
+    policyRemoveSectionBody:
+      "Başlığı, paragrafları ve maddeleri bu dilin belgesinden silinir. Diğer diller etkilenmez.",
     policyRemoveParagraph: "Paragrafı kaldır",
     policyRemoveBullet: "Maddeyi kaldır",
     policyRemoveRow: "Satırı kaldır",
-    "policyJsonTab": "JSON",
-    "policyChangeNote": "Değişiklik notu",
-    "policyChangeNoteHint": "Bu revizyonda ne değişti?",
-    "policyNoChangeNote": "Değişiklik notu yok",
-    "policySearchPlaceholder": "Sürüm veya değişiklik notu ara…",
-    "policyNotifiedFilterSent": "Bildirildi",
-    "policyNotifiedBadge": "Bildirildi · {{count}} alıcı",
-    "policyVersionDetails": "Sürüm ayrıntıları",
-    "policyNotFound": "Bu politika sürümü artık mevcut değil. Adı değiştirilmiş veya kaldırılmış olabilir — sürümler listesinden yeniden açın.",
+    policyJsonTab: "JSON",
+    policyChangeNote: "Değişiklik notu",
+    policyChangeNoteHint: "Bu revizyonda ne değişti?",
+    policyNoChangeNote: "Değişiklik notu yok",
+    policySearchPlaceholder: "Sürüm veya değişiklik notu ara…",
+    policyNotifiedFilterSent: "Bildirildi",
+    policyNotifiedBadge: "Bildirildi · {{count}} alıcı",
+    policyVersionDetails: "Sürüm ayrıntıları",
+    policyNotFound:
+      "Bu politika sürümü artık mevcut değil. Adı değiştirilmiş veya kaldırılmış olabilir — sürümler listesinden yeniden açın.",
     policyClone: "Kopyala",
     policyCloneTitle: "Bu politika sürümünü kopyala",
-    policyCloneDescription: "Yeni bir sürüm oluşturur ve {{source}} sürümündeki {{count}} dil belgesinin tamamını kopyalar; böylece boş sayfadan başlamak yerine bir taslağı düzenlersiniz.",
+    policyCloneDescription:
+      "Yeni bir sürüm oluşturur ve {{source}} sürümündeki {{count}} dil belgesinin tamamını kopyalar; böylece boş sayfadan başlamak yerine bir taslağı düzenlersiniz.",
     policyCloneProgress: "Diller kopyalanıyor… {{total}} dilden {{done}}",
     policyClonedToast: "Sürüm {{count}} dille kopyalandı.",
     policyVersionRenameHint: "Taslakların adı hâlâ değiştirilebilir.",
-    policyVersionLockedHint: "Kilitli: yayımlanmış veya duyurulmuş sürümlere silme kayıtlarında atıf yapılır.",
-    "policyTokenHint": "İmlecin olduğu yere eklemek için tıklayın.",
-    "policyToken_graceDays": "Silme kesinleşmeden önceki kurtarma süresi (gün).",
-    "policyToken_otpValidityMinutes": "Silme doğrulama kodunun geçerlilik süresi (dakika).",
-    "policyToken_loginAttemptRetentionDays": "Oturum açma denemesi kayıtlarının saklanma süresi (gün).",
-    "policyToken_outboxRetentionDays": "Gönderilen e-posta kayıtlarının saklanma süresi (gün).",
-    "policyToken_identifierReservationDays":
+    policyVersionLockedHint:
+      "Kilitli: yayımlanmış veya duyurulmuş sürümlere silme kayıtlarında atıf yapılır.",
+    policyTokenHint: "İmlecin olduğu yere eklemek için tıklayın.",
+    policyToken_graceDays: "Silme kesinleşmeden önceki kurtarma süresi (gün).",
+    policyToken_otpValidityMinutes:
+      "Silme doğrulama kodunun geçerlilik süresi (dakika).",
+    policyToken_loginAttemptRetentionDays:
+      "Oturum açma denemesi kayıtlarının saklanma süresi (gün).",
+    policyToken_outboxRetentionDays:
+      "Gönderilen e-posta kayıtlarının saklanma süresi (gün).",
+    policyToken_identifierReservationDays:
       "Silinen bir e-postanın yeniden kayda kapalı kalma süresi (gün).",
-    "policyToken_legalName": "Veri sorumlusunun tescilli unvanı.",
-    "policyToken_address": "Veri sorumlusunun tescilli adresi.",
-    "policyToken_privacyEmail": "Gizlilik ve hak talepleri için izlenen e-posta kutusu.",
-    "policyToken_emailProvider": "Paylaşım bölümünde adı geçen e-posta gönderim sağlayıcısı.",
-    "policyToken_hostingProvider": "Paylaşım bölümünde adı geçen barındırma sağlayıcısı.",
-    "policyToken_hostingCountry": "Hizmetin barındırıldığı ülke (yalnızca ad).",
-    "overviewPolicy": "Gizlilik politikası sürümleri",
-    "overviewViewPolicy": "Politikayı görüntüle",
-    "overviewPolicyHint": "{{count}} dil yazıldı",
-    "overviewNoPolicy": "Henüz politika sürümü kaydedilmedi.",
+    policyToken_legalName: "Veri sorumlusunun tescilli unvanı.",
+    policyToken_address: "Veri sorumlusunun tescilli adresi.",
+    policyToken_privacyEmail:
+      "Gizlilik ve hak talepleri için izlenen e-posta kutusu.",
+    policyToken_emailProvider:
+      "Paylaşım bölümünde adı geçen e-posta gönderim sağlayıcısı.",
+    policyToken_hostingProvider:
+      "Paylaşım bölümünde adı geçen barındırma sağlayıcısı.",
+    policyToken_hostingCountry: "Hizmetin barındırıldığı ülke (yalnızca ad).",
+    overviewPolicy: "Gizlilik politikası sürümleri",
+    overviewViewPolicy: "Politikayı görüntüle",
+    overviewPolicyHint: "{{count}} dil yazıldı",
+    overviewNoPolicy: "Henüz politika sürümü kaydedilmedi.",
     policyButtonLabel: "Silme düğmesi metni",
     policyButtonLabelPlaceholder: "Hesabımı sil",
     policySignedInHint: "Oturum açmış kullanıcı ipucu",
@@ -1366,9 +1403,11 @@ export const tr: TranslationResources = {
       argon2MemorySizeHint:
         "Her parolayı karma işleminden geçirmek için kullanılan bellek. Önerilen: 19456 (19 MiB, OWASP alt sınırı). Daha yüksek değer daha güçlüdür ama her oturum açmayı yavaşlatır.",
       argon2Iterations: "Argon2 yinelemeleri",
-      argon2IterationsHint: "Önerilen: 2 (bu bellek boyutu için OWASP alt sınırı).",
+      argon2IterationsHint:
+        "Önerilen: 2 (bu bellek boyutu için OWASP alt sınırı).",
       argon2Parallelism: "Argon2 paralelliği",
-      argon2ParallelismHint: "Önerilen: 1 (OWASP). Mevcut parolalar değişiklikten sonra çalışmaya devam eder — bir sonraki oturum açmada yükseltilirler.",
+      argon2ParallelismHint:
+        "Önerilen: 1 (OWASP). Mevcut parolalar değişiklikten sonra çalışmaya devam eder — bir sonraki oturum açmada yükseltilirler.",
       saltSize: "Tuz boyutu (bayt)",
       saltSizeHint: "OWASP'ın önerdiği değerde sabittir; yapılandırılamaz.",
       hashSize: "Karma boyutu (bayt)",
@@ -1402,10 +1441,12 @@ export const tr: TranslationResources = {
       terminateOldestOnMax: "Reddetmek yerine en eski oturumu kapat",
       terminateOldestOnMaxHint:
         "Sınıra ulaşıldığında ne olacağı. Açık: kullanıcının en uzun süredir kullanmadığı oturumlar sona erer ve yeni oturum açma başarılı olur. Kapalı: yeni oturum açma reddedilir. Önerilen: açık — reddetmek, eski cihazlarına erişemeyen kişileri kendi hesaplarının dışında bırakır. Sınır 0 iken etkisizdir.",
-      terminateSessionsOnPasswordChange: "Parola değişiminde her yerde oturumu kapat",
+      terminateSessionsOnPasswordChange:
+        "Parola değişiminde her yerde oturumu kapat",
       terminateSessionsOnPasswordChangeHint:
         "Bir kullanıcı parolasını değiştirdiğinde diğer tüm oturumları sona erer. Önerilen: açık — değiştirilen bir parola genellikle eskisine artık güvenilmediği anlamına gelir.",
-      terminateSessionsOnPasswordReset: "Parola sıfırlamada her yerde oturumu kapat",
+      terminateSessionsOnPasswordReset:
+        "Parola sıfırlamada her yerde oturumu kapat",
       terminateSessionsOnPasswordResetHint:
         "Parola e-posta bağlantısıyla sıfırlandığında mevcut tüm oturumlar sona erer. Önerilen: açık — sıfırlamalar çoğu zaman bir ele geçirilme şüphesinin ardından gelir. Çoklu oturum açma (SSO) oturumu — kullanıcının diğer uygulamalara parolasız girebilmesi — bu kapalıyken bile her zaman sona erer.",
     },
@@ -1486,7 +1527,8 @@ export const tr: TranslationResources = {
     },
     externalAuth: {
       requireNonce: "Sunucunun verdiği nonce zorunlu olsun",
-      requireNonceHint: "Sağlayıcı ile girişin, bu sunucunun o tarayıcıya verdiği tek kullanımlık bir değeri sunmasını zorunlu kılar; böylece başkasının tarayıcısı için üretilmiş çalıntı bir sağlayıcı jetonu reddedilir. Yalnızca dağıtılmış uygulama bu değerleri almaya başladıktan sonra açın; o zamana kadar tarayıcının ürettiği bir değer kabul edilir ve bu hiçbir şey kanıtlamaz. Önerilen: açık.",
+      requireNonceHint:
+        "Sağlayıcı ile girişin, bu sunucunun o tarayıcıya verdiği tek kullanımlık bir değeri sunmasını zorunlu kılar; böylece başkasının tarayıcısı için üretilmiş çalıntı bir sağlayıcı jetonu reddedilir. Yalnızca dağıtılmış uygulama bu değerleri almaya başladıktan sonra açın; o zamana kadar tarayıcının ürettiği bir değer kabul edilir ve bu hiçbir şey kanıtlamaz. Önerilen: açık.",
       title: "Harici oturum açma (Google / Apple)",
       description:
         "Sosyal oturum açma sağlayıcıları. Buradaki istemci kimlikleri genel tanımlayıcılardır; özel anahtarlar Gizli anahtar yönetimi altında durur. Düğmenin görünmesi için sağlayıcının AYRICA kendi dizin satırında da etkinleştirilmesi gerekir.",
@@ -1499,9 +1541,11 @@ export const tr: TranslationResources = {
       appleEnabledHint:
         "Services ID, Team ID, Key ID ve Gizli anahtar yönetimi altındaki .p8 anahtarını gerektirir.",
       appleServicesId: "Apple Services ID",
-      appleServicesIdHint: "örn. com.example.accounts, Apple Developer portalından alınır.",
+      appleServicesIdHint:
+        "örn. com.example.accounts, Apple Developer portalından alınır.",
       appleTeamId: "Apple Team ID",
-      appleTeamIdHint: "Apple Developer portalındaki 10 karakterlik ekip tanımlayıcısı.",
+      appleTeamIdHint:
+        "Apple Developer portalındaki 10 karakterlik ekip tanımlayıcısı.",
       appleKeyId: "Apple Key ID",
       appleKeyIdHint:
         ".p8 imzalama anahtarının tanımlayıcısı; anahtarın kendisi Gizli anahtar yönetimi altında durur.",
@@ -1544,37 +1588,46 @@ export const tr: TranslationResources = {
       enabledHint:
         "Ana anahtar. Kapalıyken e-posta gerektiren akışlar (doğrulama, sıfırlama) kullanılamaz.",
       smtpHost: "SMTP sunucusu",
-      smtpHostHint: "Posta sunucunuzun ana bilgisayar adı, örn. mail.example.com.",
+      smtpHostHint:
+        "Posta sunucunuzun ana bilgisayar adı, örn. mail.example.com.",
       smtpPort: "SMTP portu",
       smtpPortHint:
         "587 = STARTTLS (önerilen), 465 = doğrudan TLS, 25 = çoğu barındırıcıda engellidir.",
       useSsl: "TLS zorunlu",
-      useSslHint: "Önerilen: açık. Kapalı ayar, fırsatçı TLS'e yalnızca yerel geliştirmede izin verir.",
+      useSslHint:
+        "Önerilen: açık. Kapalı ayar, fırsatçı TLS'e yalnızca yerel geliştirmede izin verir.",
       username: "SMTP kullanıcı adı",
-      usernameHint: "Genellikle tam posta kutusu adresidir. Kimlik doğrulamasız aktarıcılar için boş bırakın.",
+      usernameHint:
+        "Genellikle tam posta kutusu adresidir. Kimlik doğrulamasız aktarıcılar için boş bırakın.",
       password: "SMTP parolası",
       senderEmail: "Gönderen adresi",
-      senderEmailHint: "From adresi. Alan adınızın SPF/DKIM kayıtları tarafından yetkilendirilmiş olmalıdır.",
+      senderEmailHint:
+        "From adresi. Alan adınızın SPF/DKIM kayıtları tarafından yetkilendirilmiş olmalıdır.",
       senderName: "Gönderen adı",
-      senderNameHint: "Alıcıların gördüğü görünen ad; şablonlarda da yedek platform adı olarak kullanılır.",
+      senderNameHint:
+        "Alıcıların gördüğü görünen ad; şablonlarda da yedek platform adı olarak kullanılır.",
       frontendBaseUrl: "Bağlantıların temel URL'si",
       frontendBaseUrlHint:
         "Hesap uygulamasının mutlak adresi; e-postayla gönderilen her bağlantı (sıfırlama, doğrulama) bunun üzerine kurulur. Gönderim etkinken zorunludur.",
       otpExpirationMinutes: "Doğrulama kodu ömrü (dakika)",
-      otpExpirationMinutesHint: "Önerilen: 5–15 — yazmaya yetecek kadar uzun, çalmaya değmeyecek kadar kısa.",
+      otpExpirationMinutesHint:
+        "Önerilen: 5–15 — yazmaya yetecek kadar uzun, çalmaya değmeyecek kadar kısa.",
       resetTokenExpirationMinutes: "Sıfırlama bağlantısı ömrü (dakika)",
       resetTokenExpirationMinutesHint: "Önerilen: 30–60.",
       rateLimitWindowSeconds: "Gönderim hızı penceresi (saniye)",
-      rateLimitWindowSecondsHint: "Aşağıdaki adres başına gönderim sınırının penceresi. Önerilen: 60.",
+      rateLimitWindowSecondsHint:
+        "Aşağıdaki adres başına gönderim sınırının penceresi. Önerilen: 60.",
       maxOtpRequestsPerWindow: "Pencere başına kod sayısı",
       maxOtpRequestsPerWindowHint:
         "Bir adresin pencere başına isteyebileceği en fazla doğrulama kodu. Önerilen: 3 — posta bombardımanını durdurur.",
     },
     notificationsSection: {
       newDeviceAlertEnabled: "Yeni cihazdan girişte uyar",
-      newDeviceAlertEnabledHint: "Daha önce kullanılmamış bir cihazdan ilk giriş geldiğinde hesap sahibine e-posta gönderir. Önerilen: açık.",
+      newDeviceAlertEnabledHint:
+        "Daha önce kullanılmamış bir cihazdan ilk giriş geldiğinde hesap sahibine e-posta gönderir. Önerilen: açık.",
       newDeviceAlertMinIntervalMinutes: "Uyarılar arası en az süre (dakika)",
-      newDeviceAlertMinIntervalMinutesHint: "Art arda gelen girişlerin art arda e-postaya dönüşmesini engeller. 0, her yeni cihaz için bir uyarı gönderir. Önerilen: 60.",
+      newDeviceAlertMinIntervalMinutesHint:
+        "Art arda gelen girişlerin art arda e-postaya dönüşmesini engeller. 0, her yeni cihaz için bir uyarı gönderir. Önerilen: 60.",
       title: "Bildirim teslimatı",
       description:
         "Giden bildirimlerin nasıl teslim edildiği: doğrudan ya da hataları yeniden deneyen ve yeniden başlatmalara dayanan kalıcı bir giden kutusu üzerinden. İçerik ve şablonlar Bildirimler sayfalarında yönetilir.",
@@ -1582,9 +1635,11 @@ export const tr: TranslationResources = {
       useOutboxHint:
         "Önerilen: üretimde açık — mesajlar kaybolmak yerine önce saklanır ve hata durumunda yeniden denenir.",
       pollIntervalSeconds: "Yoklama aralığı (saniye)",
-      pollIntervalSecondsHint: "Gönderim sinyali gelmediğinde yedek uyanma süresi. Önerilen: 30.",
+      pollIntervalSecondsHint:
+        "Gönderim sinyali gelmediğinde yedek uyanma süresi. Önerilen: 30.",
       batchSize: "Toplu iş boyutu",
-      batchSizeHint: "Gönderim döngüsü başına üstlenilen mesajlar. Önerilen: 20.",
+      batchSizeHint:
+        "Gönderim döngüsü başına üstlenilen mesajlar. Önerilen: 20.",
       maxAttempts: "En fazla deneme",
       maxAttemptsHint:
         "Bir mesaj ölü mektup kuyruğuna düşmeden önceki teslim denemeleri (üstel geri çekilmeyle). Önerilen: 5.",
@@ -1594,33 +1649,43 @@ export const tr: TranslationResources = {
     },
     geoIp: {
       title: "IP coğrafi konumu",
-      description: "Oturum açma IP adreslerini ülke ve şehre çevirir; böylece giriş geçmişi ve yeni cihaz uyarıları denemenin nereden geldiğini söyleyebilir. Yerel bir MaxMind veritabanı dosyası gerektirir; o olmadan özellik kapalı kalır ve konumlar bilinmiyor görünür.",
+      description:
+        "Oturum açma IP adreslerini ülke ve şehre çevirir; böylece giriş geçmişi ve yeni cihaz uyarıları denemenin nereden geldiğini söyleyebilir. Yerel bir MaxMind veritabanı dosyası gerektirir; o olmadan özellik kapalı kalır ve konumlar bilinmiyor görünür.",
       enabled: "IP coğrafi konumunu etkinleştir",
-      enabledHint: "Aşağıdaki yolda bir veritabanı dosyası gerektirir. Yeniden başlatmadan sonra geçerli olur.",
+      enabledHint:
+        "Aşağıdaki yolda bir veritabanı dosyası gerektirir. Yeniden başlatmadan sonra geçerli olur.",
       databasePath: "Veritabanı dosya yolu",
-      databasePathHint: "Sunucudaki MaxMind GeoLite2 .mmdb dosyasının tam yolu. Yeniden başlatmadan sonra geçerli olur.",
+      databasePathHint:
+        "Sunucudaki MaxMind GeoLite2 .mmdb dosyasının tam yolu. Yeniden başlatmadan sonra geçerli olur.",
     },
     imageStorage: {
       title: "Görsel depolama",
       description:
         "Yüklenen logolar ve profil fotoğrafları: diskte nerede saklandıkları, nasıl sunuldukları ve yüklemede uygulanan boyut sınırları.",
       provider: "Depolama sağlayıcısı",
-      providerHint: "Dosya sistemi depolaması; sunucu dağıtımının parçasıdır, burada düzenlenemez.",
+      providerHint:
+        "Dosya sistemi depolaması; sunucu dağıtımının parçasıdır, burada düzenlenemez.",
       physicalPath: "Depolama klasörü",
-      physicalPathHint: "Sunucu disk konumu; değiştirmek dosyaları taşımayı gerektirir — bu bir dağıtım görevidir.",
+      physicalPathHint:
+        "Sunucu disk konumu; değiştirmek dosyaları taşımayı gerektirir — bu bir dağıtım görevidir.",
       publicBaseUrl: "Genel temel URL",
       publicBaseUrlHint:
         "Döndürülen her görsel URL'sinin öneki. Logoların ağ geçidi üzerinden görüntülenebilmesi için API'nin genel adresine (veya kökten başlayan bir yola) ayarlayın.",
       requestPath: "Sunum yolu",
-      requestPathHint: "Görsellerin sunulduğu URL yolu; başlangıçta işlem hattına gömülür.",
+      requestPathHint:
+        "Görsellerin sunulduğu URL yolu; başlangıçta işlem hattına gömülür.",
       maxSizeBytes: "En fazla yükleme boyutu (bayt)",
-      maxSizeBytesHint: "Önerilen: 4194304 (4 MB) — logolar ve avatarlar için fazlasıyla yeterli.",
+      maxSizeBytesHint:
+        "Önerilen: 4194304 (4 MB) — logolar ve avatarlar için fazlasıyla yeterli.",
       maxMegapixels: "En fazla megapiksel",
-      maxMegapixelsHint: "Açma bombalarını işlemeden önce reddeder. Önerilen: 50.",
+      maxMegapixelsHint:
+        "Açma bombalarını işlemeden önce reddeder. Önerilen: 50.",
       maxEdgePx: "En fazla kenar (piksel)",
-      maxEdgePxHint: "Daha büyük görseller bu kenar uzunluğuna küçültülür. Önerilen: 1024.",
+      maxEdgePxHint:
+        "Daha büyük görseller bu kenar uzunluğuna küçültülür. Önerilen: 1024.",
       webpQuality: "WebP kalitesi",
-      webpQualityHint: "Yüklemeler bu kalitede WebP olarak yeniden kodlanır. Önerilen: 90.",
+      webpQualityHint:
+        "Yüklemeler bu kalitede WebP olarak yeniden kodlanır. Önerilen: 90.",
       allowedContentTypes: "İzin verilen içerik türleri",
       allowedContentTypesHint: "Yüklemede kabul edilen image/* MIME türleri.",
     },
@@ -1632,13 +1697,16 @@ export const tr: TranslationResources = {
       graceDaysHint:
         "Kalıcı silmeden önce fikir değiştirme süresi. Önerilen: 30 (yaygın düzenleyici uygulama).",
       workerPollMinutes: "İşleyici yoklaması (dakika)",
-      workerPollMinutesHint: "Vadesi gelen silmelerin ne sıklıkla yürütüldüğü. Önerilen: 15.",
+      workerPollMinutesHint:
+        "Vadesi gelen silmelerin ne sıklıkla yürütüldüğü. Önerilen: 15.",
       workerBatchSize: "İşleyici toplu iş boyutu",
       workerBatchSizeHint: "Döngü başına yürütülen silmeler. Önerilen: 25.",
       maxExecutionAttempts: "En fazla yürütme denemesi",
-      maxExecutionAttemptsHint: "Başarısız bir silme uyum alarmını tetiklemeden önceki yeniden denemeler. Önerilen: 5.",
+      maxExecutionAttemptsHint:
+        "Başarısız bir silme uyum alarmını tetiklemeden önceki yeniden denemeler. Önerilen: 5.",
       otpExpirationMinutes: "Onay kodu ömrü (dakika)",
-      otpExpirationMinutesHint: "Genel bir silme talebini onaylayan kod. Önerilen: 15.",
+      otpExpirationMinutesHint:
+        "Genel bir silme talebini onaylayan kod. Önerilen: 15.",
       identifierHmacKeyPlain: "Tanımlayıcı karma anahtarı",
     },
     dataController: {
@@ -1650,44 +1718,59 @@ export const tr: TranslationResources = {
       address: "Tescilli adres",
       addressHint: "Politikada görünecek tam posta adresi.",
       privacyEmail: "Gizlilik iletişim e-postası",
-      privacyEmailHint: "İZLENEN bir kutu — hak talepleri buraya ulaşır ve 30 gün içinde yanıtlanmalıdır.",
+      privacyEmailHint:
+        "İZLENEN bir kutu — hak talepleri buraya ulaşır ve 30 gün içinde yanıtlanmalıdır.",
       emailProvider: "E-posta gönderim sağlayıcısı",
-      emailProviderHint: "\"Verileri kimlerle paylaşıyoruz\" bölümünde adı geçer.",
+      emailProviderHint:
+        '"Verileri kimlerle paylaşıyoruz" bölümünde adı geçer.',
       hostingProvider: "Barındırma sağlayıcısı",
-      hostingProviderHint: "\"Verileri kimlerle paylaşıyoruz\" bölümünde adı geçer.",
+      hostingProviderHint:
+        '"Verileri kimlerle paylaşıyoruz" bölümünde adı geçer.',
       hostingCountry: "Barındırma ülkesi",
       hostingCountryHint:
         "Yalnızca ülke adı, ek veya edat olmadan — Türkçe ve Fransızca cümleler kendi ekini ekler.",
       dpoContact: "Veri koruma görevlisi",
-      dpoContactHint: "İsteğe bağlı. Boş bırakılırsa satır gösterilmez; GDPR yalnızca belirli hâllerde zorunlu kılar.",
+      dpoContactHint:
+        "İsteğe bağlı. Boş bırakılırsa satır gösterilmez; GDPR yalnızca belirli hâllerde zorunlu kılar.",
       verbisNo: "VERBİS kayıt numarası",
-      verbisNoHint: "İsteğe bağlı. Yalnızca veri sorumlusu VERBİS kayıt eşiklerini karşılıyorsa doldurun.",
+      verbisNoHint:
+        "İsteğe bağlı. Yalnızca veri sorumlusu VERBİS kayıt eşiklerini karşılıyorsa doldurun.",
       kepAddress: "Kayıtlı e-posta (KEP)",
-      kepAddressHint: "İsteğe bağlı. KVKK başvuru kanallarından biri olan kayıtlı elektronik posta adresi.",
+      kepAddressHint:
+        "İsteğe bağlı. KVKK başvuru kanallarından biri olan kayıtlı elektronik posta adresi.",
     },
     expiredDataCleanup: {
       title: "Süresi dolmuş veri temizliği",
-      description: "Kullanım dışı kalmış satırların günlük süpürme onları silmeden önce ne kadar tutulacağı. Bunlar geçerlilik süreleri değil — buradaki her satır zaten ölü. KANIT olarak ne kadar işe yarar kalacağını belirlerler: iptal edilmiş bir yenileme jetonu, çalınmış bir jetonu tespit edilmiş bir hırsızlığa dönüştüren şeydir; kullanılmış bir yetkilendirme kodu ise tekrar oynatmayı kanıtlayan şeydir.",
+      description:
+        "Kullanım dışı kalmış satırların günlük süpürme onları silmeden önce ne kadar tutulacağı. Bunlar geçerlilik süreleri değil — buradaki her satır zaten ölü. KANIT olarak ne kadar işe yarar kalacağını belirlerler: iptal edilmiş bir yenileme jetonu, çalınmış bir jetonu tespit edilmiş bir hırsızlığa dönüştüren şeydir; kullanılmış bir yetkilendirme kodu ise tekrar oynatmayı kanıtlayan şeydir.",
       enabled: "Günlük temizliği çalıştır",
-      enabledHint: "Kapalıyken hiçbir tabloya dokunulmaz ve hepsi sınırsız büyür. Önerilen: açık.",
+      enabledHint:
+        "Kapalıyken hiçbir tabloya dokunulmaz ve hepsi sınırsız büyür. Önerilen: açık.",
       workerPollMinutes: "Kontrol aralığı (dakika)",
-      workerPollMinutesHint: "Servisin, günün süpürmesinin yapılıp yapılmadığına ne sıklıkla baktığı. Süpürmenin kendisi günde bir kez çalışır. Önerilen: 15.",
+      workerPollMinutesHint:
+        "Servisin, günün süpürmesinin yapılıp yapılmadığına ne sıklıkla baktığı. Süpürmenin kendisi günde bir kez çalışır. Önerilen: 15.",
       batchSize: "İfade başına satır",
-      batchSizeHint: "SQL Server'ın tüm tabloyu kilitlemeye geçtiği ~5000 satır kilidinin altında tutulur; aksi hâlde o tablodaki her canlı sorgu engellenir. Önerilen: 4000.",
+      batchSizeHint:
+        "SQL Server'ın tüm tabloyu kilitlemeye geçtiği ~5000 satır kilidinin altında tutulur; aksi hâlde o tablodaki her canlı sorgu engellenir. Önerilen: 4000.",
       maxRowsPerTablePerRun: "Çalıştırma başına tablo tavanı",
-      maxRowsPerTablePerRunHint: "Dağıtımdan bu yana birikmiş her şeyle karşılaşan tek çalıştırma olan ilkini sınırlar. Kalanı ertesi gün alınır. Önerilen: 200000.",
+      maxRowsPerTablePerRunHint:
+        "Dağıtımdan bu yana birikmiş her şeyle karşılaşan tek çalıştırma olan ilkini sınırlar. Kalanı ertesi gün alınır. Önerilen: 200000.",
       authorizationCodeDays: "Yetkilendirme kodları (gün)",
-      authorizationCodeDaysHint: "Yaklaşık 60 saniye yaşarlar; bu pencere onları geçerli tutmak için değil, bir tekrarı soruşturmak içindir. Önerilen: 7.",
+      authorizationCodeDaysHint:
+        "Yaklaşık 60 saniye yaşarlar; bu pencere onları geçerli tutmak için değil, bir tekrarı soruşturmak içindir. Önerilen: 7.",
       twoFactorChallengeDays: "İki adımlı doğrulama kodları (gün)",
-      twoFactorChallengeDaysHint: "Bir deneme dizisini soruşturmaya yetecek kadar. Önerilen: 7.",
+      twoFactorChallengeDaysHint:
+        "Bir deneme dizisini soruşturmaya yetecek kadar. Önerilen: 7.",
       passwordResetTokenDays: "Parola sıfırlama jetonları (gün)",
       passwordResetTokenDaysHint: "Önerilen: 7.",
       emailVerificationTokenDays: "E-posta doğrulama jetonları (gün)",
       emailVerificationTokenDaysHint: "Önerilen: 7.",
       idpSessionDays: "Çoklu oturum açma (SSO) oturumları (gün)",
-      idpSessionDaysHint: "Oluşturmadan değil, sona ermeden veya iptalden itibaren sayılır. Önerilen: 30.",
+      idpSessionDaysHint:
+        "Oluşturmadan değil, sona ermeden veya iptalden itibaren sayılır. Önerilen: 30.",
       refreshTokenDays: "Yenileme jetonları (gün)",
-      refreshTokenDaysHint: "En uzun ve en önemli pencere: iptal edilmiş satır, çalınmış bir jetonu tespit edilmiş bir hırsızlığa dönüştüren tek şeydir ve pano iptalleri en fazla 90 güne kadar raporlar. Burada ne girilirse girilsin kodda 90 gün alt sınırı uygulanır.",
+      refreshTokenDaysHint:
+        "En uzun ve en önemli pencere: iptal edilmiş satır, çalınmış bir jetonu tespit edilmiş bir hırsızlığa dönüştüren tek şeydir ve pano iptalleri en fazla 90 güne kadar raporlar. Burada ne girilirse girilsin kodda 90 gün alt sınırı uygulanır.",
     },
     dataRetention: {
       title: "Gizlilik ve veri saklama",
@@ -1700,7 +1783,8 @@ export const tr: TranslationResources = {
       loginAttemptRetentionDaysHint:
         "Güvenlik günlüğü saklama süresi; gizlilik politikanızla uyumlu tutun. Önerilen: 365.",
       outboxRetentionDays: "Giden kutusu saklama (gün)",
-      outboxRetentionDaysHint: "Teslim edilen bildirim günlüğünün saklama süresi. Önerilen: 180.",
+      outboxRetentionDaysHint:
+        "Teslim edilen bildirim günlüğünün saklama süresi. Önerilen: 180.",
       auditLogRetentionDays: "Denetim kaydı saklama (gün)",
       auditLogRetentionDaysHint:
         "Denetim geçmişinin saklama süresi. Alt sınır, yayımlanan politikanın taahhüt ettiği üç yıldır. Önerilen: 1095.",
@@ -1732,8 +1816,10 @@ export const tr: TranslationResources = {
       minimumLevelDefaultHint:
         "Normal çalışma için Information; yalnızca inceleme sırasında Debug (ayrıntılıdır ve daha fazla istek ayrıntısı içerebilir); sessiz üretim günlükleri için Warning.",
       minimumLevelOverrideMicrosoft: "Microsoft ad alanı düzeyi",
-      minimumLevelOverrideMicrosoftHint: "Çerçeve gürültüsü filtresi. Önerilen: Warning.",
-      minimumLevelOverrideMicrosoftHostingLifetime: "Ana bilgisayar yaşam döngüsü düzeyi",
+      minimumLevelOverrideMicrosoftHint:
+        "Çerçeve gürültüsü filtresi. Önerilen: Warning.",
+      minimumLevelOverrideMicrosoftHostingLifetime:
+        "Ana bilgisayar yaşam döngüsü düzeyi",
       minimumLevelOverrideMicrosoftHostingLifetimeHint:
         "Başlatma/kapatma mesajları. Önerilen: Information.",
       minimumLevelOverrideSystem: "System ad alanı düzeyi",
@@ -1857,7 +1943,8 @@ export const tr: TranslationResources = {
     deleteWarning:
       "Hesabınız hemen devre dışı bırakılacak ve {{days}} gün sonra kalıcı olarak silinecektir. Bu süre içinde giriş yaparak geri yükleyebilirsiniz.",
     reauthTitle: "Kimliğinizi doğrulayın",
-    reauthSubtitle: "Güvenliğiniz için devam etmeden önce kimliğinizi doğrulayın.",
+    reauthSubtitle:
+      "Güvenliğiniz için devam etmeden önce kimliğinizi doğrulayın.",
     codeHint: "{{email}} adresine bir doğrulama kodu göndereceğiz.",
     sendCode: "Bana kod gönder",
     codeSent: "Doğrulama kodu gönderildi. Gelen kutunuzu kontrol edin.",
@@ -1942,5 +2029,40 @@ export const tr: TranslationResources = {
     unexpectedTitle: "Bir şeyler ters gitti",
     reload: "Sayfayı yeniden yükle",
     uploadFailed: "Görsel yükleme başarısız (HTTP {{status}}).",
+    feedback: {
+      title: "İşlem tamamlanamadı",
+      retry: "Tekrar dene",
+      fieldInvalid: "Bu değeri kontrol edip tekrar deneyin.",
+      validation:
+        "Bazı bilgiler kabul edilmedi. İşaretli alanları düzeltip formu yeniden gönderin.",
+      authentication:
+        "Oturumunuz artık geçerli değil. Yeniden giriş yapıp işlemi tekrarlayın.",
+      authorization:
+        "Bu işlemi tamamlamak için izniniz yok. Bir yöneticiden erişim isteyin.",
+      notFound:
+        "Bu öğe artık kullanılamıyor. Sayfayı yenileyip mevcut bir öğe seçin.",
+      conflict:
+        "İşlem tamamlanmadan veriler değişti. Yeniden yükleyip son değerleri inceleyin ve tekrar deneyin.",
+      rateLimit:
+        "Çok fazla istek gönderildi. Tekrar denemeden önce biraz bekleyin.",
+      server:
+        "Hizmet işlemi tamamlayamadı. Tekrar deneyin; sorun sürerse destekle iletişime geçin.",
+      network:
+        "Sunucuya ulaşılamadı. Bağlantınızı kontrol edip tekrar deneyin.",
+      unknown:
+        "İşlem tamamlanmadı. Tekrar deneyin; sorun sürerse destekle iletişime geçin.",
+      duplicateEmail:
+        "Bu e-posta adresi zaten kullanılıyor. Başka bir adres girip formu yeniden gönderin.",
+      invalidCredentials:
+        "E-posta adresi veya parola kabul edilmedi. İkisini de kontrol edip tekrar deneyin.",
+      pendingDeletion:
+        "Bu hesap silinmek üzere planlanmış. Giriş yapmadan önce hesap kurtarmayı kullanın.",
+      staleData:
+        "Bu öğe yüklendikten sonra değişti. Yeniden yükleyip son sürümü inceleyin ve işlemi tekrarlayın.",
+      invalidChallengeCode:
+        "Onay kodu kabul edilmedi. En son kodu girip tekrar deneyin.",
+      connectionUnreachable:
+        "Bağlantı doğrulanamadı. Bağlantı bilgilerini kontrol edin veya yalnızca başka bir yolla doğruladıysanız yine de kaydedin.",
+    },
   },
 }

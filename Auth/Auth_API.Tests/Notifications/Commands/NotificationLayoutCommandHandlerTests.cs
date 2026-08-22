@@ -62,16 +62,25 @@ public class NotificationLayoutCommandHandlerTests
     public async Task Publish_LayoutWithContentSlot_Succeeds()
     {
         var layout = CreateLayout("<html dir=\"{{ dir }}\"><body>{{ content | raw }}</body></html>");
+        var expectedRevisionAt = layout.ModifiedAt ?? layout.CreatedAt;
+        _layoutRepoMock
+            .Setup(r => r.TryPublishAsync(layout, expectedRevisionAt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         var handler = CreateHandler();
 
         var result = await handler.Handle(
-            new PublishNotificationLayoutCommand(layout.Id) { PublishedBy = _userId },
+            new PublishNotificationLayoutCommand(layout.Id, expectedRevisionAt)
+            { PublishedBy = _userId },
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         layout.IsPublished.Should().BeTrue();
         _layoutRepoMock.Verify(
-            r => r.UpdateAsync(layout, It.IsAny<CancellationToken>()), Times.Once);
+            r => r.TryPublishAsync(
+                layout,
+                expectedRevisionAt,
+                It.IsAny<CancellationToken>()),
+            Times.Once);
         _cacheInvalidatorMock.Verify(
             c => c.InvalidateLayout(NotificationChannelType.Email, null), Times.Once);
     }
@@ -82,10 +91,15 @@ public class NotificationLayoutCommandHandlerTests
         // {{ content }} without | raw HTML-encodes the body; the alphanumeric
         // probe marker survives encoding, so this legitimate variant passes.
         var layout = CreateLayout("<html><body>{{ content }}</body></html>");
+        var expectedRevisionAt = layout.ModifiedAt ?? layout.CreatedAt;
+        _layoutRepoMock
+            .Setup(r => r.TryPublishAsync(layout, expectedRevisionAt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
         var handler = CreateHandler();
 
         var result = await handler.Handle(
-            new PublishNotificationLayoutCommand(layout.Id) { PublishedBy = _userId },
+            new PublishNotificationLayoutCommand(layout.Id, expectedRevisionAt)
+            { PublishedBy = _userId },
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
@@ -99,7 +113,10 @@ public class NotificationLayoutCommandHandlerTests
         var handler = CreateHandler();
 
         var result = await handler.Handle(
-            new PublishNotificationLayoutCommand(layout.Id) { PublishedBy = _userId },
+            new PublishNotificationLayoutCommand(
+                layout.Id,
+                layout.ModifiedAt ?? layout.CreatedAt)
+            { PublishedBy = _userId },
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
@@ -120,11 +137,59 @@ public class NotificationLayoutCommandHandlerTests
         var handler = CreateHandler();
 
         var result = await handler.Handle(
-            new PublishNotificationLayoutCommand(layout.Id) { PublishedBy = _userId },
+            new PublishNotificationLayoutCommand(
+                layout.Id,
+                layout.ModifiedAt ?? layout.CreatedAt)
+            { PublishedBy = _userId },
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Notification.InvalidTemplateSyntax");
         layout.IsPublished.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Publish_StaleRevision_ReturnsConflictBeforeRenderingOrWriting()
+    {
+        var layout = CreateLayout("<html><body>{{ content | raw }}</body></html>");
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new PublishNotificationLayoutCommand(layout.Id, layout.CreatedAt.AddMinutes(-1))
+            { PublishedBy = _userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.LayoutPublishTargetChanged");
+        _layoutRepoMock.Verify(
+            r => r.TryPublishAsync(
+                It.IsAny<NotificationLayout>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Publish_DatabaseRevisionRace_ReturnsConflictWithoutCacheInvalidation()
+    {
+        var layout = CreateLayout("<html><body>{{ content | raw }}</body></html>");
+        var expectedRevisionAt = layout.ModifiedAt ?? layout.CreatedAt;
+        _layoutRepoMock
+            .Setup(r => r.TryPublishAsync(layout, expectedRevisionAt, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        var handler = CreateHandler();
+
+        var result = await handler.Handle(
+            new PublishNotificationLayoutCommand(layout.Id, expectedRevisionAt)
+            { PublishedBy = _userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.LayoutPublishTargetChanged");
+        _cacheInvalidatorMock.Verify(
+            invalidator => invalidator.InvalidateLayout(
+                It.IsAny<NotificationChannelType>(),
+                It.IsAny<Guid?>()),
+            Times.Never);
     }
 }

@@ -1,5 +1,49 @@
 import "@testing-library/jest-dom/vitest"
 
+// Node can expose an experimental `localStorage` accessor that resolves to
+// undefined unless the process was started with --localstorage-file. That
+// accessor shadows jsdom's working implementation and makes storage-dependent
+// components vary with the Node invocation. Install the browser contract the
+// tests need when that accessor is present.
+const localStorageDescriptor = Object.getOwnPropertyDescriptor(
+  globalThis,
+  "localStorage"
+)
+if (!localStorageDescriptor || localStorageDescriptor.get) {
+  class MemoryStorage implements Storage {
+    readonly #values = new Map<string, string>()
+
+    get length() {
+      return this.#values.size
+    }
+
+    clear() {
+      this.#values.clear()
+    }
+
+    getItem(key: string) {
+      return this.#values.get(String(key)) ?? null
+    }
+
+    key(index: number) {
+      return [...this.#values.keys()][index] ?? null
+    }
+
+    removeItem(key: string) {
+      this.#values.delete(String(key))
+    }
+
+    setItem(key: string, value: string) {
+      this.#values.set(String(key), String(value))
+    }
+  }
+
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: new MemoryStorage(),
+  })
+}
+
 // jsdom lacks ResizeObserver, which Radix primitives (ScrollArea, etc.) use.
 if (!("ResizeObserver" in globalThis)) {
   class ResizeObserver {

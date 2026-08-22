@@ -11,6 +11,7 @@ import { unwrap } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { directionForLanguage, SUPPORTED_LANGUAGES } from "@authsystem/i18n"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
@@ -21,25 +22,56 @@ import {
   FieldLabel,
   FieldTitle,
 } from "@authsystem/ui/field"
+import { formatDateTime } from "@authsystem/ui/format"
 import { Input } from "@authsystem/ui/input"
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
 import type { ReactCodeMirrorRef } from "@uiw/react-codemirror"
 import { PERMISSIONS } from "@/lib/constants"
-import { CodeEditor, insertAtCursor } from "./components/code-editor"
+import { CodeEditor } from "./components/code-editor"
+import { insertAtCursor } from "./components/code-editor-utils"
 import { PreviewPane } from "./components/preview-pane"
+import { PublishConfirmationSummary } from "./components/publish-confirmation-summary"
+import { useSingleFlightConfirm } from "./components/use-single-flight-confirm"
 import { VariablePalette } from "./components/variable-palette"
-import { getRendererGlobals, type NotificationPreviewDto, type TemplateVariable } from "./lib"
+import {
+  getRendererGlobals,
+  type NotificationPreviewDto,
+  type TemplateVariable,
+} from "./lib"
 
 /** Per-language chrome strings stored in the layout's StringsJson. */
 type LayoutStrings = Record<string, Record<string, string>>
+
+interface LayoutPublicationTarget {
+  item: string
+  applicationName: string | null
+  revisionAt: string
+}
+
+interface LayoutDraftState {
+  source: unknown
+  name: string
+  content: string
+  strings: LayoutStrings
+}
+
+interface LayoutSaveSnapshot {
+  name: string
+  content: string
+  stringsJson: string
+  expectedModifiedAt: string | null
+}
 
 function parseStrings(json: string | null | undefined): LayoutStrings {
   if (!json) return {}
   try {
     const parsed: unknown = JSON.parse(json)
-    return typeof parsed === "object" && parsed !== null ? (parsed as LayoutStrings) : {}
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as LayoutStrings)
+      : {}
   } catch {
     return {}
   }
@@ -108,18 +140,47 @@ export function NotificationLayoutDetailPage() {
 
   usePageBreadcrumb(layout ? layout.name : undefined)
 
-  const [name, setName] = React.useState("")
-  const [content, setContent] = React.useState("")
-  const [strings, setStrings] = React.useState<LayoutStrings>({})
+  const loadedDraft = React.useMemo<LayoutDraftState>(
+    () => ({
+      source: layout,
+      name: layout?.name ?? "",
+      content: layout?.draftContent ?? "",
+      strings: parseStrings(layout?.draftStringsJson),
+    }),
+    [layout]
+  )
+  const [editedDraft, setEditedDraft] =
+    React.useState<LayoutDraftState | null>(null)
+  const draft =
+    editedDraft !== null && editedDraft.source === layout
+      ? editedDraft
+      : loadedDraft
+  const { name, content, strings } = draft
+  const updateDraft = <K extends "name" | "content" | "strings">(
+    field: K,
+    next: React.SetStateAction<LayoutDraftState[K]>
+  ) =>
+    setEditedDraft((current) => {
+      const base =
+        current !== null && current.source === layout ? current : loadedDraft
+      const previous = base[field]
+      return {
+        ...base,
+        [field]: typeof next === "function" ? next(previous) : next,
+      }
+    })
+  const setName = (next: React.SetStateAction<string>) =>
+    updateDraft("name", next)
+  const setContent = (next: React.SetStateAction<string>) =>
+    updateDraft("content", next)
+  const setStrings = (next: React.SetStateAction<LayoutStrings>) =>
+    updateDraft("strings", next)
   const [previewLanguage, setPreviewLanguage] = React.useState("en")
-  const [preview, setPreview] = React.useState<NotificationPreviewDto | null>(null)
-
-  React.useEffect(() => {
-    if (!layout) return
-    setName(layout.name ?? "")
-    setContent(layout.draftContent ?? "")
-    setStrings(parseStrings(layout.draftStringsJson))
-  }, [layout])
+  const [preview, setPreview] = React.useState<NotificationPreviewDto | null>(
+    null
+  )
+  const [publishTarget, setPublishTarget] =
+    React.useState<LayoutPublicationTarget | null>(null)
 
   const stringsJson = React.useMemo(() => JSON.stringify(strings), [strings])
   const isDirty =
@@ -137,7 +198,11 @@ export function NotificationLayoutDetailPage() {
   )
 
   const previewMutation = useMutation({
-    mutationFn: (input: { content: string; stringsJson: string; previewLanguage: string }) =>
+    mutationFn: (input: {
+      content: string
+      stringsJson: string
+      previewLanguage: string
+    }) =>
       unwrap(
         api.POST("/api/v1/notification-layouts/preview", {
           body: {
@@ -158,42 +223,84 @@ export function NotificationLayoutDetailPage() {
   }, [debouncedPreviewInput, renderPreview])
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ["notification-layout", id] })
+    void queryClient.invalidateQueries({
+      queryKey: ["notification-layout", id],
+    })
     void queryClient.invalidateQueries({ queryKey: ["notification-layouts"] })
   }
 
   const saveMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (snapshot: LayoutSaveSnapshot) =>
       unwrap(
         api.PUT("/api/v1/notification-layouts/{id}/draft", {
           params: { path: { id } },
           body: {
-            name,
-            draftContent: content,
-            draftStringsJson: stringsJson,
-            expectedModifiedAt: layout?.modifiedAt ?? null,
+            name: snapshot.name,
+            draftContent: snapshot.content,
+            draftStringsJson: snapshot.stringsJson,
+            expectedModifiedAt: snapshot.expectedModifiedAt,
           },
         })
       ),
-    onSuccess: () => {
+    onSuccess: (data, snapshot) => {
+      const cached =
+        queryClient.setQueryData<typeof data>(["notification-layout", id], data) ??
+        data
+      setEditedDraft((current) => {
+        const latest =
+          current !== null && current.source === layout ? current : loadedDraft
+        const matchesSnapshot =
+          latest.name === snapshot.name &&
+          latest.content === snapshot.content &&
+          JSON.stringify(latest.strings) === snapshot.stringsJson
+        return matchesSnapshot
+          ? {
+              source: cached,
+              name: cached.name ?? "",
+              content: cached.draftContent ?? "",
+              strings: parseStrings(cached.draftStringsJson),
+            }
+          : { ...latest, source: cached }
+      })
       toast.success(t("notifications.draftSaved"))
-      invalidate()
+      void queryClient.invalidateQueries({
+        queryKey: ["notification-layouts"],
+      })
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
 
+  const saveDraft = () => {
+    saveMutation.mutate({
+      name,
+      content,
+      stringsJson,
+      expectedModifiedAt: layout?.modifiedAt ?? null,
+    })
+  }
+
+  const publishFlight = useSingleFlightConfirm()
+
   const publishMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (expectedRevisionAt: string) =>
       unwrap(
         api.POST("/api/v1/notification-layouts/{id}/publish", {
           params: { path: { id } },
+          body: { expectedRevisionAt },
         })
       ),
     onSuccess: () => {
+      setPublishTarget(null)
       toast.success(t("notifications.publishedToast"))
       invalidate()
     },
     onError: (error) => toast.error(getErrorMessage(error)),
+    onSettled: publishFlight.release,
+  })
+
+  const unsavedPrompt = useUnsavedChangesPrompt({
+    isDirty,
+    isSaving: saveMutation.isPending,
   })
 
   if (query.isLoading || !layout) {
@@ -232,13 +339,25 @@ export function NotificationLayoutDetailPage() {
               <Button
                 variant="outline"
                 disabled={!isDirty || saveMutation.isPending}
-                onClick={() => saveMutation.mutate()}
+                onClick={saveDraft}
               >
                 {t("notifications.saveDraft")}
               </Button>
               <Button
-                disabled={isDirty || !layout.hasUnpublishedChanges || publishMutation.isPending}
-                onClick={() => publishMutation.mutate()}
+                disabled={
+                  isDirty ||
+                  !layout.hasUnpublishedChanges ||
+                  publishMutation.isPending
+                }
+                onClick={() => {
+                  const revisionAt = layout.modifiedAt ?? layout.createdAt
+                  if (!revisionAt) return
+                  setPublishTarget({
+                    item: layout.name ?? "",
+                    applicationName: layout.applicationName ?? null,
+                    revisionAt,
+                  })
+                }}
               >
                 <Check data-icon="inline-start" />
                 {t("notifications.publish")}
@@ -255,7 +374,9 @@ export function NotificationLayoutDetailPage() {
           <Badge variant="outline">{t("notifications.unpublished")}</Badge>
         )}
         {layout.hasUnpublishedChanges ? (
-          <Badge variant="secondary">{t("notifications.unpublishedChanges")}</Badge>
+          <Badge variant="secondary">
+            {t("notifications.unpublishedChanges")}
+          </Badge>
         ) : null}
         {isDirty ? (
           <Badge variant="outline">{t("notifications.unsavedChanges")}</Badge>
@@ -312,32 +433,43 @@ export function NotificationLayoutDetailPage() {
                 minHeight="380px"
                 ariaLabel={t("notifications.layoutContent")}
                 allowImages
+                readOnly={!canManage}
               />
             </Field>
 
             <VariablePalette
               title={t("notifications.layoutSlots")}
               variables={layoutSlots}
-              onInsert={(placeholder) => {
-                if (!insertAtCursor(editorRef, placeholder)) {
-                  setContent((current) => current + placeholder)
-                }
-              }}
+              onInsert={
+                canManage
+                  ? (placeholder) => {
+                      if (!insertAtCursor(editorRef, placeholder)) {
+                        setContent((current) => current + placeholder)
+                      }
+                    }
+                  : undefined
+              }
             />
 
             <VariablePalette
               title={t("notifications.globalVariables")}
               variables={rendererGlobals}
-              onInsert={(placeholder) => {
-                if (!insertAtCursor(editorRef, placeholder)) {
-                  setContent((current) => current + placeholder)
-                }
-              }}
+              onInsert={
+                canManage
+                  ? (placeholder) => {
+                      if (!insertAtCursor(editorRef, placeholder)) {
+                        setContent((current) => current + placeholder)
+                      }
+                    }
+                  : undefined
+              }
             />
 
             <Field data-disabled={!canManage}>
               <FieldLabel htmlFor="layout-footer">
-                {t("notifications.layoutFooter", { language: previewLanguage.toUpperCase() })}
+                {t("notifications.layoutFooter", {
+                  language: previewLanguage.toUpperCase(),
+                })}
               </FieldLabel>
               <Input
                 id="layout-footer"
@@ -369,14 +501,48 @@ export function NotificationLayoutDetailPage() {
             frameHeight="560px"
             error={
               previewMutation.isError
-                ? previewMutation.error instanceof Error
-                  ? previewMutation.error.message
-                  : t("notifications.previewFailed")
+                ? getErrorMessage(
+                    previewMutation.error,
+                    t("notifications.previewFailed")
+                  )
                 : null
             }
           />
         </div>
       </div>
+
+      <ConfirmDialog
+        open={publishTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !publishMutation.isPending) setPublishTarget(null)
+        }}
+        title={t("notifications.publishConfirmTitle", {
+          item: publishTarget?.item ?? "",
+        })}
+        description={t("notifications.publishConfirmBody")}
+        confirmLabel={t("notifications.publish")}
+        loading={publishMutation.isPending}
+        onConfirm={() => {
+          if (publishTarget) {
+            publishFlight.run(() => {
+              publishMutation.mutate(publishTarget.revisionAt)
+            })
+          }
+        }}
+      >
+        {publishTarget ? (
+          <PublishConfirmationSummary
+            item={publishTarget.item}
+            revision={t("notifications.savedDraftRevision", {
+              modifiedAt: formatDateTime(publishTarget.revisionAt),
+            })}
+            scope={
+              publishTarget.applicationName ?? t("notifications.globalTemplate")
+            }
+          />
+        ) : null}
+      </ConfirmDialog>
+      {unsavedPrompt}
     </div>
   )
 }

@@ -6,6 +6,8 @@ import { toast } from "sonner"
 
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
+import { notificationLayoutHref } from "@/lib/record-hrefs"
+
 import { unwrap } from "@authsystem/api/helpers"
 import { ApplicationSelect } from "@authsystem/ui/common/application-select"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
@@ -97,9 +99,8 @@ export function CreateLayoutDialog({
       toast.success(t("notifications.layoutCreated"))
       void queryClient.invalidateQueries({ queryKey: ["notification-layouts"] })
       onOpenChange(false)
-      if (created.id) {
-        navigate(`/notifications/layouts/${created.id}`)
-      }
+      const href = notificationLayoutHref(created.id)
+      if (href) navigate(href)
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })

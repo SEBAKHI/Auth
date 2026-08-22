@@ -153,9 +153,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Bootstrap an existing session on first load (silent refresh via middleware).
   React.useEffect(() => {
-    if (getRefreshToken()) {
-      void loadCurrentUser()
-    }
+    if (!getRefreshToken()) return
+    // Cross an async boundary before the request so bootstrap cannot create a
+    // cascading render from the effect that installed it.
+    const timer = window.setTimeout(() => void loadCurrentUser(), 0)
+    return () => window.clearTimeout(timer)
   }, [loadCurrentUser])
 
   // React to a non-recoverable session loss raised by the API client.

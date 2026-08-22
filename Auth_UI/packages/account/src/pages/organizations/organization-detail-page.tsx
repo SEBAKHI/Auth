@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef, SortingState } from "@tanstack/react-table"
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
 import { MoreHorizontal, Plus, Send } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ApplicationSelect } from "@authsystem/ui/common/application-select"
@@ -14,6 +14,8 @@ import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { DetailList } from "@authsystem/ui/common/detail-list"
 import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
+import { ORGANIZATION_MEMBER_SORT_COLUMNS } from "../../lib/sortable-columns"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
@@ -46,6 +48,12 @@ import { Skeleton } from "@authsystem/ui/skeleton"
 import { Switch } from "@authsystem/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import { useDirtyClose } from "@authsystem/ui/hooks/use-dirty-close"
+import {
+  stringArrayUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
+import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import { api } from "@authsystem/api/client"
 import {
   collectAllPages,
@@ -66,6 +74,24 @@ import { TransferOwnershipDialog } from "./transfer-ownership-dialog"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+type OrganizationMembersUrlFilters = { roles: string[] }
+
+const ORGANIZATION_MEMBERS_URL_OPTIONS = {
+  namespace: "members",
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: ORGANIZATION_MEMBER_SORT_COLUMNS,
+  defaultSorting: [{ id: "joinedAt", desc: false }],
+  filters: {
+    roles: stringArrayUrlFilter({ param: "role" }),
+  },
+} satisfies ListUrlStateOptions<OrganizationMembersUrlFilters>
+
+const ORGANIZATION_DETAIL_TABS = [
+  "members",
+  "invitations",
+  "applications",
+] as const
+
 /**
  * Subscription tiers offered when enabling an application for an organization.
  * Free text on the wire, so the list stays open via the Custom choice — but the
@@ -84,24 +110,37 @@ function MembersTab({
   userHref,
 }: {
   orgId: string
-  userHref?: (userId: string) => string
+  userHref?: (userId: string | undefined) => string | undefined
 }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
+  const {
+    pageIndex: page,
+    pageSize,
+    sorting,
+    filters,
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+    setFilters,
+  } = useListUrlState(ORGANIZATION_MEMBERS_URL_OPTIONS)
   const [removing, setRemoving] =
     React.useState<Schemas["OrganizationMemberDto"]>()
   const [managingRoles, setManagingRoles] =
     React.useState<Schemas["OrganizationMemberDto"]>()
   const [changingRole, setChangingRole] =
     React.useState<Schemas["OrganizationMemberDto"]>()
-  // Server-side sort over the whole dataset; initial value mirrors the API default.
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "joinedAt", desc: false },
-  ])
   const { sortBy, sortDirection } = toSortParams(sorting)
+  const columnFilters: ColumnFiltersState = filters.roles.length
+    ? [{ id: "roleName", value: filters.roles }]
+    : []
+  const onColumnFiltersChange = (next: ColumnFiltersState) =>
+    setFilters({
+      roles:
+        (next.find((filter) => filter.id === "roleName")?.value as
+          | string[]
+          | undefined) ?? [],
+    })
 
   const query = useQuery({
     queryKey: ["org-members", orgId, { page, pageSize, sortBy, sortDirection }],
@@ -184,16 +223,13 @@ function MembersTab({
         )
 
         // Drill-down exists only where the host app has a user admin route.
-        return userHref && userId ? (
-          <button
-            type="button"
-            className="min-w-0 text-start hover:underline"
-            onClick={() => navigate(userHref(userId))}
+        return (
+          <RecordLink
+            href={userHref?.(userId)}
+            className="text-start hover:underline"
           >
             {content}
-          </button>
-        ) : (
-          <div className="min-w-0">{content}</div>
+          </RecordLink>
         )
       },
     },
@@ -266,21 +302,17 @@ function MembersTab({
         onRetry={() => query.refetch()}
         enableRowDetail={false}
         onExportAll={exportAll}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
         sorting={sorting}
-        onSortingChange={(next) => {
-          setSorting(next)
-          setPage(0)
-        }}
+        onSortingChange={setSorting}
         pagination={{
           pageIndex: page,
           pageSize,
           pageCount: toNumber(query.data?.totalPages),
           totalCount: toNumber(query.data?.totalCount),
           onPageChange: setPage,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPage(0)
-          },
+          onPageSizeChange: setPageSize,
         }}
       />
       <ConfirmDialog
@@ -410,13 +442,6 @@ function InviteDialog({
   const queryClient = useQueryClient()
   const [email, setEmail] = React.useState("")
   const [roleId, setRoleId] = React.useState<string>()
-
-  React.useEffect(() => {
-    if (open) {
-      setEmail("")
-      setRoleId(undefined)
-    }
-  }, [open])
 
   const rolesQuery = useQuery({
     queryKey: ["roles", "all"],
@@ -626,11 +651,9 @@ function InvitationsTab({ orgId }: { orgId: string }) {
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
       />
-      <InviteDialog
-        orgId={orgId}
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-      />
+      {inviteOpen ? (
+        <InviteDialog orgId={orgId} open onOpenChange={setInviteOpen} />
+      ) : null}
     </div>
   )
 }
@@ -640,10 +663,9 @@ function ApplicationsTab({
   applicationHref,
 }: {
   orgId: string
-  applicationHref?: (applicationId: string) => string
+  applicationHref?: (applicationId: string | undefined) => string | undefined
 }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [enableOpen, setEnableOpen] = React.useState(false)
   const [appId, setAppId] = React.useState<string>()
@@ -748,18 +770,13 @@ function ApplicationsTab({
         const { applicationId } = row.original
 
         // Drill-down exists only where the host app has an app admin route.
-        return applicationHref && applicationId ? (
-          <button
-            type="button"
-            className="min-w-0 text-start font-medium hover:underline"
-            onClick={() => navigate(applicationHref(applicationId))}
+        return (
+          <RecordLink
+            href={applicationHref?.(applicationId)}
+            className="text-start font-medium hover:underline"
           >
             <span className="truncate">{row.original.applicationName}</span>
-          </button>
-        ) : (
-          <span className="truncate font-medium">
-            {row.original.applicationName}
-          </span>
+          </RecordLink>
         )
       },
     },
@@ -944,9 +961,7 @@ function ApplicationsTab({
               onClick={() => appId && enableMutation.mutate(appId)}
               disabled={!appId || enableMutation.isPending}
             >
-              {enableMutation.isPending ? (
-                <Spinner />
-              ) : null}
+              {enableMutation.isPending ? <Spinner /> : null}
               {t("common.confirm")}
             </Button>
           </DialogFooter>
@@ -1099,9 +1114,9 @@ export function OrganizationDetailPage({
   canManagePlatform = false,
 }: {
   /** Builds the member drill-down route; omit where the host app has none. */
-  userHref?: (userId: string) => string
+  userHref?: (userId: string | undefined) => string | undefined
   /** Builds the application drill-down route; omit where the host app has none. */
-  applicationHref?: (applicationId: string) => string
+  applicationHref?: (applicationId: string | undefined) => string | undefined
   /** Platform recovery capability supplied only by the administrative host. */
   canManagePlatform?: boolean
 } = {}) {
@@ -1109,6 +1124,7 @@ export function OrganizationDetailPage({
   const { id } = useParams<{ id: string }>()
   const orgId = id as string
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useTabParam(ORGANIZATION_DETAIL_TABS)
   const [editOpen, setEditOpen] = React.useState(false)
   const [transferOpen, setTransferOpen] = React.useState(false)
 
@@ -1244,7 +1260,7 @@ export function OrganizationDetailPage({
         </>
       )}
 
-      <Tabs defaultValue="members">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="members">
             {t("organizations.members")}

@@ -11,6 +11,18 @@ import { Button } from "@authsystem/ui/button"
 
 const STORAGE_KEY = "privacy.acknowledgedPolicyVersion"
 
+type Acknowledgement = "first-visit" | "current" | "changed"
+
+function readAcknowledgement(publishedVersion: string): Acknowledgement {
+  try {
+    const acknowledged = localStorage.getItem(STORAGE_KEY)
+    if (!acknowledged) return "first-visit"
+    return acknowledged === publishedVersion ? "current" : "changed"
+  } catch {
+    return "current"
+  }
+}
+
 /**
  * The in-app half of the "we notify you of material changes" promise: shown
  * once per browser when the PUBLISHED policy version differs from the one last
@@ -23,9 +35,6 @@ const STORAGE_KEY = "privacy.acknowledgedPolicyVersion"
  * unannounced, and a frontend deploy without a publish announced nothing.
  */
 export function PolicyUpdateNotice() {
-  const { t, i18n } = useTranslation()
-  const [show, setShow] = React.useState(false)
-
   const { data } = useQuery({
     queryKey: ["privacy-policy-version"],
     queryFn: () =>
@@ -35,35 +44,45 @@ export function PolicyUpdateNotice() {
 
   const publishedVersion = data?.version ?? null
 
-  React.useEffect(() => {
-    // Nothing is claimed until the published version is known: announcing a
-    // change against an unknown version is how the old constant misfired.
-    if (!publishedVersion) return
+  return publishedVersion ? (
+    <PublishedPolicyUpdateNotice
+      key={publishedVersion}
+      publishedVersion={publishedVersion}
+    />
+  ) : null
+}
 
+/** One mounted acknowledgement session for one immutable published version. */
+function PublishedPolicyUpdateNotice({
+  publishedVersion,
+}: {
+  publishedVersion: string
+}) {
+  const { t, i18n } = useTranslation()
+  const [acknowledgement] = React.useState(() =>
+    readAcknowledgement(publishedVersion)
+  )
+  const [dismissed, setDismissed] = React.useState(false)
+
+  React.useEffect(() => {
+    if (acknowledgement !== "first-visit") return
     try {
-      const acknowledged = localStorage.getItem(STORAGE_KEY)
-      if (!acknowledged) {
-        localStorage.setItem(STORAGE_KEY, publishedVersion)
-        return
-      }
-      if (acknowledged !== publishedVersion) {
-        setShow(true)
-      }
+      localStorage.setItem(STORAGE_KEY, publishedVersion)
     } catch {
       /* storage unavailable — the email notice remains the channel */
     }
-  }, [publishedVersion])
+  }, [acknowledgement, publishedVersion])
 
   const dismiss = React.useCallback(() => {
     try {
-      if (publishedVersion) localStorage.setItem(STORAGE_KEY, publishedVersion)
+      localStorage.setItem(STORAGE_KEY, publishedVersion)
     } catch {
       /* ignore */
     }
-    setShow(false)
+    setDismissed(true)
   }, [publishedVersion])
 
-  if (!show) return null
+  if (acknowledgement !== "changed" || dismissed) return null
 
   return (
     <div className="fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">

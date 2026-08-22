@@ -173,7 +173,8 @@ function clearPasswordHash(email: string): void {
   } catch (error) {
     const e = error as { status?: number; stderr?: Buffer; stdout?: Buffer }
     throw new Error(
-      `sqlcmd failed (${e.status}): ${e.stderr?.toString() ?? ""}${e.stdout?.toString() ?? ""}`
+      `sqlcmd failed (${e.status}): ${e.stderr?.toString() ?? ""}${e.stdout?.toString() ?? ""}`,
+      { cause: error }
     )
   }
 }

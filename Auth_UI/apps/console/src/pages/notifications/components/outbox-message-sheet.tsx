@@ -23,8 +23,8 @@ import { formatDateTime } from "@authsystem/ui/format"
 import {
   EmailPreviewFrame,
   PreviewSchemeToggle,
-  type PreviewScheme,
 } from "./email-preview-frame"
+import { usePreviewScheme } from "./use-preview-scheme"
 
 /**
  * One delivery-log entry: metadata (status, attempts, errors, audit references)
@@ -50,7 +50,7 @@ export function OutboxMessageSheet({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [mode, setMode] = React.useState<"html" | "text">("html")
-  const [scheme, setScheme] = React.useState<PreviewScheme>("light")
+  const [scheme, setScheme] = usePreviewScheme()
 
   const query = useQuery({
     queryKey: ["notification-outbox-message", messageId],

@@ -666,6 +666,12 @@
   <data name="Notification.ConcurrencyConflict" xml:space="preserve">
     <value>قالب توسط شخص دیگری تغییر کرده است. آخرین پیش‌نویس را دوباره بارگیری کرده و تغییرات خود را دوباره اعمال کنید.</value>
   </data>
+  <data name="Notification.PublishTargetChanged" xml:space="preserve">
+    <value>پیش‌نویس ذخیره‌شده انتخاب‌شده برای انتشار تغییر کرده است. پیش از انتشار، جدیدترین پیش‌نویس را دوباره بارگذاری و بررسی کنید.</value>
+  </data>
+  <data name="Notification.UnpublishTargetChanged" xml:space="preserve">
+    <value>نسخه منتشرشده انتخاب‌شده برای لغو انتشار تغییر کرده است. پیش از ادامه، انتشار فعلی را دوباره بارگذاری و بررسی کنید.</value>
+  </data>
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>چیدمان اعلان با شناسه '{0}' یافت نشد.</value>
   </data>
@@ -680,6 +686,9 @@
   </data>
   <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
     <value>چیدمان متن پیام را نمایش نمی‌دهد: باید جایگاه محتوا را داشته باشد، وگرنه همه پیام‌ها خالی می‌رسند.</value>
+  </data>
+  <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
+    <value>پیش‌نویس ذخیره‌شده چیدمان که برای انتشار انتخاب شده تغییر کرده است. پیش از انتشار، جدیدترین پیش‌نویس را دوباره بارگذاری و بررسی کنید.</value>
   </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>قالب دارای نحو نامعتبر است: {0}</value>

@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef, SortingState } from "@tanstack/react-table"
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate, useParams } from "react-router-dom"
+import { useParams } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
@@ -10,6 +10,7 @@ import { DetailList } from "@authsystem/ui/common/detail-list"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { LogoAvatar } from "@authsystem/ui/common/logo-avatar"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Alert, AlertDescription } from "@authsystem/ui/alert"
@@ -21,10 +22,22 @@ import { Switch } from "@authsystem/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import { api } from "@authsystem/api/client"
 import { getErrorMessage } from "@authsystem/api/errors"
-import { collectAllPages, toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
+import {
+  collectAllPages,
+  toSortParams,
+  unwrap,
+  toNumber,
+} from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
+import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
+import {
+  organizationHref,
+  permissionHref,
+  roleHref,
+  userHref,
+} from "@/lib/record-hrefs"
 import {
   accessMode,
   formatDateTime,
@@ -32,13 +45,58 @@ import {
   userStatusMeta,
 } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
+import {
+  enumArrayUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
+import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { ApplicationAccessDialog } from "./application-access-dialog"
 import { ApplicationEditDialog } from "./application-dialogs"
 
+type ApplicationUsersUrlFilters = {
+  accessSource: Array<"grant" | "direct" | "organization" | "multiple">
+  status: Array<"active" | "inactive" | "locked" | "pending">
+}
+
+const APPLICATION_USERS_URL_OPTIONS = {
+  namespace: "users",
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: SORTABLE_COLUMNS.applicationUsers,
+  defaultSorting: [{ id: "email", desc: false }],
+  filters: {
+    accessSource: enumArrayUrlFilter(
+      ["grant", "direct", "organization", "multiple"],
+      "access"
+    ),
+    status: enumArrayUrlFilter(["active", "inactive", "locked", "pending"]),
+  },
+} satisfies ListUrlStateOptions<ApplicationUsersUrlFilters>
+
+type ApplicationOrganizationsUrlFilters = {
+  status: Array<"active" | "inactive">
+}
+
+const APPLICATION_ORGANIZATIONS_URL_OPTIONS = {
+  namespace: "organizations",
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: SORTABLE_COLUMNS.applicationOrganizations,
+  defaultSorting: [{ id: "name", desc: false }],
+  filters: {
+    status: enumArrayUrlFilter(["active", "inactive"]),
+  },
+} satisfies ListUrlStateOptions<ApplicationOrganizationsUrlFilters>
+
+const APPLICATION_DETAIL_TABS = [
+  "users",
+  "organizations",
+  "roles",
+  "permissions",
+] as const
+
 function ApplicationUsersTab({ appId }: { appId: string }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
 
   /**
    * Why a user is on this roster. Not the same question as "can they sign in":
@@ -58,15 +116,37 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
     }
   }
 
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  const [searchInput, setSearchInput] = React.useState("")
+  const {
+    pageIndex: page,
+    pageSize,
+    search: searchInput,
+    sorting,
+    filters,
+    setSearch: setSearchInput,
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+    setFilters,
+  } = useListUrlState(APPLICATION_USERS_URL_OPTIONS)
   const search = useDebouncedValue(searchInput)
-  // Server-side sort over the whole dataset; initial value mirrors the API default.
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "email", desc: false },
-  ])
   const { sortBy, sortDirection } = toSortParams(sorting)
+  const columnFilters: ColumnFiltersState = [
+    ...(filters.accessSource.length
+      ? [{ id: "accessSource", value: filters.accessSource }]
+      : []),
+    ...(filters.status.length ? [{ id: "status", value: filters.status }] : []),
+  ]
+  const onColumnFiltersChange = (next: ColumnFiltersState) =>
+    setFilters({
+      accessSource:
+        (next.find((filter) => filter.id === "accessSource")?.value as
+          | ApplicationUsersUrlFilters["accessSource"]
+          | undefined) ?? [],
+      status:
+        (next.find((filter) => filter.id === "status")?.value as
+          | ApplicationUsersUrlFilters["status"]
+          | undefined) ?? [],
+    })
 
   const query = useQuery({
     queryKey: [
@@ -93,26 +173,28 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
 
   const exportAll = React.useCallback(
     () =>
-      collectAllPages<Schemas["ApplicationUserDto"]>(async (pageNumber, size) => {
-        const result = await unwrap(
-          api.GET("/api/v1/Applications/{id}/users", {
-            params: {
-              path: { id: appId },
-              query: {
-                pageNumber,
-                pageSize: size,
-                searchTerm: search || undefined,
-                sortBy,
-                sortDirection,
+      collectAllPages<Schemas["ApplicationUserDto"]>(
+        async (pageNumber, size) => {
+          const result = await unwrap(
+            api.GET("/api/v1/Applications/{id}/users", {
+              params: {
+                path: { id: appId },
+                query: {
+                  pageNumber,
+                  pageSize: size,
+                  searchTerm: search || undefined,
+                  sortBy,
+                  sortDirection,
+                },
               },
-            },
-          })
-        )
-        return {
-          items: result.users ?? [],
-          totalCount: toNumber(result.totalCount),
+            })
+          )
+          return {
+            items: result.users ?? [],
+            totalCount: toNumber(result.totalCount),
+          }
         }
-      }),
+      ),
     [appId, search, sortBy, sortDirection]
   )
 
@@ -126,14 +208,14 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
     {
       id: "firstName",
       accessorFn: (row) =>
-        row.displayName || fullName(row.firstName, row.lastName, row.email ?? ""),
+        row.displayName ||
+        fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={userHref(row.original.userId)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/users/${row.original.userId}`)}
         >
           <p className="truncate font-medium">
             {row.original.displayName ||
@@ -146,7 +228,7 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
           <p className="truncate text-xs text-muted-foreground">
             {row.original.email}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -164,12 +246,21 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
     {
       id: "accessSource",
       enableSorting: false,
-      accessorFn: (row) => accessSourceLabel(row.accessSource),
+      accessorFn: (row) => row.accessSource ?? "multiple",
       filterFn: "faceted",
       header: t("applications.accessVia"),
       meta: {
         label: t("applications.accessVia"),
         filterVariant: "faceted",
+        filterOptions: [
+          { value: "grant", label: t("applications.accessViaGrant") },
+          { value: "direct", label: t("applications.accessViaDirect") },
+          {
+            value: "organization",
+            label: t("applications.accessViaOrganization"),
+          },
+          { value: "multiple", label: t("applications.accessViaMultiple") },
+        ],
       },
       cell: ({ row }) => (
         <Badge variant="outline">
@@ -214,10 +305,7 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
     <div className="flex flex-col gap-4">
       <SearchInput
         value={searchInput}
-        onChange={(value) => {
-            setSearchInput(value)
-            setPage(0)
-          }}
+        onChange={setSearchInput}
         placeholder={t("users.searchPlaceholder")}
       />
       <DataTable
@@ -229,21 +317,17 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
         onRetry={() => query.refetch()}
         onExportAll={exportAll}
         enableRowDetail={false}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
         sorting={sorting}
-        onSortingChange={(next) => {
-          setSorting(next)
-          setPage(0)
-        }}
+        onSortingChange={setSorting}
         pagination={{
           pageIndex: page,
           pageSize,
           pageCount: toNumber(query.data?.totalPages),
           totalCount: toNumber(query.data?.totalCount),
           onPageChange: setPage,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPage(0)
-          },
+          onPageSizeChange: setPageSize,
         }}
       />
     </div>
@@ -252,14 +336,27 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
 
 function ApplicationOrganizationsTab({ appId }: { appId: string }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  // Server-side sort over the whole dataset; initial value mirrors the API default.
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "name", desc: false },
-  ])
+  const {
+    pageIndex: page,
+    pageSize,
+    sorting,
+    filters,
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+    setFilters,
+  } = useListUrlState(APPLICATION_ORGANIZATIONS_URL_OPTIONS)
   const { sortBy, sortDirection } = toSortParams(sorting)
+  const columnFilters: ColumnFiltersState = filters.status.length
+    ? [{ id: "isActive", value: filters.status }]
+    : []
+  const onColumnFiltersChange = (next: ColumnFiltersState) =>
+    setFilters({
+      status:
+        (next.find((filter) => filter.id === "isActive")?.value as
+          | ApplicationOrganizationsUrlFilters["status"]
+          | undefined) ?? [],
+    })
 
   const query = useQuery({
     queryKey: ["app-orgs", appId, { page, pageSize, sortBy, sortDirection }],
@@ -286,16 +383,15 @@ function ApplicationOrganizationsTab({ appId }: { appId: string }) {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={organizationHref(row.original.organizationId)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/organizations/${row.original.organizationId}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -350,21 +446,17 @@ function ApplicationOrganizationsTab({ appId }: { appId: string }) {
       error={query.isError ? query.error : undefined}
       onRetry={() => query.refetch()}
       enableRowDetail={false}
+      columnFilters={columnFilters}
+      onColumnFiltersChange={onColumnFiltersChange}
       sorting={sorting}
-      onSortingChange={(next) => {
-        setSorting(next)
-        setPage(0)
-      }}
+      onSortingChange={setSorting}
       pagination={{
         pageIndex: page,
         pageSize,
         pageCount: toNumber(query.data?.totalPages),
         totalCount: toNumber(query.data?.totalCount),
         onPageChange: setPage,
-        onPageSizeChange: (size) => {
-          setPageSize(size)
-          setPage(0)
-        },
+        onPageSizeChange: setPageSize,
       }}
     />
   )
@@ -372,7 +464,6 @@ function ApplicationOrganizationsTab({ appId }: { appId: string }) {
 
 function ApplicationRolesTab({ appId }: { appId: string }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
 
   const query = useQuery({
     queryKey: ["applications", appId, "roles"],
@@ -391,16 +482,15 @@ function ApplicationRolesTab({ appId }: { appId: string }) {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={roleHref(row.original.id)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/roles/${row.original.id}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -464,7 +554,6 @@ function ApplicationRolesTab({ appId }: { appId: string }) {
 
 function ApplicationPermissionsTab({ appId }: { appId: string }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
 
   const query = useQuery({
     queryKey: ["applications", appId, "permissions"],
@@ -483,16 +572,15 @@ function ApplicationPermissionsTab({ appId }: { appId: string }) {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={permissionHref(row.original.id)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/permissions/${row.original.id}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -548,6 +636,7 @@ export function ApplicationDetailPage() {
   const { hasPermission } = useAuth()
   const canUpdate = hasPermission(PERMISSIONS.applications.update)
   const queryClient = useQueryClient()
+  const [activeTab, setActiveTab] = useTabParam(APPLICATION_DETAIL_TABS)
   const [editOpen, setEditOpen] = React.useState(false)
   const [accessOpen, setAccessOpen] = React.useState(false)
   const [deactivateOpen, setDeactivateOpen] = React.useState(false)
@@ -579,9 +668,7 @@ export function ApplicationDetailPage() {
     onSuccess: (isActive) => {
       void queryClient.invalidateQueries({ queryKey: ["applications"] })
       toast.success(
-        isActive
-          ? t("applications.activated")
-          : t("applications.deactivated")
+        isActive ? t("applications.activated") : t("applications.deactivated")
       )
       setDeactivateOpen(false)
     },
@@ -612,40 +699,34 @@ export function ApplicationDetailPage() {
                   })
                 }}
                 persist={async (logoKey) => {
-                  const { error } = await api.PUT(
-                    "/api/v1/Applications/{id}",
-                    {
-                      params: { path: { id: appId } },
-                      // A full replace: every setting the update contract
-                      // accepts has to be resent, or changing the logo quietly
-                      // resets it. `redirectUris` is the one exception — the
-                      // API reads null as "leave the allowlist alone".
-                      body: {
-                        name: app.name ?? "",
-                        description: app.description ?? null,
-                        baseUrl: app.baseUrl ?? null,
-                        logoUrl: logoKey,
-                        contactEmail: app.contactEmail ?? null,
-                        // Without this, uploading a logo would send the
-                        // contract's default and silently close an open
-                        // application down to its invitation list.
-                        accessMode: accessMode(
-                          app.accessMode
-                        ) as unknown as number,
-                        allowSelfRegistration:
-                          app.allowSelfRegistration ?? false,
-                        requireTwoFactor: app.requireTwoFactor ?? false,
-                        requireEmailVerification:
-                          app.requireEmailVerification ?? false,
-                        sessionTimeoutMinutes:
-                          app.sessionTimeoutMinutes ?? 60,
-                        maxConcurrentSessions:
-                          app.maxConcurrentSessions ?? 5,
-                        reauthenticationMaxAgeMinutes:
-                          app.reauthenticationMaxAgeMinutes ?? null,
-                      },
-                    }
-                  )
+                  const { error } = await api.PUT("/api/v1/Applications/{id}", {
+                    params: { path: { id: appId } },
+                    // A full replace: every setting the update contract
+                    // accepts has to be resent, or changing the logo quietly
+                    // resets it. `redirectUris` is the one exception — the
+                    // API reads null as "leave the allowlist alone".
+                    body: {
+                      name: app.name ?? "",
+                      description: app.description ?? null,
+                      baseUrl: app.baseUrl ?? null,
+                      logoUrl: logoKey,
+                      contactEmail: app.contactEmail ?? null,
+                      // Without this, uploading a logo would send the
+                      // contract's default and silently close an open
+                      // application down to its invitation list.
+                      accessMode: accessMode(
+                        app.accessMode
+                      ) as unknown as number,
+                      allowSelfRegistration: app.allowSelfRegistration ?? false,
+                      requireTwoFactor: app.requireTwoFactor ?? false,
+                      requireEmailVerification:
+                        app.requireEmailVerification ?? false,
+                      sessionTimeoutMinutes: app.sessionTimeoutMinutes ?? 60,
+                      maxConcurrentSessions: app.maxConcurrentSessions ?? 5,
+                      reauthenticationMaxAgeMinutes:
+                        app.reauthenticationMaxAgeMinutes ?? null,
+                    },
+                  })
                   if (error) throw error
                 }}
               />
@@ -699,7 +780,9 @@ export function ApplicationDetailPage() {
                 value: (
                   <Badge
                     variant={
-                      accessMode(app.accessMode) === "Everyone" ? "default" : "secondary"
+                      accessMode(app.accessMode) === "Everyone"
+                        ? "default"
+                        : "secondary"
                     }
                   >
                     {accessMode(app.accessMode) === "Everyone"
@@ -774,7 +857,7 @@ export function ApplicationDetailPage() {
         </>
       )}
 
-      <Tabs defaultValue="users">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="users">{t("nav.users")}</TabsTrigger>
           <TabsTrigger value="organizations">

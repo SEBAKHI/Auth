@@ -65,7 +65,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={loading || confirmDisabled}
           >
-            {loading ? <Spinner /> : null}
+            {loading ? <Spinner data-icon="inline-start" /> : null}
             {confirmLabel ?? t("common.confirm")}
           </Button>
         </AlertDialogFooter>

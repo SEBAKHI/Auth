@@ -1,14 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef, SortingState } from "@tanstack/react-table"
+import type { ColumnDef } from "@tanstack/react-table"
 import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { SearchInput } from "@authsystem/ui/common/search-input"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
@@ -22,13 +23,23 @@ import {
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
 import { api } from "@authsystem/api/client"
-import { collectAllPages, toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
+import {
+  collectAllPages,
+  toSortParams,
+  unwrap,
+  toNumber,
+} from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
+import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
+import { applicationHref } from "@/lib/record-hrefs"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime } from "@authsystem/ui/format"
 import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
-import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
+import {
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import {
   ApplicationCreateDialog,
@@ -37,21 +48,28 @@ import {
 
 type ApplicationDto = Schemas["ApplicationDto"]
 
+const APPLICATIONS_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: SORTABLE_COLUMNS.applications,
+  defaultSorting: [],
+} satisfies ListUrlStateOptions
+
 export function ApplicationsPage() {
   const { t } = useTranslation()
   const { hasPermission } = useAuth()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  // A term the command palette handed over, so arriving from "see all N"
-  // lands on those rows rather than on the whole list again.
-  const handoff = useSearchHandoff()
-  const [searchInput, setSearchInput] = React.useState(handoff)
+  const {
+    pageIndex: page,
+    pageSize,
+    search: searchInput,
+    sorting,
+    setSearch: setSearchInput,
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+  } = useListUrlState(APPLICATIONS_LIST_URL_OPTIONS)
   const search = useDebouncedValue(searchInput)
-  // Server-side sort over the whole dataset (API default order is by code).
-  const [sorting, setSorting] = React.useState<SortingState>([])
   const { sortBy, sortDirection } = toSortParams(sorting)
 
   const [createOpen, setCreateOpen] = React.useState(false)
@@ -63,7 +81,10 @@ export function ApplicationsPage() {
   const canDelete = hasPermission(PERMISSIONS.applications.delete)
 
   const query = useQuery({
-    queryKey: ["applications", { page, pageSize, search, sortBy, sortDirection }],
+    queryKey: [
+      "applications",
+      { page, pageSize, search, sortBy, sortDirection },
+    ],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/Applications", {
@@ -131,16 +152,15 @@ export function ApplicationsPage() {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={applicationHref(row.original.id)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/applications/${row.original.id}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -185,60 +205,59 @@ export function ApplicationsPage() {
       ),
     },
     ...[
-          {
-            id: "actions",
-            enableSorting: false,
-            enableHiding: false,
-            header: () => (
-              <span className="sr-only">{t("common.actions")}</span>
-            ),
-            cell: ({ row }) => {
-              const app = row.original
-              return (
-                <div className="text-end">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label={t("common.actions")}
-                      >
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+      {
+        id: "actions",
+        enableSorting: false,
+        enableHiding: false,
+        header: () => <span className="sr-only">{t("common.actions")}</span>,
+        cell: ({ row }) => {
+          const app = row.original
+          const viewHref = applicationHref(app.id)
+          return (
+            <div className="text-end">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("common.actions")}
+                  >
+                    <MoreHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuGroup>
+                    {viewHref ? (
+                      <DropdownMenuItem asChild>
+                        <Link to={viewHref}>{t("common.view")}</Link>
+                      </DropdownMenuItem>
+                    ) : null}
+                    {canUpdate ? (
+                      <DropdownMenuItem onClick={() => setEditing(app)}>
+                        {t("common.edit")}
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuGroup>
+                  {canDelete ? (
+                    <>
+                      <DropdownMenuSeparator />
                       <DropdownMenuGroup>
                         <DropdownMenuItem
-                          onClick={() => navigate(`/applications/${app.id}`)}
+                          variant="destructive"
+                          onClick={() => setDeleting(app)}
                         >
-                          {t("common.view")}
+                          {t("common.delete")}
                         </DropdownMenuItem>
-                        {canUpdate ? (
-                          <DropdownMenuItem onClick={() => setEditing(app)}>
-                            {t("common.edit")}
-                          </DropdownMenuItem>
-                        ) : null}
                       </DropdownMenuGroup>
-                      {canDelete ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => setDeleting(app)}
-                            >
-                              {t("common.delete")}
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </>
-                      ) : null}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              )
-            },
-          } satisfies ColumnDef<ApplicationDto, unknown>,
-        ],
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )
+        },
+      } satisfies ColumnDef<ApplicationDto, unknown>,
+    ],
   ]
 
   return (
@@ -258,10 +277,7 @@ export function ApplicationsPage() {
 
       <SearchInput
         value={searchInput}
-        onChange={(value) => {
-            setSearchInput(value)
-            setPage(0)
-          }}
+        onChange={setSearchInput}
         placeholder={t("common.search")}
       />
 
@@ -275,10 +291,7 @@ export function ApplicationsPage() {
         onRetry={() => query.refetch()}
         onExportAll={exportAll}
         sorting={sorting}
-        onSortingChange={(next) => {
-          setSorting(next)
-          setPage(0)
-        }}
+        onSortingChange={setSorting}
         enableRowDetail={false}
         pagination={{
           pageIndex: page,
@@ -286,10 +299,7 @@ export function ApplicationsPage() {
           pageCount: toNumber(query.data?.totalPages),
           totalCount: toNumber(query.data?.totalCount),
           onPageChange: setPage,
-          onPageSizeChange: (size) => {
-            setPageSize(size)
-            setPage(0)
-          },
+          onPageSizeChange: setPageSize,
         }}
       />
 

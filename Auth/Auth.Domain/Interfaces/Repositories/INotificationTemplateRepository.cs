@@ -40,6 +40,25 @@ public interface INotificationTemplateRepository
     Task UpdateAsync(NotificationTemplate template, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Persists a publish transition only while the database still points at the
+    /// reviewed draft version and saved revision.
+    /// </summary>
+    Task<bool> TryPublishAsync(
+        NotificationTemplate template,
+        Guid expectedDraftVersionId,
+        DateTime expectedRevisionAt,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Persists an unpublish transition only while the database still points at
+    /// the reviewed published version.
+    /// </summary>
+    Task<bool> TryUnpublishAsync(
+        NotificationTemplate template,
+        Guid expectedPublishedVersionId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Deletes a template with all its versions and translations in one transaction.
     /// </summary>
     Task DeleteAsync(Guid id, CancellationToken cancellationToken);

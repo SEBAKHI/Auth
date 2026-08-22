@@ -1,12 +1,12 @@
 import { useAuth } from "@authsystem/auth/auth-context"
 import { AppShell as SharedAppShell } from "@authsystem/ui/common/app-shell"
 import { GlobalSearch } from "@/components/global-search/global-search"
-import { NAV_ITEMS } from "@/lib/constants"
+import { resolveNavItems } from "@/components/layout/nav-items"
 
 /** Console shell: the shared sidebar layout with the permission-filtered admin nav. */
 export function AppShell() {
   const { hasPermission } = useAuth()
-  const items = NAV_ITEMS.filter((item) => hasPermission(item.permission))
+  const items = resolveNavItems(hasPermission)
 
   return (
     <SharedAppShell

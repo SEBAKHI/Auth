@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import i18n from "@authsystem/i18n"
+import { en } from "@authsystem/i18n/locales/en"
 
 const get = vi.fn()
 const put = vi.fn()
@@ -124,12 +125,17 @@ describe("SecretsPage — when the status call fails", () => {
 
     await screen.findByText("Secret administration is disabled")
     // Nothing to retry: a switched-off API answers the same way every time.
-    expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("button", { name: "Retry" })
+    ).not.toBeInTheDocument()
   })
 
-  it("reports a fault as a fault, in the server's own words", async () => {
+  it("reports the cause the catalog names, not a generic fault", async () => {
     // What an undecryptable secrets file actually returns: the handler catches
-    // SecretDecryptionException and answers with a domain error naming the cause.
+    // SecretDecryptionException and answers with a domain error naming the
+    // cause. That sentence is authored and hand-translated into all seven
+    // languages, and it points the admin at the key path - which the generic
+    // "try again, then contact support" copy cannot do.
     get.mockReset().mockResolvedValue({
       error: {
         status: 500,
@@ -145,6 +151,9 @@ describe("SecretsPage — when the status call fails", () => {
     expect(
       screen.getByText(/may have been encrypted on a different machine/)
     ).toBeInTheDocument()
+    expect(
+      screen.queryByText(en.errors.feedback.server)
+    ).not.toBeInTheDocument()
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument()
     expect(
       screen.queryByText("Secret administration is disabled")
@@ -152,11 +161,9 @@ describe("SecretsPage — when the status call fails", () => {
   })
 
   /**
-   * The message on this screen is the server's, localized from Accept-Language
-   * when the call was made. Cached under a language-blind key it outlives the
-   * language that produced it — an English page explaining itself in Persian,
-   * which is exactly what the browser showed before the key carried the
-   * language.
+   * The status query remains language-keyed because successful payloads and
+   * other response fields can be localized. Error recovery copy itself is
+   * selected locally from the stable code/status classification.
    */
   it("refetches the status when the language changes", async () => {
     get.mockReset().mockResolvedValue({
@@ -285,7 +292,9 @@ describe("SecretsPage — storing the credential secrets", () => {
       await screen.findByRole("menuitem", { name: "Import HMAC key" })
     )
 
-    expect(await screen.findByLabelText("HMAC key (base64)")).toBeInTheDocument()
+    expect(
+      await screen.findByLabelText("HMAC key (base64)")
+    ).toBeInTheDocument()
     expect(screen.queryByRole("combobox")).toBeNull()
   })
 
@@ -341,7 +350,10 @@ describe("SecretsPage — storing the credential secrets", () => {
 
     // The warning names the failure and the button changes what it promises.
     await screen.findByText(/Could not connect with this connection string/)
-    expect(screen.getByText(/Login failed for user/)).toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      en.errors.feedback.connectionUnreachable
+    )
+    expect(screen.queryByText(/Login failed for user/)).not.toBeInTheDocument()
 
     await user.click(screen.getByRole("button", { name: "Save anyway" }))
 

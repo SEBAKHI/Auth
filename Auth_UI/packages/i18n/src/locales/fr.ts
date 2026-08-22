@@ -89,7 +89,8 @@ export const fr: TranslationResources = {
     resizeColumn: "Redimensionner la colonne {{column}}",
     moveColumnUp: "Avancer la colonne {{column}}",
     moveColumnDown: "Reculer la colonne {{column}}",
-    columnMoved: "Colonne {{column}} déplacée en position {{position}} sur {{total}}",
+    columnMoved:
+      "Colonne {{column}} déplacée en position {{position}} sur {{total}}",
     sortAscending: "Tri croissant",
     sortDescending: "Tri décroissant",
     reset: "Réinitialiser",
@@ -118,6 +119,9 @@ export const fr: TranslationResources = {
     discardTitle: "Abandonner les modifications ?",
     discardBody:
       "Vous avez des modifications non enregistrées. Si vous quittez maintenant, elles seront perdues.",
+    saveInProgressTitle: "Enregistrement en cours",
+    saveInProgressBody:
+      "Attendez la fin de l’enregistrement, ou annulez cette navigation et restez sur la page.",
     saveWithCount: "Enregistrer ({{count}})",
     changesSaved: "Modifications enregistrées",
     applyChangesTitle: "Appliquer ces modifications ?",
@@ -158,7 +162,8 @@ export const fr: TranslationResources = {
   auth: {
     continueWithApple: "Continuer avec Apple",
     privacyPolicy: "Politique de confidentialité",
-    policyUpdatedNotice: "Notre politique de confidentialité a été mise à jour.",
+    policyUpdatedNotice:
+      "Notre politique de confidentialité a été mise à jour.",
     policyUpdatedView: "Voir la politique",
     policyUpdatedDismiss: "Ignorer",
     signInTitle: "Connexion",
@@ -175,11 +180,13 @@ export const fr: TranslationResources = {
     backToSignIn: "Retour à la connexion",
     signOutTitle: "Se déconnecter de {{name}} ?",
     signOutTitleNoApp: "Se déconnecter ?",
-    signOutBody: "Cela met fin à votre session d'authentification unique (SSO) — celle qui vous ouvre les autres applications sans retaper votre mot de passe. Une application dans laquelle vous êtes déjà conserve sa propre session jusqu'à ce qu'elle y mette fin.",
+    signOutBody:
+      "Cela met fin à votre session d'authentification unique (SSO) — celle qui vous ouvre les autres applications sans retaper votre mot de passe. Une application dans laquelle vous êtes déjà conserve sa propre session jusqu'à ce qu'elle y mette fin.",
     signOutConfirm: "Se déconnecter",
     signOutCancel: "Rester connecté",
     signedOutTitle: "Vous êtes déconnecté",
-    signedOutBody: "Votre session d'authentification unique a pris fin. Une nouvelle connexion demandera votre mot de passe.",
+    signedOutBody:
+      "Votre session d'authentification unique a pris fin. Une nouvelle connexion demandera votre mot de passe.",
     useDifferentAccount: "Utiliser un autre compte",
     resetLinkSentTitle: "Consultez vos e-mails",
     resetLinkSentDescription:
@@ -220,7 +227,8 @@ export const fr: TranslationResources = {
     useAuthenticatorCode: "Utiliser un code d'authentification",
     authenticatorAppsHint:
       "N'importe quelle application d'authentification convient. Si vous n'en avez pas encore, celles-ci sont gratuites et peuvent sauvegarder vos codes :",
-    noAuthenticatorApp: "Vous n'avez pas votre application d'authentification ?",
+    noAuthenticatorApp:
+      "Vous n'avez pas votre application d'authentification ?",
     recoveryCode: "Code de récupération",
     twoFactorChallengeExpired:
       "Votre tentative de connexion a expiré. Veuillez vous reconnecter.",
@@ -267,11 +275,13 @@ export const fr: TranslationResources = {
   },
   dashboard: {
     window: "Période",
-    windowHint: "La profondeur sur laquelle chaque chiffre de cette page est mesuré.",
+    windowHint:
+      "La profondeur sur laquelle chaque chiffre de cette page est mesuré.",
     windowCustom: "Nombre de jours",
     windowLabel: "{{days}} derniers jours.",
     granularity: "Granularité",
-    granularityHint: "Si un point de l'axe temporel représente un jour ou une semaine.",
+    granularityHint:
+      "Si un point de l'axe temporel représente un jour ou une semaine.",
     tabOverview: "Vue d'ensemble",
     tabSecurity: "Connexion et sécurité",
     tabPeople: "Utilisateurs",
@@ -282,13 +292,17 @@ export const fr: TranslationResources = {
     newUsers: "Nouveaux utilisateurs",
     attention: "Nécessite une attention",
     alertRateDrop: "Le taux de réussite des connexions a chuté",
-    alertRateDropBody: "En baisse de {{points}} points sur la période précédente, désormais {{rate}} %.",
+    alertRateDropBody:
+      "En baisse de {{points}} points sur la période précédente, désormais {{rate}} %.",
     alertLockedOut: "{{count}} compte(s) verrouillé(s)",
-    alertLockedOutBody: "Ils ne peuvent pas se connecter avant l'expiration ou la levée du verrou.",
+    alertLockedOutBody:
+      "Ils ne peuvent pas se connecter avant l'expiration ou la levée du verrou.",
     alertFailingIp: "Une adresse génère des échecs répétés",
-    alertFailingIpBody: "{{ip}} a produit {{count}} tentatives échouées sur {{users}} identifiant(s).",
+    alertFailingIpBody:
+      "{{ip}} a produit {{count}} tentatives échouées sur {{users}} identifiant(s).",
     alertStaleSessions: "{{count}} session(s) ont dépassé leur expiration",
-    alertStaleSessionsBody: "Elles sont toujours ouvertes et n'ont jamais été fermées.",
+    alertStaleSessionsBody:
+      "Elles sont toujours ouvertes et n'ont jamais été fermées.",
     alertExpiringEnablements: "{{count}} abonnement(s) arrivent à échéance",
     alertExpiringEnablementsBody: "Fin sous {{days}} jours.",
     alertExpiringKeys: "{{count}} clé(s) API expirent sous {{days}} jours",
@@ -301,19 +315,23 @@ export const fr: TranslationResources = {
     reviewWebhookKeys: "Examiner les clés webhook",
     reviewOrganizations: "Examiner les organisations",
     accountHygiene: "Hygiène des comptes",
-    accountHygieneSubtitle: "Couverture du second facteur et comptes inutilisés.",
+    accountHygieneSubtitle:
+      "Couverture du second facteur et comptes inutilisés.",
     dormant30: "Plus de 30 jours",
     dormant60: "Plus de 60 jours",
     dormant90: "Plus de 90 jours",
-    neverLoggedInHint: "{{count}} compte(s) actif(s) ne se sont jamais connectés.",
+    neverLoggedInHint:
+      "{{count}} compte(s) actif(s) ne se sont jamais connectés.",
     sessionsStarted: "Sessions démarrées",
     averageSession: "Session moyenne",
     sessions: "Sessions",
     tokens: "Jetons",
     failedAttemptsSubtitle: "Tentatives de connexion rejetées par période.",
     whereSignIns: "Où se produisent les connexions",
-    whereSignInsSubtitle: "Tentatives, taux de réussite et portée par application.",
-    whereSignInsOrgNote: "Attribué selon les appartenances de l'utilisateur : un utilisateur présent dans plusieurs organisations est compté pour chacune, donc le total peut dépasser le nombre réel de tentatives.",
+    whereSignInsSubtitle:
+      "Tentatives, taux de réussite et portée par application.",
+    whereSignInsOrgNote:
+      "Attribué selon les appartenances de l'utilisateur : un utilisateur présent dans plusieurs organisations est compté pour chacune, donc le total peut dépasser le nombre réel de tentatives.",
     applications: "Applications",
     organizations: "Organisations",
     colName: "Nom",
@@ -446,6 +464,8 @@ export const fr: TranslationResources = {
     unlock: "Déverrouiller",
     activate: "Activer",
     deactivate: "Désactiver",
+    deactivateTitle: "Désactiver ce compte ?",
+    deactivateBody: "{{name}} sera déconnecté partout et ne pourra plus se connecter tant que le compte n’est pas réactivé.",
     lockTitle: "Verrouiller le compte",
     lockReason: "Motif",
     lockReasonPlaceholder:
@@ -1001,9 +1021,19 @@ export const fr: TranslationResources = {
       "Les modifications non publiées de toutes les langues seront perdues.",
     draftDiscarded: "Brouillon abandonné",
     publish: "Publier",
+    publishConfirmTitle: "Publier {{item}} ?",
+    publishConfirmBody:
+      "Le brouillon enregistré sera mis en ligne pour le périmètre indiqué ci-dessous.",
     publishedToast: "Publié",
     unpublish: "Dépublier",
+    unpublishConfirmTitle: "Dépublier {{item}} ?",
+    unpublishConfirmBody:
+      "Le modèle publié ne sera plus utilisé pour le périmètre indiqué ci-dessous.",
     unpublishedToast: "Dépublié",
+    confirmationItem: "Élément",
+    confirmationVersion: "Version",
+    confirmationScope: "Périmètre",
+    savedDraftRevision: "Brouillon enregistré · {{modifiedAt}}",
     unsavedChanges: "Modifications non enregistrées",
     unpublishedChanges: "Modifications non publiées",
     deleteTitle: "Supprimer le modèle ?",
@@ -1060,6 +1090,7 @@ export const fr: TranslationResources = {
     tabLayouts: "Mises en page",
     tabDeliveryLog: "Journal de livraison",
     tabPolicy: "Politique de confidentialité",
+    sectionsNavLabel: "Sections des notifications",
     policyTitle: "Versions de la politique de confidentialité",
     policySubtitle:
       "Suivez les révisions de la politique et notifiez les utilisateurs des changements substantiels.",
@@ -1085,7 +1116,8 @@ export const fr: TranslationResources = {
     policyPublished: "Publiée",
     policyDraft: "Brouillon",
     policyPublish: "Publier",
-    policyMissingLanguagesTitle: "Toutes les langues ne sont pas encore traduites",
+    policyMissingLanguagesTitle:
+      "Toutes les langues ne sont pas encore traduites",
     policyMissingLanguagesBody:
       "Les lecteurs en {{languages}} recevront le document anglais, accompagné d'un avis dans leur propre langue le précisant. Publiez quand même, ou ajoutez d'abord les traductions.",
     policyDisclosureDriftTitle:
@@ -1093,11 +1125,13 @@ export const fr: TranslationResources = {
     policyDisclosureDriftBody:
       "Les paramètres système ont changé après la publication de cette version : le document servi cite encore les valeurs précédentes. Il n'est pas régénéré automatiquement — cela modifierait un avis déjà présenté aux utilisateurs. Republiez pour le mettre à jour.",
     policyPublishTitle: "Publier cette version de la politique ?",
-    policyPublishBody: "Elle devient la politique affichée à tous les utilisateurs. Le document anglais doit exister d'abord.",
+    policyPublishBody:
+      "Elle devient la politique affichée à tous les utilisateurs. Le document anglais doit exister d'abord.",
     policyPublishedToast: "Version de la politique publiée.",
     policyEditContent: "Modifier le contenu",
     policyContentTitle: "Contenu de la politique — {{version}}",
-    policyContentDescription: "Modifiez le texte publié par langue. Stocké en base ; aucun déploiement nécessaire.",
+    policyContentDescription:
+      "Modifiez le texte publié par langue. Stocké en base ; aucun déploiement nécessaire.",
     policyContentSaved: "Contenu de la politique enregistré.",
     policyTokens: "Valeurs dynamiques (ne pas coder en dur) :",
     policyPreview: "Aperçu",
@@ -1140,43 +1174,53 @@ export const fr: TranslationResources = {
     policySectionNumber: "Section {{number}}",
     policyRemoveSection: "Supprimer la section",
     policyRemoveSectionTitle: "Supprimer cette section ?",
-    policyRemoveSectionBody: "Son titre, ses paragraphes et ses puces seront supprimés du document de cette langue. Les autres langues ne sont pas affectées.",
+    policyRemoveSectionBody:
+      "Son titre, ses paragraphes et ses puces seront supprimés du document de cette langue. Les autres langues ne sont pas affectées.",
     policyRemoveParagraph: "Supprimer le paragraphe",
     policyRemoveBullet: "Supprimer la puce",
     policyRemoveRow: "Supprimer la ligne",
-    "policyJsonTab": "JSON",
-    "policyChangeNote": "Note de modification",
-    "policyChangeNoteHint": "Qu'est-ce qui a changé dans cette révision ?",
-    "policyNoChangeNote": "Aucune note",
-    "policySearchPlaceholder": "Rechercher une version ou une note…",
-    "policyNotifiedFilterSent": "Notifiée",
-    "policyNotifiedBadge": "Notifiée · {{count}} destinataires",
-    "policyVersionDetails": "Détails de la version",
-    "policyNotFound": "Cette version n'existe plus. Elle a peut-être été renommée ou supprimée — rouvrez-la depuis la liste des versions.",
+    policyJsonTab: "JSON",
+    policyChangeNote: "Note de modification",
+    policyChangeNoteHint: "Qu'est-ce qui a changé dans cette révision ?",
+    policyNoChangeNote: "Aucune note",
+    policySearchPlaceholder: "Rechercher une version ou une note…",
+    policyNotifiedFilterSent: "Notifiée",
+    policyNotifiedBadge: "Notifiée · {{count}} destinataires",
+    policyVersionDetails: "Détails de la version",
+    policyNotFound:
+      "Cette version n'existe plus. Elle a peut-être été renommée ou supprimée — rouvrez-la depuis la liste des versions.",
     policyClone: "Cloner",
     policyCloneTitle: "Cloner cette version",
-    policyCloneDescription: "Crée une nouvelle version et copie les {{count}} documents de langue de {{source}}, pour éditer un brouillon plutôt que partir d'une page blanche.",
+    policyCloneDescription:
+      "Crée une nouvelle version et copie les {{count}} documents de langue de {{source}}, pour éditer un brouillon plutôt que partir d'une page blanche.",
     policyCloneProgress: "Copie des langues… {{done}} sur {{total}}",
     policyClonedToast: "Version clonée avec {{count}} langues.",
     policyVersionRenameHint: "Les brouillons peuvent encore être renommés.",
-    policyVersionLockedHint: "Verrouillé : les versions publiées ou déjà annoncées sont référencées par les enregistrements de suppression.",
-    "policyTokenHint": "Cliquez pour insérer au curseur.",
-    "policyToken_graceDays": "Délai de rétractation avant que la suppression soit définitive, en jours.",
-    "policyToken_otpValidityMinutes": "Durée de validité du code de vérification de suppression, en minutes.",
-    "policyToken_loginAttemptRetentionDays": "Durée de conservation des tentatives de connexion, en jours.",
-    "policyToken_outboxRetentionDays": "Durée de conservation des e-mails envoyés, en jours.",
-    "policyToken_identifierReservationDays":
+    policyVersionLockedHint:
+      "Verrouillé : les versions publiées ou déjà annoncées sont référencées par les enregistrements de suppression.",
+    policyTokenHint: "Cliquez pour insérer au curseur.",
+    policyToken_graceDays:
+      "Délai de rétractation avant que la suppression soit définitive, en jours.",
+    policyToken_otpValidityMinutes:
+      "Durée de validité du code de vérification de suppression, en minutes.",
+    policyToken_loginAttemptRetentionDays:
+      "Durée de conservation des tentatives de connexion, en jours.",
+    policyToken_outboxRetentionDays:
+      "Durée de conservation des e-mails envoyés, en jours.",
+    policyToken_identifierReservationDays:
       "Durée pendant laquelle un e-mail supprimé reste bloqué au réenregistrement, en jours.",
-    "policyToken_legalName": "Dénomination sociale du responsable du traitement.",
-    "policyToken_address": "Adresse enregistrée du responsable du traitement.",
-    "policyToken_privacyEmail": "Boîte surveillée pour les demandes de confidentialité et de droits.",
-    "policyToken_emailProvider": "Fournisseur d'envoi d'e-mails nommé dans la section partage.",
-    "policyToken_hostingProvider": "Hébergeur nommé dans la section partage.",
-    "policyToken_hostingCountry": "Pays d'hébergement du service (nom seul).",
-    "overviewPolicy": "Versions de la politique",
-    "overviewViewPolicy": "Voir la politique",
-    "overviewPolicyHint": "{{count}} langues rédigées",
-    "overviewNoPolicy": "Aucune version enregistrée pour le moment.",
+    policyToken_legalName: "Dénomination sociale du responsable du traitement.",
+    policyToken_address: "Adresse enregistrée du responsable du traitement.",
+    policyToken_privacyEmail:
+      "Boîte surveillée pour les demandes de confidentialité et de droits.",
+    policyToken_emailProvider:
+      "Fournisseur d'envoi d'e-mails nommé dans la section partage.",
+    policyToken_hostingProvider: "Hébergeur nommé dans la section partage.",
+    policyToken_hostingCountry: "Pays d'hébergement du service (nom seul).",
+    overviewPolicy: "Versions de la politique",
+    overviewViewPolicy: "Voir la politique",
+    overviewPolicyHint: "{{count}} langues rédigées",
+    overviewNoPolicy: "Aucune version enregistrée pour le moment.",
     policyButtonLabel: "Libellé du bouton",
     policyButtonLabelPlaceholder: "Supprimer mon compte",
     policySignedInHint: "Astuce utilisateur connecté",
@@ -1319,7 +1363,8 @@ export const fr: TranslationResources = {
       "Quelqu'un d'autre a modifié cette section entre-temps. Elle a été rechargée — veuillez réappliquer vos modifications.",
     arrayFieldHint: "Une entrée par ligne.",
     sendTestEmail: "Envoyer un e-mail de test",
-    testEmailSent: "E-mail de test envoyé — consultez votre boîte de réception.",
+    testEmailSent:
+      "E-mail de test envoyé — consultez votre boîte de réception.",
     groups: {
       security: "Sécurité",
       access: "Accès",
@@ -1395,9 +1440,11 @@ export const fr: TranslationResources = {
       argon2ParallelismHint:
         "Recommandé : 1 (OWASP). Les mots de passe existants continuent de fonctionner après un changement — ils sont mis à niveau à la connexion suivante.",
       saltSize: "Taille du sel (octets)",
-      saltSizeHint: "Fixée à la valeur recommandée par l'OWASP ; non configurable.",
+      saltSizeHint:
+        "Fixée à la valeur recommandée par l'OWASP ; non configurable.",
       hashSize: "Taille du hachage (octets)",
-      hashSizeHint: "Fixée à la valeur recommandée par l'OWASP ; non configurable.",
+      hashSizeHint:
+        "Fixée à la valeur recommandée par l'OWASP ; non configurable.",
       pepperEnabled: "Poivre côté serveur",
       pepperEnabledHint:
         "Mélange un secret détenu par le serveur à chaque hachage de mot de passe, de sorte qu'une base de données volée ne suffit pas à elle seule à craquer les mots de passe. Le matériel de clé est créé automatiquement au prochain redémarrage.",
@@ -1425,7 +1472,8 @@ export const fr: TranslationResources = {
       maxConcurrentSessions: "Nombre maximal de sessions simultanées",
       maxConcurrentSessionsHint:
         "Combien de sessions un même utilisateur peut avoir ouvertes en même temps, toutes applications confondues. 0 signifie aucune limite, et c'est la valeur par défaut : Google, Okta, Auth0 et Keycloak sont tous livrés sans plafond, car une limite est un contrôle de conformité que l'on active, pas une base de sécurité. Si vous en définissez une, souvenez-vous qu'une personne ordinaire en utilise environ six — deux navigateurs, un téléphone, une tablette, un poste de travail.",
-      terminateOldestOnMax: "Fermer la session la plus ancienne plutôt que refuser",
+      terminateOldestOnMax:
+        "Fermer la session la plus ancienne plutôt que refuser",
       terminateOldestOnMaxHint:
         "Ce que fait l'atteinte de la limite. Activé : les sessions inutilisées depuis le plus longtemps prennent fin et la nouvelle connexion aboutit. Désactivé : la nouvelle connexion est refusée. Recommandé : activé — refuser enferme les gens hors de leur propre compte lorsqu'ils ne peuvent pas atteindre leurs anciens appareils. Sans effet tant que la limite vaut 0.",
       terminateSessionsOnPasswordChange:
@@ -1448,8 +1496,7 @@ export const fr: TranslationResources = {
       exemptPathsHint:
         "Chemins servis sans l'en-tête de la passerelle — sondes de santé et documents de découverte publics. Les entrées doivent commencer par '/' ; un '/' final couvre tout le préfixe.",
       tokenHeaderName: "Nom de l'en-tête",
-      tokenHeaderNameHint:
-        "Fixé côté passerelle ; affiché ici pour référence.",
+      tokenHeaderNameHint: "Fixé côté passerelle ; affiché ici pour référence.",
       expectedToken: "Jeton de la passerelle",
     },
     cors: {
@@ -1473,10 +1520,12 @@ export const fr: TranslationResources = {
       loginWindowSeconds: "Fenêtre de comptage d'authentification (secondes)",
       loginWindowSecondsHint:
         "Durée sur laquelle le compte ci-dessus est mesuré. La fenêtre est fixe et non glissante : le compteur revient à zéro à sa fin, et un client ayant épuisé son quota attend jusque-là. L'allonger resserre la limite et allonge l'attente après un refus, en même temps.",
-      passwordResetPermitLimit: "Utilisations du lien de réinitialisation par fenêtre",
+      passwordResetPermitLimit:
+        "Utilisations du lien de réinitialisation par fenêtre",
       passwordResetPermitLimitHint:
         "Nombre de fois qu'une même IP cliente peut soumettre un nouveau mot de passe accompagné d'un jeton de réinitialisation. Il s'agit de l'utilisation du lien, non de sa demande — demander l'e-mail relève de la limite d'authentification ci-dessus. Le jeton porte 256 bits d'entropie et ne peut être deviné : cette limite est donc une mesure d'hygiène pour un point de terminaison ouvert sans connexion, pas une défense du jeton.",
-      passwordResetWindowSeconds: "Fenêtre de comptage de réinitialisation (secondes)",
+      passwordResetWindowSeconds:
+        "Fenêtre de comptage de réinitialisation (secondes)",
       passwordResetWindowSecondsHint:
         "Durée sur laquelle le nombre d'utilisations ci-dessus est mesuré, selon la même mécanique de fenêtre fixe.",
     },
@@ -1514,7 +1563,8 @@ export const fr: TranslationResources = {
     },
     externalAuth: {
       requireNonce: "Exiger un nonce émis par le serveur",
-      requireNonceHint: "Oblige une connexion via fournisseur à présenter une valeur à usage unique émise par ce serveur pour ce navigateur, de sorte qu'un jeton volé émis pour le navigateur d'un autre soit refusé. À activer une fois seulement que l'application déployée demande ces valeurs ; avant cela une valeur générée par le navigateur est acceptée, ce qui ne prouve rien. Recommandé : activé.",
+      requireNonceHint:
+        "Oblige une connexion via fournisseur à présenter une valeur à usage unique émise par ce serveur pour ce navigateur, de sorte qu'un jeton volé émis pour le navigateur d'un autre soit refusé. À activer une fois seulement que l'application déployée demande ces valeurs ; avant cela une valeur générée par le navigateur est acceptée, ce qui ne prouve rien. Recommandé : activé.",
       title: "Connexion externe (Google / Apple)",
       description:
         "Fournisseurs de connexion sociale. Les ID client ici sont des identifiants publics ; les clés privées vivent sous Gestion des secrets. Le fournisseur doit AUSSI être activé dans sa fiche de l'annuaire pour que le bouton apparaisse.",
@@ -1610,10 +1660,13 @@ export const fr: TranslationResources = {
         "Nombre maximal de codes de vérification qu'une même adresse peut demander par fenêtre. Recommandé : 3 — stoppe le bombardement d'e-mails.",
     },
     notificationsSection: {
-      newDeviceAlertEnabled: "Alerter en cas de connexion depuis un nouvel appareil",
-      newDeviceAlertEnabledHint: "Envoie un e-mail au titulaire du compte la première fois qu'une connexion arrive depuis un appareil inconnu. Recommandé : activé.",
+      newDeviceAlertEnabled:
+        "Alerter en cas de connexion depuis un nouvel appareil",
+      newDeviceAlertEnabledHint:
+        "Envoie un e-mail au titulaire du compte la première fois qu'une connexion arrive depuis un appareil inconnu. Recommandé : activé.",
       newDeviceAlertMinIntervalMinutes: "Écart minimal entre alertes (minutes)",
-      newDeviceAlertMinIntervalMinutesHint: "Empêche une rafale de connexions de produire une rafale d'e-mails. 0 envoie une alerte pour chaque nouvel appareil. Recommandé : 60.",
+      newDeviceAlertMinIntervalMinutesHint:
+        "Empêche une rafale de connexions de produire une rafale d'e-mails. 0 envoie une alerte pour chaque nouvel appareil. Recommandé : 60.",
       title: "Livraison des notifications",
       description:
         "Comment les notifications sortantes sont livrées : directement, ou via une boîte d'envoi durable qui réessaie les échecs et survit aux redémarrages. Le contenu et les modèles se gèrent sur les pages Notifications.",
@@ -1624,7 +1677,8 @@ export const fr: TranslationResources = {
       pollIntervalSecondsHint:
         "Réveil de secours quand aucun signal d'envoi n'arrive. Recommandé : 30.",
       batchSize: "Taille du lot",
-      batchSizeHint: "Messages pris en charge par cycle d'envoi. Recommandé : 20.",
+      batchSizeHint:
+        "Messages pris en charge par cycle d'envoi. Recommandé : 20.",
       maxAttempts: "Tentatives maximales",
       maxAttemptsHint:
         "Tentatives de livraison (avec attente exponentielle) avant qu'un message ne soit définitivement écarté. Recommandé : 5.",
@@ -1634,11 +1688,14 @@ export const fr: TranslationResources = {
     },
     geoIp: {
       title: "Géolocalisation IP",
-      description: "Traduit les adresses IP de connexion en pays et ville, pour que l'historique de connexion et les alertes de nouvel appareil puissent indiquer d'où venait la tentative. Nécessite un fichier de base MaxMind local ; sans lui la fonction reste désactivée et les emplacements s'affichent comme inconnus.",
+      description:
+        "Traduit les adresses IP de connexion en pays et ville, pour que l'historique de connexion et les alertes de nouvel appareil puissent indiquer d'où venait la tentative. Nécessite un fichier de base MaxMind local ; sans lui la fonction reste désactivée et les emplacements s'affichent comme inconnus.",
       enabled: "Activer la géolocalisation IP",
-      enabledHint: "Nécessite un fichier de base au chemin ci-dessous. Prend effet après un redémarrage.",
+      enabledHint:
+        "Nécessite un fichier de base au chemin ci-dessous. Prend effet après un redémarrage.",
       databasePath: "Chemin du fichier de base",
-      databasePathHint: "Chemin absolu du fichier MaxMind GeoLite2 .mmdb sur le serveur. Prend effet après un redémarrage.",
+      databasePathHint:
+        "Chemin absolu du fichier MaxMind GeoLite2 .mmdb sur le serveur. Prend effet après un redémarrage.",
     },
     imageStorage: {
       title: "Stockage des images",
@@ -1696,16 +1753,19 @@ export const fr: TranslationResources = {
       description:
         "L'identité légale publiée dans votre politique de confidentialité. Une politique ne peut pas être publiée tant que les champs obligatoires ne sont pas renseignés — une information qui ne nomme pas son responsable ne satisfait ni l'art. 10 de la KVKK ni l'art. 13 du RGPD.",
       legalName: "Dénomination sociale",
-      legalNameHint: "Raison sociale enregistrée, exactement telle qu'elle doit apparaître.",
+      legalNameHint:
+        "Raison sociale enregistrée, exactement telle qu'elle doit apparaître.",
       address: "Adresse enregistrée",
-      addressHint: "Adresse postale complète telle qu'elle doit figurer dans la politique.",
+      addressHint:
+        "Adresse postale complète telle qu'elle doit figurer dans la politique.",
       privacyEmail: "E-mail de contact confidentialité",
       privacyEmailHint:
         "Une boîte SURVEILLÉE — les demandes d'exercice de droits y arrivent et doivent être traitées sous 30 jours.",
       emailProvider: "Fournisseur d'envoi d'e-mails",
       emailProviderHint: "Nommé dans « avec qui nous partageons les données ».",
       hostingProvider: "Hébergeur",
-      hostingProviderHint: "Nommé dans « avec qui nous partageons les données ».",
+      hostingProviderHint:
+        "Nommé dans « avec qui nous partageons les données ».",
       hostingCountry: "Pays d'hébergement",
       hostingCountryHint:
         "Nom du pays seul, sans préposition — les phrases turque et française ajoutent la leur.",
@@ -1721,27 +1781,36 @@ export const fr: TranslationResources = {
     },
     expiredDataCleanup: {
       title: "Nettoyage des données expirées",
-      description: "Combien de temps les lignes déjà hors d'usage sont conservées avant que le balayage quotidien ne les supprime. Ce ne sont pas des durées de validité — chaque ligne ici est déjà morte. Elles fixent sa durée d'utilité comme PREUVE : un jeton de rafraîchissement révoqué est ce qui transforme un jeton volé en vol détecté, et un code d'autorisation consommé est ce qui prouve un rejeu.",
+      description:
+        "Combien de temps les lignes déjà hors d'usage sont conservées avant que le balayage quotidien ne les supprime. Ce ne sont pas des durées de validité — chaque ligne ici est déjà morte. Elles fixent sa durée d'utilité comme PREUVE : un jeton de rafraîchissement révoqué est ce qui transforme un jeton volé en vol détecté, et un code d'autorisation consommé est ce qui prouve un rejeu.",
       enabled: "Exécuter le nettoyage quotidien",
-      enabledHint: "Désactivé, aucune table n'est touchée et toutes croissent sans limite. Recommandé : activé.",
+      enabledHint:
+        "Désactivé, aucune table n'est touchée et toutes croissent sans limite. Recommandé : activé.",
       workerPollMinutes: "Intervalle de vérification (minutes)",
-      workerPollMinutesHint: "À quelle fréquence le service vérifie si le balayage du jour a eu lieu. Le balayage lui-même s'exécute une fois par jour. Recommandé : 15.",
+      workerPollMinutesHint:
+        "À quelle fréquence le service vérifie si le balayage du jour a eu lieu. Le balayage lui-même s'exécute une fois par jour. Recommandé : 15.",
       batchSize: "Lignes par instruction",
-      batchSizeHint: "Maintenu sous les ~5000 verrous de ligne à partir desquels SQL Server verrouille la table entière, ce qui bloquerait toute requête active dessus. Recommandé : 4000.",
+      batchSizeHint:
+        "Maintenu sous les ~5000 verrous de ligne à partir desquels SQL Server verrouille la table entière, ce qui bloquerait toute requête active dessus. Recommandé : 4000.",
       maxRowsPerTablePerRun: "Plafond par table et par exécution",
-      maxRowsPerTablePerRunHint: "Borne la première exécution, la seule à affronter tout ce qui s'est accumulé depuis le déploiement. Le reste passe le lendemain. Recommandé : 200000.",
+      maxRowsPerTablePerRunHint:
+        "Borne la première exécution, la seule à affronter tout ce qui s'est accumulé depuis le déploiement. Le reste passe le lendemain. Recommandé : 200000.",
       authorizationCodeDays: "Codes d'autorisation (jours)",
-      authorizationCodeDaysHint: "Ils vivent environ 60 secondes ; cette fenêtre sert à enquêter sur un rejeu, pas à les garder valides. Recommandé : 7.",
+      authorizationCodeDaysHint:
+        "Ils vivent environ 60 secondes ; cette fenêtre sert à enquêter sur un rejeu, pas à les garder valides. Recommandé : 7.",
       twoFactorChallengeDays: "Défis à deux facteurs (jours)",
-      twoFactorChallengeDaysHint: "Assez long pour enquêter sur une série de tentatives. Recommandé : 7.",
+      twoFactorChallengeDaysHint:
+        "Assez long pour enquêter sur une série de tentatives. Recommandé : 7.",
       passwordResetTokenDays: "Jetons de réinitialisation (jours)",
       passwordResetTokenDaysHint: "Recommandé : 7.",
       emailVerificationTokenDays: "Jetons de vérification d'e-mail (jours)",
       emailVerificationTokenDaysHint: "Recommandé : 7.",
       idpSessionDays: "Sessions d'authentification unique (SSO) (jours)",
-      idpSessionDaysHint: "Comptés depuis l'expiration ou la révocation, pas depuis la création. Recommandé : 30.",
+      idpSessionDaysHint:
+        "Comptés depuis l'expiration ou la révocation, pas depuis la création. Recommandé : 30.",
       refreshTokenDays: "Jetons de rafraîchissement (jours)",
-      refreshTokenDaysHint: "La plus longue fenêtre et la plus importante : une ligne révoquée est la seule chose qui transforme un jeton volé en vol détecté, et le tableau de bord rapporte les révocations sur 90 jours au maximum. Plancher de 90 imposé dans le code quelle que soit la valeur saisie.",
+      refreshTokenDaysHint:
+        "La plus longue fenêtre et la plus importante : une ligne révoquée est la seule chose qui transforme un jeton volé en vol détecté, et le tableau de bord rapporte les révocations sur 90 jours au maximum. Plancher de 90 imposé dans le code quelle que soit la valeur saisie.",
     },
     dataRetention: {
       title: "Confidentialité et conservation des données",
@@ -1867,7 +1936,8 @@ export const fr: TranslationResources = {
     unattributedHelp:
       "Sessions n'ayant identifié aucun navigateur, comme les applications connectées.",
     noBrowsers: "Aucune connexion",
-    noBrowsersBody: "Les navigateurs depuis lesquels vous vous connectez apparaîtront ici.",
+    noBrowsersBody:
+      "Les navigateurs depuis lesquels vous vous connectez apparaîtront ici.",
     loadFailed: "Chargement impossible",
     loadFailedBody: "Un problème est survenu en chemin vers le serveur.",
     retry: "Réessayer",
@@ -1918,10 +1988,12 @@ export const fr: TranslationResources = {
     deleteWarning:
       "Votre compte sera immédiatement désactivé puis définitivement supprimé après {{days}} jours. Pendant cette période, vous pouvez le restaurer en vous connectant.",
     reauthTitle: "Confirmez votre identité",
-    reauthSubtitle: "Pour votre sécurité, confirmez votre identité pour continuer.",
+    reauthSubtitle:
+      "Pour votre sécurité, confirmez votre identité pour continuer.",
     codeHint: "Nous enverrons un code de vérification à {{email}}.",
     sendCode: "M'envoyer un code",
-    codeSent: "Code de vérification envoyé. Consultez votre boîte de réception.",
+    codeSent:
+      "Code de vérification envoyé. Consultez votre boîte de réception.",
     verificationCode: "Code de vérification",
     continue: "Continuer",
     confirmTitle: "Supprimer ce compte ?",
@@ -1942,7 +2014,8 @@ export const fr: TranslationResources = {
     restored: "Votre compte a été restauré. Bon retour !",
     twoFactorCode: "Code de double authentification",
     publicTitle: "Supprimer votre compte",
-    publicSubtitle: "Demandez la suppression de votre compte sans vous connecter.",
+    publicSubtitle:
+      "Demandez la suppression de votre compte sans vous connecter.",
     publicEmailBody:
       "Saisissez l'adresse e-mail du compte à supprimer. S'il existe, nous lui enverrons un code de vérification.",
     publicCodeBody: "Saisissez le code à 6 chiffres envoyé à {{email}}.",
@@ -2003,5 +2076,40 @@ export const fr: TranslationResources = {
     unexpectedTitle: "Une erreur est survenue",
     reload: "Recharger la page",
     uploadFailed: "Échec du téléversement de l'image (HTTP {{status}}).",
+    feedback: {
+      title: "Impossible de terminer l’action",
+      retry: "Réessayer",
+      fieldInvalid: "Vérifiez cette valeur, puis réessayez.",
+      validation:
+        "Certaines informations n’ont pas été acceptées. Corrigez les champs signalés, puis renvoyez le formulaire.",
+      authentication:
+        "Votre session n’est plus valide. Reconnectez-vous, puis répétez l’action.",
+      authorization:
+        "Vous n’avez pas l’autorisation d’effectuer cette action. Demandez l’accès à un administrateur.",
+      notFound:
+        "Cet élément n’est plus disponible. Actualisez la page et choisissez un élément existant.",
+      conflict:
+        "Les données ont changé avant la fin de l’action. Rechargez-les, vérifiez les dernières valeurs, puis réessayez.",
+      rateLimit:
+        "Trop de requêtes ont été envoyées. Patientez avant de réessayer.",
+      server:
+        "Le service n’a pas pu terminer l’action. Réessayez et, si le problème persiste, contactez l’assistance.",
+      network:
+        "Le serveur est inaccessible. Vérifiez votre connexion, puis réessayez.",
+      unknown:
+        "L’action n’a pas été terminée. Réessayez et, si le problème persiste, contactez l’assistance.",
+      duplicateEmail:
+        "Cette adresse e-mail est déjà utilisée. Saisissez-en une autre, puis renvoyez le formulaire.",
+      invalidCredentials:
+        "L’adresse e-mail ou le mot de passe n’a pas été accepté. Vérifiez-les, puis réessayez.",
+      pendingDeletion:
+        "Ce compte est programmé pour suppression. Utilisez la récupération du compte avant de vous connecter.",
+      staleData:
+        "Cet élément a changé depuis son chargement. Rechargez-le, vérifiez la dernière version, puis répétez l’action.",
+      invalidChallengeCode:
+        "Le code de confirmation n’a pas été accepté. Saisissez le code le plus récent, puis réessayez.",
+      connectionUnreachable:
+        "La connexion n’a pas pu être vérifiée. Contrôlez ses paramètres ou enregistrez-la malgré tout uniquement si vous l’avez vérifiée autrement.",
+    },
   },
 }

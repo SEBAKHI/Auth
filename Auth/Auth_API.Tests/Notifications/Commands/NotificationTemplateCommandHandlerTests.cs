@@ -43,7 +43,10 @@ public class NotificationTemplateCommandHandlerTests
         template.UpsertTranslation("en", "Subject", "<p>Hello {{ UserName }}</p>", null, _userId);
         if (published)
         {
-            template.Publish(_userId);
+            template.Publish(
+                template.DraftVersionId!.Value,
+                template.ModifiedAt ?? template.CreatedAt,
+                _userId);
             template.ClearDomainEvents();
         }
 
@@ -174,7 +177,11 @@ public class NotificationTemplateCommandHandlerTests
             new Mock<ILogger<PublishNotificationTemplateCommandHandler>>().Object);
 
         var result = await handler.Handle(
-            new PublishNotificationTemplateCommand(template.Id) { PublishedBy = _userId },
+            new PublishNotificationTemplateCommand(
+                template.Id,
+                template.DraftVersionId!.Value,
+                template.ModifiedAt ?? template.CreatedAt)
+            { PublishedBy = _userId },
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
@@ -194,6 +201,13 @@ public class NotificationTemplateCommandHandlerTests
             .ReturnsAsync(template);
         _typeRepoMock.Setup(r => r.GetByIdAsync(_typeId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateType(sampleDataJson: "{\"UserName\":\"Jane\"}"));
+        _templateRepoMock
+            .Setup(r => r.TryPublishAsync(
+                template,
+                template.DraftVersionId!.Value,
+                template.ModifiedAt ?? template.CreatedAt,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
 
         var handler = new PublishNotificationTemplateCommandHandler(
             _templateRepoMock.Object, _typeRepoMock.Object, _appRepoMock.Object,
@@ -201,7 +215,11 @@ public class NotificationTemplateCommandHandlerTests
             new Mock<ILogger<PublishNotificationTemplateCommandHandler>>().Object);
 
         var result = await handler.Handle(
-            new PublishNotificationTemplateCommand(template.Id) { PublishedBy = _userId },
+            new PublishNotificationTemplateCommand(
+                template.Id,
+                template.DraftVersionId!.Value,
+                template.ModifiedAt ?? template.CreatedAt)
+            { PublishedBy = _userId },
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
@@ -213,6 +231,164 @@ public class NotificationTemplateCommandHandlerTests
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(template, It.IsAny<CancellationToken>()),
             Times.Once);
+    }
+
+    [Fact]
+    public async Task Publish_StaleDraftVersion_ReturnsConflictBeforeRenderingOrWriting()
+    {
+        var template = CreateAggregate(published: false);
+        _templateRepoMock.Setup(r => r.GetByIdAsync(template.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(template);
+
+        var handler = new PublishNotificationTemplateCommandHandler(
+            _templateRepoMock.Object, _typeRepoMock.Object, _appRepoMock.Object,
+            CreateRealRenderer(), _cacheInvalidatorMock.Object, _eventDispatcherMock.Object,
+            new Mock<ILogger<PublishNotificationTemplateCommandHandler>>().Object);
+
+        var result = await handler.Handle(
+            new PublishNotificationTemplateCommand(
+                template.Id,
+                Guid.NewGuid(),
+                template.ModifiedAt ?? template.CreatedAt)
+            { PublishedBy = _userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.PublishTargetChanged");
+        _typeRepoMock.Verify(
+            r => r.GetByIdAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _templateRepoMock.Verify(
+            r => r.TryPublishAsync(
+                It.IsAny<NotificationTemplate>(),
+                It.IsAny<Guid>(),
+                It.IsAny<DateTime>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Publish_DatabaseRevisionRace_ReturnsConflictWithoutSideEffects()
+    {
+        var template = CreateAggregate(published: false);
+        var draftVersionId = template.DraftVersionId!.Value;
+        var revisionAt = template.ModifiedAt ?? template.CreatedAt;
+        _templateRepoMock.Setup(r => r.GetByIdAsync(template.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(template);
+        _typeRepoMock.Setup(r => r.GetByIdAsync(_typeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateType(sampleDataJson: "{\"UserName\":\"Jane\"}"));
+        _templateRepoMock
+            .Setup(r => r.TryPublishAsync(
+                template,
+                draftVersionId,
+                revisionAt,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var handler = new PublishNotificationTemplateCommandHandler(
+            _templateRepoMock.Object, _typeRepoMock.Object, _appRepoMock.Object,
+            CreateRealRenderer(), _cacheInvalidatorMock.Object, _eventDispatcherMock.Object,
+            new Mock<ILogger<PublishNotificationTemplateCommandHandler>>().Object);
+
+        var result = await handler.Handle(
+            new PublishNotificationTemplateCommand(template.Id, draftVersionId, revisionAt)
+            { PublishedBy = _userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.PublishTargetChanged");
+        _cacheInvalidatorMock.Verify(
+            c => c.InvalidateTemplate(
+                It.IsAny<string>(),
+                It.IsAny<NotificationChannelType>(),
+                It.IsAny<Guid?>()),
+            Times.Never);
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(
+                It.IsAny<NotificationTemplate>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    #endregion
+
+    #region Unpublish
+
+    [Fact]
+    public async Task Unpublish_ReviewedPublishedVersion_PersistsAndDispatchesSideEffects()
+    {
+        var template = CreateAggregate();
+        var publishedVersionId = template.PublishedVersionId!.Value;
+        _templateRepoMock.Setup(r => r.GetByIdAsync(template.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(template);
+        _typeRepoMock.Setup(r => r.GetByIdAsync(_typeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateType(isSystem: false));
+        _templateRepoMock
+            .Setup(r => r.TryUnpublishAsync(
+                template,
+                publishedVersionId,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var handler = new UnpublishNotificationTemplateCommandHandler(
+            _templateRepoMock.Object, _typeRepoMock.Object, _appRepoMock.Object,
+            _cacheInvalidatorMock.Object, _eventDispatcherMock.Object,
+            new Mock<ILogger<UnpublishNotificationTemplateCommandHandler>>().Object);
+
+        var result = await handler.Handle(
+            new UnpublishNotificationTemplateCommand(template.Id, publishedVersionId)
+            { UnpublishedBy = _userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        template.IsPublished.Should().BeFalse();
+        _cacheInvalidatorMock.Verify(
+            c => c.InvalidateTemplate("password-reset", NotificationChannelType.Email, null),
+            Times.Once);
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(template, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Unpublish_DatabaseVersionRace_ReturnsConflictWithoutSideEffects()
+    {
+        var template = CreateAggregate();
+        var publishedVersionId = template.PublishedVersionId!.Value;
+        _templateRepoMock.Setup(r => r.GetByIdAsync(template.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(template);
+        _typeRepoMock.Setup(r => r.GetByIdAsync(_typeId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateType(isSystem: false));
+        _templateRepoMock
+            .Setup(r => r.TryUnpublishAsync(
+                template,
+                publishedVersionId,
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var handler = new UnpublishNotificationTemplateCommandHandler(
+            _templateRepoMock.Object, _typeRepoMock.Object, _appRepoMock.Object,
+            _cacheInvalidatorMock.Object, _eventDispatcherMock.Object,
+            new Mock<ILogger<UnpublishNotificationTemplateCommandHandler>>().Object);
+
+        var result = await handler.Handle(
+            new UnpublishNotificationTemplateCommand(template.Id, publishedVersionId)
+            { UnpublishedBy = _userId },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.UnpublishTargetChanged");
+        _cacheInvalidatorMock.Verify(
+            c => c.InvalidateTemplate(
+                It.IsAny<string>(),
+                It.IsAny<NotificationChannelType>(),
+                It.IsAny<Guid?>()),
+            Times.Never);
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(
+                It.IsAny<NotificationTemplate>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     #endregion
@@ -234,7 +410,10 @@ public class NotificationTemplateCommandHandlerTests
             new Mock<ILogger<UnpublishNotificationTemplateCommandHandler>>().Object);
 
         var result = await handler.Handle(
-            new UnpublishNotificationTemplateCommand(template.Id) { UnpublishedBy = _userId },
+            new UnpublishNotificationTemplateCommand(
+                template.Id,
+                template.PublishedVersionId!.Value)
+            { UnpublishedBy = _userId },
             CancellationToken.None);
 
         result.IsError.Should().BeTrue();
@@ -299,7 +478,10 @@ public class NotificationTemplateCommandHandlerTests
         var template = CreateAggregate();
         var v1Id = template.PublishedVersionId!.Value;
         template.UpsertTranslation("en", "Subject v2", "<p>v2</p>", null, _userId);
-        template.Publish(_userId);
+        template.Publish(
+            template.DraftVersionId!.Value,
+            template.ModifiedAt ?? template.CreatedAt,
+            _userId);
         template.ClearDomainEvents();
 
         _templateRepoMock.Setup(r => r.GetByIdAsync(template.Id, It.IsAny<CancellationToken>()))

@@ -53,6 +53,14 @@ public class PublishNotificationTemplateCommandHandler
             return NotificationErrors.TemplateNotFound(request.TemplateId);
         }
 
+        var targetResult = template.ValidatePublishTarget(
+            request.ExpectedDraftVersionId,
+            request.ExpectedRevisionAt);
+        if (targetResult.IsError)
+        {
+            return targetResult.Errors;
+        }
+
         var type = await _typeRepository.GetByIdAsync(template.NotificationTypeId, cancellationToken);
         if (type is null)
         {
@@ -93,13 +101,24 @@ public class PublishNotificationTemplateCommandHandler
             }
         }
 
-        var publishResult = template.Publish(request.PublishedBy);
+        var publishResult = template.Publish(
+            request.ExpectedDraftVersionId,
+            request.ExpectedRevisionAt,
+            request.PublishedBy);
         if (publishResult.IsError)
         {
             return publishResult.Errors;
         }
 
-        await _templateRepository.UpdateAsync(template, cancellationToken);
+        var persisted = await _templateRepository.TryPublishAsync(
+            template,
+            request.ExpectedDraftVersionId,
+            request.ExpectedRevisionAt,
+            cancellationToken);
+        if (!persisted)
+        {
+            return NotificationErrors.PublishTargetChanged;
+        }
 
         _cacheInvalidator.InvalidateTemplate(type.Code, template.Channel, template.ApplicationId);
         await _eventDispatcher.DispatchEventsAsync(template, cancellationToken);

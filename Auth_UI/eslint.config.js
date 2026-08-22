@@ -6,7 +6,12 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['**/dist']),
+  globalIgnores([
+    '**/dist',
+    '**/coverage',
+    '**/playwright-report',
+    '**/test-results',
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -106,6 +111,14 @@ export default defineConfig([
           ],
         },
       ],
+    },
+  },
+  {
+    // Route definition modules intentionally co-locate small route elements
+    // with the exported router; they are application bootstrap, not HMR boundaries.
+    files: ['apps/*/src/routes.tsx'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
   {

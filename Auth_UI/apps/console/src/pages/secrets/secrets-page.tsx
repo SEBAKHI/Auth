@@ -306,7 +306,9 @@ function KnownSecretDialog({
     mutationFn: async (attempt: string) => {
       if (!config) return
       const { error } = await api.PUT(config.endpoint, {
-        body: config.multiline ? { value: attempt, forceSave } : { value: attempt },
+        body: config.multiline
+          ? { value: attempt, forceSave }
+          : { value: attempt },
       })
       if (error) throw error
     },
@@ -547,10 +549,9 @@ export function SecretsPage() {
                     ? t("secrets.disabledTitle")
                     : t("secrets.unavailableTitle")}
                 </EmptyTitle>
-                {/* The server's own words on the fault path. The handler turns
-                    both failure modes into domain errors that already name the
-                    cause and the fix, so paraphrasing them here would only lose
-                    detail. */}
+                {/* Fault details are selected locally from the stable code/status
+                    classification. Raw ProblemDetails text may contain sensitive
+                    infrastructure context and never reaches this surface. */}
                 <EmptyDescription>
                   {refused
                     ? t("secrets.disabledBody")

@@ -549,8 +549,9 @@ export function GlobalSearch() {
 
             {isLoadingIndex ? <LoadingRows /> : null}
 
-            {/* Idle: what you last opened, or a way in if there is no history.
-                An empty panel with a sentence in it teaches nothing. */}
+            {/* Idle groups are independent. History is context; quick
+                navigation is the stable way in and must not disappear after
+                the first remembered selection. */}
             {!query && !isLoadingIndex && recentRows.length > 0 ? (
               <CommandGroup heading={t("globalSearch.recent")}>
                 {recentRows}
@@ -566,11 +567,13 @@ export function GlobalSearch() {
               </CommandGroup>
             ) : null}
 
-            {!query && !isLoadingIndex && recentRows.length === 0 &&
-            jumpEntries.length > 0 ? (
-              <CommandGroup heading={t("globalSearch.jumpTo")}>
-                {jumpEntries.map((entry) => renderEntry(entry, ""))}
-              </CommandGroup>
+            {!query && !isLoadingIndex && jumpEntries.length > 0 ? (
+              <>
+                {recentRows.length > 0 ? <CommandSeparator alwaysRender /> : null}
+                <CommandGroup heading={t("globalSearch.jumpTo")}>
+                  {jumpEntries.map((entry) => renderEntry(entry, ""))}
+                </CommandGroup>
+              </>
             ) : null}
 
             {/* Nothing matched. Not four grey words: say what was searched for,

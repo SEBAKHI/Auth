@@ -666,6 +666,12 @@
   <data name="Notification.ConcurrencyConflict" xml:space="preserve">
     <value>Le modèle a été modifié par quelqu'un d'autre. Rechargez le dernier brouillon et réappliquez vos modifications.</value>
   </data>
+  <data name="Notification.PublishTargetChanged" xml:space="preserve">
+    <value>Le brouillon enregistré sélectionné pour publication a changé. Rechargez et vérifiez le dernier brouillon avant de publier.</value>
+  </data>
+  <data name="Notification.UnpublishTargetChanged" xml:space="preserve">
+    <value>La version publiée sélectionnée pour dépublication a changé. Rechargez et vérifiez la publication actuelle avant de continuer.</value>
+  </data>
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>La mise en page de notification avec l'ID '{0}' est introuvable.</value>
   </data>
@@ -680,6 +686,9 @@
   </data>
   <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
     <value>La mise en page n'affiche pas le corps du message : elle doit inclure l'emplacement de contenu, sinon tous les messages arriveraient vides.</value>
+  </data>
+  <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
+    <value>Le brouillon de mise en page enregistré sélectionné pour publication a changé. Rechargez et vérifiez le dernier brouillon avant de publier.</value>
   </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>Le modèle contient une syntaxe non valide : {0}</value>

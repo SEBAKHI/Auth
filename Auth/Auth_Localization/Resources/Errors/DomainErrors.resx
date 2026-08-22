@@ -668,6 +668,12 @@
   <data name="Notification.ConcurrencyConflict" xml:space="preserve">
     <value>The template was modified by someone else. Reload the latest draft and reapply your changes.</value>
   </data>
+  <data name="Notification.PublishTargetChanged" xml:space="preserve">
+    <value>The saved draft selected for publishing has changed. Reload and review the latest draft before publishing.</value>
+  </data>
+  <data name="Notification.UnpublishTargetChanged" xml:space="preserve">
+    <value>The published version selected for unpublishing has changed. Reload and review the current publication before continuing.</value>
+  </data>
   <data name="Notification.LayoutNotFound" xml:space="preserve">
     <value>Notification layout with ID '{0}' was not found.</value>
   </data>
@@ -682,6 +688,9 @@
   </data>
   <data name="Notification.LayoutContentSlotMissing" xml:space="preserve">
     <value>The layout does not render the message body: it must include the content slot, otherwise every message would arrive empty.</value>
+  </data>
+  <data name="Notification.LayoutPublishTargetChanged" xml:space="preserve">
+    <value>The saved layout draft selected for publishing has changed. Reload and review the latest draft before publishing.</value>
   </data>
   <data name="Notification.InvalidTemplateSyntax" xml:space="preserve">
     <value>The template contains invalid syntax: {0}</value>

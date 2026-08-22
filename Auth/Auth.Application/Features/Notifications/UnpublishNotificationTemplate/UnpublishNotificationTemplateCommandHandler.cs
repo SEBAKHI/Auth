@@ -54,13 +54,23 @@ public class UnpublishNotificationTemplateCommandHandler
             return NotificationErrors.TypeNotFound(template.NotificationTypeId);
         }
 
-        var result = template.Unpublish(type.IsSystem, request.UnpublishedBy);
+        var result = template.Unpublish(
+            type.IsSystem,
+            request.ExpectedPublishedVersionId,
+            request.UnpublishedBy);
         if (result.IsError)
         {
             return result.Errors;
         }
 
-        await _templateRepository.UpdateAsync(template, cancellationToken);
+        var persisted = await _templateRepository.TryUnpublishAsync(
+            template,
+            request.ExpectedPublishedVersionId,
+            cancellationToken);
+        if (!persisted)
+        {
+            return NotificationErrors.UnpublishTargetChanged;
+        }
 
         _cacheInvalidator.InvalidateTemplate(type.Code, template.Channel, template.ApplicationId);
         await _eventDispatcher.DispatchEventsAsync(template, cancellationToken);

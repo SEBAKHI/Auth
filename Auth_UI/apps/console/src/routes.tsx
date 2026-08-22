@@ -1,8 +1,14 @@
 import * as React from "react"
-import { createBrowserRouter, Navigate, useParams } from "react-router-dom"
+import {
+  createBrowserRouter,
+  Navigate,
+  Outlet,
+  useParams,
+} from "react-router-dom"
 
 import { ACCOUNTS_URL } from "@authsystem/api/env"
 import { RequireAnonymous, RequireAuth } from "@authsystem/auth/require-auth"
+import { useAuth } from "@authsystem/auth/auth-context"
 import { PermissionRoute } from "@authsystem/auth/require-permission"
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import { LoginPage } from "@authsystem/auth/pages/login"
@@ -13,6 +19,11 @@ import { RouteErrorBoundary } from "@authsystem/ui/error-pages/route-error"
 import { lazyRoute, RouteFallback } from "@authsystem/ui/lazy-route"
 import { AppShell } from "@/components/layout/app-shell"
 import { PERMISSIONS } from "@/lib/constants"
+import {
+  notificationDestination,
+  notificationLandingPath,
+  type NotificationDestinationId,
+} from "@/lib/notification-destinations"
 
 /**
  * Every page is loaded on demand.
@@ -73,6 +84,27 @@ function LegacyNotificationRedirect({
   return <Navigate to={`/notifications/${section}/${id}`} replace />
 }
 
+function NotificationPermissionRoute({
+  destination,
+}: {
+  destination: NotificationDestinationId
+}) {
+  return (
+    <PermissionRoute
+      permission={notificationDestination(destination).permission}
+    />
+  )
+}
+
+/** Exact /notifications entry: overview, policy redirect, or forbidden. */
+function NotificationIndexRoute() {
+  const { hasPermission } = useAuth()
+  const landing = notificationLandingPath(hasPermission)
+  if (!landing) return <Navigate to="/403" replace />
+  if (landing !== "/notifications") return <Navigate to={landing} replace />
+  return <Outlet />
+}
+
 export const router = createBrowserRouter([
   {
     // Pathless root purely to own the hydrate fallback, so a cold load of any lazy
@@ -107,7 +139,9 @@ export const router = createBrowserRouter([
         element: (
           <LoginPage
             recoveryPath={CONSOLE_RECOVERY_URL}
-            providers={<ExternalProviders recoveryPath={CONSOLE_RECOVERY_URL} />}
+                providers={
+                  <ExternalProviders recoveryPath={CONSOLE_RECOVERY_URL} />
+                }
           />
         ),
       },
@@ -142,7 +176,9 @@ export const router = createBrowserRouter([
             handle: crumb("dashboard", "/"),
           },
           {
-            element: <PermissionRoute permission={PERMISSIONS.users.read} />,
+                element: (
+                  <PermissionRoute permission={PERMISSIONS.users.read} />
+                ),
             children: [
               {
                 path: "users",
@@ -163,7 +199,9 @@ export const router = createBrowserRouter([
             ],
           },
           {
-            element: <PermissionRoute permission={PERMISSIONS.roles.read} />,
+                element: (
+                  <PermissionRoute permission={PERMISSIONS.roles.read} />
+                ),
             children: [
               {
                 path: "roles",
@@ -199,7 +237,8 @@ export const router = createBrowserRouter([
               {
                 path: "permissions/:id",
                 lazy: lazyRoute(
-                  () => import("@/pages/permissions/permission-detail-page"),
+                      () =>
+                        import("@/pages/permissions/permission-detail-page"),
                   (m) => m.PermissionDetailPage
                 ),
                 handle: crumb("permissions", "/permissions", true),
@@ -222,7 +261,8 @@ export const router = createBrowserRouter([
               {
                 path: "applications/:id",
                 lazy: lazyRoute(
-                  () => import("@/pages/applications/application-detail-page"),
+                      () =>
+                        import("@/pages/applications/application-detail-page"),
                   (m) => m.ApplicationDetailPage
                 ),
                 handle: crumb("applications", "/applications", true),
@@ -250,13 +290,16 @@ export const router = createBrowserRouter([
           {
             path: "profile",
             lazy: lazyRoute(
-              () => import("@authsystem/account/pages/profile/profile-page"),
+                  () =>
+                    import("@authsystem/account/pages/profile/profile-page"),
               (m) => m.ProfilePage
             ),
             handle: crumb("profile", "/profile"),
           },
           {
-            element: <PermissionRoute permission={PERMISSIONS.apiKeys.read} />,
+                element: (
+                  <PermissionRoute permission={PERMISSIONS.apiKeys.read} />
+                ),
             children: [
               {
                 path: "api-keys",
@@ -298,19 +341,15 @@ export const router = createBrowserRouter([
               },
             ],
           },
-          {
-            element: (
-              <PermissionRoute
-                permission={PERMISSIONS.notificationTemplates.read}
-              />
-            ),
-            children: [
-              // Nested on purpose: the section owns a URL of its own (every
-              // other section has one), and the parent `handle` is what puts a
-              // clickable "Notifications" crumb ahead of each sub-section.
+              // The parent is spatial only: every child owns its own permission.
+              // Its crumb remains the stable section entry and resolves role-aware
+              // at /notifications through NotificationIndexRoute.
               {
                 path: "notifications",
                 handle: crumb("notifications", "/notifications"),
+                children: [
+                  {
+                    element: <NotificationIndexRoute />,
                 children: [
                   {
                     index: true,
@@ -320,6 +359,13 @@ export const router = createBrowserRouter([
                       (m) => m.NotificationsOverviewPage
                     ),
                   },
+                    ],
+                  },
+                  {
+                    element: (
+                      <NotificationPermissionRoute destination="templates" />
+                    ),
+                    children: [
                   {
                     path: "templates",
                     lazy: lazyRoute(
@@ -336,9 +382,7 @@ export const router = createBrowserRouter([
                     path: "templates/:id",
                     lazy: lazyRoute(
                       () =>
-                        import(
-                          "@/pages/notifications/notification-template-detail-page"
-                        ),
+                            import("@/pages/notifications/notification-template-detail-page"),
                       (m) => m.NotificationTemplateDetailPage
                     ),
                     handle: crumb(
@@ -347,6 +391,13 @@ export const router = createBrowserRouter([
                       true
                     ),
                   },
+                    ],
+                  },
+                  {
+                    element: (
+                      <NotificationPermissionRoute destination="layouts" />
+                    ),
+                    children: [
                   {
                     path: "layouts",
                     lazy: lazyRoute(
@@ -363,9 +414,7 @@ export const router = createBrowserRouter([
                     path: "layouts/:id",
                     lazy: lazyRoute(
                       () =>
-                        import(
-                          "@/pages/notifications/notification-layout-detail-page"
-                        ),
+                            import("@/pages/notifications/notification-layout-detail-page"),
                       (m) => m.NotificationLayoutDetailPage
                     ),
                     handle: crumb(
@@ -374,6 +423,13 @@ export const router = createBrowserRouter([
                       true
                     ),
                   },
+                    ],
+                  },
+                  {
+                    element: (
+                      <NotificationPermissionRoute destination="outbox" />
+                    ),
+                    children: [
                   {
                     path: "outbox",
                     lazy: lazyRoute(
@@ -386,31 +442,18 @@ export const router = createBrowserRouter([
                       "/notifications/outbox"
                     ),
                   },
+                    ],
+                  },
                   {
-                    // The privacy notice sits under /notifications for
-                    // navigation, but it is a different duty with different
-                    // permissions, so it carries its own guard rather than
-                    // inheriting the section's.
-                    //
-                    // Inheriting was wrong in both directions: a policy officer
-                    // holding only privacy-policy:* was bounced to /403 and
-                    // could never reach the editor, while a notifications
-                    // operator reached it and watched every request 403,
-                    // because PrivacyPolicyController asks for
-                    // privacy-policy:read and never for a templates permission.
                     element: (
-                      <PermissionRoute
-                        permission={PERMISSIONS.privacyPolicy.read}
-                      />
+                      <NotificationPermissionRoute destination="policy" />
                     ),
                     children: [
                       {
                         path: "policy",
                         lazy: lazyRoute(
                           () =>
-                            import(
-                              "@/pages/notifications/notification-policy-page"
-                            ),
+                            import("@/pages/notifications/notification-policy-page"),
                           (m) => m.NotificationPolicyPage
                         ),
                         handle: crumb(
@@ -419,14 +462,11 @@ export const router = createBrowserRouter([
                         ),
                       },
                       {
-                        // Keyed by the revision's id, not its version string: the
-                        // string is editable, so a URL built on it dies on rename.
+                        // Keyed by immutable revision id; version labels can change.
                         path: "policy/:id",
                         lazy: lazyRoute(
                           () =>
-                            import(
-                              "@/pages/notifications/notification-policy-detail-page"
-                            ),
+                            import("@/pages/notifications/notification-policy-detail-page"),
                           (m) => m.NotificationPolicyDetailPage
                         ),
                         handle: crumb(
@@ -439,8 +479,13 @@ export const router = createBrowserRouter([
                   },
                 ],
               },
-              // The section used to live at these flat paths; keep bookmarks and
-              // any link already sent out working, ids included.
+              // Legacy template/layout paths keep their redirect contract and the
+              // same template-read authority as their canonical destinations.
+              {
+                element: (
+                  <NotificationPermissionRoute destination="templates" />
+                ),
+                children: [
               {
                 path: "notification-templates",
                 element: <Navigate to="/notifications/templates" replace />,
@@ -488,7 +533,10 @@ export const router = createBrowserRouter([
                     import("@/pages/platform-settings/platform-settings-page"),
                   (m) => m.PlatformSettingsPage
                 ),
-                handle: crumb("platformSettings", "/admin/platform-settings"),
+                    handle: crumb(
+                      "platformSettings",
+                      "/admin/platform-settings"
+                    ),
               },
             ],
           },
@@ -530,7 +578,9 @@ export const router = createBrowserRouter([
                 // are set, and the two permissions are independent — requiring
                 // both here would lock out a holder of either one.
                 element: (
-                  <PermissionRoute permission={PERMISSIONS.secrets.manage} />
+                      <PermissionRoute
+                        permission={PERMISSIONS.secrets.manage}
+                      />
                 ),
                 children: [
                   {

@@ -1,16 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef } from "@tanstack/react-table"
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
 import { MoreHorizontal, Plus } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { useNavigate } from "react-router-dom"
+import { Link } from "react-router-dom"
 import { toast } from "sonner"
 
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
+import { organizationHref } from "../../lib/record-hrefs"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
-import { useSearchHandoff } from "@authsystem/ui/hooks/use-search-query"
+import {
+  enumArrayUrlFilter,
+  stringArrayUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
 import { Badge } from "@authsystem/ui/badge"
 import { Button } from "@authsystem/ui/button"
 import {
@@ -22,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
 import { api } from "@authsystem/api/client"
+import { DEFAULT_PAGE_SIZE } from "@authsystem/api/constants"
 import { unwrap } from "@authsystem/api/helpers"
 import { getErrorMessage } from "@authsystem/api/errors"
 import type { Schemas } from "@authsystem/api/types"
@@ -29,14 +37,48 @@ import { OrganizationFormDialog } from "./organization-form-dialog"
 
 type OrganizationSummaryDto = Schemas["OrganizationSummaryDto"]
 
+type OrganizationListFilters = {
+  roles: string[]
+  statuses: Array<"active" | "inactive">
+}
+
+const ORGANIZATIONS_LIST_URL_OPTIONS = {
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: ["name", "memberCount", "userRole", "status"],
+  defaultSorting: [],
+  filters: {
+    roles: stringArrayUrlFilter({ param: "role", maxItems: 10 }),
+    statuses: enumArrayUrlFilter(["active", "inactive"], "status"),
+  },
+} satisfies ListUrlStateOptions<OrganizationListFilters>
+
 export function OrganizationsPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // A term a search handed over, so arriving from the console's palette lands
-  // on the matching organizations rather than on the whole membership list.
-  const handoff = useSearchHandoff()
+  const {
+    search,
+    sorting,
+    filters: { roles, statuses },
+    setSearch,
+    setSorting,
+    setFilters,
+  } = useListUrlState(ORGANIZATIONS_LIST_URL_OPTIONS)
+  const columnFilters: ColumnFiltersState = [
+    ...(roles.length ? [{ id: "userRole", value: roles }] : []),
+    ...(statuses.length ? [{ id: "status", value: statuses }] : []),
+  ]
+  const onColumnFiltersChange = (next: ColumnFiltersState) =>
+    setFilters({
+      roles:
+        (next.find((filter) => filter.id === "userRole")?.value as
+          | string[]
+          | undefined) ?? [],
+      statuses:
+        (next.find((filter) => filter.id === "status")?.value as
+          | OrganizationListFilters["statuses"]
+          | undefined) ?? [],
+    })
 
   const [createOpen, setCreateOpen] = React.useState(false)
   const [deleting, setDeleting] = React.useState<
@@ -75,16 +117,15 @@ export function OrganizationsPage() {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={organizationHref(row.original.id)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/organizations/${row.original.id}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -136,6 +177,7 @@ export function OrganizationsPage() {
       header: () => <span className="sr-only">{t("common.actions")}</span>,
       cell: ({ row }) => {
         const org = row.original
+        const viewHref = organizationHref(org.id)
         return (
           <div className="text-end">
             <DropdownMenu>
@@ -150,11 +192,11 @@ export function OrganizationsPage() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => navigate(`/organizations/${org.id}`)}
-                  >
-                    {t("common.view")}
-                  </DropdownMenuItem>
+                  {viewHref ? (
+                    <DropdownMenuItem asChild>
+                      <Link to={viewHref}>{t("common.view")}</Link>
+                    </DropdownMenuItem>
+                  ) : null}
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
@@ -190,7 +232,12 @@ export function OrganizationsPage() {
         fillHeight
         tableId="organizations"
         globalSearch
-        initialGlobalFilter={handoff}
+        globalFilter={search}
+        onGlobalFilterChange={setSearch}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
+        sorting={sorting}
+        onSortingChange={setSorting}
         columns={columns}
         data={query.data ?? []}
         isLoading={query.isLoading}

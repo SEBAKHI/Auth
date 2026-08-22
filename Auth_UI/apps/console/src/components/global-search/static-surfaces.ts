@@ -1,6 +1,7 @@
 import { TAB_QUERY_PARAM } from "@authsystem/ui/hooks/use-tab-param"
 
 import { PERMISSIONS } from "@/lib/constants"
+import { NOTIFICATION_SEARCH_SURFACES } from "@/lib/notification-destinations"
 
 /**
  * Every place in the console that has its own address.
@@ -152,54 +153,7 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
   },
 
   // ── Notifications ─────────────────────────────────────────────────────────
-  // Every notification screen is a tab of one section, and the strip labels
-  // them far more briefly than their own headings do — "Layouts" against
-  // "Notification Layouts". Both names reach the same row.
-  {
-    id: "notifications",
-    route: "/notifications",
-    titleKey: "notifications.overviewTitle",
-    descriptionKey: "notifications.overviewSubtitle",
-    altTitleKeys: ["notifications.tabOverview", "nav.notifications"],
-    pathKeys: [],
-    permission: PERMISSIONS.notificationTemplates.read,
-  },
-  {
-    id: "notification-templates",
-    route: "/notifications/templates",
-    titleKey: "notifications.title",
-    descriptionKey: "notifications.subtitle",
-    altTitleKeys: ["notifications.tabTemplates", "nav.notificationTemplates"],
-    pathKeys: ["nav.notifications"],
-    permission: PERMISSIONS.notificationTemplates.read,
-  },
-  {
-    id: "notification-layouts",
-    route: "/notifications/layouts",
-    titleKey: "notifications.layoutsTitle",
-    descriptionKey: "notifications.layoutsSubtitle",
-    altTitleKeys: ["notifications.tabLayouts", "nav.notificationLayouts"],
-    pathKeys: ["nav.notifications"],
-    permission: PERMISSIONS.notificationTemplates.read,
-  },
-  {
-    id: "notification-outbox",
-    route: "/notifications/outbox",
-    titleKey: "notifications.outboxTitle",
-    descriptionKey: "notifications.outboxSubtitle",
-    altTitleKeys: ["notifications.tabDeliveryLog", "nav.notificationOutbox"],
-    pathKeys: ["nav.notifications"],
-    permission: PERMISSIONS.notificationTemplates.read,
-  },
-  {
-    id: "notification-policy",
-    route: "/notifications/policy",
-    titleKey: "notifications.policyTitle",
-    descriptionKey: "notifications.policySubtitle",
-    altTitleKeys: ["notifications.tabPolicy", "nav.notificationPolicy"],
-    pathKeys: ["nav.notifications"],
-    permission: PERMISSIONS.notificationTemplates.read,
-  },
+  ...NOTIFICATION_SEARCH_SURFACES,
 
   // ── Platform administration ───────────────────────────────────────────────
   {
@@ -209,7 +163,10 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
     route: "/admin/system-settings/SecretManagement/keys",
     titleKey: "secrets.title",
     descriptionKey: "secrets.subtitle",
-    altTitleKeys: ["nav.secretManagement", "systemSettings.secretManagement.title"],
+    altTitleKeys: [
+      "nav.secretManagement",
+      "systemSettings.secretManagement.title",
+    ],
     pathKeys: ["nav.systemSettings", "nav.secretManagement"],
     permission: PERMISSIONS.secrets.manage,
   },
@@ -239,11 +196,7 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
     route: "/profile",
     titleKey: "profile.title",
     descriptionKey: "profile.subtitle",
-    altTitleKeys: [
-      "profile.account",
-      "profile.accountDetails",
-      "nav.profile",
-    ],
+    altTitleKeys: ["profile.account", "profile.accountDetails", "nav.profile"],
     pathKeys: [],
   },
   {

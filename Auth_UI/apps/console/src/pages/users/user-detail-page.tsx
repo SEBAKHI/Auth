@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ColumnDef, SortingState } from "@tanstack/react-table"
-import { ChevronDown } from "lucide-react"
+import type { ColumnDef, ColumnFiltersState } from "@tanstack/react-table"
+import {
+  KeyRound,
+  LockKeyhole,
+  LockKeyholeOpen,
+  Mail,
+  MailCheck,
+  Pencil,
+  ShieldCheck,
+  Trash2,
+  UserCheck,
+  UserX,
+} from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams } from "react-router-dom"
@@ -10,19 +21,15 @@ import { AvatarMenu } from "@authsystem/ui/common/avatar-menu"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
 import { DetailList } from "@authsystem/ui/common/detail-list"
 import { EntityAvatar } from "@authsystem/ui/common/entity-avatar"
+import {
+  PageActionSurface,
+  type PageAction,
+} from "@authsystem/ui/common/page-action-surface"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { RecordLink } from "@authsystem/ui/common/record-link"
 import { avatarColumn } from "@authsystem/ui/data-table/columns"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Badge } from "@authsystem/ui/badge"
-import { Button } from "@authsystem/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@authsystem/ui/dropdown-menu"
 import { Field, FieldLabel } from "@authsystem/ui/field"
 import { Input } from "@authsystem/ui/input"
 import { Skeleton } from "@authsystem/ui/skeleton"
@@ -33,8 +40,21 @@ import { useProfileImage } from "@authsystem/api/use-profile-image"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { usePageBreadcrumb } from "@authsystem/ui/crumbs"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
+import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
+import {
+  applicationHref,
+  organizationHref,
+  permissionHref,
+  roleHref,
+} from "@/lib/record-hrefs"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
+import {
+  stringArrayUrlFilter,
+  useListUrlState,
+  type ListUrlStateOptions,
+} from "@authsystem/ui/hooks/use-search-query"
+import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { VerifyEmailDialog } from "@authsystem/ui/common/verify-email-dialog"
 import { useUserActions } from "./use-user-actions"
@@ -44,9 +64,32 @@ import { UserRolesDialog } from "./user-roles-dialog"
 
 type UserDto = Schemas["UserDto"]
 
+type UserAuditUrlFilters = {
+  entityTypes: string[]
+  applications: string[]
+}
+
+const USER_AUDIT_URL_OPTIONS = {
+  namespace: "audit",
+  defaultPageSize: DEFAULT_PAGE_SIZE,
+  sortableColumns: SORTABLE_COLUMNS.userAuditLog,
+  defaultSorting: [{ id: "timestamp", desc: true }],
+  filters: {
+    entityTypes: stringArrayUrlFilter({ param: "entityType" }),
+    applications: stringArrayUrlFilter({ param: "application" }),
+  },
+} satisfies ListUrlStateOptions<UserAuditUrlFilters>
+
+const USER_DETAIL_TABS = [
+  "organizations",
+  "applications",
+  "roles",
+  "permissions",
+] as const
+const USER_DETAIL_TABS_WITH_AUDIT = [...USER_DETAIL_TABS, "audit"] as const
+
 function UserOrganizationsTab({ userId }: { userId: string }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
 
   const query = useQuery({
     queryKey: ["users", userId, "organizations"],
@@ -70,16 +113,15 @@ function UserOrganizationsTab({ userId }: { userId: string }) {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={organizationHref(row.original.id)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/organizations/${row.original.id}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -137,7 +179,6 @@ function UserOrganizationsTab({ userId }: { userId: string }) {
 
 function UserApplicationsTab({ userId }: { userId: string }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
 
   const query = useQuery({
     queryKey: ["users", userId, "applications"],
@@ -161,16 +202,15 @@ function UserApplicationsTab({ userId }: { userId: string }) {
       header: t("common.name"),
       meta: { label: t("common.name") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={applicationHref(row.original.applicationId)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/applications/${row.original.applicationId}`)}
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.code}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -222,7 +262,6 @@ function UserApplicationsTab({ userId }: { userId: string }) {
 
 function UserRolesTab({ userId }: { userId: string }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
 
   const query = useQuery({
     queryKey: ["users", userId, "roles"],
@@ -241,16 +280,15 @@ function UserRolesTab({ userId }: { userId: string }) {
       header: t("common.role"),
       meta: { label: t("common.role") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={roleHref(row.original.roleId)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/roles/${row.original.roleId}`)}
         >
           <p className="truncate font-medium">{row.original.roleName}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.roleCode}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -324,7 +362,6 @@ function UserRolesTab({ userId }: { userId: string }) {
 
 function UserPermissionsTab({ userId }: { userId: string }) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
 
   const query = useQuery({
     queryKey: ["users", userId, "permissions"],
@@ -343,16 +380,15 @@ function UserPermissionsTab({ userId }: { userId: string }) {
       header: t("nav.permissions"),
       meta: { label: t("nav.permissions") },
       cell: ({ row }) => (
-        <button
-          type="button"
+        <RecordLink
+          href={permissionHref(row.original.permissionId)}
           className="min-w-0 text-start hover:underline"
-          onClick={() => navigate(`/permissions/${row.original.permissionId}`)}
         >
           <p className="truncate font-medium">{row.original.permissionName}</p>
           <p className="truncate text-xs text-muted-foreground">
             {row.original.permissionCode}
           </p>
-        </button>
+        </RecordLink>
       ),
     },
     {
@@ -415,19 +451,39 @@ function UserPermissionsTab({ userId }: { userId: string }) {
 
 function UserAuditLogsTab({ userId }: { userId: string }) {
   const { t } = useTranslation()
-  const [page, setPage] = React.useState(0)
-  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE)
-  // Server-side sort over the whole dataset; initial value mirrors the API default.
-  const [sorting, setSorting] = React.useState<SortingState>([
-    { id: "timestamp", desc: true },
-  ])
+  const {
+    pageIndex: page,
+    pageSize,
+    sorting,
+    filters,
+    setPageIndex: setPage,
+    setPageSize,
+    setSorting,
+    setFilters,
+  } = useListUrlState(USER_AUDIT_URL_OPTIONS)
   const { sortBy, sortDirection } = toSortParams(sorting)
+  const columnFilters: ColumnFiltersState = [
+    ...(filters.entityTypes.length
+      ? [{ id: "entityType", value: filters.entityTypes }]
+      : []),
+    ...(filters.applications.length
+      ? [{ id: "applicationName", value: filters.applications }]
+      : []),
+  ]
+  const onColumnFiltersChange = (next: ColumnFiltersState) =>
+    setFilters({
+      entityTypes:
+        (next.find((filter) => filter.id === "entityType")?.value as
+          | string[]
+          | undefined) ?? [],
+      applications:
+        (next.find((filter) => filter.id === "applicationName")?.value as
+          | string[]
+          | undefined) ?? [],
+    })
 
   const query = useQuery({
-    queryKey: [
-      "audit-logs",
-      { userId, page, pageSize, sortBy, sortDirection },
-    ],
+    queryKey: ["audit-logs", { userId, page, pageSize, sortBy, sortDirection }],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/audit-logs", {
@@ -500,21 +556,17 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
       error={query.isError ? query.error : undefined}
       onRetry={() => query.refetch()}
       enableExport={false}
+      columnFilters={columnFilters}
+      onColumnFiltersChange={onColumnFiltersChange}
       sorting={sorting}
-      onSortingChange={(next) => {
-        setSorting(next)
-        setPage(0)
-      }}
+      onSortingChange={setSorting}
       pagination={{
         pageIndex: page,
         pageSize,
         pageCount: toNumber(query.data?.totalPages),
         totalCount: toNumber(query.data?.totalCount),
         onPageChange: setPage,
-        onPageSizeChange: (size) => {
-          setPageSize(size)
-          setPage(0)
-        },
+        onPageSizeChange: setPageSize,
       }}
     />
   )
@@ -535,6 +587,9 @@ export function UserDetailPage() {
   const canManagePerms = hasPermission(PERMISSIONS.users.managePermissions)
   const canManage = hasPermission(PERMISSIONS.users.manage)
   const canReadAudit = hasPermission(PERMISSIONS.auditLogs.read)
+  const [activeTab, setActiveTab] = useTabParam(
+    canReadAudit ? USER_DETAIL_TABS_WITH_AUDIT : USER_DETAIL_TABS
+  )
 
   const [formOpen, setFormOpen] = React.useState(false)
   const [rolesOpen, setRolesOpen] = React.useState(false)
@@ -582,8 +637,105 @@ export function UserDetailPage() {
   const displayName =
     user?.displayName ||
     fullName(user?.firstName, user?.lastName, user?.email ?? "")
-  const hasActions =
-    canManageRoles || canManagePerms || canManage || canDelete
+  const userActions: PageAction[] = [
+    ...(canUpdate
+      ? [
+          {
+            id: "edit",
+            label: t("common.edit"),
+            icon: Pencil,
+            variant: "default" as const,
+            onAction: () => setFormOpen(true),
+          },
+        ]
+      : []),
+    ...(canManageRoles
+      ? [
+          {
+            id: "roles",
+            label: t("users.manageRoles"),
+            icon: ShieldCheck,
+            onAction: () => setRolesOpen(true),
+          },
+        ]
+      : []),
+    ...(canManagePerms
+      ? [
+          {
+            id: "permissions",
+            label: t("users.managePermissions"),
+            icon: KeyRound,
+            onAction: () => setPermsOpen(true),
+          },
+        ]
+      : []),
+    ...(canManage
+      ? [
+          {
+            id: "password-reset",
+            label: t("users.sendPasswordReset"),
+            icon: Mail,
+            pending: sendPasswordReset.isPending,
+            onAction: () => sendPasswordReset.mutate(),
+          },
+          ...(!user?.emailConfirmed
+            ? [
+                {
+                  id: "verify-email",
+                  label: t("users.resendConfirmation"),
+                  icon: MailCheck,
+                  onAction: () => setVerifyEmailOpen(true),
+                },
+              ]
+            : []),
+          isLocked
+            ? {
+                id: "unlock",
+                label: t("users.unlock"),
+                icon: LockKeyholeOpen,
+                pending: statusAction.isPending,
+                onAction: () =>
+                  statusAction.mutate({ id: userId, action: "unlock" }),
+              }
+            : {
+                id: "lock",
+                label: t("users.lock"),
+                icon: LockKeyhole,
+                pending: statusAction.isPending,
+                onAction: () => setLockOpen(true),
+              },
+          isInactive
+            ? {
+                id: "activate",
+                label: t("users.activate"),
+                icon: UserCheck,
+                pending: statusAction.isPending,
+                onAction: () =>
+                  statusAction.mutate({ id: userId, action: "activate" }),
+              }
+            : {
+                id: "deactivate",
+                label: t("users.deactivate"),
+                icon: UserX,
+                pending: statusAction.isPending,
+                onAction: () =>
+                  statusAction.mutate({ id: userId, action: "deactivate" }),
+              },
+        ]
+      : []),
+    ...(canDelete
+      ? [
+          {
+            id: "delete",
+            label: t("common.delete"),
+            icon: Trash2,
+            variant: "destructive" as const,
+            pending: deleteMutation.isPending,
+            onAction: () => setDeleteOpen(true),
+          },
+        ]
+      : []),
+  ]
 
   usePageBreadcrumb(user ? displayName : undefined)
 
@@ -615,114 +767,10 @@ export function UserDetailPage() {
               )
             }
             actions={
-              <>
-                {canUpdate ? (
-                  <Button variant="outline" onClick={() => setFormOpen(true)}>
-                    {t("common.edit")}
-                  </Button>
-                ) : null}
-                {hasActions ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline">
-                        {t("common.actions")}
-                        <ChevronDown />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuGroup>
-                        {canManageRoles ? (
-                          <DropdownMenuItem onClick={() => setRolesOpen(true)}>
-                            {t("users.manageRoles")}
-                          </DropdownMenuItem>
-                        ) : null}
-                        {canManagePerms ? (
-                          <DropdownMenuItem onClick={() => setPermsOpen(true)}>
-                            {t("users.managePermissions")}
-                          </DropdownMenuItem>
-                        ) : null}
-                      </DropdownMenuGroup>
-                      {canManage ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              disabled={sendPasswordReset.isPending}
-                              onClick={() => sendPasswordReset.mutate()}
-                            >
-                              {t("users.sendPasswordReset")}
-                            </DropdownMenuItem>
-                            {!user.emailConfirmed ? (
-                              <DropdownMenuItem
-                                onClick={() => setVerifyEmailOpen(true)}
-                              >
-                                {t("users.resendConfirmation")}
-                              </DropdownMenuItem>
-                            ) : null}
-                          </DropdownMenuGroup>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            {isLocked ? (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  statusAction.mutate({
-                                    id: userId,
-                                    action: "unlock",
-                                  })
-                                }
-                              >
-                                {t("users.unlock")}
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem
-                                onClick={() => setLockOpen(true)}
-                              >
-                                {t("users.lock")}
-                              </DropdownMenuItem>
-                            )}
-                            {isInactive ? (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  statusAction.mutate({
-                                    id: userId,
-                                    action: "activate",
-                                  })
-                                }
-                              >
-                                {t("users.activate")}
-                              </DropdownMenuItem>
-                            ) : (
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  statusAction.mutate({
-                                    id: userId,
-                                    action: "deactivate",
-                                  })
-                                }
-                              >
-                                {t("users.deactivate")}
-                              </DropdownMenuItem>
-                            )}
-                          </DropdownMenuGroup>
-                        </>
-                      ) : null}
-                      {canDelete ? (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuGroup>
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={() => setDeleteOpen(true)}
-                            >
-                              {t("common.delete")}
-                            </DropdownMenuItem>
-                          </DropdownMenuGroup>
-                        </>
-                      ) : null}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                ) : null}
-              </>
+              <PageActionSurface
+                actions={userActions}
+                label={t("common.actions")}
+              />
             }
           />
           <DetailList
@@ -737,15 +785,11 @@ export function UserDetailPage() {
               },
               {
                 label: t("users.emailConfirmed"),
-                value: user.emailConfirmed
-                  ? t("common.yes")
-                  : t("common.no"),
+                value: user.emailConfirmed ? t("common.yes") : t("common.no"),
               },
               {
                 label: t("users.phoneConfirmed"),
-                value: user.phoneConfirmed
-                  ? t("common.yes")
-                  : t("common.no"),
+                value: user.phoneConfirmed ? t("common.yes") : t("common.no"),
               },
               {
                 label: t("users.twoFactor"),
@@ -801,7 +845,7 @@ export function UserDetailPage() {
         </>
       )}
 
-      <Tabs defaultValue="organizations">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="organizations">
             {t("nav.organizations")}
@@ -835,7 +879,11 @@ export function UserDetailPage() {
       </Tabs>
 
       {user ? (
-        <UserFormDialog open={formOpen} onOpenChange={setFormOpen} user={user} />
+        <UserFormDialog
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          user={user}
+        />
       ) : null}
       {user && rolesOpen ? (
         <UserRolesDialog
@@ -874,7 +922,11 @@ export function UserDetailPage() {
         destructive
         loading={statusAction.isPending}
         onConfirm={() =>
-          statusAction.mutate({ id: userId, action: "lock", reason: lockReason })
+          statusAction.mutate({
+            id: userId,
+            action: "lock",
+            reason: lockReason,
+          })
         }
       >
         <Field>

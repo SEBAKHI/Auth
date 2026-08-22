@@ -26,7 +26,10 @@ public class NotificationTemplateTests
         var template = CreateTemplate(applicationId);
         template.UpsertTranslation("en", "Subject EN", "<p>Body EN</p>", null, _userId);
         template.UpsertTranslation("ar", "Subject AR", "<p>Body AR</p>", null, _userId);
-        template.Publish(_userId);
+        template.Publish(
+            template.DraftVersionId!.Value,
+            template.ModifiedAt ?? template.CreatedAt,
+            _userId);
         template.ClearDomainEvents();
         return template;
     }
@@ -75,7 +78,10 @@ public class NotificationTemplateTests
     {
         var template = CreatePublishedTemplate();
 
-        var result = template.Publish(_userId);
+        var result = template.Publish(
+            Guid.NewGuid(),
+            template.ModifiedAt ?? template.CreatedAt,
+            _userId);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Notification.NoDraftToPublish");
@@ -87,7 +93,10 @@ public class NotificationTemplateTests
         var template = CreateTemplate();
         template.UpsertTranslation("ar", "Subject AR", "<p>Body AR</p>", null, _userId);
 
-        var result = template.Publish(_userId);
+        var result = template.Publish(
+            template.DraftVersionId!.Value,
+            template.ModifiedAt ?? template.CreatedAt,
+            _userId);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Notification.DefaultLanguageTranslationRequired");
@@ -100,13 +109,49 @@ public class NotificationTemplateTests
         var template = CreateTemplate();
         template.UpsertTranslation("en", "Subject EN", "<p>Body EN</p>", null, _userId);
         var draftId = template.DraftVersionId!.Value;
+        var revisionAt = template.ModifiedAt ?? template.CreatedAt;
 
-        var result = template.Publish(_userId);
+        var result = template.Publish(draftId, revisionAt, _userId);
 
         result.IsError.Should().BeFalse();
         template.PublishedVersionId.Should().Be(draftId);
         template.DraftVersionId.Should().BeNull();
         template.DomainEvents.Should().ContainSingle(e => e is NotificationTemplatePublishedEvent);
+    }
+
+    [Fact]
+    public void Publish_StaleDraftVersion_ReturnsConflictWithoutMovingPointers()
+    {
+        var template = CreateTemplate();
+        template.UpsertTranslation("en", "Subject EN", "<p>Body EN</p>", null, _userId);
+        var currentDraftId = template.DraftVersionId;
+
+        var result = template.Publish(
+            Guid.NewGuid(),
+            template.ModifiedAt ?? template.CreatedAt,
+            _userId);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.PublishTargetChanged");
+        template.DraftVersionId.Should().Be(currentDraftId);
+        template.PublishedVersionId.Should().BeNull();
+        template.DomainEvents.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Publish_StaleRevisionWithinSameDraftVersion_ReturnsConflict()
+    {
+        var template = CreateTemplate();
+        template.UpsertTranslation("en", "Subject EN", "<p>Body EN</p>", null, _userId);
+        var draftId = template.DraftVersionId!.Value;
+        var staleRevision = (template.ModifiedAt ?? template.CreatedAt).AddMinutes(-1);
+
+        var result = template.Publish(draftId, staleRevision, _userId);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.PublishTargetChanged");
+        template.DraftVersionId.Should().Be(draftId);
+        template.PublishedVersionId.Should().BeNull();
     }
 
     #endregion
@@ -197,7 +242,10 @@ public class NotificationTemplateTests
     {
         var template = CreatePublishedTemplate(applicationId: null);
 
-        var result = template.Unpublish(isSystemType: true, _userId);
+        var result = template.Unpublish(
+            isSystemType: true,
+            template.PublishedVersionId!.Value,
+            _userId);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Notification.CannotUnpublishSystemTemplate");
@@ -209,7 +257,10 @@ public class NotificationTemplateTests
     {
         var template = CreatePublishedTemplate(applicationId: Guid.NewGuid());
 
-        var result = template.Unpublish(isSystemType: true, _userId);
+        var result = template.Unpublish(
+            isSystemType: true,
+            template.PublishedVersionId!.Value,
+            _userId);
 
         result.IsError.Should().BeFalse();
         template.PublishedVersionId.Should().BeNull();
@@ -221,10 +272,27 @@ public class NotificationTemplateTests
     {
         var template = CreateTemplate(applicationId: Guid.NewGuid());
 
-        var result = template.Unpublish(isSystemType: false, _userId);
+        var result = template.Unpublish(isSystemType: false, Guid.NewGuid(), _userId);
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Notification.NotPublished");
+    }
+
+    [Fact]
+    public void Unpublish_StalePublishedVersion_ReturnsConflictWithoutMovingPointer()
+    {
+        var template = CreatePublishedTemplate(applicationId: Guid.NewGuid());
+        var publishedVersionId = template.PublishedVersionId;
+
+        var result = template.Unpublish(
+            isSystemType: false,
+            Guid.NewGuid(),
+            _userId);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Notification.UnpublishTargetChanged");
+        template.PublishedVersionId.Should().Be(publishedVersionId);
+        template.DomainEvents.Should().BeEmpty();
     }
 
     #endregion
@@ -250,7 +318,10 @@ public class NotificationTemplateTests
 
         // Create and publish version 2 with different content.
         template.UpsertTranslation("en", "Subject EN v2", "<p>Body EN v2</p>", null, _userId);
-        template.Publish(_userId);
+        template.Publish(
+            template.DraftVersionId!.Value,
+            template.ModifiedAt ?? template.CreatedAt,
+            _userId);
         template.ClearDomainEvents();
         var v2Id = template.PublishedVersionId!.Value;
         v2Id.Should().NotBe(v1Id);

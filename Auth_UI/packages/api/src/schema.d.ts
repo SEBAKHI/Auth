@@ -5502,7 +5502,13 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PublishNotificationLayoutRequest"];
+                    "text/json": components["schemas"]["PublishNotificationLayoutRequest"];
+                    "application/*+json": components["schemas"]["PublishNotificationLayoutRequest"];
+                };
+            };
             responses: {
                 /** @description OK */
                 200: {
@@ -5513,6 +5519,17 @@ export interface paths {
                         "text/plain": components["schemas"]["NotificationLayoutDto"];
                         "application/json": components["schemas"]["NotificationLayoutDto"];
                         "text/json": components["schemas"]["NotificationLayoutDto"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
                     };
                 };
             };
@@ -6057,7 +6074,13 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PublishNotificationTemplateRequest"];
+                    "text/json": components["schemas"]["PublishNotificationTemplateRequest"];
+                    "application/*+json": components["schemas"]["PublishNotificationTemplateRequest"];
+                };
+            };
             responses: {
                 /** @description OK */
                 200: {
@@ -6072,6 +6095,17 @@ export interface paths {
                 };
                 /** @description Bad Request */
                 400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -6107,7 +6141,13 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UnpublishNotificationTemplateRequest"];
+                    "text/json": components["schemas"]["UnpublishNotificationTemplateRequest"];
+                    "application/*+json": components["schemas"]["UnpublishNotificationTemplateRequest"];
+                };
+            };
             responses: {
                 /** @description OK */
                 200: {
@@ -6122,6 +6162,17 @@ export interface paths {
                 };
                 /** @description Forbidden */
                 403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Conflict */
+                409: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -14009,6 +14060,16 @@ export interface components {
             contentJson?: string;
             disclosure?: components["schemas"]["PrivacyPolicyDisclosureDto"];
         };
+        PublishNotificationLayoutRequest: {
+            /** Format: date-time */
+            expectedRevisionAt: string;
+        };
+        PublishNotificationTemplateRequest: {
+            /** Format: uuid */
+            expectedDraftVersionId: string;
+            /** Format: date-time */
+            expectedRevisionAt: string;
+        };
         ReasonCountDto: {
             reason?: string;
             /** Format: int32 */
@@ -14373,6 +14434,10 @@ export interface components {
         };
         TwoFactorVerifyRequest: {
             code: string;
+        };
+        UnpublishNotificationTemplateRequest: {
+            /** Format: uuid */
+            expectedPublishedVersionId: string;
         };
         UpdateApplicationRequest: {
             name: string;
