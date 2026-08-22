@@ -72,3 +72,49 @@ test("the login screen downloads only what it needs", async ({ page }) => {
     `login JavaScript grew to ${total} bytes across ${fetched.length} files`
   ).toBeLessThan(JS_BUDGET_BYTES)
 })
+
+/**
+ * The other two ways a signed-out person arrives - and the reason the case
+ * above is not the whole story.
+ *
+ * The router resolves every matched route's `lazy` before it renders anything,
+ * and RequireAuth is a render-time element. So typing the bare origin fetches
+ * the shell, the dashboard and recharts, and only then redirects to /login.
+ * Making the shell lazy did not change that, and measuring /login alone hid it:
+ * that path was already the clean one.
+ *
+ * These budgets record what actually happens today rather than what should.
+ * They are a ratchet - the numbers may fall, never rise - and closing the gap
+ * properly means mounting an anonymous router until the session is known,
+ * which touches the returnTo contract and is a decision, not a tidy-up.
+ */
+const SIGNED_OUT_ENTRIES = [
+  { path: "/", measured: 1_371_835, budget: 1_400_000 },
+  { path: "/users", measured: 1_147_807, budget: 1_180_000 },
+]
+
+for (const entry of SIGNED_OUT_ENTRIES) {
+  test(`arriving signed out at ${entry.path} costs what we think it does`, async ({
+    page,
+  }) => {
+    const bodies: Array<Promise<number>> = []
+    page.on("response", (response) => {
+      if (!response.url().endsWith(".js")) return
+      bodies.push(
+        response
+          .body()
+          .then((buffer) => buffer.length)
+          .catch(() => 0)
+      )
+    })
+
+    await page.goto(entry.path)
+    // Every one of these ends on the sign-in form, whatever was downloaded
+    // on the way.
+    await expect(page.getByRole("textbox").first()).toBeVisible()
+
+    const total = (await Promise.all(bodies)).reduce((sum, n) => sum + n, 0)
+    expect(total, `${entry.path} grew to ${total} bytes`).toBeLessThan(entry.budget)
+    expect(total, "no JavaScript was measured at all").toBeGreaterThan(500_000)
+  })
+}

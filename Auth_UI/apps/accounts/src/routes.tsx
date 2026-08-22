@@ -9,7 +9,7 @@ import { lazyRoute, RouteFallback } from "@authsystem/ui/lazy-route"
 import { AccountsLoginPage } from "./pages/auth/login"
 
 /**
- * Every page except the login screen and the shell is loaded on demand.
+ * Every page except the login screen is loaded on demand, the shell included.
  *
  * The app previously imported all of them statically, so signing in downloaded the
  * organization pages, the deletion wizard and the seven-language privacy policy

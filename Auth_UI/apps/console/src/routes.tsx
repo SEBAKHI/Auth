@@ -29,8 +29,15 @@ import {
  *
  * All 33 were statically imported before, so the login screen downloaded recharts
  * (dashboard), CodeMirror (notification editors), react-day-picker (audit filters)
- * and qrcode (2FA) as part of one 2.5 MB chunk. Login, the shell and the guards stay
- * eager because they are on the path to every route.
+ * and qrcode (2FA) as part of one 2.5 MB chunk. Login and the guards stay eager
+ * because they are on the path to every route; the shell no longer is.
+ *
+ * Note what lazy routes do NOT buy. The router resolves every matched route's
+ * `lazy` before it renders anything, and RequireAuth is a render-time element -
+ * so a signed-out visitor who types the bare origin still downloads the shell,
+ * the dashboard and recharts, and only then gets redirected to /login. Landing
+ * on /login directly is the only path this splitting actually keeps light.
+ * `login-payload.spec.ts` measures all three so the difference stays visible.
  *
  * See `lazyRoute` for why this uses the router's own `lazy` rather than
  * `React.lazy` + `Suspense`.
