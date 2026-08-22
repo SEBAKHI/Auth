@@ -20,6 +20,7 @@
     "e2e:production": "pnpm build && playwright test --config playwright.production.config.ts"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^10",
     "@playwright/test": "^1.61.0",
     "@testing-library/jest-dom": "^6.9.1",

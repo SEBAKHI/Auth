@@ -859,7 +859,9 @@ export function DataTable<TData>({
                               header.column.columnDef.meta?.label ??
                               humanizeKey(header.column.id),
                           })}
-                          aria-valuenow={columnSizing[header.column.id]}
+                          aria-valuenow={
+                            columnSizing[header.column.id] ?? header.getSize()
+                          }
                           aria-valuemin={
                             header.column.columnDef.minSize ?? MIN_COLUMN_WIDTH
                           }
@@ -1032,7 +1034,11 @@ export function DataTable<TData>({
                 pagination.onPageSizeChange(Number(value))
               }
             >
-              <SelectTrigger size="sm" className="w-[120px]">
+              <SelectTrigger
+                size="sm"
+                className="w-[120px]"
+                aria-label={t("common.rowsPerPage")}
+              >
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
