@@ -20,13 +20,17 @@ import { expect, test } from "@playwright/test"
 const ROUTE_ONLY = [
   { name: "the source editor (CodeMirror)", pattern: /\/(lib|codemirror-view)-/ },
   { name: "the charting library (recharts)", pattern: /\/stat-tile-/ },
+  // The signed-in interface itself: sidebar, command palette, and the menus
+  // that belong to them. Reachable only behind a session, so it has no business
+  // on this screen.
+  { name: "the authenticated shell", pattern: /\/app-shell-/ },
 ]
 
 /**
  * Headroom over the measured payload, not a target. Raise it deliberately and
  * say why; a change that needs it raised is a change worth a second look.
  */
-const JS_BUDGET_BYTES = 1_100_000 // measured 926,137 at the time of writing
+const JS_BUDGET_BYTES = 850_000 // measured 789,175; ~8% headroom
 
 test("the login screen downloads only what it needs", async ({ page }) => {
   // The bodies, not the headers: this preview server sends no content-length,

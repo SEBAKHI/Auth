@@ -6,7 +6,6 @@ import { NotFoundPage } from "@authsystem/ui/error-pages/not-found"
 import { RouteErrorBoundary } from "@authsystem/ui/error-pages/route-error"
 import { lazyRoute, RouteFallback } from "@authsystem/ui/lazy-route"
 
-import { AccountShell } from "./components/account-shell"
 import { AccountsLoginPage } from "./pages/auth/login"
 
 /**
@@ -62,7 +61,12 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        element: <AccountShell />,
+        // Lazy for the same reason as the console's: the shell is the signed-in
+        // interface, and the sign-in screen should not carry it.
+        lazy: lazyRoute(
+          () => import("./components/account-shell"),
+          (m) => m.AccountShell
+        ),
         children: [
           { index: true, element: <Navigate to="/profile" replace /> },
           {

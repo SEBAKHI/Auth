@@ -17,7 +17,6 @@ import { ForbiddenPage } from "@authsystem/ui/error-pages/forbidden"
 import { NotFoundPage } from "@authsystem/ui/error-pages/not-found"
 import { RouteErrorBoundary } from "@authsystem/ui/error-pages/route-error"
 import { lazyRoute, RouteFallback } from "@authsystem/ui/lazy-route"
-import { AppShell } from "@/components/layout/app-shell"
 import { PERMISSIONS } from "@/lib/constants"
 import {
   notificationDestination,
@@ -165,7 +164,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        element: <AppShell />,
+        // Lazy, like every page under it. The shell carries the sidebar, the
+        // command palette and the menus that go with them, and none of that is
+        // reachable without a session - so loading it eagerly billed the
+        // sign-in screen for an interface its reader has not got to yet.
+        lazy: lazyRoute(
+          () => import("@/components/layout/app-shell"),
+          (m) => m.AppShell
+        ),
         children: [
           {
             index: true,
