@@ -1,7 +1,12 @@
 import { expect, test, type Page } from "@playwright/test"
 
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
-import { expectNoShellOverflow, SHELL_INSET } from "./layout-overflow"
+import {
+  expectCardOutlinesVisible,
+  expectNoCrushedContent,
+  expectNoShellOverflow,
+  SHELL_INSET,
+} from "./layout-overflow"
 
 /**
  * Every list screen, at every width the audit named, in both writing directions.
@@ -109,7 +114,15 @@ for (const locale of LOCALES) {
       for (const route of ROUTES) {
         await page.goto(route)
         await page.waitForSelector(SHELL_INSET)
-        await expectNoShellOverflow(page, `${route} at ${size.width} ${locale.code}`)
+        const where = `${route} at ${size.width} ${locale.code}`
+        await expectNoShellOverflow(page, where)
+        // Horizontal spill is only half of "the screen holds together". A
+        // scroll pane that squeezes its children, or clips the ring that bounds
+        // them, loses content just as completely and reports zero overflow
+        // while doing it - which is how a five-card editor shipped with every
+        // card rendering at 48px. These two cost nothing to carry here.
+        await expectNoCrushedContent(page, where)
+        await expectCardOutlinesVisible(page, where)
       }
     })
   }

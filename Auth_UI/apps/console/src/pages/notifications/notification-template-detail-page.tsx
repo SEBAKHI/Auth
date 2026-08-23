@@ -167,7 +167,27 @@ export function NotificationTemplateDetailPage() {
           typeof next === "function" ? next(base.changeNote) : next,
       }
     })
-  const [selectedLanguage, setActiveLanguage] = React.useState("en")
+  /**
+   * The chosen language, tied to the template it was chosen on.
+   *
+   * This correction used to run once, in an effect keyed on `template`.
+   * Deriving it on every render instead made it re-apply immediately after
+   * every click, so a tab for a language with no translation yet snapped back
+   * to the default before the fields could be touched - and clicking that tab
+   * is precisely how a new translation is started, so none could ever be added.
+   *
+   * Keyed on the template object, a fresh choice survives until the record
+   * itself is replaced. After a save the record IS replaced, and the language
+   * is kept only if it now has a translation (or is the default) - the same
+   * rule the effect applied, which is what returns the editor to a sane
+   * language when a different template is opened.
+   */
+  const [languageChoice, setLanguageChoice] = React.useState<{
+    source: unknown
+    language: string
+  } | null>(null)
+  const setActiveLanguage = (language: string) =>
+    setLanguageChoice({ source: template, language })
   const [historyOpen, setHistoryOpen] = React.useState(false)
   const [variablesOpen, setVariablesOpen] = React.useState(false)
   const [testSendOpen, setTestSendOpen] = React.useState(false)
@@ -180,8 +200,11 @@ export function NotificationTemplateDetailPage() {
 
   const defaultLanguage = template?.defaultLanguage ?? "en"
   const activeLanguage =
-    drafts[selectedLanguage] || selectedLanguage === defaultLanguage
-      ? selectedLanguage
+    languageChoice !== null &&
+    (languageChoice.source === template ||
+      drafts[languageChoice.language] ||
+      languageChoice.language === defaultLanguage)
+      ? languageChoice.language
       : defaultLanguage
   const active: TranslationDraft = drafts[activeLanguage] ?? EMPTY_DRAFT
   // Direction of the translation being edited, not of the console. `dir="auto"`

@@ -750,14 +750,22 @@ export function DataTable<TData>({
         className={cn(
           "rounded-lg border",
           fillHeight
-            ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+            ? // The 160px floor belongs HERE, on the clipping wrapper, not on
+              // the scroller inside it. With `min-h-0` here and `min-h-40`
+              // there, a short viewport squeezed this wrapper to 96px while the
+              // scroller still believed it was 160px tall: the bottom 64px of
+              // its viewport sat below the clip, and the last row could not be
+              // scrolled into sight at all - at 320x568 it ended at 160px
+              // inside a 96px box. Holding the floor out here makes `main`
+              // scroll instead, and every row stays reachable.
+              "flex min-h-40 flex-1 flex-col overflow-hidden"
             : "overflow-hidden"
         )}
       >
         <Table
           containerClassName={
             // The container is the scrolling element, so it owns the height.
-            fillHeight ? "min-h-40 flex-1 overflow-auto" : undefined
+            fillHeight ? "min-h-0 flex-1 overflow-auto" : undefined
           }
         >
           <TableHeader

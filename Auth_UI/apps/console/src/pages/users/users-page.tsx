@@ -193,7 +193,7 @@ export function UsersPage() {
         return (
           <RecordLink
             href={userHref(user.id)}
-            className="min-w-0 text-start hover:underline"
+            className="min-w-0 text-start"
           >
             <p className="truncate font-medium">{name}</p>
           </RecordLink>

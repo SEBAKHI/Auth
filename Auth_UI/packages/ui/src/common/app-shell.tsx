@@ -39,8 +39,14 @@ interface AppShellProps {
   navItems: AppNavItem[]
   /** i18n key under `nav.*` for the sidebar group label. */
   navGroupKey: string
-  /** i18n key under `nav.*` for the breadcrumb home crumb (the `/` route). */
+  /** i18n key under `nav.*` for the breadcrumb home crumb. */
   homeKey: string
+  /**
+   * The app landing route, when it is not `/`. The accounts app redirects
+   * `/` to `/profile`, so without this the breadcrumbs read its landing page
+   * as an inner page and offer a way "up" that lands right back on it.
+   */
+  homeHref?: string
   /** Forwarded to the header UserMenu. */
   profileHref?: string
   /** Forwarded to the header UserMenu. */
@@ -154,6 +160,7 @@ export function AppShell({
   navItems,
   navGroupKey,
   homeKey,
+  homeHref,
   profileHref,
   showProfile,
   headerExtras,
@@ -172,7 +179,11 @@ export function AppShell({
               search box, language, theme and account controls leave it about a
               hundred pixels for three crumbs and two separators, and every
               crumb truncates to two characters. `ParentLink` takes over there. */}
-          <AppBreadcrumbs homeKey={homeKey} className="hidden lg:flex" />
+          <AppBreadcrumbs
+            homeKey={homeKey}
+            homeHref={homeHref}
+            className="hidden lg:flex"
+          />
           <div className="ms-auto flex items-center gap-1">
             {headerExtras}
             <LanguageToggle />
@@ -189,7 +200,11 @@ export function AppShell({
               next to the heading it relates to rather than next to global
               controls it has nothing to do with. `shrink-0` so it never eats
               into a page that manages its own height. */}
-          <ParentLink homeKey={homeKey} className="shrink-0 lg:hidden" />
+          <ParentLink
+            homeKey={homeKey}
+            homeHref={homeHref}
+            className="shrink-0 lg:hidden"
+          />
           <ZonedOutlet />
         </main>
       </SidebarInset>

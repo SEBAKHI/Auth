@@ -49,12 +49,19 @@ describe("console routes", () => {
 
   // Generous, and only here: the first case pays for compiling a page chunk
   // and everything it imports, which is slow under coverage instrumentation.
+  //
+  // 60s rather than 20s because this is bound by COMPILATION, not by logic. On
+  // an otherwise idle machine the whole file runs in about seven seconds, but
+  // inside the full suite - eighty-nine files in parallel, each with its own
+  // transform - the first case has been measured at 48s and timed out at 20s
+  // twice. A ceiling this high hides nothing: a lazy route that genuinely fails
+  // to resolve throws a module error immediately, it does not hang.
   it.each(lazyRoutes)(
     "%s resolves to a component",
     async (_path, load) => {
       const resolved = await load()
       expect(resolved.Component).toBeTypeOf("function")
     },
-    20_000
+    60_000
   )
 })

@@ -158,7 +158,7 @@ function PermissionUsersTab({ permissionId }: { permissionId: string }) {
       cell: ({ row }) => (
         <RecordLink
           href={userHref(row.original.userId)}
-          className="min-w-0 text-start hover:underline"
+          className="min-w-0 text-start"
         >
           <p className="truncate font-medium">
             {row.original.displayName ||
@@ -279,7 +279,7 @@ function PermissionImplicationsTab({ permissionId }: { permissionId: string }) {
       cell: ({ row }) => (
         <RecordLink
           href={permissionHref(row.original.id)}
-          className="text-start hover:underline"
+          className="text-start"
         >
           <span className="font-mono text-sm">{row.original.code}</span>
         </RecordLink>

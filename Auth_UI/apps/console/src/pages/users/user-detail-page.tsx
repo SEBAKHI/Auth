@@ -115,7 +115,7 @@ function UserOrganizationsTab({ userId }: { userId: string }) {
       cell: ({ row }) => (
         <RecordLink
           href={organizationHref(row.original.id)}
-          className="min-w-0 text-start hover:underline"
+          className="min-w-0 text-start"
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
@@ -204,7 +204,7 @@ function UserApplicationsTab({ userId }: { userId: string }) {
       cell: ({ row }) => (
         <RecordLink
           href={applicationHref(row.original.applicationId)}
-          className="min-w-0 text-start hover:underline"
+          className="min-w-0 text-start"
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">
@@ -282,7 +282,7 @@ function UserRolesTab({ userId }: { userId: string }) {
       cell: ({ row }) => (
         <RecordLink
           href={roleHref(row.original.roleId)}
-          className="min-w-0 text-start hover:underline"
+          className="min-w-0 text-start"
         >
           <p className="truncate font-medium">{row.original.roleName}</p>
           <p className="truncate text-xs text-muted-foreground">
@@ -382,7 +382,7 @@ function UserPermissionsTab({ userId }: { userId: string }) {
       cell: ({ row }) => (
         <RecordLink
           href={permissionHref(row.original.permissionId)}
-          className="min-w-0 text-start hover:underline"
+          className="min-w-0 text-start"
         >
           <p className="truncate font-medium">{row.original.permissionName}</p>
           <p className="truncate text-xs text-muted-foreground">

@@ -24,13 +24,44 @@ function repositoryRoot(): string {
   throw new Error("Auth/Auth.sln not found above " + process.cwd())
 }
 
+function csharpFiles(directory: string): string[] {
+  const found: string[] = []
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const full = path.join(directory, entry.name)
+    if (entry.isDirectory()) found.push(...csharpFiles(full))
+    else if (entry.name.endsWith(".cs")) found.push(full)
+  }
+  return found
+}
+
+/**
+ * Every dotted error code the backend can raise, from BOTH places that raise
+ * them.
+ *
+ * Scanning only `Auth.Domain/Errors` for the named-argument form was how
+ * `Password.*` escaped: the password policy lives in
+ * `Auth.Application/Validators/PasswordValidator.cs` and raises its codes
+ * positionally - `Error.Validation("Password.TooShort", "Validation.…")`. Both
+ * the directory and the argument form had to be missed for it to slip through,
+ * and both were, so the UI suppressed the one sentence that names the broken
+ * rule and told the reader only that "some information wasn't accepted".
+ */
 function backendNamespaces(): string[] {
-  const directory = path.join(repositoryRoot(), "Auth/Auth.Domain/Errors")
+  const root = repositoryRoot()
   const namespaces = new Set<string>()
-  for (const file of readdirSync(directory)) {
-    if (!file.endsWith(".cs")) continue
-    const source = readFileSync(path.join(directory, file), "utf8")
+  const sources = [
+    ...csharpFiles(path.join(root, "Auth/Auth.Domain/Errors")),
+    ...csharpFiles(path.join(root, "Auth/Auth.Application")),
+  ]
+  for (const file of sources) {
+    const source = readFileSync(file, "utf8")
+    // `code: "Ns.Code"` (named) and `Error.Xxx("Ns.Code"` (positional).
     for (const [, code] of source.matchAll(/code: "([A-Za-z]+)\./g)) {
+      namespaces.add(code)
+    }
+    for (const [, code] of source.matchAll(
+      /Error\.[A-Za-z]+\(\s*"([A-Z][A-Za-z]+)\./g
+    )) {
       namespaces.add(code)
     }
   }

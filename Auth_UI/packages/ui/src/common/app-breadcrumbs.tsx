@@ -15,8 +15,17 @@ import { Skeleton } from "@authsystem/ui/skeleton"
 import { cn } from "@authsystem/ui/utils"
 import { useBreadcrumbOverride, type CrumbHandle } from "@authsystem/ui/crumbs"
 
-/** The matched trail, and where the current page sits in it. */
-function useCrumbTrail(homeKey: string) {
+/**
+ * The matched trail, and where the current page sits in it.
+ *
+ * `homeHref` exists because an app's landing page is not always `/`. The
+ * accounts app redirects `/` straight to `/profile`, and `/profile` carries its
+ * own crumb - so recognising home by the crumb's KEY alone left the landing
+ * page looking like an inner page, and the phone-width back link offered a way
+ * up from it: a "‹ Account" that pointed at `/`, which bounced right back to
+ * the page the reader was already on.
+ */
+function useCrumbTrail(homeKey: string, homeHref = "/") {
   const matches = useMatches()
   const crumbs = matches
     .map((match) => (match.handle as CrumbHandle | undefined)?.crumb)
@@ -31,8 +40,10 @@ function useCrumbTrail(homeKey: string) {
   const last = crumbs.at(-1)
   return {
     crumbs,
-    isHome: !last || last.titleKey === homeKey,
+    isHome: !last || last.titleKey === homeKey || last.href === homeHref,
     isDetail: Boolean(last?.detail),
+    /** The label for the home crumb: the landing route's own, when it has one. */
+    homeTitleKey: last && last.href === homeHref ? last.titleKey : homeKey,
   }
 }
 
@@ -51,13 +62,19 @@ function useCrumbTrail(homeKey: string) {
  */
 export function ParentLink({
   homeKey,
+  homeHref = "/",
   className,
 }: {
   homeKey: string
+  /** The app's landing route, when it is not `/`. */
+  homeHref?: string
   className?: string
 }) {
   const { t } = useTranslation()
-  const { crumbs, isHome, isDetail } = useCrumbTrail(homeKey)
+  const { crumbs, isHome, isDetail, homeTitleKey } = useCrumbTrail(
+    homeKey,
+    homeHref
+  )
 
   if (isHome) return null
 
@@ -68,7 +85,7 @@ export function ParentLink({
 
   return (
     <Link
-      to={parent?.href ?? "/"}
+      to={parent?.href ?? homeHref}
       className={cn(
         // A full-width row of its own, so the label is never the thing that
         // gives way. `w-fit` keeps the tap target to the text it labels.
@@ -78,7 +95,7 @@ export function ParentLink({
     >
       <ChevronLeftIcon className="size-4 rtl:rotate-180" aria-hidden="true" />
       <span data-slot="parent-link-label">
-        {t(`nav.${parent?.titleKey ?? homeKey}`)}
+        {t(`nav.${parent?.titleKey ?? homeTitleKey}`)}
       </span>
     </Link>
   )
@@ -92,16 +109,22 @@ export function ParentLink({
  */
 export function AppBreadcrumbs({
   homeKey,
+  homeHref = "/",
   className,
 }: {
-  /** i18n key under `nav.*` for the home crumb, linking to `/`. */
+  /** i18n key under `nav.*` for the home crumb, linking to `homeHref`. */
   homeKey: string
+  /** The app's landing route, when it is not `/`. */
+  homeHref?: string
   /** The host hides the trail where the header has no room for it. */
   className?: string
 }) {
   const { t } = useTranslation()
   const override = useBreadcrumbOverride()
-  const { crumbs, isHome, isDetail } = useCrumbTrail(homeKey)
+  const { crumbs, isHome, isDetail, homeTitleKey } = useCrumbTrail(
+    homeKey,
+    homeHref
+  )
 
   return (
     // `min-w-0` lets the trail give way to the header controls beside it, and
@@ -116,11 +139,11 @@ export function AppBreadcrumbs({
         <BreadcrumbItem className="min-w-0">
           {isHome ? (
             <BreadcrumbPage className="truncate">
-              {t(`nav.${homeKey}`)}
+              {t(`nav.${homeTitleKey}`)}
             </BreadcrumbPage>
           ) : (
             <BreadcrumbLink asChild>
-              <Link to="/" className="truncate">
+              <Link to={homeHref} className="truncate">
                 {t(`nav.${homeKey}`)}
               </Link>
             </BreadcrumbLink>

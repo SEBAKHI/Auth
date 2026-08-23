@@ -258,4 +258,30 @@ describe("editing and publishing a policy revision", () => {
       ).toBe(true)
     )
   }, 20_000)
+
+  it("discarding on a language switch really drops the edits", async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await screen.findByLabelText("policy preview")
+
+    const title = screen.getByLabelText("Title")
+    fireEvent.change(title, { target: { value: "Typed then discarded" } })
+    expect(title).toHaveValue("Typed then discarded")
+
+    // Leaving a dirty language raises the discard prompt.
+    const arabic = screen.getByRole("tab", { name: /^ar/i })
+    await user.click(arabic)
+    const dialog = await screen.findByRole("alertdialog")
+    const discard = within(dialog)
+      .getAllByRole("button")
+      .find((button) => /^discard$/i.test((button.textContent ?? "").trim()))
+    expect(discard, "no discard control").toBeDefined()
+    await user.click(discard!)
+
+    // Coming back must show the server's document, not the text the user just
+    // threw away. Lowering the dirty flag alone kept that text alive here -
+    // and with the page reporting no unsaved changes, the next Save wrote it.
+    await user.click(screen.getByRole("tab", { name: /^en/i }))
+    await waitFor(() => expect(screen.getByLabelText("Title")).toHaveValue(""))
+  }, 20_000)
 })

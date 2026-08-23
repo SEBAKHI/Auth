@@ -476,7 +476,13 @@ export function NotificationPolicyDetailPage() {
         destructive
         onConfirm={() => {
           if (pendingLanguage) {
-            setDirty(false)
+            // Drop the edits, not just the dirty flag. `editedContent` holds
+            // exactly one language at a time and is keyed by it, so lowering
+            // the flag alone left the discarded document alive under the old
+            // language: switching back showed every "discarded" edit again,
+            // while the page reported no unsaved changes - so the next Save
+            // would have written them.
+            setEditedContent(null)
             setLanguage(pendingLanguage)
           }
           setPendingLanguage(null)
@@ -499,8 +505,25 @@ export function NotificationPolicyDetailPage() {
         // shrink below its content and scroll.
         <div className="flex flex-col gap-6 xl:min-h-0 xl:flex-1 xl:flex-row">
           {/* Editor */}
+          {/*
+            `[&>*]:shrink-0` is what makes this pane scroll instead of crush.
+            A flex item normally refuses to shrink below its content, but that
+            protection (`min-height: auto`) is switched off for any child whose
+            overflow is not visible - and `Card` carries `overflow-hidden`. So
+            without this, every card here is squeezed to a fraction of its
+            height and silently clips the fields inside it, while the pane
+            itself never overflows and therefore never grows a scrollbar.
+
+            `xl:p-2` is the second half of the same problem. A Card is outlined
+            by `ring-1` and lifted by `shadow-md`, and both of those paint
+            OUTSIDE the element's box. Setting `overflow-y` to anything but
+            `visible` also forces `overflow-x` to `auto`, so with no padding the
+            pane clips the ring and shadow flush against its own edges - the
+            card loses its top and side outline. The padding is the room they
+            need. Same reason `lg:pe-2` exists on the system-settings nav.
+          */}
           <div
-            className="flex flex-col gap-6 xl:min-h-0 xl:min-w-0 xl:flex-1 xl:overflow-y-auto"
+            className="flex flex-col gap-6 xl:min-h-0 xl:min-w-0 xl:flex-1 xl:overflow-y-auto xl:p-2 xl:[&>*]:shrink-0"
             onFocusCapture={onFocusCapture}
           >
             <Card>

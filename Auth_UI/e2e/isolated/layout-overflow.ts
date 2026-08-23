@@ -40,3 +40,122 @@ export async function expectNoShellOverflow(page: Page, where: string) {
   const overflow = await shellOverflow(page)
   expect(overflow, `${where}: content spills ${overflow}px past the shell`).toBe(0)
 }
+
+/**
+ * Nothing inside a scroll pane has been squeezed and silently clipped.
+ *
+ * The failure this catches, seen in production on the policy editor: a pane is
+ * made a fixed-height scroll area (`min-h-0 flex-1 overflow-y-auto` on a column
+ * flex container) and `Card` elements are dropped straight into it. A flex item
+ * normally refuses to shrink past its own content because `min-height` resolves
+ * to `auto` - but that protection is switched off for any box whose overflow is
+ * not `visible`, and `Card` carries `overflow-hidden`. So the cards shrink to a
+ * fraction of their height, clip every control inside, and the pane never
+ * overflows and therefore never grows a scrollbar. Five cards on one screen were
+ * rendering at 48px each while their content measured up to 1938px.
+ *
+ * `expectNoShellOverflow` cannot see any of this: the loss is vertical and the
+ * clipping is silent.
+ */
+export async function expectNoCrushedContent(page: Page, where: string) {
+  const crushed = await page.evaluate(() => {
+    return [...document.querySelectorAll("*")]
+      .filter((el) => {
+        if (!(el instanceof HTMLElement)) return false
+        if (el.scrollHeight <= el.clientHeight + 1) return false
+        const style = getComputedStyle(el)
+        // Only silent losses. A child that scrolls its own content is fine.
+        if (style.overflowY !== "hidden") return false
+        const parent = el.parentElement
+        if (!parent) return false
+        const parentStyle = getComputedStyle(parent)
+        if (parentStyle.display !== "flex") return false
+        if (parentStyle.flexDirection !== "column") return false
+        return style.flexShrink !== "0"
+      })
+      .map((el) => ({
+        slot: el.getAttribute("data-slot") ?? el.tagName.toLowerCase(),
+        label: (
+          el.querySelector('[data-slot="card-title"]')?.textContent ?? ""
+        ).trim(),
+        rendered: Math.round(el.getBoundingClientRect().height),
+        natural: el.scrollHeight,
+      }))
+  })
+
+  expect(
+    crushed,
+    `${where}: ${crushed.length} element(s) squeezed below their content and clipped - ` +
+      crushed
+        .map((c) => `${c.slot}${c.label ? ` "${c.label}"` : ""} ${c.rendered}px of ${c.natural}px`)
+        .join("; ")
+  ).toEqual([])
+}
+
+/**
+ * A card inside a scroll pane still shows the outline that bounds it.
+ *
+ * `Card` is not drawn with a border. The preset outlines it with `ring-1` and
+ * lifts it with `shadow-md`, and both of those paint OUTSIDE the element's box.
+ * Setting `overflow-y` to anything but `visible` also forces `overflow-x` to
+ * `auto` - so a pane with no padding clips that outline flush against its own
+ * edges, and the card reads as an unbounded slab with no top and no sides.
+ *
+ * The pane therefore needs padding. One inline side may legitimately show a
+ * wide gap: that is the scrollbar gutter, not a fix.
+ */
+export async function expectCardOutlinesVisible(page: Page, where: string) {
+  const clipped = await page.evaluate(() => {
+    const panes = [...document.querySelectorAll("*")].filter((el) => {
+      if (!(el instanceof HTMLElement) || !el.children.length) return false
+      const style = getComputedStyle(el)
+      return (
+        style.overflowY === "auto" ||
+        style.overflowY === "scroll" ||
+        style.overflowX === "auto" ||
+        style.overflowX === "scroll"
+      )
+    })
+
+    const found: Array<{ slot: string; label: string; sides: string[] }> = []
+    for (const pane of panes) {
+      const paneBox = pane.getBoundingClientRect()
+      if (paneBox.width < 40 || paneBox.height < 40) continue
+      for (const child of pane.children) {
+        if (!(child instanceof HTMLElement)) continue
+        if (getComputedStyle(child).boxShadow === "none") continue
+        const box = child.getBoundingClientRect()
+        if (box.width < 40 || box.height < 20) continue
+        // Judge only what is inside the scrolled viewport: a card further down
+        // the scroll legitimately extends past the bottom edge.
+        if (!(box.bottom > paneBox.top && box.top < paneBox.bottom)) continue
+        const gaps = {
+          top: Math.round(box.top - paneBox.top),
+          left: Math.round(box.left - paneBox.left),
+          right: Math.round(paneBox.right - box.right),
+        }
+        const sides = Object.entries(gaps)
+          .filter(([, value]) => value >= 0 && value <= 1)
+          .map(([side]) => side)
+        if (sides.length) {
+          found.push({
+            slot: child.getAttribute("data-slot") ?? child.tagName.toLowerCase(),
+            label: (
+              child.querySelector('[data-slot="card-title"]')?.textContent ?? ""
+            ).trim(),
+            sides,
+          })
+        }
+      }
+    }
+    return found
+  })
+
+  expect(
+    clipped,
+    `${where}: ${clipped.length} element(s) have their ring/shadow clipped by a scroll pane - ` +
+      clipped
+        .map((c) => `${c.slot}${c.label ? ` "${c.label}"` : ""} on ${c.sides.join("+")}`)
+        .join("; ")
+  ).toEqual([])
+}

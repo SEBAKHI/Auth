@@ -121,8 +121,15 @@ export function SystemSettingsPage() {
           <SectionNav groups={groups} activeKey={active?.key ?? ""} />
           {/* The card keeps the full page width: extra width is spent by the
               rows (label at the start, control pinned to the end), never by
-              stretching a control. */}
-          <div className="min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto">
+              stretching a control.
+
+              `lg:p-2` is not decoration. A Card is outlined by `ring-1` and
+              lifted by `shadow-md`, and both paint outside its box. Setting
+              `overflow-y` to anything but `visible` also forces `overflow-x` to
+              `auto`, so without this padding the pane clips the card's outline
+              flush against its own top and inline-start edges and the card
+              reads as an unbounded slab. */}
+          <div className="min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto lg:p-2">
             {active ? (
               <SectionForm
                 key={`${active.key}:${active.rowVersion ?? "none"}`}

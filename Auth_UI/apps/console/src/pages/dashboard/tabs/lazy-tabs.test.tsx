@@ -23,10 +23,15 @@ describe("dashboard tab loaders", () => {
     ])
   })
 
+  // Bound by compilation, not logic: the first case pulls in a tab and the
+  // whole charting library behind it. Alone that is seconds; inside the full
+  // parallel suite it has been measured at 36s and timed out at 20s twice. A
+  // tab that genuinely fails to resolve throws at once rather than hanging, so
+  // the high ceiling costs nothing in coverage of the thing being guarded.
   it.each(loaders)("the %s tab resolves to a component", async (_name, load) => {
     const resolved = await load()
     expect(resolved.default).toBeTypeOf("function")
-  }, 20_000)
+  }, 60_000)
 })
 
 describe("TabFallback", () => {

@@ -15,8 +15,16 @@ import { cn } from "@authsystem/ui/utils"
  * deleted record has no detail route, and the generated API types mark every id
  * optional. Rather than repeat that decision at twenty call sites, a row with
  * no destination renders the same content as plain text. The fallback keeps the
- * layout classes on purpose - the column must not shift depending on whether a
+ * LAYOUT classes on purpose - the column must not shift depending on whether a
  * particular row happens to be linkable.
+ *
+ * The AFFORDANCE, though, belongs to this component and only to the anchor.
+ * Call sites used to pass `hover:underline` in `className`, which reached both
+ * branches: in the Accounts app, which mounts the shared organization page
+ * without any href builders, every member and application name underlined
+ * under the cursor and then did nothing when clicked. An underline is a promise
+ * that there is somewhere to go, so only the branch that has somewhere to go
+ * may make it.
  */
 export function RecordLink({
   href,
@@ -32,7 +40,7 @@ export function RecordLink({
   }
 
   return (
-    <Link to={href} className={cn("min-w-0", className)}>
+    <Link to={href} className={cn("min-w-0 hover:underline", className)}>
       {children}
     </Link>
   )

@@ -122,6 +122,12 @@ const DOMAIN_ERROR_NAMESPACES = new Set([
   "ExternalAuth",
   "Notification",
   "Organization",
+  // Not an `Auth.Domain/Errors` class: the password policy is enforced in
+  // `Auth.Application/Validators/PasswordValidator.cs`, which raises the same
+  // shape (`Error.Validation("Password.TooShort", "Validation.Password.…")`)
+  // and is localized by the same catalog. Leaving it out suppressed the one
+  // sentence that tells a person WHICH rule their password broke.
+  "Password",
   "PasswordReset",
   "Permission",
   "PrivacyPolicy",
@@ -294,6 +300,8 @@ export function getFieldErrors(error: unknown): Record<string, string> {
     // A dotted code is a domain rule, not a field: nothing on the form is
     // called "User.DuplicateEmail", and treating it as a field name would
     // highlight nothing while swallowing the message the page should show.
+    // Callers already fall back to an alert carrying the server's sentence
+    // when no field matches, so there is nothing to rescue by guessing one.
     if (isDomainCode(code)) continue
     result[camelCase(code)] = i18n.t("errors.feedback.fieldInvalid")
   }

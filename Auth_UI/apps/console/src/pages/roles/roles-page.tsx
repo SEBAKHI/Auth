@@ -119,7 +119,7 @@ export function RolesPage() {
       cell: ({ row }) => (
         <RecordLink
           href={roleHref(row.original.id)}
-          className="min-w-0 text-start hover:underline"
+          className="min-w-0 text-start"
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">

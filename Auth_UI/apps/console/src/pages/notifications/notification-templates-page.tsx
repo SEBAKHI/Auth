@@ -129,7 +129,7 @@ export function NotificationTemplatesPage() {
         return (
           <RecordLink
             href={notificationTemplateHref(template.id)}
-            className="min-w-0 text-start hover:underline"
+            className="min-w-0 text-start"
           >
             {/* The direction belongs on an inline `bdi`, not on the `p`: `dir` on
                 a block re-resolves the inherited `text-align: start` against that

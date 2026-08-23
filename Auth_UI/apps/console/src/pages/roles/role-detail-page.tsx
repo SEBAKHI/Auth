@@ -146,7 +146,7 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
       cell: ({ row }) => (
         <RecordLink
           href={userHref(row.original.userId)}
-          className="min-w-0 text-start hover:underline"
+          className="min-w-0 text-start"
         >
           <p className="truncate font-medium">
             {row.original.displayName ||
@@ -279,7 +279,7 @@ function RoleApplicationsTab({ roleId }: { roleId: string }) {
       cell: ({ row }) => (
         <RecordLink
           href={applicationHref(row.original.applicationId)}
-          className="min-w-0 text-start hover:underline"
+          className="min-w-0 text-start"
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">

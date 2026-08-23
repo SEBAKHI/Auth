@@ -148,7 +148,7 @@ export function OrganizationsAdminPage() {
       cell: ({ row }) => (
         <RecordLink
           href={organizationHref(row.original.id)}
-          className="min-w-0 text-start hover:underline"
+          className="min-w-0 text-start"
         >
           <p className="truncate font-medium">{row.original.name}</p>
           <p className="truncate text-xs text-muted-foreground">

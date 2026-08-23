@@ -76,7 +76,7 @@ export function NotificationLayoutsPage() {
       cell: ({ row }) => (
         <RecordLink
           href={notificationLayoutHref(row.original.id)}
-          className="min-w-0 text-start hover:underline"
+          className="min-w-0 text-start"
         >
           <p className="truncate font-medium">{row.original.name}</p>
         </RecordLink>

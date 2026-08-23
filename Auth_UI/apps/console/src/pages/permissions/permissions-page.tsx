@@ -105,7 +105,7 @@ export function PermissionsPage() {
       cell: ({ row }) => (
         <RecordLink
           href={permissionHref(row.original.id)}
-          className="text-start hover:underline"
+          className="text-start"
         >
           <span className="font-mono text-sm">{row.original.code}</span>
         </RecordLink>

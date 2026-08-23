@@ -2,7 +2,7 @@ import type { ReactNode } from "react"
 import { act, render, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { Building2, LayoutDashboard } from "lucide-react"
-import { RouterProvider, createMemoryRouter } from "react-router-dom"
+import { Navigate, RouterProvider, createMemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import "@authsystem/i18n"
@@ -37,6 +37,47 @@ function setViewportWidth(width: number) {
     writable: true,
     value: width,
   })
+}
+
+/** The accounts app's shape: `/` redirects, and `/profile` is the real home. */
+function renderLandingShell(...initialEntries: string[]) {
+  const router = createMemoryRouter(
+    [
+      {
+        path: "/",
+        element: (
+          <AppShell
+            navItems={NAV}
+            navGroupKey="account"
+            homeKey="account"
+            homeHref="/profile"
+          />
+        ),
+        children: [
+          { index: true, element: <Navigate to="/profile" replace /> },
+          {
+            path: "profile",
+            element: <div>profile page</div>,
+            handle: crumb("profile", "/profile"),
+          },
+          {
+            path: "organizations",
+            element: <div>organizations page</div>,
+            handle: crumb("organizations", "/organizations"),
+          },
+        ],
+      },
+    ],
+    { initialEntries, initialIndex: initialEntries.length - 1 }
+  )
+
+  render(
+    <DirectionProvider>
+      <TooltipProvider>
+        <RouterProvider router={router} />
+      </TooltipProvider>
+    </DirectionProvider>
+  )
 }
 
 function renderShell(...initialEntries: string[]) {
@@ -219,5 +260,21 @@ describe("AppShell parent link", () => {
     const trail = document.querySelector('[data-slot="breadcrumb"]')
     expect(trail).not.toBeNull()
     expect(trail?.className).toContain("lg:flex")
+  })
+
+  it("offers nothing to climb from a landing page that is not `/`", () => {
+    // The accounts app's shape: `/` only redirects, and the real landing page
+    // carries a crumb of its own. Recognising home by the crumb KEY alone read
+    // that page as an inner page and offered a back link to `/` - which
+    // redirects straight back to it.
+    renderLandingShell("/profile")
+
+    expect(parentLink()).toBeUndefined()
+  })
+
+  it("still climbs to the declared landing page from a sibling", () => {
+    renderLandingShell("/organizations")
+
+    expect(parentLink()).toHaveAttribute("href", "/profile")
   })
 })

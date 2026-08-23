@@ -226,7 +226,7 @@ function MembersTab({
         return (
           <RecordLink
             href={userHref?.(userId)}
-            className="text-start hover:underline"
+            className="text-start"
           >
             {content}
           </RecordLink>
@@ -773,7 +773,7 @@ function ApplicationsTab({
         return (
           <RecordLink
             href={applicationHref?.(applicationId)}
-            className="text-start font-medium hover:underline"
+            className="text-start font-medium"
           >
             <span className="truncate">{row.original.applicationName}</span>
           </RecordLink>
