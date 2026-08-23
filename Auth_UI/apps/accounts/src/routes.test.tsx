@@ -22,9 +22,17 @@ function walk(
   })
 }
 
-const lazyRoutes = walk(router.routes as RouteNode[]).filter(
-  ([, route]) => typeof route.lazy === "function"
-)
+/**
+ * The thunk is captured here, not read off the route when the case runs.
+ *
+ * `router.routes` is live and the router consumes it: once it resolves a route
+ * it assigns `Component` and clears `lazy`. In jsdom the document URL matches
+ * the root, so the router resolves that chain on its own while these cases are
+ * running, and a case that reached for `route.lazy` later found it gone.
+ */
+const lazyRoutes = walk(router.routes as RouteNode[])
+  .filter(([, route]) => typeof route.lazy === "function")
+  .map(([path, route]) => [path, route.lazy!] as const)
 
 /**
  * Every lazy route resolves to a component that still exists.
@@ -43,8 +51,8 @@ describe("accounts routes", () => {
   // and everything it imports, which is slow under coverage instrumentation.
   it.each(lazyRoutes)(
     "%s resolves to a component",
-    async (_path, route) => {
-      const resolved = await route.lazy!()
+    async (_path, load) => {
+      const resolved = await load()
       expect(resolved.Component).toBeTypeOf("function")
     },
     20_000

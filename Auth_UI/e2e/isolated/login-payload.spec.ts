@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test"
 
+import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
+
 /**
  * What a person downloads before they have signed in.
  *
@@ -89,8 +91,8 @@ test("the login screen downloads only what it needs", async ({ page }) => {
  * which touches the returnTo contract and is a decision, not a tidy-up.
  */
 const SIGNED_OUT_ENTRIES = [
-  { path: "/", measured: 1_371_835, budget: 1_400_000 },
-  { path: "/users", measured: 1_147_807, budget: 1_180_000 },
+  { path: "/", measured: 959_356, budget: 1_000_000 },
+  { path: "/users", measured: 1_149_821, budget: 1_180_000 },
 ]
 
 for (const entry of SIGNED_OUT_ENTRIES) {
@@ -118,3 +120,33 @@ for (const entry of SIGNED_OUT_ENTRIES) {
     expect(total, "no JavaScript was measured at all").toBeGreaterThan(500_000)
   })
 }
+
+/**
+ * The other half of the dashboard change: the tabs still arrive.
+ *
+ * Moving them behind a Suspense boundary is what keeps the charting library
+ * off the signed-out path, and it would be a poor trade if it left a signed-in
+ * administrator looking at a skeleton that never resolves.
+ */
+test("the dashboard still renders its tab once someone is signed in", async ({
+  page,
+}) => {
+  await installAuthenticatedApi(page, ["auditlogs:read"], async (route) => {
+    await fulfillJson(
+      route,
+      Object.assign([], { items: [], series: [], totalCount: 0, totalPages: 1 })
+    )
+    return true
+  })
+
+  await page.goto("/")
+  await page.waitForSelector('[data-slot="sidebar-inset"]')
+
+  // The tab strip belongs to the page; the tab body arrives with its chunk.
+  await expect(page.getByRole("tab", { name: /overview/i })).toBeVisible()
+  await expect
+    .poll(() => page.locator('[data-slot="tabs-content"]').first().innerText(), {
+      timeout: 15_000,
+    })
+    .not.toBe("")
+})

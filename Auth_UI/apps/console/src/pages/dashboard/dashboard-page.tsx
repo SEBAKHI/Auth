@@ -1,20 +1,22 @@
+import * as React from "react"
 import { useTranslation } from "react-i18next"
 
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import { useAuth } from "@authsystem/auth/auth-context"
-import {
-  getTimeZoneOffsetLabel,
-} from "@authsystem/i18n/timezone"
+import { getTimeZoneOffsetLabel } from "@authsystem/i18n/timezone"
 import { PERMISSIONS } from "@/lib/constants"
 
 import { WindowFilter } from "./window-filter"
 import { useDashboardWindow } from "./use-dashboard-window"
-import { AppsTab } from "./tabs/apps-tab"
-import { AuditTab } from "./tabs/audit-tab"
-import { OverviewTab } from "./tabs/overview-tab"
-import { PeopleTab } from "./tabs/people-tab"
-import { SecurityTab } from "./tabs/security-tab"
+import {
+  AppsTab,
+  AuditTab,
+  OverviewTab,
+  PeopleTab,
+  SecurityTab,
+  TabFallback,
+} from "./tabs/lazy-tabs"
 import type { DashboardScope } from "./tabs/scope"
 
 /**
@@ -67,7 +69,11 @@ export function DashboardPage() {
       label: t("dashboard.tabApplications"),
       visible: permissions.apps,
     },
-    { value: "audit", label: t("dashboard.tabAudit"), visible: permissions.audit },
+    {
+      value: "audit",
+      label: t("dashboard.tabAudit"),
+      visible: permissions.audit,
+    },
   ].filter((entry) => entry.visible)
 
   const active = tabs.some((entry) => entry.value === tab) ? tab : "overview"
@@ -98,21 +104,23 @@ export function DashboardPage() {
         </TabsList>
 
         {/* Only the active tab is mounted, so an inactive tab issues no requests. */}
-        <TabsContent value="overview">
-          {active === "overview" ? <OverviewTab scope={scope} /> : null}
-        </TabsContent>
-        <TabsContent value="security">
-          {active === "security" ? <SecurityTab scope={scope} /> : null}
-        </TabsContent>
-        <TabsContent value="people">
-          {active === "people" ? <PeopleTab scope={scope} /> : null}
-        </TabsContent>
-        <TabsContent value="apps">
-          {active === "apps" ? <AppsTab scope={scope} /> : null}
-        </TabsContent>
-        <TabsContent value="audit">
-          {active === "audit" ? <AuditTab scope={scope} /> : null}
-        </TabsContent>
+        <React.Suspense fallback={<TabFallback />}>
+          <TabsContent value="overview">
+            {active === "overview" ? <OverviewTab scope={scope} /> : null}
+          </TabsContent>
+          <TabsContent value="security">
+            {active === "security" ? <SecurityTab scope={scope} /> : null}
+          </TabsContent>
+          <TabsContent value="people">
+            {active === "people" ? <PeopleTab scope={scope} /> : null}
+          </TabsContent>
+          <TabsContent value="apps">
+            {active === "apps" ? <AppsTab scope={scope} /> : null}
+          </TabsContent>
+          <TabsContent value="audit">
+            {active === "audit" ? <AuditTab scope={scope} /> : null}
+          </TabsContent>
+        </React.Suspense>
       </Tabs>
     </div>
   )
