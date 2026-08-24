@@ -132,7 +132,7 @@ public class AuthorizeCommandHandler : IRequestHandler<AuthorizeCommand, ErrorOr
         }
 
         var user = await _userRepository.GetByIdAsync(session.UserId, cancellationToken);
-        if (user is null || user.IsLockedOut())
+        if (user is null || !user.CanRenewCredentials())
         {
             // Force a fresh interactive login instead of leaking account state.
             return LoginRequired(request, prompt, demandStepUp: false);

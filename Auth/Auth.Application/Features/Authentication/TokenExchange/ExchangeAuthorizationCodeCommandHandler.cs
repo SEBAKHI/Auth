@@ -124,7 +124,7 @@ public class ExchangeAuthorizationCodeCommandHandler
             return AuthErrors.AuthorizationCodeInvalid;
         }
 
-        if (user.IsLockedOut())
+        if (!user.CanRenewCredentials())
         {
             return UserErrors.AccountLocked;
         }

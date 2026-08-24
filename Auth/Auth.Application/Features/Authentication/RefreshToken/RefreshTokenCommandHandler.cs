@@ -127,8 +127,10 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, E
             return UserErrors.NotFound(storedToken.UserId);
         }
 
-        // Check user is still active
-        if (user.IsLockedOut())
+        // Check the user may still be issued credentials. Not IsLockedOut(),
+        // which only ever matched Locked and let a deactivated account renew
+        // forever.
+        if (!user.CanRenewCredentials())
         {
             await _refreshTokenRepository.RevokeAllForUserAsync(
                 user.Id,

@@ -474,5 +474,49 @@ public class User : AggregateRoot
                (LockoutEnd == null || LockoutEnd > DateTime.UtcNow);
     }
 
+    /// <summary>
+    /// Whether an already-authenticated principal may have its credentials
+    /// renewed — a refresh grant, an OIDC authorize against a live SSO session,
+    /// or an authorization-code exchange.
+    /// </summary>
+    /// <remarks>
+    /// Renewal used to ask <see cref="IsLockedOut"/> and nothing else, which asks
+    /// only about <see cref="UserStatus.Locked"/>. A deactivated account is
+    /// <see cref="UserStatus.Inactive"/> and never matched, so offboarding
+    /// changed the row and left every renewal path open: a held refresh token
+    /// kept minting access tokens with the account's full authority, and each
+    /// rotation restarted the refresh window. This is the fail-closed half of
+    /// that fix — it re-reads the account on every renewal, so it still holds
+    /// when the revocation at offboarding time did not run.
+    ///
+    /// The default is DENY, so a status added later is refused until someone
+    /// decides otherwise. That is safe here and would not be safe on the sign-in
+    /// path: <c>AuthenticationHelper.CheckAccountStatus</c> deliberately lets
+    /// <see cref="UserStatus.Locked"/> fall through, because the code that
+    /// repairs a lapsed lockout runs after it in <c>LoginCommandHandler</c> and
+    /// becomes unreachable if that check starts denying. Renewal has no such
+    /// repair step, which is why the two predicates differ.
+    /// </remarks>
+    public bool CanRenewCredentials()
+    {
+        if (IsLockedOut())
+        {
+            return false;
+        }
+
+        return Status switch
+        {
+            UserStatus.Active => true,
+
+            // A lapsed lockout: the guard above already refused a live one, and
+            // the next interactive sign-in clears the status. Renewal in the
+            // meantime is the behaviour that shipped, and narrowing it is a
+            // product decision rather than part of closing this hole.
+            UserStatus.Locked => true,
+
+            _ => false
+        };
+    }
+
     public string GetFullName() => $"{FirstName} {LastName}";
 }

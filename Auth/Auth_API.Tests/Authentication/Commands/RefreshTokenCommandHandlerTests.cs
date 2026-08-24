@@ -676,6 +676,43 @@ public class RefreshTokenCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_DeactivatedUser_RefusesAndRevokesEveryRemainingToken()
+    {
+        // The offboarding hole, at the door it was walked through. This path used
+        // to ask IsLockedOut(), which only matches Locked, so a deactivated
+        // account renewed normally — and because rotation restarts the refresh
+        // window on every use, it renewed indefinitely.
+        var command = CreateCommand();
+        var userId = Guid.NewGuid();
+        var user = TestHelpers.CreateUser(
+            id: userId,
+            status: Auth.Domain.Enums.UserStatus.Inactive);
+        var storedToken = TestHelpers.CreateRefreshToken(
+            userId: userId,
+            expiresAt: DateTime.UtcNow.AddDays(7));
+
+        _refreshTokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(command.RefreshToken))
+            .Returns("hashed-token");
+        _refreshTokenRepositoryMock
+            .Setup(r => r.GetByTokenHashAsync("hashed-token", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(storedToken);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+
+        // Refusing this one request is not enough: whatever the token was, it is
+        // still in someone's browser, so the refusal also has to take the rest.
+        _refreshTokenRepositoryMock.Verify(
+            r => r.RevokeAllForUserAsync(userId, null, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
     public async Task Handle_WithRotation_RevokesOldTokenAndCreatesNew()
     {
         // Arrange
