@@ -18,6 +18,12 @@ It creates all seed data in the correct order.
 -- Consumes the layout the previous script installs (its fingerprint is that generation's
 -- <body> tag), so this ordering is load-bearing, not cosmetic.
 :r ..\Scripts\Upgrades\2026-08-10_EmailLayoutRtlHardening.sql
+-- Colour-only and targeted at four declarations, so it consumes no fingerprint of its own.
+-- It must still run AFTER both 2026-08-10 scripts: each of those overwrites the whole layout
+-- column with a frozen literal carrying the old #FAFAF9/#17171A footer, so moving this
+-- include above either one applies the fix and then discards it in the same deploy - and the
+-- log still reads as a success.
+:r ..\Scripts\Upgrades\2026-08-23_EmailLayoutFooterSurface.sql
 
 PRINT 'Starting post-deployment seed data...';
 PRINT '======================================';

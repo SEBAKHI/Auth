@@ -35,6 +35,14 @@
 --   AOL, Orange, GMX and Web.de. Write right/left through the {{ dir }} conditional.
 --   Interpolated identity values sit in <span dir="auto"> so a tenant name ending in a
 --   neutral ("Company Inc.") cannot drag the punctuation out of the run.
+--
+-- FOOTER SURFACE (2026-08-23): .footer shares the card's colour (#FFFFFF light, #1A1A1C dark)
+--   and is divided from the message by its border-top alone. The tinted band it used to carry
+--   read as a second, unexplained surface stacked inside the card. Keep it OPAQUE and equal to
+--   .card/.content - never remove the declaration - or a partial-inverting client has no
+--   colour to convert and paints its own behind the footer text. Existing databases are moved
+--   by Upgrades\2026-08-23_EmailLayoutFooterSurface.sql, whose search literals are the exact
+--   declarations below.
 
 DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
 
@@ -129,7 +137,7 @@ strong { color:#141414; }
 .notice-text { margin:0; color:#5F5F5D; font-size:13px; line-height:1.8; }
 
 /* ============ FOOTER ============ */
-.footer { background-color:#FAFAF9; border-top:1px solid #EFEFED; padding:24px 48px; text-align:center; }
+.footer { background-color:#FFFFFF; border-top:1px solid #EFEFED; padding:24px 48px; text-align:center; }
 .footer p { margin:0; color:#8C8C8A; font-size:12px; line-height:1.8; }
 .subfooter { background-color:#F1F1EF; padding:22px 24px 0; text-align:center; }
 .subfooter p { margin:0; color:#6E6E6C; font-size:12px; line-height:1.7; letter-spacing:0.3px; }
@@ -158,7 +166,7 @@ strong { color:#141414; }
     .notice, .warning { background-color:#1E1E21 !important; border-color:#2C2C2F !important; color:#A5A5A3 !important; }
     .notice-title { color:#B8B8B6 !important; }
     .notice-text { color:#A5A5A3 !important; }
-    .footer { background-color:#17171A !important; border-top-color:#28282B !important; }
+    .footer { background-color:#1A1A1C !important; border-top-color:#28282B !important; }
     .footer p { color:#8F8F92 !important; }
     .subfooter { background-color:#0E0E10 !important; }
     .subfooter p { color:#8F8F92 !important; }
@@ -177,7 +185,7 @@ strong { color:#141414; }
    Best-effort by design: Outlook injects its own inline !important declarations, which no
    <style> rule can outrank on the elements it chose to repaint. */
 [data-ogsb] .card, [data-ogsb] .logo, [data-ogsb] .application, [data-ogsb] .brand-rule, [data-ogsb] .content { background-color:#1A1A1C !important; }
-[data-ogsb] .footer { background-color:#17171A !important; }
+[data-ogsb] .footer { background-color:#1A1A1C !important; }
 [data-ogsb] .wrapper, [data-ogsb] .wrapper-cell, [data-ogsb] .subfooter { background-color:#0E0E10 !important; }
 [data-ogsb] .top-accent { background-color:#F4F4F2 !important; }
 [data-ogsb] .button { background-color:#F4F4F2 !important; }
@@ -226,7 +234,7 @@ strong { color:#141414; }
 {{ content | raw }}
 </div>
 </td></tr>
-<tr><td class="footer" bgcolor="#FAFAF9" align="center" dir="{{ dir }}" style="direction:{{ dir }};text-align:center;"><p dir="{{ dir }}" style="direction:{{ dir }};text-align:center;">{{ strings.footer | raw }}</p></td></tr>
+<tr><td class="footer" bgcolor="#FFFFFF" align="center" dir="{{ dir }}" style="direction:{{ dir }};text-align:center;"><p dir="{{ dir }}" style="direction:{{ dir }};text-align:center;">{{ strings.footer | raw }}</p></td></tr>
 </table>
 </td>
 </tr>

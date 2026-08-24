@@ -33,6 +33,12 @@
 
   Fresh databases get the new layout straight from SeedData\11_NotificationLayouts.sql and
   this script is a no-op there.
+
+  2026-08-23: the literal below is now FROZEN and no longer matches the seed. This is still the
+  last step that restates the whole layout, so it is the BASE the later targeted-edit scripts
+  are applied on top of - but its own fingerprint is spent, so editing it in place would reach
+  fresh developer databases and no production one. Change the layout by adding a new script,
+  never by editing this one.
 */
 SET QUOTED_IDENTIFIER ON;
 SET NOCOUNT ON;

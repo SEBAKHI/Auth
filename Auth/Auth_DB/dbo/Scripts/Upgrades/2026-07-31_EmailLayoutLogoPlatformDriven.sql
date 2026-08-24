@@ -1,10 +1,10 @@
 /*
-  2026-07-31 — Email layout logo becomes platform-driven
+  2026-07-31 - Email layout logo becomes platform-driven
 
   The seeded global email layout carried a hard-coded brand logo URL
   (https://company.com/branding/company-email-logo.png). The renderer now
   exposes {{ Platform.LogoUrl }} (PlatformSettings.LogoUrl composed to an
-  absolute URL), so the layout must render the configured logo — or fall
+  absolute URL), so the layout must render the configured logo - or fall
   back to a text wordmark when no logo is set.
 
   Idempotent: rewrites only rows that still contain the old literal block,
