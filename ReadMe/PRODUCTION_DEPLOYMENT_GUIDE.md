@@ -411,28 +411,36 @@ are upgrading an existing database rather than creating a new one, read
 folders — the repository keeps no migration-history table, so nothing tells you which scripts a given
 database has seen.
 
-### Step 5 — The admin account already works. Do not run Auth_Setup.
+### Step 5 — Give the seeded admin a password. It has none until you do.
 
-The publish seeds a single administrator, ready to use:
+The publish seeds a single administrator with **no password at all**:
 
 | Field | Value |
 |---|---|
 | Email | `admin@company.com` |
-| Password | `Admin@123!` |
+| Password | none — `PasswordHash` is `NULL` |
 | Role | `super-admin` |
-| Forced password change on first sign-in | Yes |
+| Can sign in before you complete this step | No |
 
-The password hash in the seed is a **working** Argon2id hash of `Admin@123!`, not a placeholder, and
-the account is Active with its email already confirmed. Sign in with it in
-[Phase 8](#phase-8--verify-and-sign-in) and change the password immediately — the system forces you
-to before it will let you do anything else.
+No deployment of this system ships a password anyone could look up. The account exists and holds
+`super-admin`, but `LoginCommandHandler` rejects a null hash before it reaches the password
+verifier, so it cannot authenticate until you set one here.
 
-> **`Auth_Setup` is a recovery tool, not an install step.** It is a 23-line console program that
-> hashes the hard-coded string `Admin@123!` and *prints* an `UPDATE` statement. It opens no database
-> connection and changes nothing on its own. Run it only if you have locked yourself out and want to
-> reset the seeded admin hash by hand, then run the statement it printed against your database
-> yourself.
-> *In code:* `Auth/Auth_Setup/Program.cs`.
+Run `Auth_Setup` with the password you have chosen, then execute the `UPDATE` it prints against the
+database you just published:
+
+```
+dotnet run --project Auth/Auth_Setup -- "<the password you chose>"
+```
+
+Give it no argument and it prompts instead, which keeps the password out of your shell history. It
+opens no database connection and changes nothing on its own — you run the statement it prints.
+*In code:* `Auth/Auth_Setup/Program.cs`.
+
+> **Why this is a step and not a convenience.** `MustChangePassword` is carried in the sign-in
+> response and acted on by the browser; no server path reads it. A seeded password is therefore a
+> live credential until a human changes it, not a temporary one the system retires. The null hash is
+> the server-side gate that the flag never was.
 
 ## Phase 3 — Configure the Auth API
 
@@ -1164,8 +1172,9 @@ The browser will refuse to let either application call the API unless the API sa
 * In Layout B the Gateway also has a `Cors:AllowedOrigins` list, used until its first successful
   settings pull from the API. Set it to the same values so the two never disagree during a restart.
 
-**What success looks like:** open `https://console.<yourdomain>.com` in a browser, sign in with
-`admin@company.com` / `Admin@123!`, and the system immediately forces you to set a new password. A
+**What success looks like:** open `https://console.<yourdomain>.com` in a browser and sign in with
+`admin@company.com` and the password you set in [Phase 2 Step 5](#step-5--give-the-seeded-admin-a-password-it-has-none-until-you-do).
+If you have not done that step yet, the sign-in is refused because the account has no password. A
 blank page with `blocked by CORS policy` in the browser console means this step is wrong; a blank
 page with a Content Security Policy error means step 3 is wrong.
 
@@ -1208,7 +1217,7 @@ signing key did not load.
 ```bash
 curl -X POST https://auth.<yourdomain>.com/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{ "email": "admin@company.com", "password": "Admin@123!" }'
+  -d '{ "email": "admin@company.com", "password": "<the password you set in Phase 2 Step 5>" }'
 ```
 
 **What success looks like:** HTTP 200 and a body shaped like this — note that the tokens are nested
@@ -1243,7 +1252,7 @@ Reading the results:
   curl -X POST https://auth.<yourdomain>.com/api/v1/auth/change-password \
     -H "Authorization: Bearer <accessToken from the login response>" \
     -H "Content-Type: application/json" \
-    -d '{ "currentPassword": "Admin@123!", "newPassword": "<your new password>", "confirmNewPassword": "<the same new password>" }'
+    -d '{ "currentPassword": "<your current password>", "newPassword": "<your new password>", "confirmNewPassword": "<the same new password>" }'
   ```
 
   **What success looks like:** HTTP **204 No Content** with an empty body. The new password must
@@ -1289,7 +1298,7 @@ very different mornings.
 ### It will work, and be unsafe
 
 - [ ] HTTPS with a valid certificate on all four domains. **Note what does and does not send HSTS:** the Auth API sends it (365 days, including subdomains, with preload) in every non-Development environment; the **Gateway does not send it at all** — it only redirects HTTP to HTTPS; both web application sites send their own from their `web.config`. If the Gateway is your public origin, add the header at the IIS level.
-- [ ] The admin password is no longer `Admin@123!`.
+- [ ] The seeded admin has a password you chose, set through Phase 2 Step 5. Confirm the seed left it empty and your `UPDATE` filled it: `SELECT CASE WHEN [PasswordHash] IS NULL THEN 'no password - sign-in refused' ELSE 'set' END FROM [dbo].[Users] WHERE [Email] = 'admin@company.com';`
 - [ ] The SQL login is least-privilege — read and write on one database, not `sa`.
 - [ ] `SecretManagement:EnableAdminApi` is `false`. It ships `true`; turn it on only while provisioning keys.
 - [ ] `HealthChecks:ExposeErrorDetails` is `false` on both applications. `/health` and `/ready` bypass gateway-token validation, so they are publicly reachable.

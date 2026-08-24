@@ -422,8 +422,13 @@ BEGIN
 END
 
 -- Create admin user
--- DEFAULT PASSWORD: Admin@123! (MUST be changed on first login!)
--- Hash generated with Argon2id: m=65536,t=3,p=4
+-- NO PASSWORD IS SEEDED. PasswordHash is left NULL on purpose: a hash committed here is a
+-- published credential for every deployment of this system, and LoginCommandHandler rejects a
+-- null hash before it reaches the verifier, so nobody can sign in as this account until an
+-- operator sets a password out of band.
+-- BOOTSTRAP: run the Auth_Setup console app, give it the password you have chosen, and execute
+-- the UPDATE statement it prints. Until then this account exists, holds super-admin, and cannot
+-- authenticate.
 IF NOT EXISTS (SELECT 1 FROM [dbo].[Users] WHERE [Id] = @AdminUserId)
 BEGIN
     INSERT INTO [dbo].[Users]
@@ -450,10 +455,9 @@ BEGIN
         N'admin',
         N'admin@company.com',
         N'ADMIN@COMPANY.COM',
-        -- Working Argon2id hash for the default password 'Admin@123!' (current OWASP params m=19456,t=2,p=1).
-        -- MustChangePassword = 1 forces a change on first login. Unpeppered: if Password:Pepper is later
-        -- enabled, this hash still verifies and is transparently upgraded (keyid added) on first login.
-        N'$argon2id$v=19$m=19456,t=2,p=1$NoKP1nsfZyPf3Hp_V4IHww$_zyvdZiGmyfs87h7_q2f3A.VzxgOfnKVmL5doZ3Kz5Y',
+        -- No password. See the BOOTSTRAP note above. MustChangePassword stays 1 so the console still
+        -- prompts, but the real gate is the null hash, which the server enforces rather than the client.
+        NULL,
         N'System',
         N'Administrator',
         N'en',
@@ -465,7 +469,7 @@ BEGIN
         GETUTCDATE(),
         @SystemUserId
     );
-    PRINT 'Created admin user (password must be set via application)';
+    PRINT 'Created admin user with NO password - run Auth_Setup and apply the UPDATE it prints';
 END
 
 -- Assign Super Admin role to admin user

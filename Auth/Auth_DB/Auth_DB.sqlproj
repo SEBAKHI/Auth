@@ -154,7 +154,6 @@
     <None Include="dbo\Scripts\SeedData\03_DefaultPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\04_PermissionImplications.sql" />
     <None Include="dbo\Scripts\SeedData\05_RolePermissions.sql" />
-    <None Include="dbo\Scripts\SeedData\06_AdminUser.sql" />
     <None Include="dbo\Scripts\SeedData\07_OrganizationRolesPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\08_AdditionalPermissions.sql" />
     <None Include="dbo\Scripts\SeedData\09_ExternalAuthProviders.sql" />
