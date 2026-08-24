@@ -190,11 +190,52 @@ public static class PlainTextSecretInitializer
 
             var json = root.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
 
-            // Write atomically: write to a temp file then replace.
-            var tempPath = path + ".tmp";
-            File.WriteAllText(tempPath, json);
-            File.Copy(tempPath, path, overwrite: true);
-            File.Delete(tempPath);
+            // Write to a temp file, then RENAME it over the target. The previous
+            // version of this said "write atomically" and then called
+            // File.Copy(overwrite: true), which truncates the destination and
+            // copies into it — the same exposed window the temp file was there to
+            // avoid, only now with the secrets already generated and this file the
+            // only place they exist. A rename within one volume either happened or
+            // did not.
+            //
+            // The temp name carries a guid rather than a fixed .tmp suffix: two
+            // processes starting together would otherwise write the same path,
+            // and one would publish a file the other was still writing.
+            var tempPath = $"{path}.{Guid.NewGuid():N}.tmp";
+            try
+            {
+                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                using (var writer = new StreamWriter(stream))
+                {
+                    writer.Write(json);
+                    writer.Flush();
+                    stream.Flush(flushToDisk: true);
+                }
+
+                if (File.Exists(path))
+                {
+                    File.Replace(tempPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                }
+                else
+                {
+                    File.Move(tempPath, path);
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    try
+                    {
+                        File.Delete(tempPath);
+                    }
+                    catch (IOException)
+                    {
+                        // The write already failed or already succeeded; a leftover
+                        // temp file must not replace the reason we are here.
+                    }
+                }
+            }
 
             return null;
         }
