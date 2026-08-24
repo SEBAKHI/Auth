@@ -414,6 +414,13 @@ public class OrganizationRepository : IOrganizationRepository
               AND ou.[IsActive] = 1
               AND o.[IsActive] = 1
               AND p.[IsActive] = 1
+              -- A membership yields organization authority and nothing else. The role bound to
+              -- OrganizationUsers is only checked for not belonging to an application, and that
+              -- does not exclude a platform role: binding super-admin as a membership role used
+              -- to return its wildcard row here and mint an org_perm claim of {orgId}:* for it.
+              -- Filtering on the code rather than on the write path also neutralises any row
+              -- already bound that way, because authority is re-derived here on every request.
+              AND p.[Code] LIKE 'org:%'
               AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())",
             new { UserId = userId });
 
@@ -448,6 +455,13 @@ public class OrganizationRepository : IOrganizationRepository
               AND ou.[IsActive] = 1
               AND o.[IsActive] = 1
               AND p.[IsActive] = 1
+              -- A membership yields organization authority and nothing else. The role bound to
+              -- OrganizationUsers is only checked for not belonging to an application, and that
+              -- does not exclude a platform role: binding super-admin as a membership role used
+              -- to return its wildcard row here and mint an org_perm claim of {orgId}:* for it.
+              -- Filtering on the code rather than on the write path also neutralises any row
+              -- already bound that way, because authority is re-derived here on every request.
+              AND p.[Code] LIKE 'org:%'
               AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())",
             new { UserId = userId, ApplicationId = applicationId });
 
@@ -473,6 +487,13 @@ public class OrganizationRepository : IOrganizationRepository
               AND ou.[IsActive] = 1
               AND o.[IsActive] = 1
               AND p.[IsActive] = 1
+              -- A membership yields organization authority and nothing else. The role bound to
+              -- OrganizationUsers is only checked for not belonging to an application, and that
+              -- does not exclude a platform role: binding super-admin as a membership role used
+              -- to return its wildcard row here and mint an org_perm claim of {orgId}:* for it.
+              -- Filtering on the code rather than on the write path also neutralises any row
+              -- already bound that way, because authority is re-derived here on every request.
+              AND p.[Code] LIKE 'org:%'
               AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())",
             new { OrganizationId = organizationId, UserId = userId });
 
