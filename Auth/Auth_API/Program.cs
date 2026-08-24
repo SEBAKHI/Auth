@@ -758,16 +758,13 @@ builder.Services.AddAuthentication(options =>
 
     options.Events = new JwtBearerEvents
     {
-        OnMessageReceived = context =>
-        {
-            // Support token from query string for WebSocket connections
-            var accessToken = context.Request.Query["access_token"];
-            if (!string.IsNullOrEmpty(accessToken))
-            {
-                context.Token = accessToken;
-            }
-            return Task.CompletedTask;
-        },
+        // No OnMessageReceived hook on purpose. Reading the token from a query string would
+        // route it around JwtBlacklistValidationMiddleware, which keys on the Authorization
+        // header and lets a request through untouched when that header is absent - so a
+        // revoked, logged-out or locked-out token presented as ?access_token= would skip the
+        // jti, sid and user-revocation checks alike. The comment this replaces cited WebSocket
+        // support; there is no WebSocket, SignalR or hub anywhere in this solution, and the
+        // uploads that are fetched by URL are served by UseStaticFiles with no authentication.
         OnAuthenticationFailed = context =>
         {
             if (context.Exception is SecurityTokenExpiredException)
