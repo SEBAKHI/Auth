@@ -35,9 +35,9 @@ const user = {
 /**
  * The five sizes the audit listed, plus 1279.
  *
- * 1279 is not padding. Tailwind's `xl` is 80rem = 1280px exactly, and the action
- * surface switches on it: at 1279 the named menu is shown and the button row is
- * `display:none`; at 1280 they swap. Testing only 1280 tests one side of a
+ * 1279 is not padding. Tailwind's `xl` is 80rem = 1280px exactly, and the page
+ * header turns on it: at 1279 the actions wrap onto their own row below the
+ * title, at 1280 they sit beside it. Testing only 1280 tests one side of a
  * boundary and calls it a boundary test.
  */
 const WIDTHS = [
@@ -156,29 +156,34 @@ for (const locale of LOCALES) {
 }
 
 /**
- * The action surface switches at xl and nowhere else.
+ * The action surface does NOT change with width.
  *
- * Both halves are always in the DOM - one is hidden by CSS - so this asserts on
- * what is actually visible, which is what an admin experiences.
+ * It used to: a row of buttons from `xl` up, a menu below it. Two surfaces meant
+ * two things to keep in step, and the wide one grew into a wall of eight buttons
+ * across the top of a record. There is now one contract at every size - the
+ * primary action as a button, everything else behind the named menu - and this
+ * pins that, on the same 1279/1280 pair that used to be the boundary.
  */
-test.describe("the action surface switches exactly at xl", () => {
-  for (const width of [1279, 1280] as const) {
+test.describe("the action surface is the same at every width", () => {
+  for (const width of [320, 1279, 1280, 1440] as const) {
     test(`at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 720 })
       await installConsole(page, "en")
       await page.goto(`/users/${USER_ID}`)
       await page.waitForSelector(SHELL_INSET)
 
-      const desktopRow = page.locator('[data-slot="page-action-surface-desktop"]')
-      const narrowMenu = page.getByRole("button", { name: "Actions", exact: true })
+      await expect(
+        page.locator('[data-slot="page-action-surface-action"]')
+      ).toHaveText(["Edit"])
+      await expect(
+        page.getByRole("button", { name: "Actions", exact: true })
+      ).toBeVisible()
 
-      if (width >= 1280) {
-        await expect(desktopRow).toBeVisible()
-        await expect(narrowMenu).toBeHidden()
-      } else {
-        await expect(desktopRow).toBeHidden()
-        await expect(narrowMenu).toBeVisible()
-      }
+      // Nothing else is a button of its own - that is the whole point of the
+      // change. "Delete" in particular used to sit exposed beside the title.
+      await expect(
+        page.getByRole("button", { name: "Delete", exact: true })
+      ).toHaveCount(0)
     })
   }
 })
@@ -258,11 +263,14 @@ for (const [locale, longName] of [
       await expect(page.getByRole("heading", { level: 1 })).toContainText(
         longName.slice(0, 20)
       )
-      const commands =
-        width >= 1280
-          ? page.locator('[data-slot="page-action-surface-desktop"]')
-          : page.getByRole("button", { name: /actions|إجراءات/i })
-      await expect(commands).toBeVisible()
+      // The same controls at every width: the promoted action(s) and the menu
+      // holding the rest.
+      await expect(
+        page.locator('[data-slot="page-action-surface-action"]')
+      ).toHaveCount(1)
+      await expect(
+        page.getByRole("button", { name: /actions|إجراءات/i })
+      ).toBeVisible()
 
       await expectNoShellOverflow(page, `long ${locale} name at ${width}`)
       await expectNoShellOverflow(page, `long ${locale} name on the list at ${width}`)

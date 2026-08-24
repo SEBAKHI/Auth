@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test"
 
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
+import { clickPageAction } from "./page-actions"
 
 const TEMPLATE_ID = "11111111-1111-1111-1111-111111111111"
 const DRAFT_VERSION_ID = "22222222-2222-2222-2222-222222222222"
@@ -143,9 +144,7 @@ test("template publish/unpublish are confirmed, single-flight, and leave no over
     { expectedDraftVersionId: DRAFT_VERSION_ID, expectedRevisionAt: REVISION },
   ])
 
-  await page
-    .getByRole("button", { name: "Unpublish", exact: true })
-    .click()
+  await clickPageAction(page, "Unpublish")
   await expect(
     page.getByRole("alertdialog").getByText("Published v2")
   ).toBeVisible()
@@ -153,9 +152,7 @@ test("template publish/unpublish are confirmed, single-flight, and leave no over
   await page.getByRole("button", { name: "Cancel" }).click()
   expect(unpublishBodies).toHaveLength(0)
 
-  await page
-    .getByRole("button", { name: "Unpublish", exact: true })
-    .click()
+  await clickPageAction(page, "Unpublish")
   await page
     .getByRole("alertdialog")
     .getByRole("button", { name: "Unpublish" })
@@ -320,7 +317,7 @@ test("template edits survive cancel and a save-completed navigation resumes safe
   await expect(subject).toHaveValue("Local subject")
 
   await subject.fill("Submitted subject")
-  await page.getByRole("button", { name: "Save draft" }).click()
+  await clickPageAction(page, "Save draft")
   await expect.poll(() => saveBodies.length).toBe(1)
   await notificationsCrumb.click()
   const savingDialog = page.getByRole("alertdialog", {

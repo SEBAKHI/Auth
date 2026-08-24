@@ -117,12 +117,53 @@ function renderPage(permissions: string[]) {
   )
 }
 
-function desktopActions(container: HTMLElement) {
-  const surface = container.querySelector(
-    '[data-slot="page-action-surface-desktop"]'
-  )
-  if (!(surface instanceof HTMLElement)) throw new Error("Missing action surface")
-  return within(surface)
+type UserEventApi = ReturnType<typeof userEvent.setup>
+
+/**
+ * The surface puts exactly one action out front - the primary - and everything
+ * else behind the named menu. These helpers ask for an action by NAME and let
+ * the surface decide where it lives, so a change of which action is promoted
+ * does not rewrite every case below.
+ */
+function promotedActions() {
+  return [
+    ...document.querySelectorAll<HTMLElement>(
+      '[data-slot="page-action-surface-action"]'
+    ),
+  ]
+}
+
+async function openActionMenu(api: UserEventApi) {
+  await api.click(screen.getByRole("button", { name: "Actions" }))
+  return within(await screen.findByRole("menu"))
+}
+
+/** Every action the page offers: the primary first, then the menu, in order. */
+async function actionLabels(api: UserEventApi) {
+  const labels: (string | null)[] = []
+
+  labels.push(...promotedActions().map((button) => button.textContent))
+
+  if (screen.queryByRole("button", { name: "Actions" })) {
+    const menu = await openActionMenu(api)
+    labels.push(
+      ...menu.getAllByRole("menuitem").map((item) => item.textContent)
+    )
+    await api.keyboard("{Escape}")
+  }
+
+  return labels
+}
+
+async function clickAction(api: UserEventApi, name: string | RegExp) {
+  const promoted = screen.queryByRole("button", { name })
+  if (promoted && promotedActions().includes(promoted)) {
+    await api.click(promoted)
+    return
+  }
+
+  const menu = await openActionMenu(api)
+  await api.click(menu.getByRole("menuitem", { name }))
 }
 
 describe("UserDetailPage action surface", () => {
@@ -147,17 +188,15 @@ describe("UserDetailPage action surface", () => {
     ],
     [PERMISSIONS.users.delete, ["Delete"]],
   ])("exposes only actions allowed by %s", async (permission, expected) => {
-    const { container } = renderPage([permission])
+    renderPage([permission])
+    const userEventApi = userEvent.setup()
     await screen.findByText("Console Operator", { selector: "h1" })
 
-    const labels = desktopActions(container)
-      .getAllByRole("button")
-      .map((button) => button.textContent)
-    expect(labels).toEqual(expected)
+    expect(await actionLabels(userEventApi)).toEqual(expected)
   })
 
   it("connects visible edit, assignment, email, status, and danger actions", async () => {
-    const { container } = renderPage([
+    renderPage([
       PERMISSIONS.users.update,
       PERMISSIONS.users.manageRoles,
       PERMISSIONS.users.managePermissions,
@@ -166,33 +205,24 @@ describe("UserDetailPage action surface", () => {
     ])
     const userEventApi = userEvent.setup()
     await screen.findByText("Console Operator", { selector: "h1" })
-    const actions = desktopActions(container)
 
-    await userEventApi.click(actions.getByRole("button", { name: "Edit" }))
+    await clickAction(userEventApi, "Edit")
     expect(screen.getByRole("dialog", { name: "Edit user" })).toBeVisible()
-    await userEventApi.click(
-      actions.getByRole("button", { name: "Manage roles" })
-    )
+    await clickAction(userEventApi, "Manage roles")
     expect(screen.getByRole("dialog", { name: "Manage roles" })).toBeVisible()
-    await userEventApi.click(
-      actions.getByRole("button", { name: "Manage permissions" })
-    )
+    await clickAction(userEventApi, "Manage permissions")
     expect(
       screen.getByRole("dialog", { name: "Manage permissions" })
     ).toBeVisible()
 
-    await userEventApi.click(
-      actions.getByRole("button", { name: "Send password reset email" })
-    )
+    await clickAction(userEventApi, "Send password reset email")
     await waitFor(() =>
       expect(apiCall).toHaveBeenCalledWith(
         "/api/v1/Auth/forgot-password",
         expect.objectContaining({ body: { email: user.email } })
       )
     )
-    await userEventApi.click(
-      actions.getByRole("button", { name: "Deactivate" })
-    )
+    await clickAction(userEventApi, "Deactivate")
     await waitFor(() =>
       expect(apiCall).toHaveBeenCalledWith(
         "/api/v1/Users/{id}/deactivate",
@@ -202,25 +232,22 @@ describe("UserDetailPage action surface", () => {
   })
 
   it("keeps destructive and confirm-required actions behind dialogs", async () => {
-    const { container } = renderPage([
-      PERMISSIONS.users.manage,
-      PERMISSIONS.users.delete,
-    ])
+    renderPage([PERMISSIONS.users.manage, PERMISSIONS.users.delete])
     const userEventApi = userEvent.setup()
     await screen.findByText("Console Operator", { selector: "h1" })
-    const actions = desktopActions(container)
 
-    await userEventApi.click(actions.getByRole("button", { name: "Lock" }))
+    await clickAction(userEventApi, "Lock")
     expect(
       screen.getByRole("alertdialog", { name: "Lock account" })
     ).toBeVisible()
     await userEventApi.click(screen.getByRole("button", { name: "Cancel" }))
 
-    expect(actions.getByRole("button", { name: "Delete" })).toHaveAttribute(
+    const menu = await openActionMenu(userEventApi)
+    expect(menu.getByRole("menuitem", { name: "Delete" })).toHaveAttribute(
       "data-variant",
       "destructive"
     )
-    await userEventApi.click(actions.getByRole("button", { name: "Delete" }))
+    await userEventApi.click(menu.getByRole("menuitem", { name: "Delete" }))
     expect(
       screen.getByRole("alertdialog", { name: "Delete user" })
     ).toBeVisible()
@@ -247,13 +274,11 @@ describe("acting on a user's access", () => {
 
   it("unlocks a locked account straight from the action", async () => {
     user.status = "Locked"
-    const { container } = renderPage([PERMISSIONS.users.manage])
+    renderPage([PERMISSIONS.users.manage])
     const userEventApi = userEvent.setup()
     await screen.findByText("Console Operator", { selector: "h1" })
 
-    await userEventApi.click(
-      desktopActions(container).getByRole("button", { name: "Unlock" })
-    )
+    await clickAction(userEventApi, "Unlock")
 
     await waitFor(() =>
       expect(apiCall).toHaveBeenCalledWith(
@@ -265,13 +290,11 @@ describe("acting on a user's access", () => {
 
   it("activates an inactive account straight from the action", async () => {
     user.status = "Inactive"
-    const { container } = renderPage([PERMISSIONS.users.manage])
+    renderPage([PERMISSIONS.users.manage])
     const userEventApi = userEvent.setup()
     await screen.findByText("Console Operator", { selector: "h1" })
 
-    await userEventApi.click(
-      desktopActions(container).getByRole("button", { name: "Activate" })
-    )
+    await clickAction(userEventApi, "Activate")
 
     await waitFor(() =>
       expect(apiCall).toHaveBeenCalledWith(
@@ -282,13 +305,11 @@ describe("acting on a user's access", () => {
   }, 15_000)
 
   it("locks only after the reason dialog is confirmed", async () => {
-    const { container } = renderPage([PERMISSIONS.users.manage])
+    renderPage([PERMISSIONS.users.manage])
     const userEventApi = userEvent.setup()
     await screen.findByText("Console Operator", { selector: "h1" })
 
-    await userEventApi.click(
-      desktopActions(container).getByRole("button", { name: "Lock" })
-    )
+    await clickAction(userEventApi, "Lock")
     const dialog = await screen.findByRole("alertdialog", {
       name: "Lock account",
     })
@@ -310,15 +331,11 @@ describe("acting on a user's access", () => {
   }, 15_000)
 
   it("offers to resend confirmation while the address is unconfirmed", async () => {
-    const { container } = renderPage([PERMISSIONS.users.manage])
+    renderPage([PERMISSIONS.users.manage])
     const userEventApi = userEvent.setup()
     await screen.findByText("Console Operator", { selector: "h1" })
 
-    await userEventApi.click(
-      desktopActions(container).getByRole("button", {
-        name: /resend|confirmation/i,
-      })
-    )
+    await clickAction(userEventApi, /resend|confirmation/i)
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument()
   }, 15_000)

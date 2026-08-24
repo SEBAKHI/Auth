@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from "@playwright/test"
 
 import { fulfillJson, installAuthenticatedApi } from "./mock-authenticated-api"
+import { clickPageAction } from "./page-actions"
 
 const USER_ID = "77777777-7777-7777-7777-777777777777"
 
@@ -108,8 +109,7 @@ test("Arabic transient feedback offers one safe replay of the same update", asyn
   )
 
   await page.goto(`/users/${USER_ID}`)
-  await page.getByRole("button", { name: "إجراءات" }).click()
-  await page.getByRole("menuitem", { name: "تعديل", exact: true }).click()
+  await clickPageAction(page, "تعديل")
   const dialog = page.getByRole("dialog", { name: "تعديل مستخدم" })
   await dialog.getByRole("textbox", { name: "الاسم الأول" }).fill("استرداد")
   await dialog.getByRole("button", { name: "حفظ" }).click()

@@ -419,6 +419,10 @@ export function NotificationTemplateDetailPage() {
             id: "save",
             label: t("notifications.saveDraft"),
             icon: Save,
+            // Out of the menu: this is an editor, and saving is what you do
+            // between every other action here. A second click on the way to it
+            // is a click paid dozens of times per sitting.
+            promoted: true,
             disabled: !isDirty,
             pending: saveMutation.isPending,
             onAction: saveDraft,

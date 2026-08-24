@@ -57,7 +57,7 @@ const template = {
   modifiedAt: REVISION,
 }
 
-test("desktop user detail exposes every permitted action and separates danger", async ({
+test("user detail promotes one action and keeps the rest reachable, danger apart", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
@@ -86,12 +86,16 @@ test("desktop user detail exposes every permitted action and separates danger", 
   )
 
   await page.goto(`/users/${USER_ID}`)
-  const actions = page.locator('[data-slot="page-action-surface-desktop"]')
-  await expect(actions).toBeVisible()
-  await expect(page.getByRole("button", { name: "Actions" })).toBeHidden()
+
+  // The primary action is the only one out front. Everything else - including
+  // Delete - is one click away in the named menu, at this width and every other.
+  const promoted = page.locator('[data-slot="page-action-surface-action"]')
+  await expect(promoted).toHaveText(["Edit"])
+
+  await page.getByRole("button", { name: "Actions" }).click()
+  const menu = page.getByRole("menu")
 
   for (const label of [
-    "Edit",
     "Manage roles",
     "Manage permissions",
     "Send password reset email",
@@ -100,18 +104,23 @@ test("desktop user detail exposes every permitted action and separates danger", 
     "Deactivate",
     "Delete",
   ]) {
-    await expect(actions.getByRole("button", { name: label })).toBeVisible()
+    await expect(menu.getByRole("menuitem", { name: label })).toBeVisible()
   }
-  await expect(actions.getByRole("button", { name: "Delete" })).toHaveAttribute(
+  // The promoted action is not repeated inside the menu beside it.
+  await expect(menu.getByRole("menuitem", { name: "Edit" })).toHaveCount(0)
+  await expect(menu.getByRole("menuitem", { name: "Delete" })).toHaveAttribute(
     "data-variant",
     "destructive"
   )
-  await expect(actions.locator('[data-slot="separator"]')).toBeVisible()
-  await expect(actions).toHaveScreenshot("user-actions-desktop-en.png", {
+  await expect(
+    menu.locator('[data-slot="dropdown-menu-separator"]')
+  ).toBeVisible()
+  await expect(menu).toHaveScreenshot("user-actions-menu-desktop-en.png", {
     animations: "disabled",
   })
 
-  await actions.getByRole("button", { name: "Edit" }).click()
+  await page.keyboard.press("Escape")
+  await promoted.click()
   await expect(page.getByRole("dialog", { name: "Edit user" })).toBeVisible()
   await expectNoShellOverflow(page, "user actions, 1440 en")
 })
@@ -148,16 +157,19 @@ test("Arabic mobile template uses a named menu with the complete action contract
 
   await page.goto(`/notifications/templates/${TEMPLATE_ID}`)
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl")
+
+  // Each page promotes its OWN working actions. An editor keeps both the thing
+  // it exists for and the thing you do between every other action - so "حفظ
+  // المسودة" and "نشر" are buttons here where a user page promotes only
+  // "تعديل". Contract order, not sorted: saving comes before publishing.
   await expect(
-    page.locator('[data-slot="page-action-surface-desktop"]')
-  ).toBeHidden()
+    page.locator('[data-slot="page-action-surface-action"]')
+  ).toHaveText(["حفظ المسودة", "نشر"])
 
   await page.getByRole("button", { name: "إجراءات" }).click()
   const menu = page.getByRole("menu")
   for (const label of [
-    "حفظ المسودة",
     "إرسال تجريبي",
-    "نشر",
     "سجل الإصدارات",
     "إلغاء النشر",
     "تجاهل المسودة",

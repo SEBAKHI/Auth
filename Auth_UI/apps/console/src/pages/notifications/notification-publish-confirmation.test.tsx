@@ -224,6 +224,33 @@ describe("notification publication confirmations", () => {
     )
   })
 
+  it("closes publishing while unsaved edits are on screen", async () => {
+    // Publish ships the last SAVED draft. With edits still in the editor that
+    // is not the content the author is looking at, so the action shuts until
+    // they save - the difference between publishing what you see and
+    // publishing what you saved twenty minutes ago.
+    //
+    // Pinned at the page, not just in the primitive: this rule lives in the
+    // template page's `disabled:` wiring, and the surface promoting Publish to
+    // a button is what carries it through.
+    get.mockResolvedValue({ data: template })
+    renderRoute(
+      `/notifications/templates/${TEMPLATE_ID}`,
+      <NotificationTemplateDetailPage />
+    )
+    const user = userEvent.setup()
+
+    const publish = await screen.findByRole("button", { name: "Publish" })
+    expect(publish).toBeEnabled()
+
+    const subject = await screen.findByRole("textbox", { name: "Subject" })
+    await user.type(subject, "Edited, not saved")
+
+    expect(screen.getByText("Unsaved changes")).toBeVisible()
+    expect(publish).toBeDisabled()
+    expect(publicationCalls("publish")).toHaveLength(0)
+  })
+
   it("keeps a stale template confirmation open after a conflict", async () => {
     get.mockResolvedValue({ data: template })
     post.mockResolvedValue({
@@ -317,6 +344,53 @@ describe("notification publication confirmations", () => {
   })
 })
 
+/**
+ * The action surface promotes one action to a button and puts the rest behind
+ * the named menu, so a case that wants an action asks for it by name and lets
+ * the surface decide where it lives.
+ */
+async function openTemplateMenu(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Actions" }))
+  return within(await screen.findByRole("menu"))
+}
+
+/** Clicks a template action by name, from wherever the surface put it. */
+async function clickTemplateAction(
+  user: ReturnType<typeof userEvent.setup>,
+  name: string
+) {
+  const promoted = screen.queryByRole("button", { name })
+  if (promoted?.dataset.slot === "page-action-surface-action") {
+    await user.click(promoted)
+    return
+  }
+
+  await user.click((await openTemplateMenu(user)).getByRole("menuitem", { name }))
+}
+
+/** Every template action on offer: the primary first, then the menu, in order. */
+async function templateActionLabels(user: ReturnType<typeof userEvent.setup>) {
+  const labels: (string | null)[] = []
+
+  labels.push(
+    ...[
+      ...document.querySelectorAll<HTMLElement>(
+        '[data-slot="page-action-surface-action"]'
+      ),
+    ].map((button) => button.textContent)
+  )
+
+  if (screen.queryByRole("button", { name: "Actions" })) {
+    const menu = await openTemplateMenu(user)
+    labels.push(
+      ...menu.getAllByRole("menuitem").map((item) => item.textContent)
+    )
+    await user.keyboard("{Escape}")
+  }
+
+  return labels
+}
+
 describe("notification editor unsaved-change protection", () => {
   beforeEach(async () => {
     get.mockReset()
@@ -344,49 +418,47 @@ describe("notification editor unsaved-change protection", () => {
         (candidate: string) => candidate === permission
       )
       get.mockResolvedValue({ data: template })
-      const { container } = renderRoute(
+      renderRoute(
         `/notifications/templates/${TEMPLATE_ID}`,
         <NotificationTemplateDetailPage />
       )
 
       await screen.findByText("Password reset", { selector: "h1" })
-      const desktop = container.querySelector(
-        '[data-slot="page-action-surface-desktop"]'
-      )
-      expect(desktop).not.toBeNull()
-      expect(
-        within(desktop as HTMLElement)
-          .getAllByRole("button")
-          .map((button) => button.textContent)
-      ).toEqual(expected)
+
+      expect(await templateActionLabels(userEvent.setup())).toEqual(expected)
     }
   )
 
-  it("makes test send and version history directly discoverable", async () => {
+  it("keeps test send, version history and danger reachable from the menu", async () => {
     get.mockResolvedValue({ data: template })
-    const { container } = renderRoute(
+    renderRoute(
       `/notifications/templates/${TEMPLATE_ID}`,
       <NotificationTemplateDetailPage />
     )
     const user = userEvent.setup()
 
     await screen.findByText("Password reset", { selector: "h1" })
-    const desktop = container.querySelector(
-      '[data-slot="page-action-surface-desktop"]'
-    ) as HTMLElement
-    await user.click(within(desktop).getByRole("button", { name: "Send test" }))
+
+    await user.click(
+      (await openTemplateMenu(user)).getByRole("menuitem", {
+        name: "Send test",
+      })
+    )
     expect(
       screen.getByRole("dialog", { name: "Send test message" })
     ).toBeVisible()
 
     await user.click(
-      within(desktop).getByRole("button", { name: "Version history" })
+      (await openTemplateMenu(user)).getByRole("menuitem", {
+        name: "Version history",
+      })
     )
     expect(
       screen.getByRole("dialog", { name: "Version history" })
     ).toBeVisible()
+
     expect(
-      within(desktop).getByRole("button", { name: "Delete" })
+      (await openTemplateMenu(user)).getByRole("menuitem", { name: "Delete" })
     ).toHaveAttribute("data-variant", "destructive")
   })
 
@@ -447,7 +519,7 @@ describe("notification editor unsaved-change protection", () => {
 
     const subject = await screen.findByRole("textbox", { name: "Subject" })
     await user.type(subject, "Saved subject")
-    await user.click(screen.getByRole("button", { name: "Save draft" }))
+    await clickTemplateAction(user, "Save draft")
 
     await waitFor(() => expect(put).toHaveBeenCalledTimes(1))
     expect(put.mock.calls[0]?.[1]).toMatchObject({
@@ -484,7 +556,11 @@ describe("notification editor unsaved-change protection", () => {
 
     const subject = await screen.findByRole("textbox", { name: "Subject" })
     await user.type(subject, "Keep me")
-    await user.click(screen.getByRole("button", { name: "Save draft" }))
+    await clickTemplateAction(user, "Save draft")
+    await waitFor(() => expect(put).toHaveBeenCalledTimes(1))
+
+    // The failed save is offered again rather than left stuck pending - that is
+    // what makes the edit below a retry and not a dead end.
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Save draft" })).toBeEnabled()
     )
@@ -514,7 +590,7 @@ describe("notification editor unsaved-change protection", () => {
 
     const subject = await screen.findByRole("textbox", { name: "Subject" })
     await user.type(subject, "Submitted")
-    await user.click(screen.getByRole("button", { name: "Save draft" }))
+    await clickTemplateAction(user, "Save draft")
     await user.clear(subject)
     await user.type(subject, "Newer local edit")
     expect(subject).toHaveValue("Newer local edit")
@@ -694,8 +770,8 @@ describe("detail page actions ask before they act", () => {
   const ALWAYS_SENDS = /^(save|save draft)$/i
 
   // The layout page has no `PageActionSurface`: it still renders its own button
-  // row in the header, so its commands are found by name instead of through the
-  // surface's group.
+  // row in the header, so its commands are found by name directly and are not
+  // enumerable the way the surface's primary-plus-menu contract is.
   it.each([
     [
       "template",
@@ -712,10 +788,10 @@ describe("detail page actions ask before they act", () => {
       renderRoute(path, element())
       await screen.findByLabelText("code editor")
 
-      const surface = screen.getByRole("group", { name: /actions/i })
-      const labels = within(surface)
-        .getAllByRole("button")
-        .map((button) => button.textContent?.trim() ?? "")
+      // Enumerated from the surface itself - primary plus menu - so an action
+      // added to the contract later is covered here without being listed twice.
+      const labels = (await templateActionLabels(userEvent.setup()))
+        .map((label) => label?.trim() ?? "")
         .filter((label) => label && !ALWAYS_SENDS.test(label))
       expect(labels.length).toBeGreaterThan(2)
       cleanup()
@@ -728,10 +804,7 @@ describe("detail page actions ask before they act", () => {
         await screen.findByLabelText("code editor")
 
         const user = userEvent.setup()
-        const button = within(
-          screen.getByRole("group", { name: /actions/i })
-        ).getByRole("button", { name: label })
-        await user.click(button)
+        await clickTemplateAction(user, label)
 
         // Either kind of surface counts; the dialogs are portalled, so this has
         // to wait rather than read the DOM on the same tick as the click.
@@ -862,7 +935,7 @@ describe("editing a notification record", () => {
     )
     await screen.findByLabelText("code editor")
 
-    await user.click(screen.getByRole("button", { name: "Unpublish" }))
+    await clickTemplateAction(user, "Unpublish")
     await screen.findByRole("alertdialog")
     await user.keyboard("{Escape}")
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull())

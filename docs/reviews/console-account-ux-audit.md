@@ -118,7 +118,7 @@ table, thead, tbody, tr, th, td {
 | Error and recovery language | UX-007، UX-011 | Editors وكل API mutations | استخدام unsaved guard الموجود، وإنشاء error-code mapping مركزي محلي مع field-level recovery وretry guidance. |
 | Permission-aware IA | UX-012 | Notifications Route tree، Sidebar، Tabs، Global Search | Parent الخاص بـNotifications يصبح Layout بلا permission عامة؛ كل Child يعلن permission الخاصة به في destination metadata واحدة تستخدمها Routes وSidebar وTabs وSearch. بهذا لا تعود `privacyPolicy.read` معتمدة ضمنيًا على `notificationTemplates.read`. |
 | Search start state | UX-021 | `GlobalSearch`، Recent history، Quick navigation | عرض Recent وJump to كمجموعتين متجاورتين بدل شرط `either/or`؛ Clear history يؤثر في Recent فقط. |
-| Action discoverability | UX-022 | User detail، Notification Template detail، `PageHeader` | Action surface مرئي حسب Permission: الأوامر المتكررة أزرار مسماة، إجراءات الحالة مجموعة ظاهرة، وDanger منفصل؛ `DropdownMenu` يصبح fallback للشاشات الضيقة فقط. |
+| Action discoverability | UX-022 | User detail، Notification Template detail، `PageHeader` | ~~Action surface مرئي حسب Permission: الأوامر المتكررة أزرار مسماة… `DropdownMenu` fallback للشاشات الضيقة فقط.~~ نُقض بقرار المالك 2026-08-24 — انظر «نقض عقد IMP-06»: الإجراء الأساسي وحده زرّ، و`DropdownMenu` هو الحاوية عند كل عرض لا fallback. |
 | Route navigation semantics | UX-013 | Record names في Lists وDetails | كل وجهة Route تتحول إلى `Link` ذي `href` فعلي، بينما تبقى mutations وDialogs أزرارًا. النتيجة هي دعم Tabs وCopy link وbrowser context menu دون تغيير الشكل البصري. |
 | Preview state | UX-023 | Template/Layout preview | تهيئة Preview scheme من `resolvedTheme` مرة عند فتح الصفحة مع السماح بتغيير المعاينة مستقلًا. |
 
@@ -135,7 +135,7 @@ table, thead, tbody, tr, th, td {
 | 3 | IMP-03 | UX-021 | IMP-02 | `global-search.tsx`، `use-recent-searches.ts`، locales، tests | عرض Recent وJump to معًا، وفصل Clear history عن Quick navigation. | وجود سجل لا يخفي قائمة الانتقال السريع. | Component test بحالة recent فارغة/ممتلئة + visual snapshot EN/AR + destination assertions. | الحالات الثلاث: no history، history، cleared history تمر دون اختفاء Jump to. | زيادة طول القائمة؛ ضع cap واضحًا لـRecent واترك Quick navigation ثابتة. |
 | 4 | IMP-04 | UX-005 | IMP-03 | `use-search-query.ts`، جميع List pages، query tests | URL query schema موحد لـSearch/Filters/Sort/Page/PageSize ومهاجرة Lists بالتتابع. | Back/Reload/Deep link يعيد الحالة والنتائج نفسها. | Unit encode/decode + E2E list→detail→Back + invalid params. | كل List paginated في Coverage Matrix مهاجر قبل تعديل Editors. | URLs قد تكبر؛ لا تخزن أسرارًا أو قيمًا غير قابلة للمشاركة. |
 | 5 | IMP-05 | UX-007 | IMP-04 | Template/Layout detail، `use-unsaved-changes.tsx`، tests | توصيل guard الموجود وضبط dirty reset بعد Save. | لا فقد صامت للتعديلات عند Navigation أو Reload. | Navigation، Reload، language/tab changes، Save failure/success. | كل Editor ذو dirty state يملك guard أو autosave مثبت قبل إعادة ترتيب Actions. | Blocker قد يمنع Navigation البرمجي بعد Success إذا لم يُمسح dirty أولًا. |
-| 6 | IMP-06 | UX-022 | IMP-05 | User detail، Template detail، `PageHeader`، action layout، locales، permission tests | نقل كل الإجراءات المتاحة من القوائم المخفية إلى Action surface مرئي، مع responsive fallback مسمى وفصل Danger. | Desktop يعرض جميع الإجراءات المسموحة؛ narrow viewport يستخدم `Actions` مسمى؛ `Test send` ظاهر مباشرة. | Permission matrix + desktop/mobile snapshots + click-path tests لكل Action + EN/AR. | لا Action متاح يوجد حصريًا داخل ellipsis؛ لا Action غير مصرح يظهر؛ عندها تبدأ معالجة Feedback. | ازدحام Header؛ استخدم grouping وwrap ولا ترفع Delete إلى Primary. |
+| 6 | IMP-06 | UX-022 | IMP-05 | User detail، Template detail، `PageHeader`، action layout، locales، permission tests | نقل كل الإجراءات المتاحة من القوائم المخفية إلى Action surface مرئي، مع responsive fallback مسمى وفصل Danger. | ~~Desktop يعرض جميع الإجراءات المسموحة؛ narrow viewport يستخدم `Actions` مسمى؛ `Test send` ظاهر مباشرة.~~ نُقض بقرار المالك 2026-08-24 — انظر «نقض عقد IMP-06». المعيار النافذ: الإجراء الأساسي وحده زرّ، والباقي في قائمة مسماة عند كل عرض. | Permission matrix + desktop/mobile snapshots + click-path tests لكل Action + EN/AR. | لا Action متاح يوجد حصريًا داخل ellipsis؛ لا Action غير مصرح يظهر؛ عندها تبدأ معالجة Feedback. | ازدحام Header؛ استخدم grouping وwrap ولا ترفع Delete إلى Primary. |
 | 7 | IMP-07 | UX-011 | IMP-06 | `errors.ts`، locales، forms/mutations، API error contracts، tests | mapping محلي حسب code/status، inline field errors، وRetry/correction guidance. | كل رسالة تصف المشكلة والخطوة التالية دون Backend jargon. | Contract tests لحالات 400/401/403/409/429/500/network وunknown fallback. | كل error class الشائع له Copy وRecovery مثبتان قبل تحويل Navigation controls. | Backend codes غير مستقرة؛ ثبّت contract واختبر unknown fallback. |
 | 8 | IMP-08 | UX-013 | IMP-07 | List/detail pages، DataTable cells، React Router Links، tests | استبدال `button+navigate` بـ`Link` لكل Route destination، مع إبقاء mutations وDialogs كـButtons. | كل record destination يملك `href` فعليًا وسلوك المتصفح المعتاد. | Click، Ctrl/⌘+click، Middle click، context menu، Back/Forward، nested-control checks. | لا Button متبقٍ غرضه الوحيد فتح Route؛ عندها يبدأ ضبط Preview state. | Links داخل Table rows قد تتضارب مع row click؛ أزل الاعتماد على row click أو افصل الخلية التفاعلية. |
 | 9 | IMP-09 | UX-023 | IMP-08 | `preview-pane.tsx`، `theme-provider.tsx`، Preview tests | تهيئة Preview scheme من `resolvedTheme` مرة عند فتح الصفحة، مع بقاء Toggle مستقلًا بعد الاختيار اليدوي. | Dark site يفتح Dark preview وLight site يفتح Light preview في Template وLayout. | Unit test لكل Theme + iframe `colorScheme` assertion + manual override + re-render test. | كل حالات Theme والاختيار اليدوي تمر قبل Regression النهائي. | مزامنة Theme باستمرار قد تمحو اختيار المستخدم؛ استخدم initial default لا forced binding. |
@@ -162,9 +162,9 @@ table, thead, tbody, tr, th, td {
   - [x] Invalid query params تعود إلى defaults دون crash أو redirect loop.
   - [x] Unsaved Template/Layout يحذر قبل Navigation أو Reload، وCancel يحتفظ بالقيم؛ Save failure يبقي المسودة وSave success يستأنف الانتقال المعلّق بأمان.
 - **المرحلة 4 — Action discoverability وFeedback:**
-  - [x] User detail يعرض جميع الإجراءات المسموحة في Action surface مرئي على desktop.
-  - [x] `Test send` ظاهر كزر مسمى في Template detail، وليس حصريًا داخل ellipsis.
-  - [x] Narrow viewport يستخدم زر `Actions` مسمى ويحتوي الخيارات نفسها؛ Delete يبقى في Danger group.
+  - [~] ~~User detail يعرض جميع الإجراءات المسموحة في Action surface مرئي على desktop.~~ نُقض بقرار المالك 2026-08-24 — انظر «نقض عقد IMP-06»: الظاهر الآن هو الإجراء الأساسي وحده، والباقي داخل قائمة مسماة.
+  - [~] ~~`Test send` ظاهر كزر مسمى في Template detail~~ نُقض بقرار المالك 2026-08-24 — انظر «نقض عقد IMP-06»: صار عنصرًا في القائمة. الشطر الثاني ما زال ساريًا — لا وجود لـellipsis غامض.
+  - [x] زر `Actions` مسمى — لا ellipsis غامض — يحمل كل إجراء لم تُرقِّه الصفحة، ويبقى `Delete` في Danger group. لم يعد ذلك مشروطًا بعرض الشاشة بعد نقض 2026-08-24.
   - [x] Permission matrix تمنع ظهور Action غير مسموح ولا تخفي Action مسموحًا.
   - [x] Error messages محلية وتقدم correction أو Retry واضحًا لحالات 400/401/403/409/429/500/network.
 - **المرحلة 5 — Links وPreview state:**
@@ -174,7 +174,7 @@ table, thead, tbody, tr, th, td {
   - [x] Preview Toggle اليدوي لا يغير Theme الموقع ولا يُمسح بعد re-render.
 - **المرحلة 6 — Responsive وRTL والتحسينات البصرية:**
   - [x] Viewports: `320×568`، `375×667`، `768×1024`، `1280×720`، `1440×900` — وأُضيف `1279` لأن `1280` هو حدّ `xl` بالضبط لا داخله.
-  - [x] Action surface يلتف دون overlap، وينتقل إلى responsive fallback في النقطة المحددة فقط — مثبت بزوج `1279/1280` الذي يؤكد طرفَي الحدّ.
+  - [~] ~~Action surface ينتقل إلى responsive fallback في النقطة المحددة فقط — مثبت بزوج `1279/1280`~~ نُقض بقرار المالك 2026-08-24 — انظر «نقض عقد IMP-06»: لم يعد للسطح حدّ ينتقل عنده. زوج `1279/1280` ما زال مُختبَرًا لكنه يثبت الآن ثبات السطح عند كل عرض، ويبقى حدَّ `PageHeader` وحده.
   - [~] اتجاه الصفحة وهندسة الغلاف مثبتان في LTR وRTL (الشريط الجانبي على الجهة الصحيحة)؛ ترتيب كل زرّ وقائمة على حدة **لم يُختبر آليًا** ويبقى لجلسة المراجعة البصرية.
   - [x] النصوص الطويلة في EN/AR لا تخفي Action — اسم من ثمانين حرفًا بالعربية والإنجليزية عند `320` و`1440`، والإجراءات تبقى ظاهرة بلا تمدّد.
 - **المرحلة 7 — Regression وUsability Validation:**
@@ -210,7 +210,7 @@ table, thead, tbody, tr, th, td {
 | IMP-03 — Global Search start state | مكتمل | no-history/history/clear-history وEN/AR RTL مغطاة | اجتاز Gate 3 |
 | IMP-04 — URL list state | مكتمل | schema typed موحد؛ هجرة 13 قائمة عليا و6 جداول مضمّنة و5 مجموعات Tabs؛ deep-link وBack/Forward والقيم غير الصالحة مغطاة | اجتاز Gate 4 |
 | IMP-05 — Unsaved editor protection | مكتمل | Router blocker و`beforeunload` موحدان؛ Template/Layout يستخدمان snapshots للحفظ وإعادة تأسيس baseline دون سحق تعديل أحدث | اجتاز Gate 5 |
-| IMP-06 — Permission-aware action surface | مكتمل | وصف Actions موحد لكل صفحة؛ Desktop يعرضها مباشرة وnarrow viewport يستخدم قائمة مسماة من المصدر نفسه؛ Permission matrix وDanger والفعل المباشر مغطاة | اجتاز Gate 6 |
+| IMP-06 — Permission-aware action surface | مكتمل ثم **نُقض جزئيًا 2026-08-24** | وصف Actions موحد لكل صفحة؛ Permission matrix وDanger والفعل المباشر مغطاة. أما «Desktop يعرضها مباشرة» فنقضه المالك: الإجراء الأساسي وحده زرّ والباقي في قائمة مسماة عند كل عرض — انظر «نقض عقد IMP-06» | اجتاز Gate 6 على العقد القديم |
 | IMP-07 — Local error recovery | مكتمل | تصنيف code-first/status-fallback محلي؛ validation inline مع focus؛ Replay آمن لأخطاء network/server فقط؛ لا ProblemDetails خام | اجتاز Gate 7 |
 | IMP-08 — Real record links | مكتمل | ‏23 وجهة سجل صارت روابط `<a href>` حقيقية، مثبتة بمصفوفة snapshot تغطي كل قائمة وكل جدول مضمّن؛ وPlaywright يثبت Ctrl-click وMiddle-click في متصفح فعلي | اجتاز Gate 8 |
 | IMP-09 — Preview scheme | مكتمل | ‏`usePreviewScheme`: Console داكنة تفتح معاينة داكنة أول مرة، ثم الاختيار اليدوي يُحفظ ولا يتحرك بعدها؛ مثبت على `colorScheme` الخاص بالـiframe | اجتاز Gate 9 |
@@ -293,6 +293,45 @@ table, thead, tbody, tr, th, td {
 3. عند `xl` تظهر الإجراءات كأزرار مسماة قابلة للالتفاف؛ دونه يظهر زر `Actions` مسمى يحمل المجموعة نفسها، ولا يوجد ellipsis غامض.
 4. الإجراءات الخطرة منفصلة بصريًا وتستخدم destructive variant، مع الاحتفاظ بحوارات التأكيد ومسارات mutation القائمة.
 5. حالات الانتظار تعطل النسختين وتعرض Spinner دون تلويث الاسم القابل للوصول؛ E2E يثبت عدم overflow ومسارات فتح Dialogs في EN desktop وAR mobile RTL.
+
+### نقض عقد IMP-06 بقرار المالك — 2026-08-24
+
+**العقد أعلاه لم يعد ساريًا.** طلب المالك، بعد رؤية النتيجة المنفذة على `/users/:id`، عكس القرار
+المركزي فيه: «فقط زر تعديل اجعله ظاهرًا، أما الباقي فيكون ضمن زر الإجراءات. لأن طريقة العرض
+الحالية تظهر زحمة أزرار في الواجهة».
+
+ما كان يُقاس بوصفه نجاحًا — ثمانية أزرار مسماة معروضة معًا عند `xl` — قرأه المالك بوصفه ضجيجًا
+لا اختيارًا. وهذا ليس فشلًا في التنفيذ: المعيار نفسه كان مبنيًا على مبدأ Recognition Rather Than
+Recall، وقد طُبِّق كما كُتب. لكن المبدأ حين يُطبَّق على عقد يحمل ثمانية أفعال يُنتج جدارًا يزيح
+تفاصيل السجل إلى أسفل الصفحة، والمالك هو صاحب القرار في هذه المقايضة.
+
+**العقد النافذ الآن:**
+
+1. سطح واحد عند كل العروض — لا تبديل عند `xl` ولا نسختان من العقد نفسه.
+2. الصفحة وحدها تقرر ما يخرج من القائمة (`data-slot="page-action-surface-action"`): إما
+   بـ`variant: "default"` للإجراء الأساسي، أو بـ`promoted: true` لإجراء عملي متكرر لا يصح أن
+   يكون أساسيًا. على المستخدم: `تعديل` وحده. على القالب: `حفظ المسودة` ثم `نشر`.
+   فُصل الترقية (أين يُعرض) عن `variant` (كيف يبدو) لأن السؤالين مختلفان — `حفظ المسودة` يجب
+   أن يكون في المتناول دون أن يصير زرًّا مملوءًا ثانيًا بجانب `نشر`.
+3. كل ما عداه داخل قائمة مسماة `Actions`/`إجراءات` — لا ellipsis غامض، وهذا الشرط وحده من العقد
+   السابق يبقى قائمًا.
+4. `Delete` يبقى في مجموعة خطر مفصولة داخل القائمة.
+5. الإجراء المُرقَّى لا يتكرر داخل القائمة التي يجاورها.
+6. الترتيب هو ترتيب العقد كما كتبته الصفحة، لا ترتيبًا يفرضه المكوّن — الصفحة وضعت `حفظ` قبل
+   `نشر` عن قصد.
+
+**ما بطل من معايير القبول:** الشرطان «Desktop يعرض جميع الإجراءات المسموحة» و«`Test send` ظاهر
+مباشرة» في الصف رقم 6 من الخطة، والبنود المؤشَّرة في المرحلة 4 والمرحلة 6 المشار إليها أدناه.
+تحديدًا: زوج `1279/1280` لم يعد يثبت حدًّا للسطح لأن الحد أُزيل؛ الاختبار الذي كان يثبته
+(`responsive-matrix.spec.ts`) أُعيدت كتابته ليثبت العكس — أن السطح واحد عند كل عرض.
+
+**ما بقي مثبتًا:** مصفوفة الصلاحيات، وفصل الخطر، وتأكيد كل إجراء قبل تنفيذه، وغياب ellipsis
+مجهول — كلها ما تزال مغطاة بالاختبارات نفسها بعد إعادة توجيهها إلى القائمة.
+
+**أثر جانبي رُفع وعولج في اليوم نفسه:** التطبيق الأول أنزل `حفظ المسودة` إلى القائمة، وهي شاشة
+يُحفظ فيها مرارًا. رُفع الأمر إلى المالك فقرر إبقاءه ظاهرًا، وهو ما استدعى فصل `promoted` عن
+`variant` في البند 2 أعلاه. الدرس: «إجراء أساسي واحد» ليس المحور الصحيح — المحور هو
+«ما الذي يفعله قارئ هذه الصفحة مرارًا»، وقد يكون أكثر من واحد.
 
 ### بصمة Gate 7
 
