@@ -8,9 +8,28 @@ namespace Auth.Domain.Entities;
 public class AuditLog : EntityBase
 {
     /// <summary>
-    /// Gets the ID of the user who performed the action (null for system actions).
+    /// Gets the ID of the user the action HAPPENED TO — the subject.
     /// </summary>
+    /// <remarks>
+    /// Not the actor. When an administrator locks someone's account, the subject
+    /// is the locked account and <see cref="PerformedBy"/> is the administrator.
+    /// The two are the same only when a person acts on their own account, and
+    /// both are null for a system action with no human on either side.
+    /// Conflating them is what makes an audit trail unable to answer the one
+    /// question it exists for, so the distinction is stated here rather than left
+    /// to each caller to remember.
+    /// </remarks>
     public Guid? UserId { get; private set; }
+
+    /// <summary>
+    /// Gets the ID of the user who PERFORMED the action — the actor.
+    /// </summary>
+    public Guid? PerformedBy { get; private set; }
+
+    /// <summary>
+    /// Gets the session the action was performed from, when it came from one.
+    /// </summary>
+    public Guid? SessionId { get; private set; }
 
     /// <summary>
     /// Gets the ID of the application where the action occurred.
@@ -63,9 +82,16 @@ public class AuditLog : EntityBase
     public string? AdditionalData { get; private set; }
 
     /// <summary>
-    /// Gets whether the action was successful.
+    /// Gets whether the action succeeded, or null when the row predates the
+    /// column and the outcome was never recorded.
     /// </summary>
-    public bool IsSuccess { get; private set; }
+    /// <remarks>
+    /// Nullable so that "we do not know" is expressible. It has to be: for the
+    /// whole life of the table before this column existed, the read path
+    /// returned true for every row regardless of what happened, so a reader had
+    /// no way to tell a success from an event that was never asked about.
+    /// </remarks>
+    public bool? IsSuccess { get; private set; }
 
     /// <summary>
     /// Gets the error message if the action failed.
@@ -99,12 +125,16 @@ public class AuditLog : EntityBase
         string? ipAddress,
         string? userAgent,
         string? additionalData,
-        bool isSuccess,
+        bool? isSuccess,
         string? errorMessage,
         DateTime timestamp,
-        string? correlationId) : base(id)
+        string? correlationId,
+        Guid? performedBy = null,
+        Guid? sessionId = null) : base(id)
     {
         UserId = userId;
+        PerformedBy = performedBy;
+        SessionId = sessionId;
         ApplicationId = applicationId;
         ActionType = actionType;
         Action = action;
@@ -121,10 +151,13 @@ public class AuditLog : EntityBase
         CorrelationId = correlationId;
     }
 
+    /// <param name="userId">Who it happened TO. See <see cref="UserId"/>.</param>
+    /// <param name="performedBy">Who DID it. See <see cref="PerformedBy"/>.</param>
     public static AuditLog CreateSuccess(
         string actionType,
         string action,
         Guid? userId = null,
+        Guid? performedBy = null,
         Guid? applicationId = null,
         string? entityType = null,
         Guid? entityId = null,
@@ -133,11 +166,14 @@ public class AuditLog : EntityBase
         string? ipAddress = null,
         string? userAgent = null,
         string? additionalData = null,
-        string? correlationId = null)
+        string? correlationId = null,
+        Guid? sessionId = null)
     {
         return new AuditLog
         {
             UserId = userId,
+            PerformedBy = performedBy,
+            SessionId = sessionId,
             ApplicationId = applicationId,
             ActionType = actionType,
             Action = action,
@@ -154,22 +190,32 @@ public class AuditLog : EntityBase
         };
     }
 
+    /// <param name="userId">Who it happened TO. See <see cref="UserId"/>.</param>
+    /// <param name="performedBy">Who DID it. See <see cref="PerformedBy"/>.</param>
     public static AuditLog CreateFailure(
         string actionType,
         string action,
         string errorMessage,
         Guid? userId = null,
+        Guid? performedBy = null,
         Guid? applicationId = null,
         string? entityType = null,
         Guid? entityId = null,
+        string? oldValues = null,
+        string? newValues = null,
         string? ipAddress = null,
         string? userAgent = null,
         string? additionalData = null,
-        string? correlationId = null)
+        string? correlationId = null,
+        Guid? sessionId = null)
     {
         return new AuditLog
         {
             UserId = userId,
+            PerformedBy = performedBy,
+            SessionId = sessionId,
+            OldValues = oldValues,
+            NewValues = newValues,
             ApplicationId = applicationId,
             ActionType = actionType,
             Action = action,

@@ -24,21 +24,28 @@ public class AuditLogRepository : IAuditLogRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // PerformedBy used to be written as auditLog.UserId, which made it
+        // impossible for the actor to differ from the subject no matter what the
+        // caller passed — so "who locked this account" had no answer the trail
+        // could give. It is its own field now, and SessionId is written too: the
+        // column and its index have always been there and nothing ever filled
+        // them.
         await connection.ExecuteAsync(@"
             INSERT INTO [dbo].[AuditLogs] (
-                [Id], [UserId], [ApplicationId], [Action], [EntityType], [EntityId],
+                [Id], [UserId], [ApplicationId], [SessionId], [Action], [EntityType], [EntityId],
                 [OldValues], [NewValues], [IpAddress], [UserAgent], [Details],
-                [Timestamp], [PerformedBy]
+                [Timestamp], [PerformedBy], [ActionType], [IsSuccess], [ErrorMessage], [CorrelationId]
             ) VALUES (
-                @Id, @UserId, @ApplicationId, @Action, @EntityType, @EntityId,
+                @Id, @UserId, @ApplicationId, @SessionId, @Action, @EntityType, @EntityId,
                 @OldValues, @NewValues, @IpAddress, @UserAgent, @Details,
-                @Timestamp, @PerformedBy
+                @Timestamp, @PerformedBy, @ActionType, @IsSuccess, @ErrorMessage, @CorrelationId
             )",
             new
             {
                 auditLog.Id,
                 auditLog.UserId,
                 auditLog.ApplicationId,
+                auditLog.SessionId,
                 auditLog.Action,
                 auditLog.EntityType,
                 auditLog.EntityId,
@@ -48,7 +55,11 @@ public class AuditLogRepository : IAuditLogRepository
                 auditLog.UserAgent,
                 Details = auditLog.AdditionalData,
                 auditLog.Timestamp,
-                PerformedBy = auditLog.UserId
+                auditLog.PerformedBy,
+                auditLog.ActionType,
+                auditLog.IsSuccess,
+                auditLog.ErrorMessage,
+                auditLog.CorrelationId
             });
     }
 
@@ -86,6 +97,8 @@ public class AuditLogRepository : IAuditLogRepository
         Guid? userId,
         Guid? applicationId,
         string? action,
+        string? actionType,
+        bool? isSuccess,
         DateTime? fromDate,
         DateTime? toDate,
         string? sortBy,
@@ -94,11 +107,9 @@ public class AuditLogRepository : IAuditLogRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        // `actionType` and `isSuccess` used to be accepted here and then simply
-        // not used — no WHERE fragment, no parameter, no error. AuditLogs has no
-        // such columns; ToEntity below fills them with "System" and true for
-        // every row. A caller filtering on either got the unfiltered page back
-        // and no way to tell.
+        // Both of these were accepted and then silently dropped for as long as
+        // the columns did not exist, so a filtered request came back unfiltered
+        // with nothing to say so. They filter for real now.
         var whereClause = new StringBuilder("WHERE 1=1");
         var parameters = new DynamicParameters();
 
@@ -118,6 +129,22 @@ public class AuditLogRepository : IAuditLogRepository
         {
             whereClause.Append(" AND a.[Action] LIKE @Action");
             parameters.Add("Action", $"%{action}%");
+        }
+
+        if (!string.IsNullOrEmpty(actionType))
+        {
+            whereClause.Append(" AND a.[ActionType] = @ActionType");
+            parameters.Add("ActionType", actionType);
+        }
+
+        if (isSuccess.HasValue)
+        {
+            // Deliberately an equality test rather than "not the other one".
+            // Rows written before the column existed are NULL, and NULL is not a
+            // failure and not a success — it is the absence of a record. Neither
+            // filter should claim them.
+            whereClause.Append(" AND a.[IsSuccess] = @IsSuccess");
+            parameters.Add("IsSuccess", isSuccess.Value);
         }
 
         if (fromDate.HasValue)
@@ -206,12 +233,24 @@ public class AuditLogRepository : IAuditLogRepository
         public string? Details { get; init; }
         public DateTime Timestamp { get; init; }
         public Guid? PerformedBy { get; init; }
+        public string? ActionType { get; init; }
+        public bool? IsSuccess { get; init; }
+        public string? ErrorMessage { get; init; }
+        public string? CorrelationId { get; init; }
 
+        // Every field here is now read from the row. Four of them used to be
+        // invented on the way out — ActionType as the literal "System",
+        // IsSuccess as true, the other two as null — because the columns did not
+        // exist. That made the audit screen report every event as a success, and
+        // it reported it about rows nobody had ever asked the outcome of.
+        // ActionType falls back to empty rather than to a word that reads like a
+        // category, so a row written before the column is visibly blank instead
+        // of quietly mislabelled.
         public AuditLog ToEntity() => new(
             Id,
             UserId,
             ApplicationId,
-            "System",  // ActionType - not in current DB schema
+            ActionType ?? string.Empty,
             Action,
             EntityType,
             EntityId,
@@ -220,9 +259,11 @@ public class AuditLogRepository : IAuditLogRepository
             IpAddress,
             UserAgent,
             Details,
-            true,  // IsSuccess - not in current DB schema
-            null,  // ErrorMessage - not in current DB schema
+            IsSuccess,
+            ErrorMessage,
             Timestamp,
-            null); // CorrelationId - not in current DB schema
+            CorrelationId,
+            PerformedBy,
+            SessionId);
     }
 }

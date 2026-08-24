@@ -36,6 +36,8 @@ public class GetAuditLogsQueryHandler : IRequestHandler<GetAuditLogsQuery, Error
             request.UserId,
             request.ApplicationId,
             request.Action,
+            request.ActionType,
+            request.IsSuccess,
             request.FromDate,
             request.ToDate,
             request.SortBy,
@@ -43,10 +45,13 @@ public class GetAuditLogsQueryHandler : IRequestHandler<GetAuditLogsQuery, Error
             cancellationToken);
 
         // Enrich logs with user and application names, batching the user lookup
-        // so a page of logs stays one round-trip instead of one per row.
+        // so a page of logs stays one round-trip instead of one per row. Subject
+        // and actor are looked up together: they are usually the same person, and
+        // when they are not, that difference is the most useful thing on the row.
         var actorIds = logs
-            .Where(log => log.UserId.HasValue && log.UserId.Value != Guid.Empty)
-            .Select(log => log.UserId!.Value)
+            .SelectMany(log => new[] { log.UserId, log.PerformedBy })
+            .Where(id => id.HasValue && id.Value != Guid.Empty)
+            .Select(id => id!.Value)
             .Distinct()
             .ToList();
         var actors = actorIds.Count == 0
@@ -64,6 +69,8 @@ public class GetAuditLogsQueryHandler : IRequestHandler<GetAuditLogsQuery, Error
             {
                 Id = log.Id,
                 UserId = log.UserId,
+                PerformedBy = log.PerformedBy,
+                SessionId = log.SessionId,
                 ApplicationId = log.ApplicationId,
                 ActionType = log.ActionType,
                 Action = log.Action,
@@ -84,6 +91,12 @@ public class GetAuditLogsQueryHandler : IRequestHandler<GetAuditLogsQuery, Error
             {
                 dto.UserName = NameLookupHelper.DisplayName(user);
                 dto.UserEmail = user.Email;
+            }
+
+            if (log.PerformedBy.HasValue && actorsById.TryGetValue(log.PerformedBy.Value, out var actor))
+            {
+                dto.PerformedByName = NameLookupHelper.DisplayName(actor);
+                dto.PerformedByEmail = actor.Email;
             }
 
             if (log.ApplicationId.HasValue)

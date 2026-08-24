@@ -28,6 +28,8 @@ public interface IAuditLogRepository
         Guid? userId,
         Guid? applicationId,
         string? action,
+        string? actionType,
+        bool? isSuccess,
         DateTime? fromDate,
         DateTime? toDate,
         string? sortBy,

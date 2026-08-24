@@ -42,7 +42,11 @@ public class GetAuditLogsByEntityQueryHandler : IRequestHandler<GetAuditLogsByEn
             var dto = new AuditLogDto
             {
                 Id = log.Id,
-                UserId = log.UserId,
+                UserId = log.UserId,
+
+                PerformedBy = log.PerformedBy,
+
+                SessionId = log.SessionId,
                 ApplicationId = log.ApplicationId,
                 ActionType = log.ActionType,
                 Action = log.Action,

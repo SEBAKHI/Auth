@@ -15,6 +15,22 @@ CREATE TABLE [dbo].[AuditLogs]
     [Timestamp] DATETIME2 NOT NULL CONSTRAINT [DF_AuditLogs_Timestamp] DEFAULT GETUTCDATE(),
     [PerformedBy] UNIQUEIDENTIFIER NULL,
 
+    -- Added after PerformedBy on purpose: appending keeps an existing production
+    -- table alterable in place instead of forcing a rebuild on publish.
+    --
+    -- All four are NULLable, including IsSuccess, and that is the point rather
+    -- than an oversight. The domain has carried these fields since the beginning
+    -- while the table did not, so the read path filled them in from nowhere:
+    -- ActionType came back as the literal 'System' and IsSuccess as true for
+    -- every row ever written, which meant the audit screen showed every event as
+    -- a success because it had been told to, not because it was one. A default
+    -- of 1 here would carry that same claim forward onto rows written before the
+    -- column existed. NULL says the honest thing about them: not recorded.
+    [ActionType] NVARCHAR(50) NULL,
+    [IsSuccess] BIT NULL,
+    [ErrorMessage] NVARCHAR(1000) NULL,
+    [CorrelationId] NVARCHAR(100) NULL,
+
     CONSTRAINT [PK_AuditLogs] PRIMARY KEY CLUSTERED ([Id])
 );
 GO
@@ -55,4 +71,14 @@ GO
 
 CREATE NONCLUSTERED INDEX [IX_AuditLogs_SessionId]
 ON [dbo].[AuditLogs] ([SessionId]);
+GO
+
+-- Failures are the rows anyone investigating an incident opens first, and they
+-- are a small fraction of the table, so the index covers only them. Rows written
+-- before IsSuccess existed are NULL and stay out of it, which is correct: they
+-- are not known failures.
+CREATE NONCLUSTERED INDEX [IX_AuditLogs_Failures]
+ON [dbo].[AuditLogs] ([Timestamp] DESC)
+INCLUDE ([Action], [UserId], [PerformedBy])
+WHERE [IsSuccess] = 0;
 GO

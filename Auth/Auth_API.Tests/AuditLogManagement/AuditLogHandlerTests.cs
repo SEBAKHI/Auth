@@ -39,7 +39,7 @@ public class GetAuditLogsQueryHandlerTests
         };
 
         _auditLogRepoMock
-            .Setup(r => r.GetPagedAsync(1, 50, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(1, 50, null, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((logs as IReadOnlyList<AuditLog>, 2));
 
         var result = await _handler.Handle(new GetAuditLogsQuery(), CancellationToken.None);
@@ -51,19 +51,20 @@ public class GetAuditLogsQueryHandlerTests
     }
 
     /// <summary>
-    /// Every filter the query still accepts reaches the repository.
+    /// Every filter the query accepts reaches the repository.
     /// </summary>
     /// <remarks>
     /// This test used to pass <c>ActionType: "Security"</c> and assert that the
     /// string arrived at the repository — which it faithfully did, and which
     /// meant nothing: the repository accepted the parameter and never put it in
-    /// the WHERE clause, because AuditLogs has no ActionType column. Filtering
-    /// by it returned the unfiltered page while this test stayed green, and both
-    /// the filter and the column are now gone.
+    /// the WHERE clause, because AuditLogs had no ActionType column. Filtering
+    /// by it returned the unfiltered page while this test stayed green.
     ///
     /// The lesson is in what it asserted. Proving a value is HANDED OVER is not
     /// proving it is HONOURED; a test one layer short of the effect can only
-    /// confirm the plumbing it was written from.
+    /// confirm the plumbing it was written from. The columns exist now and the
+    /// WHERE clause uses them, and the assertion that they are actually applied
+    /// lives one layer down in <c>AuditLogFilterSqlTests</c>, where the SQL is.
     /// </remarks>
     [Fact]
     public async Task Handle_WithFilters_PassesFiltersToRepository()
@@ -78,18 +79,20 @@ public class GetAuditLogsQueryHandlerTests
             UserId: userId,
             ApplicationId: applicationId,
             Action: "user.login",
+            ActionType: "Authorization",
+            IsSuccess: false,
             FromDate: from,
             ToDate: to);
 
         _auditLogRepoMock
-            .Setup(r => r.GetPagedAsync(2, 10, userId, applicationId, "user.login", from, to, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(2, 10, userId, applicationId, "user.login", "Authorization", false, from, to, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<AuditLog>() as IReadOnlyList<AuditLog>, 0));
 
         var result = await _handler.Handle(query, CancellationToken.None);
 
         result.IsError.Should().BeFalse();
         _auditLogRepoMock.Verify(
-            r => r.GetPagedAsync(2, 10, userId, applicationId, "user.login", from, to, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
+            r => r.GetPagedAsync(2, 10, userId, applicationId, "user.login", "Authorization", false, from, to, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Once());
     }
 }
@@ -165,7 +168,7 @@ public class GetAuditLogsByUserQueryHandlerTests
 
         _userRepoMock.Setup(r => r.GetByIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(user);
         _auditLogRepoMock
-            .Setup(r => r.GetPagedAsync(1, 50, userId, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(1, 50, userId, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((logs as IReadOnlyList<AuditLog>, 1));
 
         var result = await _handler.Handle(new GetAuditLogsByUserQuery(userId), CancellationToken.None);
@@ -241,7 +244,7 @@ public class ExportAuditLogsCommandHandlerTests
         };
 
         _auditLogRepoMock
-            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((logs as IReadOnlyList<AuditLog>, 2));
 
         var result = await _handler.Handle(
@@ -258,7 +261,7 @@ public class ExportAuditLogsCommandHandlerTests
     public async Task Handle_NoRecords_ReturnsEmptyExport()
     {
         _auditLogRepoMock
-            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((new List<AuditLog>() as IReadOnlyList<AuditLog>, 0));
 
         var result = await _handler.Handle(

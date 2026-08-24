@@ -44,6 +44,8 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
             request.UserId,
             request.ApplicationId,
             request.Action,
+            null, // actionType — the export command does not expose it yet
+            null, // isSuccess — same
             request.FromDate,
             request.ToDate,
             request.SortBy,
