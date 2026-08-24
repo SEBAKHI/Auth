@@ -1,4 +1,5 @@
-﻿using Auth.Application.Features.ApiKeys.CreateApiKey;
+﻿using Auth.Application.Common;
+using Auth.Application.Features.ApiKeys.CreateApiKey;
 using Auth.Application.Features.ApiKeys.RevokeApiKey;
 using Auth.Application.Features.ApiKeys.RotateApiKey;
 using Auth.Application.Features.ApiKeys.ValidateApiKey;
@@ -39,11 +40,14 @@ public class CreateApiKeyCommandHandlerTests
         _publisherMock = new Mock<IPublisher>();
         _loggerMock = new Mock<ILogger<CreateApiKeyCommandHandler>>();
 
+        // The guard is a concrete collaborator over the same permission repository, so these
+        // tests exercise the real no-amplification rule rather than a stub of it.
         _handler = new CreateApiKeyCommandHandler(
             _apiKeyRepositoryMock.Object,
             _applicationRepositoryMock.Object,
             _permissionRepositoryMock.Object,
             _apiKeyGeneratorMock.Object,
+            new PermissionGrantGuard(_permissionRepositoryMock.Object),
             _publisherMock.Object,
             _loggerMock.Object);
     }
@@ -116,6 +120,119 @@ public class CreateApiKeyCommandHandlerTests
         result.FirstError.Type.Should().Be(ErrorType.NotFound);
         result.FirstError.Code.Should().Be("Application.NotFound");
 
+        _apiKeyRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<ApiKey>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ScopeTheCreatorDoesNotHold_IsRefusedBeforeAnythingIsWritten()
+    {
+        var applicationId = Guid.NewGuid();
+        var createdBy = Guid.NewGuid();
+        var permissionId = Guid.NewGuid();
+
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId));
+
+        _permissionRepositoryMock
+            .Setup(r => r.GetByIdAsync(permissionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreatePermission(id: permissionId, code: "users:manage"));
+
+        // The creator holds a neighbouring area, never the one it is asking for.
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(createdBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string> { "apikeys:*", "roles:read" });
+
+        var command = new CreateApiKeyCommand(ApplicationId: applicationId, Name: "Escalating Key")
+        {
+            CreatedBy = createdBy,
+            PermissionIds = [permissionId]
+        };
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("Permission.CannotGrantHigher");
+
+        // An API key is a credential relying parties carry, so a rejected request must not leave
+        // a usable key behind with no scopes on it.
+        _apiKeyRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<ApiKey>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _apiKeyRepositoryMock.Verify(
+            r => r.AddScopeAsync(It.IsAny<ApiKeyScope>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_ScopeTheCreatorHoldsByWildcard_IsAllowed()
+    {
+        var applicationId = Guid.NewGuid();
+        var createdBy = Guid.NewGuid();
+        var permissionId = Guid.NewGuid();
+
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId));
+
+        _permissionRepositoryMock
+            .Setup(r => r.GetByIdAsync(permissionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreatePermission(id: permissionId, code: "users:read"));
+
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(createdBy, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string> { "users:*" });
+
+        _apiKeyGeneratorMock
+            .Setup(g => g.Generate(It.IsAny<string>()))
+            .Returns(("ak_prod_plainkey123", "ak_prod_", "hashed_key_value"));
+
+        _apiKeyRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<ApiKey>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ApiKey key, CancellationToken _) => key);
+
+        var command = new CreateApiKeyCommand(ApplicationId: applicationId, Name: "Delegated Key")
+        {
+            CreatedBy = createdBy,
+            PermissionIds = [permissionId]
+        };
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Wildcard semantics must keep matching the authorization handler's, or delegation breaks.
+        result.IsError.Should().BeFalse();
+        _apiKeyRepositoryMock.Verify(
+            r => r.AddScopeAsync(It.IsAny<ApiKeyScope>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_UnknownPermissionId_IsRefusedRatherThanSilentlyDropped()
+    {
+        var applicationId = Guid.NewGuid();
+        var permissionId = Guid.NewGuid();
+
+        _applicationRepositoryMock
+            .Setup(r => r.GetByIdAsync(applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateApplication(id: applicationId));
+
+        _permissionRepositoryMock
+            .Setup(r => r.GetByIdAsync(permissionId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Permission?)null);
+
+        var command = new CreateApiKeyCommand(ApplicationId: applicationId, Name: "Typo Key")
+        {
+            CreatedBy = Guid.NewGuid(),
+            PermissionIds = [permissionId]
+        };
+
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Dropping it used to mint a key with fewer scopes than asked for and no way to tell.
+        result.IsError.Should().BeTrue();
+        result.FirstError.Type.Should().Be(ErrorType.NotFound);
         _apiKeyRepositoryMock.Verify(
             r => r.CreateAsync(It.IsAny<ApiKey>(), It.IsAny<CancellationToken>()),
             Times.Never);
