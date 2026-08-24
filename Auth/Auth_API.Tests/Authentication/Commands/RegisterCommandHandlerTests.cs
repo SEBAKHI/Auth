@@ -24,6 +24,7 @@ public class RegisterCommandHandlerTests
     private readonly Mock<IMediator> _mediatorMock;
     private readonly Mock<ILogger<RegisterCommandHandler>> _loggerMock;
     private readonly PasswordValidator _passwordValidator;
+    private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
     private readonly RegisterCommandHandler _handler;
 
     public RegisterCommandHandlerTests()
@@ -32,6 +33,7 @@ public class RegisterCommandHandlerTests
         _passwordHasherMock = new Mock<IPasswordHasher>();
         _personalOrgCreatorMock = new Mock<IPersonalOrganizationCreator>();
         _mediatorMock = new Mock<IMediator>();
+        _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
         _loggerMock = new Mock<ILogger<RegisterCommandHandler>>();
 
         var passwordSettings = TestHelpers.CreatePasswordSettings();
@@ -45,7 +47,33 @@ public class RegisterCommandHandlerTests
             TestHelpers.CreatePassingReservationGuard(),
             _personalOrgCreatorMock.Object,
             _mediatorMock.Object,
+            _eventDispatcherMock.Object,
             _loggerMock.Object);
+    }
+
+    [Fact]
+    public async Task Handle_SelfRegistration_DispatchesTheCreatedEvent()
+    {
+        // User.Create raises UserCreatedEvent, and this handler never dispatched
+        // it, so an account that arrived through public registration left no
+        // audit row — the one class of account creation where nobody knows who
+        // the actor is in advance.
+        var command = CreateCommand();
+        _userRepositoryMock
+            .Setup(r => r.ExistsByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _passwordHasherMock
+            .Setup(h => h.HashPassword(command.Password))
+            .Returns("hashed-password");
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<SendEmailVerificationCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SendVerificationResponse(DateTime.UtcNow.AddMinutes(15), "t***t@example.com"));
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        _eventDispatcherMock.Verify(
+            d => d.DispatchEventsAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Once());
     }
 
     private static RegisterCommand CreateCommand(

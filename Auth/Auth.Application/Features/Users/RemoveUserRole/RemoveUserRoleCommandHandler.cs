@@ -1,3 +1,4 @@
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -12,15 +13,18 @@ public class RemoveUserRoleCommandHandler : IRequestHandler<RemoveUserRoleComman
 {
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IPublisher _publisher;
     private readonly ILogger<RemoveUserRoleCommandHandler> _logger;
 
     public RemoveUserRoleCommandHandler(
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        IPublisher publisher,
         ILogger<RemoveUserRoleCommandHandler> logger)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -51,6 +55,15 @@ public class RemoveUserRoleCommandHandler : IRequestHandler<RemoveUserRoleComman
         _logger.LogInformation(
             "Role removed from user: User {UserId}, Role {RoleId} ({RoleCode}) by {RemovedBy}",
             request.UserId, request.RoleId, role.Code, request.RemovedBy);
+
+        await _publisher.Publish(
+            new UserRoleRemovedEvent(
+                request.UserId,
+                request.RoleId,
+                role.Name,
+                request.ApplicationId,
+                request.RemovedBy),
+            cancellationToken);
 
         return true;
     }

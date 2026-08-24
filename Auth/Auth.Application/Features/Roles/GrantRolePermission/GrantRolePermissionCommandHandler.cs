@@ -1,3 +1,4 @@
+using Auth.Domain.Events;
 using Auth.Application.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
@@ -16,17 +17,20 @@ public class GrantRolePermissionCommandHandler
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly PermissionGrantGuard _grantGuard;
+    private readonly IPublisher _publisher;
     private readonly ILogger<GrantRolePermissionCommandHandler> _logger;
 
     public GrantRolePermissionCommandHandler(
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
         PermissionGrantGuard grantGuard,
+        IPublisher publisher,
         ILogger<GrantRolePermissionCommandHandler> logger)
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
         _grantGuard = grantGuard;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -81,6 +85,17 @@ public class GrantRolePermissionCommandHandler
         _logger.LogInformation(
             "Permission {PermissionCode} added to role {RoleId} ({RoleName}) by {GrantedBy}",
             permission.Code.Value, role.Id, role.Name, request.GrantedBy);
+
+        // Wider than a direct grant: it reaches everyone holding the role, now
+        // and in future, without another action being taken.
+        await _publisher.Publish(
+            new RolePermissionGrantedEvent(
+                request.RoleId,
+                role.Name,
+                request.PermissionId,
+                permission.Code.Value,
+                request.GrantedBy),
+            cancellationToken);
 
         return Result.Success;
     }

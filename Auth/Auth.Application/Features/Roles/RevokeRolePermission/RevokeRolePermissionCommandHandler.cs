@@ -1,3 +1,4 @@
+using Auth.Domain.Events;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -21,15 +22,18 @@ public class RevokeRolePermissionCommandHandler
 {
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IPublisher _publisher;
     private readonly ILogger<RevokeRolePermissionCommandHandler> _logger;
 
     public RevokeRolePermissionCommandHandler(
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
+        IPublisher publisher,
         ILogger<RevokeRolePermissionCommandHandler> logger)
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -56,6 +60,15 @@ public class RevokeRolePermissionCommandHandler
         _logger.LogInformation(
             "Permission {PermissionCode} removed from role {RoleId} ({RoleName}) by {RevokedBy}",
             permission.Code.Value, role.Id, role.Name, request.RevokedBy);
+
+        await _publisher.Publish(
+            new RolePermissionRevokedEvent(
+                request.RoleId,
+                role.Name,
+                request.PermissionId,
+                permission.Code.Value,
+                request.RevokedBy),
+            cancellationToken);
 
         return Result.Success;
     }

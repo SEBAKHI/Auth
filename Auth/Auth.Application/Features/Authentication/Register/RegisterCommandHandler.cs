@@ -27,6 +27,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
     private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
     private readonly IMediator _mediator;
+    private readonly IDomainEventDispatcher _eventDispatcher;
+
     private readonly ILogger<RegisterCommandHandler> _logger;
 
     public RegisterCommandHandler(
@@ -37,6 +39,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         IdentifierReservationGuard reservationGuard,
         IPersonalOrganizationCreator personalOrganizationCreator,
         IMediator mediator,
+        IDomainEventDispatcher eventDispatcher,
+
         ILogger<RegisterCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -46,6 +50,8 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         _reservationGuard = reservationGuard;
         _personalOrganizationCreator = personalOrganizationCreator;
         _mediator = mediator;
+        _eventDispatcher = eventDispatcher;
+
         _logger = logger;
     }
 
@@ -101,7 +107,20 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
             timeZone: request.TimeZone ?? "UTC");
 
         await _userRepository.CreateAsync(user, cancellationToken);
+
 
+
+
+        // User.Create raises UserCreatedEvent, and nothing here ever dispatched it, so a
+
+
+        // self-registered account appeared with no audit row at all — the one event class
+
+
+        // where the actor is a stranger rather than a known administrator.
+
+
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
         // Optionally create personal organization
         var organizationCreated = false;
         if (request.CreateOrganization)

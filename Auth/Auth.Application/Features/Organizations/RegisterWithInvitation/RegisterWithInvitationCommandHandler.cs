@@ -29,6 +29,8 @@ public class RegisterWithInvitationCommandHandler
     private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IMediator _mediator;
+    private readonly IDomainEventDispatcher _eventDispatcher;
+
     private readonly ILogger<RegisterWithInvitationCommandHandler> _logger;
 
     public RegisterWithInvitationCommandHandler(
@@ -39,6 +41,8 @@ public class RegisterWithInvitationCommandHandler
         IPasswordBreachEvaluator breachEvaluator,
         IdentifierReservationGuard reservationGuard,
         IMediator mediator,
+        IDomainEventDispatcher eventDispatcher,
+
         ILogger<RegisterWithInvitationCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -48,6 +52,8 @@ public class RegisterWithInvitationCommandHandler
         _breachEvaluator = breachEvaluator;
         _reservationGuard = reservationGuard;
         _mediator = mediator;
+        _eventDispatcher = eventDispatcher;
+
         _logger = logger;
     }
 
@@ -141,7 +147,20 @@ public class RegisterWithInvitationCommandHandler
         user.ConfirmEmail(user.Id);
 
         await _userRepository.CreateAsync(user, cancellationToken);
+
 
+
+
+        // User.Create raises UserCreatedEvent, and nothing here ever dispatched it, so a
+
+
+        // self-registered account appeared with no audit row at all — the one event class
+
+
+        // where the actor is a stranger rather than a known administrator.
+
+
+        await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
         var acceptResult = await _mediator.Send(
             new AcceptInvitationCommand(request.Token) { AcceptedBy = user.Id },
             cancellationToken);

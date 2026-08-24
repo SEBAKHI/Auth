@@ -1,3 +1,4 @@
+using Auth.Domain.Events;
 using Auth.Application.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -15,17 +16,20 @@ public class GrantUserPermissionCommandHandler : IRequestHandler<GrantUserPermis
     private readonly IUserRepository _userRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly PermissionGrantGuard _grantGuard;
+    private readonly IPublisher _publisher;
     private readonly ILogger<GrantUserPermissionCommandHandler> _logger;
 
     public GrantUserPermissionCommandHandler(
         IUserRepository userRepository,
         IPermissionRepository permissionRepository,
         PermissionGrantGuard grantGuard,
+        IPublisher publisher,
         ILogger<GrantUserPermissionCommandHandler> logger)
     {
         _userRepository = userRepository;
         _permissionRepository = permissionRepository;
         _grantGuard = grantGuard;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -79,6 +83,18 @@ public class GrantUserPermissionCommandHandler : IRequestHandler<GrantUserPermis
         _logger.LogInformation(
             "Permission granted to user: User {UserId}, Permission {PermissionId} ({PermissionCode}) by {GrantedBy}",
             request.UserId, request.PermissionId, permission.Code, request.GrantedBy);
+
+        // A direct grant leaves no trace in the role list, so this event is the
+        // only record that the user's authority widened.
+        await _publisher.Publish(
+            new UserPermissionGrantedEvent(
+                request.UserId,
+                request.PermissionId,
+                permission.Code.Value,
+                request.ApplicationId,
+                request.ExpiresAt,
+                request.GrantedBy),
+            cancellationToken);
 
         return true;
     }

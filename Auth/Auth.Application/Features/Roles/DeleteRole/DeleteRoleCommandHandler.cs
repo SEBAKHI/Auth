@@ -1,3 +1,4 @@
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -11,13 +12,16 @@ namespace Auth.Application.Features.Roles.DeleteRole;
 public class DeleteRoleCommandHandler : IRequestHandler<DeleteRoleCommand, ErrorOr<Success>>
 {
     private readonly IRoleRepository _roleRepository;
+    private readonly IPublisher _publisher;
     private readonly ILogger<DeleteRoleCommandHandler> _logger;
 
     public DeleteRoleCommandHandler(
         IRoleRepository roleRepository,
+        IPublisher publisher,
         ILogger<DeleteRoleCommandHandler> logger)
     {
         _roleRepository = roleRepository;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -42,6 +46,10 @@ public class DeleteRoleCommandHandler : IRequestHandler<DeleteRoleCommand, Error
         _logger.LogInformation(
             "Role deleted: {RoleId} by {DeletedBy}",
             request.Id, request.DeletedBy);
+
+        await _publisher.Publish(
+            new RoleDeletedEvent(role.Id, role.Code, role.Name, request.DeletedBy),
+            cancellationToken);
 
         return Result.Success;
     }

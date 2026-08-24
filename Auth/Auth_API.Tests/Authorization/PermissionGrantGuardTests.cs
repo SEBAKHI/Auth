@@ -151,6 +151,7 @@ public class PermissionGrantGuardHandlerTests
             users.Object,
             permissions.Object,
             new PermissionGrantGuard(permissions.Object),
+            new Mock<IPublisher>().Object,
             new Mock<ILogger<GrantUserPermissionCommandHandler>>().Object);
 
         var result = await handler.Handle(
