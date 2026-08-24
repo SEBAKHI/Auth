@@ -832,9 +832,24 @@ export function ApplicationDetailPage() {
               {
                 label: t("applications.redirectUris"),
                 value: app.redirectUris?.length ? (
-                  <div className="flex flex-col">
+                  // `items-start` rather than `text-start`: alignment must come
+                  // from this column, which runs in the page's direction, not
+                  // from the URI itself. A `text-start` inside `dir="ltr"`
+                  // resolves against THAT element — it means "left" even on an
+                  // Arabic page, which is how the list ended up detached at the
+                  // far side of its own row.
+                  //
+                  // `max-w-full` is what keeps that safe. `items-start` sizes
+                  // each URI to fit-content, and CSS Text excludes the breaks
+                  // `break-words` introduces from min-content — so a long URI
+                  // keeps its full unwrapped width and the Card's
+                  // `overflow-hidden` cuts the overhang off with no scrollbar.
+                  // In RTL the clipped side is the START of the URL: the scheme
+                  // and host disappear. The cap restores wrapping without
+                  // touching the alignment.
+                  <div className="flex flex-col items-start">
                     {app.redirectUris.map((uri) => (
-                      <span key={uri} dir="ltr" className="text-start">
+                      <span key={uri} dir="ltr" className="max-w-full">
                         {uri}
                       </span>
                     ))}
