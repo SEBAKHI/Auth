@@ -27,9 +27,14 @@ const tabsListVariants = cva(
   // to their combined min-content width — wider than the viewport once a strip
   // carries a few tabs. `max-w-full` + `overflow-x-auto` keeps the strip inside
   // its column and scrolls the tabs instead of widening the document. The
-  // scrollbar is hidden because it would eat half of the 36px-tall pill; the
-  // padding leaves room for the focus ring and the line-variant underline so
-  // neither is clipped by the scroll container.
+  // scrollbar is hidden because it would eat half of the 36px-tall pill.
+  // Because it is a scroll container, nothing inside it may paint outside its
+  // padding box: `overflow-x: auto` computes `overflow-y` to `auto` as well, so
+  // a stray pixel below the padding edge is not merely clipped — it is
+  // scrollable overflow, and a wheel over the strip then scrolls the strip
+  // instead of the page. The focus ring is a box-shadow and an outline, so it
+  // costs no scroll area; the line-variant underline is a real box, and it is
+  // the trigger's job to keep it inside (see `tabsTriggerVariants`).
   // The block padding is 3.6px against 4px inline, deliberately: the pill's
   // rounded ends pull its top and bottom edges optically inward, so a
   // geometrically equal 4px inset reads as a looser gap above and below than
@@ -80,12 +85,23 @@ function TabsList({
  * block padding and nothing else — the height is owned in one place. The odd
  * pixel the upstream value left over put half of itself on each side, which is
  * a gap no one chose and one that cannot be tuned from the list.
+ *
+ * The line-variant underline sits on the trigger's own bottom edge, not below
+ * it. Upstream hangs it 5px under the trigger, which on a horizontal strip is
+ * 1.4px past the list's padding edge — and the list is a scroll container, so
+ * that sliver is vertical scrollable overflow rather than a decoration. The
+ * browser then treats the strip as a vertical scroller: a wheel over the tabs
+ * scrolled the strip by its one available device pixel instead of scrolling
+ * the page, so the tabs stepped up and back down under the cursor. Inside the
+ * padding box, the underline draws the same and the strip has nothing to
+ * scroll. The vertical variant's marker is already flush with the list's
+ * inline padding edge, and a vertical list is not a scroll container anyway.
  */
 const tabsTriggerVariants = cva([
   "relative inline-flex h-full flex-1 items-center justify-center gap-2 rounded-full border border-transparent! px-3 py-1 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start group-data-vertical/tabs:rounded-2xl group-data-vertical/tabs:px-3 group-data-vertical/tabs:py-1.5 hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pe-2 has-data-[icon=inline-start]:ps-2 dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
   "data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 dark:data-active:text-foreground",
-  "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-end-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
+  "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-0 group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-end-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
 ])
 
 function TabsTrigger({
