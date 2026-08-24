@@ -34,9 +34,10 @@
 
   Fresh databases get the new colours straight from SeedData\11_NotificationLayouts.sql and
   this script is a no-op there. The two are held byte-identical by
-  EmailLayoutContractTests.SeedAndUpgrade_CarryByteIdenticalLayout, which replays the @Old*/
-  @New* pairs below over the 2026-08-10 RTL literal - so those DECLARE names are part of the
-  contract, not local variables.
+  EmailLayoutContractTests.SeedAndUpgrade_CarryByteIdenticalLayout, which replays the @Old*
+  and @New* pairs below over the 2026-08-10 RTL literal - so those DECLARE names are part of
+  the contract, not local variables. (Keep the two prefixes apart: "@Old*" immediately
+  followed by "/" closes this block comment and drops the rest of the prose into the batch.)
 */
 SET QUOTED_IDENTIFIER ON;
 SET NOCOUNT ON;
