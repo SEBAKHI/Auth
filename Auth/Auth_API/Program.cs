@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -829,6 +830,31 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = builder.Configuration.GetValue("RateLimiting:PasswordResetPermitLimit", 10),
                 Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:PasswordResetWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
+    // Validating an API key is the most expensive thing an authenticated caller
+    // can ask this process to do. The lookup narrows candidates by key prefix and
+    // then runs a full Argon2id verify against each surviving row — 19 MiB and
+    // two passes per verify, by design, because that cost is what makes a stolen
+    // hash useless. Nothing bounded how many times it could be asked for, so a
+    // caller holding apikeys:validate could turn a cheap request into hundreds of
+    // megabytes of hashing work per second.
+    //
+    // Partitioned on the caller, not the client IP: the endpoint is authenticated,
+    // relying parties legitimately call it from a small pool of server addresses,
+    // and an IP bucket would let one busy integration throttle every other one
+    // sharing a NAT. Falls back to IP only when the principal has no id to key on,
+    // which should not happen behind [RequirePermission] but must not open the
+    // bucket if it ever does.
+    options.AddPolicy("apikey-validate", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:ApiKeyValidatePermitLimit", 60),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:ApiKeyValidateWindowSeconds", 60)),
                 QueueLimit = 0
             }));
 
