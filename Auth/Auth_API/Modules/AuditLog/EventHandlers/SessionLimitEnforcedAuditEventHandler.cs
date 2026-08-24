@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using MediatR;
@@ -34,6 +35,7 @@ public class SessionLimitEnforcedAuditEventHandler : INotificationHandler<Sessio
                 actionType: "Security",
                 action: "session.ended",
                 userId: notification.UserId,
+            performedBy: WellKnownUserIds.System,
                 entityType: "Session",
                 entityId: ended.SessionId);
 

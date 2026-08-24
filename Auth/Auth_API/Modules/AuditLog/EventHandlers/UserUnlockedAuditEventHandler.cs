@@ -25,7 +25,8 @@ public class UserUnlockedAuditEventHandler : INotificationHandler<UserUnlockedEv
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Security",
             action: "user.unlocked",
-            userId: notification.UnlockedBy,
+            userId: notification.UserId,
+            performedBy: notification.UnlockedBy,
             entityType: "User",
             entityId: notification.UserId);
 

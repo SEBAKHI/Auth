@@ -145,7 +145,13 @@ public class PasswordCreatedAuditEventHandlerTests
         captured!.ActionType.Should().Be("Security");
         captured.Action.Should().Be("password.created");
         captured.Action.Should().NotBe("password.changed");
-        captured.UserId.Should().Be(setBy);
+
+        // Whose password it is, and who set it. These are different people
+        // whenever an administrator issues a first credential, which is the case
+        // this record exists for — asserting the setter in UserId, as this used
+        // to, described the password as belonging to the administrator.
+        captured.UserId.Should().Be(userId);
+        captured.PerformedBy.Should().Be(setBy);
         captured.EntityType.Should().Be("User");
         captured.EntityId.Should().Be(userId);
         captured.IsSuccess.Should().BeTrue();
@@ -265,12 +271,15 @@ public class UserHardDeletedAuditEventHandlerTests
 
         await _handler.Handle(evt, CancellationToken.None);
 
-        // The purge removed the account's own audit rows, so the tombstone must
-        // reference only the administrator — never the deleted user id in UserId.
+        // The purge anonymises every audit row whose UserId is the deleted
+        // account, so the tombstone must never carry that id there. The
+        // administrator belongs in PerformedBy — putting them in UserId, as this
+        // used to assert, said the purge happened TO the administrator.
         _repoMock.Verify(r => r.CreateAsync(
             It.Is<AuditLog>(log =>
                 log.Action == "user.harddeleted" &&
-                log.UserId == adminId &&
+                log.PerformedBy == adminId &&
+                log.UserId == null &&
                 log.EntityId == purgedUserId),
             It.IsAny<CancellationToken>()), Times.Once());
     }
@@ -394,7 +403,10 @@ public class PlatformSettingsUpdatedAuditEventHandlerTests
                 It.Is<AuditLog>(log =>
                     log.Action == "platform-settings.updated" &&
                     log.EntityType == "PlatformSettings" &&
-                    log.UserId == updatedBy &&
+                    // The actor, in the actor's field. Settings belong to the
+                    // platform, so there is no user this happened TO.
+                    log.PerformedBy == updatedBy &&
+                    log.UserId == null &&
                     log.NewValues!.Contains("\"logoUrlDark\":\"logo-dark.webp\"")),
                 It.IsAny<CancellationToken>()),
             Times.Once());

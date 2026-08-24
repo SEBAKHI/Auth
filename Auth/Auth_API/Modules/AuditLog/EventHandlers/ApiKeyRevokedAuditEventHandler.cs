@@ -25,7 +25,7 @@ public class ApiKeyRevokedAuditEventHandler : INotificationHandler<ApiKeyRevoked
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "ApiKeyManagement",
             action: "apikey.revoked",
-            userId: notification.RevokedBy,
+            performedBy: notification.RevokedBy,
             entityType: "ApiKey",
             entityId: notification.ApiKeyId,
             additionalData: $"{{\"applicationId\":\"{notification.ApplicationId}\"}}");

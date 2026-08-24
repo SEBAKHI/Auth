@@ -27,7 +27,7 @@ public class ApplicationActivationChangedAuditEventHandler : INotificationHandle
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Application",
             action: notification.IsActive ? "application.activated" : "application.deactivated",
-            userId: notification.ChangedBy,
+            performedBy: notification.ChangedBy,
             entityType: "Application",
             entityId: notification.ApplicationId,
             additionalData: $"{{\"applicationCode\":\"{notification.ApplicationCode}\"}}");

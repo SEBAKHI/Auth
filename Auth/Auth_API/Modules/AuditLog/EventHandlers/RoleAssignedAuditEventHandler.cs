@@ -25,7 +25,8 @@ public class RoleAssignedAuditEventHandler : INotificationHandler<RoleAssignedEv
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Authorization",
             action: "role.assigned",
-            userId: notification.AssignedBy,
+            userId: notification.UserId,
+            performedBy: notification.AssignedBy,
             entityType: "UserRole",
             entityId: notification.UserId,
             additionalData: $"{{\"roleId\":\"{notification.RoleId}\",\"roleName\":\"{notification.RoleName}\"}}");

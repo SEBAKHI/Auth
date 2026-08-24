@@ -27,7 +27,8 @@ public class ApplicationAccessGrantedAuditEventHandler : INotificationHandler<Ap
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Application",
             action: "application.access.granted",
-            userId: notification.GrantedBy,
+            userId: notification.UserId,
+            performedBy: notification.GrantedBy,
             entityType: "ApplicationUserAccess",
             entityId: notification.ApplicationId,
             additionalData:

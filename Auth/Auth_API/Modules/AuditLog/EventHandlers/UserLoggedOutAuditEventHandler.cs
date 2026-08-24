@@ -26,6 +26,7 @@ public class UserLoggedOutAuditEventHandler : INotificationHandler<UserLoggedOut
             actionType: "Authentication",
             action: notification.AllDevices ? "user.logout.all" : "user.logout",
             userId: notification.UserId,
+            performedBy: notification.UserId,
             entityType: "User",
             entityId: notification.UserId);
 

@@ -26,7 +26,8 @@ public class ApplicationAccessRevokedAuditEventHandler : INotificationHandler<Ap
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Application",
             action: "application.access.revoked",
-            userId: notification.RevokedBy,
+            userId: notification.UserId,
+            performedBy: notification.RevokedBy,
             entityType: "ApplicationUserAccess",
             entityId: notification.ApplicationId,
             additionalData:

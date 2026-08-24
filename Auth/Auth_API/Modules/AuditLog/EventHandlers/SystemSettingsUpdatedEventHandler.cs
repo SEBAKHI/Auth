@@ -27,7 +27,7 @@ public class SystemSettingsUpdatedEventHandler : INotificationHandler<SystemSett
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Administration",
             action: "system-settings.updated",
-            userId: notification.UpdatedBy,
+            performedBy: notification.UpdatedBy,
             entityType: "SystemSettings",
             oldValues: notification.OldOverridesJson,
             newValues: notification.NewOverridesJson,

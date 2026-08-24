@@ -26,7 +26,7 @@ public class PlatformSettingsUpdatedAuditEventHandler : INotificationHandler<Pla
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Administration",
             action: "platform-settings.updated",
-            userId: notification.UpdatedBy,
+            performedBy: notification.UpdatedBy,
             entityType: "PlatformSettings",
             entityId: notification.SettingsId,
             oldValues: JsonSerializer.Serialize(new

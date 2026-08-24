@@ -27,7 +27,7 @@ public class NotificationTemplatePublishedAuditEventHandler
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Administration",
             action: "notification-template.published",
-            userId: notification.PublishedBy,
+            performedBy: notification.PublishedBy,
             entityType: "NotificationTemplate",
             entityId: notification.TemplateId,
             newValues: JsonSerializer.Serialize(new

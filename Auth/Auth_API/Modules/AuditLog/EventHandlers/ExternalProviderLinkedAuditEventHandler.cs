@@ -44,6 +44,7 @@ public class ExternalProviderLinkedAuditEventHandler : INotificationHandler<Exte
             actionType: "Security",
             action: "external-login.linked",
             userId: notification.UserId,
+            performedBy: notification.UserId,
             entityType: "User",
             entityId: notification.UserId,
             additionalData: additionalData);

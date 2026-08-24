@@ -26,6 +26,7 @@ public class UserLoggedInAuditEventHandler : INotificationHandler<UserLoggedInEv
             actionType: "Authentication",
             action: "user.login",
             userId: notification.UserId,
+            performedBy: notification.UserId,
             entityType: "User",
             entityId: notification.UserId,
             ipAddress: notification.IpAddress,

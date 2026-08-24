@@ -25,7 +25,8 @@ public class PasswordChangedAuditEventHandler : INotificationHandler<PasswordCha
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Security",
             action: "password.changed",
-            userId: notification.ChangedBy,
+            userId: notification.UserId,
+            performedBy: notification.ChangedBy,
             entityType: "User",
             entityId: notification.UserId);
 

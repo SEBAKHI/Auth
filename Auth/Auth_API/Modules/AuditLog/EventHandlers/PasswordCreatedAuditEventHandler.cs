@@ -31,7 +31,8 @@ public class PasswordCreatedAuditEventHandler : INotificationHandler<PasswordCre
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Security",
             action: "password.created",
-            userId: notification.SetBy,
+            userId: notification.UserId,
+            performedBy: notification.SetBy,
             entityType: "User",
             entityId: notification.UserId);
 

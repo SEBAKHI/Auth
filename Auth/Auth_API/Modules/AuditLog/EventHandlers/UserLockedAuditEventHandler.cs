@@ -25,7 +25,8 @@ public class UserLockedAuditEventHandler : INotificationHandler<UserLockedEvent>
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Security",
             action: "user.locked",
-            userId: notification.LockedBy,
+            userId: notification.UserId,
+            performedBy: notification.LockedBy,
             entityType: "User",
             entityId: notification.UserId,
             additionalData: $"{{\"lockoutEnd\":\"{notification.LockoutEnd?.ToString("o") ?? "indefinite"}\"}}");

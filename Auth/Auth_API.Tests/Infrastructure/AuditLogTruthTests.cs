@@ -114,6 +114,44 @@ public class AuditLogTruthTests
         command.CommandText.Should().NotContain("[ActionType] =");
     }
 
+    [Fact]
+    public void EveryAuditEventHandler_NamesWhoDidIt()
+    {
+        // Twenty-five of the thirty-two handlers passed the actor as userId,
+        // which reads as "this happened TO the administrator". The distinction
+        // only survives if every new handler makes it too, and nothing in the
+        // signature forces that: both parameters are optional Guid?, so omitting
+        // the actor compiles and produces a row that cannot say who acted.
+        var directory = Path.Combine(
+            SolutionDirectory(), "Auth_API", "Modules", "AuditLog", "EventHandlers");
+
+        var handlers = Directory.GetFiles(directory, "*.cs");
+        handlers.Should().NotBeEmpty("the audit handlers live here");
+
+        var silent = handlers
+            .Where(file => !File.ReadAllText(file).Contains("performedBy:", StringComparison.Ordinal))
+            .Select(Path.GetFileName)
+            .ToList();
+
+        silent.Should().BeEmpty(
+            "an audit row whose actor is unknown cannot answer the question the trail exists for; "
+            + "for a self-service action name the subject as the actor, and for a system action name "
+            + "WellKnownUserIds.System, but name someone");
+    }
+
+    private static string SolutionDirectory()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Auth.sln")))
+        {
+            directory = directory.Parent;
+        }
+
+        directory.Should().NotBeNull("the tests must run from inside the solution tree");
+        return directory!.FullName;
+    }
+
     private static async Task<RecordedCommand> CaptureWrite(AuditLog log)
     {
         var factory = new RecordingDbConnectionFactory(affectedRows: 1);

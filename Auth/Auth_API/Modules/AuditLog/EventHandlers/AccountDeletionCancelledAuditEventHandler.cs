@@ -27,6 +27,7 @@ public class AccountDeletionCancelledAuditEventHandler : INotificationHandler<Ac
             actionType: "UserManagement",
             action: "user.deletion_cancelled",
             userId: notification.UserId,
+            performedBy: notification.UserId,
             entityType: "User",
             entityId: notification.UserId,
             additionalData: $"{{\"cancelledAtUtc\":\"{notification.CancelledAtUtc:O}\"}}");

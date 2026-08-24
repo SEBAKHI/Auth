@@ -38,7 +38,7 @@ public class SecretValueChangedEventHandler
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Administration",
             action: "secrets.value.changed",
-            userId: notification.ChangedBy,
+            performedBy: notification.ChangedBy,
             entityType: "Secret",
             newValues: JsonSerializer.Serialize(new
             {

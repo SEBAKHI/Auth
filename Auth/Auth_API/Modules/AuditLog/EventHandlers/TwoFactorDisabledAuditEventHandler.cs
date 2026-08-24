@@ -25,7 +25,8 @@ public class TwoFactorDisabledAuditEventHandler : INotificationHandler<TwoFactor
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Security",
             action: "twofactor.disabled",
-            userId: notification.DisabledBy,
+            userId: notification.UserId,
+            performedBy: notification.DisabledBy,
             entityType: "User",
             entityId: notification.UserId);
 

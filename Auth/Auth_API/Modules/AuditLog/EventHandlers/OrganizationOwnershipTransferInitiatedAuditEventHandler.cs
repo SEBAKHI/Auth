@@ -27,7 +27,8 @@ public class OrganizationOwnershipTransferInitiatedAuditEventHandler
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "OrganizationManagement",
             action: "organization.ownership_transfer_initiated",
-            userId: notification.InitiatedBy,
+            userId: notification.TargetUserId,
+            performedBy: notification.InitiatedBy,
             entityType: "Organization",
             entityId: notification.OrganizationId,
             additionalData: $"{{\"targetUserId\":\"{notification.TargetUserId}\"}}");

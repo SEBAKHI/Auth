@@ -25,7 +25,7 @@ public class ApiKeyCreatedAuditEventHandler : INotificationHandler<ApiKeyCreated
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "ApiKeyManagement",
             action: "apikey.created",
-            userId: notification.CreatedBy,
+            performedBy: notification.CreatedBy,
             entityType: "ApiKey",
             entityId: notification.ApiKeyId,
             additionalData: $"{{\"applicationId\":\"{notification.ApplicationId}\",\"name\":\"{notification.Name}\"}}");

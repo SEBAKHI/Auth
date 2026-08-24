@@ -28,7 +28,7 @@ public class NotificationTemplateRolledBackAuditEventHandler
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Administration",
             action: "notification-template.rolled-back",
-            userId: notification.RolledBackBy,
+            performedBy: notification.RolledBackBy,
             entityType: "NotificationTemplate",
             entityId: notification.TemplateId,
             oldValues: JsonSerializer.Serialize(new { fromVersionId = notification.FromVersionId }),

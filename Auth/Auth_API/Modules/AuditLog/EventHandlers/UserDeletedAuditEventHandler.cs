@@ -25,7 +25,8 @@ public class UserDeletedAuditEventHandler : INotificationHandler<UserDeletedEven
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "UserManagement",
             action: "user.deleted",
-            userId: notification.DeletedBy,
+            userId: notification.UserId,
+            performedBy: notification.DeletedBy,
             entityType: "User",
             entityId: notification.UserId,
             additionalData: $"{{\"email\":\"{notification.Email}\"}}");

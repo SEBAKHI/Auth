@@ -36,7 +36,7 @@ public class SecretOperationChallengeIssuedAuditEventHandler
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Administration",
             action: "secrets.operation.confirmation-requested",
-            userId: notification.RequestedBy,
+            performedBy: notification.RequestedBy,
             entityType: "SecretOperationChallenge",
             entityId: notification.ChallengeId,
             ipAddress: notification.IpAddress,

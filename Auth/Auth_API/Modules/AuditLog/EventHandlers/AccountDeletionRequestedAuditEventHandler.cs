@@ -28,6 +28,7 @@ public class AccountDeletionRequestedAuditEventHandler : INotificationHandler<Ac
             actionType: "UserManagement",
             action: "user.deletion_requested",
             userId: notification.UserId,
+            performedBy: notification.UserId,
             entityType: "User",
             entityId: notification.UserId,
             additionalData:

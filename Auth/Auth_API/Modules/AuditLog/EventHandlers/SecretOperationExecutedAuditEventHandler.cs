@@ -35,7 +35,7 @@ public class SecretOperationExecutedAuditEventHandler
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "Administration",
             action: "secrets.operation.executed",
-            userId: notification.ExecutedBy,
+            performedBy: notification.ExecutedBy,
             entityType: "SecretOperationChallenge",
             entityId: notification.ChallengeId,
             newValues: JsonSerializer.Serialize(new

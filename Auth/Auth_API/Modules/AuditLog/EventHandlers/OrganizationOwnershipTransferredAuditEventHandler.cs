@@ -26,7 +26,8 @@ public class OrganizationOwnershipTransferredAuditEventHandler
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "OrganizationManagement",
             action: "organization.ownership_transferred",
-            userId: notification.TransferredBy,
+            userId: notification.NewOwnerId,
+            performedBy: notification.TransferredBy,
             entityType: "Organization",
             entityId: notification.OrganizationId,
             oldValues: $"{{\"ownerId\":\"{notification.PreviousOwnerId}\"}}",

@@ -32,6 +32,7 @@ public class AccountDeletionCompletedAuditEventHandler : INotificationHandler<Ac
             actionType: "UserManagement",
             action: "user.deletion_completed",
             userId: WellKnownUserIds.System,
+            performedBy: WellKnownUserIds.System,
             entityType: "User",
             entityId: notification.UserId,
             additionalData:

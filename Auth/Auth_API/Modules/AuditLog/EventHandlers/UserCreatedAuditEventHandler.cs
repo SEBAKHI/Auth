@@ -25,7 +25,8 @@ public class UserCreatedAuditEventHandler : INotificationHandler<UserCreatedEven
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
             actionType: "UserManagement",
             action: "user.created",
-            userId: notification.CreatedBy,
+            userId: notification.UserId,
+            performedBy: notification.CreatedBy,
             entityType: "User",
             entityId: notification.UserId,
             additionalData: $"{{\"email\":\"{notification.Email}\",\"firstName\":\"{notification.FirstName}\",\"lastName\":\"{notification.LastName}\"}}");
