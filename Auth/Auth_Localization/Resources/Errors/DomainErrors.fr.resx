@@ -860,4 +860,7 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>Vous avez atteint la limite de {0} préférences d'affichage enregistrées.</value>
   </data>
+  <data name="Image.NotAvailable" xml:space="preserve">
+    <value>Cette image n'est pas disponible pour être jointe. Téléversez-la de nouveau, puis réessayez.</value>
+  </data>
 </root>

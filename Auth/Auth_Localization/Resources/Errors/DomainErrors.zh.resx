@@ -860,4 +860,7 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>已达到已保存显示偏好的上限 {0} 项。</value>
   </data>
+  <data name="Image.NotAvailable" xml:space="preserve">
+    <value>该图片无法附加。请重新上传后再试。</value>
+  </data>
 </root>

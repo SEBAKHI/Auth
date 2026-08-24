@@ -862,4 +862,7 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>You have reached the limit of {0} saved display preferences.</value>
   </data>
+  <data name="Image.NotAvailable" xml:space="preserve">
+    <value>That image is not available to attach. Upload the image again and retry.</value>
+  </data>
 </root>

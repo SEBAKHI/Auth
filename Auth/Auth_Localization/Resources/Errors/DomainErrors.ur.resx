@@ -860,4 +860,7 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>آپ محفوظ شدہ {0} ڈسپلے ترجیحات کی حد تک پہنچ چکے ہیں۔</value>
   </data>
+  <data name="Image.NotAvailable" xml:space="preserve">
+    <value>یہ تصویر منسلک کرنے کے لیے دستیاب نہیں ہے۔ تصویر دوبارہ اپ لوڈ کریں اور دوبارہ کوشش کریں۔</value>
+  </data>
 </root>

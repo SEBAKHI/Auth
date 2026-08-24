@@ -860,4 +860,7 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>Kayıtlı {0} görünüm tercihi sınırına ulaştınız.</value>
   </data>
+  <data name="Image.NotAvailable" xml:space="preserve">
+    <value>Bu görsel eklenmek için uygun değil. Görseli yeniden yükleyip tekrar deneyin.</value>
+  </data>
 </root>

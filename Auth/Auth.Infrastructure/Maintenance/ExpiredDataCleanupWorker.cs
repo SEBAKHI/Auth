@@ -1,3 +1,4 @@
+using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
 using Auth.Domain.Interfaces.Repositories;
 using Microsoft.Extensions.DependencyInjection;
@@ -159,6 +160,61 @@ public class ExpiredDataCleanupWorker : BackgroundService
         }
 
         await StampExpiredSessionsAsync(sp, settings, cancellationToken);
+        await ReclaimAbandonedUploadsAsync(sp, nowUtc, cancellationToken);
+    }
+
+    /// <summary>
+    /// Deletes the files behind uploads that were never attached to anything.
+    /// </summary>
+    /// <remarks>
+    /// Uploading and attaching are separate calls, so a file whose upload
+    /// succeeded and whose form was then abandoned stayed on disk forever with
+    /// nothing referencing it and nothing looking for it. Not a table sweep like
+    /// the steps above: rows and files have to go together, and the files are the
+    /// point.
+    ///
+    /// Deliberately outside the per-run row ceiling those steps observe. The
+    /// count here is bounded by how many uploads were abandoned since the last
+    /// run, which is small; capping it would leave the remainder on disk until a
+    /// later run that has no reason to be less busy.
+    /// </remarks>
+    private async Task ReclaimAbandonedUploadsAsync(
+        IServiceProvider sp, DateTime nowUtc, CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Resolution inside the guard, not above it. The six sweeps in this
+            // run have already committed by now, and a service this step cannot
+            // resolve is still no reason to fail the run — which is what the
+            // catch below exists to say, and what it could not do while the first
+            // resolution sat outside it.
+            var imageSettings = sp.GetRequiredService<IOptionsMonitor<ImageStorageSettings>>().CurrentValue;
+            var retentionHours = Math.Max(1, imageSettings.OrphanRetentionHours);
+
+            var uploads = sp.GetRequiredService<IUploadedImageRepository>();
+            var storage = sp.GetRequiredService<IImageStorageService>();
+
+            var reclaimed = await uploads.ReclaimUnattachedAsync(
+                nowUtc.AddHours(-retentionHours), cancellationToken);
+
+            foreach (var key in reclaimed)
+            {
+                await storage.DeleteImageAsync(key, cancellationToken);
+            }
+
+            if (reclaimed.Count > 0)
+            {
+                _logger.LogInformation(
+                    "Reclaimed {Count} abandoned uploads older than {Hours}h", reclaimed.Count, retentionHours);
+            }
+        }
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Housekeeping must never take the worker down: the other sweeps in
+            // this run have already committed, and disk space is the least urgent
+            // thing this process is responsible for.
+            _logger.LogError(ex, "Failed to reclaim abandoned uploads");
+        }
     }
 
     /// <summary>

@@ -27,6 +27,19 @@ public class ImageStorageSettings
     public long MaxSizeBytes { get; set; } = 4 * 1024 * 1024;
 
     /// <summary>
+    /// Total bytes one user may occupy across all their uploads. The per-file
+    /// limit above bounds a single request; this bounds the sum of them.
+    /// </summary>
+    public long MaxBytesPerUser { get; set; } = 50 * 1024 * 1024;
+
+    /// <summary>
+    /// How long an upload may sit unattached before the cleanup sweep reclaims
+    /// it. Long enough that a slow form does not lose its image, short enough
+    /// that abandoned ones do not accumulate.
+    /// </summary>
+    public int OrphanRetentionHours { get; set; } = 24;
+
+    /// <summary>
     /// Maximum decoded image size in megapixels. Checked from the image header
     /// BEFORE decoding pixels, so a small but huge-dimensioned "decompression
     /// bomb" cannot force a multi-gigabyte allocation (width*height*4 bytes).

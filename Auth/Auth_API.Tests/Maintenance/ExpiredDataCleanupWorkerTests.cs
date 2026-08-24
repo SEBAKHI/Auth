@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Infrastructure.Maintenance;
@@ -20,6 +22,8 @@ public class ExpiredDataCleanupWorkerTests
     private readonly Mock<IIdpSessionRepository> _idpSessions = new();
     private readonly Mock<IRefreshTokenRepository> _refreshTokens = new();
     private readonly Mock<IUserSessionRepository> _userSessions = new();
+    private readonly Mock<IUploadedImageRepository> _uploadedImages = new();
+    private readonly Mock<IImageStorageService> _imageStorage = new();
 
     private ExpiredDataCleanupWorker CreateWorker(DataRetentionSettings? settings = null)
     {
@@ -31,6 +35,9 @@ public class ExpiredDataCleanupWorkerTests
         services.AddSingleton(_idpSessions.Object);
         services.AddSingleton(_refreshTokens.Object);
         services.AddSingleton(_userSessions.Object);
+        services.AddSingleton(_uploadedImages.Object);
+        services.AddSingleton(_imageStorage.Object);
+        services.AddSingleton<IOptionsMonitor<ImageStorageSettings>>(TestHelpers.CreateOptions(new ImageStorageSettings()));
 
         return new ExpiredDataCleanupWorker(
             services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
@@ -64,6 +71,44 @@ public class ExpiredDataCleanupWorkerTests
         _verificationTokens.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _idpSessions.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _refreshTokens.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+        _userSessions.Verify(r => r.MarkExpiredSessionsEndedAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunSweep_DeletesTheFilesBehindAbandonedUploads()
+    {
+        // Uploading and attaching are separate calls, so an upload whose form was
+        // abandoned left a file on disk that nothing referenced and nothing was
+        // looking for. Reclaiming the row is only half of it — the bytes are what
+        // fills the volume.
+        SetupAllDrained();
+        _uploadedImages
+            .Setup(r => r.ReclaimUnattachedAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<string> { "abandoned-one.webp", "abandoned-two.webp" });
+
+        await CreateWorker().RunSweepAsync(CancellationToken.None);
+
+        _imageStorage.Verify(
+            s => s.DeleteImageAsync("abandoned-one.webp", It.IsAny<CancellationToken>()), Times.Once);
+        _imageStorage.Verify(
+            s => s.DeleteImageAsync("abandoned-two.webp", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task RunSweep_UploadReclamationThrowing_LeavesTheRestOfTheRunIntact()
+    {
+        // Housekeeping runs last and must never undo a run that has already
+        // committed six table sweeps. This failed for real once: the settings
+        // lookup sat outside the guard, so a service it could not resolve threw
+        // past the catch that exists to swallow exactly that.
+        SetupAllDrained();
+        _uploadedImages
+            .Setup(r => r.ReclaimUnattachedAsync(It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("volume offline"));
+
+        var act = async () => await CreateWorker().RunSweepAsync(CancellationToken.None);
+
+        await act.Should().NotThrowAsync();
         _userSessions.Verify(r => r.MarkExpiredSessionsEndedAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 

@@ -111,6 +111,7 @@
     <Build Include="dbo\Tables\Security\PasswordResetTokens.sql" />
     <Build Include="dbo\Tables\Security\AuthorizationCodes.sql" />
     <Build Include="dbo\Tables\Security\RevokedTokens.sql" />
+    <Build Include="dbo\Tables\Security\UploadedImages.sql" />
     <Build Include="dbo\Tables\Security\TwoFactorAuth.sql" />
     <Build Include="dbo\Tables\Security\TwoFactorChallenges.sql" />
     <Build Include="dbo\Tables\Security\ApiKeys.sql" />
