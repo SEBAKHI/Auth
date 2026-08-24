@@ -216,6 +216,22 @@ public class CredentialRevocationService : ICredentialRevocationService
         if (exceptSessionId is null)
         {
             await _refreshTokenRepository.RevokeAllForUserAsync(userId, revokedBy, reason, cancellationToken);
+
+            // The session loop above blacklists one sid per row it found, which
+            // misses any access token whose UserSessions row is not there to be
+            // found: LoginResponseBuilder mints the token first and inserts the
+            // row inside a catch that swallows failure by design, and a session
+            // ended by an earlier call is already filtered out by
+            // GetActiveSessionsForUserAsync. Those tokens carry a sid matching no
+            // row, so no per-session blacklisting can reach them. This one is
+            // keyed on the user and the instant, so it covers every access token
+            // issued before now regardless of what the session table knows —
+            // which is what makes "revoke everything" idempotent on the
+            // access-token dimension rather than only on the refresh dimension.
+            //
+            // Gated on nothing being spared, for the same reason the sweep above
+            // is: sparing a session means keeping its access token alive.
+            _blacklistService.BlacklistAllUserTokens(userId, DateTime.UtcNow);
         }
 
         // The IdP SSO sessions behind the OIDC authorize flow. These live in

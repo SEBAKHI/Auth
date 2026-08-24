@@ -12,18 +12,18 @@ namespace Auth.Application.Features.Users.LockAccount;
 public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, ErrorOr<Success>>
 {
     private readonly IUserRepository _userRepository;
-    private readonly IUserSessionRepository _sessionRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILogger<LockAccountCommandHandler> _logger;
 
     public LockAccountCommandHandler(
         IUserRepository userRepository,
-        IUserSessionRepository sessionRepository,
+        ICredentialRevocationService credentialRevocation,
         IDomainEventDispatcher eventDispatcher,
         ILogger<LockAccountCommandHandler> logger)
     {
         _userRepository = userRepository;
-        _sessionRepository = sessionRepository;
+        _credentialRevocation = credentialRevocation;
         _eventDispatcher = eventDispatcher;
         _logger = logger;
     }
@@ -47,9 +47,14 @@ public class LockAccountCommandHandler : IRequestHandler<LockAccountCommand, Err
         user.Lock(lockoutEnd, request.LockedBy);
         await _userRepository.UpdateAsync(user, cancellationToken);
 
-        // Terminate all active sessions for the locked user
-        await _sessionRepository.TerminateAllForUserAsync(
+        // An administrator locking an account is usually answering an incident, so
+        // the already-issued access tokens are the point. Ending the session rows
+        // leaves them working for their full lifetime, and leaves the refresh
+        // token able to mint more. Replaces the direct TerminateAllForUserAsync —
+        // appending to it would find no active sessions left to blacklist.
+        await _credentialRevocation.RevokeAllCredentialsAsync(
             request.UserId,
+            request.LockedBy,
             $"Account locked: {request.Reason}",
             cancellationToken);
 

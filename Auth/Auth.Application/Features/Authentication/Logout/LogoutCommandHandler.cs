@@ -18,6 +18,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
     private readonly IRefreshTokenKeyService _refreshTokenKeyService;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IUserSessionRepository _sessionRepository;
+    private readonly ICredentialRevocationService _credentialRevocation;
     private readonly IIdpSessionRepository _idpSessionRepository;
     private readonly IPublisher _publisher;
     private readonly JwtSettings _jwtSettings;
@@ -29,6 +30,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         IRefreshTokenKeyService refreshTokenKeyService,
         IJwtTokenService jwtTokenService,
         IUserSessionRepository sessionRepository,
+        ICredentialRevocationService credentialRevocation,
         IIdpSessionRepository idpSessionRepository,
         IPublisher publisher,
         IOptionsSnapshot<JwtSettings> jwtSettings,
@@ -39,6 +41,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
         _refreshTokenKeyService = refreshTokenKeyService;
         _jwtTokenService = jwtTokenService;
         _sessionRepository = sessionRepository;
+        _credentialRevocation = credentialRevocation;
         _idpSessionRepository = idpSessionRepository;
         _publisher = publisher;
         _jwtSettings = jwtSettings.Value;
@@ -81,8 +84,7 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
             _logger.LogInformation("User {UserId} logout acknowledged (no token to revoke)", request.UserId);
         }
 
-        // Terminate the session row(s) so they don't linger as "active" and
-        // accumulate on the user's Sessions list. Best-effort: never fail logout.
+        // End the session row(s). Best-effort: never fail logout.
         try
         {
             if (request.LogoutAllDevices)
@@ -92,14 +94,26 @@ public class LogoutCommandHandler : IRequestHandler<LogoutCommand, ErrorOr<Succe
             }
             else if (request.SessionId.HasValue)
             {
-                await _sessionRepository.TerminateAsync(
-                    request.SessionId.Value, "logout", cancellationToken);
+                // Not TerminateAsync. Ending the row stops it showing as active
+                // and does nothing else, and the single-device branch above only
+                // revokes a refresh token when the client bothered to send one —
+                // the console does not. That left "log me out of this device"
+                // meaning the access token dies in fifteen minutes and the
+                // refresh token keeps working for a week. This ends the row,
+                // revokes the refresh tokens bound to that session whether or not
+                // the client sent one, and blacklists the sid.
+                await _credentialRevocation.TerminateSessionAsync(
+                    request.SessionId.Value, request.UserId, "logout", cancellationToken);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex,
-                "Failed to terminate session(s) on logout for user {UserId}", request.UserId);
+            // Above Warning on purpose: the caller has been told it is signed out
+            // and its refresh token may still be live, which is the one outcome
+            // this path exists to prevent.
+            _logger.LogError(ex,
+                "Failed to revoke session credentials on logout for user {UserId}; the refresh token may still be usable",
+                request.UserId);
         }
 
         // End the IdP SSO session so future authorize requests require a fresh
