@@ -24,6 +24,7 @@ import {
   type ListUrlStateOptions,
 } from "@authsystem/ui/hooks/use-search-query"
 import { PERMISSIONS, DEFAULT_PAGE_SIZE } from "@/lib/constants"
+import { notificationTypeLabel } from "@/lib/notification-catalog"
 import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
 import { NotificationsTabs } from "./components/notifications-tabs"
 import { OutboxMessageSheet } from "./components/outbox-message-sheet"
@@ -111,6 +112,14 @@ export function NotificationOutboxPage() {
 
   const canManage = hasPermission(PERMISSIONS.notificationTemplates.manage)
 
+  // The stored code is what is searched, exported and quoted in a ticket; the
+  // translation is only what it is READ as. Both are shown, and only the code
+  // ever leaves this component.
+  const typeLabel = React.useCallback(
+    (code: string) => notificationTypeLabel(t, code),
+    [t]
+  )
+
   const query = useQuery({
     queryKey: [
       "notification-outbox",
@@ -159,20 +168,44 @@ export function NotificationOutboxPage() {
           className="min-w-0 text-start hover:underline"
           onClick={() => setSelected(row.original)}
         >
-          {/* Direction on an inline `bdi`, never on the `p`: `dir` on a block
+          <p className="truncate font-medium">
+            {typeLabel(row.original.notificationTypeCode ?? "")}
+          </p>
+          {/* The stored code, kept in view under its name — the same pairing the
+              audit table uses, and for the same reason: the name is what this
+              row is READ as, the code is what a filter, an export and a support
+              ticket all need, and it is the same string in every language.
+              Direction on an inline `bdi`, never on the `p`: `dir` on a block
               re-resolves the inherited `text-align: start` and left-aligns the
               line inside an RTL table. */}
-          <p className="truncate font-medium">
+          <p className="truncate text-xs text-muted-foreground">
             <bdi dir="ltr">{row.original.notificationTypeCode}</bdi>
           </p>
-          <p className="truncate text-xs text-muted-foreground">
-            {/* The row already knows the send's locale, so bind the subject's
-                direction to it instead of guessing from the text. */}
-            <bdi dir={directionForLanguage(row.original.languageCode ?? "")}>
-              {row.original.subject}
-            </bdi>
-          </p>
         </button>
+      ),
+    },
+    {
+      // The subject is not a label for the type: it is the line this particular
+      // recipient saw, rendered once at enqueue time in THEIR language and
+      // frozen there. It stayed Arabic in an English console because it is a
+      // record of what was sent, not a translation — so it gets a column of its
+      // own to be read as such, instead of sitting under the type as if it were
+      // its name.
+      id: "subject",
+      accessorFn: (row) => row.subject ?? "",
+      // Not in SortFields.NotificationOutbox.Allowed: the server would answer a
+      // sort on this column with a 400.
+      enableSorting: false,
+      header: t("notifications.subject"),
+      meta: { label: t("notifications.subject") },
+      cell: ({ row }) => (
+        <span className="block max-w-[320px] truncate text-sm text-muted-foreground">
+          {/* The row already knows the send's locale, so bind the subject's
+              direction to it instead of guessing from the text. */}
+          <bdi dir={directionForLanguage(row.original.languageCode ?? "")}>
+            {row.original.subject}
+          </bdi>
+        </span>
       ),
     },
     {

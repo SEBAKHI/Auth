@@ -1020,6 +1020,32 @@ export const en = {
     templateDeleted: "Template deleted",
     type: "Type",
     selectType: "Select a type",
+    // The name each notification type is READ under. Keys are derived from the
+    // stored code by notificationTypeI18nKey ("new-device-sign-in" ->
+    // "newDeviceSignIn"); notification-catalog.test.ts fails when one is missing.
+    // Named for the event, not for the email that reports it — the delivery log
+    // shows the message's own subject in its own column, which is a different
+    // string in a different language.
+    types: {
+      emailVerification: "Email verification",
+      passwordReset: "Password reset",
+      organizationInvitation: "Organization invitation",
+      welcomeEmail: "Welcome email",
+      ownershipTransferCode: "Ownership transfer code",
+      ownershipTransferred: "Ownership transferred",
+      accountDeletionRequested: "Account deletion requested",
+      accountDeletionVerification: "Account deletion verification",
+      accountDeletionCancelled: "Account deletion cancelled",
+      accountDeletionCompleted: "Account deletion completed",
+      accountDeletedByAdmin: "Account deleted by an administrator",
+      privacyPolicyUpdated: "Privacy policy updated",
+      newDeviceSignIn: "Sign-in from a new device",
+      sessionsRevokedTokenReuse: "Sessions revoked after token reuse",
+      sessionLimitEnforced: "Signed out by the session limit",
+      secretOperationChallenge: "Secret operation confirmation",
+      passwordCreated: "Password added",
+      passwordChanged: "Password changed",
+    },
     application: "Application",
     global: "Global",
     globalTemplate: "Global (all applications)",

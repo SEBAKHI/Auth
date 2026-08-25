@@ -20,6 +20,7 @@ import {
 import { Skeleton } from "@authsystem/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@authsystem/ui/tabs"
 import { formatDateTime } from "@authsystem/ui/format"
+import { notificationTypeLabel } from "@/lib/notification-catalog"
 import {
   EmailPreviewFrame,
   PreviewSchemeToggle,
@@ -85,7 +86,19 @@ export function OutboxMessageSheet({
 
   const fields: Array<[string, React.ReactNode]> = message
     ? [
-        [t("notifications.type"), <span dir="ltr">{message.notificationTypeCode}</span>],
+        [
+          // Name over code, the same pairing the table now shows — an operator
+          // who opened this sheet from a row should read the same two lines.
+          t("notifications.type"),
+          <span className="flex flex-col">
+            <span>
+              {notificationTypeLabel(t, message.notificationTypeCode ?? "")}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              <bdi dir="ltr">{message.notificationTypeCode}</bdi>
+            </span>
+          </span>,
+        ],
         [
           t("notifications.application"),
           message.applicationName ?? t("notifications.global"),

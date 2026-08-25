@@ -1,3 +1,5 @@
+import { codeI18nKey } from "./i18n-key"
+
 /**
  * The console's mirror of `Auth.Domain.Constants.AuditActions`.
  *
@@ -93,21 +95,11 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
 
 /**
  * i18n key for an action code: `external-login.linked` becomes
- * `externalLoginLinked`, read under `auditLogs.actions.*`.
- *
- * The separators have to go rather than be kept: i18next reads a dot as a path
- * into a nested object, so `auditLogs.actions.user.login` would look for a
- * `user` object rather than for the key it was given. The same trick the
- * settings fields already play — see `fieldI18nKey`.
+ * `externalLoginLinked`, read under `auditLogs.actions.*`. The transform itself
+ * is shared with the notification-type catalogue — see `codeI18nKey`.
  */
 export function auditActionI18nKey(code: string): string {
-  return code
-    .split(/[.\-_]+/)
-    .filter(Boolean)
-    .map((part, index) =>
-      index === 0 ? part : part.charAt(0).toUpperCase() + part.slice(1)
-    )
-    .join("")
+  return codeI18nKey(code)
 }
 
 /** i18n key for a category: `UserManagement` becomes `userManagement`. */
