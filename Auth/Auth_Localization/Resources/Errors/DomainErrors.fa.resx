@@ -860,4 +860,7 @@
   <data name="UiPreference.TooManyKeys" xml:space="preserve">
     <value>به سقف {0} ترجیح نمایش ذخیره‌شده رسیده‌اید.</value>
   </data>
+  <data name="Image.NotAvailable" xml:space="preserve">
+    <value>این تصویر برای پیوست‌کردن در دسترس نیست. تصویر را دوباره بارگذاری کنید و دوباره تلاش کنید.</value>
+  </data>
 </root>

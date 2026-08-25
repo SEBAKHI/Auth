@@ -21,6 +21,8 @@ public class RegisterWithInvitationCommandHandlerTests
     private readonly Mock<IOrganizationRepository> _orgRepoMock = new();
     private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
     private readonly Mock<IMediator> _mediatorMock = new();
+    private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock = new();
+
     private readonly RegisterWithInvitationCommandHandler _handler;
 
     private const string Token = "aW52aXRlLXJlZ2lzdGVyLXRva2VuLWxvbmctZW5vdWdo";
@@ -52,6 +54,7 @@ public class RegisterWithInvitationCommandHandlerTests
             TestHelpers.CreatePassingBreachEvaluator(),
             TestHelpers.CreatePassingReservationGuard(),
             _mediatorMock.Object,
+            _eventDispatcherMock.Object,
             new Mock<ILogger<RegisterWithInvitationCommandHandler>>().Object);
     }
 

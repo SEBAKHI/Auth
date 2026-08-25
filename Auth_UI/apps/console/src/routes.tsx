@@ -609,6 +609,29 @@ export const router = createBrowserRouter([
                   },
                 ],
               },
+              {
+                // Gated on `auditlogs:read`, not on system-settings:manage: this
+                // page only names what the audit trail records, and someone who
+                // may read the trail may read its index. A single static segment
+                // beside `:sectionKey`, which react-router ranks below it.
+                element: (
+                  <PermissionRoute permission={PERMISSIONS.auditLogs.read} />
+                ),
+                children: [
+                  {
+                    path: "audit-catalog",
+                    lazy: lazyRoute(
+                      () =>
+                        import("@/pages/system-settings/audit-catalog-page"),
+                      (m) => m.AuditCatalogPage
+                    ),
+                    handle: crumb(
+                      "auditCatalog",
+                      "/admin/system-settings/audit-catalog"
+                    ),
+                  },
+                ],
+              },
             ],
           },
         ],

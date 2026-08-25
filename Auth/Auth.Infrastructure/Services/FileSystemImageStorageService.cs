@@ -141,6 +141,21 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         string? sourceKey, EmailLogoVariant variant, CancellationToken cancellationToken)
         => Task.FromResult(BuildEmailLogoRendition(sourceKey, variant, write: false));
 
+    /// <inheritdoc />
+    public Task<long?> GetStoredSizeAsync(string key, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(key) || IsAbsoluteUrl(key))
+        {
+            return Task.FromResult<long?>(null);
+        }
+
+        // Path.GetFileName collapses any directory traversal, as in DeleteImageAsync.
+        var path = Path.Combine(ResolvedRoot(_settings.CurrentValue), Path.GetFileName(key));
+        var info = new FileInfo(path);
+
+        return Task.FromResult<long?>(info.Exists ? info.Length : null);
+    }
+
     public Task DeleteImageAsync(string? key, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrWhiteSpace(key) && !IsAbsoluteUrl(key))

@@ -18,6 +18,8 @@ public class LogoutCommandHandlerTests
     private readonly Mock<IRefreshTokenKeyService> _refreshTokenKeyServiceMock;
     private readonly Mock<IJwtTokenService> _jwtTokenServiceMock;
     private readonly Mock<IPublisher> _publisherMock;
+    private readonly Mock<ICredentialRevocationService> _credentialRevocationMock;
+    private readonly Mock<IUserSessionRepository> _sessionRepositoryMock;
     private readonly Mock<ILogger<LogoutCommandHandler>> _loggerMock;
     private readonly JwtSettings _jwtSettings;
     private readonly LogoutCommandHandler _handler;
@@ -29,6 +31,8 @@ public class LogoutCommandHandlerTests
         _refreshTokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
         _jwtTokenServiceMock = new Mock<IJwtTokenService>();
         _publisherMock = new Mock<IPublisher>();
+        _credentialRevocationMock = new Mock<ICredentialRevocationService>();
+        _sessionRepositoryMock = new Mock<IUserSessionRepository>();
         _loggerMock = new Mock<ILogger<LogoutCommandHandler>>();
 
         _jwtSettings = new JwtSettings
@@ -41,11 +45,39 @@ public class LogoutCommandHandlerTests
             _tokenBlacklistServiceMock.Object,
             _refreshTokenKeyServiceMock.Object,
             _jwtTokenServiceMock.Object,
-            new Mock<IUserSessionRepository>().Object,
+            _sessionRepositoryMock.Object,
+            _credentialRevocationMock.Object,
             new Mock<IIdpSessionRepository>().Object,
             _publisherMock.Object,
             TestHelpers.CreateOptions(_jwtSettings),
             _loggerMock.Object);
+    }
+
+    [Fact]
+    public async Task Handle_SingleDeviceLogoutWithNoRefreshTokenSent_StillRevokesTheSessionCredentials()
+    {
+        var userId = Guid.NewGuid();
+        var sessionId = Guid.NewGuid();
+
+        // The console signs out without sending the refresh token, which used to
+        // mean the single-device branch revoked nothing: the session row was
+        // ended and the refresh token bound to it stayed valid for its full week.
+        var command = new LogoutCommand(userId, null, "access.jwt.token", "127.0.0.1", false)
+        {
+            SessionId = sessionId
+        };
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        _credentialRevocationMock.Verify(
+            c => c.TerminateSessionAsync(sessionId, userId, It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+
+        // Ending the row on its own is what the bug was; it must not be the
+        // whole of what signing out does.
+        _sessionRepositoryMock.Verify(
+            s => s.TerminateAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never());
     }
 
     private static LogoutCommand CreateCommand(

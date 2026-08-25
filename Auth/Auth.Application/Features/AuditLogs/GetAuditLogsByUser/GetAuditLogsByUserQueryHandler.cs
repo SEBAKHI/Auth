@@ -43,6 +43,8 @@ public class GetAuditLogsByUserQueryHandler : IRequestHandler<GetAuditLogsByUser
             request.UserId,
             null, // applicationId
             null, // action
+            null, // actionType
+            null, // isSuccess
             request.FromDate,
             request.ToDate,
             request.SortBy,
@@ -56,6 +58,10 @@ public class GetAuditLogsByUserQueryHandler : IRequestHandler<GetAuditLogsByUser
             {
                 Id = log.Id,
                 UserId = log.UserId,
+
+                PerformedBy = log.PerformedBy,
+
+                SessionId = log.SessionId,
                 UserName = user.DisplayName ?? $"{user.FirstName} {user.LastName}".Trim(),
                 UserEmail = user.Email,
                 ApplicationId = log.ApplicationId,

@@ -1,3 +1,4 @@
+using MediatR;
 using Auth.Application.Common;
 using Auth.Application.Features.Roles.CreateRole;
 using Auth.Application.Features.Roles.UpdateRole;
@@ -37,6 +38,7 @@ public class CreateRoleCommandHandlerTests
             _roleRepositoryMock.Object,
             _permissionRepositoryMock.Object,
             new PermissionGrantGuard(_permissionRepositoryMock.Object),
+            new Mock<IPublisher>().Object,
             _loggerMock.Object);
     }
 
@@ -181,6 +183,7 @@ public class UpdateRoleCommandHandlerTests
         _handler = new UpdateRoleCommandHandler(
             _roleRepositoryMock.Object,
             _permissionRepositoryMock.Object,
+            new Mock<IPublisher>().Object,
             _loggerMock.Object);
     }
 
@@ -306,6 +309,7 @@ public class DeleteRoleCommandHandlerTests
 
         _handler = new DeleteRoleCommandHandler(
             _roleRepositoryMock.Object,
+            new Mock<IPublisher>().Object,
             _loggerMock.Object);
     }
 

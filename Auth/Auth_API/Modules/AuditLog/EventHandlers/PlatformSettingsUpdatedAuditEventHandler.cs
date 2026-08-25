@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -24,9 +25,9 @@ public class PlatformSettingsUpdatedAuditEventHandler : INotificationHandler<Pla
     public async Task Handle(PlatformSettingsUpdatedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Administration",
-            action: "platform-settings.updated",
-            userId: notification.UpdatedBy,
+            actionType: AuditActionTypes.Administration,
+            action: AuditActions.PlatformSettingsUpdated,
+            performedBy: notification.UpdatedBy,
             entityType: "PlatformSettings",
             entityId: notification.SettingsId,
             oldValues: JsonSerializer.Serialize(new

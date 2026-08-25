@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.RateLimiting;
 using Asp.Versioning;
 using Auth_API.Authorization;
 using Auth_API.Common;
@@ -121,6 +122,7 @@ public class ApiKeysController : ApiController
     /// </summary>
     [HttpPost("validate")]
     [RequirePermission("apikeys:validate")]
+    [EnableRateLimiting("apikey-validate")]
     [ProducesResponseType(typeof(ValidateApiKeyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

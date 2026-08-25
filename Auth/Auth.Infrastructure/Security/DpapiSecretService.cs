@@ -90,6 +90,76 @@ public class DpapiSecretService : IDpapiSecretService
         }
     }
 
+    /// <summary>
+    /// Replaces a file's contents in one step, so a reader never sees a partial
+    /// write and a crash never leaves one behind.
+    /// </summary>
+    /// <remarks>
+    /// This file holds the JWT signing key, the refresh-token HMAC key, the
+    /// gateway token, the connection string and the Argon2id pepper, and there is
+    /// no second copy of any of them. Writing over it in place put all of that
+    /// inside the window between truncation and the last byte: a recycle, a full
+    /// disk or a power loss in that window left a file that decrypts to nothing,
+    /// and the process cannot start without it.
+    ///
+    /// The rename is the atomic part — on NTFS a replace within one volume either
+    /// happened or did not. The flush before it is what makes that guarantee mean
+    /// something: without it the rename can be durable while the bytes it points
+    /// at are still in the cache.
+    ///
+    /// The old file is kept as .bak rather than discarded. It is one version
+    /// behind and useless for the current key, but on a host where the only copy
+    /// of a signing key just failed to decrypt, one version behind is the
+    /// difference between re-issuing every token and re-provisioning the system.
+    /// </remarks>
+    private static async Task WriteAtomicallyAsync(
+        string path, byte[] contents, CancellationToken cancellationToken)
+    {
+        var directory = Path.GetDirectoryName(path);
+        var temporaryPath = Path.Combine(
+            string.IsNullOrEmpty(directory) ? "." : directory,
+            $"{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+
+        try
+        {
+            await using (var stream = new FileStream(
+                temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+            {
+                await stream.WriteAsync(contents, cancellationToken);
+                await stream.FlushAsync(cancellationToken);
+                // Flush(true) pushes past the OS cache to the device. The rename
+                // below is only as safe as the bytes it publishes.
+                stream.Flush(flushToDisk: true);
+            }
+
+            if (File.Exists(path))
+            {
+                File.Replace(temporaryPath, path, $"{path}.bak", ignoreMetadataErrors: true);
+            }
+            else
+            {
+                // First write on this host: Replace requires an existing target.
+                File.Move(temporaryPath, path);
+            }
+        }
+        finally
+        {
+            // A temp file left by a failed write is not a secret anyone should
+            // find lying around, and it would collide with nothing anyway.
+            if (File.Exists(temporaryPath))
+            {
+                try
+                {
+                    File.Delete(temporaryPath);
+                }
+                catch (IOException)
+                {
+                    // Losing the cleanup must not lose the error that caused it.
+                }
+            }
+        }
+    }
+
     public async Task SaveSecretsAsync(SecretConfiguration secrets, CancellationToken cancellationToken)
     {
         await _fileLock.WaitAsync(cancellationToken);
@@ -111,7 +181,7 @@ public class DpapiSecretService : IDpapiSecretService
                 _logger.LogInformation("Created secrets directory: {Directory}", directory);
             }
 
-            await File.WriteAllBytesAsync(_settings.SecretFilePath, encryptedData, cancellationToken);
+            await WriteAtomicallyAsync(_settings.SecretFilePath, encryptedData, cancellationToken);
 
             _logger.LogInformation(
                 "Saved secrets to {Path}, version {Version}",

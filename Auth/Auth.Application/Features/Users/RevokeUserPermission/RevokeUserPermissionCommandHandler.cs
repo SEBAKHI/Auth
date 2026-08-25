@@ -1,3 +1,4 @@
+using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -12,15 +13,18 @@ public class RevokeUserPermissionCommandHandler : IRequestHandler<RevokeUserPerm
 {
     private readonly IUserRepository _userRepository;
     private readonly IPermissionRepository _permissionRepository;
+    private readonly IPublisher _publisher;
     private readonly ILogger<RevokeUserPermissionCommandHandler> _logger;
 
     public RevokeUserPermissionCommandHandler(
         IUserRepository userRepository,
         IPermissionRepository permissionRepository,
+        IPublisher publisher,
         ILogger<RevokeUserPermissionCommandHandler> logger)
     {
         _userRepository = userRepository;
         _permissionRepository = permissionRepository;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -51,6 +55,14 @@ public class RevokeUserPermissionCommandHandler : IRequestHandler<RevokeUserPerm
         _logger.LogInformation(
             "Permission revoked from user: User {UserId}, Permission {PermissionId} ({PermissionCode}) by {RevokedBy}",
             request.UserId, request.PermissionId, permission.Code, request.RevokedBy);
+
+        await _publisher.Publish(
+            new UserPermissionRevokedEvent(
+                request.UserId,
+                request.PermissionId,
+                permission.Code.Value,
+                request.RevokedBy),
+            cancellationToken);
 
         return true;
     }

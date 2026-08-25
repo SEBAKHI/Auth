@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -41,9 +42,10 @@ public class ExternalProviderLinkedAuditEventHandler : INotificationHandler<Exte
         });
 
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Security",
-            action: "external-login.linked",
+            actionType: AuditActionTypes.Security,
+            action: AuditActions.ExternalLoginLinked,
             userId: notification.UserId,
+            performedBy: notification.UserId,
             entityType: "User",
             entityId: notification.UserId,
             additionalData: additionalData);

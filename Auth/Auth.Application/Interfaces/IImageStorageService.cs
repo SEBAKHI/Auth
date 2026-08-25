@@ -52,6 +52,16 @@ public interface IImageStorageService
     Task DeleteImageAsync(string? key, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Bytes the stored file actually occupies, or null when it is not there.
+    /// </summary>
+    /// <remarks>
+    /// The re-encoded WebP is what fills the volume, not the bytes the client
+    /// sent, and the two differ by a lot in both directions. A quota measured on
+    /// the upload size would be a quota on something the server does not store.
+    /// </remarks>
+    Task<long?> GetStoredSizeAsync(string key, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Builds (or rebuilds) the email-safe rendition of a stored logo and returns it, or null
     /// when there is nothing to plate (no key, an externally hosted absolute URL, a missing or
     /// undecodable source file, or a storage volume that is not writable).

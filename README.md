@@ -130,12 +130,14 @@ your database, and hit Publish. (Publish profiles are per-environment and gitign
 created on first publish.)
 
 ```bash
-# Set a real admin password (the seed ships a non-working placeholder):
-dotnet run --project Auth/Auth_Setup -c Release
+# The seed creates the admin with NO password. Set one:
+dotnet run --project Auth/Auth_Setup -c Release -- "<the password you chose>"
 ```
 
-`Auth_Setup` prints an `UPDATE [dbo].[Users] ...` statement — run it against your database. The
-default password is `Admin@123!`, and you are forced to change it on first login.
+`Auth_Setup` prints an `UPDATE [dbo].[Users] ...` statement — run it against your database. Give it
+no argument and it prompts instead, keeping the password out of your shell history. Until you run
+that statement, sign-in as the admin is refused on the server: the seed leaves `PasswordHash` null
+so that no deployment of this system ships a password anyone could look up.
 
 **3. Configure** — **create** `Auth/Auth_API/appsettings.Production.json`. It is not in the repository:
 a clean clone has no production configuration at all, and no `web.config` and no DACPAC publish

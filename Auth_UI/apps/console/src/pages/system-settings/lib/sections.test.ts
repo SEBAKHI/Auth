@@ -44,17 +44,27 @@ function registrySections(): string[] {
   return [...source.matchAll(/^\s*Key:\s*"([A-Za-z]+)",/gm)].map((m) => m[1])
 }
 
-/** Field names declared under a given section. */
-function registryFields(section: string): string[] {
+/**
+ * Fields declared under a given section, each with the flags its declaration
+ * carries. `sensitive` is read rather than ignored because it changes which
+ * component renders the row — see the hint test below.
+ */
+function registryFields(
+  section: string
+): { name: string; sensitive: boolean }[] {
   const source = readFileSync(REGISTRY, "utf8")
   const start = source.indexOf(`Key: "${section}",`)
-  expect(start, `section ${section} not found in the registry`).toBeGreaterThan(-1)
+  expect(start, `section ${section} not found in the registry`).toBeGreaterThan(
+    -1
+  )
 
   // Up to the next section, or the end of the array.
   const next = source.indexOf('Key: "', start + 1)
   const block = source.slice(start, next === -1 ? undefined : next)
 
-  return [...block.matchAll(/new SettingFieldDefinition\("([^"]+)"/g)].map((m) => m[1])
+  return [
+    ...block.matchAll(/new SettingFieldDefinition\("([^"]+)"([^)]*)\)/g),
+  ].map((m) => ({ name: m[1], sensitive: m[2].includes("Sensitive: true") }))
 }
 
 type Tree = Record<string, unknown>
@@ -76,20 +86,33 @@ describe("every settings section the API can send is presentable", () => {
     ).toBeTruthy()
   })
 
-  it.each(registrySections())("%s has a translated title and description", (section) => {
-    const key = SECTION_I18N[section]
-    if (!key) return // reported by the test above
+  it.each(registrySections())(
+    "%s has a translated title and description",
+    (section) => {
+      const key = SECTION_I18N[section]
+      if (!key) return // reported by the test above
 
-    const block = (en.systemSettings as Tree)[key] as Tree | undefined
-    expect(block, `systemSettings.${key} is missing from en.ts`).toBeDefined()
-    expect(block?.title, `systemSettings.${key}.title is missing`).toBeTruthy()
-    expect(block?.description, `systemSettings.${key}.description is missing`).toBeTruthy()
-  })
+      const block = (en.systemSettings as Tree)[key] as Tree | undefined
+      expect(block, `systemSettings.${key} is missing from en.ts`).toBeDefined()
+      expect(
+        block?.title,
+        `systemSettings.${key}.title is missing`
+      ).toBeTruthy()
+      expect(
+        block?.description,
+        `systemSettings.${key}.description is missing`
+      ).toBeTruthy()
+    }
+  )
 })
 
 describe("every editable field has a label", () => {
   const cases = registrySections().flatMap((section) =>
-    registryFields(section).map((field) => ({ section, field }))
+    registryFields(section).map((field) => ({
+      section,
+      field: field.name,
+      sensitive: field.sensitive,
+    }))
   )
 
   it("finds fields at all", () => {
@@ -108,4 +131,29 @@ describe("every editable field has a label", () => {
       `systemSettings.${key}.${fieldI18nKey(field)} is missing — the field renders with no label`
     ).toBeTruthy()
   })
+
+  /**
+   * A label alone says what a setting is called, never what it does. Every row
+   * the console renders carries a hint under it, and eight of them did not,
+   * because the check above only ever asked for the label.
+   *
+   * Sensitive fields are the one exception, and a real one rather than a
+   * concession: `SecretFieldRow` replaces the hint with "managed in Secret
+   * management" and a link, so a hint written for one would never be rendered.
+   */
+  it.each(cases.filter((c) => !c.sensitive))(
+    "$section.$field has a hint",
+    ({ section, field }) => {
+      const key = SECTION_I18N[section]
+      if (!key) return
+
+      const block = (en.systemSettings as Tree)[key] as Tree | undefined
+      if (!block) return
+
+      expect(
+        block[`${fieldI18nKey(field)}Hint`],
+        `systemSettings.${key}.${fieldI18nKey(field)}Hint is missing — the field renders with a name and no explanation`
+      ).toBeTruthy()
+    }
+  )
 })

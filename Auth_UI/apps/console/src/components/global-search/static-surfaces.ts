@@ -171,6 +171,17 @@ export const STATIC_SURFACES: readonly StaticSurface[] = [
     permission: PERMISSIONS.secrets.manage,
   },
   {
+    // Reachable from the DataRetention card, which keeps its own palette row —
+    // that section has settings of its own, unlike SecretManagement above.
+    id: "audit-catalog",
+    route: "/admin/system-settings/audit-catalog",
+    titleKey: "auditCatalog.title",
+    descriptionKey: "auditCatalog.subtitle",
+    altTitleKeys: ["nav.auditLogs"],
+    pathKeys: ["nav.systemSettings"],
+    permission: PERMISSIONS.auditLogs.read,
+  },
+  {
     id: "platform-settings",
     route: "/admin/platform-settings",
     titleKey: "platformSettings.title",

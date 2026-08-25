@@ -76,11 +76,22 @@ internal sealed class RecordingDbCommand(
 
     public override void Cancel() { }
     public override int ExecuteNonQuery() => Execute();
-    public override object? ExecuteScalar() => throw new NotSupportedException();
     public override void Prepare() { }
     protected override DbParameter CreateDbParameter() => new RecordingDbParameter();
-    protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior) =>
-        throw new NotSupportedException();
+
+    // Scalar and reader are supported so that a read path can be recorded too,
+    // not only a write. A paged query runs its COUNT first and then the page, so
+    // both have to answer something for the method to reach its end — and
+    // LastCommand is the page, which is the one carrying the WHERE clause worth
+    // asserting on. Both return emptiness: this double exists to capture the SQL
+    // Dapper builds, never to simulate a database.
+    public override object? ExecuteScalar() => Execute();
+
+    protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
+    {
+        Execute();
+        return new DataTableReader(new DataTable());
+    }
 
     public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
     {

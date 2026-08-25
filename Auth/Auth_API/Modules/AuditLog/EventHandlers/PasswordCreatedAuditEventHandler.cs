@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -29,9 +30,10 @@ public class PasswordCreatedAuditEventHandler : INotificationHandler<PasswordCre
     public async Task Handle(PasswordCreatedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Security",
-            action: "password.created",
-            userId: notification.SetBy,
+            actionType: AuditActionTypes.Security,
+            action: AuditActions.PasswordCreated,
+            userId: notification.UserId,
+            performedBy: notification.SetBy,
             entityType: "User",
             entityId: notification.UserId);
 

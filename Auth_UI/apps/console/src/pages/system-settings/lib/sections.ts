@@ -60,6 +60,18 @@ export interface SectionCompanionPage {
   actionLabelKey: string
   /** Permission the companion page requires — its own, not the section's. */
   permission: string
+  /**
+   * Drops the section's own row from the command palette, because the companion
+   * page's row already names that destination and two near-identical rows one
+   * click apart is what the palette's trail exists to prevent.
+   *
+   * Opt-in rather than implied by having a companion page, and the distinction
+   * is not cosmetic: SecretManagement has no editable setting of its own, so its
+   * card IS the link. DataRetention has five — including how long the audit
+   * record is kept — and suppressing it would delete those five settings' own
+   * section from the only search that finds them.
+   */
+  suppressPaletteRow?: boolean
 }
 
 /**
@@ -77,6 +89,17 @@ export const SECTION_COMPANION_PAGES: Record<string, SectionCompanionPage> = {
     route: "/admin/system-settings/SecretManagement/keys",
     actionLabelKey: "systemSettings.openSecrets",
     permission: PERMISSIONS.secrets.manage,
+    suppressPaletteRow: true,
+  },
+  // The audit catalogue hangs off the section that decides how long the audit
+  // record is kept: that is the only settings section about audit logs at all,
+  // and a reference list of what gets recorded belongs beside the setting for
+  // how long it survives. It reads rather than writes, so its gate is
+  // auditlogs:read and not the section's system-settings:manage.
+  DataRetention: {
+    route: "/admin/system-settings/audit-catalog",
+    actionLabelKey: "systemSettings.openAuditCatalog",
+    permission: PERMISSIONS.auditLogs.read,
   },
 }
 
@@ -108,9 +131,7 @@ export function fieldI18nKey(path: string): string {
   const joined = path
     .split(":")
     .map((segment, index) =>
-      index === 0
-        ? segment.charAt(0).toLowerCase() + segment.slice(1)
-        : segment
+      index === 0 ? segment.charAt(0).toLowerCase() + segment.slice(1) : segment
     )
     .join("")
   // Dots (Serilog override namespaces) would read as nested i18n lookups.

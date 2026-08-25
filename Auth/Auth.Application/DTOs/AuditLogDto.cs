@@ -6,9 +6,18 @@ namespace Auth.Application.DTOs;
 public class AuditLogDto
 {
     public Guid Id { get; set; }
+
+    /// <summary>Who the action happened TO — the subject, not the actor.</summary>
     public Guid? UserId { get; set; }
     public string? UserName { get; set; }
     public string? UserEmail { get; set; }
+
+    /// <summary>Who PERFORMED the action — the actor, when it differs from the subject.</summary>
+    public Guid? PerformedBy { get; set; }
+    public string? PerformedByName { get; set; }
+    public string? PerformedByEmail { get; set; }
+
+    public Guid? SessionId { get; set; }
     public Guid? ApplicationId { get; set; }
     public string? ApplicationName { get; set; }
     public string ActionType { get; set; } = string.Empty;
@@ -20,7 +29,14 @@ public class AuditLogDto
     public string? IpAddress { get; set; }
     public string? UserAgent { get; set; }
     public string? AdditionalData { get; set; }
-    public bool IsSuccess { get; set; }
+
+    /// <summary>
+    /// Whether the action succeeded, or null when the row predates the column
+    /// and the outcome was never recorded. Callers must render the three states
+    /// as three states: a null shown as a success is the defect this replaced.
+    /// </summary>
+    public bool? IsSuccess { get; set; }
+
     public string? ErrorMessage { get; set; }
     public DateTime Timestamp { get; set; }
     public string? CorrelationId { get; set; }

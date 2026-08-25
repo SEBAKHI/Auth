@@ -45,22 +45,21 @@ public class AuditLogsController : ApiController
         [FromQuery] Guid? userId = null,
         [FromQuery] Guid? applicationId = null,
         [FromQuery] string? action = null,
+        [FromQuery] string? actionType = null,
+        [FromQuery] bool? isSuccess = null,
         [FromQuery] DateTime? fromDate = null,
         [FromQuery] DateTime? toDate = null,
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
         CancellationToken cancellationToken = default)
     {
-        // `actionType` and `isSuccess` used to be documented here and are gone:
-        // the AuditLogs table has no such columns, the repository dropped both
-        // before building its WHERE clause, and every row reports "System" and
-        // true regardless. Removing them costs no consumer anything — an unknown
-        // query parameter is ignored by model binding, so a caller still sending
-        // them gets the same unfiltered page it has always received, minus the
-        // 400 that a malformed `isSuccess` used to produce.
+        // `actionType` and `isSuccess` are back, and this time they reach the
+        // WHERE clause. They were removed when the columns did not exist, because
+        // a filter that silently does nothing is worse than no filter: a reader
+        // asking for failures got every row and read it as "no failures".
         var query = new GetAuditLogsQuery(
             pageNumber, pageSize, userId, applicationId,
-            action, fromDate, toDate, sortBy, sortDirection);
+            action, actionType, isSuccess, fromDate, toDate, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
         return result.Match(
@@ -155,6 +154,7 @@ public class AuditLogsController : ApiController
             request.UserId,
             request.ApplicationId,
             request.Action,
+            request.ActionType,
             request.FromDate,
             request.ToDate,
             request.MaxRecords,

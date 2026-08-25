@@ -1065,13 +1065,23 @@ At this point four things are running: the API, the console, the accounts applic
 
 **Open `https://localhost:5173` in a browser.** That is the console. Your browser may warn about the certificate the first time; accept it, because it is the development certificate you exported in §3.6b.
 
-**Sign in with the seeded administrator account:**
+**Give the seeded administrator a password first — it has none.** The seed creates `admin@company.com` with `PasswordHash` set to `NULL`, so no deployment of this system ships a password anyone could look up. Pick one and run:
+
+```bash
+dotnet run --project Auth/Auth_Setup -- "<the password you chose>"
+```
+
+Run the `UPDATE` it prints against your database. With no argument it prompts instead, which keeps the password out of your shell history.
+
+**Then sign in:**
 
 - **Email:** `admin@company.com`
-- **Password:** `Admin@123!`
+- **Password:** the one you just set
 
-**The system will immediately force you to change that password.** The seeded account is created with a "must change password" flag set, so a successful sign-in redirects you to `/force-password-change` rather than to the dashboard. Choose a new password that satisfies the policy in §3.4 — at least 8 characters with an uppercase letter, a lowercase letter, a digit and a special character. There is no way to skip this screen, and that is intentional: a known default password must not survive first use.
-*In code:* the seed sets `MustChangePassword = 1` in `Auth/Auth_DB/dbo/PostDeployment/Script.PostDeployment.sql`; the redirect is in `Auth_UI/packages/auth/src/pages/login.tsx`.
+Until you do this, sign-in is refused: `LoginCommandHandler` rejects a null hash before it reaches the password verifier, so the account exists and holds `super-admin` but cannot authenticate.
+
+**Do not rely on the "must change password" flag to protect a shared password.** The seed still sets `MustChangePassword = 1`, and the console still redirects to `/force-password-change` on it, but that decision is made in the browser — the flag is carried in the sign-in response and no server path reads it. A password that is known to more than one person is live until someone changes it, which is why the seed no longer sets one at all.
+*In code:* the seed is in `Auth/Auth_DB/dbo/PostDeployment/Script.PostDeployment.sql`; the null-hash refusal is `Auth/Auth.Application/Features/Authentication/Login/LoginCommandHandler.cs`; the redirect is `Auth_UI/packages/auth/src/pages/login.tsx`.
 
 **You should see, after the password change:** the console dashboard, with navigation to the administration areas — `/users`, `/roles`, `/permissions`, `/applications`, `/organizations`, `/api-keys`, `/webhook-keys`, `/audit-logs`, `/notifications` and the `/admin/*` settings screens.
 *In code:* the full route list is `Auth_UI/apps/console/src/routes.tsx`.

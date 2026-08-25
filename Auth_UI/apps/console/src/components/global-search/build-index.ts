@@ -161,11 +161,17 @@ export function buildSearchIndex(
       : ""
     const sectionOwnTrail = [settingsRoot, groupLabel].filter(Boolean)
 
-    // A section with a companion page gets no row of its own: that page's own
-    // static surface already names this destination, and two near-identical rows
-    // one click apart is exactly what the trail exists to prevent. The section's
-    // FIELDS are still indexed below and still route into its card.
-    if (!(sectionKey in SECTION_COMPANION_PAGES)) {
+    // A section whose card IS its companion link gets no row of its own: that
+    // page's static surface already names this destination, and two
+    // near-identical rows one click apart is exactly what the trail exists to
+    // prevent. The section's FIELDS are still indexed below and still route into
+    // its card.
+    //
+    // Read from the flag, not from mere presence in the map. A section can have
+    // a companion page AND settings of its own — DataRetention does — and
+    // suppressing that one would take five real settings' section out of the
+    // only search that finds them.
+    if (!SECTION_COMPANION_PAGES[sectionKey]?.suppressPaletteRow) {
       entries.push({
         kind: "surface",
         id: `section:${sectionKey}`,

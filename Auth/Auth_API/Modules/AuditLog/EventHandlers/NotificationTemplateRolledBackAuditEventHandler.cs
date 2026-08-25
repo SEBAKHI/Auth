@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -26,9 +27,9 @@ public class NotificationTemplateRolledBackAuditEventHandler
     public async Task Handle(NotificationTemplateRolledBackEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Administration",
-            action: "notification-template.rolled-back",
-            userId: notification.RolledBackBy,
+            actionType: AuditActionTypes.Administration,
+            action: AuditActions.NotificationTemplateRolledBack,
+            performedBy: notification.RolledBackBy,
             entityType: "NotificationTemplate",
             entityId: notification.TemplateId,
             oldValues: JsonSerializer.Serialize(new { fromVersionId = notification.FromVersionId }),

@@ -166,6 +166,25 @@ describe("buildSearchIndex", () => {
       route: "/admin/system-settings/SecretManagement/keys",
     })
   })
+
+  it("keeps the row of a section that has a companion page AND settings", () => {
+    // DataRetention links to the audit action catalogue, which is a reference
+    // list rather than its controls: the section still owns how long the audit
+    // record, login attempts and the outbox are kept. Suppressing it — which is
+    // what happens if the rule reads "has a companion page" instead of the
+    // explicit flag — takes those settings' own section out of the only search
+    // that finds them.
+    const dataRetention: SystemSettingsSection = {
+      key: "DataRetention",
+      group: "operations",
+      editable: true,
+      fields: [{ path: "AuditLogRetentionDays", kind: "int" }],
+    } as SystemSettingsSection
+    const ids = buildSearchIndex([dataRetention], t, allow).map((e) => e.id)
+
+    expect(ids).toContain("section:DataRetention")
+    expect(ids).toContain("DataRetention:AuditLogRetentionDays")
+  })
 })
 
 describe("searchIndex", () => {
@@ -247,11 +266,7 @@ describe("searchIndex caps", () => {
   })
 
   it("lifts the cap for a group the user expanded", () => {
-    const { fieldGroups } = searchIndex(
-      index,
-      "widget",
-      new Set(["Password"])
-    )
+    const { fieldGroups } = searchIndex(index, "widget", new Set(["Password"]))
 
     expect(fieldGroups[0].fields).toHaveLength(9)
   })

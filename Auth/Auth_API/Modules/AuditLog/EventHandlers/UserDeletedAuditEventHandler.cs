@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -23,9 +24,10 @@ public class UserDeletedAuditEventHandler : INotificationHandler<UserDeletedEven
     public async Task Handle(UserDeletedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "UserManagement",
-            action: "user.deleted",
-            userId: notification.DeletedBy,
+            actionType: AuditActionTypes.UserManagement,
+            action: AuditActions.UserDeleted,
+            userId: notification.UserId,
+            performedBy: notification.DeletedBy,
             entityType: "User",
             entityId: notification.UserId,
             additionalData: $"{{\"email\":\"{notification.Email}\"}}");

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -36,9 +37,9 @@ public class SecretValueChangedEventHandler
         CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Administration",
-            action: "secrets.value.changed",
-            userId: notification.ChangedBy,
+            actionType: AuditActionTypes.Administration,
+            action: AuditActions.SecretsValueChanged,
+            performedBy: notification.ChangedBy,
             entityType: "Secret",
             newValues: JsonSerializer.Serialize(new
             {

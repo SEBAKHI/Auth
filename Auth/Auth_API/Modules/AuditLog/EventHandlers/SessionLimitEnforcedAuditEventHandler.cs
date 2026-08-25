@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using MediatR;
@@ -31,9 +32,10 @@ public class SessionLimitEnforcedAuditEventHandler : INotificationHandler<Sessio
             // 'session.ended' is the action name the AuditLogs DDL already
             // reserves for this entity type.
             var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-                actionType: "Security",
-                action: "session.ended",
+                actionType: AuditActionTypes.Security,
+                action: AuditActions.SessionEnded,
                 userId: notification.UserId,
+            performedBy: WellKnownUserIds.System,
                 entityType: "Session",
                 entityId: ended.SessionId);
 

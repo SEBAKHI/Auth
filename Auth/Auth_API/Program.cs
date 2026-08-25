@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -409,6 +410,7 @@ builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
 builder.Services.AddScoped<ILoginAttemptRepository, LoginAttemptRepository>();
 builder.Services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IUploadedImageRepository, UploadedImageRepository>();
 builder.Services.AddScoped<IPasswordHistoryRepository, PasswordHistoryRepository>();
 builder.Services.AddScoped<IUserSessionRepository, UserSessionRepository>();
 builder.Services.AddScoped<IUserUiPreferenceRepository, UserUiPreferenceRepository>();
@@ -758,16 +760,13 @@ builder.Services.AddAuthentication(options =>
 
     options.Events = new JwtBearerEvents
     {
-        OnMessageReceived = context =>
-        {
-            // Support token from query string for WebSocket connections
-            var accessToken = context.Request.Query["access_token"];
-            if (!string.IsNullOrEmpty(accessToken))
-            {
-                context.Token = accessToken;
-            }
-            return Task.CompletedTask;
-        },
+        // No OnMessageReceived hook on purpose. Reading the token from a query string would
+        // route it around JwtBlacklistValidationMiddleware, which keys on the Authorization
+        // header and lets a request through untouched when that header is absent - so a
+        // revoked, logged-out or locked-out token presented as ?access_token= would skip the
+        // jti, sid and user-revocation checks alike. The comment this replaces cited WebSocket
+        // support; there is no WebSocket, SignalR or hub anywhere in this solution, and the
+        // uploads that are fetched by URL are served by UseStaticFiles with no authentication.
         OnAuthenticationFailed = context =>
         {
             if (context.Exception is SecurityTokenExpiredException)
@@ -832,6 +831,31 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = builder.Configuration.GetValue("RateLimiting:PasswordResetPermitLimit", 10),
                 Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:PasswordResetWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
+    // Validating an API key is the most expensive thing an authenticated caller
+    // can ask this process to do. The lookup narrows candidates by key prefix and
+    // then runs a full Argon2id verify against each surviving row — 19 MiB and
+    // two passes per verify, by design, because that cost is what makes a stolen
+    // hash useless. Nothing bounded how many times it could be asked for, so a
+    // caller holding apikeys:validate could turn a cheap request into hundreds of
+    // megabytes of hashing work per second.
+    //
+    // Partitioned on the caller, not the client IP: the endpoint is authenticated,
+    // relying parties legitimately call it from a small pool of server addresses,
+    // and an IP bucket would let one busy integration throttle every other one
+    // sharing a NAT. Falls back to IP only when the principal has no id to key on,
+    // which should not happen behind [RequirePermission] but must not open the
+    // bucket if it ever does.
+    options.AddPolicy("apikey-validate", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                ?? ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:ApiKeyValidatePermitLimit", 60),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:ApiKeyValidateWindowSeconds", 60)),
                 QueueLimit = 0
             }));
 

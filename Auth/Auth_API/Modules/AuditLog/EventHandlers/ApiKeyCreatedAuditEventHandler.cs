@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -23,9 +24,9 @@ public class ApiKeyCreatedAuditEventHandler : INotificationHandler<ApiKeyCreated
     public async Task Handle(ApiKeyCreatedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "ApiKeyManagement",
-            action: "apikey.created",
-            userId: notification.CreatedBy,
+            actionType: AuditActionTypes.ApiKeyManagement,
+            action: AuditActions.ApiKeyCreated,
+            performedBy: notification.CreatedBy,
             entityType: "ApiKey",
             entityId: notification.ApiKeyId,
             additionalData: $"{{\"applicationId\":\"{notification.ApplicationId}\",\"name\":\"{notification.Name}\"}}");

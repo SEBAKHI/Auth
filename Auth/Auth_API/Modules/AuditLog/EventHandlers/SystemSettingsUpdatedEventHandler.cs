@@ -1,5 +1,6 @@
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -25,9 +26,9 @@ public class SystemSettingsUpdatedEventHandler : INotificationHandler<SystemSett
     public async Task Handle(SystemSettingsUpdatedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Administration",
-            action: "system-settings.updated",
-            userId: notification.UpdatedBy,
+            actionType: AuditActionTypes.Administration,
+            action: AuditActions.SystemSettingsUpdated,
+            performedBy: notification.UpdatedBy,
             entityType: "SystemSettings",
             oldValues: notification.OldOverridesJson,
             newValues: notification.NewOverridesJson,

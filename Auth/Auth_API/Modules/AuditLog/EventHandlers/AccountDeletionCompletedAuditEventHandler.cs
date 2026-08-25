@@ -29,9 +29,10 @@ public class AccountDeletionCompletedAuditEventHandler : INotificationHandler<Ac
     public async Task Handle(AccountDeletionCompletedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "UserManagement",
-            action: "user.deletion_completed",
+            actionType: AuditActionTypes.UserManagement,
+            action: AuditActions.UserDeletionCompleted,
             userId: WellKnownUserIds.System,
+            performedBy: WellKnownUserIds.System,
             entityType: "User",
             entityId: notification.UserId,
             additionalData:

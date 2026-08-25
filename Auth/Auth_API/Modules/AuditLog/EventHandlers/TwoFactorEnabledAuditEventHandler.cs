@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -23,9 +24,10 @@ public class TwoFactorEnabledAuditEventHandler : INotificationHandler<TwoFactorE
     public async Task Handle(TwoFactorEnabledEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Security",
-            action: "twofactor.enabled",
-            userId: notification.EnabledBy,
+            actionType: AuditActionTypes.Security,
+            action: AuditActions.TwoFactorEnabled,
+            userId: notification.UserId,
+            performedBy: notification.EnabledBy,
             entityType: "User",
             entityId: notification.UserId);
 

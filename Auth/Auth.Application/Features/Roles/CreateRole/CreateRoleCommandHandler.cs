@@ -1,3 +1,4 @@
+using Auth.Domain.Events;
 using Auth.Application.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -16,17 +17,20 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Error
     private readonly IRoleRepository _roleRepository;
     private readonly IPermissionRepository _permissionRepository;
     private readonly PermissionGrantGuard _grantGuard;
+    private readonly IPublisher _publisher;
     private readonly ILogger<CreateRoleCommandHandler> _logger;
 
     public CreateRoleCommandHandler(
         IRoleRepository roleRepository,
         IPermissionRepository permissionRepository,
         PermissionGrantGuard grantGuard,
+        IPublisher publisher,
         ILogger<CreateRoleCommandHandler> logger)
     {
         _roleRepository = roleRepository;
         _permissionRepository = permissionRepository;
         _grantGuard = grantGuard;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -95,6 +99,10 @@ public class CreateRoleCommandHandler : IRequestHandler<CreateRoleCommand, Error
         _logger.LogInformation(
             "Role created: {RoleId} ({RoleCode}) for application {ApplicationId} by {CreatedBy}",
             role.Id, role.Code, request.ApplicationId, request.CreatedBy);
+
+        await _publisher.Publish(
+            new RoleCreatedEvent(role.Id, role.Code, role.Name, request.ApplicationId, request.CreatedBy),
+            cancellationToken);
 
         return new RoleDto
         {

@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -23,9 +24,10 @@ public class UserUnlockedAuditEventHandler : INotificationHandler<UserUnlockedEv
     public async Task Handle(UserUnlockedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Security",
-            action: "user.unlocked",
-            userId: notification.UnlockedBy,
+            actionType: AuditActionTypes.Security,
+            action: AuditActions.UserUnlocked,
+            userId: notification.UserId,
+            performedBy: notification.UnlockedBy,
             entityType: "User",
             entityId: notification.UserId);
 

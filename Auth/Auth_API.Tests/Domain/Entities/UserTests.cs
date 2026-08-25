@@ -503,6 +503,80 @@ public class UserTests
 
     #endregion
 
+    #region CanRenewCredentials Tests
+
+    [Fact]
+    public void CanRenewCredentials_StatusInactive_ReturnsFalse()
+    {
+        // The whole point of the predicate. Renewal used to ask IsLockedOut(),
+        // which never matches Inactive, so deactivating an account changed the
+        // row and left the refresh grant, the OIDC authorize path and the code
+        // exchange all open to it.
+        var user = CreateDefaultUser(status: UserStatus.Inactive);
+
+        user.CanRenewCredentials().Should().BeFalse();
+        user.IsLockedOut().Should().BeFalse("this is exactly why the old gate let it through");
+    }
+
+    [Fact]
+    public void CanRenewCredentials_StatusPending_ReturnsFalse()
+    {
+        var user = CreateDefaultUser(status: UserStatus.Pending);
+
+        user.CanRenewCredentials().Should().BeFalse();
+    }
+
+    [Fact]
+    public void CanRenewCredentials_StatusActive_ReturnsTrue()
+    {
+        var user = CreateDefaultUser(status: UserStatus.Active);
+
+        user.CanRenewCredentials().Should().BeTrue();
+    }
+
+    [Fact]
+    public void CanRenewCredentials_LiveLockout_ReturnsFalse()
+    {
+        var user = CreateDefaultUser(
+            status: UserStatus.Locked,
+            failedLoginAttempts: 5,
+            lockoutEnd: DateTime.UtcNow.AddHours(1));
+
+        user.CanRenewCredentials().Should().BeFalse();
+    }
+
+    [Fact]
+    public void CanRenewCredentials_LapsedLockout_ReturnsTrue()
+    {
+        // Deliberately unchanged behaviour. A lapsed lockout is repaired by the
+        // next interactive sign-in, and the account is not being offboarded —
+        // denying renewal here would be a product change riding along with a
+        // security fix.
+        var user = CreateDefaultUser(
+            status: UserStatus.Locked,
+            failedLoginAttempts: 5,
+            lockoutEnd: DateTime.UtcNow.AddHours(-1));
+
+        user.CanRenewCredentials().Should().BeTrue();
+    }
+
+    [Fact]
+    public void CanRenewCredentials_RefusesAnyStatusAddedLater()
+    {
+        // The predicate is default-deny, so a status introduced next quarter
+        // cannot renew credentials until someone decides it may. Locked is
+        // excluded here because the case above covers it deliberately.
+        var handled = new[] { UserStatus.Active, UserStatus.Locked };
+
+        foreach (var status in Enum.GetValues<UserStatus>().Except(handled))
+        {
+            CreateDefaultUser(status: status).CanRenewCredentials()
+                .Should().BeFalse($"{status} is not an explicitly allowed renewal state");
+        }
+    }
+
+    #endregion
+
     #region Unlock Tests
 
     [Fact]

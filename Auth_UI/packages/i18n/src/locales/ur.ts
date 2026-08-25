@@ -151,6 +151,7 @@ export const ur: TranslationResources = {
     auditLogs: "آڈٹ لاگز",
     secretManagement: "رازوں کا انتظام",
     secretKeys: "خفیہ کلیدیں",
+    auditCatalog: "آڈٹ اعمال کیٹلاگ",
     platformSettings: "پلیٹ فارم کی ترتیبات",
     systemSettings: "نظام کی ترتیبات",
     profile: "پروفائل",
@@ -807,6 +808,78 @@ export const ur: TranslationResources = {
     detailTitle: "آڈٹ واقعہ",
     oldValues: "پرانی اقدار",
     newValues: "نئی اقدار",
+    actionCode: "کوڈ",
+    allActionTypes: "تمام اقسام",
+    allActions: "تمام اعمال",
+    actionTypes: {
+      authentication: "توثیق",
+      authorization: "اجازت",
+      security: "سلامتی",
+      userManagement: "صارف انتظام",
+      administration: "انتظامیہ",
+      application: "ایپلیکیشنز",
+      organizationManagement: "تنظیمیں",
+      apiKeyManagement: "API کلیدیں",
+      system: "نظام",
+    },
+    actions: {
+      userLogin: "سائن اِن ہوا",
+      userLogout: "سائن آؤٹ ہوا",
+      userLogoutAll: "ہر ڈیوائس سے سائن آؤٹ ہوا",
+      permissionGranted: "صارف کو اجازت دی گئی",
+      permissionRevoked: "صارف سے اجازت واپس لی گئی",
+      roleAssigned: "صارف کو کردار تفویض ہوا",
+      roleRemoved: "صارف سے کردار ہٹایا گیا",
+      roleCreated: "کردار بنایا گیا",
+      roleUpdated: "کردار اپ ڈیٹ ہوا",
+      roleDeleted: "کردار حذف ہوا",
+      rolePermissionGranted: "کردار میں اجازت شامل ہوئی",
+      rolePermissionRevoked: "کردار سے اجازت ہٹائی گئی",
+      passwordCreated:
+        "ایسے اکاؤنٹ میں پاس ورڈ شامل ہوا جس کا پہلے کوئی نہ تھا",
+      passwordChanged: "پاس ورڈ تبدیل ہوا",
+      twofactorEnabled: "دو مرحلہ توثیق فعال ہوئی",
+      twofactorDisabled: "دو مرحلہ توثیق غیر فعال ہوئی",
+      userLocked: "اکاؤنٹ مقفل ہوا",
+      userUnlocked: "اکاؤنٹ کا قفل کھلا",
+      externalLoginLinked: "بیرونی سائن اِن فراہم کنندہ منسلک ہوا",
+      sessionEnded: "سیشن ختم ہوا",
+      webhookkeyCreated: "ویب ہُک دستخطی کلید بنی",
+      webhookkeyRevoked: "ویب ہُک دستخطی کلید منسوخ ہوئی",
+      userCreated: "صارف بنایا گیا",
+      userDeleted: "صارف حذف ہوا",
+      userHarddeleted: "صارف مستقل طور پر ختم ہوا",
+      userDeletionRequested: "اکاؤنٹ حذف کرنے کی درخواست",
+      userDeletionCancelled: "اکاؤنٹ حذف کرنا منسوخ ہوا",
+      userDeletionCompleted: "اکاؤنٹ حذف مکمل ہوا",
+      userDeletionReapplied: "اکاؤنٹ حذف دوبارہ آزمایا گیا",
+      systemSettingsUpdated: "نظام کی ترتیبات تبدیل ہوئیں",
+      platformSettingsUpdated: "پلیٹ فارم کی ترتیبات تبدیل ہوئیں",
+      notificationTemplatePublished: "اطلاعی سانچہ شائع ہوا",
+      notificationTemplateUnpublished: "اطلاعی سانچے کی اشاعت واپس ہوئی",
+      notificationTemplateRolledBack: "اطلاعی سانچہ واپس پلٹایا گیا",
+      secretsValueChanged: "خفیہ قدر تبدیل ہوئی",
+      secretsOperationConfirmationRequested: "خفیہ عمل کی توثیق طلب ہوئی",
+      secretsOperationExecuted: "خفیہ عمل انجام پایا",
+      applicationAccessGranted: "ایپلیکیشن تک رسائی دی گئی",
+      applicationAccessRevoked: "ایپلیکیشن تک رسائی واپس لی گئی",
+      applicationActivated: "ایپلیکیشن فعال ہوئی",
+      applicationDeactivated: "ایپلیکیشن غیر فعال ہوئی",
+      organizationOwnershipTransferInitiated:
+        "تنظیم کی ملکیت کی منتقلی شروع ہوئی",
+      organizationOwnershipTransferred: "تنظیم کی ملکیت منتقل ہوئی",
+      apikeyCreated: "API کلید بنی",
+      apikeyRevoked: "API کلید منسوخ ہوئی",
+      systemPrivacyPolicyContentSaved: "رازداری پالیسی کا مسودہ محفوظ ہوا",
+      systemPrivacyPolicyPublished: "رازداری پالیسی شائع ہوئی",
+      systemPolicyNotificationSent: "رازداری پالیسی کی اطلاع بھیجی گئی",
+      systemRetentionSweep: "ڈیٹا برقراری کی صفائی چلی",
+    },
+  },
+  auditCatalog: {
+    title: "آڈٹ اعمال کیٹلاگ",
+    subtitle:
+      "ہر وہ عمل جو یہ نظام ریکارڈ کرتا ہے، اور وہ قسم جس کے تحت اسے رکھا جاتا ہے۔ صرف پڑھنے کے لیے: فہرست اُسی کوڈ سے آتی ہے جو آڈٹ ریکارڈ لکھتا ہے، اس لیے یہ بتاتی ہے کہ حقیقتاً کیا ریکارڈ ہوتا ہے، نہ کہ کیا ترتیب دیا گیا ہے۔",
   },
   secrets: {
     title: "خفیہ کلیدیں",
@@ -1308,6 +1381,7 @@ export const ur: TranslationResources = {
     managedInSecrets:
       "خفیہ قدر — خفیہ کاری کے ساتھ ذخیرہ ہوتی ہے اور اس کا انتظام «رازوں کا انتظام» کے تحت ہوتا ہے، یہاں کبھی نہیں۔",
     openSecrets: "رازوں کا انتظام کریں",
+    openAuditCatalog: "آڈٹ اعمال کیٹلاگ دیکھیں",
     readOnly: "صرف پڑھنے کے لیے",
     resetSection: "طے شدہ ترتیبات پر واپس لائیں",
     resetConfirmTitle: "یہ حصہ ری سیٹ کریں؟",
@@ -1475,6 +1549,12 @@ export const ur: TranslationResources = {
       passwordResetWindowSeconds: "ری سیٹ گنتی کی ونڈو (سیکنڈ)",
       passwordResetWindowSecondsHint:
         "وہ مدت جس پر اوپر کے استعمال کی گنتی ماپی جاتی ہے، اُسی مقررہ ونڈو کے اصول پر۔",
+      apiKeyValidatePermitLimit: "فی ونڈو API کلید کی توثیقات",
+      apiKeyValidatePermitLimitHint:
+        "ایک کلائنٹ IP کتنی بار اس API سے کسی API کلید کی جانچ کا کہہ سکتا ہے، اس کے بعد 429 کے ساتھ انکار ہوتا ہے۔ یہ حد کسی راز کی نہیں بلکہ محنت کی حفاظت کرتی ہے: ہر توثیق پیش کردہ کلید کو Argon2id سے ہیش کرتی ہے جو جان بوجھ کر سست اور یادداشت خور ہے، چنانچہ بغیر حد والا کالر درست کلید رکھے بغیر ہی اس سرور کا پروسیسر اور یادداشت خرچ کر سکتا ہے۔ اسے جائز انضمام کی ضرورت سے کچھ اوپر رکھیں، اس سے زیادہ نہیں۔",
+      apiKeyValidateWindowSeconds: "API کلید توثیق کی ونڈو (سیکنڈ)",
+      apiKeyValidateWindowSecondsHint:
+        "وہ دورانیہ جس پر اوپر کی گنتی ناپی جاتی ہے۔ ونڈو ثابت ہے، رواں نہیں: اس کے ختم ہونے پر شمار کنندہ صفر پر لوٹ آتا ہے، اور جو کالر اپنا حصہ خرچ کر چکا ہو وہ تب تک انتظار کرتا ہے۔",
     },
     gatewayRateLimiting: {
       title: "درخواست کی حد (گیٹ وے)",
@@ -1808,18 +1888,34 @@ export const ur: TranslationResources = {
       description:
         "وہ کلیدی حلقہ جو ذخیرہ شدہ رازوں کو خفیہ کرتا ہے (2FA بیج، محفوظ کلیدیں)۔ ڈیٹا بیس دستیاب ہونے سے پہلے پڑھا جاتا ہے — اور غلط فولڈر کی طرف موڑنے سے ہر خفیہ قدر ہمیشہ کے لیے ناقابلِ مطالعہ ہو جاتی ہے — اس لیے اس کا انتظام صرف سرور فائلوں میں ہوتا ہے۔",
       keyPath: "کلیدی حلقے کا فولڈر",
+      keyPathHint:
+        "وہ فولڈر جہاں خفیہ کاری کی کلیدیں خود لکھی جاتی ہیں۔ اس کا بیک اپ ڈیٹابیس کے ساتھ لیں: ایک کو دوسرے کے بغیر بحال کرنا ہر خفیہ کردہ قدر کو ناقابلِ مطالعہ چھوڑ دیتا ہے۔",
       certificatePfxPath: "سرٹیفکیٹ فائل",
+      certificatePfxPathHint:
+        "ایک PFX سرٹیفکیٹ جو کلید کے حلقے کو ذخیرے میں خفیہ کرتا ہے، تاکہ صرف فولڈر کی نقل اسے پڑھنے کے لیے کافی نہ ہو۔ خالی کا مطلب ہے کہ کلید کا حلقہ اس کے بجائے میزبان کے تحفظ میں ہے۔",
       certificateThumbprint: "سرٹیفکیٹ تھمب پرنٹ",
+      certificateThumbprintHint:
+        "اوپر والی فائل کا متبادل: مشین کے ذخیرے میں پہلے سے نصب سرٹیفکیٹ کا نقشِ انگشت۔ دونوں نہیں، ایک مقرر کریں۔",
       certificatePasswordEnvironmentVariable: "پاس ورڈ ماحولیاتی متغیر",
+      certificatePasswordEnvironmentVariableHint:
+        "اُس ماحولیاتی متغیر کا نام جو سرٹیفکیٹ کا پاس ورڈ رکھتا ہے — صرف نام، پاس ورڈ خود ہرگز نہیں، اسی لیے یہ سطر دکھانا محفوظ ہے۔",
     },
     secretManagement: {
       title: "راز کا انتظام",
       description:
         "خفیہ نگاری کے راز کیسے ذخیرہ ہوتے ہیں (خفیہ شدہ فائل / DPAPI / ڈیویلپمنٹ کے لیے سادہ متن)۔ ڈیٹا بیس سے پہلے شروع ہوتا ہے، اس لیے موڈ کا انتظام سرور فائلوں میں ہوتا ہے؛ راز کی قدروں کا انتظام نیچے کلیدوں کے صفحے پر ہوتا ہے۔",
       storageMode: "ذخیرے کا موڈ",
+      storageModeHint:
+        "راز ڈسک پر کیسے محفوظ ہیں: Encrypted (اوپر والے سرٹیفکیٹ سے اخذ کردہ کلید سے)، DPAPI (اسی Windows اکاؤنٹ سے بندھا، سو فائلیں کسی دوسری مشین پر منتقل نہیں ہو سکتیں)، یا صرف مقامی ترقی کے لیے PlainText۔ یہاں ترتیب دیا گیا موڈ دکھایا جاتا ہے؛ اگر منتخب موڈ شروع نہ ہو سکے تو عمل واپس ہٹ کر اسے لاگ کرتا ہے۔",
       secretFilePath: "راز کی فائل",
+      secretFilePathHint:
+        "خفیہ ذخیرے کا مقام۔ اسے وہی تحفظ دیں جو ڈیٹابیس کی اسناد کو دیتے ہیں — جو کچھ بھی یہ فائل پڑھ سکتا ہے وہ ٹوکن پر دستخط کر سکتا ہے۔",
       autoGenerateKeys: "کلیدیں خودکار بنائیں",
+      autoGenerateKeysHint:
+        "پہلی بار چلنے پر غائب دستخطی کلید کا مواد بنا دیتا ہے، بجائے اس کے کہ چلنے سے انکار کرے۔ نئی تنصیب پر سہولت ہے؛ مگر موجودہ تعیناتی پر خاموشی سے بنی کلید کھوئی ہوئی کلید سے الگ نہیں پہچانی جا سکتی، کیونکہ ہر جاری شدہ ٹوکن کی توثیق رک جاتی ہے۔",
       enableAdminApi: "ایڈمن API فعال",
+      enableAdminApiHint:
+        "کیا خفیہ انتظام کے اینڈ پوائنٹس سرے سے پیش کیے جاتے ہیں۔ بند ہونے پر کلیدوں کا صفحہ اُن تک نہیں پہنچ سکتا، کالر کو جو بھی اجازت حاصل ہو — یہ راستہ سازی کی سطح کا سوئچ ہے، اجازت نہیں۔",
     },
     connectionStrings: {
       title: "ڈیٹا بیس کنکشن",
