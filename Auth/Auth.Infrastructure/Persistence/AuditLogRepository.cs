@@ -76,16 +76,34 @@ public class AuditLogRepository : IAuditLogRepository
         return dto?.ToEntity();
     }
 
-    // Actor/user/application fields sort on the joined Users and Applications
-    // rows (1:1 by primary key, LEFT so system events with null FKs stay
-    // included); actor mirrors the UI's `userEmail ?? userName` display value.
+    /// <summary>
+    /// The joins every read of this table shares. Two separate joins onto Users,
+    /// because an audit row names two different people and they are only the same
+    /// person when someone acted on their own account.
+    /// </summary>
+    /// <remarks>
+    /// All LEFT: a system action has neither, and an inner join would delete the
+    /// retention sweep and the policy publications from every page.
+    /// </remarks>
+    private const string Joins = @"
+            LEFT JOIN [dbo].[Users] u ON a.[UserId] = u.[Id]
+            LEFT JOIN [dbo].[Users] pb ON a.[PerformedBy] = pb.[Id]
+            LEFT JOIN [dbo].[Applications] ap ON a.[ApplicationId] = ap.[Id]";
+
+    // Actor sorts on the PERFORMER's row (pb), subject on the row the action was
+    // done to (u). Before those were two entries, "actor" ordered on u — so a
+    // page sorted by actor was ordered by the people acted upon, and an
+    // administrator asking "what did this operator do" got a list keyed to
+    // everyone but them.
     private static readonly IReadOnlyDictionary<string, string[]> SortColumns = SortSql.Map(
         (SortFields.AuditLogs.Action, ["a.[Action]"]),
+        (SortFields.AuditLogs.ActionType, ["a.[ActionType]"]),
         (SortFields.AuditLogs.EntityType, ["a.[EntityType]"]),
         (SortFields.AuditLogs.Timestamp, ["a.[Timestamp]"]),
         (SortFields.AuditLogs.IpAddress, ["a.[IpAddress]"]),
         (SortFields.AuditLogs.UserAgent, ["a.[UserAgent]"]),
-        (SortFields.AuditLogs.Actor, ["COALESCE(u.[Email], u.[FullName])"]),
+        (SortFields.AuditLogs.Actor, ["COALESCE(pb.[Email], pb.[FullName])"]),
+        (SortFields.AuditLogs.Subject, ["COALESCE(u.[Email], u.[FullName])"]),
         (SortFields.AuditLogs.UserName, ["u.[FullName]"]),
         (SortFields.AuditLogs.UserEmail, ["u.[Email]"]),
         (SortFields.AuditLogs.ApplicationName, ["ap.[Name]"]));
@@ -171,9 +189,7 @@ public class AuditLogRepository : IAuditLogRepository
         var orderBy = SortSql.OrderBy(
             SortColumns, sortBy, sortDirection, "a.[Timestamp] DESC", "a.[Id]");
         var sql = $@"
-            SELECT a.* FROM [dbo].[AuditLogs] a
-            LEFT JOIN [dbo].[Users] u ON a.[UserId] = u.[Id]
-            LEFT JOIN [dbo].[Applications] ap ON a.[ApplicationId] = ap.[Id]
+            SELECT a.* FROM [dbo].[AuditLogs] a{Joins}
             {whereClause}
             ORDER BY {orderBy}
             OFFSET @Offset ROWS FETCH NEXT @PageSize ROWS ONLY";
@@ -197,9 +213,7 @@ public class AuditLogRepository : IAuditLogRepository
         var orderBy = SortSql.OrderBy(
             SortColumns, sortBy, sortDirection, "a.[Timestamp] DESC", "a.[Id]");
         var dtos = await connection.QueryAsync<AuditLogDto>($@"
-            SELECT a.* FROM [dbo].[AuditLogs] a
-            LEFT JOIN [dbo].[Users] u ON a.[UserId] = u.[Id]
-            LEFT JOIN [dbo].[Applications] ap ON a.[ApplicationId] = ap.[Id]
+            SELECT a.* FROM [dbo].[AuditLogs] a{Joins}
             WHERE a.[EntityType] = @EntityType AND a.[EntityId] = @EntityId
             ORDER BY {orderBy}",
             new { EntityType = entityType, EntityId = entityId });

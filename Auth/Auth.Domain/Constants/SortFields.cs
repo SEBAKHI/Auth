@@ -79,12 +79,32 @@ public static class SortFields
         ];
     }
 
+    /// <summary>
+    /// An audit row names two people, and the two must never be sorted as one.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Actor"/> orders on who PERFORMED the action; <see cref="Subject"/>
+    /// on who it happened TO. Until this distinction existed here, "actor" ordered
+    /// on the subject's Users row — so a page sorted by actor was sorted by the
+    /// person the action was done to, and an administrator looking for everything
+    /// one operator did got a list keyed to their victims.
+    /// <para>
+    /// <see cref="UserName"/> and <see cref="UserEmail"/> are the SUBJECT's fields,
+    /// matching the DTO property names they order by.
+    /// </para>
+    /// </remarks>
     public static class AuditLogs
     {
         public const string Action = "action";
+        public const string ActionType = "actionType";
         public const string EntityType = "entityType";
         public const string Timestamp = "timestamp";
+
+        /// <summary>Who performed the action.</summary>
         public const string Actor = "actor";
+
+        /// <summary>Who the action happened to.</summary>
+        public const string Subject = "subject";
         public const string UserName = "userName";
         public const string UserEmail = "userEmail";
         public const string ApplicationName = "applicationName";
@@ -93,8 +113,8 @@ public static class SortFields
 
         public static readonly IReadOnlyList<string> Allowed =
         [
-            Action, EntityType, Timestamp, Actor, UserName, UserEmail,
-            ApplicationName, IpAddress, UserAgent
+            Action, ActionType, EntityType, Timestamp, Actor, Subject,
+            UserName, UserEmail, ApplicationName, IpAddress, UserAgent
         ];
     }
 

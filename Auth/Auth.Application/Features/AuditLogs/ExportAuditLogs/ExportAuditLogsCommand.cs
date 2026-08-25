@@ -22,7 +22,11 @@ namespace Auth.Application.Features.AuditLogs.ExportAuditLogs;
 /// they believe holds one category and find the whole table.
 /// </para>
 /// <para>
-/// IsSuccess stays absent, because the console still has no control that sets it.
+/// IsSuccess is back for the same reason, now that the console has a result
+/// filter. It matches on equality, so rows written before the column existed —
+/// whose outcome was never recorded — are excluded from both true and false.
+/// Neither answer would be honest about them, and an export that quietly folded
+/// them into "succeeded" is the defect the nullable column was introduced to end.
 /// </para>
 /// </remarks>
 public record ExportAuditLogsCommand(
@@ -31,6 +35,7 @@ public record ExportAuditLogsCommand(
     Guid? ApplicationId = null,
     string? Action = null,
     string? ActionType = null,
+    bool? IsSuccess = null,
     DateTime? FromDate = null,
     DateTime? ToDate = null,
     int MaxRecords = 10000,

@@ -46,6 +46,7 @@ import {
 } from "@authsystem/ui/hooks/use-search-query"
 import type { Schemas } from "@authsystem/api/types"
 import { AuditLogDetailDialog } from "./audit-log-detail-dialog"
+import { ResultBadge } from "./result-badge"
 
 type AuditLogDto = Schemas["AuditLogDto"]
 
@@ -53,6 +54,7 @@ type AuditLogListFilters = {
   applicationId: string
   action: string
   actionType: string
+  result: string
   from: string
   to: string
 }
@@ -68,6 +70,11 @@ const AUDIT_LOGS_LIST_URL_OPTIONS = {
     applicationId: stringUrlFilter({ maxLength: 128 }),
     action: stringUrlFilter({ maxLength: 100 }),
     actionType: stringUrlFilter({ maxLength: 100 }),
+    // A string of two values rather than booleanUrlFilter, because the choice
+    // has three states and a boolean can only carry two: "" is "do not narrow",
+    // which is not the same as "show me the failures". Anything else in the URL
+    // canonicalizes to "", so a hand-edited link widens rather than narrows.
+    result: stringUrlFilter({ pattern: /^(true|false)$/, maxLength: 5 }),
     from: dateUrlFilter(),
     to: dateUrlFilter(),
   },
@@ -88,7 +95,14 @@ export function AuditLogsPage() {
     pageIndex: page,
     pageSize,
     sorting,
-    filters: { applicationId, action, actionType, from: fromDate, to: toDate },
+    filters: {
+      applicationId,
+      action,
+      actionType,
+      result,
+      from: fromDate,
+      to: toDate,
+    },
     setPageIndex: setPage,
     setPageSize,
     setSorting,
@@ -143,10 +157,13 @@ export function AuditLogsPage() {
       applicationId: applicationId || undefined,
       action: action || undefined,
       actionType: actionType || undefined,
+      // undefined, not false, when nothing is chosen: the API matches on
+      // equality, so sending false would ask for the failures.
+      isSuccess: result === "" ? undefined : result === "true",
       fromDate: fromDate ? startOfDay(fromDate) : undefined,
       toDate: toDate ? endOfDay(toDate) : undefined,
     }),
-    [applicationId, action, actionType, fromDate, toDate]
+    [applicationId, action, actionType, result, fromDate, toDate]
   )
 
   const query = useQuery({
@@ -217,9 +234,6 @@ export function AuditLogsPage() {
     {
       id: "actionType",
       accessorFn: (row) => row.actionType ?? "",
-      // Not sortable: SortFields.AuditLogs has no actionType, and the API
-      // rejects an unlisted sort field with a 400 rather than ignoring it.
-      enableSorting: false,
       header: t("auditLogs.actionType"),
       meta: { label: t("auditLogs.actionType") },
       cell: ({ row }) => (
@@ -229,6 +243,16 @@ export function AuditLogsPage() {
             : "—"}
         </span>
       ),
+    },
+    {
+      id: "result",
+      accessorFn: (row) => String(row.isSuccess ?? ""),
+      // Nothing in SortFields orders by outcome, and the filter above is the
+      // way to gather one anyway.
+      enableSorting: false,
+      header: t("auditLogs.result"),
+      meta: { label: t("auditLogs.result") },
+      cell: ({ row }) => <ResultBadge value={row.original.isSuccess} />,
     },
     {
       id: "entityType",
@@ -243,10 +267,27 @@ export function AuditLogsPage() {
       ),
     },
     {
+      // Who DID it. This column read the subject until now, under this same
+      // heading — so an account an administrator locked was listed as having
+      // locked itself, and the one question an audit trail exists to answer was
+      // answered with the wrong name.
       id: "actor",
-      accessorFn: (row) => row.userEmail ?? row.userName ?? "",
+      accessorFn: (row) => row.performedByEmail ?? row.performedByName ?? "",
       header: t("auditLogs.actor"),
       meta: { label: t("auditLogs.actor") },
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {row.original.performedByEmail ?? row.original.performedByName ?? "—"}
+        </span>
+      ),
+    },
+    {
+      // Who it happened TO. The two are the same person only when someone acts
+      // on their own account, and different in every administrative event.
+      id: "subject",
+      accessorFn: (row) => row.userEmail ?? row.userName ?? "",
+      header: t("auditLogs.subject"),
+      meta: { label: t("auditLogs.subject") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.userEmail ?? row.original.userName ?? "—"}
@@ -317,7 +358,7 @@ export function AuditLogsPage() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <ApplicationSelect
           value={applicationId || undefined}
           onChange={(value) => setFilter("applicationId", value ?? "")}
@@ -351,6 +392,24 @@ export function AuditLogsPage() {
           onChange={(id) => setFilter("action", !id || id === ALL ? "" : id)}
           placeholder={t("auditLogs.searchAction")}
         />
+        {/* Two choices, not three: the API matches the outcome on equality, so
+            rows whose outcome was never recorded cannot be asked for. Offering
+            "not recorded" here would be a filter that always returns nothing. */}
+        <Select
+          value={result || ALL}
+          onValueChange={(value) =>
+            setFilter("result", value === ALL ? "" : value)
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>{t("auditLogs.allResults")}</SelectItem>
+            <SelectItem value="true">{t("auditLogs.success")}</SelectItem>
+            <SelectItem value="false">{t("auditLogs.failure")}</SelectItem>
+          </SelectContent>
+        </Select>
         <DateRangePicker
           from={fromDate || undefined}
           to={toDate || undefined}

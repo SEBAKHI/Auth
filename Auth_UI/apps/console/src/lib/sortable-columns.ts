@@ -23,7 +23,14 @@ export const SORTABLE_COLUMNS = {
   ],
   applications: ["name", "status", "contactEmail", "createdAt"],
   organizations: ["name", "memberCount", "isActive", "createdAt"],
-  auditLogs: ["action", "entityType", "actor", "timestamp"],
+  auditLogs: [
+    "action",
+    "actionType",
+    "entityType",
+    "actor",
+    "subject",
+    "timestamp",
+  ],
   userAuditLog: ["action", "entityType", "applicationName", "timestamp"],
   notificationTemplates: [
     "typeName",

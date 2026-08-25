@@ -11,6 +11,8 @@ import type { Schemas } from "@authsystem/api/types"
 
 import { auditActionI18nKey, auditActionTypeI18nKey } from "@/lib/audit-catalog"
 
+import { ResultBadge } from "./result-badge"
+
 function Row({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
@@ -65,8 +67,24 @@ export function AuditLogDetailDialog({
                 : null
             }
           />
+          {/* The outcome, always rendered — including when it was never recorded.
+              A row that simply omits the result reads as "it went fine". */}
+          <div className="grid grid-cols-3 gap-2 py-1.5 text-sm">
+            <dt className="text-muted-foreground">{t("auditLogs.result")}</dt>
+            <dd className="col-span-2">
+              <ResultBadge value={log.isSuccess} />
+            </dd>
+          </div>
+          <Row label={t("auditLogs.errorMessage")} value={log.errorMessage} />
+          {/* Two people, two rows. Folding them into one under the "actor"
+              heading is how an account an administrator locked was listed as
+              having locked itself. */}
           <Row
             label={t("auditLogs.actor")}
+            value={log.performedByEmail ?? log.performedByName}
+          />
+          <Row
+            label={t("auditLogs.subject")}
             value={log.userEmail ?? log.userName}
           />
           <Row label={t("common.application")} value={log.applicationName} />

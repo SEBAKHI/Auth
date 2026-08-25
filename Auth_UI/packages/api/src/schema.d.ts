@@ -13053,6 +13053,7 @@ export interface components {
             applicationId?: null | string;
             action?: null | string;
             actionType?: null | string;
+            isSuccess?: null | boolean;
             /** Format: date-time */
             fromDate?: null | string;
             /** Format: date-time */
