@@ -9405,6 +9405,8 @@ export interface paths {
                     userId?: string;
                     applicationId?: string;
                     action?: string;
+                    actionType?: string;
+                    isSuccess?: boolean;
                     fromDate?: string;
                     toDate?: string;
                     sortBy?: string;
@@ -12760,6 +12762,12 @@ export interface components {
             userName?: null | string;
             userEmail?: null | string;
             /** Format: uuid */
+            performedBy?: null | string;
+            performedByName?: null | string;
+            performedByEmail?: null | string;
+            /** Format: uuid */
+            sessionId?: null | string;
+            /** Format: uuid */
             applicationId?: null | string;
             applicationName?: null | string;
             actionType?: string;
@@ -12772,7 +12780,7 @@ export interface components {
             ipAddress?: null | string;
             userAgent?: null | string;
             additionalData?: null | string;
-            isSuccess?: boolean;
+            isSuccess?: null | boolean;
             errorMessage?: null | string;
             /** Format: date-time */
             timestamp?: string;
@@ -13044,6 +13052,7 @@ export interface components {
             /** Format: uuid */
             applicationId?: null | string;
             action?: null | string;
+            actionType?: null | string;
             /** Format: date-time */
             fromDate?: null | string;
             /** Format: date-time */

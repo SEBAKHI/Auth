@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { ApplicationSelect } from "@authsystem/ui/common/application-select"
 import { DateRangePicker } from "@authsystem/ui/common/date-range-picker"
 import { PageHeader } from "@authsystem/ui/common/page-header"
+import { SearchableSelect } from "@authsystem/ui/common/searchable-select"
 import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Button } from "@authsystem/ui/button"
 import {
@@ -17,15 +18,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@authsystem/ui/dropdown-menu"
-import { Input } from "@authsystem/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@authsystem/ui/select"
 import { api } from "@authsystem/api/client"
 import { toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
+import {
+  AUDIT_ACTIONS,
+  AUDIT_ACTION_TYPES,
+  auditActionI18nKey,
+  auditActionTypeI18nKey,
+} from "@/lib/audit-catalog"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
 import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime } from "@authsystem/ui/format"
-import { useDebouncedValue } from "@authsystem/ui/hooks/use-debounced-value"
 import {
   dateUrlFilter,
   stringUrlFilter,
@@ -40,9 +52,13 @@ type AuditLogDto = Schemas["AuditLogDto"]
 type AuditLogListFilters = {
   applicationId: string
   action: string
+  actionType: string
   from: string
   to: string
 }
+
+/** Sentinel for "do not narrow", since a Select item cannot carry an empty value. */
+const ALL = "__all__"
 
 const AUDIT_LOGS_LIST_URL_OPTIONS = {
   defaultPageSize: DEFAULT_PAGE_SIZE,
@@ -51,6 +67,7 @@ const AUDIT_LOGS_LIST_URL_OPTIONS = {
   filters: {
     applicationId: stringUrlFilter({ maxLength: 128 }),
     action: stringUrlFilter({ maxLength: 100 }),
+    actionType: stringUrlFilter({ maxLength: 100 }),
     from: dateUrlFilter(),
     to: dateUrlFilter(),
   },
@@ -71,27 +88,65 @@ export function AuditLogsPage() {
     pageIndex: page,
     pageSize,
     sorting,
-    filters: { applicationId, action: actionInput, from: fromDate, to: toDate },
+    filters: { applicationId, action, actionType, from: fromDate, to: toDate },
     setPageIndex: setPage,
     setPageSize,
     setSorting,
     setFilter,
     setFilters,
   } = useListUrlState(AUDIT_LOGS_LIST_URL_OPTIONS)
-  const action = useDebouncedValue(actionInput)
   const [detail, setDetail] = React.useState<AuditLogDto | undefined>()
   const { sortBy, sortDirection } = toSortParams(sorting)
 
   const canExport = hasPermission(PERMISSIONS.auditLogs.export)
 
+  // The stored code is what is filtered, exported and copied into a ticket; the
+  // translation is only what it is READ as. Both are shown, and only the code
+  // ever leaves this component.
+  const actionLabel = React.useCallback(
+    (code: string) =>
+      t(`auditLogs.actions.${auditActionI18nKey(code)}`, {
+        defaultValue: code,
+      }),
+    [t]
+  )
+  const actionTypeLabel = React.useCallback(
+    (type: string) =>
+      t(`auditLogs.actionTypes.${auditActionTypeI18nKey(type)}`, {
+        defaultValue: type,
+      }),
+    [t]
+  )
+
+  const actionOptions = React.useMemo(() => {
+    const options = [
+      { id: ALL, label: t("auditLogs.allActions") },
+      ...AUDIT_ACTIONS.map((entry) => ({
+        id: entry.code,
+        label: actionLabel(entry.code),
+        description: entry.code,
+      })),
+    ]
+    // A saved link can carry a code this build has never heard of — a row from
+    // before an action was retired, or a server one release ahead. Without an
+    // option for it the trigger would show the placeholder while the table below
+    // stays narrowed, and the reader would take a filtered page for the whole
+    // table.
+    if (action && !AUDIT_ACTIONS.some((entry) => entry.code === action)) {
+      options.splice(1, 0, { id: action, label: action, description: action })
+    }
+    return options
+  }, [action, actionLabel, t])
+
   const filters = React.useMemo(
     () => ({
       applicationId: applicationId || undefined,
       action: action || undefined,
+      actionType: actionType || undefined,
       fromDate: fromDate ? startOfDay(fromDate) : undefined,
       toDate: toDate ? endOfDay(toDate) : undefined,
     }),
-    [applicationId, action, fromDate, toDate]
+    [applicationId, action, actionType, fromDate, toDate]
   )
 
   const query = useQuery({
@@ -118,7 +173,9 @@ export function AuditLogsPage() {
   const exportMutation = useMutation({
     mutationFn: async (format: "csv" | "json") => {
       const { data, error } = await api.POST("/api/v1/audit-logs/export", {
-        // Export in the same order the table currently shows.
+        // Export in the same order the table currently shows, and under the same
+        // filters — every one of them declared by the request contract, so none
+        // can be dropped in silence.
         body: { format, ...filters, maxRecords: 10000, sortBy, sortDirection },
         parseAs: "blob",
       })
@@ -145,13 +202,32 @@ export function AuditLogsPage() {
       meta: { label: t("auditLogs.action") },
       cell: ({ row }) => (
         <div className="min-w-0">
-          <p className="truncate font-medium">{row.original.action}</p>
-          {row.original.entityType ? (
-            <p className="truncate text-xs text-muted-foreground">
-              {row.original.entityType}
-            </p>
-          ) : null}
+          <p className="truncate font-medium">
+            {actionLabel(row.original.action ?? "")}
+          </p>
+          {/* The stored value, kept in view: it is what a support ticket, a URL
+              filter and a SQL query all need, and it is the same string in every
+              language. */}
+          <p className="truncate text-xs text-muted-foreground">
+            <bdi dir="auto">{row.original.action}</bdi>
+          </p>
         </div>
+      ),
+    },
+    {
+      id: "actionType",
+      accessorFn: (row) => row.actionType ?? "",
+      // Not sortable: SortFields.AuditLogs has no actionType, and the API
+      // rejects an unlisted sort field with a 400 rather than ignoring it.
+      enableSorting: false,
+      header: t("auditLogs.actionType"),
+      meta: { label: t("auditLogs.actionType") },
+      cell: ({ row }) => (
+        <span className="text-sm text-muted-foreground">
+          {row.original.actionType
+            ? actionTypeLabel(row.original.actionType)
+            : "—"}
+        </span>
       ),
     },
     {
@@ -241,16 +317,38 @@ export function AuditLogsPage() {
         }
       />
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <ApplicationSelect
           value={applicationId || undefined}
           onChange={(value) => setFilter("applicationId", value ?? "")}
           allowAll
           className="w-full"
         />
-        <Input
-          value={actionInput}
-          onChange={(e) => setFilter("action", e.target.value)}
+        <Select
+          value={actionType || ALL}
+          onValueChange={(value) =>
+            setFilter("actionType", value === ALL ? "" : value)
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>{t("auditLogs.allActionTypes")}</SelectItem>
+            {AUDIT_ACTION_TYPES.map((type) => (
+              <SelectItem key={type} value={type}>
+                {actionTypeLabel(type)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {/* Searchable rather than a plain list: forty-nine actions is past what
+            a dropdown can be scanned for, and the search matches the translated
+            name AND the raw code, so both ways of knowing an action work. */}
+        <SearchableSelect
+          value={action || ALL}
+          options={actionOptions}
+          onChange={(id) => setFilter("action", !id || id === ALL ? "" : id)}
           placeholder={t("auditLogs.searchAction")}
         />
         <DateRangePicker

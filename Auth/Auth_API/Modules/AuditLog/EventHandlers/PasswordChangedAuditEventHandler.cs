@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -23,8 +24,8 @@ public class PasswordChangedAuditEventHandler : INotificationHandler<PasswordCha
     public async Task Handle(PasswordChangedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Security",
-            action: "password.changed",
+            actionType: AuditActionTypes.Security,
+            action: AuditActions.PasswordChanged,
             userId: notification.UserId,
             performedBy: notification.ChangedBy,
             entityType: "User",

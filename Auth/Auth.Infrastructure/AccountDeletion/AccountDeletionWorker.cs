@@ -180,8 +180,8 @@ public class AccountDeletionWorker : BackgroundService
                     reapplied++;
                     await auditLogRepository.CreateAsync(
                         Auth.Domain.Entities.AuditLog.CreateSuccess(
-                            actionType: "UserManagement",
-                            action: "user.deletion_reapplied",
+                            actionType: AuditActionTypes.UserManagement,
+                            action: AuditActions.UserDeletionReapplied,
                             userId: WellKnownUserIds.System,
                             entityType: "User",
                             entityId: request.UserId,
@@ -235,8 +235,8 @@ public class AccountDeletionWorker : BackgroundService
 
         await auditLogRepository.CreateAsync(
             Auth.Domain.Entities.AuditLog.CreateSuccess(
-                actionType: "System",
-                action: "system.retention_sweep",
+                actionType: AuditActionTypes.System,
+                action: AuditActions.SystemRetentionSweep,
                 userId: WellKnownUserIds.System,
                 additionalData:
                     $"{{\"reappliedDeletions\":{reapplied},\"purgedOutboxRows\":{purgedOutbox}," +

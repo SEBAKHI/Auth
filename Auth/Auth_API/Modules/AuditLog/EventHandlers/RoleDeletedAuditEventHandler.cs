@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -24,8 +25,8 @@ public class RoleDeletedAuditEventHandler : INotificationHandler<RoleDeletedEven
     public async Task Handle(RoleDeletedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Authorization",
-            action: "role.deleted",
+            actionType: AuditActionTypes.Authorization,
+            action: AuditActions.RoleDeleted,
             performedBy: notification.DeletedBy,
             entityType: "Role",
             entityId: notification.RoleId,

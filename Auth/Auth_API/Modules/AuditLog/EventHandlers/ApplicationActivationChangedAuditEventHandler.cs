@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -25,8 +26,8 @@ public class ApplicationActivationChangedAuditEventHandler : INotificationHandle
     public async Task Handle(ApplicationActivationChangedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Application",
-            action: notification.IsActive ? "application.activated" : "application.deactivated",
+            actionType: AuditActionTypes.Application,
+            action: notification.IsActive ? AuditActions.ApplicationActivated : AuditActions.ApplicationDeactivated,
             performedBy: notification.ChangedBy,
             entityType: "Application",
             entityId: notification.ApplicationId,

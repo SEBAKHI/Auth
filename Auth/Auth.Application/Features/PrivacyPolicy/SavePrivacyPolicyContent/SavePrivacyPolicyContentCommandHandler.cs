@@ -4,6 +4,7 @@ using Auth.Application.Features.PrivacyPolicy.Common;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using ErrorOr;
 using MediatR;
 
@@ -75,8 +76,8 @@ public class SavePrivacyPolicyContentCommandHandler
 
         await _auditLogRepository.CreateAsync(
             AuditLog.CreateSuccess(
-                actionType: "System",
-                action: "system.privacy_policy_content_saved",
+                actionType: AuditActionTypes.System,
+                action: AuditActions.SystemPrivacyPolicyContentSaved,
                 userId: request.RequestedBy,
                 entityType: "PrivacyPolicyVersion",
                 entityId: version.Id,

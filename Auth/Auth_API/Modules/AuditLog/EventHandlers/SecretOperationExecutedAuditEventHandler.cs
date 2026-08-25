@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -33,8 +34,8 @@ public class SecretOperationExecutedAuditEventHandler
         CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Administration",
-            action: "secrets.operation.executed",
+            actionType: AuditActionTypes.Administration,
+            action: AuditActions.SecretsOperationExecuted,
             performedBy: notification.ExecutedBy,
             entityType: "SecretOperationChallenge",
             entityId: notification.ChallengeId,

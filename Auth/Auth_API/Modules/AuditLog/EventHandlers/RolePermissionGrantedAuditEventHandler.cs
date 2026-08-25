@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -24,8 +25,8 @@ public class RolePermissionGrantedAuditEventHandler : INotificationHandler<RoleP
     public async Task Handle(RolePermissionGrantedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Authorization",
-            action: "role.permission.granted",
+            actionType: AuditActionTypes.Authorization,
+            action: AuditActions.RolePermissionGranted,
             performedBy: notification.GrantedBy,
             entityType: "RolePermission",
             entityId: notification.RoleId,

@@ -5,6 +5,7 @@ using Auth.Application.Features.PrivacyPolicy.GetPublishedPrivacyPolicy;
 using Auth.Domain.Entities;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.Options;
@@ -130,8 +131,8 @@ public class PublishPrivacyPolicyVersionCommandHandler
 
         await _auditLogRepository.CreateAsync(
             AuditLog.CreateSuccess(
-                actionType: "System",
-                action: "system.privacy_policy_published",
+                actionType: AuditActionTypes.System,
+                action: AuditActions.SystemPrivacyPolicyPublished,
                 userId: request.RequestedBy,
                 entityType: "PrivacyPolicyVersion",
                 entityId: version.Id,

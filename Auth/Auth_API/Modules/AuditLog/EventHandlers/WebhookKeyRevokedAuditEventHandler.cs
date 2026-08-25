@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -24,8 +25,8 @@ public class WebhookKeyRevokedAuditEventHandler : INotificationHandler<WebhookKe
     public async Task Handle(WebhookKeyRevokedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Security",
-            action: "webhookkey.revoked",
+            actionType: AuditActionTypes.Security,
+            action: AuditActions.WebhookKeyRevoked,
             performedBy: notification.RevokedBy,
             applicationId: notification.ApplicationId,
             entityType: "WebhookKey",

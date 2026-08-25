@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -25,8 +26,8 @@ public class UserPermissionRevokedAuditEventHandler : INotificationHandler<UserP
     {
         // No new side: the grant is gone. What it was is the part worth keeping.
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Authorization",
-            action: "permission.revoked",
+            actionType: AuditActionTypes.Authorization,
+            action: AuditActions.PermissionRevoked,
             userId: notification.UserId,
             performedBy: notification.RevokedBy,
             entityType: "UserPermission",

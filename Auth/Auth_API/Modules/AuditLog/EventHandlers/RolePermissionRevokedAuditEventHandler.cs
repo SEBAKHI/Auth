@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -24,8 +25,8 @@ public class RolePermissionRevokedAuditEventHandler : INotificationHandler<RoleP
     public async Task Handle(RolePermissionRevokedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Authorization",
-            action: "role.permission.revoked",
+            actionType: AuditActionTypes.Authorization,
+            action: AuditActions.RolePermissionRevoked,
             performedBy: notification.RevokedBy,
             entityType: "RolePermission",
             entityId: notification.RoleId,

@@ -99,8 +99,8 @@ public class NotifyPrivacyPolicyVersionCommandHandler
 
         await _auditLogRepository.CreateAsync(
             AuditLog.CreateSuccess(
-                actionType: "System",
-                action: "system.policy_notification_sent",
+                actionType: AuditActionTypes.System,
+                action: AuditActions.SystemPolicyNotificationSent,
                 userId: request.RequestedBy,
                 additionalData:
                     $"{{\"policyVersion\":\"{version.Version}\",\"recipients\":{delivered}}}"),

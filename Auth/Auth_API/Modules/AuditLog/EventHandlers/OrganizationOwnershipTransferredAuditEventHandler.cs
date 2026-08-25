@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -24,8 +25,8 @@ public class OrganizationOwnershipTransferredAuditEventHandler
     public async Task Handle(OrganizationOwnershipTransferredEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "OrganizationManagement",
-            action: "organization.ownership_transferred",
+            actionType: AuditActionTypes.OrganizationManagement,
+            action: AuditActions.OrganizationOwnershipTransferred,
             userId: notification.NewOwnerId,
             performedBy: notification.TransferredBy,
             entityType: "Organization",

@@ -154,6 +154,7 @@ public class AuditLogsController : ApiController
             request.UserId,
             request.ApplicationId,
             request.Action,
+            request.ActionType,
             request.FromDate,
             request.ToDate,
             request.MaxRecords,

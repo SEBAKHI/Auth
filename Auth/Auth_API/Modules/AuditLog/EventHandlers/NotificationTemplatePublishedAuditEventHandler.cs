@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -25,8 +26,8 @@ public class NotificationTemplatePublishedAuditEventHandler
     public async Task Handle(NotificationTemplatePublishedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Administration",
-            action: "notification-template.published",
+            actionType: AuditActionTypes.Administration,
+            action: AuditActions.NotificationTemplatePublished,
             performedBy: notification.PublishedBy,
             entityType: "NotificationTemplate",
             entityId: notification.TemplateId,

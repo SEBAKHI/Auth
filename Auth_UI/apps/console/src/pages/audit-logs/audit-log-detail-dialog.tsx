@@ -9,6 +9,8 @@ import {
 import { formatDateTime } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 
+import { auditActionI18nKey, auditActionTypeI18nKey } from "@/lib/audit-catalog"
+
 function Row({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null
   return (
@@ -35,15 +37,34 @@ export function AuditLogDetailDialog({
   log: Schemas["AuditLogDto"]
 }) {
   const { t } = useTranslation()
+  const action = log.action ?? ""
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{log.action}</DialogTitle>
+          {/* The name a reader can read; the code it is stored under is a row
+              below, because that is the string they need to quote elsewhere. */}
+          <DialogTitle>
+            {t(`auditLogs.actions.${auditActionI18nKey(action)}`, {
+              defaultValue: action,
+            })}
+          </DialogTitle>
         </DialogHeader>
 
         <dl className="divide-y">
+          <Row label={t("auditLogs.actionCode")} value={action} />
+          <Row
+            label={t("auditLogs.actionType")}
+            value={
+              log.actionType
+                ? t(
+                    `auditLogs.actionTypes.${auditActionTypeI18nKey(log.actionType)}`,
+                    { defaultValue: log.actionType }
+                  )
+                : null
+            }
+          />
           <Row
             label={t("auditLogs.actor")}
             value={log.userEmail ?? log.userName}

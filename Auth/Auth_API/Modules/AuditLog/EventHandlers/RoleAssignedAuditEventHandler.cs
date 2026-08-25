@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -23,8 +24,8 @@ public class RoleAssignedAuditEventHandler : INotificationHandler<RoleAssignedEv
     public async Task Handle(RoleAssignedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Authorization",
-            action: "role.assigned",
+            actionType: AuditActionTypes.Authorization,
+            action: AuditActions.RoleAssigned,
             userId: notification.UserId,
             performedBy: notification.AssignedBy,
             entityType: "UserRole",

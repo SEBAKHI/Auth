@@ -44,8 +44,8 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
             request.UserId,
             request.ApplicationId,
             request.Action,
-            null, // actionType — the export command does not expose it yet
-            null, // isSuccess — same
+            request.ActionType,
+            null, // isSuccess — no console control sets it, so nothing sends it
             request.FromDate,
             request.ToDate,
             request.SortBy,
@@ -69,6 +69,7 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
                 Timestamp = log.Timestamp,
                 UserId = log.UserId,
                 ApplicationId = log.ApplicationId,
+                ActionType = log.ActionType,
                 Action = log.Action,
                 EntityType = log.EntityType,
                 EntityId = log.EntityId,
@@ -113,7 +114,7 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
         else
         {
             var csv = new StringBuilder();
-            csv.AppendLine("Id,Timestamp,UserId,UserEmail,ApplicationId,ApplicationName,Action,EntityType,EntityId,IpAddress");
+            csv.AppendLine("Id,Timestamp,UserId,UserEmail,ApplicationId,ApplicationName,ActionType,Action,EntityType,EntityId,IpAddress");
 
             foreach (var row in exportData)
             {
@@ -124,6 +125,7 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
                     $"\"{EscapeCsv(row.UserEmail)}\"," +
                     $"\"{row.ApplicationId}\"," +
                     $"\"{EscapeCsv(row.ApplicationName)}\"," +
+                    $"\"{EscapeCsv(row.ActionType)}\"," +
                     $"\"{EscapeCsv(row.Action)}\"," +
                     $"\"{EscapeCsv(row.EntityType)}\"," +
                     $"\"{row.EntityId}\"," +
@@ -156,6 +158,7 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
         public string? UserEmail { get; set; }
         public Guid? ApplicationId { get; set; }
         public string? ApplicationName { get; set; }
+        public string ActionType { get; set; } = string.Empty;
         public string Action { get; set; } = string.Empty;
         public string? EntityType { get; set; }
         public Guid? EntityId { get; set; }

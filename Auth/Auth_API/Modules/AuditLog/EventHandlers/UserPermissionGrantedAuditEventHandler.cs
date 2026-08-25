@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -25,8 +26,8 @@ public class UserPermissionGrantedAuditEventHandler : INotificationHandler<UserP
     {
         // No old side: granting a permission the user already holds is refused upstream, so the state before is always "not held".
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Authorization",
-            action: "permission.granted",
+            actionType: AuditActionTypes.Authorization,
+            action: AuditActions.PermissionGranted,
             userId: notification.UserId,
             performedBy: notification.GrantedBy,
             applicationId: notification.ApplicationId,

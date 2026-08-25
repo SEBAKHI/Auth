@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -25,8 +26,8 @@ public class ApplicationAccessGrantedAuditEventHandler : INotificationHandler<Ap
         var expiresAt = notification.ExpiresAt?.ToString("O") ?? "null";
 
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Application",
-            action: "application.access.granted",
+            actionType: AuditActionTypes.Application,
+            action: AuditActions.ApplicationAccessGranted,
             userId: notification.UserId,
             performedBy: notification.GrantedBy,
             entityType: "ApplicationUserAccess",

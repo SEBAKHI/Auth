@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -24,8 +25,8 @@ public class ApplicationAccessRevokedAuditEventHandler : INotificationHandler<Ap
     public async Task Handle(ApplicationAccessRevokedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Application",
-            action: "application.access.revoked",
+            actionType: AuditActionTypes.Application,
+            action: AuditActions.ApplicationAccessRevoked,
             userId: notification.UserId,
             performedBy: notification.RevokedBy,
             entityType: "ApplicationUserAccess",

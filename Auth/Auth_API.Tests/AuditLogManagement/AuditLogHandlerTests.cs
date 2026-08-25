@@ -271,4 +271,63 @@ public class ExportAuditLogsCommandHandlerTests
         result.IsError.Should().BeFalse();
         result.Value.RecordCount.Should().Be(0);
     }
+
+    /// <summary>
+    /// The header and the rows are written by two separate string literals, so
+    /// adding a column to one and not the other is a single-character oversight
+    /// that produces a file every value in which is under the wrong heading —
+    /// and it is silent, because a CSV with a short row is still a valid CSV.
+    /// It happened while ActionType was being added.
+    /// </summary>
+    [Fact]
+    public async Task Handle_Csv_GivesEveryRowAsManyFieldsAsTheHeaderPromises()
+    {
+        _auditLogRepoMock
+            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<AuditLog>
+            {
+                TestHelpers.CreateAuditLog(actionType: "Authentication", action: "user.login")
+            } as IReadOnlyList<AuditLog>, 1));
+
+        var result = await _handler.Handle(
+            new ExportAuditLogsCommand("csv") { RequestedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        var lines = System.Text.Encoding.UTF8.GetString(result.Value.Content)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        lines.Should().HaveCountGreaterThan(1, "a header and at least one row");
+
+        // Every value is quoted, so counting the separators between quotes is
+        // enough here and does not need a CSV parser.
+        var expected = lines[0].Split(',').Length;
+        foreach (var row in lines.Skip(1))
+        {
+            row.Split("\",\"").Length.Should().Be(expected,
+                "every exported row must line up with the header it is read under");
+        }
+    }
+
+    [Fact]
+    public async Task Handle_WithActionTypeFilter_NarrowsTheExportToo()
+    {
+        _auditLogRepoMock
+            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, "Security", null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<AuditLog>() as IReadOnlyList<AuditLog>, 0));
+
+        var result = await _handler.Handle(
+            new ExportAuditLogsCommand("csv", ActionType: "Security") { RequestedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+
+        // The console sends the filters the table is showing. A category the
+        // export drops produces a file that looks narrowed and is not — which
+        // is the defect that got ActionType removed from this command once
+        // already. Whether the repository then applies it is proven one layer
+        // down, in AuditLogFilterSqlTests.
+        _auditLogRepoMock.Verify(
+            r => r.GetPagedAsync(1, 10000, null, null, null, "Security", null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
 }

@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -26,8 +27,8 @@ public class UserHardDeletedAuditEventHandler : INotificationHandler<UserHardDel
     public async Task Handle(UserHardDeletedEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "UserManagement",
-            action: "user.harddeleted",
+            actionType: AuditActionTypes.UserManagement,
+            action: AuditActions.UserHardDeleted,
             // No userId on purpose, and this is the one handler where that is
             // not an omission. The purge anonymises every AuditLogs row whose
             // UserId is the deleted account, so a tombstone naming it there

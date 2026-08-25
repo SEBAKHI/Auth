@@ -1,5 +1,6 @@
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Events;
+using Auth.Domain.Constants;
 using MediatR;
 
 namespace Auth_API.Modules.AuditLog.EventHandlers;
@@ -23,8 +24,8 @@ public class UserLoggedOutAuditEventHandler : INotificationHandler<UserLoggedOut
     public async Task Handle(UserLoggedOutEvent notification, CancellationToken cancellationToken)
     {
         var log = Auth.Domain.Entities.AuditLog.CreateSuccess(
-            actionType: "Authentication",
-            action: notification.AllDevices ? "user.logout.all" : "user.logout",
+            actionType: AuditActionTypes.Authentication,
+            action: notification.AllDevices ? AuditActions.UserLogoutAll : AuditActions.UserLogout,
             userId: notification.UserId,
             performedBy: notification.UserId,
             entityType: "User",

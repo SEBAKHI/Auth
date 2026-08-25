@@ -82,3 +82,19 @@ ON [dbo].[AuditLogs] ([Timestamp] DESC)
 INCLUDE ([Action], [UserId], [PerformedBy])
 WHERE [IsSuccess] = 0;
 GO
+
+-- The twin of IX_AuditLogs_Action, for the category rather than the action. The
+-- console can now narrow the audit table to one category, and without this the
+-- server answers that by walking IX_AuditLogs_Timestamp newest-first and looking
+-- up every candidate row until fifty of them match. AuditLogRetentionDays cannot
+-- be set below 1095 days, so this table is measured in millions of rows and a
+-- rare category makes that walk arbitrarily long. Same shape as the Action index
+-- because the query is the same shape: equality on the column, ordered by
+-- Timestamp DESC.
+--
+-- Publishing this on a populated production table builds the index, which takes
+-- a table lock in Standard edition while audit rows are still being written on
+-- the sign-in path. Deploy it in a maintenance window.
+CREATE NONCLUSTERED INDEX [IX_AuditLogs_ActionType]
+ON [dbo].[AuditLogs] ([ActionType], [Timestamp] DESC);
+GO
