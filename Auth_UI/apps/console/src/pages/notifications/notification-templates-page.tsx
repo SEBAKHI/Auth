@@ -123,7 +123,7 @@ export function NotificationTemplatesPage() {
       id: "typeName",
       accessorFn: (row) => row.typeName ?? "",
       header: t("notifications.type"),
-      meta: { label: t("notifications.type") },
+      meta: { label: t("notifications.type"), covers: ["typeCode"] },
       cell: ({ row }) => {
         const template = row.original
         return (
@@ -149,6 +149,8 @@ export function NotificationTemplatesPage() {
       id: "applicationName",
       accessorFn: (row) => row.applicationName ?? "",
       header: t("notifications.application"),
+      // `applicationId` stays uncovered — see the same column on the layouts
+      // page, and `ColumnMeta.covers`.
       meta: { label: t("notifications.application") },
       cell: ({ row }) =>
         row.original.applicationName ? (
@@ -186,6 +188,12 @@ export function NotificationTemplatesPage() {
       header: t("notifications.status"),
       meta: {
         label: t("notifications.status"),
+        // Every badge in the cell is one of these fields: the published version
+        // number is the first badge's text, and the last renders a badge
+        // exactly when it is true. `typeIsSystem` is left out on purpose — its
+        // badge also requires a global scope, so an app-scoped template of a
+        // system type shows it nowhere.
+        covers: ["isPublished", "publishedVersionNumber", "hasDraft"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "published", label: t("notifications.published") },
@@ -233,7 +241,10 @@ export function NotificationTemplatesPage() {
       accessorFn: (row) => row.translationCount ?? 0,
       enableSorting: false,
       header: t("notifications.translations"),
-      meta: { label: t("notifications.translations") },
+      meta: {
+        label: t("notifications.translations"),
+        covers: ["translationCount"],
+      },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.translationCount ?? 0}/7
@@ -244,6 +255,9 @@ export function NotificationTemplatesPage() {
       id: "modifiedAt",
       accessorFn: (row) => row.modifiedAt ?? "",
       header: t("common.modifiedAt"),
+      // `createdAt` is deliberately NOT covered: this cell falls back to it only
+      // for a template nobody has edited yet, so on every edited row it would
+      // disappear from a page that shows it nowhere else.
       meta: { label: t("common.modifiedAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">

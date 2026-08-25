@@ -110,12 +110,13 @@ export function OrganizationsPage() {
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
       fit: "contain",
+      covers: ["logoUrl"],
     }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["code"] },
       cell: ({ row }) => (
         <RecordLink
           href={organizationHref(row.original.id)}
@@ -158,6 +159,7 @@ export function OrganizationsPage() {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isActive"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },

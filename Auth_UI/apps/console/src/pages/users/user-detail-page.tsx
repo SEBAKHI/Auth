@@ -106,12 +106,13 @@ function UserOrganizationsTab({ userId }: { userId: string }) {
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
       fit: "contain",
+      covers: ["logoUrl"],
     }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["code"] },
       cell: ({ row }) => (
         <RecordLink
           href={organizationHref(row.original.id)}
@@ -149,6 +150,7 @@ function UserOrganizationsTab({ userId }: { userId: string }) {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isActive"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },
@@ -195,12 +197,13 @@ function UserApplicationsTab({ userId }: { userId: string }) {
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
       fit: "contain",
+      covers: ["logoUrl"],
     }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["code"] },
       cell: ({ row }) => (
         <RecordLink
           href={applicationHref(row.original.applicationId)}
@@ -232,6 +235,7 @@ function UserApplicationsTab({ userId }: { userId: string }) {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isActive"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },
@@ -278,7 +282,7 @@ function UserRolesTab({ userId }: { userId: string }) {
       id: "roleName",
       accessorFn: (row) => row.roleName ?? "",
       header: t("common.role"),
-      meta: { label: t("common.role") },
+      meta: { label: t("common.role"), covers: ["roleCode"] },
       cell: ({ row }) => (
         <RecordLink
           href={roleHref(row.original.roleId)}
@@ -310,6 +314,7 @@ function UserRolesTab({ userId }: { userId: string }) {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isActive"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },
@@ -378,7 +383,7 @@ function UserPermissionsTab({ userId }: { userId: string }) {
       id: "permissionName",
       accessorFn: (row) => row.permissionName ?? "",
       header: t("nav.permissions"),
-      meta: { label: t("nav.permissions") },
+      meta: { label: t("nav.permissions"), covers: ["permissionCode"] },
       cell: ({ row }) => (
         <RecordLink
           href={permissionHref(row.original.permissionId)}
@@ -410,6 +415,7 @@ function UserPermissionsTab({ userId }: { userId: string }) {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isActive"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },

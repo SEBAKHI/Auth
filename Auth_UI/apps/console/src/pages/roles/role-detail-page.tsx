@@ -135,6 +135,7 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
       getName: (row) =>
         row.displayName ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
+      covers: ["profileImageUrl"],
     }),
     {
       id: "firstName",
@@ -142,7 +143,10 @@ function RoleUsersTab({ roleId }: { roleId: string }) {
         row.displayName ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: {
+        label: t("common.name"),
+        covers: ["displayName", "fullName", "lastName", "email"],
+      },
       cell: ({ row }) => (
         <RecordLink
           href={userHref(row.original.userId)}
@@ -270,12 +274,13 @@ function RoleApplicationsTab({ roleId }: { roleId: string }) {
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
       fit: "contain",
+      covers: ["logoUrl"],
     }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["code"] },
       cell: ({ row }) => (
         <RecordLink
           href={applicationHref(row.original.applicationId)}
@@ -307,6 +312,7 @@ function RoleApplicationsTab({ roleId }: { roleId: string }) {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isActive"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },

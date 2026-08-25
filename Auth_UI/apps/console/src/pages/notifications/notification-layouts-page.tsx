@@ -86,6 +86,9 @@ export function NotificationLayoutsPage() {
       id: "applicationName",
       accessorFn: (row) => row.applicationName ?? "",
       header: t("notifications.application"),
+      // `applicationId` stays uncovered: the name is this column's own id, so
+      // the id's column shows the raw GUID rather than the name again. See
+      // `ColumnMeta.covers`.
       meta: { label: t("notifications.application") },
       cell: ({ row }) =>
         row.original.applicationName ? (
@@ -98,7 +101,10 @@ export function NotificationLayoutsPage() {
       id: "status",
       accessorFn: (row) => (row.isPublished ? "published" : "unpublished"),
       header: t("notifications.status"),
-      meta: { label: t("notifications.status") },
+      meta: {
+        label: t("notifications.status"),
+        covers: ["isPublished", "hasUnpublishedChanges"],
+      },
       cell: ({ row }) => (
         <div className="flex flex-wrap items-center gap-1">
           {row.original.isPublished ? (
@@ -118,6 +124,9 @@ export function NotificationLayoutsPage() {
       id: "modifiedAt",
       accessorFn: (row) => row.modifiedAt ?? "",
       header: t("common.modifiedAt"),
+      // `createdAt` is deliberately NOT covered: this cell falls back to it only
+      // for a layout nobody has edited yet, so on every edited row it would
+      // disappear from a page that shows it nowhere else.
       meta: { label: t("common.modifiedAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">

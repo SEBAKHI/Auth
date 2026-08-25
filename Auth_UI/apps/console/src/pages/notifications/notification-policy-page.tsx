@@ -130,7 +130,7 @@ export function NotificationPolicyPage() {
       id: "version",
       accessorFn: (row) => row.version ?? "",
       header: t("notifications.policyVersion"),
-      meta: { label: t("notifications.policyVersion") },
+      meta: { label: t("notifications.policyVersion"), covers: ["changeNote"] },
       cell: ({ row }) => (
         <RecordLink
           href={policyRevisionHref(row.original.id)}
@@ -158,6 +158,7 @@ export function NotificationPolicyPage() {
       header: t("notifications.policyStatus"),
       meta: {
         label: t("notifications.policyStatus"),
+        covers: ["isPublished"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "published", label: t("notifications.policyPublished") },
@@ -206,6 +207,8 @@ export function NotificationPolicyPage() {
       header: t("notifications.policyNotifiedAt"),
       meta: {
         label: t("notifications.policyNotifiedAt"),
+        // The instant, with the recipient count beside it in parentheses.
+        covers: ["notifiedAtUtc", "notifiedCount"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "sent", label: t("notifications.policyNotifiedFilterSent") },

@@ -251,7 +251,11 @@ export function AuditLogsPage() {
       // way to gather one anyway.
       enableSorting: false,
       header: t("auditLogs.result"),
-      meta: { label: t("auditLogs.result") },
+      // Without the declaration the same field came back as an "Is Success"
+      // column reading yes/no — and reading it wrong, since a row whose outcome
+      // was never recorded has no field at all and rendered as an em dash next
+      // to a badge that says so properly.
+      meta: { label: t("auditLogs.result"), covers: ["isSuccess"] },
       cell: ({ row }) => <ResultBadge value={row.original.isSuccess} />,
     },
     {
@@ -274,7 +278,12 @@ export function AuditLogsPage() {
       id: "actor",
       accessorFn: (row) => row.performedByEmail ?? row.performedByName ?? "",
       header: t("auditLogs.actor"),
-      meta: { label: t("auditLogs.actor") },
+      // All three, including the id: its auto column resolves to the same name
+      // this cell falls back to, so it was a third heading for one person.
+      meta: {
+        label: t("auditLogs.actor"),
+        covers: ["performedBy", "performedByName", "performedByEmail"],
+      },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.performedByEmail ?? row.original.performedByName ?? "—"}
@@ -287,7 +296,10 @@ export function AuditLogsPage() {
       id: "subject",
       accessorFn: (row) => row.userEmail ?? row.userName ?? "",
       header: t("auditLogs.subject"),
-      meta: { label: t("auditLogs.subject") },
+      meta: {
+        label: t("auditLogs.subject"),
+        covers: ["userId", "userName", "userEmail"],
+      },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">
           {row.original.userEmail ?? row.original.userName ?? "—"}
