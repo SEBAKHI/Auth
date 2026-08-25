@@ -1,7 +1,7 @@
 import type { Table } from "@tanstack/react-table"
 import type { TFunction } from "i18next"
 
-import { formatFieldValue, humanizeKey } from "./field-format"
+import { fieldLabel, formatFieldValue } from "./field-format"
 
 /** Byte-order mark (U+FEFF) so Excel reads UTF-8 (and Arabic) output correctly. */
 const BOM = String.fromCharCode(0xfeff)
@@ -21,7 +21,10 @@ export interface ExportColumn {
  * their displayed value). Excludes the trailing actions column, pure display
  * columns (no accessor), and anything opted out via `meta.excludeFromExport`.
  */
-export function buildExportColumns<TData>(table: Table<TData>): ExportColumn[] {
+export function buildExportColumns<TData>(
+  table: Table<TData>,
+  t: TFunction
+): ExportColumn[] {
   const columns: ExportColumn[] = []
   for (const column of table.getVisibleLeafColumns()) {
     if (column.id === "actions") continue
@@ -30,7 +33,7 @@ export function buildExportColumns<TData>(table: Table<TData>): ExportColumn[] {
     const accessor = column.accessorFn
     if (typeof accessor === "undefined") continue
     columns.push({
-      label: column.columnDef.meta?.label ?? humanizeKey(column.id),
+      label: column.columnDef.meta?.label ?? fieldLabel(column.id, t),
       getValue: (row, index) => accessor(row as TData, index),
     })
   }

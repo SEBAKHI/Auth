@@ -170,6 +170,7 @@ export function UsersPage() {
       getName: (row) =>
         row.displayName ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
+      covers: ["profileImageUrl"],
     }),
     {
       id: "name",
@@ -177,7 +178,10 @@ export function UsersPage() {
         row.displayName ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: {
+        label: t("common.name"),
+        covers: ["displayName", "firstName", "lastName", "email"],
+      },
       cell: ({ row }) => {
         const user = row.original
         const name =
@@ -213,6 +217,7 @@ export function UsersPage() {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isDeleted"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },

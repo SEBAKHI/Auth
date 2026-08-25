@@ -197,13 +197,17 @@ function MembersTab({
       getSrc: (row) => row.profileImageUrl,
       getName: (row) =>
         row.fullName || fullName(row.firstName, row.lastName, row.email ?? ""),
+      covers: ["profileImageUrl"],
     }),
     {
       id: "name",
       accessorFn: (row) =>
         row.fullName || fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: {
+        label: t("common.name"),
+        covers: ["fullName", "firstName", "lastName", "email"],
+      },
       cell: ({ row }) => {
         const { userId } = row.original
         const content = (
@@ -593,7 +597,11 @@ function InvitationsTab({ orgId }: { orgId: string }) {
       accessorFn: (row) => row.status ?? "",
       filterFn: "faceted",
       header: t("common.status"),
-      meta: { label: t("common.status"), filterVariant: "faceted" },
+      meta: {
+        label: t("common.status"),
+        covers: ["isExpired"],
+        filterVariant: "faceted",
+      },
       cell: ({ row }) => (
         <Badge variant={row.original.isExpired ? "destructive" : "secondary"}>
           {row.original.isExpired ? t("common.expired") : row.original.status}
@@ -761,6 +769,7 @@ function ApplicationsTab({
       getSrc: (row) => row.applicationLogoUrl,
       getName: (row) => row.applicationName,
       fit: "contain",
+      covers: ["applicationLogoUrl"],
     }),
     {
       accessorKey: "applicationName",
@@ -802,6 +811,7 @@ function ApplicationsTab({
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isActive"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },

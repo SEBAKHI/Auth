@@ -23,6 +23,7 @@ import {
 import { directionForLanguage } from "@authsystem/i18n"
 import {
   DEFAULT_AUDIT_FIELD_KEYS,
+  fieldLabel,
   formatFieldValue,
   humanizeKey,
   nameSiblingKey,
@@ -82,6 +83,10 @@ export function DataTableRowDetail<TData>({
   const resolveLabel = React.useCallback(
     (key: string): string => {
       if (labelMap?.[key]) return labelMap[key]
+      // The field catalogue first: it is the one place that names a record
+      // field in every language. `common.*` stays as a second chance for the
+      // handful of keys that predate it.
+      if (i18n.exists(`fields.${key}`)) return t(`fields.${key}`)
       const commonKey = `common.${key}`
       if (i18n.exists(commonKey)) return t(commonKey)
       return humanizeKey(key)
@@ -129,9 +134,9 @@ export function DataTableRowDetail<TData>({
   const detailLabel = React.useCallback(
     (field: { key: string; paired: boolean }): string =>
       field.paired && field.key.endsWith("Id")
-        ? humanizeKey(pairedLabelKey(field.key))
+        ? fieldLabel(pairedLabelKey(field.key), t)
         : resolveLabel(field.key),
-    [resolveLabel]
+    [resolveLabel, t]
   )
 
   return (

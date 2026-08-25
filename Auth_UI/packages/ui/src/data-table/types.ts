@@ -13,6 +13,32 @@ declare module "@tanstack/react-table" {
   interface ColumnMeta<TData extends RowData, TValue> {
     /** Human label shown in the column-visibility menu and faceted filter. */
     label?: string
+    /**
+     * The record fields this column already puts on screen.
+     *
+     * Auto-discovery can only see a column's `id` and `accessorKey`, so a
+     * column that reads its value through an `accessorFn` declares nothing
+     * about what it consumed. Every column whose id is a CONCEPT — `actor`
+     * reading `performedByEmail`, `status` reading `isActive`, `name` reading
+     * three name fields — therefore left its own sources looking untouched,
+     * and they came back as extra columns showing the same thing again under
+     * an untranslated heading.
+     *
+     * List a field when the cell actually PUTS IT ON SCREEN. Naming a field
+     * the API does not return is harmless; naming one the cell does not show
+     * deletes the only column that could have shown it. Two cases decide most
+     * of the judgement calls:
+     *
+     * - A conditional fallback (`modifiedAt ?? createdAt`) shows the second
+     *   field only on rows where the first is missing. Do NOT cover it — on
+     *   every other row it would be nowhere.
+     * - A raw id is covered only when its resolved name is itself
+     *   auto-discovered, because the pairing in `nameSiblingKey` then makes the
+     *   id's column render that name a second time. When the name is a curated
+     *   column's own id, the pairing never fires and the id's column shows the
+     *   GUID — a different fact, so leave it alone.
+     */
+    covers?: readonly string[]
     /** Opt the column into a toolbar filter. `faceted` renders a multi-select. */
     filterVariant?: "text" | "faceted"
     /** Explicit options for a faceted filter; derived from data when omitted. */

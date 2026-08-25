@@ -115,7 +115,7 @@ export function RolesPage() {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["code"] },
       cell: ({ row }) => (
         <RecordLink
           href={roleHref(row.original.id)}

@@ -145,12 +145,13 @@ export function ApplicationsPage() {
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
       fit: "contain",
+      covers: ["logoUrl"],
     }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["code"] },
       cell: ({ row }) => (
         <RecordLink
           href={applicationHref(row.original.id)}
@@ -170,6 +171,7 @@ export function ApplicationsPage() {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isActive"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },

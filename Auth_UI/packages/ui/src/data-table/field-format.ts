@@ -30,13 +30,26 @@ export function pairedLabelKey(key: string): string {
   return key.endsWith("Id") ? key.slice(0, -2) : key
 }
 
-/** "phoneNumber" → "Phone number", "twoFactorEnabled" → "Two factor enabled". */
+/** "phoneNumber" → "Phone Number", "twoFactorEnabled" → "Two Factor Enabled". */
 export function humanizeKey(key: string): string {
   const words = key
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
     .replace(/[_-]+/g, " ")
     .trim()
   return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+/**
+ * The name a record field is read under, in the console's current language.
+ *
+ * Auto-discovered columns and detail rows are built from field names the page
+ * never declared, so their headings were whatever {@link humanizeKey} made of
+ * the identifier — English, in every language. `fields.*` gives the known ones
+ * a name in each locale; anything the catalogue has not heard of still renders
+ * as its humanized identifier rather than as a blank.
+ */
+export function fieldLabel(key: string, t: TFunction): string {
+  return t(`fields.${key}`, { defaultValue: humanizeKey(key) })
 }
 
 /**

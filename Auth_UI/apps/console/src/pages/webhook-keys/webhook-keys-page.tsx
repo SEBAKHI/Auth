@@ -250,7 +250,7 @@ export function WebhookKeysPage() {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["keyPrefix"] },
       cell: ({ row }) => (
         <div className="min-w-0">
           <p className="truncate font-medium">{row.original.name}</p>
@@ -286,6 +286,7 @@ export function WebhookKeysPage() {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isRevoked"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },

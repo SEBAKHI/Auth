@@ -2,8 +2,8 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { TFunction } from "i18next"
 
 import {
+  fieldLabel,
   formatFieldValue,
-  humanizeKey,
   nameSiblingKey,
   pairedLabelKey,
 } from "./field-format"
@@ -22,12 +22,18 @@ export function buildDisplayColumns<TData>(
   data: TData[],
   t: TFunction
 ): { columns: ColumnDef<TData, unknown>[]; autoColumnIds: string[] } {
-  // Fields already represented by an explicit column (by accessorKey or id).
+  // Fields already represented by an explicit column — by accessorKey, by id,
+  // or by declaration. The third is the only one available to a column that
+  // reads through an `accessorFn` and is named for a concept rather than for a
+  // field: `actor` says nothing about `performedByEmail`, and without
+  // `meta.covers` that field comes back as a second column showing the same
+  // person again. See `ColumnMeta.covers`.
   const covered = new Set<string>()
   for (const column of columns) {
     const accessorKey = (column as { accessorKey?: string }).accessorKey
     if (accessorKey) covered.add(accessorKey)
     if (column.id) covered.add(column.id)
+    for (const field of column.meta?.covers ?? []) covered.add(field)
   }
 
   // Union of field names across a sample of rows (nullable fields may be absent
@@ -65,7 +71,7 @@ export function buildDisplayColumns<TData>(
   const autoColumns: ColumnDef<TData, unknown>[] = emitted.map((key) => {
     const sibling = nameSiblingKey(key)
     const isPaired = consumedNameKeys.has(sibling)
-    const label = humanizeKey(isPaired ? pairedLabelKey(key) : key)
+    const label = fieldLabel(isPaired ? pairedLabelKey(key) : key, t)
     return {
       id: key,
       accessorFn: (row) => {

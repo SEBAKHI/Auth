@@ -161,7 +161,10 @@ export function NotificationOutboxPage() {
       id: "typeCode",
       accessorFn: (row) => row.notificationTypeCode ?? "",
       header: t("notifications.type"),
-      meta: { label: t("notifications.type") },
+      meta: {
+        label: t("notifications.type"),
+        covers: ["notificationTypeCode"],
+      },
       cell: ({ row }) => (
         <button
           type="button"
@@ -237,6 +240,9 @@ export function NotificationOutboxPage() {
       header: t("notifications.status"),
       meta: {
         label: t("notifications.status"),
+        // The badge is followed by the attempt count, so that field is on
+        // screen here and needs no column of its own.
+        covers: ["attemptCount"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "Pending", label: t("notifications.outboxPending") },
@@ -275,6 +281,9 @@ export function NotificationOutboxPage() {
       id: "sentAt",
       accessorFn: (row) => row.sentAt ?? "",
       header: t("notifications.sentAt"),
+      // `nextAttemptAt` is deliberately NOT covered: this cell shows it only
+      // while a row is waiting to be retried, so on every other row it would
+      // vanish from a table that has nowhere else to show it.
       meta: { label: t("notifications.sentAt") },
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground">

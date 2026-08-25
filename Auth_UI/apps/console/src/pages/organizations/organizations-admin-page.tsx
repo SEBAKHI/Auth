@@ -139,12 +139,13 @@ export function OrganizationsAdminPage() {
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
       fit: "contain",
+      covers: ["logoUrl"],
     }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["code"] },
       cell: ({ row }) => (
         <RecordLink
           href={organizationHref(row.original.id)}
@@ -162,7 +163,12 @@ export function OrganizationsAdminPage() {
       enableSorting: false,
       accessorFn: (row) => row.ownerName ?? row.ownerEmail ?? "",
       header: t("organizations.owner"),
-      meta: { label: t("organizations.owner") },
+      meta: {
+        label: t("organizations.owner"),
+        // ownerId pairs with ownerName, so leaving it out brings back a second
+        // column headed "Owner" showing the same name.
+        covers: ["ownerId", "ownerName", "ownerEmail"],
+      },
       cell: ({ row }) => (
         <div className="min-w-0">
           <p className="truncate text-sm">{row.original.ownerName || "—"}</p>

@@ -204,6 +204,7 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
       getName: (row) =>
         row.displayName ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
+      covers: ["profileImageUrl"],
     }),
     {
       id: "firstName",
@@ -211,7 +212,12 @@ function ApplicationUsersTab({ appId }: { appId: string }) {
         row.displayName ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      // `fullName` too: the cell composes that exact string out of the two name
+      // fields, so its auto column was the same name a second time.
+      meta: {
+        label: t("common.name"),
+        covers: ["displayName", "fullName", "lastName", "email"],
+      },
       cell: ({ row }) => (
         <RecordLink
           href={userHref(row.original.userId)}
@@ -376,12 +382,13 @@ function ApplicationOrganizationsTab({ appId }: { appId: string }) {
       getSrc: (row) => row.logoUrl,
       getName: (row) => row.name,
       fit: "contain",
+      covers: ["logoUrl"],
     }),
     {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["code"] },
       cell: ({ row }) => (
         <RecordLink
           href={organizationHref(row.original.organizationId)}
@@ -480,7 +487,7 @@ function ApplicationRolesTab({ appId }: { appId: string }) {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["code"] },
       cell: ({ row }) => (
         <RecordLink
           href={roleHref(row.original.id)}
@@ -524,6 +531,7 @@ function ApplicationRolesTab({ appId }: { appId: string }) {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isActive"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },
@@ -570,7 +578,7 @@ function ApplicationPermissionsTab({ appId }: { appId: string }) {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: { label: t("common.name"), covers: ["code"] },
       cell: ({ row }) => (
         <RecordLink
           href={permissionHref(row.original.id)}
@@ -601,6 +609,7 @@ function ApplicationPermissionsTab({ appId }: { appId: string }) {
       header: t("common.status"),
       meta: {
         label: t("common.status"),
+        covers: ["isActive"],
         filterVariant: "faceted",
         filterOptions: [
           { value: "active", label: t("common.active") },

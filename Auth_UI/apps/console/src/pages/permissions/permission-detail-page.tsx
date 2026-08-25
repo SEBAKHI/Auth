@@ -147,6 +147,7 @@ function PermissionUsersTab({ permissionId }: { permissionId: string }) {
       getName: (row) =>
         row.displayName ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
+      covers: ["profileImageUrl"],
     }),
     {
       id: "firstName",
@@ -154,7 +155,10 @@ function PermissionUsersTab({ permissionId }: { permissionId: string }) {
         row.displayName ||
         fullName(row.firstName, row.lastName, row.email ?? ""),
       header: t("common.name"),
-      meta: { label: t("common.name") },
+      meta: {
+        label: t("common.name"),
+        covers: ["displayName", "fullName", "lastName", "email"],
+      },
       cell: ({ row }) => (
         <RecordLink
           href={userHref(row.original.userId)}
@@ -179,7 +183,10 @@ function PermissionUsersTab({ permissionId }: { permissionId: string }) {
       enableSorting: false,
       accessorFn: (row) => grantSources(row, t).join(", "),
       header: t("permissions.grantSource"),
-      meta: { label: t("permissions.grantSource") },
+      meta: {
+        label: t("permissions.grantSource"),
+        covers: ["viaDirect", "viaOrganization", "viaRole"],
+      },
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
           {grantSources(row.original, t).map((source) => (
