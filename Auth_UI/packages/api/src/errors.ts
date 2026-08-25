@@ -120,6 +120,7 @@ const DOMAIN_ERROR_NAMESPACES = new Set([
   "Device",
   "EmailVerification",
   "ExternalAuth",
+  "Image",
   "Notification",
   "Organization",
   // Not an `Auth.Domain/Errors` class: the password policy is enforced in
