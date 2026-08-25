@@ -1492,6 +1492,12 @@ export const tr: TranslationResources = {
       passwordResetWindowSeconds: "Sıfırlama sayım penceresi (saniye)",
       passwordResetWindowSecondsHint:
         "Yukarıdaki kullanım sayısının ölçüldüğü süre; aynı sabit pencere mekaniğiyle.",
+      apiKeyValidatePermitLimit: "Pencere başına API anahtarı doğrulaması",
+      apiKeyValidatePermitLimitHint:
+        "Tek bir istemci IP'sinin bu API'den bir API anahtarını kontrol etmesini kaç kez isteyebileceği; sonrasında 429 ile reddedilir. Bu sınır bir sırrı değil, işi korur: her doğrulama, sunulan anahtarı kasıtlı olarak yavaş ve bellek yoğun Argon2id ile özetler; dolayısıyla sınırsız bir çağıran, geçerli bir anahtara hiç sahip olmadan bu sunucunun işlemcisini ve belleğini tüketebilir. Meşru bir entegrasyonun ihtiyacının biraz üzerine ayarlayın, daha fazlasına değil.",
+      apiKeyValidateWindowSeconds: "API anahtarı doğrulama penceresi (saniye)",
+      apiKeyValidateWindowSecondsHint:
+        "Yukarıdaki sayımın ölçüldüğü süre. Pencere kayan değil sabittir: süre bittiğinde sayaç sıfırlanır ve hakkını tüketen çağıran o ana kadar bekler.",
     },
     gatewayRateLimiting: {
       title: "İstek hızı sınırlama (Ağ geçidi)",
@@ -1830,18 +1836,34 @@ export const tr: TranslationResources = {
       description:
         "Bekleyen gizli değerleri (2FA tohumları, saklanan anahtarlar) şifreleyen anahtar halkası. Veritabanı kullanılabilir olmadan önce okunur — ve yanlış klasöre yönlendirmek şifrelenmiş her değeri kalıcı olarak okunamaz hale getirir — bu yüzden yalnızca sunucu dosyalarında yönetilir.",
       keyPath: "Anahtar halkası klasörü",
+      keyPathHint:
+        "Şifreleme anahtarlarının kendisinin yazıldığı klasör. Yedeğini veritabanıyla birlikte alın: birini diğeri olmadan geri yüklemek, şifrelenmiş her değeri okunamaz bırakır.",
       certificatePfxPath: "Sertifika dosyası",
+      certificatePfxPathHint:
+        "Anahtar halkasını diskte şifrelemek için kullanılan bir PFX sertifikası; böylece klasörün tek başına bir kopyası onu okumaya yetmez. Boş bırakmak, anahtar halkasının bunun yerine ana bilgisayar tarafından korunduğu anlamına gelir.",
       certificateThumbprint: "Sertifika parmak izi",
+      certificateThumbprintHint:
+        "Yukarıdaki dosyanın alternatifi: makinenin deposunda zaten yüklü bir sertifikanın parmak izi. İkisini değil, birini ayarlayın.",
       certificatePasswordEnvironmentVariable: "Parola ortam değişkeni",
+      certificatePasswordEnvironmentVariableHint:
+        "Sertifikanın parolasını tutan ortam değişkeninin adı — parolanın kendisi değil, yalnızca adı; bu satırın gösterilmesi bu yüzden güvenlidir.",
     },
     secretManagement: {
       title: "Gizli anahtar yönetimi",
       description:
         "Kriptografik gizli değerlerin nasıl saklandığı (şifreli dosya / DPAPI / geliştirme için düz metin). Veritabanından önce başlatıldığı için mod sunucu dosyalarında yönetilir; gizli DEĞERLER ise aşağıdaki anahtarlar sayfasında yönetilir.",
       storageMode: "Depolama modu",
+      storageModeHint:
+        "Gizli bilgilerin diskte nasıl korunduğu: Encrypted (yukarıdaki sertifikadan türetilen bir anahtarla), DPAPI (bu Windows hesabına bağlıdır, dolayısıyla dosyalar başka bir makineye taşınamaz) veya yalnızca yerel geliştirme için PlainText. Burada YAPILANDIRILAN mod görünür; seçilen mod başlatılamazsa süreç geri düşer ve bunu günlüğe yazar.",
       secretFilePath: "Gizli anahtar dosyası",
+      secretFilePathHint:
+        "Gizli deponun bulunduğu yer. Veritabanı kimlik bilgileriyle aynı korumayı verin — bu dosyayı okuyabilen her şey token imzalayabilir.",
       autoGenerateKeys: "Anahtarları otomatik oluştur",
+      autoGenerateKeysHint:
+        "Eksik imzalama anahtarı malzemesini, açılışı reddetmek yerine ilk başlatmada oluşturur. Yeni bir kurulumda pratiktir; mevcut bir dağıtımda ise sessizce üretilmiş bir anahtar kaybolmuş bir anahtardan ayırt edilemez, çünkü verilmiş her token doğrulanmayı bırakır.",
       enableAdminApi: "Yönetici API'si etkin",
+      enableAdminApiHint:
+        "Gizli yönetim uç noktalarının hiç sunulup sunulmadığı. Kapalıysa anahtarlar sayfası, çağıran nasıl yetkilendirilmiş olursa olsun onlara ulaşamaz — bir izin değil, yönlendirme düzeyinde bir anahtar.",
     },
     connectionStrings: {
       title: "Veritabanı bağlantısı",

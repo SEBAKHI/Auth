@@ -1478,6 +1478,12 @@ export const en = {
       passwordResetWindowSeconds: "Reset counting window (seconds)",
       passwordResetWindowSecondsHint:
         "The span the redemption count above is measured over, on the same fixed-window mechanic.",
+      apiKeyValidatePermitLimit: "API key validations per window",
+      apiKeyValidatePermitLimitHint:
+        "How many times one client IP may ask this API to check an API key before it is refused with 429. This limit guards work, not a secret: every validation hashes the presented key with Argon2id, which is deliberately slow and memory-hungry, so an unthrottled caller can spend this server's CPU and memory at will without ever holding a valid key. Set it above what a legitimate integration needs and no higher.",
+      apiKeyValidateWindowSeconds: "API key validation window (seconds)",
+      apiKeyValidateWindowSecondsHint:
+        "The span the validation count above is measured over. The window is fixed, not rolling: the counter returns to zero when it ends, and a caller that has spent its allowance waits until then.",
     },
     gatewayRateLimiting: {
       title: "Rate limiting (Gateway)",
@@ -1813,18 +1819,34 @@ export const en = {
       description:
         "The key ring that encrypts secrets at rest (2FA seeds, stored keys). Read before the database is available — and pointing it at the wrong folder makes every encrypted value permanently unreadable — so it is managed in server files only.",
       keyPath: "Key ring folder",
+      keyPathHint:
+        "Where the encryption keys themselves are written. Back this folder up with the database: restoring one without the other leaves every encrypted value unreadable.",
       certificatePfxPath: "Certificate file",
+      certificatePfxPathHint:
+        "A PFX certificate used to encrypt the key ring at rest, so a copy of the folder alone is not enough to read it. Empty means the key ring is protected by the host instead.",
       certificateThumbprint: "Certificate thumbprint",
+      certificateThumbprintHint:
+        "An alternative to the file above: the fingerprint of a certificate already installed in the machine's store. Set one or the other, not both.",
       certificatePasswordEnvironmentVariable: "Password environment variable",
+      certificatePasswordEnvironmentVariableHint:
+        "The name of the environment variable holding the certificate's password — the name, never the password itself, which is why this line is safe to show.",
     },
     secretManagement: {
       title: "Secret management",
       description:
         "How cryptographic secrets are stored (encrypted file / DPAPI / plaintext for development). Bootstraps before the database, so the mode is managed in server files; the secret VALUES are managed on the keys page below.",
       storageMode: "Storage mode",
+      storageModeHint:
+        "How secrets are protected on disk: Encrypted (a key derived from the certificate above), DPAPI (tied to this Windows account, so the files cannot be moved to another machine), or PlainText for local development only. This shows the CONFIGURED mode; if the chosen one cannot start, the process falls back and logs it.",
       secretFilePath: "Secrets file",
+      secretFilePathHint:
+        "Where the secret store is kept. Give it the same protection as the database credentials — anything that can read this file can sign tokens.",
       autoGenerateKeys: "Auto-generate keys",
+      autoGenerateKeysHint:
+        "Creates missing signing key material on first start instead of refusing to boot. Convenient on a fresh install; on an existing deployment a silently generated key is indistinguishable from a lost one, because every issued token stops validating.",
       enableAdminApi: "Admin API enabled",
+      enableAdminApiHint:
+        "Whether the secret-management endpoints are served at all. Off means the keys page cannot reach them however the caller is authorized — a switch at the routing level, not a permission.",
     },
     connectionStrings: {
       title: "Database connection",

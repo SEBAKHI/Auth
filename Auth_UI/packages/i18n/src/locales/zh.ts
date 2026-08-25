@@ -1389,6 +1389,12 @@ export const zh: TranslationResources = {
       passwordResetWindowSeconds: "重置计数窗口（秒）",
       passwordResetWindowSecondsHint:
         "统计上述使用次数的时间跨度，采用同样的固定窗口机制。",
+      apiKeyValidatePermitLimit: "每个窗口的 API 密钥校验次数",
+      apiKeyValidatePermitLimitHint:
+        "单个客户端 IP 可以请求本 API 校验 API 密钥多少次，超出后以 429 拒绝。该限制保护的是计算开销而非某个机密：每次校验都会用 Argon2id 对提交的密钥做哈希，而它被刻意设计得缓慢且占用内存，因此不受限的调用方即使从未持有有效密钥，也能耗尽本服务器的处理器与内存。请设置为略高于合法集成所需的值，不要更高。",
+      apiKeyValidateWindowSeconds: "API 密钥校验计数窗口（秒）",
+      apiKeyValidateWindowSecondsHint:
+        "上面计数所依据的时间跨度。窗口是固定的而非滑动的：窗口结束时计数器归零，用尽配额的调用方需等到那时。",
     },
     gatewayRateLimiting: {
       title: "请求速率限制（网关）",
@@ -1693,18 +1699,34 @@ export const zh: TranslationResources = {
       description:
         "用于静态加密机密（2FA 种子、存储的密钥）的密钥环。它在数据库可用之前就会被读取——而且一旦指向错误的文件夹，所有已加密的值将永久无法读取——因此只能在服务器文件中管理。",
       keyPath: "密钥环文件夹",
+      keyPathHint:
+        "写入加密密钥本身的文件夹。请与数据库一同备份：只恢复其中之一会让所有加密值永久无法读取。",
       certificatePfxPath: "证书文件",
+      certificatePfxPathHint:
+        "用于加密静态密钥环的 PFX 证书，使得仅有该文件夹的副本不足以读取它。留空表示改由主机保护密钥环。",
       certificateThumbprint: "证书指纹",
+      certificateThumbprintHint:
+        "上面文件的替代方案：已安装在本机证书存储中的证书指纹。两者只设其一。",
       certificatePasswordEnvironmentVariable: "密码环境变量",
+      certificatePasswordEnvironmentVariableHint:
+        "存放证书密码的环境变量名称——只是名称，绝不是密码本身，因此这一行可以安全显示。",
     },
     secretManagement: {
       title: "机密管理",
       description:
         "加密机密的存储方式（加密文件 / DPAPI / 开发用明文）。它在数据库之前完成初始化，因此存储模式只能在服务器文件中管理；机密的具体值在下方的密钥页面管理。",
       storageMode: "存储模式",
+      storageModeHint:
+        "机密在磁盘上的保护方式：Encrypted（由上面的证书派生密钥）、DPAPI（绑定到当前 Windows 账户，因此文件无法移到其他机器）、或仅用于本地开发的 PlainText。此处显示的是配置的模式；若所选模式无法启动，进程会回退并记录日志。",
       secretFilePath: "机密文件",
+      secretFilePathHint:
+        "机密存储所在位置。请给予它与数据库凭据同等的保护——任何能读取此文件的东西都能签发令牌。",
       autoGenerateKeys: "自动生成密钥",
+      autoGenerateKeysHint:
+        "首次启动时创建缺失的签名密钥材料，而不是拒绝启动。在全新安装上很方便；但在既有部署上，悄然生成的密钥与丢失的密钥无从区分，因为所有已签发的令牌都会停止通过校验。",
       enableAdminApi: "启用管理 API",
+      enableAdminApiHint:
+        "是否提供机密管理端点。关闭时，无论调用方获得何种授权，密钥页面都无法访问它们——这是路由层面的开关，而不是权限。",
     },
     connectionStrings: {
       title: "数据库连接",

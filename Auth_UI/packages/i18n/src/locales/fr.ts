@@ -1528,6 +1528,13 @@ export const fr: TranslationResources = {
         "Fenêtre de comptage de réinitialisation (secondes)",
       passwordResetWindowSecondsHint:
         "Durée sur laquelle le nombre d'utilisations ci-dessus est mesuré, selon la même mécanique de fenêtre fixe.",
+      apiKeyValidatePermitLimit: "Validations de clé d'API par fenêtre",
+      apiKeyValidatePermitLimitHint:
+        "Combien de fois une même adresse IP cliente peut demander à cette API de vérifier une clé d'API avant d'être refusée avec un 429. Cette limite protège un travail, pas un secret : chaque validation hache la clé présentée avec Argon2id, volontairement lent et gourmand en mémoire, de sorte qu'un appelant sans limite peut consommer le processeur et la mémoire de ce serveur sans jamais détenir de clé valide. Réglez-la juste au-dessus de ce dont une intégration légitime a besoin, et pas plus haut.",
+      apiKeyValidateWindowSeconds:
+        "Fenêtre de comptage des validations (secondes)",
+      apiKeyValidateWindowSecondsHint:
+        "La durée sur laquelle le comptage ci-dessus est mesuré. La fenêtre est fixe et non glissante : le compteur revient à zéro à sa fin, et un appelant qui a épuisé son quota attend jusque-là.",
     },
     gatewayRateLimiting: {
       title: "Limitation de débit (passerelle)",
@@ -1871,19 +1878,35 @@ export const fr: TranslationResources = {
       description:
         "Le trousseau de clés qui chiffre les secrets au repos (graines 2FA, clés stockées). Lu avant que la base de données ne soit disponible — et le pointer vers le mauvais dossier rend chaque valeur chiffrée définitivement illisible — il se gère donc uniquement dans les fichiers du serveur.",
       keyPath: "Dossier du trousseau de clés",
+      keyPathHint:
+        "Le dossier où sont écrites les clés de chiffrement elles-mêmes. Sauvegardez-le avec la base de données : restaurer l'un sans l'autre rend toute valeur chiffrée illisible.",
       certificatePfxPath: "Fichier de certificat",
+      certificatePfxPathHint:
+        "Un certificat PFX qui chiffre le trousseau au repos, afin qu'une copie du dossier seul ne suffise pas à le lire. Vide signifie que le trousseau est protégé par l'hôte à la place.",
       certificateThumbprint: "Empreinte du certificat",
+      certificateThumbprintHint:
+        "Une alternative au fichier ci-dessus : l'empreinte d'un certificat déjà installé dans le magasin de la machine. Renseignez l'un ou l'autre, pas les deux.",
       certificatePasswordEnvironmentVariable:
         "Variable d'environnement du mot de passe",
+      certificatePasswordEnvironmentVariableHint:
+        "Le nom de la variable d'environnement qui contient le mot de passe du certificat — le nom, jamais le mot de passe lui-même, ce qui rend cette ligne sûre à afficher.",
     },
     secretManagement: {
       title: "Gestion des secrets",
       description:
         "Comment les secrets cryptographiques sont stockés (fichier chiffré / DPAPI / texte clair pour le développement). S'amorce avant la base de données, le mode se gère donc dans les fichiers du serveur ; les VALEURS des secrets se gèrent sur la page des clés ci-dessous.",
       storageMode: "Mode de stockage",
+      storageModeHint:
+        "Comment les secrets sont protégés sur le disque : Encrypted (une clé dérivée du certificat ci-dessus), DPAPI (lié à ce compte Windows, les fichiers ne peuvent donc pas être déplacés vers une autre machine), ou PlainText pour le développement local uniquement. Ceci affiche le mode CONFIGURÉ ; si celui choisi ne peut pas démarrer, le processus bascule et le consigne.",
       secretFilePath: "Fichier des secrets",
+      secretFilePathHint:
+        "L'emplacement du magasin de secrets. Protégez-le comme les identifiants de la base de données — tout ce qui peut lire ce fichier peut signer des jetons.",
       autoGenerateKeys: "Génération automatique des clés",
+      autoGenerateKeysHint:
+        "Crée le matériel de clé de signature manquant au premier démarrage au lieu de refuser de démarrer. Pratique sur une installation neuve ; sur un déploiement existant, une clé générée en silence est indiscernable d'une clé perdue, car tout jeton déjà émis cesse d'être valide.",
       enableAdminApi: "API d'administration activée",
+      enableAdminApiHint:
+        "Si les points de terminaison de gestion des secrets sont servis. Désactivé, la page des clés ne peut pas les atteindre quelle que soit l'autorisation de l'appelant — un interrupteur au niveau du routage, pas une permission.",
     },
     connectionStrings: {
       title: "Connexion à la base de données",
