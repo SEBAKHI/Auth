@@ -2,8 +2,8 @@ import type { ColumnDef } from "@tanstack/react-table"
 import type { TFunction } from "i18next"
 
 import {
+  fieldLabel,
   formatFieldValue,
-  humanizeKey,
   nameSiblingKey,
   pairedLabelKey,
 } from "./field-format"
@@ -71,7 +71,7 @@ export function buildDisplayColumns<TData>(
   const autoColumns: ColumnDef<TData, unknown>[] = emitted.map((key) => {
     const sibling = nameSiblingKey(key)
     const isPaired = consumedNameKeys.has(sibling)
-    const label = humanizeKey(isPaired ? pairedLabelKey(key) : key)
+    const label = fieldLabel(isPaired ? pairedLabelKey(key) : key, t)
     return {
       id: key,
       accessorFn: (row) => {

@@ -73,7 +73,7 @@ import {
   type TableLayout,
 } from "./storage"
 import { DataTableRowDetail } from "./data-table-row-detail"
-import { humanizeKey } from "./field-format"
+import { fieldLabel } from "./field-format"
 import { facetedFilterFn } from "./filters"
 import { DataTableToolbar } from "./data-table-toolbar"
 import "./types"
@@ -587,9 +587,9 @@ export function DataTable<TData>({
       const match = (effectiveColumns as ColumnDef<unknown, unknown>[]).find(
         (column) => columnIdOf(column) === columnId
       )
-      return match?.meta?.label ?? humanizeKey(columnId)
+      return match?.meta?.label ?? fieldLabel(columnId, t)
     },
-    [effectiveColumns]
+    [effectiveColumns, t]
   )
 
   // Single funnel for both reorder paths (menu buttons and drag), so the move
@@ -681,10 +681,10 @@ export function DataTable<TData>({
       if (!key || key === "actions") continue
       map[key] =
         column.meta?.label ??
-        (typeof def.header === "string" ? def.header : humanizeKey(key))
+        (typeof def.header === "string" ? def.header : fieldLabel(key, t))
     }
     return map
-  }, [effectiveColumns])
+  }, [effectiveColumns, t])
 
   const detailHiddenKeys = React.useMemo(
     () =>
@@ -701,7 +701,7 @@ export function DataTable<TData>({
   const exportDisabled = data.length === 0 && !onExportAll
 
   const handleExport = React.useCallback(async () => {
-    const exportColumns = buildExportColumns(table)
+    const exportColumns = buildExportColumns(table, t)
     const fileBase = exportFileName ?? tableId ?? "export"
     if (!onExportAll) {
       exportRowsToCsv(data, exportColumns, fileBase, t)
@@ -865,7 +865,7 @@ export function DataTable<TData>({
                           aria-label={t("common.resizeColumn", {
                             column:
                               header.column.columnDef.meta?.label ??
-                              humanizeKey(header.column.id),
+                              fieldLabel(header.column.id, t),
                           })}
                           aria-valuenow={
                             columnSizing[header.column.id] ?? header.getSize()
