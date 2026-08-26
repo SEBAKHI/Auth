@@ -60,6 +60,12 @@ import type { Schemas } from "@authsystem/api/types"
 import { VerifyEmailDialog } from "@authsystem/ui/common/verify-email-dialog"
 import type { AuditLogColumnId } from "@/pages/audit-logs/audit-log-columns"
 import { AuditLogExportMenu } from "@/pages/audit-logs/audit-log-export"
+import { AuditLogFilterRow } from "@/pages/audit-logs/audit-log-filter-row"
+import {
+  AUDIT_LOG_FILTER_SCHEMA,
+  toAuditLogQuery,
+  type AuditLogFilters,
+} from "@/pages/audit-logs/audit-log-filters"
 import {
   AUDIT_PARTICIPANT_ROLES,
   participantRoleParam,
@@ -77,9 +83,8 @@ import { UserRolesDialog } from "./user-roles-dialog"
 
 type UserDto = Schemas["UserDto"]
 
-type UserAuditUrlFilters = {
+type UserAuditUrlFilters = AuditLogFilters & {
   entityTypes: string[]
-  applications: string[]
   role: AuditParticipantRole | ""
 }
 
@@ -89,11 +94,24 @@ const USER_AUDIT_URL_OPTIONS = {
   sortableColumns: SORTABLE_COLUMNS.auditLogs,
   defaultSorting: [{ id: "timestamp", desc: true }],
   filters: {
+    ...AUDIT_LOG_FILTER_SCHEMA,
     entityTypes: stringArrayUrlFilter({ param: "entityType" }),
-    applications: stringArrayUrlFilter({ param: "application" }),
     role: enumUrlFilter(AUDIT_PARTICIPANT_ROLES),
   },
 } satisfies ListUrlStateOptions<UserAuditUrlFilters>
+
+/**
+ * The application is narrowed on the SERVER here too, now that the tab has the
+ * same filter row.
+ *
+ * It used to be a faceted chip over `applicationName`, which read its options
+ * out of the loaded page and narrowed only that page — beside a paginated total
+ * counting the whole history. Keeping both would have put two controls over one
+ * concept on one screen, disagreeing about scope, which is the trap the full
+ * page documents. The server-side select is the stronger of the two, so the
+ * facet goes.
+ */
+const TAB_SERVER_FILTERED: readonly AuditLogColumnId[] = ["applicationName"]
 
 /**
  * What this tab opens on, when the URL does not say.
@@ -507,33 +525,38 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
   } = useListUrlState(USER_AUDIT_URL_OPTIONS)
   const { sortBy, sortDirection } = toSortParams(sorting)
   const role = filters.role || DEFAULT_PARTICIPANT_ROLE
-  const columnFilters: ColumnFiltersState = [
-    ...(filters.entityTypes.length
-      ? [{ id: "entityType", value: filters.entityTypes }]
-      : []),
-    ...(filters.applications.length
-      ? [{ id: "applicationName", value: filters.applications }]
-      : []),
-  ]
+  const columnFilters: ColumnFiltersState = filters.entityTypes.length
+    ? [{ id: "entityType", value: filters.entityTypes }]
+    : []
   const onColumnFiltersChange = (next: ColumnFiltersState) =>
     setFilters({
       entityTypes:
         (next.find((filter) => filter.id === "entityType")?.value as
           | string[]
           | undefined) ?? [],
-      applications:
-        (next.find((filter) => filter.id === "applicationName")?.value as
-          | string[]
-          | undefined) ?? [],
     })
 
+  // One object for the list, the export and the cache key. The person and the
+  // side they were on are members of it rather than a side channel, so no
+  // caller can send the filters and forget the pin — which on this screen would
+  // be one person's page answering with the whole platform's history.
+  const queryFilters = React.useMemo(
+    () => ({
+      ...toAuditLogQuery(filters),
+      participantId: userId,
+      participantRole: participantRoleParam(role),
+    }),
+    [filters, userId, role]
+  )
+
   const query = useQuery({
-    // `role` belongs in the key, not only in the request: without it "what
-    // happened to them" and "what they did" are one cached query, and switching
-    // the control would re-label the previous answer instead of asking again.
+    // Every narrowing is in the key, not only in the request. Without the role
+    // "what happened to them" and "what they did" would be one cached query,
+    // and switching the control would re-label the previous answer instead of
+    // asking again.
     queryKey: [
       "audit-logs",
-      { userId, role, page, pageSize, sortBy, sortDirection },
+      { queryFilters, page, pageSize, sortBy, sortDirection },
     ],
     queryFn: () =>
       unwrap(
@@ -542,8 +565,7 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
             query: {
               pageNumber: page + 1,
               pageSize,
-              participantId: userId,
-              participantRole: participantRoleParam(role),
+              ...queryFilters,
               sortBy,
               sortDirection,
             },
@@ -552,18 +574,9 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
       ),
   })
 
-  // The pin the file must carry. Built from the same values the query above
-  // sends, so the export cannot answer a narrower or wider question than the
-  // table the reader is looking at — and cannot forget the person entirely,
-  // which on this screen would write the whole platform's history to disk.
   const exportFilters = React.useMemo(
-    () => ({
-      participantId: userId,
-      participantRole: participantRoleParam(role),
-      sortBy,
-      sortDirection,
-    }),
-    [userId, role, sortBy, sortDirection]
+    () => ({ ...queryFilters, sortBy, sortDirection }),
+    [queryFilters, sortBy, sortDirection]
   )
 
   return (
@@ -583,10 +596,12 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
           />
         ) : null}
       </div>
+      <AuditLogFilterRow filters={filters} onChange={setFilters} />
       <ActorBoundaryNotice role={role} />
       <AuditLogTable
         tableId="user-audit"
         defaultHidden={role === "subject" ? SUBJECT_HIDDEN : NOTHING_HIDDEN}
+        serverFiltered={TAB_SERVER_FILTERED}
         data={query.data?.logs ?? []}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}

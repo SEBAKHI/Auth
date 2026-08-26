@@ -530,3 +530,119 @@ test.describe("exporting one person's trail", () => {
     await expect.poll(() => bodies.length).toBe(1)
   })
 })
+
+/**
+ * The filter row on a person's page, and the pin it must never displace.
+ *
+ * The tab used to narrow by two client-side facets that filtered the loaded
+ * page while the footer counted the whole history. It now sends the same server
+ * filters the full page does — and every one of them has to travel ALONGSIDE
+ * the participant, not instead of it.
+ */
+test.describe("filtering one person's trail", () => {
+  test("sends the filter and the person in the same request", async ({
+    page,
+  }) => {
+    const { queries, installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    const before = queries.length
+    await page.getByRole("combobox").filter({ hasText: "All results" }).click()
+    await page.getByRole("option", { name: "Failed", exact: true }).click()
+
+    await expect
+      .poll(() =>
+        queries
+          .slice(before)
+          .some(
+            (url) =>
+              url.searchParams.get("isSuccess") === "false" &&
+              url.searchParams.get("participantId") === USER_ID &&
+              url.searchParams.get("participantRole") !== null
+          )
+      )
+      .toBe(true)
+    await expect(page).toHaveURL(/audit\.result=false/)
+  })
+
+  test("narrows the application on the server, and offers no second control for it", async ({
+    page,
+  }) => {
+    const { installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    // A toolbar facet is a popover trigger; the column heading of the same name
+    // is a plain sort button, so the selector has to say which one it means.
+    const facet = (name: string) =>
+      page.locator("button[aria-haspopup]").filter({ hasText: name })
+
+    // The application facet is gone: it read its options out of the loaded page
+    // and narrowed only that page, beside a footer counting every row — two
+    // controls over one concept, disagreeing about scope. The server-side
+    // select above the table is the one that stayed.
+    await expect(facet("Application")).toHaveCount(0)
+    // The server-side select that replaced it. Its unnarrowed label is a bare
+    // "All", anchored so it does not also match "All results".
+    await expect(
+      page.getByRole("combobox").filter({ hasText: /^All$/ })
+    ).toBeVisible()
+
+    // The target facet stays: nothing narrows entity type on the server, so it
+    // is the only control there is rather than a weaker duplicate of one.
+    await expect(facet("Target")).toBeVisible()
+  })
+
+  test("carries the filter into the export as well as the table", async ({
+    page,
+  }) => {
+    const bodies: unknown[] = []
+    await installAuthenticatedApi(
+      page,
+      ["auditlogs:read", "auditlogs:export", "users:read"],
+      async (route: Route, url: URL) => {
+        if (url.pathname.toLowerCase() === "/api/v1/audit-logs/export") {
+          bodies.push(route.request().postDataJSON())
+          await route.fulfill({
+            status: 200,
+            contentType: "text/csv",
+            body: "Id,Timestamp\n",
+          })
+          return true
+        }
+        if (url.pathname.toLowerCase() === "/api/v1/audit-logs") {
+          await fulfillJson(route, PAGE_ONE)
+          return true
+        }
+        if (url.pathname.toLowerCase() === `/api/v1/users/${USER_ID}`) {
+          await fulfillJson(route, USER)
+          return true
+        }
+        await fulfillJson(route, { items: [], totalCount: 0 })
+        return true
+      }
+    )
+    // Arriving already narrowed, the way a shared link does.
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.result=false`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Export" }).click()
+    await page.getByRole("menuitem", { name: "CSV" }).click()
+
+    await expect.poll(() => bodies.length).toBe(1)
+    // The file answers the same question as the table above it — no wider.
+    expect(bodies[0]).toMatchObject({
+      isSuccess: false,
+      participantId: USER_ID,
+    })
+  })
+})
