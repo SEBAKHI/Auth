@@ -141,6 +141,12 @@
   <data name="Validation.DateRange.Invalid" xml:space="preserve">
     <value>Bitiş tarihi başlangıç tarihinden sonra olmalıdır.</value>
   </data>
+  <data name="Validation.AuditParticipant.RoleRequired" xml:space="preserve">
+    <value>Katılımcı filtresi bir rol gerektirir: etkilenen, yapan veya her ikisi.</value>
+  </data>
+  <data name="Validation.AuditParticipant.IdRequired" xml:space="preserve">
+    <value>Katılımcı rolü, uygulandığı kişiyi gerektirir.</value>
+  </data>
   <data name="Validation.EntityType.Required" xml:space="preserve">
     <value>Varlık türü gereklidir.</value>
   </data>

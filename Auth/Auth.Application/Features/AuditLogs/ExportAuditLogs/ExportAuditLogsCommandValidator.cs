@@ -20,5 +20,15 @@ public class ExportAuditLogsCommandValidator : AbstractValidator<ExportAuditLogs
             .GreaterThan(x => x.FromDate).WithMessage("Validation.DateRange.Invalid")
             .When(x => x.FromDate.HasValue && x.ToDate.HasValue);
         RuleFor(x => x.SortBy).IsValidSortField(SortFields.AuditLogs.Allowed);
+
+        // Same pairing rule as the list, for a stronger reason: a file is read
+        // long after the request that produced it, and the only record of what
+        // it was narrowed by is what the caller sent.
+        RuleFor(x => x.ParticipantRole)
+            .NotNull().WithMessage("Validation.AuditParticipant.RoleRequired")
+            .When(x => x.ParticipantId.HasValue);
+        RuleFor(x => x.ParticipantId)
+            .NotNull().WithMessage("Validation.AuditParticipant.IdRequired")
+            .When(x => x.ParticipantRole.HasValue);
     }
 }

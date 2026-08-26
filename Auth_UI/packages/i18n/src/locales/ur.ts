@@ -973,6 +973,13 @@ export const ur: TranslationResources = {
     success: "کامیاب",
     failure: "ناکام",
     notRecorded: "ریکارڈ نہیں ہوا",
+    participantRole: "دکھائیں",
+    participantRoles: {
+      either: "دونوں",
+      subject: "جو اُن پر ہوا",
+      actor: "جو اُنہوں نے کیا",
+    },
+    actorBoundary: "کارروائی کرنے والے کو الگ سے صرف {{date}} سے ریکارڈ کیا گیا۔ اس سے پرانی سطروں میں کرنے والا متاثرہ شخص ہی کی نقل ہے، اس لیے وہ خود کی گئی کارروائی معلوم ہوتی ہیں۔",
     allResults: "تمام نتائج",
     errorMessage: "خرابی کا پیغام",
     timestamp: "وقت",

@@ -168,7 +168,8 @@ public class AuditLogTruthTests
         await new AuditLogRepository(factory).GetPagedAsync(
             pageNumber: 1,
             pageSize: 50,
-            userId: null,
+            participantId: null,
+            participantRole: null,
             applicationId: null,
             action: null,
             actionType: actionType,

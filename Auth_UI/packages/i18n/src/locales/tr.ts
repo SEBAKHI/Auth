@@ -983,6 +983,13 @@ export const tr: TranslationResources = {
     success: "Başarılı",
     failure: "Başarısız",
     notRecorded: "Kaydedilmedi",
+    participantRole: "Gösterilen",
+    participantRoles: {
+      either: "Her ikisi",
+      subject: "Onu etkileyenler",
+      actor: "Onun yaptıkları",
+    },
+    actorBoundary: "Bir işlemi kimin yaptığı ayrı olarak yalnızca {{date}} tarihinden itibaren kaydedildi. Daha eski satırlarda yapan, etkilenenin bir kopyasıdır; bu nedenle kişinin kendi yaptığı işlem gibi görünür.",
     allResults: "Tüm sonuçlar",
     errorMessage: "Hata mesajı",
     timestamp: "Zaman damgası",

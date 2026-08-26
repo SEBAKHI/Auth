@@ -141,6 +141,12 @@
   <data name="Validation.DateRange.Invalid" xml:space="preserve">
     <value>تاریخ پایان باید بعد از تاریخ شروع باشد.</value>
   </data>
+  <data name="Validation.AuditParticipant.RoleRequired" xml:space="preserve">
+    <value>فیلتر مشارکت‌کننده به یک نقش نیاز دارد: متأثر، انجام‌دهنده یا هر دو.</value>
+  </data>
+  <data name="Validation.AuditParticipant.IdRequired" xml:space="preserve">
+    <value>نقش مشارکت‌کننده به شخصی که بر او اعمال می‌شود نیاز دارد.</value>
+  </data>
   <data name="Validation.EntityType.Required" xml:space="preserve">
     <value>نوع موجودیت الزامی است.</value>
   </data>

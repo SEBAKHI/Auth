@@ -277,7 +277,9 @@ test.describe("a user's own audit trail", () => {
 
     // The one thing the shared table must NOT unify away.
     await expect
-      .poll(() => queries.some((url) => url.searchParams.get("userId") === USER_ID))
+      .poll(() =>
+        queries.some((url) => url.searchParams.get("participantId") === USER_ID)
+      )
       .toBe(true)
 
     const row = page.getByRole("row").filter({ hasText: "user.locked" })
@@ -288,5 +290,109 @@ test.describe("a user's own audit trail", () => {
     await expect(dialog.getByText(ADMIN, { exact: true })).toBeVisible()
     await expect(dialog.getByText("Subject", { exact: true })).toBeVisible()
     await expect(dialog.getByText(EMPLOYEE, { exact: true })).toBeVisible()
+  })
+})
+
+/**
+ * The question the tab is asking, and whether the server is asked it.
+ *
+ * Until this control existed the request pinned `userId`, which the repository
+ * only ever applied to the subject column — so a tab headed with a person's
+ * name could show what was done TO them and nothing they did, with no sign that
+ * half the answer was missing.
+ */
+test.describe("a user's audit trail, by side", () => {
+  test("opens on both sides and says so in the request", async ({ page }) => {
+    const { queries, installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    // 2 is Either — the ordinal of the C# enum member, the way sortDirection
+    // travels. audit-log-participant.test.ts holds that mapping to the source.
+    await expect
+      .poll(() =>
+        queries.some(
+          (url) =>
+            url.searchParams.get("participantId") === USER_ID &&
+            url.searchParams.get("participantRole") === "2"
+        )
+      )
+      .toBe(true)
+    // No bare userId any more: it could only ever mean the subject.
+    expect(queries.every((url) => url.searchParams.get("userId") === null)).toBe(
+      true
+    )
+  })
+
+  test("asking what they did sends the actor side, and re-asks the server", async ({
+    page,
+  }) => {
+    const { queries, installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    const before = queries.length
+    await page.getByRole("radio", { name: "Performed by them" }).click()
+
+    await expect
+      .poll(() =>
+        queries
+          .slice(before)
+          .some((url) => url.searchParams.get("participantRole") === "1")
+      )
+      .toBe(true)
+    await expect(page).toHaveURL(/audit\.role=actor/)
+  })
+
+  test("names who it happened to as soon as the rows can be about anyone", async ({
+    page,
+  }) => {
+    const { installed } = installAuditApi(page)
+    await installed
+
+    // Pinned to the subject, every row is this user, so the column that repeats
+    // them starts hidden.
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.role=subject`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("columnheader", { name: "Subject" })
+    ).toHaveCount(0)
+
+    // Under either of the other two the rows can be about other people, and the
+    // column becomes the thing that tells them apart.
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.role=actor`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("columnheader", { name: "Subject" })
+    ).toBeVisible()
+  })
+
+  test("says what the actor column cannot know about older rows", async ({
+    page,
+  }) => {
+    const { installed } = installAuditApi(page)
+    await installed
+
+    // The performer was written as a copy of the subject until 24 August 2026.
+    // Surfacing those rows under "performed by" without saying so would present
+    // a wrong answer in the shape of a right one.
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.role=actor`)
+    await expect(page.getByRole("alert")).toContainText("24 Aug 2026")
+
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.role=subject`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+    await expect(page.getByRole("alert")).toHaveCount(0)
   })
 })

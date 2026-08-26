@@ -28,10 +28,17 @@ namespace Auth.Application.Features.AuditLogs.ExportAuditLogs;
 /// Neither answer would be honest about them, and an export that quietly folded
 /// them into "succeeded" is the defect the nullable column was introduced to end.
 /// </para>
+/// <para>
+/// The participant pair mirrors the query's for the same reason the rest of this
+/// record does. Leaving a <c>UserId</c> here while the list took a participant
+/// would give one concept two names on one feature, and the export would be the
+/// half that still could not ask who performed anything.
+/// </para>
 /// </remarks>
 public record ExportAuditLogsCommand(
     string Format = "csv",
-    Guid? UserId = null,
+    Guid? ParticipantId = null,
+    AuditParticipantRole? ParticipantRole = null,
     Guid? ApplicationId = null,
     string? Action = null,
     string? ActionType = null,

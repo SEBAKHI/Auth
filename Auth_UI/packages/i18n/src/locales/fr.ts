@@ -999,6 +999,13 @@ export const fr: TranslationResources = {
     success: "Réussi",
     failure: "Échoué",
     notRecorded: "Non enregistré",
+    participantRole: "Affiche",
+    participantRoles: {
+      either: "Les deux",
+      subject: "Ce qui la concerne",
+      actor: "Ce qu'elle a fait",
+    },
+    actorBoundary: "L'auteur d'une action n'est enregistré séparément que depuis le {{date}}. Sur les lignes antérieures, l'auteur est une copie de la personne concernée : elles se lisent donc comme des actions faites sur soi-même.",
     allResults: "Tous les résultats",
     errorMessage: "Erreur",
     timestamp: "Horodatage",

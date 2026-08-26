@@ -141,6 +141,12 @@
   <data name="Validation.DateRange.Invalid" xml:space="preserve">
     <value>结束日期必须晚于起始日期。</value>
   </data>
+  <data name="Validation.AuditParticipant.RoleRequired" xml:space="preserve">
+    <value>参与者筛选需要指定角色：对象、操作者或两者。</value>
+  </data>
+  <data name="Validation.AuditParticipant.IdRequired" xml:space="preserve">
+    <value>参与者角色需要指定其适用的人员。</value>
+  </data>
   <data name="Validation.EntityType.Required" xml:space="preserve">
     <value>实体类型为必填项。</value>
   </data>

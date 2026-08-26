@@ -41,7 +41,8 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
         var (logs, totalCount) = await _auditLogRepository.GetPagedAsync(
             1,
             request.MaxRecords,
-            request.UserId,
+            request.ParticipantId,
+            request.ParticipantRole,
             request.ApplicationId,
             request.Action,
             request.ActionType,

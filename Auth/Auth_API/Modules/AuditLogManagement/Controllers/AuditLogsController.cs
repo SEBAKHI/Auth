@@ -42,7 +42,8 @@ public class AuditLogsController : ApiController
     public async Task<IActionResult> GetAuditLogs(
         [FromQuery] int pageNumber = 1,
         [FromQuery] int pageSize = 50,
-        [FromQuery] Guid? userId = null,
+        [FromQuery] Guid? participantId = null,
+        [FromQuery] AuditParticipantRole? participantRole = null,
         [FromQuery] Guid? applicationId = null,
         [FromQuery] string? action = null,
         [FromQuery] string? actionType = null,
@@ -57,8 +58,13 @@ public class AuditLogsController : ApiController
         // WHERE clause. They were removed when the columns did not exist, because
         // a filter that silently does nothing is worse than no filter: a reader
         // asking for failures got every row and read it as "no failures".
+        //
+        // `participantRole` is nullable rather than defaulted for the same
+        // family of reason. Bound as a non-nullable enum it could not tell "the
+        // caller said nothing" from "the caller said the widest option", and the
+        // validator's pairing rule would have nothing to test.
         var query = new GetAuditLogsQuery(
-            pageNumber, pageSize, userId, applicationId,
+            pageNumber, pageSize, participantId, participantRole, applicationId,
             action, actionType, isSuccess, fromDate, toDate, sortBy, sortDirection);
         var result = await _sender.Send(query, cancellationToken);
 
@@ -151,7 +157,8 @@ public class AuditLogsController : ApiController
         var userId = GetCurrentUserId();
         var command = new ExportAuditLogsCommand(
             request.Format,
-            request.UserId,
+            request.ParticipantId,
+            request.ParticipantRole,
             request.ApplicationId,
             request.Action,
             request.ActionType,

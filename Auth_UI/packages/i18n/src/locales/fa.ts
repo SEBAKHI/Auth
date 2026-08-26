@@ -970,6 +970,13 @@ export const fa: TranslationResources = {
     success: "موفق",
     failure: "ناموفق",
     notRecorded: "ثبت نشده",
+    participantRole: "نمایش",
+    participantRoles: {
+      either: "هر دو",
+      subject: "آنچه بر او رخ داد",
+      actor: "آنچه او انجام داد",
+    },
+    actorBoundary: "انجام‌دهندهٔ هر عملیات تنها از {{date}} به‌صورت جداگانه ثبت شده است. در سطرهای قدیمی‌تر انجام‌دهنده رونوشتی از متأثر است، بنابراین چنین می‌نمایند که شخص خودش آن را انجام داده است.",
     allResults: "همهٔ نتیجه‌ها",
     errorMessage: "پیام خطا",
     timestamp: "زمان",

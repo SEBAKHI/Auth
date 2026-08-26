@@ -972,6 +972,13 @@ export const en = {
     success: "Succeeded",
     failure: "Failed",
     notRecorded: "Not recorded",
+    participantRole: "Shows",
+    participantRoles: {
+      either: "Both",
+      subject: "Affecting them",
+      actor: "Performed by them",
+    },
+    actorBoundary: "Who performed an action was only recorded separately from {{date}}. On earlier rows the performer is a copy of the person acted upon, so they read as self-performed.",
     allResults: "All results",
     errorMessage: "Error",
     timestamp: "Timestamp",

@@ -50,6 +50,7 @@ import {
 import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
 import {
+  enumUrlFilter,
   stringArrayUrlFilter,
   useListUrlState,
   type ListUrlStateOptions,
@@ -58,7 +59,16 @@ import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { VerifyEmailDialog } from "@authsystem/ui/common/verify-email-dialog"
 import type { AuditLogColumnId } from "@/pages/audit-logs/audit-log-columns"
+import {
+  AUDIT_PARTICIPANT_ROLES,
+  participantRoleParam,
+  type AuditParticipantRole,
+} from "@/pages/audit-logs/audit-log-participant"
 import { AuditLogTable } from "@/pages/audit-logs/audit-log-table"
+import {
+  ActorBoundaryNotice,
+  AuditParticipantFilter,
+} from "@/pages/audit-logs/audit-participant-filter"
 import { useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
 import { UserPermissionsDialog } from "./user-permissions-dialog"
@@ -69,6 +79,7 @@ type UserDto = Schemas["UserDto"]
 type UserAuditUrlFilters = {
   entityTypes: string[]
   applications: string[]
+  role: AuditParticipantRole | ""
 }
 
 const USER_AUDIT_URL_OPTIONS = {
@@ -79,17 +90,31 @@ const USER_AUDIT_URL_OPTIONS = {
   filters: {
     entityTypes: stringArrayUrlFilter({ param: "entityType" }),
     applications: stringArrayUrlFilter({ param: "application" }),
+    role: enumUrlFilter(AUDIT_PARTICIPANT_ROLES),
   },
 } satisfies ListUrlStateOptions<UserAuditUrlFilters>
 
 /**
- * Every row here happened to the user whose page this is — the request pins
- * `userId` — so a column naming them again would repeat one value down the
- * whole table. It stays defined, because that definition is what keeps
- * `userId`, `userName` and `userEmail` from returning as three raw columns, and
- * it stays one menu entry away for a reader who wants it back.
+ * What this tab opens on, when the URL does not say.
+ *
+ * "Either" is what a reader means by a person's audit log — everything they
+ * touched, from both sides. It is also the only default that does not make the
+ * heading a promise the rows break.
  */
-const USER_AUDIT_HIDDEN_COLUMNS: readonly AuditLogColumnId[] = ["subject"]
+const DEFAULT_PARTICIPANT_ROLE: AuditParticipantRole = "either"
+
+/**
+ * Asking only about what happened TO this user pins the subject to one value,
+ * so the column repeating it down every row starts hidden. Under either of the
+ * other two readings the rows can be about anyone, and that column becomes the
+ * thing that tells them apart — so the hiding follows the question, not the
+ * screen.
+ *
+ * Hidden, never undefined: the definition is what keeps `userId`, `userName`
+ * and `userEmail` from coming back as three raw columns.
+ */
+const SUBJECT_HIDDEN: readonly AuditLogColumnId[] = ["subject"]
+const NOTHING_HIDDEN: readonly AuditLogColumnId[] = []
 
 const USER_DETAIL_TABS = [
   "organizations",
@@ -478,6 +503,7 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
     setFilters,
   } = useListUrlState(USER_AUDIT_URL_OPTIONS)
   const { sortBy, sortDirection } = toSortParams(sorting)
+  const role = filters.role || DEFAULT_PARTICIPANT_ROLE
   const columnFilters: ColumnFiltersState = [
     ...(filters.entityTypes.length
       ? [{ id: "entityType", value: filters.entityTypes }]
@@ -499,7 +525,13 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
     })
 
   const query = useQuery({
-    queryKey: ["audit-logs", { userId, page, pageSize, sortBy, sortDirection }],
+    // `role` belongs in the key, not only in the request: without it "what
+    // happened to them" and "what they did" are one cached query, and switching
+    // the control would re-label the previous answer instead of asking again.
+    queryKey: [
+      "audit-logs",
+      { userId, role, page, pageSize, sortBy, sortDirection },
+    ],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/audit-logs", {
@@ -507,7 +539,8 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
             query: {
               pageNumber: page + 1,
               pageSize,
-              userId,
+              participantId: userId,
+              participantRole: participantRoleParam(role),
               sortBy,
               sortDirection,
             },
@@ -517,26 +550,36 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
   })
 
   return (
-    <AuditLogTable
-      tableId="user-audit"
-      defaultHidden={USER_AUDIT_HIDDEN_COLUMNS}
-      data={query.data?.logs ?? []}
-      isLoading={query.isLoading}
-      error={query.isError ? query.error : undefined}
-      onRetry={() => query.refetch()}
-      columnFilters={columnFilters}
-      onColumnFiltersChange={onColumnFiltersChange}
-      sorting={sorting}
-      onSortingChange={setSorting}
-      pagination={{
-        pageIndex: page,
-        pageSize,
-        pageCount: toNumber(query.data?.totalPages),
-        totalCount: toNumber(query.data?.totalCount),
-        onPageChange: setPage,
-        onPageSizeChange: setPageSize,
-      }}
-    />
+    <div className="flex flex-col gap-4">
+      <AuditParticipantFilter
+        value={role}
+        // `setFilters` returns to page one on its own, which is what a change
+        // of question needs: page four of the old answer means nothing in the
+        // new one.
+        onChange={(next) => setFilters({ role: next })}
+      />
+      <ActorBoundaryNotice role={role} />
+      <AuditLogTable
+        tableId="user-audit"
+        defaultHidden={role === "subject" ? SUBJECT_HIDDEN : NOTHING_HIDDEN}
+        data={query.data?.logs ?? []}
+        isLoading={query.isLoading}
+        error={query.isError ? query.error : undefined}
+        onRetry={() => query.refetch()}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        pagination={{
+          pageIndex: page,
+          pageSize,
+          pageCount: toNumber(query.data?.totalPages),
+          totalCount: toNumber(query.data?.totalCount),
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
+      />
+    </div>
   )
 }
 

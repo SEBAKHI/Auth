@@ -141,6 +141,12 @@
   <data name="Validation.DateRange.Invalid" xml:space="preserve">
     <value>اختتامی تاریخ ابتدائی تاریخ کے بعد ہونی چاہیے۔</value>
   </data>
+  <data name="Validation.AuditParticipant.RoleRequired" xml:space="preserve">
+    <value>شریک کے فلٹر کے لیے کردار درکار ہے: متاثرہ، کرنے والا، یا دونوں۔</value>
+  </data>
+  <data name="Validation.AuditParticipant.IdRequired" xml:space="preserve">
+    <value>شریک کے کردار کے لیے وہ شخص درکار ہے جس پر یہ لاگو ہو۔</value>
+  </data>
   <data name="Validation.EntityType.Required" xml:space="preserve">
     <value>ہستی کی قسم لازمی ہے۔</value>
   </data>

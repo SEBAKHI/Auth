@@ -961,6 +961,13 @@ export const ar: TranslationResources = {
     success: "نجح",
     failure: "فشل",
     notRecorded: "غير مسجَّل",
+    participantRole: "يعرض",
+    participantRoles: {
+      either: "كليهما",
+      subject: "ما وقع عليه",
+      actor: "ما نفَّذه",
+    },
+    actorBoundary: "لم يُسجَّل منفِّذ الإجراء منفصلاً إلا ابتداءً من {{date}}. في الصفوف الأقدم يكون المنفِّذ نسخة من المتأثر، فتُقرأ كأن الشخص نفَّذها بنفسه.",
     allResults: "كل النتائج",
     errorMessage: "رسالة الخطأ",
     timestamp: "التوقيت",

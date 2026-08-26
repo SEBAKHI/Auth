@@ -141,6 +141,12 @@
   <data name="Validation.DateRange.Invalid" xml:space="preserve">
     <value>La date de fin doit être postérieure à la date de début.</value>
   </data>
+  <data name="Validation.AuditParticipant.RoleRequired" xml:space="preserve">
+    <value>Un filtre de participant exige un rôle : concerné, acteur ou les deux.</value>
+  </data>
+  <data name="Validation.AuditParticipant.IdRequired" xml:space="preserve">
+    <value>Un rôle de participant exige la personne à laquelle il s'applique.</value>
+  </data>
   <data name="Validation.EntityType.Required" xml:space="preserve">
     <value>Le type d'entité est requis.</value>
   </data>

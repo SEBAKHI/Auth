@@ -934,6 +934,13 @@ export const zh: TranslationResources = {
     success: "成功",
     failure: "失败",
     notRecorded: "未记录",
+    participantRole: "显示",
+    participantRoles: {
+      either: "两者",
+      subject: "涉及该用户",
+      actor: "该用户执行",
+    },
+    actorBoundary: "自 {{date}} 起才单独记录操作者。更早的记录中，操作者是对象的副本，因此看起来像是本人执行的。",
     allResults: "所有结果",
     errorMessage: "错误信息",
     timestamp: "时间戳",

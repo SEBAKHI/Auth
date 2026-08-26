@@ -141,6 +141,12 @@
   <data name="Validation.DateRange.Invalid" xml:space="preserve">
     <value>يجب أن يكون تاريخ النهاية بعد تاريخ البداية.</value>
   </data>
+  <data name="Validation.AuditParticipant.RoleRequired" xml:space="preserve">
+    <value>ترشيح المشارِك يحتاج دوراً: المتأثر أو المنفِّذ أو كليهما.</value>
+  </data>
+  <data name="Validation.AuditParticipant.IdRequired" xml:space="preserve">
+    <value>دور المشارِك يحتاج الشخص الذي ينطبق عليه.</value>
+  </data>
   <data name="Validation.EntityType.Required" xml:space="preserve">
     <value>نوع الكيان مطلوب.</value>
   </data>

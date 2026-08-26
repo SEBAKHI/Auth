@@ -22,10 +22,22 @@ public interface IAuditLogRepository
     /// accepts the allow-listed field names in
     /// <see cref="Constants.SortFields.AuditLogs"/>; null keeps the default order.
     /// </summary>
+    /// <param name="participantId">
+    /// A person to narrow to, on the side named by <paramref name="participantRole"/>.
+    /// This replaced a bare <c>userId</c>, which could only ever mean the subject
+    /// — so an operator's own actions were unreachable through the one filter
+    /// that took a person.
+    /// </param>
+    /// <param name="participantRole">
+    /// Which side <paramref name="participantId"/> has to be on. Null narrows to
+    /// the subject: when the caller has not said, the answer must be the
+    /// narrower one, never the wider.
+    /// </param>
     Task<(IReadOnlyList<AuditLog> Logs, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
-        Guid? userId,
+        Guid? participantId,
+        Enums.AuditParticipantRole? participantRole,
         Guid? applicationId,
         string? action,
         string? actionType,
