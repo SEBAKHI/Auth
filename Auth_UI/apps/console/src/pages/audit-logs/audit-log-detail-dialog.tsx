@@ -9,8 +9,7 @@ import {
 import { formatDateTime } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 
-import { auditActionI18nKey, auditActionTypeI18nKey } from "@/lib/audit-catalog"
-
+import { useAuditLabels } from "./audit-log-labels"
 import { ResultBadge } from "./result-badge"
 
 function Row({ label, value }: { label: string; value?: string | null }) {
@@ -39,6 +38,7 @@ export function AuditLogDetailDialog({
   log: Schemas["AuditLogDto"]
 }) {
   const { t } = useTranslation()
+  const { actionLabel, actionTypeLabel } = useAuditLabels()
   const action = log.action ?? ""
 
   return (
@@ -47,25 +47,14 @@ export function AuditLogDetailDialog({
         <DialogHeader>
           {/* The name a reader can read; the code it is stored under is a row
               below, because that is the string they need to quote elsewhere. */}
-          <DialogTitle>
-            {t(`auditLogs.actions.${auditActionI18nKey(action)}`, {
-              defaultValue: action,
-            })}
-          </DialogTitle>
+          <DialogTitle>{actionLabel(action)}</DialogTitle>
         </DialogHeader>
 
         <dl className="divide-y">
           <Row label={t("auditLogs.actionCode")} value={action} />
           <Row
             label={t("auditLogs.actionType")}
-            value={
-              log.actionType
-                ? t(
-                    `auditLogs.actionTypes.${auditActionTypeI18nKey(log.actionType)}`,
-                    { defaultValue: log.actionType }
-                  )
-                : null
-            }
+            value={log.actionType ? actionTypeLabel(log.actionType) : null}
           />
           {/* The outcome, always rendered — including when it was never recorded.
               A row that simply omits the result reads as "it went fine". */}

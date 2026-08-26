@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next"
 
 import { toNumber } from "@authsystem/api/helpers"
 
+import { useAuditLabels } from "@/pages/audit-logs/audit-log-labels"
+
 import { CountSeriesCard } from "../count-series-card"
 import { RankedBarCard } from "../ranked-bar-card"
 import { RecentActivityCard } from "../recent-activity-card"
@@ -26,6 +28,7 @@ import { useAuditStats, useRecentActivity } from "../use-dashboard-data"
  */
 export function AuditTab({ scope }: { scope: DashboardScope }) {
   const { t } = useTranslation()
+  const { actionLabel } = useAuditLabels()
   const { days, granularity, timeZone, permissions } = scope
 
   const auditStats = useAuditStats(days, timeZone, permissions.audit)
@@ -42,8 +45,11 @@ export function AuditTab({ scope }: { scope: DashboardScope }) {
   const previous = toNumber(audit?.previousWindowTotal)
 
   const topActions = topNWithOther(
+    // Bar labels are action codes as the server stores them. Named here the
+    // same way the audit tables name them, so the chart and the table below it
+    // do not call one event two different things.
     (audit?.topActions ?? []).map((row) => ({
-      label: row.reason ?? t("common.unknown"),
+      label: row.reason ? actionLabel(row.reason) : t("common.unknown"),
       value: toNumber(row.count),
     })),
     8,

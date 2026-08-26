@@ -73,8 +73,9 @@ const LISTS = [
   ["users", SORTABLE_COLUMNS.users, "Users"],
   ["applications", SORTABLE_COLUMNS.applications, "Applications"],
   ["organizations", SORTABLE_COLUMNS.organizations, "Organizations"],
+  // Both audit tables — the full page and the one on a user's detail page —
+  // read this single list, so one case covers them both.
   ["audit logs", SORTABLE_COLUMNS.auditLogs, "AuditLogs"],
-  ["a user's audit log", SORTABLE_COLUMNS.userAuditLog, "AuditLogs"],
   [
     "notification templates",
     SORTABLE_COLUMNS.notificationTemplates,

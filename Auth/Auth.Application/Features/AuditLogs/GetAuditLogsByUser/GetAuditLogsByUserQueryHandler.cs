@@ -1,3 +1,4 @@
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
@@ -37,10 +38,17 @@ public class GetAuditLogsByUserQueryHandler : IRequestHandler<GetAuditLogsByUser
             return UserErrors.NotFound(request.UserId);
         }
 
+        // Subject, and it must stay Subject. This handler looks the user up ONCE
+        // and stamps that name and e-mail onto every row it returns, instead of
+        // resolving each row's own subject. That is correct only while every row
+        // really is about the requested user; under any wider role it would put
+        // this person's name on rows about other people — a falsification, in an
+        // audit trail, that would read as ordinary data.
         var (logs, totalCount) = await _auditLogRepository.GetPagedAsync(
             request.PageNumber,
             request.PageSize,
             request.UserId,
+            AuditParticipantRole.Subject,
             null, // applicationId
             null, // action
             null, // actionType

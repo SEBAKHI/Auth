@@ -112,7 +112,8 @@ public class AuditLogRepository : IAuditLogRepository
     public async Task<(IReadOnlyList<AuditLog> Logs, int TotalCount)> GetPagedAsync(
         int pageNumber,
         int pageSize,
-        Guid? userId,
+        Guid? participantId,
+        AuditParticipantRole? participantRole,
         Guid? applicationId,
         string? action,
         string? actionType,
@@ -131,10 +132,38 @@ public class AuditLogRepository : IAuditLogRepository
         var whereClause = new StringBuilder("WHERE 1=1");
         var parameters = new DynamicParameters();
 
-        if (userId.HasValue)
+        if (participantId.HasValue)
         {
-            whereClause.Append(" AND a.[UserId] = @UserId");
-            parameters.Add("UserId", userId.Value);
+            // Three questions, three shapes — and deliberately NOT
+            // "a.[UserId] = @P OR a.[PerformedBy] = @P". That predicate is
+            // sargable against neither IX_AuditLogs_UserId nor
+            // IX_AuditLogs_PerformedBy, so it scans a table whose retention
+            // floor is 1095 days, once for the page and again for the count
+            // below. Each branch here keeps its own index seek.
+            switch (participantRole ?? AuditParticipantRole.Subject)
+            {
+                case AuditParticipantRole.Actor:
+                    whereClause.Append(" AND a.[PerformedBy] = @ParticipantId");
+                    break;
+
+                case AuditParticipantRole.Either:
+                    // A semi-join over two seeks. UNION and never UNION ALL: a
+                    // self-action — a sign-in, a password change — has
+                    // UserId = PerformedBy and satisfies both branches, and the
+                    // duplicate would be counted twice by the COUNT below, so
+                    // the pager would advertise more rows than it can show.
+                    whereClause.Append(@" AND a.[Id] IN (
+                SELECT [Id] FROM [dbo].[AuditLogs] WHERE [UserId] = @ParticipantId
+                UNION
+                SELECT [Id] FROM [dbo].[AuditLogs] WHERE [PerformedBy] = @ParticipantId)");
+                    break;
+
+                default:
+                    whereClause.Append(" AND a.[UserId] = @ParticipantId");
+                    break;
+            }
+
+            parameters.Add("ParticipantId", participantId.Value);
         }
 
         if (applicationId.HasValue)

@@ -23,15 +23,20 @@ export const SORTABLE_COLUMNS = {
   ],
   applications: ["name", "status", "contactEmail", "createdAt"],
   organizations: ["name", "memberCount", "isActive", "createdAt"],
+  // One list for one endpoint. There were two — a shorter one for the copy of
+  // this table on a user's page — and they had already drifted: `actionType`
+  // and the two person columns were orderable on one screen and not on the
+  // other, for rows the same query returns. Both screens now render the same
+  // columns, so both order by the same fields.
   auditLogs: [
     "action",
     "actionType",
     "entityType",
     "actor",
     "subject",
+    "applicationName",
     "timestamp",
   ],
-  userAuditLog: ["action", "entityType", "applicationName", "timestamp"],
   notificationTemplates: [
     "typeName",
     "applicationName",

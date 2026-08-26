@@ -9402,7 +9402,8 @@ export interface paths {
                 query?: {
                     pageNumber?: number | string;
                     pageSize?: number | string;
-                    userId?: string;
+                    participantId?: string;
+                    participantRole?: components["schemas"]["AuditParticipantRole"];
                     applicationId?: string;
                     action?: string;
                     actionType?: string;
@@ -12786,6 +12787,7 @@ export interface components {
             timestamp?: string;
             correlationId?: null | string;
         };
+        AuditParticipantRole: number;
         AuditStatsDto: {
             /** Format: int32 */
             days?: number | string;
@@ -13048,7 +13050,8 @@ export interface components {
             /** @default csv */
             format: string;
             /** Format: uuid */
-            userId?: null | string;
+            participantId?: null | string;
+            participantRole?: null | components["schemas"]["AuditParticipantRole"];
             /** Format: uuid */
             applicationId?: null | string;
             action?: null | string;

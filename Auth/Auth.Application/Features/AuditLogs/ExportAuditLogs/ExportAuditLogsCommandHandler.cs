@@ -41,7 +41,8 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
         var (logs, totalCount) = await _auditLogRepository.GetPagedAsync(
             1,
             request.MaxRecords,
-            request.UserId,
+            request.ParticipantId,
+            request.ParticipantRole,
             request.ApplicationId,
             request.Action,
             request.ActionType,
@@ -120,7 +121,7 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
         // Generate export
         byte[] content;
         string contentType;
-        string fileName;
+        var stem = FileStem(request, exportData.Count, totalCount);
 
         if (request.Format.ToLowerInvariant() == "json")
         {
@@ -130,7 +131,6 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             }));
             contentType = "application/json";
-            fileName = $"audit_logs_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json";
         }
         else
         {
@@ -168,14 +168,58 @@ public class ExportAuditLogsCommandHandler : IRequestHandler<ExportAuditLogsComm
 
             content = Encoding.UTF8.GetBytes(csv.ToString());
             contentType = "text/csv";
-            fileName = $"audit_logs_{DateTime.UtcNow:yyyyMMdd_HHmmss}.csv";
         }
 
         _logger.LogInformation(
             "Audit logs exported: {RecordCount} records in {Format} format by {RequestedBy}",
             exportData.Count, request.Format, request.RequestedBy);
 
-        return new ExportAuditLogsResult(content, contentType, fileName, exportData.Count);
+        var fileName = $"{stem}.{(request.Format.ToLowerInvariant() == "json" ? "json" : "csv")}";
+
+        return new ExportAuditLogsResult(content, contentType, fileName, exportData.Count, totalCount);
+    }
+
+    /// <summary>
+    /// The file's name, carrying what it was narrowed by and whether it is whole.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every export was called <c>audit_logs_{timestamp}</c>, so an extract of
+    /// one person's activity was byte-for-byte indistinguishable in provenance
+    /// from an extract of the entire platform's. The scope now travels with the
+    /// file, because a file outlives the request that produced it and the name
+    /// is the only part of it a reader sees before opening it.
+    /// </para>
+    /// <para>
+    /// Truncation is in the name for the same reason, and NOT as a comment row
+    /// inside the CSV: a leading <c>#</c> line is read as the header by every
+    /// strict parser, so disclosing it there would corrupt the file for the
+    /// scripts that consume it. The requester is warned before the download by
+    /// the console, which already knows the matching count; this is the copy of
+    /// that warning that survives on disk.
+    /// </para>
+    /// </remarks>
+    private static string FileStem(ExportAuditLogsCommand request, int written, int matched)
+    {
+        var stem = new StringBuilder("audit_logs");
+
+        if (request.ParticipantId.HasValue)
+        {
+            // The role, then enough of the id to tell two exports apart. The
+            // whole GUID would push the name past what a mail client shows.
+            var role = (request.ParticipantRole ?? Domain.Enums.AuditParticipantRole.Subject)
+                .ToString()
+                .ToLowerInvariant();
+            stem.Append($"_{role}_{request.ParticipantId.Value.ToString()[..8]}");
+        }
+
+        if (matched > written)
+        {
+            stem.Append($"_partial_{written}_of_{matched}");
+        }
+
+        stem.Append($"_{DateTime.UtcNow:yyyyMMdd_HHmmss}");
+        return stem.ToString();
     }
 
     /// <summary>

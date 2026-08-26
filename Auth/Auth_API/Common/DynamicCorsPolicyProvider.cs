@@ -58,6 +58,14 @@ public sealed class DynamicCorsPolicyProvider : ICorsPolicyProvider
                 .AllowAnyHeader();
         }
 
+        // Content-Disposition carries the name the API chose for a download, and
+        // that name says what an export was narrowed by and whether it is whole.
+        // Unexposed, the browser hides it from script and the console has to
+        // invent a name — which is how a one-person extract reached disk called
+        // "audit-logs.csv". Harmless on a deny-all policy, which has no origins
+        // to expose it to.
+        builder.WithExposedHeaders("Content-Disposition");
+
         // No origins outside development: the policy stays empty (deny-all)
         // instead of throwing on a live request path.
         var policy = builder.Build();

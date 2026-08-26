@@ -141,6 +141,12 @@
   <data name="Validation.DateRange.Invalid" xml:space="preserve">
     <value>To date must be after from date.</value>
   </data>
+  <data name="Validation.AuditParticipant.RoleRequired" xml:space="preserve">
+    <value>A participant filter needs a role: subject, actor, or either.</value>
+  </data>
+  <data name="Validation.AuditParticipant.IdRequired" xml:space="preserve">
+    <value>A participant role needs the person it applies to.</value>
+  </data>
   <data name="Validation.EntityType.Required" xml:space="preserve">
     <value>Entity type is required.</value>
   </data>

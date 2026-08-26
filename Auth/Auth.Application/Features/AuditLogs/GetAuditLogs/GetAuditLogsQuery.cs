@@ -18,11 +18,20 @@ namespace Auth.Application.Features.AuditLogs.GetAuditLogs;
 /// <c>IsSuccess</c> matches on equality, so rows written before the column
 /// existed are excluded from both true and false. Their outcome was never
 /// recorded, and neither answer would be honest about them.
+///
+/// <c>ParticipantId</c> replaced a bare <c>UserId</c>, which was applied to the
+/// subject column alone — so "everything this operator did" was a question this
+/// endpoint could not be asked, and the screen built on it answered a different
+/// question under the same heading. <c>ParticipantRole</c> is required whenever
+/// an id is present: a role that defaults to the widest reading would widen
+/// every existing caller in silence, which is the same failure as a filter that
+/// silently does nothing.
 /// </remarks>
 public record GetAuditLogsQuery(
     int PageNumber = 1,
     int PageSize = 50,
-    Guid? UserId = null,
+    Guid? ParticipantId = null,
+    AuditParticipantRole? ParticipantRole = null,
     Guid? ApplicationId = null,
     string? Action = null,
     string? ActionType = null,

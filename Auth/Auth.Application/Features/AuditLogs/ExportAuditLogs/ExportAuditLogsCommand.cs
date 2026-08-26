@@ -28,10 +28,17 @@ namespace Auth.Application.Features.AuditLogs.ExportAuditLogs;
 /// Neither answer would be honest about them, and an export that quietly folded
 /// them into "succeeded" is the defect the nullable column was introduced to end.
 /// </para>
+/// <para>
+/// The participant pair mirrors the query's for the same reason the rest of this
+/// record does. Leaving a <c>UserId</c> here while the list took a participant
+/// would give one concept two names on one feature, and the export would be the
+/// half that still could not ask who performed anything.
+/// </para>
 /// </remarks>
 public record ExportAuditLogsCommand(
     string Format = "csv",
-    Guid? UserId = null,
+    Guid? ParticipantId = null,
+    AuditParticipantRole? ParticipantRole = null,
     Guid? ApplicationId = null,
     string? Action = null,
     string? ActionType = null,
@@ -51,8 +58,20 @@ public record ExportAuditLogsCommand(
 /// <summary>
 /// Result of an audit log export operation.
 /// </summary>
+/// <param name="RecordCount">Rows actually written to the file.</param>
+/// <param name="TotalMatched">
+/// Rows the filters matched, which is larger than <paramref name="RecordCount"/>
+/// when the export hit <c>MaxRecords</c>. The difference used to exist only as a
+/// server-side log line: the caller received a partial file and nothing in the
+/// response, the file, or its name said so.
+/// </param>
 public record ExportAuditLogsResult(
     byte[] Content,
     string ContentType,
     string FileName,
-    int RecordCount);
+    int RecordCount,
+    int TotalMatched)
+{
+    /// <summary>The file holds less than the filters matched.</summary>
+    public bool IsTruncated => TotalMatched > RecordCount;
+}

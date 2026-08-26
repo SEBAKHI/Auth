@@ -14,8 +14,12 @@ namespace API_Gateway.Configuration;
 /// </summary>
 public sealed class DynamicCorsPolicyProvider : ICorsPolicyProvider
 {
+    // Content-Disposition carries the name the API chose for a download, and
+    // that name now says what the file was narrowed by and whether it is whole.
+    // Unexposed, the browser hides it and the console has to invent a name — so
+    // a one-person, one-role extract landed on disk called "audit-logs.csv".
     private static readonly string[] ExposedHeaders =
-        ["X-Correlation-ID", "X-RateLimit-Remaining", "Retry-After"];
+        ["X-Correlation-ID", "X-RateLimit-Remaining", "Retry-After", "Content-Disposition"];
 
     private readonly GatewayRuntimeSettingsProvider _settings;
     private readonly object _sync = new();

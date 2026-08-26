@@ -39,6 +39,20 @@ declare module "@tanstack/react-table" {
      *   GUID — a different fact, so leave it alone.
      */
     covers?: readonly string[]
+    /**
+     * Start this column hidden, leaving it in the column-visibility menu.
+     *
+     * For a column that belongs to the record but is redundant on one surface:
+     * a table of one user's audit trail already names that user above it, so a
+     * `subject` column repeats the same person on every row. The column still
+     * has to EXIST there — it is what `covers` declares, and deleting it would
+     * bring the three fields it hides back as auto columns — so "not shown" and
+     * "not defined" are different answers and only the first one is right.
+     *
+     * A default, not a rule: the reader's own choice is persisted per table and
+     * wins over this on every later visit.
+     */
+    defaultHidden?: boolean
     /** Opt the column into a toolbar filter. `faceted` renders a multi-select. */
     filterVariant?: "text" | "faceted"
     /** Explicit options for a faceted filter; derived from data when omitted. */

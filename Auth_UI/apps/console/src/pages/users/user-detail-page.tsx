@@ -50,6 +50,7 @@ import {
 import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime, fullName, userStatusMeta } from "@authsystem/ui/format"
 import {
+  enumUrlFilter,
   stringArrayUrlFilter,
   useListUrlState,
   type ListUrlStateOptions,
@@ -57,6 +58,24 @@ import {
 import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { VerifyEmailDialog } from "@authsystem/ui/common/verify-email-dialog"
+import type { AuditLogColumnId } from "@/pages/audit-logs/audit-log-columns"
+import { AuditLogExportMenu } from "@/pages/audit-logs/audit-log-export"
+import { AuditLogFilterRow } from "@/pages/audit-logs/audit-log-filter-row"
+import {
+  AUDIT_LOG_FILTER_SCHEMA,
+  toAuditLogQuery,
+  type AuditLogFilters,
+} from "@/pages/audit-logs/audit-log-filters"
+import {
+  AUDIT_PARTICIPANT_ROLES,
+  participantRoleParam,
+  type AuditParticipantRole,
+} from "@/pages/audit-logs/audit-log-participant"
+import { AuditLogTable } from "@/pages/audit-logs/audit-log-table"
+import {
+  ActorBoundaryNotice,
+  AuditParticipantFilter,
+} from "@/pages/audit-logs/audit-participant-filter"
 import { useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
 import { UserPermissionsDialog } from "./user-permissions-dialog"
@@ -64,21 +83,57 @@ import { UserRolesDialog } from "./user-roles-dialog"
 
 type UserDto = Schemas["UserDto"]
 
-type UserAuditUrlFilters = {
+type UserAuditUrlFilters = AuditLogFilters & {
   entityTypes: string[]
-  applications: string[]
+  role: AuditParticipantRole | ""
 }
 
 const USER_AUDIT_URL_OPTIONS = {
   namespace: "audit",
   defaultPageSize: DEFAULT_PAGE_SIZE,
-  sortableColumns: SORTABLE_COLUMNS.userAuditLog,
+  sortableColumns: SORTABLE_COLUMNS.auditLogs,
   defaultSorting: [{ id: "timestamp", desc: true }],
   filters: {
+    ...AUDIT_LOG_FILTER_SCHEMA,
     entityTypes: stringArrayUrlFilter({ param: "entityType" }),
-    applications: stringArrayUrlFilter({ param: "application" }),
+    role: enumUrlFilter(AUDIT_PARTICIPANT_ROLES),
   },
 } satisfies ListUrlStateOptions<UserAuditUrlFilters>
+
+/**
+ * The application is narrowed on the SERVER here too, now that the tab has the
+ * same filter row.
+ *
+ * It used to be a faceted chip over `applicationName`, which read its options
+ * out of the loaded page and narrowed only that page — beside a paginated total
+ * counting the whole history. Keeping both would have put two controls over one
+ * concept on one screen, disagreeing about scope, which is the trap the full
+ * page documents. The server-side select is the stronger of the two, so the
+ * facet goes.
+ */
+const TAB_SERVER_FILTERED: readonly AuditLogColumnId[] = ["applicationName"]
+
+/**
+ * What this tab opens on, when the URL does not say.
+ *
+ * "Either" is what a reader means by a person's audit log — everything they
+ * touched, from both sides. It is also the only default that does not make the
+ * heading a promise the rows break.
+ */
+const DEFAULT_PARTICIPANT_ROLE: AuditParticipantRole = "either"
+
+/**
+ * Asking only about what happened TO this user pins the subject to one value,
+ * so the column repeating it down every row starts hidden. Under either of the
+ * other two readings the rows can be about anyone, and that column becomes the
+ * thing that tells them apart — so the hiding follows the question, not the
+ * screen.
+ *
+ * Hidden, never undefined: the definition is what keeps `userId`, `userName`
+ * and `userEmail` from coming back as three raw columns.
+ */
+const SUBJECT_HIDDEN: readonly AuditLogColumnId[] = ["subject"]
+const NOTHING_HIDDEN: readonly AuditLogColumnId[] = []
 
 const USER_DETAIL_TABS = [
   "organizations",
@@ -456,7 +511,8 @@ function UserPermissionsTab({ userId }: { userId: string }) {
 }
 
 function UserAuditLogsTab({ userId }: { userId: string }) {
-  const { t } = useTranslation()
+  const { hasPermission } = useAuth()
+  const canExport = hasPermission(PERMISSIONS.auditLogs.export)
   const {
     pageIndex: page,
     pageSize,
@@ -468,28 +524,40 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
     setFilters,
   } = useListUrlState(USER_AUDIT_URL_OPTIONS)
   const { sortBy, sortDirection } = toSortParams(sorting)
-  const columnFilters: ColumnFiltersState = [
-    ...(filters.entityTypes.length
-      ? [{ id: "entityType", value: filters.entityTypes }]
-      : []),
-    ...(filters.applications.length
-      ? [{ id: "applicationName", value: filters.applications }]
-      : []),
-  ]
+  const role = filters.role || DEFAULT_PARTICIPANT_ROLE
+  const columnFilters: ColumnFiltersState = filters.entityTypes.length
+    ? [{ id: "entityType", value: filters.entityTypes }]
+    : []
   const onColumnFiltersChange = (next: ColumnFiltersState) =>
     setFilters({
       entityTypes:
         (next.find((filter) => filter.id === "entityType")?.value as
           | string[]
           | undefined) ?? [],
-      applications:
-        (next.find((filter) => filter.id === "applicationName")?.value as
-          | string[]
-          | undefined) ?? [],
     })
 
+  // One object for the list, the export and the cache key. The person and the
+  // side they were on are members of it rather than a side channel, so no
+  // caller can send the filters and forget the pin — which on this screen would
+  // be one person's page answering with the whole platform's history.
+  const queryFilters = React.useMemo(
+    () => ({
+      ...toAuditLogQuery(filters),
+      participantId: userId,
+      participantRole: participantRoleParam(role),
+    }),
+    [filters, userId, role]
+  )
+
   const query = useQuery({
-    queryKey: ["audit-logs", { userId, page, pageSize, sortBy, sortDirection }],
+    // Every narrowing is in the key, not only in the request. Without the role
+    // "what happened to them" and "what they did" would be one cached query,
+    // and switching the control would re-label the previous answer instead of
+    // asking again.
+    queryKey: [
+      "audit-logs",
+      { queryFilters, page, pageSize, sortBy, sortDirection },
+    ],
     queryFn: () =>
       unwrap(
         api.GET("/api/v1/audit-logs", {
@@ -497,7 +565,7 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
             query: {
               pageNumber: page + 1,
               pageSize,
-              userId,
+              ...queryFilters,
               sortBy,
               sortDirection,
             },
@@ -506,75 +574,52 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
       ),
   })
 
-  const columns: ColumnDef<Schemas["AuditLogDto"], unknown>[] = [
-    {
-      id: "action",
-      accessorFn: (row) => row.action ?? "",
-      header: t("auditLogs.action"),
-      meta: { label: t("auditLogs.action") },
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.action}</span>
-      ),
-    },
-    {
-      id: "entityType",
-      accessorFn: (row) => row.entityType ?? "",
-      filterFn: "faceted",
-      header: t("auditLogs.target"),
-      meta: { label: t("auditLogs.target"), filterVariant: "faceted" },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.entityType ?? "—"}
-        </span>
-      ),
-    },
-    {
-      id: "applicationName",
-      accessorFn: (row) => row.applicationName ?? "",
-      filterFn: "faceted",
-      header: t("nav.applications"),
-      meta: { label: t("nav.applications"), filterVariant: "faceted" },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.applicationName ?? "—"}
-        </span>
-      ),
-    },
-    {
-      id: "timestamp",
-      accessorFn: (row) => row.timestamp ?? "",
-      header: t("auditLogs.timestamp"),
-      meta: { label: t("auditLogs.timestamp") },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {formatDateTime(row.original.timestamp)}
-        </span>
-      ),
-    },
-  ]
+  const exportFilters = React.useMemo(
+    () => ({ ...queryFilters, sortBy, sortDirection }),
+    [queryFilters, sortBy, sortDirection]
+  )
 
   return (
-    <DataTable
-      tableId="user-audit"
-      columns={columns}
-      data={query.data?.logs ?? []}
-      isLoading={query.isLoading}
-      error={query.isError ? query.error : undefined}
-      onRetry={() => query.refetch()}
-      enableExport={false}
-      columnFilters={columnFilters}
-      onColumnFiltersChange={onColumnFiltersChange}
-      sorting={sorting}
-      onSortingChange={setSorting}
-      pagination={{
-        pageIndex: page,
-        pageSize,
-        pageCount: toNumber(query.data?.totalPages),
-        totalCount: toNumber(query.data?.totalCount),
-        onPageChange: setPage,
-        onPageSizeChange: setPageSize,
-      }}
-    />
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <AuditParticipantFilter
+          value={role}
+          // `setFilters` returns to page one on its own, which is what a change
+          // of question needs: page four of the old answer means nothing in the
+          // new one.
+          onChange={(next) => setFilters({ role: next })}
+        />
+        {canExport ? (
+          <AuditLogExportMenu
+            filters={exportFilters}
+            totalCount={toNumber(query.data?.totalCount)}
+          />
+        ) : null}
+      </div>
+      <AuditLogFilterRow filters={filters} onChange={setFilters} />
+      <ActorBoundaryNotice role={role} />
+      <AuditLogTable
+        tableId="user-audit"
+        defaultHidden={role === "subject" ? SUBJECT_HIDDEN : NOTHING_HIDDEN}
+        serverFiltered={TAB_SERVER_FILTERED}
+        data={query.data?.logs ?? []}
+        isLoading={query.isLoading}
+        error={query.isError ? query.error : undefined}
+        onRetry={() => query.refetch()}
+        columnFilters={columnFilters}
+        onColumnFiltersChange={onColumnFiltersChange}
+        sorting={sorting}
+        onSortingChange={setSorting}
+        pagination={{
+          pageIndex: page,
+          pageSize,
+          pageCount: toNumber(query.data?.totalPages),
+          totalCount: toNumber(query.data?.totalCount),
+          onPageChange: setPage,
+          onPageSizeChange: setPageSize,
+        }}
+      />
+    </div>
   )
 }
 

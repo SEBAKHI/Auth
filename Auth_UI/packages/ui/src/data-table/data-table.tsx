@@ -429,9 +429,17 @@ export function DataTable<TData>({
       }
     })
   }, [built, isManualSorting])
+  // Auto-discovered columns, plus the curated ones a surface declared redundant
+  // on itself. Both are defaults rather than rules, and both belong in the same
+  // map: `pruneVisibility` measures the stored document against it, so a default
+  // left out here is written back as if the reader had chosen it.
   const autoHiddenDefaults = React.useMemo(() => {
     const defaults: VisibilityState = {}
     for (const id of built.autoColumnIds) defaults[id] = false
+    for (const column of built.columns) {
+      const id = columnIdOf(column as ColumnDef<unknown, unknown>)
+      if (id && column.meta?.defaultHidden) defaults[id] = false
+    }
     return defaults
   }, [built])
   // Merge the hidden-by-default auto columns at render time (rather than via an

@@ -33,7 +33,8 @@ public class GetAuditLogsQueryHandler : IRequestHandler<GetAuditLogsQuery, Error
         var (logs, totalCount) = await _auditLogRepository.GetPagedAsync(
             request.PageNumber,
             request.PageSize,
-            request.UserId,
+            request.ParticipantId,
+            request.ParticipantRole,
             request.ApplicationId,
             request.Action,
             request.ActionType,

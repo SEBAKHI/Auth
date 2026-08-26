@@ -406,6 +406,62 @@ describe("DataTable", () => {
     expect(headerOrder()).toEqual(["Age", "Name", ""])
   })
 
+  /**
+   * A column a surface starts hidden still exists — it is what `meta.covers`
+   * declares, and deleting it would bring its fields back as raw auto columns —
+   * but it must not go on offering a filter. A chip for a column nobody can see
+   * narrows the table by a value that is nowhere on it, and the row count drops
+   * with nothing on screen to explain why.
+   */
+  it("offers no faceted filter for a column that starts hidden", () => {
+    const withHiddenFacet: ColumnDef<Person, unknown>[] = [
+      ...columns,
+      {
+        id: "city",
+        accessorFn: () => "Cairo",
+        filterFn: "faceted",
+        header: "City",
+        meta: {
+          label: "City",
+          filterVariant: "faceted",
+          defaultHidden: true,
+        },
+      },
+    ]
+
+    render(<DataTable columns={withHiddenFacet} data={data} />)
+
+    expect(headerOrder()).not.toContain("City")
+    expect(screen.queryByRole("button", { name: /city/i })).toBeNull()
+  })
+
+  it("keeps a hidden column's filter visible while it is still narrowing", () => {
+    const withHiddenFacet: ColumnDef<Person, unknown>[] = [
+      ...columns,
+      {
+        id: "city",
+        accessorFn: () => "Cairo",
+        filterFn: "faceted",
+        header: "City",
+        meta: {
+          label: "City",
+          filterVariant: "faceted",
+          defaultHidden: true,
+        },
+      },
+    ]
+
+    render(
+      <DataTable
+        columns={withHiddenFacet}
+        data={data}
+        initialColumnFilters={[{ id: "city", value: ["Cairo"] }]}
+      />
+    )
+
+    expect(screen.getByRole("button", { name: /city/i })).toBeInTheDocument()
+  })
+
   it("renders an export button that downloads the in-memory rows", async () => {
     const user = userEvent.setup()
     const createObjectURL = vi.fn(() => "blob:mock")

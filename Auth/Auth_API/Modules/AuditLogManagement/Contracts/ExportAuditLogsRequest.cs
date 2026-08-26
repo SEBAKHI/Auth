@@ -12,7 +12,8 @@ namespace Auth_API.Modules.AuditLogManagement.Contracts;
 /// </remarks>
 public record ExportAuditLogsRequest(
     string Format = "csv",
-    Guid? UserId = null,
+    Guid? ParticipantId = null,
+    AuditParticipantRole? ParticipantRole = null,
     Guid? ApplicationId = null,
     string? Action = null,
     string? ActionType = null,

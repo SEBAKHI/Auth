@@ -79,6 +79,7 @@ public class AuditLogFilterSqlTests
     [InlineData("ActionType", "a.[ActionType] = @ActionType")]
     [InlineData("IsSuccess", "a.[IsSuccess] = @IsSuccess")]
     [InlineData("Action", "a.[Action]")]
+    [InlineData("ParticipantId", "a.[UserId] = @ParticipantId")]
     public void EveryDeclaredFilter_ReachesTheWhereClause(string parameter, string predicate)
     {
         var repository = ReadAuditLogRepository();
@@ -87,6 +88,59 @@ public class AuditLogFilterSqlTests
             $"{parameter} is accepted by the query, so it has to narrow the rows");
         repository.Should().Contain($"parameters.Add(\"{parameter}\"",
             $"{parameter} has to be bound, not interpolated");
+    }
+
+    [Fact]
+    public void TheParticipantFilter_AsksEachSideOnItsOwnColumn()
+    {
+        var repository = ReadAuditLogRepository();
+
+        // Three questions, three predicates. A single one could only ever mean
+        // the subject, which is how "everything this operator did" became a
+        // question the trail could not be asked.
+        repository.Should().Contain("a.[UserId] = @ParticipantId",
+            "the subject role has to narrow on the subject column");
+        repository.Should().Contain("a.[PerformedBy] = @ParticipantId",
+            "the actor role has to narrow on the performer column");
+    }
+
+    [Fact]
+    public void TheEitherBranch_KeepsBothSeeksAndDoesNotDoubleCount()
+    {
+        // Comments stripped: the assertions below are about the SQL this file
+        // emits, and prose that merely names a forbidden shape must not read as
+        // the shape itself.
+        var sql = ReadAuditLogRepositoryWithoutComments();
+
+        // Not an OR. `UserId = @P OR PerformedBy = @P` is sargable against
+        // neither IX_AuditLogs_UserId nor IX_AuditLogs_PerformedBy, so it scans
+        // a table whose retention floor is 1095 days — and it does it twice per
+        // page, because the count runs the same predicate.
+        sql.Should().NotContain("a.[UserId] = @ParticipantId OR");
+        sql.Should().NotContain("OR a.[PerformedBy] = @ParticipantId");
+
+        // Deduplicated, never concatenated: a self-action — a sign-in, or a
+        // password change the user made themselves — has UserId = PerformedBy
+        // and satisfies both branches. Concatenating them would return that row
+        // twice and count it twice, so the pager would advertise more rows than
+        // it can ever show.
+        sql.Should().Contain("UNION");
+        sql.Should().NotContain("UNION ALL");
+    }
+
+    [Fact]
+    public void TheParticipantFilter_StaysOutOfTheJoinedColumns()
+    {
+        var repository = ReadAuditLogRepository();
+
+        // The COUNT query is built without {Joins}, so a predicate reading a
+        // joined alias would compile in the paged query and fail in the count.
+        // Both participant predicates read base columns for that reason.
+        var countLine = repository
+            .Split('\n')
+            .First(line => line.Contains("var countSql"));
+        countLine.Should().NotContain("{Joins}",
+            "the count has no joins, so no filter may depend on one");
     }
 
     [Fact]
@@ -101,6 +155,20 @@ public class AuditLogFilterSqlTests
         repository.Should().NotContain("ISNULL(a.[IsSuccess]");
         repository.Should().NotContain("COALESCE(a.[IsSuccess]");
     }
+
+    /// <summary>
+    /// The repository source with its <c>//</c> comments removed, for assertions
+    /// that a given SQL shape is absent — a comment explaining why it is absent
+    /// would otherwise be indistinguishable from the shape.
+    /// </summary>
+    private static string ReadAuditLogRepositoryWithoutComments() =>
+        string.Join('\n', ReadAuditLogRepository()
+            .Split('\n')
+            .Select(line =>
+            {
+                var comment = line.IndexOf("//", StringComparison.Ordinal);
+                return comment >= 0 ? line[..comment] : line;
+            }));
 
     private static string ReadAuditLogRepository() =>
         File.ReadAllText(Path.Combine(

@@ -62,15 +62,37 @@ const PAGE_ONE = {
   totalPages: 1,
 }
 
+const USER_ID = "44444444-4444-4444-4444-444444444444"
+
+const USER = {
+  id: USER_ID,
+  email: EMPLOYEE,
+  firstName: "Employee",
+  lastName: "One",
+  displayName: "Employee One",
+  status: "Active",
+  emailConfirmed: true,
+  phoneConfirmed: false,
+  twoFactorEnabled: false,
+  preferredLanguage: "en",
+  timeZone: "UTC",
+  isDeleted: false,
+  createdAt: "2026-08-01T08:00:00Z",
+}
+
 function installAuditApi(page: Page) {
   const queries: URL[] = []
   const installed = installAuthenticatedApi(
     page,
-    ["auditlogs:read"],
+    ["auditlogs:read", "users:read"],
     async (route: Route, url: URL) => {
       if (url.pathname.toLowerCase() === "/api/v1/audit-logs") {
         queries.push(url)
         await fulfillJson(route, PAGE_ONE)
+        return true
+      }
+      if (url.pathname.toLowerCase() === `/api/v1/users/${USER_ID}`) {
+        await fulfillJson(route, USER)
         return true
       }
       await fulfillJson(route, { items: [], totalCount: 0 })
@@ -197,4 +219,430 @@ test("the detail dialog keeps the two people apart", async ({ page }) => {
   await expect(dialog.getByText("Subject", { exact: true })).toBeVisible()
   await expect(dialog.getByText(EMPLOYEE, { exact: true })).toBeVisible()
   await expect(dialog.getByText("Succeeded", { exact: true })).toBeVisible()
+})
+
+/**
+ * The same three facts, on the copy of this table that lives on a user's page.
+ *
+ * It had been written out separately and never received any of the fixes above:
+ * no outcome column at all, neither person named, and the action shown as its
+ * stored code. Each assertion here is the one directly above it, repeated on the
+ * other screen — which is the whole point of the two reading one column set.
+ */
+test.describe("a user's own audit trail", () => {
+  test("names both people and the outcome, exactly as the full page does", async ({
+    page,
+  }) => {
+    const { installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    // The subject is the page itself — every row happened to this user — so the
+    // column starts hidden and the actor is the one that varies.
+    await expect(await cellUnder(page, "user.locked", "Actor")).toHaveText(
+      ADMIN
+    )
+    await expect(await cellUnder(page, "user.locked", "Result")).toHaveText(
+      "Succeeded"
+    )
+    await expect(await cellUnder(page, "user.login", "Result")).toHaveText(
+      "Failed"
+    )
+    await expect(await cellUnder(page, "role.created", "Result")).toHaveText(
+      "Not recorded"
+    )
+  })
+
+  test("reads the action as a name and keeps its stored code", async ({
+    page,
+  }) => {
+    const { installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+
+    const row = page.getByRole("row").filter({ hasText: "user.locked" })
+    await expect(row.getByText("Account locked", { exact: true })).toBeVisible()
+    await expect(row.getByText("user.locked", { exact: true })).toBeVisible()
+  })
+
+  test("opens the same detail dialog, and keeps the request scoped to the user", async ({
+    page,
+  }) => {
+    const { queries, installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+
+    // The one thing the shared table must NOT unify away.
+    await expect
+      .poll(() =>
+        queries.some((url) => url.searchParams.get("participantId") === USER_ID)
+      )
+      .toBe(true)
+
+    const row = page.getByRole("row").filter({ hasText: "user.locked" })
+    await row.getByRole("button", { name: "View" }).click()
+
+    const dialog = page.getByRole("dialog")
+    await expect(dialog.getByText("Actor", { exact: true })).toBeVisible()
+    await expect(dialog.getByText(ADMIN, { exact: true })).toBeVisible()
+    await expect(dialog.getByText("Subject", { exact: true })).toBeVisible()
+    await expect(dialog.getByText(EMPLOYEE, { exact: true })).toBeVisible()
+  })
+})
+
+/**
+ * The question the tab is asking, and whether the server is asked it.
+ *
+ * Until this control existed the request pinned `userId`, which the repository
+ * only ever applied to the subject column — so a tab headed with a person's
+ * name could show what was done TO them and nothing they did, with no sign that
+ * half the answer was missing.
+ */
+test.describe("a user's audit trail, by side", () => {
+  test("opens on both sides and says so in the request", async ({ page }) => {
+    const { queries, installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    // 2 is Either — the ordinal of the C# enum member, the way sortDirection
+    // travels. audit-log-participant.test.ts holds that mapping to the source.
+    await expect
+      .poll(() =>
+        queries.some(
+          (url) =>
+            url.searchParams.get("participantId") === USER_ID &&
+            url.searchParams.get("participantRole") === "2"
+        )
+      )
+      .toBe(true)
+    // No bare userId any more: it could only ever mean the subject.
+    expect(queries.every((url) => url.searchParams.get("userId") === null)).toBe(
+      true
+    )
+  })
+
+  test("asking what they did sends the actor side, and re-asks the server", async ({
+    page,
+  }) => {
+    const { queries, installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    const before = queries.length
+    await page.getByRole("radio", { name: "Performed by them" }).click()
+
+    await expect
+      .poll(() =>
+        queries
+          .slice(before)
+          .some((url) => url.searchParams.get("participantRole") === "1")
+      )
+      .toBe(true)
+    await expect(page).toHaveURL(/audit\.role=actor/)
+  })
+
+  test("names who it happened to as soon as the rows can be about anyone", async ({
+    page,
+  }) => {
+    const { installed } = installAuditApi(page)
+    await installed
+
+    // Pinned to the subject, every row is this user, so the column that repeats
+    // them starts hidden.
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.role=subject`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("columnheader", { name: "Subject" })
+    ).toHaveCount(0)
+
+    // Under either of the other two the rows can be about other people, and the
+    // column becomes the thing that tells them apart.
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.role=actor`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+    await expect(
+      page.getByRole("columnheader", { name: "Subject" })
+    ).toBeVisible()
+  })
+
+  test("says what the actor column cannot know about older rows", async ({
+    page,
+  }) => {
+    const { installed } = installAuditApi(page)
+    await installed
+
+    // The performer was written as a copy of the subject until 24 August 2026.
+    // Surfacing those rows under "performed by" without saying so would present
+    // a wrong answer in the shape of a right one.
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.role=actor`)
+    await expect(page.getByRole("alert")).toContainText("24 Aug 2026")
+
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.role=subject`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+    await expect(page.getByRole("alert")).toHaveCount(0)
+  })
+})
+
+/**
+ * The export on a person's page, and the one thing it must never do.
+ *
+ * `auditlogs:export` already lets its holder download the whole table from the
+ * full page, so the risk here is not the capability — it is the label. A button
+ * on one person's timeline that forgets the pin writes everyone's history to
+ * disk under a name that says otherwise, and nobody reading the file later has
+ * any way to tell.
+ */
+test.describe("exporting one person's trail", () => {
+  const EXPORT_PATH = "/api/v1/audit-logs/export"
+
+  function installExportApi(page: Page, permissions: string[]) {
+    const bodies: unknown[] = []
+    const installed = installAuthenticatedApi(
+      page,
+      permissions,
+      async (route: Route, url: URL) => {
+        if (url.pathname.toLowerCase() === EXPORT_PATH) {
+          bodies.push(route.request().postDataJSON())
+          await route.fulfill({
+            status: 200,
+            contentType: "text/csv",
+            headers: {
+              "content-disposition":
+                'attachment; filename="audit_logs_actor_44444444_20260826_120000.csv"',
+            },
+            body: "Id,Timestamp\n",
+          })
+          return true
+        }
+        if (url.pathname.toLowerCase() === "/api/v1/audit-logs") {
+          await fulfillJson(route, PAGE_ONE)
+          return true
+        }
+        if (url.pathname.toLowerCase() === `/api/v1/users/${USER_ID}`) {
+          await fulfillJson(route, USER)
+          return true
+        }
+        await fulfillJson(route, { items: [], totalCount: 0 })
+        return true
+      }
+    )
+    return { bodies, installed }
+  }
+
+  test("sends the person and the side the table is showing", async ({
+    page,
+  }) => {
+    const { bodies, installed } = installExportApi(page, [
+      "auditlogs:read",
+      "auditlogs:export",
+      "users:read",
+    ])
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.role=actor`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Export" }).click()
+    await page.getByRole("menuitem", { name: "CSV" }).click()
+
+    await expect.poll(() => bodies.length).toBeGreaterThan(0)
+    // 1 is Actor. Without the pair, this button downloads the platform.
+    expect(bodies[0]).toMatchObject({
+      format: "csv",
+      participantId: USER_ID,
+      participantRole: 1,
+    })
+  })
+
+  test("is not offered without the export permission", async ({ page }) => {
+    const { installed } = installExportApi(page, [
+      "auditlogs:read",
+      "users:read",
+    ])
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    await expect(page.getByRole("button", { name: "Export" })).toHaveCount(0)
+  })
+
+  test("says a file will be partial before writing it", async ({ page }) => {
+    const bodies: unknown[] = []
+    await installAuthenticatedApi(
+      page,
+      ["auditlogs:read", "auditlogs:export", "users:read"],
+      async (route: Route, url: URL) => {
+        if (url.pathname.toLowerCase() === EXPORT_PATH) {
+          bodies.push(route.request().postDataJSON())
+          await route.fulfill({
+            status: 200,
+            contentType: "text/csv",
+            body: "Id,Timestamp\n",
+          })
+          return true
+        }
+        if (url.pathname.toLowerCase() === "/api/v1/audit-logs") {
+          // More rows than one file can hold — the ordinary case for an
+          // administrator once both sides are counted.
+          await fulfillJson(route, { ...PAGE_ONE, totalCount: 24513 })
+          return true
+        }
+        if (url.pathname.toLowerCase() === `/api/v1/users/${USER_ID}`) {
+          await fulfillJson(route, USER)
+          return true
+        }
+        await fulfillJson(route, { items: [], totalCount: 0 })
+        return true
+      }
+    )
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Export" }).click()
+    await page.getByRole("menuitem", { name: "CSV" }).click()
+
+    const dialog = page.getByRole("alertdialog")
+    await expect(dialog).toContainText("24513")
+    await expect(dialog).toContainText("10000")
+    // Nothing downloaded while the question is still open.
+    expect(bodies).toHaveLength(0)
+
+    await dialog.getByRole("button", { name: "Export anyway" }).click()
+    await expect.poll(() => bodies.length).toBe(1)
+  })
+})
+
+/**
+ * The filter row on a person's page, and the pin it must never displace.
+ *
+ * The tab used to narrow by two client-side facets that filtered the loaded
+ * page while the footer counted the whole history. It now sends the same server
+ * filters the full page does — and every one of them has to travel ALONGSIDE
+ * the participant, not instead of it.
+ */
+test.describe("filtering one person's trail", () => {
+  test("sends the filter and the person in the same request", async ({
+    page,
+  }) => {
+    const { queries, installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    const before = queries.length
+    await page.getByRole("combobox").filter({ hasText: "All results" }).click()
+    await page.getByRole("option", { name: "Failed", exact: true }).click()
+
+    await expect
+      .poll(() =>
+        queries
+          .slice(before)
+          .some(
+            (url) =>
+              url.searchParams.get("isSuccess") === "false" &&
+              url.searchParams.get("participantId") === USER_ID &&
+              url.searchParams.get("participantRole") !== null
+          )
+      )
+      .toBe(true)
+    await expect(page).toHaveURL(/audit\.result=false/)
+  })
+
+  test("narrows the application on the server, and offers no second control for it", async ({
+    page,
+  }) => {
+    const { installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    // A toolbar facet is a popover trigger; the column heading of the same name
+    // is a plain sort button, so the selector has to say which one it means.
+    const facet = (name: string) =>
+      page.locator("button[aria-haspopup]").filter({ hasText: name })
+
+    // The application facet is gone: it read its options out of the loaded page
+    // and narrowed only that page, beside a footer counting every row — two
+    // controls over one concept, disagreeing about scope. The server-side
+    // select above the table is the one that stayed.
+    await expect(facet("Application")).toHaveCount(0)
+    // The server-side select that replaced it. Its unnarrowed label is a bare
+    // "All", anchored so it does not also match "All results".
+    await expect(
+      page.getByRole("combobox").filter({ hasText: /^All$/ })
+    ).toBeVisible()
+
+    // The target facet stays: nothing narrows entity type on the server, so it
+    // is the only control there is rather than a weaker duplicate of one.
+    await expect(facet("Target")).toBeVisible()
+  })
+
+  test("carries the filter into the export as well as the table", async ({
+    page,
+  }) => {
+    const bodies: unknown[] = []
+    await installAuthenticatedApi(
+      page,
+      ["auditlogs:read", "auditlogs:export", "users:read"],
+      async (route: Route, url: URL) => {
+        if (url.pathname.toLowerCase() === "/api/v1/audit-logs/export") {
+          bodies.push(route.request().postDataJSON())
+          await route.fulfill({
+            status: 200,
+            contentType: "text/csv",
+            body: "Id,Timestamp\n",
+          })
+          return true
+        }
+        if (url.pathname.toLowerCase() === "/api/v1/audit-logs") {
+          await fulfillJson(route, PAGE_ONE)
+          return true
+        }
+        if (url.pathname.toLowerCase() === `/api/v1/users/${USER_ID}`) {
+          await fulfillJson(route, USER)
+          return true
+        }
+        await fulfillJson(route, { items: [], totalCount: 0 })
+        return true
+      }
+    )
+    // Arriving already narrowed, the way a shared link does.
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.result=false`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Export" }).click()
+    await page.getByRole("menuitem", { name: "CSV" }).click()
+
+    await expect.poll(() => bodies.length).toBe(1)
+    // The file answers the same question as the table above it — no wider.
+    expect(bodies[0]).toMatchObject({
+      isSuccess: false,
+      participantId: USER_ID,
+    })
+  })
 })
