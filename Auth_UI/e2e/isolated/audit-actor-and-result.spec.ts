@@ -396,3 +396,137 @@ test.describe("a user's audit trail, by side", () => {
     await expect(page.getByRole("alert")).toHaveCount(0)
   })
 })
+
+/**
+ * The export on a person's page, and the one thing it must never do.
+ *
+ * `auditlogs:export` already lets its holder download the whole table from the
+ * full page, so the risk here is not the capability — it is the label. A button
+ * on one person's timeline that forgets the pin writes everyone's history to
+ * disk under a name that says otherwise, and nobody reading the file later has
+ * any way to tell.
+ */
+test.describe("exporting one person's trail", () => {
+  const EXPORT_PATH = "/api/v1/audit-logs/export"
+
+  function installExportApi(page: Page, permissions: string[]) {
+    const bodies: unknown[] = []
+    const installed = installAuthenticatedApi(
+      page,
+      permissions,
+      async (route: Route, url: URL) => {
+        if (url.pathname.toLowerCase() === EXPORT_PATH) {
+          bodies.push(route.request().postDataJSON())
+          await route.fulfill({
+            status: 200,
+            contentType: "text/csv",
+            headers: {
+              "content-disposition":
+                'attachment; filename="audit_logs_actor_44444444_20260826_120000.csv"',
+            },
+            body: "Id,Timestamp\n",
+          })
+          return true
+        }
+        if (url.pathname.toLowerCase() === "/api/v1/audit-logs") {
+          await fulfillJson(route, PAGE_ONE)
+          return true
+        }
+        if (url.pathname.toLowerCase() === `/api/v1/users/${USER_ID}`) {
+          await fulfillJson(route, USER)
+          return true
+        }
+        await fulfillJson(route, { items: [], totalCount: 0 })
+        return true
+      }
+    )
+    return { bodies, installed }
+  }
+
+  test("sends the person and the side the table is showing", async ({
+    page,
+  }) => {
+    const { bodies, installed } = installExportApi(page, [
+      "auditlogs:read",
+      "auditlogs:export",
+      "users:read",
+    ])
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit&audit.role=actor`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Export" }).click()
+    await page.getByRole("menuitem", { name: "CSV" }).click()
+
+    await expect.poll(() => bodies.length).toBeGreaterThan(0)
+    // 1 is Actor. Without the pair, this button downloads the platform.
+    expect(bodies[0]).toMatchObject({
+      format: "csv",
+      participantId: USER_ID,
+      participantRole: 1,
+    })
+  })
+
+  test("is not offered without the export permission", async ({ page }) => {
+    const { installed } = installExportApi(page, [
+      "auditlogs:read",
+      "users:read",
+    ])
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    await expect(page.getByRole("button", { name: "Export" })).toHaveCount(0)
+  })
+
+  test("says a file will be partial before writing it", async ({ page }) => {
+    const bodies: unknown[] = []
+    await installAuthenticatedApi(
+      page,
+      ["auditlogs:read", "auditlogs:export", "users:read"],
+      async (route: Route, url: URL) => {
+        if (url.pathname.toLowerCase() === EXPORT_PATH) {
+          bodies.push(route.request().postDataJSON())
+          await route.fulfill({
+            status: 200,
+            contentType: "text/csv",
+            body: "Id,Timestamp\n",
+          })
+          return true
+        }
+        if (url.pathname.toLowerCase() === "/api/v1/audit-logs") {
+          // More rows than one file can hold — the ordinary case for an
+          // administrator once both sides are counted.
+          await fulfillJson(route, { ...PAGE_ONE, totalCount: 24513 })
+          return true
+        }
+        if (url.pathname.toLowerCase() === `/api/v1/users/${USER_ID}`) {
+          await fulfillJson(route, USER)
+          return true
+        }
+        await fulfillJson(route, { items: [], totalCount: 0 })
+        return true
+      }
+    )
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    await page.getByRole("button", { name: "Export" }).click()
+    await page.getByRole("menuitem", { name: "CSV" }).click()
+
+    const dialog = page.getByRole("alertdialog")
+    await expect(dialog).toContainText("24513")
+    await expect(dialog).toContainText("10000")
+    // Nothing downloaded while the question is still open.
+    expect(bodies).toHaveLength(0)
+
+    await dialog.getByRole("button", { name: "Export anyway" }).click()
+    await expect.poll(() => bodies.length).toBe(1)
+  })
+})

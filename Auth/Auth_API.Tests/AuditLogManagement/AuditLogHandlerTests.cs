@@ -331,4 +331,52 @@ public class ExportAuditLogsCommandHandlerTests
             r => r.GetPagedAsync(1, 10000, null, null, null, null, "Security", null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()),
             Times.Once());
     }
+    /// <summary>
+    /// A file outlives the request that made it, so its name has to say what
+    /// it holds. Every export was called audit_logs_{timestamp}, which made an
+    /// extract of one person indistinguishable from an extract of everyone.
+    /// </summary>
+    [Fact]
+    public async Task Handle_ScopedToOnePerson_SaysSoInTheFileName()
+    {
+        var participant = Guid.Parse("44444444-4444-4444-4444-444444444444");
+        _auditLogRepoMock
+            .Setup(r => r.GetPagedAsync(1, 10000, participant, AuditParticipantRole.Actor, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new List<AuditLog>() as IReadOnlyList<AuditLog>, 0));
+
+        var result = await _handler.Handle(
+            new ExportAuditLogsCommand("csv", participant, AuditParticipantRole.Actor)
+            {
+                RequestedBy = Guid.NewGuid()
+            },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.FileName.Should().StartWith("audit_logs_actor_44444444");
+        result.Value.FileName.Should().EndWith(".csv");
+        result.Value.IsTruncated.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// The cap used to be a server log line: the caller got a partial file and
+    /// nothing in the response, the file, or its name said so.
+    /// </summary>
+    [Fact]
+    public async Task Handle_MoreRowsThanTheCap_ReportsAndNamesTheTruncation()
+    {
+        var logs = new List<AuditLog> { TestHelpers.CreateAuditLog(action: "user.login") };
+        _auditLogRepoMock
+            .Setup(r => r.GetPagedAsync(1, 10000, null, null, null, null, null, null, null, null, It.IsAny<string?>(), It.IsAny<SortDirection>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((logs as IReadOnlyList<AuditLog>, 24513));
+
+        var result = await _handler.Handle(
+            new ExportAuditLogsCommand("csv") { RequestedBy = Guid.NewGuid() },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        result.Value.TotalMatched.Should().Be(24513);
+        result.Value.RecordCount.Should().Be(1);
+        result.Value.IsTruncated.Should().BeTrue();
+        result.Value.FileName.Should().Contain("partial_1_of_24513");
+    }
 }

@@ -59,6 +59,7 @@ import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { VerifyEmailDialog } from "@authsystem/ui/common/verify-email-dialog"
 import type { AuditLogColumnId } from "@/pages/audit-logs/audit-log-columns"
+import { AuditLogExportMenu } from "@/pages/audit-logs/audit-log-export"
 import {
   AUDIT_PARTICIPANT_ROLES,
   participantRoleParam,
@@ -492,6 +493,8 @@ function UserPermissionsTab({ userId }: { userId: string }) {
 }
 
 function UserAuditLogsTab({ userId }: { userId: string }) {
+  const { hasPermission } = useAuth()
+  const canExport = hasPermission(PERMISSIONS.auditLogs.export)
   const {
     pageIndex: page,
     pageSize,
@@ -549,15 +552,37 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
       ),
   })
 
+  // The pin the file must carry. Built from the same values the query above
+  // sends, so the export cannot answer a narrower or wider question than the
+  // table the reader is looking at — and cannot forget the person entirely,
+  // which on this screen would write the whole platform's history to disk.
+  const exportFilters = React.useMemo(
+    () => ({
+      participantId: userId,
+      participantRole: participantRoleParam(role),
+      sortBy,
+      sortDirection,
+    }),
+    [userId, role, sortBy, sortDirection]
+  )
+
   return (
     <div className="flex flex-col gap-4">
-      <AuditParticipantFilter
-        value={role}
-        // `setFilters` returns to page one on its own, which is what a change
-        // of question needs: page four of the old answer means nothing in the
-        // new one.
-        onChange={(next) => setFilters({ role: next })}
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <AuditParticipantFilter
+          value={role}
+          // `setFilters` returns to page one on its own, which is what a change
+          // of question needs: page four of the old answer means nothing in the
+          // new one.
+          onChange={(next) => setFilters({ role: next })}
+        />
+        {canExport ? (
+          <AuditLogExportMenu
+            filters={exportFilters}
+            totalCount={toNumber(query.data?.totalCount)}
+          />
+        ) : null}
+      </div>
       <ActorBoundaryNotice role={role} />
       <AuditLogTable
         tableId="user-audit"

@@ -58,8 +58,20 @@ public record ExportAuditLogsCommand(
 /// <summary>
 /// Result of an audit log export operation.
 /// </summary>
+/// <param name="RecordCount">Rows actually written to the file.</param>
+/// <param name="TotalMatched">
+/// Rows the filters matched, which is larger than <paramref name="RecordCount"/>
+/// when the export hit <c>MaxRecords</c>. The difference used to exist only as a
+/// server-side log line: the caller received a partial file and nothing in the
+/// response, the file, or its name said so.
+/// </param>
 public record ExportAuditLogsResult(
     byte[] Content,
     string ContentType,
     string FileName,
-    int RecordCount);
+    int RecordCount,
+    int TotalMatched)
+{
+    /// <summary>The file holds less than the filters matched.</summary>
+    public bool IsTruncated => TotalMatched > RecordCount;
+}

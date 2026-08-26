@@ -1,21 +1,10 @@
-import { useMutation, useQuery } from "@tanstack/react-query"
-import { Download } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { toast } from "sonner"
 
 import { ApplicationSelect } from "@authsystem/ui/common/application-select"
 import { DateRangePicker } from "@authsystem/ui/common/date-range-picker"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { SearchableSelect } from "@authsystem/ui/common/searchable-select"
-import { Button } from "@authsystem/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@authsystem/ui/dropdown-menu"
 import {
   Select,
   SelectContent,
@@ -29,13 +18,14 @@ import { useAuth } from "@authsystem/auth/auth-context"
 import { AUDIT_ACTIONS, AUDIT_ACTION_TYPES } from "@/lib/audit-catalog"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
 import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
-import { getErrorMessage } from "@authsystem/api/errors"
 import {
   dateUrlFilter,
   stringUrlFilter,
   useListUrlState,
   type ListUrlStateOptions,
 } from "@authsystem/ui/hooks/use-search-query"
+import { useQuery } from "@tanstack/react-query"
+import { AuditLogExportMenu } from "./audit-log-export"
 import { useAuditLabels } from "./audit-log-labels"
 import { AuditLogTable } from "./audit-log-table"
 import type { AuditLogColumnId } from "./audit-log-columns"
@@ -174,29 +164,13 @@ export function AuditLogsPage() {
       ),
   })
 
-  const exportMutation = useMutation({
-    mutationFn: async (format: "csv" | "json") => {
-      const { data, error } = await api.POST("/api/v1/audit-logs/export", {
-        // Export in the same order the table currently shows, and under the same
-        // filters — every one of them declared by the request contract, so none
-        // can be dropped in silence.
-        body: { format, ...filters, maxRecords: 10000, sortBy, sortDirection },
-        parseAs: "blob",
-      })
-      if (error) throw error
-      return { blob: data as unknown as Blob, format }
-    },
-    onSuccess: ({ blob, format }) => {
-      const url = URL.createObjectURL(blob)
-      const anchor = document.createElement("a")
-      anchor.href = url
-      anchor.download = `audit-logs.${format}`
-      anchor.click()
-      URL.revokeObjectURL(url)
-      toast.success(t("auditLogs.exported"))
-    },
-    onError: (error) => toast.error(getErrorMessage(error)),
-  })
+  // Export in the same order the table shows and under the same filters —
+  // every one of them declared by the request contract, so none can be dropped
+  // in silence.
+  const exportFilters = React.useMemo(
+    () => ({ ...filters, sortBy, sortDirection }),
+    [filters, sortBy, sortDirection]
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
@@ -205,28 +179,10 @@ export function AuditLogsPage() {
         description={t("auditLogs.subtitle")}
         actions={
           canExport ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={exportMutation.isPending}>
-                  <Download data-icon="inline-start" />
-                  {t("auditLogs.export")}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem
-                    onClick={() => exportMutation.mutate("csv")}
-                  >
-                    CSV
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => exportMutation.mutate("json")}
-                  >
-                    JSON
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <AuditLogExportMenu
+              filters={exportFilters}
+              totalCount={toNumber(query.data?.totalCount)}
+            />
           ) : null
         }
       />
