@@ -51,9 +51,18 @@ export function DataTableToolbar<TData>({
 }: DataTableToolbarProps<TData>) {
   const { t } = useTranslation()
 
+  // A hidden column offers no filter: the chip would narrow the table by a
+  // value the reader cannot see in it, and the count would drop with nothing on
+  // screen to say why. The exception is a filter that is already applied —
+  // hiding the column must not also hide the narrowing it is still doing.
   const facetedColumns = table
     .getAllColumns()
-    .filter((column) => column.getCanFilter() && column.columnDef.meta?.filterVariant === "faceted")
+    .filter(
+      (column) =>
+        column.getCanFilter() &&
+        column.columnDef.meta?.filterVariant === "faceted" &&
+        (column.getIsVisible() || column.getFilterValue() !== undefined)
+    )
 
   const hideableColumns = getHideableColumns(table)
 

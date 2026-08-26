@@ -111,6 +111,44 @@ function installAuditApi(page: Page, preferredLanguage?: string) {
   })
 }
 
+const AUDIT_USER_ID = AUDIT_PAGE.logs[0].userId
+
+const AUDIT_USER = {
+  id: AUDIT_USER_ID,
+  email: "employee@example.test",
+  firstName: "Employee",
+  lastName: "One",
+  displayName: "Employee One",
+  status: "Active",
+  emailConfirmed: true,
+  phoneConfirmed: false,
+  twoFactorEnabled: false,
+  preferredLanguage: "en",
+  timeZone: "UTC",
+  isDeleted: false,
+  createdAt: "2026-08-01T08:00:00Z",
+}
+
+/** The same audit rows, reached through a user's page instead of the full list. */
+function installUserAuditApi(page: Page) {
+  return installAuthenticatedApi(
+    page,
+    ["auditlogs:read", "users:read"],
+    async (route: Route, url: URL) => {
+      if (url.pathname.toLowerCase() === "/api/v1/audit-logs") {
+        await fulfillJson(route, AUDIT_PAGE)
+        return true
+      }
+      if (url.pathname.toLowerCase() === `/api/v1/users/${AUDIT_USER_ID}`) {
+        await fulfillJson(route, AUDIT_USER)
+        return true
+      }
+      await fulfillJson(route, { items: [], totalCount: 0 })
+      return true
+    }
+  )
+}
+
 /** Every entry in the "Columns" menu, in display order. */
 async function columnMenuEntries(
   page: Page,
@@ -165,6 +203,46 @@ test.describe("audit logs", () => {
   test("still offers the fields no column claimed", async ({ page }) => {
     // The point is to stop showing one field twice, never to hide the record:
     // anything undeclared must keep its column.
+    const entries = await columnMenuEntries(page)
+    expect(entries).toContain("IP address")
+    expect(entries).toContain("User agent")
+    expect(entries).toContain("Entity id")
+  })
+})
+
+/**
+ * The same menu, on a user's page.
+ *
+ * This spec only ever opened `/audit-logs`, which is exactly how the copy of
+ * the table one route away kept shipping without a single `covers` declaration:
+ * it offered a raw "Succeeded" column reading Yes/No/— while having no outcome
+ * column at all, and a separate heading for each of the six fields naming the
+ * two people. Both tables read one column set now, and both are checked.
+ */
+test.describe("a user's audit trail", () => {
+  test.beforeEach(async ({ page }) => {
+    await installUserAuditApi(page)
+    await page.goto(`/users/${AUDIT_USER_ID}?tab=audit`)
+    await expect(page.getByText("Account locked", { exact: true })).toBeVisible()
+  })
+
+  test("offers each person and the outcome exactly once", async ({ page }) => {
+    const entries = await columnMenuEntries(page)
+
+    expect(duplicates(entries)).toEqual([])
+    expect(entries).toContain("Actor")
+    // Hidden by default here — every row is this user — but still the only
+    // column that reaches those three fields, and still reachable from the menu.
+    expect(entries).toContain("Subject")
+    expect(entries).toContain("Result")
+    for (const shadow of ["Actor email", "User", "User email", "Succeeded"]) {
+      expect(entries, `${shadow} duplicates a curated column`).not.toContain(
+        shadow
+      )
+    }
+  })
+
+  test("still offers the fields no column claimed", async ({ page }) => {
     const entries = await columnMenuEntries(page)
     expect(entries).toContain("IP address")
     expect(entries).toContain("User agent")

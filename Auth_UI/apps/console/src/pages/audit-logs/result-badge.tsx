@@ -12,9 +12,10 @@ import { Badge } from "@authsystem/ui/badge"
  * than "not recorded" carries that same claim forward on exactly the rows it was
  * never true of.
  *
- * Its own module rather than an export from the table: the detail dialog shows
- * the same three states, and the table imports the dialog — so putting it in
- * either one would make the two import each other.
+ * Its own module rather than an export from either of the two that use it: the
+ * columns and the detail dialog show the same three states, and the table that
+ * renders the columns is also the thing that opens the dialog — so putting the
+ * badge in either one would make that chain fold back on itself.
  */
 export function ResultBadge({ value }: { value?: boolean | null }) {
   const { t } = useTranslation()

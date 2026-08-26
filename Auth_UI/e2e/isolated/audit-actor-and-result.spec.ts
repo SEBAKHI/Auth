@@ -62,15 +62,37 @@ const PAGE_ONE = {
   totalPages: 1,
 }
 
+const USER_ID = "44444444-4444-4444-4444-444444444444"
+
+const USER = {
+  id: USER_ID,
+  email: EMPLOYEE,
+  firstName: "Employee",
+  lastName: "One",
+  displayName: "Employee One",
+  status: "Active",
+  emailConfirmed: true,
+  phoneConfirmed: false,
+  twoFactorEnabled: false,
+  preferredLanguage: "en",
+  timeZone: "UTC",
+  isDeleted: false,
+  createdAt: "2026-08-01T08:00:00Z",
+}
+
 function installAuditApi(page: Page) {
   const queries: URL[] = []
   const installed = installAuthenticatedApi(
     page,
-    ["auditlogs:read"],
+    ["auditlogs:read", "users:read"],
     async (route: Route, url: URL) => {
       if (url.pathname.toLowerCase() === "/api/v1/audit-logs") {
         queries.push(url)
         await fulfillJson(route, PAGE_ONE)
+        return true
+      }
+      if (url.pathname.toLowerCase() === `/api/v1/users/${USER_ID}`) {
+        await fulfillJson(route, USER)
         return true
       }
       await fulfillJson(route, { items: [], totalCount: 0 })
@@ -197,4 +219,74 @@ test("the detail dialog keeps the two people apart", async ({ page }) => {
   await expect(dialog.getByText("Subject", { exact: true })).toBeVisible()
   await expect(dialog.getByText(EMPLOYEE, { exact: true })).toBeVisible()
   await expect(dialog.getByText("Succeeded", { exact: true })).toBeVisible()
+})
+
+/**
+ * The same three facts, on the copy of this table that lives on a user's page.
+ *
+ * It had been written out separately and never received any of the fixes above:
+ * no outcome column at all, neither person named, and the action shown as its
+ * stored code. Each assertion here is the one directly above it, repeated on the
+ * other screen — which is the whole point of the two reading one column set.
+ */
+test.describe("a user's own audit trail", () => {
+  test("names both people and the outcome, exactly as the full page does", async ({
+    page,
+  }) => {
+    const { installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+    await expect(
+      page.getByText("Account locked", { exact: true })
+    ).toBeVisible()
+
+    // The subject is the page itself — every row happened to this user — so the
+    // column starts hidden and the actor is the one that varies.
+    await expect(await cellUnder(page, "user.locked", "Actor")).toHaveText(
+      ADMIN
+    )
+    await expect(await cellUnder(page, "user.locked", "Result")).toHaveText(
+      "Succeeded"
+    )
+    await expect(await cellUnder(page, "user.login", "Result")).toHaveText(
+      "Failed"
+    )
+    await expect(await cellUnder(page, "role.created", "Result")).toHaveText(
+      "Not recorded"
+    )
+  })
+
+  test("reads the action as a name and keeps its stored code", async ({
+    page,
+  }) => {
+    const { installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+
+    const row = page.getByRole("row").filter({ hasText: "user.locked" })
+    await expect(row.getByText("Account locked", { exact: true })).toBeVisible()
+    await expect(row.getByText("user.locked", { exact: true })).toBeVisible()
+  })
+
+  test("opens the same detail dialog, and keeps the request scoped to the user", async ({
+    page,
+  }) => {
+    const { queries, installed } = installAuditApi(page)
+    await installed
+    await page.goto(`/users/${USER_ID}?tab=audit`)
+
+    // The one thing the shared table must NOT unify away.
+    await expect
+      .poll(() => queries.some((url) => url.searchParams.get("userId") === USER_ID))
+      .toBe(true)
+
+    const row = page.getByRole("row").filter({ hasText: "user.locked" })
+    await row.getByRole("button", { name: "View" }).click()
+
+    const dialog = page.getByRole("dialog")
+    await expect(dialog.getByText("Actor", { exact: true })).toBeVisible()
+    await expect(dialog.getByText(ADMIN, { exact: true })).toBeVisible()
+    await expect(dialog.getByText("Subject", { exact: true })).toBeVisible()
+    await expect(dialog.getByText(EMPLOYEE, { exact: true })).toBeVisible()
+  })
 })

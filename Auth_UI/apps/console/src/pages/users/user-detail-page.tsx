@@ -57,6 +57,8 @@ import {
 import { useTabParam } from "@authsystem/ui/hooks/use-tab-param"
 import type { Schemas } from "@authsystem/api/types"
 import { VerifyEmailDialog } from "@authsystem/ui/common/verify-email-dialog"
+import type { AuditLogColumnId } from "@/pages/audit-logs/audit-log-columns"
+import { AuditLogTable } from "@/pages/audit-logs/audit-log-table"
 import { useUserActions } from "./use-user-actions"
 import { UserFormDialog } from "./user-form-dialog"
 import { UserPermissionsDialog } from "./user-permissions-dialog"
@@ -72,13 +74,22 @@ type UserAuditUrlFilters = {
 const USER_AUDIT_URL_OPTIONS = {
   namespace: "audit",
   defaultPageSize: DEFAULT_PAGE_SIZE,
-  sortableColumns: SORTABLE_COLUMNS.userAuditLog,
+  sortableColumns: SORTABLE_COLUMNS.auditLogs,
   defaultSorting: [{ id: "timestamp", desc: true }],
   filters: {
     entityTypes: stringArrayUrlFilter({ param: "entityType" }),
     applications: stringArrayUrlFilter({ param: "application" }),
   },
 } satisfies ListUrlStateOptions<UserAuditUrlFilters>
+
+/**
+ * Every row here happened to the user whose page this is — the request pins
+ * `userId` — so a column naming them again would repeat one value down the
+ * whole table. It stays defined, because that definition is what keeps
+ * `userId`, `userName` and `userEmail` from returning as three raw columns, and
+ * it stays one menu entry away for a reader who wants it back.
+ */
+const USER_AUDIT_HIDDEN_COLUMNS: readonly AuditLogColumnId[] = ["subject"]
 
 const USER_DETAIL_TABS = [
   "organizations",
@@ -456,7 +467,6 @@ function UserPermissionsTab({ userId }: { userId: string }) {
 }
 
 function UserAuditLogsTab({ userId }: { userId: string }) {
-  const { t } = useTranslation()
   const {
     pageIndex: page,
     pageSize,
@@ -506,62 +516,14 @@ function UserAuditLogsTab({ userId }: { userId: string }) {
       ),
   })
 
-  const columns: ColumnDef<Schemas["AuditLogDto"], unknown>[] = [
-    {
-      id: "action",
-      accessorFn: (row) => row.action ?? "",
-      header: t("auditLogs.action"),
-      meta: { label: t("auditLogs.action") },
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.action}</span>
-      ),
-    },
-    {
-      id: "entityType",
-      accessorFn: (row) => row.entityType ?? "",
-      filterFn: "faceted",
-      header: t("auditLogs.target"),
-      meta: { label: t("auditLogs.target"), filterVariant: "faceted" },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.entityType ?? "—"}
-        </span>
-      ),
-    },
-    {
-      id: "applicationName",
-      accessorFn: (row) => row.applicationName ?? "",
-      filterFn: "faceted",
-      header: t("nav.applications"),
-      meta: { label: t("nav.applications"), filterVariant: "faceted" },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.applicationName ?? "—"}
-        </span>
-      ),
-    },
-    {
-      id: "timestamp",
-      accessorFn: (row) => row.timestamp ?? "",
-      header: t("auditLogs.timestamp"),
-      meta: { label: t("auditLogs.timestamp") },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {formatDateTime(row.original.timestamp)}
-        </span>
-      ),
-    },
-  ]
-
   return (
-    <DataTable
+    <AuditLogTable
       tableId="user-audit"
-      columns={columns}
+      defaultHidden={USER_AUDIT_HIDDEN_COLUMNS}
       data={query.data?.logs ?? []}
       isLoading={query.isLoading}
       error={query.isError ? query.error : undefined}
       onRetry={() => query.refetch()}
-      enableExport={false}
       columnFilters={columnFilters}
       onColumnFiltersChange={onColumnFiltersChange}
       sorting={sorting}

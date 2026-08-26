@@ -1,6 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query"
-import type { ColumnDef } from "@tanstack/react-table"
-import { Download, Eye } from "lucide-react"
+import { Download } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
@@ -9,7 +8,6 @@ import { ApplicationSelect } from "@authsystem/ui/common/application-select"
 import { DateRangePicker } from "@authsystem/ui/common/date-range-picker"
 import { PageHeader } from "@authsystem/ui/common/page-header"
 import { SearchableSelect } from "@authsystem/ui/common/searchable-select"
-import { DataTable } from "@authsystem/ui/data-table/data-table"
 import { Button } from "@authsystem/ui/button"
 import {
   DropdownMenu,
@@ -28,27 +26,19 @@ import {
 import { api } from "@authsystem/api/client"
 import { toSortParams, unwrap, toNumber } from "@authsystem/api/helpers"
 import { useAuth } from "@authsystem/auth/auth-context"
-import {
-  AUDIT_ACTIONS,
-  AUDIT_ACTION_TYPES,
-  auditActionI18nKey,
-  auditActionTypeI18nKey,
-} from "@/lib/audit-catalog"
+import { AUDIT_ACTIONS, AUDIT_ACTION_TYPES } from "@/lib/audit-catalog"
 import { DEFAULT_PAGE_SIZE, PERMISSIONS } from "@/lib/constants"
 import { SORTABLE_COLUMNS } from "@/lib/sortable-columns"
 import { getErrorMessage } from "@authsystem/api/errors"
-import { formatDateTime } from "@authsystem/ui/format"
 import {
   dateUrlFilter,
   stringUrlFilter,
   useListUrlState,
   type ListUrlStateOptions,
 } from "@authsystem/ui/hooks/use-search-query"
-import type { Schemas } from "@authsystem/api/types"
-import { AuditLogDetailDialog } from "./audit-log-detail-dialog"
-import { ResultBadge } from "./result-badge"
-
-type AuditLogDto = Schemas["AuditLogDto"]
+import { useAuditLabels } from "./audit-log-labels"
+import { AuditLogTable } from "./audit-log-table"
+import type { AuditLogColumnId } from "./audit-log-columns"
 
 type AuditLogListFilters = {
   applicationId: string
@@ -80,6 +70,18 @@ const AUDIT_LOGS_LIST_URL_OPTIONS = {
   },
 } satisfies ListUrlStateOptions<AuditLogListFilters>
 
+/**
+ * The application is narrowed on the server here, by the select above the
+ * table, so the column repeating that value on every row starts out of the way
+ * — as it did while it was auto-discovered. It stays one menu entry away, and
+ * bringing it back must not bring a second application control with it: a
+ * faceted chip would offer the applications on the loaded page as though they
+ * were the applications, next to a select that actually re-queries.
+ */
+const SERVER_FILTERED_COLUMNS: readonly AuditLogColumnId[] = [
+  "applicationName",
+]
+
 function startOfDay(date: string): string {
   return new Date(`${date}T00:00:00`).toISOString()
 }
@@ -109,28 +111,13 @@ export function AuditLogsPage() {
     setFilter,
     setFilters,
   } = useListUrlState(AUDIT_LOGS_LIST_URL_OPTIONS)
-  const [detail, setDetail] = React.useState<AuditLogDto | undefined>()
   const { sortBy, sortDirection } = toSortParams(sorting)
 
   const canExport = hasPermission(PERMISSIONS.auditLogs.export)
 
-  // The stored code is what is filtered, exported and copied into a ticket; the
-  // translation is only what it is READ as. Both are shown, and only the code
-  // ever leaves this component.
-  const actionLabel = React.useCallback(
-    (code: string) =>
-      t(`auditLogs.actions.${auditActionI18nKey(code)}`, {
-        defaultValue: code,
-      }),
-    [t]
-  )
-  const actionTypeLabel = React.useCallback(
-    (type: string) =>
-      t(`auditLogs.actionTypes.${auditActionTypeI18nKey(type)}`, {
-        defaultValue: type,
-      }),
-    [t]
-  )
+  // For the two selects below. What travels to the API is always the stored
+  // code; the translation is only what the reader picks it out by.
+  const { actionLabel, actionTypeLabel } = useAuditLabels()
 
   const actionOptions = React.useMemo(() => {
     const options = [
@@ -210,132 +197,6 @@ export function AuditLogsPage() {
     },
     onError: (error) => toast.error(getErrorMessage(error)),
   })
-
-  const columns: ColumnDef<AuditLogDto, unknown>[] = [
-    {
-      id: "action",
-      accessorFn: (row) => row.action ?? "",
-      header: t("auditLogs.action"),
-      meta: { label: t("auditLogs.action") },
-      cell: ({ row }) => (
-        <div className="min-w-0">
-          <p className="truncate font-medium">
-            {actionLabel(row.original.action ?? "")}
-          </p>
-          {/* The stored value, kept in view: it is what a support ticket, a URL
-              filter and a SQL query all need, and it is the same string in every
-              language. */}
-          <p className="truncate text-xs text-muted-foreground">
-            <bdi dir="auto">{row.original.action}</bdi>
-          </p>
-        </div>
-      ),
-    },
-    {
-      id: "actionType",
-      accessorFn: (row) => row.actionType ?? "",
-      header: t("auditLogs.actionType"),
-      meta: { label: t("auditLogs.actionType") },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.actionType
-            ? actionTypeLabel(row.original.actionType)
-            : "—"}
-        </span>
-      ),
-    },
-    {
-      id: "result",
-      accessorFn: (row) => String(row.isSuccess ?? ""),
-      // Nothing in SortFields orders by outcome, and the filter above is the
-      // way to gather one anyway.
-      enableSorting: false,
-      header: t("auditLogs.result"),
-      // Without the declaration the same field came back as an "Is Success"
-      // column reading yes/no — and reading it wrong, since a row whose outcome
-      // was never recorded has no field at all and rendered as an em dash next
-      // to a badge that says so properly.
-      meta: { label: t("auditLogs.result"), covers: ["isSuccess"] },
-      cell: ({ row }) => <ResultBadge value={row.original.isSuccess} />,
-    },
-    {
-      id: "entityType",
-      accessorFn: (row) => row.entityType ?? "",
-      filterFn: "faceted",
-      header: t("auditLogs.target"),
-      meta: { label: t("auditLogs.target"), filterVariant: "faceted" },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.entityType ?? "—"}
-        </span>
-      ),
-    },
-    {
-      // Who DID it. This column read the subject until now, under this same
-      // heading — so an account an administrator locked was listed as having
-      // locked itself, and the one question an audit trail exists to answer was
-      // answered with the wrong name.
-      id: "actor",
-      accessorFn: (row) => row.performedByEmail ?? row.performedByName ?? "",
-      header: t("auditLogs.actor"),
-      // All three, including the id: its auto column resolves to the same name
-      // this cell falls back to, so it was a third heading for one person.
-      meta: {
-        label: t("auditLogs.actor"),
-        covers: ["performedBy", "performedByName", "performedByEmail"],
-      },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.performedByEmail ?? row.original.performedByName ?? "—"}
-        </span>
-      ),
-    },
-    {
-      // Who it happened TO. The two are the same person only when someone acts
-      // on their own account, and different in every administrative event.
-      id: "subject",
-      accessorFn: (row) => row.userEmail ?? row.userName ?? "",
-      header: t("auditLogs.subject"),
-      meta: {
-        label: t("auditLogs.subject"),
-        covers: ["userId", "userName", "userEmail"],
-      },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {row.original.userEmail ?? row.original.userName ?? "—"}
-        </span>
-      ),
-    },
-    {
-      id: "timestamp",
-      accessorFn: (row) => row.timestamp ?? "",
-      header: t("auditLogs.timestamp"),
-      meta: { label: t("auditLogs.timestamp") },
-      cell: ({ row }) => (
-        <span className="text-sm text-muted-foreground">
-          {formatDateTime(row.original.timestamp)}
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      enableSorting: false,
-      enableHiding: false,
-      header: () => <span className="sr-only">{t("common.actions")}</span>,
-      cell: ({ row }) => (
-        <div className="text-end">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("common.view")}
-            onClick={() => setDetail(row.original)}
-          >
-            <Eye />
-          </Button>
-        </div>
-      ),
-    },
-  ]
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-6">
@@ -431,18 +292,15 @@ export function AuditLogsPage() {
         />
       </div>
 
-      <DataTable
+      <AuditLogTable
         fillHeight
         tableId="audit-logs"
-        columns={columns}
+        defaultHidden={SERVER_FILTERED_COLUMNS}
+        serverFiltered={SERVER_FILTERED_COLUMNS}
         data={query.data?.logs ?? []}
         isLoading={query.isLoading}
         error={query.isError ? query.error : undefined}
         onRetry={() => query.refetch()}
-        // Audit logs keep their dedicated server-side export (CSV/JSON, in the
-        // page header) and the JSON-diff detail dialog (Eye action).
-        enableExport={false}
-        enableRowDetail={false}
         sorting={sorting}
         onSortingChange={setSorting}
         pagination={{
@@ -454,14 +312,6 @@ export function AuditLogsPage() {
           onPageSizeChange: setPageSize,
         }}
       />
-
-      {detail ? (
-        <AuditLogDetailDialog
-          open={Boolean(detail)}
-          onOpenChange={(open) => !open && setDetail(undefined)}
-          log={detail}
-        />
-      ) : null}
     </div>
   )
 }

@@ -22,6 +22,8 @@ import { Skeleton } from "@authsystem/ui/skeleton"
 import { formatRelative } from "@authsystem/ui/format"
 import type { Schemas } from "@authsystem/api/types"
 
+import { useAuditLabels } from "@/pages/audit-logs/audit-log-labels"
+
 /** Latest audit events, newest first. */
 export function RecentActivityCard({
   logs,
@@ -31,6 +33,7 @@ export function RecentActivityCard({
   loading: boolean
 }) {
   const { t } = useTranslation()
+  const { actionLabel } = useAuditLabels()
 
   return (
     <Card>
@@ -58,9 +61,13 @@ export function RecentActivityCard({
             {logs.map((log) => (
               <Item key={log.id} size="xs" variant="muted">
                 <ItemContent>
-                  <ItemTitle>{log.action}</ItemTitle>
+                  <ItemTitle>{actionLabel(log.action ?? "")}</ItemTitle>
+                  {/* The person who ACTED. This line read the subject, so a
+                      lockout an administrator performed was listed under the
+                      name of the account it was performed on — the same
+                      conflation the table's Actor column was fixed for. */}
                   <ItemDescription>
-                    {log.userEmail ?? log.userName ?? "—"}
+                    {log.performedByEmail ?? log.performedByName ?? "—"}
                   </ItemDescription>
                 </ItemContent>
                 <ItemActions>
