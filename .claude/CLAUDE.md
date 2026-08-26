@@ -168,6 +168,19 @@ Detailed standards are maintained as skill files. **Invoke the relevant skill be
 | Event-Driven Architecture | `/event-driven-architecture` | Domain events, integration events, contracts, ordering, idempotency |
 | Final Review Checklist | `/final-review-checklist` | Before marking any implementation complete |
 | shadcn/ui (vendored) | `Skill` tool → `shadcn` (no slash command) | ANY work under `Auth_UI/`: adding, composing, fixing, styling, or reviewing components. See **Section VI** for the file map and the CLI override |
+| Frontend Playbook (user-level) | `/frontend-playbook` | **MANDATORY before writing any code under `Auth_UI/`.** Architecture, API layer, session correctness, tables, forms, i18n/RTL, layout, delivery, testing, a11y, security. Read the relevant `rules/*.md` file for the area you are touching — invoking the skill does NOT replace reading it |
 
 > **Skills are located in `.claude/skills/<name>/SKILL.md`**
 > **Vendored third-party skills live in the same tree:** `.claude/skills/shadcn/` (see Section VI) and `.claude/skills/find-skills/`.
+> **`frontend-playbook` is user-level** (`~/.claude/skills/frontend-playbook/`), not in this repo — it is deliberately project-agnostic and shared across every frontend project on this machine.
+
+### Frontend work: two skills, two jobs — read both
+
+`Auth_UI/` work requires **both** frontend skills, and they do not overlap:
+
+| Skill | Answers |
+|-------|---------|
+| `frontend-playbook` | **What to build and why** — architecture, correctness, the traps that ship silently |
+| `shadcn` | **What to build it with** — which component, which API, this repo's preset bindings |
+
+Order: `frontend-playbook` first (it decides the shape), then `shadcn` (it supplies the parts). A component chosen correctly but wired into a crushed scroll pane, an unscoped cache key, or a `useEffect` form reset is still a defect — and none of those are visible in a component diff.
