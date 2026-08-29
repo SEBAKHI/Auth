@@ -24,6 +24,7 @@ public class ResendEmailVerificationCommandHandler
     private readonly IOtpGenerator _otpGenerator;
     private readonly IPasswordHasher _passwordHasher;
     private readonly EmailSettings _emailSettings;
+    private readonly IEnvironmentInfo _environment;
     private readonly ILogger<ResendEmailVerificationCommandHandler> _logger;
 
     public ResendEmailVerificationCommandHandler(
@@ -33,6 +34,7 @@ public class ResendEmailVerificationCommandHandler
         IOtpGenerator otpGenerator,
         IPasswordHasher passwordHasher,
         IOptionsSnapshot<EmailSettings> emailSettings,
+        IEnvironmentInfo environment,
         ILogger<ResendEmailVerificationCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -41,6 +43,7 @@ public class ResendEmailVerificationCommandHandler
         _otpGenerator = otpGenerator;
         _passwordHasher = passwordHasher;
         _emailSettings = emailSettings.Value;
+        _environment = environment;
         _logger = logger;
     }
 
@@ -92,8 +95,15 @@ public class ResendEmailVerificationCommandHandler
         var otp = _otpGenerator.GenerateNumericOtp(6);
         var otpHash = _passwordHasher.HashPassword(otp);
 
-        // Log OTP when email is disabled (development mode)
-        if (!_emailSettings.Enabled)
+        // With email disabled the log is the only other place the OTP exists,
+        // which is what makes the flow testable locally. Gated on the environment
+        // as well as the setting: this code is a bearer credential - presenting it
+        // confirms ownership of the address with no further proof - and
+        // Email:Enabled is a hot setting an operator can flip from the console in
+        // production, so on its own it would put a live verification code in the
+        // production log. Note the code is written unmasked, unlike the address
+        // beside it.
+        if (!_emailSettings.Enabled && _environment.IsDevelopment)
         {
             _logger.LogWarning(
                 "Email disabled - OTP for {Email}: {Otp} (expires in {Minutes} minutes)",

@@ -31,6 +31,15 @@ public class OwnershipTransferCommandHandlerTests
     private readonly Mock<INotificationService> _notificationServiceMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
 
+    // Left without a Setup on purpose: Moq defaults the bool to false, which is
+    // the production shape, so every existing Initiate test runs with the
+    // transfer-code log shut.
+    private readonly Mock<IEnvironmentInfo> _environmentInfoMock = new();
+
+    // Hoisted out of CreateInitiateHandler: the factory used to build a logger
+    // mock inline and drop it, so nothing could assert on what this handler logs.
+    private readonly Mock<ILogger<InitiateOwnershipTransferCommandHandler>> _initiateLoggerMock = new();
+
     private static Organization CreateOrganization(Guid ownerId, bool isAutoCreated = false) => new(
         id: Guid.NewGuid(),
         code: $"org-{Guid.NewGuid():N}"[..20],
@@ -56,7 +65,8 @@ public class OwnershipTransferCommandHandlerTests
         _notificationServiceMock.Object,
         _publisherMock.Object,
         TestHelpers.CreateOptions(new EmailSettings { Enabled = false }),
-        new Mock<ILogger<InitiateOwnershipTransferCommandHandler>>().Object);
+        _environmentInfoMock.Object,
+        _initiateLoggerMock.Object);
 
     private TransferOwnershipCommandHandler CreateTransferHandler() => new(
         _organizationRepositoryMock.Object,
@@ -246,6 +256,57 @@ public class OwnershipTransferCommandHandlerTests
         result.IsError.Should().BeTrue();
         result.FirstError.Should().Be(OrganizationErrors.TransferCodeEmailFailed);
     }
+
+    [Fact]
+    public async Task Initiate_EmailDisabledOutsideDevelopment_DoesNotLogTheTransferCode()
+    {
+        // The six-digit code is one half of the transfer proof: whoever reads it can
+        // hand it to the sitting owner and complete the ownership swap, and it is
+        // written in plaintext beside the masked address. Email:Enabled is a hot
+        // setting an operator can flip from the console in production, so the
+        // environment is the only thing keeping the code out of a production log.
+        // The mock defaults IsDevelopment to false.
+        var (org, ownerId, targetId, _, _) = SetupValidScenario();
+        var command = new InitiateOwnershipTransferCommand(org.Id, targetId) { RequestedBy = ownerId };
+
+        var result = await CreateInitiateHandler().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyTransferCodeLogged(Times.Never());
+    }
+
+    [Fact]
+    public async Task Initiate_EmailDisabledInDevelopment_LogsTheTransferCode()
+    {
+        // The other half of the gate. With no mail server the log is the only place
+        // the code exists, which is what makes the flow testable locally; a fix that
+        // closed production by closing Development too would be a regression.
+        _environmentInfoMock.Setup(e => e.IsDevelopment).Returns(true);
+        var (org, ownerId, targetId, _, _) = SetupValidScenario();
+        var command = new InitiateOwnershipTransferCommand(org.Id, targetId) { RequestedBy = ownerId };
+
+        var result = await CreateInitiateHandler().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyTransferCodeLogged(Times.Once());
+    }
+
+    /// <summary>
+    /// Matches the message, not the level alone: this handler writes a second
+    /// Warning - the per-organization rate limit - so the level on its own does not
+    /// identify the leak line. The happy path these two tests drive never trips that
+    /// limit, but a level-only assertion would silently start passing for the wrong
+    /// reason if that ever changed.
+    /// </summary>
+    private void VerifyTransferCodeLogged(Times times) =>
+        _initiateLoggerMock.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Ownership transfer code")),
+                null,
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            times);
 
     #endregion
 

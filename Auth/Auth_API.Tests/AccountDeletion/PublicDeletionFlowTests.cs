@@ -30,6 +30,12 @@ public class PublicDeletionFlowTests
     private readonly Mock<INotificationService> _notificationServiceMock = new();
     private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
     private readonly Mock<IOtpGenerator> _otpGeneratorMock = new();
+    // Left without a Setup on purpose: Moq defaults the bool to false, which is
+    // the production shape, so every existing test runs with the OTP log shut.
+    private readonly Mock<IEnvironmentInfo> _environmentInfoMock = new();
+    // Hoisted out of the constructor: the logger mock used to be built inline and
+    // dropped, so nothing could assert on what this service logs.
+    private readonly Mock<ILogger<DeletionOtpService>> _otpLoggerMock = new();
     private readonly DeletionOtpService _otpService;
     private readonly AccountDeletionRequestor _requestor;
 
@@ -59,7 +65,8 @@ public class PublicDeletionFlowTests
             _passwordHasherMock.Object,
             settings,
             TestHelpers.CreateOptions(new EmailSettings()),
-            new Mock<ILogger<DeletionOtpService>>().Object);
+            _environmentInfoMock.Object,
+            _otpLoggerMock.Object);
         _requestor = new AccountDeletionRequestor(
             _requestRepositoryMock.Object,
             _userRepositoryMock.Object,
@@ -126,6 +133,62 @@ public class PublicDeletionFlowTests
         _notificationServiceMock.Verify(
             s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    [Fact]
+    public async Task Request_EmailDisabledOutsideDevelopment_DoesNotLogTheOtp()
+    {
+        // The code IS the credential: it is the single factor behind an irreversible
+        // deletion, and it is written in plaintext beside a masked address - the
+        // low-value identifier hidden, the high-value secret printed. Issuance is
+        // anonymous here, so anyone who knows an address can make the line fire.
+        // Email:Enabled is a hot setting an operator can flip from the console in
+        // production, so the environment is the only thing keeping the code out of a
+        // production log. The mock defaults IsDevelopment to false.
+        var user = TestHelpers.CreateUser(email: "known@example.com");
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("known@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var result = await CreateRequestHandler().Handle(
+            new PublicRequestDeletionCommand("known@example.com"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyOtpLogged(Times.Never());
+    }
+
+    [Fact]
+    public async Task Request_EmailDisabledInDevelopment_LogsTheOtp()
+    {
+        // The other half of the gate. With no mail server the log is the only place
+        // the code exists, which is what makes the flow testable locally; a fix that
+        // closed production by closing Development too would be a regression.
+        _environmentInfoMock.Setup(e => e.IsDevelopment).Returns(true);
+        var user = TestHelpers.CreateUser(email: "known@example.com");
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("known@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+
+        var result = await CreateRequestHandler().Handle(
+            new PublicRequestDeletionCommand("known@example.com"), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        VerifyOtpLogged(Times.Once());
+    }
+
+    /// <summary>
+    /// Matches the message, not the level alone: this service writes two other
+    /// Warnings - the issuance rate limit and the code-bound-to-another-account
+    /// refusal - so the level on its own does not identify the OTP line.
+    /// </summary>
+    private void VerifyOtpLogged(Times times) =>
+        _otpLoggerMock.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("deletion OTP")),
+                null,
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            times);
 
     [Theory]
     [InlineData("unknownEmail")]
