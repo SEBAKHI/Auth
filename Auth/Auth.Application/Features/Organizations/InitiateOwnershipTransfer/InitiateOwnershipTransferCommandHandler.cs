@@ -31,6 +31,7 @@ public class InitiateOwnershipTransferCommandHandler
     private readonly INotificationService _notificationService;
     private readonly IPublisher _publisher;
     private readonly EmailSettings _emailSettings;
+    private readonly IEnvironmentInfo _environment;
     private readonly ILogger<InitiateOwnershipTransferCommandHandler> _logger;
 
     public InitiateOwnershipTransferCommandHandler(
@@ -42,6 +43,7 @@ public class InitiateOwnershipTransferCommandHandler
         INotificationService notificationService,
         IPublisher publisher,
         IOptionsSnapshot<EmailSettings> emailSettings,
+        IEnvironmentInfo environment,
         ILogger<InitiateOwnershipTransferCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
@@ -52,6 +54,7 @@ public class InitiateOwnershipTransferCommandHandler
         _notificationService = notificationService;
         _publisher = publisher;
         _emailSettings = emailSettings.Value;
+        _environment = environment;
         _logger = logger;
     }
 
@@ -121,9 +124,15 @@ public class InitiateOwnershipTransferCommandHandler
         var otp = _otpGenerator.GenerateNumericOtp(6);
         var otpHash = _passwordHasher.HashPassword(otp);
 
-        // Log the code when email is disabled (development mode); the email is
-        // the only other place it exists.
-        if (!_emailSettings.Enabled)
+        // With email disabled the log is the only other place the code exists,
+        // which is what makes the flow testable locally. Gated on the environment
+        // as well as the setting: this code is one half of the transfer proof -
+        // whoever reads it can hand it to the sitting owner and complete the
+        // ownership swap - and Email:Enabled is a hot setting an operator can flip
+        // from the console in production, so on its own it would put a live
+        // transfer code in the production log. Note the code is not masked the way
+        // the address beside it is.
+        if (!_emailSettings.Enabled && _environment.IsDevelopment)
         {
             _logger.LogWarning(
                 "Email disabled - Ownership transfer code for organization {OrganizationId} (target {Email}): {Otp} (expires in {Minutes} minutes)",

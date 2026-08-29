@@ -2,6 +2,7 @@ using System.Globalization;
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
@@ -135,7 +136,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
 
         _logger.LogInformation(
             "Invitation created for {Email} to organization {OrganizationId} by {InvitedBy}",
-            request.Email, request.OrganizationId, request.InvitedBy);
+            EmailMasking.Mask(request.Email), request.OrganizationId, request.InvitedBy);
 
         var inviterName = inviter != null
             ? $"{inviter.FirstName} {inviter.LastName}".Trim()

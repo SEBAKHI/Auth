@@ -25,6 +25,7 @@ public class ForgotPasswordCommandHandlerTests
     private readonly Mock<ISecureTokenGenerator> _tokenGeneratorMock;
     private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock;
     private readonly Mock<INotificationService> _notificationServiceMock;
+    private readonly Mock<IEnvironmentInfo> _environmentInfoMock;
     private readonly Mock<ILogger<ForgotPasswordCommandHandler>> _loggerMock;
     private readonly EmailSettings _emailSettings;
     private readonly ForgotPasswordCommandHandler _handler;
@@ -36,6 +37,10 @@ public class ForgotPasswordCommandHandlerTests
         _tokenGeneratorMock = new Mock<ISecureTokenGenerator>();
         _tokenKeyServiceMock = new Mock<IRefreshTokenKeyService>();
         _notificationServiceMock = new Mock<INotificationService>();
+        // Left without a Setup on purpose: Moq defaults the bool to false, which is
+        // the production shape, so every existing test runs with the reset-link log
+        // shut. Mirrors SecretChallengeTestContext.
+        _environmentInfoMock = new Mock<IEnvironmentInfo>();
         _loggerMock = new Mock<ILogger<ForgotPasswordCommandHandler>>();
 
         _tokenGeneratorMock.Setup(g => g.Generate()).Returns(GeneratedToken);
@@ -61,6 +66,7 @@ public class ForgotPasswordCommandHandlerTests
             _tokenKeyServiceMock.Object,
             _notificationServiceMock.Object,
             TestHelpers.CreateOptions(_emailSettings),
+            _environmentInfoMock.Object,
             _loggerMock.Object);
     }
 
@@ -202,8 +208,10 @@ public class ForgotPasswordCommandHandlerTests
     [Fact]
     public async Task Handle_EmailDisabled_StillSucceeds()
     {
-        // Arrange - email is disabled in the test setup, so the handler logs the
-        // reset link instead of sending it. See EmailSettingsTests for the URL shape.
+        // Arrange - email is disabled in the test setup. The notification is still
+        // dispatched and the response stays a generic success either way; whether
+        // the reset link also reaches the log is a separate question, pinned by the
+        // two tests below. See EmailSettingsTests for the URL shape.
         var user = TestHelpers.CreateUser(email: "john@example.com");
         ArrangeExistingUser(user);
         var command = new ForgotPasswordCommand("john@example.com");
@@ -214,6 +222,53 @@ public class ForgotPasswordCommandHandlerTests
         // Assert
         result.IsError.Should().BeFalse();
     }
+
+    [Fact]
+    public async Task Handle_EmailDisabledOutsideDevelopment_DoesNotLogTheResetLink()
+    {
+        // The link IS the credential: it resets the password with no further proof,
+        // and it is written unmasked (Uri.EscapeDataString is an encoding, not a
+        // redaction). Email:Enabled is a hot setting an operator can flip from the
+        // console in production, so the environment is the only thing keeping the
+        // link out of a production log. The mock defaults IsDevelopment to false.
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        ArrangeExistingUser(user);
+
+        await _handler.Handle(
+            new ForgotPasswordCommand("john@example.com"), CancellationToken.None);
+
+        VerifyResetLinkLogged(Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_EmailDisabledInDevelopment_LogsTheResetLink()
+    {
+        // The other half of the gate. With no mail server the log is the only place
+        // the link exists, which is what makes the flow testable locally; a fix that
+        // closed production by closing Development too would be a regression.
+        _environmentInfoMock.Setup(e => e.IsDevelopment).Returns(true);
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        ArrangeExistingUser(user);
+
+        await _handler.Handle(
+            new ForgotPasswordCommand("john@example.com"), CancellationToken.None);
+
+        VerifyResetLinkLogged(Times.Once());
+    }
+
+    /// <summary>
+    /// The reset-link line is the only Warning this handler writes - everything else
+    /// is Information or Error - so the level alone identifies it.
+    /// </summary>
+    private void VerifyResetLinkLogged(Times times) =>
+        _loggerMock.Verify(
+            l => l.Log(
+                LogLevel.Warning,
+                It.IsAny<EventId>(),
+                It.Is<It.IsAnyType>((_, _) => true),
+                null,
+                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            times);
 
     [Fact]
     public async Task Handle_ExistingUser_SendsPasswordResetEmail()

@@ -34,6 +34,7 @@ public class DeletionOtpService
     private readonly IPasswordHasher _passwordHasher;
     private readonly AccountDeletionSettings _settings;
     private readonly EmailSettings _emailSettings;
+    private readonly IEnvironmentInfo _environment;
     private readonly ILogger<DeletionOtpService> _logger;
 
     public DeletionOtpService(
@@ -43,6 +44,7 @@ public class DeletionOtpService
         IPasswordHasher passwordHasher,
         IOptionsSnapshot<AccountDeletionSettings> settings,
         IOptionsSnapshot<EmailSettings> emailSettings,
+        IEnvironmentInfo environment,
         ILogger<DeletionOtpService> logger)
     {
         _verificationRepository = verificationRepository;
@@ -51,6 +53,7 @@ public class DeletionOtpService
         _passwordHasher = passwordHasher;
         _settings = settings.Value;
         _emailSettings = emailSettings.Value;
+        _environment = environment;
         _logger = logger;
     }
 
@@ -70,8 +73,16 @@ public class DeletionOtpService
 
         var otp = _otpGenerator.GenerateNumericOtp(6);
 
-        // Log OTP when email is disabled (development mode)
-        if (!_emailSettings.Enabled)
+        // With email disabled the log is the only other place the code exists,
+        // which is what makes the flow testable locally. Gated on the environment
+        // as well as the setting: this code IS the credential - it is the single
+        // factor behind an irreversible deletion, and issuance is reachable
+        // anonymously through the public wizard, so anyone who knows an address
+        // can make this line fire. Email:Enabled is a hot setting an operator can
+        // flip from the console in production, so on its own it would put a live
+        // deletion code in the production log. Note the code is not masked the way
+        // the address beside it is.
+        if (!_emailSettings.Enabled && _environment.IsDevelopment)
         {
             _logger.LogWarning(
                 "Email disabled - deletion OTP for {Email}: {Otp} (expires in {Minutes} minutes)",

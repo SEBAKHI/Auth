@@ -1,4 +1,5 @@
 using System.Globalization;
+using Auth.Application.Common;
 using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
@@ -69,7 +70,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
 
         _logger.LogInformation(
             "Invitation {InvitationId} resent for {Email} to organization {OrganizationId} by {ResentBy}",
-            invitation.Id, invitation.Email.Value, request.OrganizationId, request.ResentBy);
+            invitation.Id, EmailMasking.Mask(invitation.Email.Value), request.OrganizationId, request.ResentBy);
 
         // Build response DTO
         var organization = await _organizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken);

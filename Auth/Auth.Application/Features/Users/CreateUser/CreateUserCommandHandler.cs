@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Features.Users.Common;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
@@ -112,7 +113,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
 
         _logger.LogInformation(
             "User created: {UserId} ({Email}) by {CreatedBy}",
-            user.Id, user.Email, request.CreatedBy);
+            user.Id, EmailMasking.Mask(user.Email), request.CreatedBy);
 
         await _eventDispatcher.DispatchEventsAsync(user, cancellationToken);
 

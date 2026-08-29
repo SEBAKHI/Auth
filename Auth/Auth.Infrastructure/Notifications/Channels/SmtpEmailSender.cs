@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.Configuration;
 using MailKit.Net.Smtp;
 using MailKit.Security;
@@ -64,7 +65,7 @@ public class SmtpEmailSender
                         "SMTP is misconfigured: username '{Username}' is set but no password is configured. " +
                         "Set the 'Email:Password' configuration key. Email to {Email} was not sent.",
                         settings.Username,
-                        toEmail);
+                        EmailMasking.Mask(toEmail));
                     return false;
                 }
 
@@ -74,12 +75,14 @@ public class SmtpEmailSender
             await client.SendAsync(message, cancellationToken);
             await client.DisconnectAsync(true, cancellationToken);
 
-            _logger.LogInformation("Email sent successfully to {Email}: {Subject}", toEmail, subject);
+            _logger.LogInformation(
+                "Email sent successfully to {Email}: {Subject}", EmailMasking.Mask(toEmail), subject);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send email to {Email}: {Subject}", toEmail, subject);
+            _logger.LogError(
+                ex, "Failed to send email to {Email}: {Subject}", EmailMasking.Mask(toEmail), subject);
             return false;
         }
     }

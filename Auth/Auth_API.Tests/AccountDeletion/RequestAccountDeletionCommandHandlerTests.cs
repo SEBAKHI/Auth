@@ -61,6 +61,7 @@ public class RequestAccountDeletionCommandHandlerTests
             _passwordHasherMock.Object,
             settings,
             TestHelpers.CreateOptions(new EmailSettings()),
+            new Mock<IEnvironmentInfo>().Object,
             new Mock<ILogger<DeletionOtpService>>().Object);
 
         _handler = new RequestAccountDeletionCommandHandler(

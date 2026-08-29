@@ -803,7 +803,7 @@ Set Cors:AllowedOrigins in appsettings.json
     "SecretFilePath": "",
     "PlainTextTargetFile": "",
     "AutoGenerateKeys": true,
-    "EnableAdminApi": true,
+    "EnableAdminApi": false,
     "RequiredPermission": "secrets.manage"
   }
 }
