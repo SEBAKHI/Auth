@@ -9,6 +9,7 @@ using Auth.Application.Features.Platform.UpdatePlatformSettings;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Auth.Domain.Constants;
 
 namespace Auth_API.Modules.Administration.Controllers;
 
@@ -37,7 +38,7 @@ public class PlatformSettingsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions</response>
     [HttpGet]
-    [RequirePermission("platform-settings:manage")]
+    [RequirePermission(PermissionCodes.PlatformSettings.Manage)]
     [ProducesResponseType(typeof(PlatformSettingsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -58,7 +59,7 @@ public class PlatformSettingsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions</response>
     [HttpPut]
-    [RequirePermission("platform-settings:manage")]
+    [RequirePermission(PermissionCodes.PlatformSettings.Manage)]
     [ProducesResponseType(typeof(PlatformSettingsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

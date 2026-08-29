@@ -26,6 +26,7 @@ using Auth.Application.Features.Organizations.UpdateMemberRole;
 using Auth.Application.Features.Organizations.UpdateOrganization;
 using Auth.Application.Features.Organizations.UpdateOrganizationApplication;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -73,7 +74,7 @@ public class OrganizationsController : ApiController
     /// Get a paginated list of ALL organizations (platform administration).
     /// </summary>
     [HttpGet("all")]
-    [RequirePermission("organizations:read")]
+    [RequirePermission(PermissionCodes.Organizations.Read)]
     [ProducesResponseType(typeof(PagedOrganizationsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -109,7 +110,7 @@ public class OrganizationsController : ApiController
         var query = new GetOrganizationByIdQuery(id)
         {
             RequestedBy = userId,
-            PlatformScope = HasPermissionClaim("organizations:read")
+            PlatformScope = HasPermissionClaim(PermissionCodes.Organizations.Read)
         };
         var result = await _sender.Send(query, cancellationToken);
 
@@ -151,7 +152,7 @@ public class OrganizationsController : ApiController
     /// Update an organization.
     /// </summary>
     [HttpPut("{id:guid}")]
-    [RequirePermission("org:update")]
+    [RequirePermission(PermissionCodes.Org.Update)]
     [ProducesResponseType(typeof(OrganizationDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -192,7 +193,7 @@ public class OrganizationsController : ApiController
         var command = new DeleteOrganizationCommand(id)
         {
             RequestedBy = userId,
-            PlatformScope = HasPermissionClaim("organizations:manage")
+            PlatformScope = HasPermissionClaim(PermissionCodes.Organizations.Manage)
         };
         var result = await _sender.Send(command, cancellationToken);
 
@@ -249,7 +250,7 @@ public class OrganizationsController : ApiController
         var command = new TransferOwnershipCommand(orgId, request.NewOwnerId, request.Code)
         {
             RequestedBy = userId,
-            PlatformScope = HasPermissionClaim("organizations:manage")
+            PlatformScope = HasPermissionClaim(PermissionCodes.Organizations.Manage)
         };
         var result = await _sender.Send(command, cancellationToken);
 
@@ -266,7 +267,7 @@ public class OrganizationsController : ApiController
     /// Get paginated members of an organization.
     /// </summary>
     [HttpGet("{id:guid}/members")]
-    [RequirePermission("org:members:read")]
+    [RequirePermission(PermissionCodes.Org.MembersRead)]
     [ProducesResponseType(typeof(PagedOrganizationMembersDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -284,7 +285,7 @@ public class OrganizationsController : ApiController
         var query = new GetOrganizationMembersQuery(id, pageNumber, pageSize, searchTerm, sortBy, sortDirection)
         {
             RequestedBy = userId,
-            PlatformScope = HasPermissionClaim("organizations:read")
+            PlatformScope = HasPermissionClaim(PermissionCodes.Organizations.Read)
         };
         var result = await _sender.Send(query, cancellationToken);
 
@@ -297,7 +298,7 @@ public class OrganizationsController : ApiController
     /// Update a member's organization role.
     /// </summary>
     [HttpPut("{orgId:guid}/members/{userId:guid}/role")]
-    [RequirePermission("org:members:manage")]
+    [RequirePermission(PermissionCodes.Org.MembersManage)]
     [ProducesResponseType(typeof(OrganizationMemberDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -321,7 +322,7 @@ public class OrganizationsController : ApiController
     /// Remove a member from an organization.
     /// </summary>
     [HttpDelete("{orgId:guid}/members/{userId:guid}")]
-    [RequirePermission("org:members:manage")]
+    [RequirePermission(PermissionCodes.Org.MembersManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -345,7 +346,7 @@ public class OrganizationsController : ApiController
     /// Get pending invitations for an organization.
     /// </summary>
     [HttpGet("{id:guid}/invitations")]
-    [RequirePermission("org:members:read")]
+    [RequirePermission(PermissionCodes.Org.MembersRead)]
     [ProducesResponseType(typeof(IReadOnlyList<OrganizationInvitationDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -360,7 +361,7 @@ public class OrganizationsController : ApiController
         var query = new GetPendingInvitationsQuery(id, sortBy, sortDirection)
         {
             RequestedBy = userId,
-            PlatformScope = HasPermissionClaim("organizations:read")
+            PlatformScope = HasPermissionClaim(PermissionCodes.Organizations.Read)
         };
         var result = await _sender.Send(query, cancellationToken);
 
@@ -373,7 +374,7 @@ public class OrganizationsController : ApiController
     /// Invite a user to an organization.
     /// </summary>
     [HttpPost("{id:guid}/invitations")]
-    [RequirePermission("org:members:invite")]
+    [RequirePermission(PermissionCodes.Org.MembersInvite)]
     [ProducesResponseType(typeof(OrganizationInvitationDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -398,7 +399,7 @@ public class OrganizationsController : ApiController
     /// Resend an organization invitation with a new token.
     /// </summary>
     [HttpPost("{orgId:guid}/invitations/{invitationId:guid}/resend")]
-    [RequirePermission("org:members:invite")]
+    [RequirePermission(PermissionCodes.Org.MembersInvite)]
     [ProducesResponseType(typeof(OrganizationInvitationDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -423,7 +424,7 @@ public class OrganizationsController : ApiController
     /// Get all enabled applications for an organization.
     /// </summary>
     [HttpGet("{id:guid}/applications")]
-    [RequirePermission("org:apps:read")]
+    [RequirePermission(PermissionCodes.Org.AppsRead)]
     [ProducesResponseType(typeof(IReadOnlyList<OrganizationApplicationDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -438,7 +439,7 @@ public class OrganizationsController : ApiController
         var query = new GetOrganizationApplicationsQuery(id, sortBy, sortDirection)
         {
             RequestedBy = userId,
-            PlatformScope = HasPermissionClaim("organizations:read")
+            PlatformScope = HasPermissionClaim(PermissionCodes.Organizations.Read)
         };
         var result = await _sender.Send(query, cancellationToken);
 
@@ -460,7 +461,7 @@ public class OrganizationsController : ApiController
     /// own access list.
     /// </remarks>
     [HttpGet("{id:guid}/applications/available")]
-    [RequirePermission("org:apps:manage")]
+    [RequirePermission(PermissionCodes.Org.AppsManage)]
     [ProducesResponseType(typeof(IReadOnlyList<AvailableApplicationDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -478,7 +479,7 @@ public class OrganizationsController : ApiController
     /// Enable an application for an organization.
     /// </summary>
     [HttpPost("{id:guid}/applications")]
-    [RequirePermission("org:apps:manage")]
+    [RequirePermission(PermissionCodes.Org.AppsManage)]
     [ProducesResponseType(typeof(OrganizationApplicationDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -502,7 +503,7 @@ public class OrganizationsController : ApiController
     /// Update an application subscription for an organization.
     /// </summary>
     [HttpPut("{id:guid}/applications/{applicationId:guid}")]
-    [RequirePermission("org:apps:manage")]
+    [RequirePermission(PermissionCodes.Org.AppsManage)]
     [ProducesResponseType(typeof(OrganizationApplicationDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -525,7 +526,7 @@ public class OrganizationsController : ApiController
     /// Disable an application for an organization.
     /// </summary>
     [HttpDelete("{id:guid}/applications/{applicationId:guid}")]
-    [RequirePermission("org:apps:manage")]
+    [RequirePermission(PermissionCodes.Org.AppsManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -549,7 +550,7 @@ public class OrganizationsController : ApiController
     /// Get all app-level role assignments for a member.
     /// </summary>
     [HttpGet("{orgId:guid}/members/{userId:guid}/roles")]
-    [RequirePermission("org:permissions:read")]
+    [RequirePermission(PermissionCodes.Org.PermissionsRead)]
     [ProducesResponseType(typeof(IReadOnlyList<OrganizationMemberAppRoleDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -572,7 +573,7 @@ public class OrganizationsController : ApiController
     /// Assign an app-level role to a member.
     /// </summary>
     [HttpPost("{orgId:guid}/members/{userId:guid}/roles")]
-    [RequirePermission("org:permissions:manage")]
+    [RequirePermission(PermissionCodes.Org.PermissionsManage)]
     [ProducesResponseType(typeof(OrganizationMemberAppRoleDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -601,7 +602,7 @@ public class OrganizationsController : ApiController
     /// from the role, since a role belongs to exactly one application.
     /// </summary>
     [HttpDelete("{orgId:guid}/members/{userId:guid}/roles/{roleId:guid}")]
-    [RequirePermission("org:permissions:manage")]
+    [RequirePermission(PermissionCodes.Org.PermissionsManage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -629,7 +630,7 @@ public class OrganizationsController : ApiController
     /// Grant an individual permission to a member.
     /// </summary>
     [HttpPost("{orgId:guid}/members/{userId:guid}/permissions")]
-    [RequirePermission("org:permissions:manage")]
+    [RequirePermission(PermissionCodes.Org.PermissionsManage)]
     [ProducesResponseType(typeof(OrganizationMemberPermissionDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

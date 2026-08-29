@@ -5,6 +5,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Features.Notifications.GetNotificationOutboxMessageById;
 using Auth.Application.Features.Notifications.GetNotificationOutboxMessages;
 using Auth.Application.Features.Notifications.RetryNotificationOutboxMessage;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -34,7 +35,7 @@ public class NotificationOutboxController : ApiController
     /// Gets the paged delivery log with status/channel filters and search.
     /// </summary>
     [HttpGet]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(PagedNotificationOutboxDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMessages(
         [FromQuery] int pageNumber = 1,
@@ -58,7 +59,7 @@ public class NotificationOutboxController : ApiController
     /// Gets one delivery-log entry including the exact rendered content.
     /// </summary>
     [HttpGet("{id:guid}")]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(NotificationOutboxMessageDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetMessage(Guid id, CancellationToken cancellationToken)
@@ -71,7 +72,7 @@ public class NotificationOutboxController : ApiController
     /// Requeues a failed (Retry/Dead) message for immediate dispatch.
     /// </summary>
     [HttpPost("{id:guid}/retry")]
-    [RequirePermission("notification-templates:manage")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Retry(Guid id, CancellationToken cancellationToken)

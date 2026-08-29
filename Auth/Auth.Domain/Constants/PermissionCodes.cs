@@ -24,12 +24,14 @@ namespace Auth.Domain.Constants;
 /// permissions.test.ts, which reads it as text.
 /// </para>
 /// <para>
-/// UNTIL the [RequirePermission] sites reference these constants, this file is a
-/// FIFTH copy of the same list - attributes, controller bodies, the SQL seed,
-/// this catalogue, the console mirror - not a reduction. The migration is what
-/// drops the attributes as an independent copy and takes the count to three.
-/// So: DO NOT ADD A PERMISSION TO THE SYSTEM BEFORE THAT MIGRATION IS DONE. A
-/// sixth code threaded through five copies by hand is how this drift began.
+/// Every [RequirePermission] attribute and every in-code check now references a
+/// constant here instead of repeating its value, and
+/// PermissionCatalogueCoverageTests.NoProductionCode_StillWritesAPermissionLiteral
+/// keeps it that way - a literal anywhere in production C# fails the suite by
+/// file and line. The list therefore survives in three places rather than five:
+/// this file, the SQL seed, and the console mirror, with a test binding each
+/// pair. Adding a permission means a constant here, a seeded row, and a mirror
+/// entry; the suite names whichever of the three you forget.
 /// </para>
 /// <para>
 /// Nesting is deliberately ONE level deep, which is why an organization member

@@ -12,6 +12,7 @@ using Auth.Application.Features.Roles.GrantRolePermission;
 using Auth.Application.Features.Roles.RevokeRolePermission;
 using Auth.Application.Features.Roles.UpdateRole;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -39,7 +40,7 @@ public class RolesController : ApiController
     /// Get all roles for an application.
     /// </summary>
     [HttpGet]
-    [RequirePermission("roles:read")]
+    [RequirePermission(PermissionCodes.Roles.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<RoleDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -61,7 +62,7 @@ public class RolesController : ApiController
     /// Get a role by ID.
     /// </summary>
     [HttpGet("{id:guid}")]
-    [RequirePermission("roles:read")]
+    [RequirePermission(PermissionCodes.Roles.Read)]
     [ProducesResponseType(typeof(RoleDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -80,7 +81,7 @@ public class RolesController : ApiController
     /// Get paginated users assigned a role.
     /// </summary>
     [HttpGet("{id:guid}/users")]
-    [RequirePermission("roles:read")]
+    [RequirePermission(PermissionCodes.Roles.Read)]
     [ProducesResponseType(typeof(PagedRoleUsersDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -106,7 +107,7 @@ public class RolesController : ApiController
     /// Get the applications related to a role.
     /// </summary>
     [HttpGet("{id:guid}/applications")]
-    [RequirePermission("roles:read")]
+    [RequirePermission(PermissionCodes.Roles.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<RoleApplicationDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -129,7 +130,7 @@ public class RolesController : ApiController
     /// Create a new role.
     /// </summary>
     [HttpPost]
-    [RequirePermission("roles:create")]
+    [RequirePermission(PermissionCodes.Roles.Create)]
     [ProducesResponseType(typeof(RoleDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -158,7 +159,7 @@ public class RolesController : ApiController
     /// Update an existing role.
     /// </summary>
     [HttpPut("{id:guid}")]
-    [RequirePermission("roles:update")]
+    [RequirePermission(PermissionCodes.Roles.Update)]
     [ProducesResponseType(typeof(RoleDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -182,7 +183,7 @@ public class RolesController : ApiController
     /// Delete a role.
     /// </summary>
     [HttpDelete("{id:guid}")]
-    [RequirePermission("roles:delete")]
+    [RequirePermission(PermissionCodes.Roles.Delete)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -208,7 +209,7 @@ public class RolesController : ApiController
     /// by proxy.
     /// </remarks>
     [HttpPost("{id:guid}/permissions")]
-    [RequirePermission("roles:update")]
+    [RequirePermission(PermissionCodes.Roles.Update)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -234,7 +235,7 @@ public class RolesController : ApiController
     /// Remove a permission from a role.
     /// </summary>
     [HttpDelete("{id:guid}/permissions/{permissionId:guid}")]
-    [RequirePermission("roles:update")]
+    [RequirePermission(PermissionCodes.Roles.Update)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

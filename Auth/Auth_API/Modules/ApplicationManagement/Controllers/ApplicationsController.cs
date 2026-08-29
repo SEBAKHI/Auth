@@ -17,6 +17,7 @@ using Auth.Application.Features.Applications.GetApplicationUsers;
 using Auth.Application.Features.Applications.GetPublicBranding;
 using Auth.Application.Features.Applications.UpdateApplication;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -44,7 +45,7 @@ public class ApplicationsController : ApiController
     /// Get a paginated list of applications.
     /// </summary>
     [HttpGet]
-    [RequirePermission("applications:read")]
+    [RequirePermission(PermissionCodes.Applications.Read)]
     [ProducesResponseType(typeof(PagedApplicationsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -88,7 +89,7 @@ public class ApplicationsController : ApiController
     /// Get an application by ID.
     /// </summary>
     [HttpGet("{id:guid}")]
-    [RequirePermission("applications:read")]
+    [RequirePermission(PermissionCodes.Applications.Read)]
     [ProducesResponseType(typeof(ApplicationDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -107,7 +108,7 @@ public class ApplicationsController : ApiController
     /// Get all roles for an application.
     /// </summary>
     [HttpGet("{id:guid}/roles")]
-    [RequirePermission("applications:read")]
+    [RequirePermission(PermissionCodes.Applications.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<RoleDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -130,7 +131,7 @@ public class ApplicationsController : ApiController
     /// Get all permissions for an application.
     /// </summary>
     [HttpGet("{id:guid}/permissions")]
-    [RequirePermission("applications:read")]
+    [RequirePermission(PermissionCodes.Applications.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<PermissionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -153,7 +154,7 @@ public class ApplicationsController : ApiController
     /// Get paginated users under an application.
     /// </summary>
     [HttpGet("{id:guid}/users")]
-    [RequirePermission("applications:read")]
+    [RequirePermission(PermissionCodes.Applications.Read)]
     [ProducesResponseType(typeof(PagedApplicationUsersDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -179,7 +180,7 @@ public class ApplicationsController : ApiController
     /// Get paginated organizations that have an application enabled.
     /// </summary>
     [HttpGet("{id:guid}/organizations")]
-    [RequirePermission("applications:read")]
+    [RequirePermission(PermissionCodes.Applications.Read)]
     [ProducesResponseType(typeof(PagedApplicationOrganizationsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -205,7 +206,7 @@ public class ApplicationsController : ApiController
     /// Create a new application.
     /// </summary>
     [HttpPost]
-    [RequirePermission("applications:create")]
+    [RequirePermission(PermissionCodes.Applications.Create)]
     [ProducesResponseType(typeof(ApplicationDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -244,7 +245,7 @@ public class ApplicationsController : ApiController
     /// Update an existing application.
     /// </summary>
     [HttpPut("{id:guid}")]
-    [RequirePermission("applications:update")]
+    [RequirePermission(PermissionCodes.Applications.Update)]
     [ProducesResponseType(typeof(ApplicationDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -282,7 +283,7 @@ public class ApplicationsController : ApiController
     /// Delete an application.
     /// </summary>
     [HttpDelete("{id:guid}")]
-    [RequirePermission("applications:delete")]
+    [RequirePermission(PermissionCodes.Applications.Delete)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -304,7 +305,7 @@ public class ApplicationsController : ApiController
     /// Switch an application on. Its access mode is left as it was.
     /// </summary>
     [HttpPost("{id:guid}/activate")]
-    [RequirePermission("applications:update")]
+    [RequirePermission(PermissionCodes.Applications.Update)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -326,7 +327,7 @@ public class ApplicationsController : ApiController
     /// revoked immediately.
     /// </summary>
     [HttpPost("{id:guid}/deactivate")]
-    [RequirePermission("applications:update")]
+    [RequirePermission(PermissionCodes.Applications.Update)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -346,7 +347,7 @@ public class ApplicationsController : ApiController
     /// Get the application's access list — the users individually invited to it.
     /// </summary>
     [HttpGet("{id:guid}/access")]
-    [RequirePermission("applications:read")]
+    [RequirePermission(PermissionCodes.Applications.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<ApplicationAccessGrantDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -364,7 +365,7 @@ public class ApplicationsController : ApiController
     /// Invite a user to the application, optionally with a role scoped to it.
     /// </summary>
     [HttpPost("{id:guid}/access")]
-    [RequirePermission("applications:update")]
+    [RequirePermission(PermissionCodes.Applications.Update)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -394,7 +395,7 @@ public class ApplicationsController : ApiController
     /// application are revoked; other applications are untouched.
     /// </summary>
     [HttpDelete("{id:guid}/access/{userId:guid}")]
-    [RequirePermission("applications:update")]
+    [RequirePermission(PermissionCodes.Applications.Update)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

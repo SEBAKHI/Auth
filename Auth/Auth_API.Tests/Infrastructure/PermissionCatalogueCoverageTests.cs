@@ -51,6 +51,56 @@ public class PermissionCatalogueCoverageTests
 
         PermissionEnforcement.FromCode().Should().NotBeEmpty(
             "codes demanded in controller bodies are read from source text, and a moved call site would empty the scan");
+
+        ApiSourceScan.ProductionSources().Should().HaveCountGreaterThan(500,
+            "the literal ban below is a search over these files, and an empty search finds no offenders");
+    }
+
+    [Fact]
+    public void NoProductionCode_StillWritesAPermissionLiteral()
+    {
+        var offenders = new List<string>();
+
+        foreach (var (file, source) in ApiSourceScan.ProductionSources())
+        {
+            if (file.EndsWith("PermissionCodes.cs", StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            var lines = source.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+            for (var index = 0; index < lines.Length; index++)
+            {
+                // Prose is allowed to quote a code; only code is not. Three doc
+                // comments legitimately name one, and rewriting them to satisfy
+                // a scanner would make the documentation worse to make a test
+                // simpler.
+                var trimmed = lines[index].TrimStart();
+                if (trimmed.StartsWith("//", StringComparison.Ordinal)
+                    || trimmed.StartsWith("*", StringComparison.Ordinal)
+                    || trimmed.StartsWith("/*", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var written = PermissionCodes.All.FirstOrDefault(
+                    code => lines[index].Contains($"\"{code}\"", StringComparison.Ordinal));
+
+                if (written is not null)
+                {
+                    offenders.Add($"{Path.GetFileName(file)}:{index + 1} \"{written}\"");
+                }
+            }
+        }
+
+        // A literal here is not a style problem. It is what made the catalogue a
+        // fifth copy of the list rather than the list: a code demanded as a
+        // string is a code the compiler never checks, that no rename reaches,
+        // and that the console's mirror is never asked about. One hundred and
+        // fifty of them were removed to close that; this is what keeps the
+        // hundred and fifty-first from being written.
+        offenders.Should().BeEmpty(
+            "every permission must be named through PermissionCodes, in attributes and in code alike");
     }
 
     [Fact]

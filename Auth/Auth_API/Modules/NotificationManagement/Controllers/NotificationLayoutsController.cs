@@ -12,6 +12,7 @@ using Auth.Application.Features.Notifications.UpdateNotificationLayoutDraft;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Auth.Domain.Constants;
 
 namespace Auth_API.Modules.NotificationManagement.Controllers;
 
@@ -36,7 +37,7 @@ public class NotificationLayoutsController : ApiController
     /// Gets all layouts (global first).
     /// </summary>
     [HttpGet]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(List<NotificationLayoutDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetLayouts(CancellationToken cancellationToken)
     {
@@ -48,7 +49,7 @@ public class NotificationLayoutsController : ApiController
     /// Gets one layout for editing.
     /// </summary>
     [HttpGet("{id:guid}")]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(NotificationLayoutDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetLayout(Guid id, CancellationToken cancellationToken)
@@ -61,7 +62,7 @@ public class NotificationLayoutsController : ApiController
     /// Creates an application-specific layout.
     /// </summary>
     [HttpPost]
-    [RequirePermission("notification-layouts:manage")]
+    [RequirePermission(PermissionCodes.NotificationLayouts.Manage)]
     [ProducesResponseType(typeof(NotificationLayoutDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateLayout(
@@ -85,7 +86,7 @@ public class NotificationLayoutsController : ApiController
     /// Saves layout draft edits.
     /// </summary>
     [HttpPut("{id:guid}/draft")]
-    [RequirePermission("notification-layouts:manage")]
+    [RequirePermission(PermissionCodes.NotificationLayouts.Manage)]
     [ProducesResponseType(typeof(NotificationLayoutDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateDraft(
@@ -107,7 +108,7 @@ public class NotificationLayoutsController : ApiController
     /// Publishes the layout draft (atomic copy to the live columns).
     /// </summary>
     [HttpPost("{id:guid}/publish")]
-    [RequirePermission("notification-layouts:manage")]
+    [RequirePermission(PermissionCodes.NotificationLayouts.Manage)]
     [ProducesResponseType(typeof(NotificationLayoutDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> Publish(
@@ -127,7 +128,7 @@ public class NotificationLayoutsController : ApiController
     /// Previews a layout draft buffer with placeholder body content.
     /// </summary>
     [HttpPost("preview")]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(NotificationPreviewDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> Preview(
         [FromBody] PreviewNotificationLayoutRequest request,

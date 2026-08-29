@@ -8,6 +8,7 @@ using Auth.Application.Features.WebhookKeys.GetWebhookKeys;
 using Auth.Application.Features.WebhookKeys.RevokeWebhookKey;
 using Auth.Application.Features.WebhookKeys.RotateWebhookKey;
 using Auth.Application.Features.WebhookKeys.ValidateWebhookKey;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -39,7 +40,7 @@ public class WebhookKeysController : ApiController
     /// endpoint so the two pages behave identically.
     /// </remarks>
     [HttpGet]
-    [RequirePermission("webhookkeys:read")]
+    [RequirePermission(PermissionCodes.WebhookKeys.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<WebhookKeyDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -62,7 +63,7 @@ public class WebhookKeysController : ApiController
     /// Create a new webhook key.
     /// </summary>
     [HttpPost]
-    [RequirePermission("webhookkeys:create")]
+    [RequirePermission(PermissionCodes.WebhookKeys.Create)]
     [ProducesResponseType(typeof(CreateWebhookKeyResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -92,7 +93,7 @@ public class WebhookKeysController : ApiController
     /// Validate a webhook key and return its metadata.
     /// </summary>
     [HttpPost("validate")]
-    [RequirePermission("webhookkeys:validate")]
+    [RequirePermission(PermissionCodes.WebhookKeys.Validate)]
     [ProducesResponseType(typeof(ValidateWebhookKeyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -111,7 +112,7 @@ public class WebhookKeysController : ApiController
     /// Revoke a webhook key.
     /// </summary>
     [HttpPost("{id:guid}/revoke")]
-    [RequirePermission("webhookkeys:revoke")]
+    [RequirePermission(PermissionCodes.WebhookKeys.Revoke)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -136,7 +137,7 @@ public class WebhookKeysController : ApiController
     /// Rotate a webhook key, generating a new key while optionally keeping the old key valid for a grace period.
     /// </summary>
     [HttpPost("{id:guid}/rotate")]
-    [RequirePermission("webhookkeys:rotate")]
+    [RequirePermission(PermissionCodes.WebhookKeys.Rotate)]
     [ProducesResponseType(typeof(RotateWebhookKeyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

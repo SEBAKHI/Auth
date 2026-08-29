@@ -17,6 +17,7 @@ using Auth.Application.Features.Notifications.RollbackNotificationTemplate;
 using Auth.Application.Features.Notifications.SendTestNotification;
 using Auth.Application.Features.Notifications.UnpublishNotificationTemplate;
 using Auth.Application.Features.Notifications.UpdateNotificationTemplateDraft;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -45,7 +46,7 @@ public class NotificationTemplatesController : ApiController
     /// Gets the paged template list with type/application/channel/status filters.
     /// </summary>
     [HttpGet]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(PagedNotificationTemplatesDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTemplates(
         [FromQuery] int pageNumber = 1,
@@ -79,7 +80,7 @@ public class NotificationTemplatesController : ApiController
     /// The literal segment cannot collide with <c>{id:guid}</c>.
     /// </remarks>
     [HttpGet("summary")]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(NotificationsSummaryDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetSummary(CancellationToken cancellationToken)
     {
@@ -91,7 +92,7 @@ public class NotificationTemplatesController : ApiController
     /// Gets the full editor view of one template (versions + translations).
     /// </summary>
     [HttpGet("{id:guid}")]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(NotificationTemplateDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTemplate(Guid id, CancellationToken cancellationToken)
@@ -104,7 +105,7 @@ public class NotificationTemplatesController : ApiController
     /// Gets one version's full translations (history preview / restore).
     /// </summary>
     [HttpGet("{id:guid}/versions/{versionId:guid}")]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(NotificationTemplateVersionDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetTemplateVersion(
@@ -119,7 +120,7 @@ public class NotificationTemplatesController : ApiController
     /// Creates a template (empty draft v1).
     /// </summary>
     [HttpPost]
-    [RequirePermission("notification-templates:manage")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Manage)]
     [ProducesResponseType(typeof(NotificationTemplateDetailDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateTemplate(
@@ -142,7 +143,7 @@ public class NotificationTemplatesController : ApiController
     /// Saves draft edits (translation upserts/removals + change note).
     /// </summary>
     [HttpPut("{id:guid}/draft")]
-    [RequirePermission("notification-templates:manage")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Manage)]
     [ProducesResponseType(typeof(NotificationTemplateDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> UpdateDraft(
@@ -170,7 +171,7 @@ public class NotificationTemplatesController : ApiController
     /// Discards the pending draft.
     /// </summary>
     [HttpDelete("{id:guid}/draft")]
-    [RequirePermission("notification-templates:manage")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Manage)]
     [ProducesResponseType(typeof(NotificationTemplateDetailDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> DiscardDraft(Guid id, CancellationToken cancellationToken)
     {
@@ -183,7 +184,7 @@ public class NotificationTemplatesController : ApiController
     /// Publishes the pending draft (all translations go live atomically).
     /// </summary>
     [HttpPost("{id:guid}/publish")]
-    [RequirePermission("notification-templates:publish")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Publish)]
     [ProducesResponseType(typeof(NotificationTemplateDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -207,7 +208,7 @@ public class NotificationTemplatesController : ApiController
     /// Unpublishes the template (forbidden for system-global templates).
     /// </summary>
     [HttpPost("{id:guid}/unpublish")]
-    [RequirePermission("notification-templates:publish")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Publish)]
     [ProducesResponseType(typeof(NotificationTemplateDetailDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -229,7 +230,7 @@ public class NotificationTemplatesController : ApiController
     /// translations return together).
     /// </summary>
     [HttpPost("{id:guid}/rollback")]
-    [RequirePermission("notification-templates:publish")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Publish)]
     [ProducesResponseType(typeof(NotificationTemplateDetailDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> Rollback(
         Guid id,
@@ -248,7 +249,7 @@ public class NotificationTemplatesController : ApiController
     /// Restores a historical version as a new editable draft.
     /// </summary>
     [HttpPost("{id:guid}/versions/{versionId:guid}/restore-draft")]
-    [RequirePermission("notification-templates:manage")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Manage)]
     [ProducesResponseType(typeof(NotificationTemplateDetailDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> RestoreVersionAsDraft(
         Guid id, Guid versionId, CancellationToken cancellationToken)
@@ -266,7 +267,7 @@ public class NotificationTemplatesController : ApiController
     /// system-global templates).
     /// </summary>
     [HttpDelete("{id:guid}")]
-    [RequirePermission("notification-templates:manage")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> DeleteTemplate(Guid id, CancellationToken cancellationToken)
@@ -281,7 +282,7 @@ public class NotificationTemplatesController : ApiController
     /// the preview is exactly what a real send would produce.
     /// </summary>
     [HttpPost("preview")]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(NotificationPreviewDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> Preview(
         [FromBody] PreviewNotificationTemplateRequest request,
@@ -305,7 +306,7 @@ public class NotificationTemplatesController : ApiController
     /// Sends a test message rendered with sample data to the given address.
     /// </summary>
     [HttpPost("{id:guid}/test-send")]
-    [RequirePermission("notification-templates:manage")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> SendTest(
         Guid id,

@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Auth.Domain.Constants;
 using Auth_API.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -29,8 +30,19 @@ namespace Auth_API.Tests.Infrastructure;
 /// </remarks>
 internal static class PermissionEnforcement
 {
-    private static readonly Regex InCodeDemand =
-        new(@"HasPermissionClaim\(\s*""(?<code>[^""]+)""\s*\)", RegexOptions.Compiled);
+    /// <summary>
+    /// One in-code demand, written either way.
+    /// </summary>
+    /// <remarks>
+    /// Both forms are read on purpose. The scan has to keep working across the
+    /// migration that turns the literals into catalogue references: recognising
+    /// only the form that exists today would blind both coverage tests at the
+    /// exact commit that changes them, and <c>organizations:manage</c> — which
+    /// no attribute carries — would drop out of the enforced set silently.
+    /// </remarks>
+    private static readonly Regex InCodeDemand = new(
+        @"HasPermissionClaim\(\s*(?:""(?<literal>[^""]+)""|PermissionCodes\.(?<group>\w+)\.(?<member>\w+))\s*\)",
+        RegexOptions.Compiled);
 
     /// <summary>Every concrete controller the attribute scan covers.</summary>
     /// <remarks>
@@ -61,7 +73,17 @@ internal static class PermissionEnforcement
     internal static IEnumerable<string> FromCode() =>
         ApiSourceScan.ProductionSources()
             .SelectMany(entry => InCodeDemand.Matches(entry.Source))
-            .Select(match => match.Groups["code"].Value);
+            .Select(Resolve)
+            .OfType<string>();
+
+    /// <summary>The code a match names, written either as a literal or a constant.</summary>
+    private static string? Resolve(System.Text.RegularExpressions.Match match) =>
+        match.Groups["literal"].Success
+            ? match.Groups["literal"].Value
+            : typeof(PermissionCodes)
+                .GetNestedType(match.Groups["group"].Value, BindingFlags.Public)
+                ?.GetField(match.Groups["member"].Value, BindingFlags.Public | BindingFlags.Static)
+                ?.GetRawConstantValue() as string;
 
     /// <summary>Every code the API demands, by either surface.</summary>
     internal static IReadOnlyCollection<string> All() =>

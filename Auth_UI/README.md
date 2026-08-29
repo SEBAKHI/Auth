@@ -225,8 +225,11 @@ source via tsconfig paths + Vite aliases (no per-package build step).
   `Auth/Auth.Domain/Constants/PermissionCodes.cs` and compares
   `[key path, code]` pairs — so a rename, and a swap of two codes between keys,
   both fail the suite. The same test forbids gating on a literal, because a gate
-  that skips the map is a gate no comparison can see. Organization-scoped
-  (`org:`) codes are deliberately out of the map; see *Known constraints*.
+  that skips the map is a gate no comparison can see. The API side is symmetric:
+  its 140 `[RequirePermission]` attributes reference `PermissionCodes` rather
+  than repeating strings, and a backend test forbids the literal there too.
+  Organization-scoped (`org:`) codes are deliberately out of the map; see
+  *Known constraints*.
 - Generated secret material (API/webhook keys, generated PEM/token, 2FA recovery
   codes) is shown **once** in a copy dialog and never persisted in app state.
   Destructive key operations additionally require an emailed code.
@@ -390,12 +393,10 @@ August 2026. What remains:*
   expectations; nothing tests them against each other, and the SDK copy differs
   from the other three. Codes are now guarded; the rule that interprets them is
   not.
-- **The permission catalogue is a fifth copy until the attribute migration.**
-  `PermissionCodes.cs` is bound to what the API demands by
-  `PermissionCatalogueCoverageTests`, in both directions — but the 140
-  `[RequirePermission("...")]` sites still carry string literals rather than
-  referencing it. Making them reference it is what removes the attributes as an
-  independent copy. Until then, do not add a permission to the system.
+- **A permission still lives in three places.** `PermissionCodes.cs`, the SQL
+  seed, and this map. Each *pair* is bound by a test, so none can drift from
+  another silently — but adding a permission is still three edits, and the suite
+  tells you which one you forgot rather than doing it for you.
 - **Signed-out arrival at `/` still costs more than `/login`.** The router
   resolves a matched route's module before rendering, and `RequireAuth` is a
   render-time element, so typing the bare origin loads the shell and dashboard

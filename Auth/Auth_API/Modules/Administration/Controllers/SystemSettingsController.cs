@@ -11,6 +11,7 @@ using Auth.Application.Features.SystemSettings.UpdateSystemSettings;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Auth.Domain.Constants;
 
 namespace Auth_API.Modules.Administration.Controllers;
 
@@ -41,7 +42,7 @@ public class SystemSettingsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions</response>
     [HttpGet]
-    [RequirePermission("system-settings:manage")]
+    [RequirePermission(PermissionCodes.SystemSettings.Manage)]
     [ProducesResponseType(typeof(SystemSettingsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -65,7 +66,7 @@ public class SystemSettingsController : ApiController
     /// <response code="404">Unknown section</response>
     /// <response code="409">The section changed since it was loaded</response>
     [HttpPut("{sectionKey}")]
-    [RequirePermission("system-settings:manage")]
+    [RequirePermission(PermissionCodes.SystemSettings.Manage)]
     [ProducesResponseType(typeof(SystemSettingsSectionDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -99,7 +100,7 @@ public class SystemSettingsController : ApiController
     /// <response code="403">Forbidden - insufficient permissions</response>
     /// <response code="404">Unknown section</response>
     [HttpPost("{sectionKey}/reset")]
-    [RequirePermission("system-settings:manage")]
+    [RequirePermission(PermissionCodes.SystemSettings.Manage)]
     [ProducesResponseType(typeof(SystemSettingsSectionDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -122,7 +123,7 @@ public class SystemSettingsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions</response>
     [HttpPost("email/test")]
-    [RequirePermission("system-settings:manage")]
+    [RequirePermission(PermissionCodes.SystemSettings.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

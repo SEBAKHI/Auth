@@ -9,6 +9,7 @@ using Auth.Application.Features.ApiKeys.RevokeApiKey;
 using Auth.Application.Features.ApiKeys.RotateApiKey;
 using Auth.Application.Features.ApiKeys.ValidateApiKey;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -41,7 +42,7 @@ public class ApiKeysController : ApiController
     /// also makes it reachable for a caller holding apikeys:read but not applications:read.
     /// </remarks>
     [HttpGet]
-    [RequirePermission("apikeys:read")]
+    [RequirePermission(PermissionCodes.ApiKeys.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<ApiKeyDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -64,7 +65,7 @@ public class ApiKeysController : ApiController
     /// Create a new API key.
     /// </summary>
     [HttpPost]
-    [RequirePermission("apikeys:create")]
+    [RequirePermission(PermissionCodes.ApiKeys.Create)]
     [ProducesResponseType(typeof(CreateApiKeyResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -96,7 +97,7 @@ public class ApiKeysController : ApiController
     /// Revoke an API key.
     /// </summary>
     [HttpPost("{id:guid}/revoke")]
-    [RequirePermission("apikeys:revoke")]
+    [RequirePermission(PermissionCodes.ApiKeys.Revoke)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -121,7 +122,7 @@ public class ApiKeysController : ApiController
     /// Validate an API key and return its metadata.
     /// </summary>
     [HttpPost("validate")]
-    [RequirePermission("apikeys:validate")]
+    [RequirePermission(PermissionCodes.ApiKeys.Validate)]
     [EnableRateLimiting("apikey-validate")]
     [ProducesResponseType(typeof(ValidateApiKeyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -141,7 +142,7 @@ public class ApiKeysController : ApiController
     /// Rotate an API key, generating a new key while optionally keeping the old key valid for a grace period.
     /// </summary>
     [HttpPost("{id:guid}/rotate")]
-    [RequirePermission("apikeys:rotate")]
+    [RequirePermission(PermissionCodes.ApiKeys.Rotate)]
     [ProducesResponseType(typeof(RotateApiKeyResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

@@ -1,5 +1,6 @@
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
+using Auth.Domain.Constants;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.ReadModels.Dashboard;
 using ErrorOr;
@@ -14,8 +15,8 @@ namespace Auth.Application.Features.Dashboard.GetCredentialStats;
 public class GetCredentialStatsQueryHandler
     : IRequestHandler<GetCredentialStatsQuery, ErrorOr<CredentialStatsDto>>
 {
-    private const string ApiKeysRead = "apikeys:read";
-    private const string WebhookKeysRead = "webhookkeys:read";
+    private const string ApiKeysRead = PermissionCodes.ApiKeys.Read;
+    private const string WebhookKeysRead = PermissionCodes.WebhookKeys.Read;
 
     private readonly IDashboardStatsRepository _dashboardStatsRepository;
     private readonly IPermissionChecker _permissionChecker;

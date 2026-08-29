@@ -27,6 +27,7 @@ using Auth.Application.Features.Users.UnlockAccount;
 using Auth.Application.Features.Users.UpdateProfile;
 using Auth.Application.Features.Users.UpdateUser;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -57,7 +58,7 @@ public class UsersController : ApiController
     /// management permission on top of read access.
     /// </summary>
     [HttpGet]
-    [RequirePermission("users:read")]
+    [RequirePermission(PermissionCodes.Users.Read)]
     [ProducesResponseType(typeof(PagedUsersDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -70,7 +71,7 @@ public class UsersController : ApiController
         [FromQuery] bool includeDeleted = false,
         CancellationToken cancellationToken = default)
     {
-        if (includeDeleted && !HasPermissionClaim("users:manage"))
+        if (includeDeleted && !HasPermissionClaim(PermissionCodes.Users.Manage))
         {
             return Problem([Auth.Domain.Errors.UserErrors.DeletedUsersViewNotAllowed]);
         }
@@ -87,7 +88,7 @@ public class UsersController : ApiController
     /// Get a user by ID.
     /// </summary>
     [HttpGet("{id:guid}")]
-    [RequirePermission("users:read")]
+    [RequirePermission(PermissionCodes.Users.Read)]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -106,7 +107,7 @@ public class UsersController : ApiController
     /// Create a new user.
     /// </summary>
     [HttpPost]
-    [RequirePermission("users:create")]
+    [RequirePermission(PermissionCodes.Users.Create)]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -139,7 +140,7 @@ public class UsersController : ApiController
     /// Update an existing user.
     /// </summary>
     [HttpPut("{id:guid}")]
-    [RequirePermission("users:update")]
+    [RequirePermission(PermissionCodes.Users.Update)]
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -170,7 +171,7 @@ public class UsersController : ApiController
     /// Delete a user.
     /// </summary>
     [HttpDelete("{id:guid}")]
-    [RequirePermission("users:delete")]
+    [RequirePermission(PermissionCodes.Users.Delete)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -193,7 +194,7 @@ public class UsersController : ApiController
     /// only applies to accounts that were already deleted.
     /// </summary>
     [HttpDelete("{id:guid}/permanent")]
-    [RequirePermission("users:manage")]
+    [RequirePermission(PermissionCodes.Users.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -214,7 +215,7 @@ public class UsersController : ApiController
     /// Assign a role to a user.
     /// </summary>
     [HttpPost("{id:guid}/roles")]
-    [RequirePermission("users:manage-roles")]
+    [RequirePermission(PermissionCodes.Users.ManageRoles)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -239,7 +240,7 @@ public class UsersController : ApiController
     /// Get all roles assigned to a user.
     /// </summary>
     [HttpGet("{id:guid}/roles")]
-    [RequirePermission("users:read")]
+    [RequirePermission(PermissionCodes.Users.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<UserRoleDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -262,7 +263,7 @@ public class UsersController : ApiController
     /// Get all organizations a user is a member of.
     /// </summary>
     [HttpGet("{id:guid}/organizations")]
-    [RequirePermission("users:read")]
+    [RequirePermission(PermissionCodes.Users.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<OrganizationSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -285,7 +286,7 @@ public class UsersController : ApiController
     /// Get all applications a user has access to.
     /// </summary>
     [HttpGet("{id:guid}/applications")]
-    [RequirePermission("users:read")]
+    [RequirePermission(PermissionCodes.Users.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<UserApplicationDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -308,7 +309,7 @@ public class UsersController : ApiController
     /// Remove a role from a user.
     /// </summary>
     [HttpDelete("{id:guid}/roles/{roleId:guid}")]
-    [RequirePermission("users:manage-roles")]
+    [RequirePermission(PermissionCodes.Users.ManageRoles)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -328,7 +329,7 @@ public class UsersController : ApiController
     /// Get all direct permissions granted to a user.
     /// </summary>
     [HttpGet("{id:guid}/permissions")]
-    [RequirePermission("users:read")]
+    [RequirePermission(PermissionCodes.Users.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<UserPermissionDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -351,7 +352,7 @@ public class UsersController : ApiController
     /// Grant a permission directly to a user.
     /// </summary>
     [HttpPost("{id:guid}/permissions")]
-    [RequirePermission("users:manage-permissions")]
+    [RequirePermission(PermissionCodes.Users.ManagePermissions)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -376,7 +377,7 @@ public class UsersController : ApiController
     /// Revoke a permission from a user.
     /// </summary>
     [HttpDelete("{id:guid}/permissions/{permissionId:guid}")]
-    [RequirePermission("users:manage-permissions")]
+    [RequirePermission(PermissionCodes.Users.ManagePermissions)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -396,7 +397,7 @@ public class UsersController : ApiController
     /// Lock a user account.
     /// </summary>
     [HttpPost("{id:guid}/lock")]
-    [RequirePermission("users:manage")]
+    [RequirePermission(PermissionCodes.Users.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -421,7 +422,7 @@ public class UsersController : ApiController
     /// Unlock a user account.
     /// </summary>
     [HttpPost("{id:guid}/unlock")]
-    [RequirePermission("users:manage")]
+    [RequirePermission(PermissionCodes.Users.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -442,7 +443,7 @@ public class UsersController : ApiController
     /// Activate a user account.
     /// </summary>
     [HttpPost("{id:guid}/activate")]
-    [RequirePermission("users:manage")]
+    [RequirePermission(PermissionCodes.Users.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -463,7 +464,7 @@ public class UsersController : ApiController
     /// Deactivate a user account.
     /// </summary>
     [HttpPost("{id:guid}/deactivate")]
-    [RequirePermission("users:manage")]
+    [RequirePermission(PermissionCodes.Users.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -643,7 +644,7 @@ public class UsersController : ApiController
 
     /// <summary>Sets a user's profile image (admin).</summary>
     [HttpPut("{id:guid}/profile-image")]
-    [RequirePermission("users:update")]
+    [RequirePermission(PermissionCodes.Users.Update)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> SetUserProfileImage(
         Guid id, [FromBody] SetProfileImageRequest request, CancellationToken cancellationToken)
@@ -656,7 +657,7 @@ public class UsersController : ApiController
 
     /// <summary>Clears a user's profile image (admin).</summary>
     [HttpDelete("{id:guid}/profile-image")]
-    [RequirePermission("users:update")]
+    [RequirePermission(PermissionCodes.Users.Update)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> RemoveUserProfileImage(Guid id, CancellationToken cancellationToken)
     {

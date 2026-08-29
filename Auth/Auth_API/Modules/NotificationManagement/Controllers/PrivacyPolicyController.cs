@@ -14,6 +14,7 @@ using Auth.Application.Features.PrivacyPolicy.UpdatePrivacyPolicyVersion;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Auth.Domain.Constants;
 
 namespace Auth_API.Modules.NotificationManagement.Controllers;
 
@@ -60,7 +61,7 @@ public class PrivacyPolicyController : ApiController
     /// Gets every recorded policy revision, newest first.
     /// </summary>
     [HttpGet("versions")]
-    [RequirePermission("privacy-policy:read")]
+    [RequirePermission(PermissionCodes.PrivacyPolicy.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<PrivacyPolicyVersionDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetVersions(CancellationToken cancellationToken)
     {
@@ -72,7 +73,7 @@ public class PrivacyPolicyController : ApiController
     /// Records a new policy revision ("YYYY.MM").
     /// </summary>
     [HttpPost("versions")]
-    [RequirePermission("privacy-policy:manage")]
+    [RequirePermission(PermissionCodes.PrivacyPolicy.Manage)]
     [ProducesResponseType(typeof(PrivacyPolicyVersionDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateVersion(
@@ -94,7 +95,7 @@ public class PrivacyPolicyController : ApiController
     /// Updates a revision's effective date and change note.
     /// </summary>
     [HttpPut("versions")]
-    [RequirePermission("privacy-policy:manage")]
+    [RequirePermission(PermissionCodes.PrivacyPolicy.Manage)]
     [ProducesResponseType(typeof(PrivacyPolicyVersionDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateVersion(
@@ -115,7 +116,7 @@ public class PrivacyPolicyController : ApiController
     /// Gets one language document of a revision for editing (drafts included).
     /// </summary>
     [HttpGet("versions/content")]
-    [RequirePermission("privacy-policy:read")]
+    [RequirePermission(PermissionCodes.PrivacyPolicy.Read)]
     [ProducesResponseType(typeof(PrivacyPolicyContentDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetContent(
@@ -133,7 +134,7 @@ public class PrivacyPolicyController : ApiController
     /// validated as a well-formed policy document before storage.
     /// </summary>
     [HttpPut("versions/content")]
-    [RequirePermission("privacy-policy:manage")]
+    [RequirePermission(PermissionCodes.PrivacyPolicy.Manage)]
     [ProducesResponseType(typeof(PrivacyPolicyContentDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> SaveContent(
@@ -153,7 +154,7 @@ public class PrivacyPolicyController : ApiController
     /// Makes a revision the published policy served to end users.
     /// </summary>
     [HttpPost("versions/publish")]
-    [RequirePermission("privacy-policy:manage")]
+    [RequirePermission(PermissionCodes.PrivacyPolicy.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> PublishVersion(
@@ -174,7 +175,7 @@ public class PrivacyPolicyController : ApiController
     /// stamps the revision with the delivery time and count.
     /// </summary>
     [HttpPost("versions/notify")]
-    [RequirePermission("privacy-policy:manage")]
+    [RequirePermission(PermissionCodes.PrivacyPolicy.Manage)]
     [ProducesResponseType(typeof(PrivacyPolicyNotifyResultDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> NotifyVersion(

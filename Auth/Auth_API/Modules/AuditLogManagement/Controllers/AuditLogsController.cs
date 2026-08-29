@@ -8,6 +8,7 @@ using Auth.Application.Features.AuditLogs.GetAuditLogs;
 using Auth.Application.Features.AuditLogs.GetAuditLogsByEntity;
 using Auth.Application.Features.AuditLogs.GetAuditLogsByUser;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Enums;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
@@ -35,7 +36,7 @@ public class AuditLogsController : ApiController
     /// Get a paginated list of audit logs with optional filtering.
     /// </summary>
     [HttpGet]
-    [RequirePermission("auditlogs:read")]
+    [RequirePermission(PermissionCodes.AuditLogs.Read)]
     [ProducesResponseType(typeof(PagedAuditLogsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -77,7 +78,7 @@ public class AuditLogsController : ApiController
     /// Get an audit log entry by ID.
     /// </summary>
     [HttpGet("{id:guid}")]
-    [RequirePermission("auditlogs:read")]
+    [RequirePermission(PermissionCodes.AuditLogs.Read)]
     [ProducesResponseType(typeof(AuditLogDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -96,7 +97,7 @@ public class AuditLogsController : ApiController
     /// Get audit logs for a specific user.
     /// </summary>
     [HttpGet("users/{userId:guid}")]
-    [RequirePermission("auditlogs:read")]
+    [RequirePermission(PermissionCodes.AuditLogs.Read)]
     [ProducesResponseType(typeof(PagedAuditLogsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -124,7 +125,7 @@ public class AuditLogsController : ApiController
     /// Get audit logs for a specific entity.
     /// </summary>
     [HttpGet("entities/{entityType}/{entityId:guid}")]
-    [RequirePermission("auditlogs:read")]
+    [RequirePermission(PermissionCodes.AuditLogs.Read)]
     [ProducesResponseType(typeof(IReadOnlyList<AuditLogDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -147,7 +148,7 @@ public class AuditLogsController : ApiController
     /// Export audit logs to a file (CSV or JSON).
     /// </summary>
     [HttpPost("export")]
-    [RequirePermission("auditlogs:export")]
+    [RequirePermission(PermissionCodes.AuditLogs.Export)]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

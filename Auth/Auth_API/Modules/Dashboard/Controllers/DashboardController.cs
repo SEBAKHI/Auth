@@ -11,6 +11,7 @@ using Auth.Application.Features.Dashboard.GetUserStats;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Auth.Domain.Constants;
 
 namespace Auth_API.Modules.Dashboard.Controllers;
 
@@ -37,7 +38,7 @@ public class DashboardController : ApiController
     /// per-organization membership over the trailing window.
     /// </summary>
     [HttpGet("user-stats")]
-    [RequirePermission("users:read")]
+    [RequirePermission(PermissionCodes.Users.Read)]
     [ProducesResponseType(typeof(UserStatsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -59,7 +60,7 @@ public class DashboardController : ApiController
     /// top failing IPs and per-application/per-organization splits over the trailing window.
     /// </summary>
     [HttpGet("auth-stats")]
-    [RequirePermission("auditlogs:read")]
+    [RequirePermission(PermissionCodes.AuditLogs.Read)]
     [ProducesResponseType(typeof(AuthStatsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -85,7 +86,7 @@ public class DashboardController : ApiController
     /// bucketing it in the client cannot produce these numbers: a page is a sample.
     /// </remarks>
     [HttpGet("audit-stats")]
-    [RequirePermission("auditlogs:read")]
+    [RequirePermission(PermissionCodes.AuditLogs.Read)]
     [ProducesResponseType(typeof(AuditStatsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -106,7 +107,7 @@ public class DashboardController : ApiController
     /// Get session and refresh-token hygiene aggregates over the trailing window.
     /// </summary>
     [HttpGet("session-stats")]
-    [RequirePermission("auditlogs:read")]
+    [RequirePermission(PermissionCodes.AuditLogs.Read)]
     [ProducesResponseType(typeof(SessionStatsDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -126,7 +127,7 @@ public class DashboardController : ApiController
     /// Get per-application activity and organization/application enablements over the trailing window.
     /// </summary>
     [HttpGet("app-activity")]
-    [RequirePermission("applications:read")]
+    [RequirePermission(PermissionCodes.Applications.Read)]
     [ProducesResponseType(typeof(AppActivityDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

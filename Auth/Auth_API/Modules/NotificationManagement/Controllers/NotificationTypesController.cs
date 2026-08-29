@@ -8,6 +8,7 @@ using Auth.Application.Features.Notifications.UpdateNotificationType;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Auth.Domain.Constants;
 
 namespace Auth_API.Modules.NotificationManagement.Controllers;
 
@@ -32,7 +33,7 @@ public class NotificationTypesController : ApiController
     /// Gets all notification types.
     /// </summary>
     [HttpGet]
-    [RequirePermission("notification-templates:read")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Read)]
     [ProducesResponseType(typeof(List<NotificationTypeDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetTypes(CancellationToken cancellationToken)
     {
@@ -44,7 +45,7 @@ public class NotificationTypesController : ApiController
     /// Updates a type's admin-editable metadata (name, description, sample data).
     /// </summary>
     [HttpPut("{id:guid}")]
-    [RequirePermission("notification-templates:manage")]
+    [RequirePermission(PermissionCodes.NotificationTemplates.Manage)]
     [ProducesResponseType(typeof(NotificationTypeDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> UpdateType(

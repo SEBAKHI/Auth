@@ -1,3 +1,5 @@
+using Auth.Domain.Constants;
+
 namespace Auth.Application.Configuration;
 
 /// <summary>
@@ -60,7 +62,7 @@ public class SecretManagementSettings
     /// Required permission to access secret management API.
     /// Default: "secrets.manage"
     /// </summary>
-    public string RequiredPermission { get; set; } = "secrets.manage";
+    public string RequiredPermission { get; set; } = PermissionCodes.Secrets.Manage;
 
     /// <summary>
     /// True when <see cref="StorageMode"/> selects PlainText storage (the default), where secrets

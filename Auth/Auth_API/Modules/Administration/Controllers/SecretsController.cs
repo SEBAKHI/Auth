@@ -23,6 +23,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using Auth.Domain.Constants;
 
 namespace Auth_API.Modules.Administration.Controllers;
 
@@ -54,7 +55,7 @@ public class SecretsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
     [HttpGet("status")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(typeof(SecretStatusResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -84,7 +85,7 @@ public class SecretsController : ApiController
     /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or too many codes requested</response>
     /// <response code="409">No confirmed email to send a code to, or storage mode is PlainText</response>
     [HttpPost("challenges")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [EnableRateLimiting("login")]
     [ProducesResponseType(typeof(SecretOperationChallengeDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -119,7 +120,7 @@ public class SecretsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
     [HttpPost("challenges/{challengeId:guid}/verify")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [EnableRateLimiting("login")]
     [ProducesResponseType(typeof(SecretRotationImpactDto), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -152,7 +153,7 @@ public class SecretsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     [HttpPost("generate/rsa")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(typeof(RsaKeyGenerationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -189,7 +190,7 @@ public class SecretsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     [HttpPost("generate/hmac")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(typeof(HmacKeyGenerationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -224,7 +225,7 @@ public class SecretsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     [HttpPost("generate/gateway-token")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(typeof(GatewayTokenGenerationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -262,7 +263,7 @@ public class SecretsController : ApiController
     /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     /// <response code="409">Storage mode is PlainText - import not supported</response>
     [HttpPost("import/rsa")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(typeof(KeyImportResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -301,7 +302,7 @@ public class SecretsController : ApiController
     /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     /// <response code="409">Storage mode is PlainText - import not supported</response>
     [HttpPost("import/hmac")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(typeof(KeyImportResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -339,7 +340,7 @@ public class SecretsController : ApiController
     /// <response code="403">Forbidden - insufficient permissions, admin API disabled, or unconfirmed operation</response>
     /// <response code="409">Storage mode is PlainText - import not supported</response>
     [HttpPost("import/gateway-token")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(typeof(KeyImportResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -381,7 +382,7 @@ public class SecretsController : ApiController
     /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
     /// <response code="409">Storage mode is PlainText - there is no encrypted file to write to</response>
     [HttpPut("smtp-password")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -421,7 +422,7 @@ public class SecretsController : ApiController
     /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
     /// <response code="409">Storage mode is PlainText - there is no encrypted file to write to</response>
     [HttpPut("connection-string")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -459,7 +460,7 @@ public class SecretsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
     [HttpPut("custom/{key}")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -489,7 +490,7 @@ public class SecretsController : ApiController
     /// <response code="401">Unauthorized - not authenticated</response>
     /// <response code="403">Forbidden - insufficient permissions or admin API disabled</response>
     [HttpDelete("custom/{key}")]
-    [RequirePermission("secrets.manage")]
+    [RequirePermission(PermissionCodes.Secrets.Manage)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
