@@ -1053,9 +1053,11 @@ pnpm install
 **These settings are baked into the JavaScript at build time.** They are not read from a file on the
 server, so you cannot change them after the fact by editing something in IIS — you rebuild.
 
-Two files hold them, and **both are committed to the repository already pointing at somebody else's
-domain**. If you build without editing them, your deployed console will send your administrators'
-credentials to a third party's server.
+Two files hold them, and **both are committed to the repository carrying a placeholder origin**,
+`https://auth.example.com` / `https://accounts.example.com`. `example.com` is reserved for
+documentation (RFC 2606) and resolves nowhere, so a build you forgot to edit fails on its first
+request rather than quietly reaching somebody else's server. Nothing validates these values — the
+fallback in `packages/api/src/env.ts` fires only when a key is *absent*, never when it is wrong.
 
 **Edit `Auth_UI/apps/console/.env.production`:**
 
@@ -1083,13 +1085,13 @@ VITE_APPLE_SERVICES_ID=
 ### Step 3 — Update the Content Security Policy in both `web.config` files
 
 Each application ships an IIS configuration file that is copied into the build output. Unlike the
-API's `web.config`, **these two are committed to the repository** — and, like the environment files
-above, they name somebody else's domain.
+API's `web.config`, **these two are committed to the repository** — so, like the environment files
+above, they carry the placeholder origin rather than a working one.
 
 Open `Auth_UI/apps/console/public/web.config` and
 `Auth_UI/apps/accounts/public/web.config`, find the `Content-Security-Policy` header in each, and
-replace every occurrence of `https://auth-sandbox.sebakhi.com` and `https://sebakhi.com` with your
-own API origin. The two directives that matter:
+replace every occurrence of `https://auth.example.com` with your own API origin — the same value you
+set for `VITE_API_BASE_URL` in step 2. The two directives that matter:
 
 * **`connect-src`** — must list the origin in `VITE_API_BASE_URL`, or the browser blocks every API
   call and the application shows a blank screen with console errors.
