@@ -570,9 +570,11 @@ Line by line, what each block is for:
 * **`Email`** — see [Phase 6](#phase-6--email-and-notifications), which covers every key, the one
   that blocks startup, and what breaks when email is off.
 
-* **`ExternalAuth:Google`** — **the base file ships `Enabled: true` with a placeholder client id.**
-  Either set a real `ClientId` or set `Enabled: false`. Left as shipped, the API is advertising a
-  Google sign-in whose audience is the literal text `{{GOOGLE_CLIENT_ID}}`. If you do enable it, the
+* **`ExternalAuth:Google`** — **the base file ships `Enabled: false`** alongside the placeholder
+  client id, so a deployment that forgets this key advertises nothing rather than advertising a
+  Google sign-in whose audience is the literal text `{{GOOGLE_CLIENT_ID}}`. To use Google, set a real
+  `ClientId` and turn `Enabled` on — either here or, without a restart, from **System settings →
+  External authentication**, since this section is console-editable and read per request. If you do enable it, the
   same client id must also be built into the accounts application
   ([Phase 7](#phase-7--build-and-deploy-the-two-web-applications)). Apple sign-in ships disabled and
   needs an Apple Developer Services ID, a verified domain, a `.p8` signing key provisioned into the
@@ -617,16 +619,19 @@ error `An error occurred while reading the key ring` / `Access to the path ... i
 value, so this only bites if you set it to an empty string. The message names the setting.
 *In code:* validated with `ValidateOnStart()` in `Auth/Auth_API/Program.cs`.
 
-> ### ⚠️ The secrets admin API is ON in the shipped configuration
-> `SecretManagement:EnableAdminApi` defaults to `false` in the settings class but the committed
-> `appsettings.json` sets it to **`true`**. A deployment that never mentions the key therefore runs
-> with the secret-management endpoints enabled. **Set it explicitly to `false` in your Production
-> file**, and turn it on only for the minutes you are provisioning or rotating keys. The console
-> pages under **System Settings → Secret management → Manage secrets** need it `true`, so expect to
-> flip it twice during setup.
+> ### The secrets admin API is OFF in the shipped configuration
+> `SecretManagement:EnableAdminApi` ships **`false`**, matching the settings class and the settings
+> registry, so a deployment that never mentions the key runs with the secret-management endpoints
+> refused. (It used to ship `true`, which meant the opposite: forgetting the key left them live.)
+> Turn it on only for the minutes you are provisioning or rotating keys, then turn it off. The
+> console pages under **System Settings → Secret management → Manage secrets** need it `true`, so
+> expect to flip it twice during setup. **The console cannot flip it for you** — the field is
+> read-only in the settings registry, so this is a file or environment-variable edit and a restart,
+> deliberately. Development is unaffected: `appsettings.Development.json` sets it `true` for itself.
 > *In code:* `Auth/Auth.Application/Configuration/SecretManagementSettings.cs` (class default);
 > `Auth/Auth_API/appsettings.json`, section `SecretManagement` (shipped value); enforcement at
-> `Auth/Auth_API/Modules/Administration/Filters/RequireAdminApiEnabledAttribute.cs`.
+> `Auth/Auth_API/Modules/Administration/Filters/RequireAdminApiEnabledAttribute.cs`, which answers
+> 403 `Admin API Disabled`.
 
 > ### CORS: what the startup guard does and does not catch
 > The application refuses to start when `Cors:AllowedOrigins` is an **empty array** outside
@@ -1291,7 +1296,7 @@ very different mornings.
 - [ ] Both applications were rebuilt after you edited their `.env.production` — the values are baked in at build time and cannot be corrected on the server.
 - [ ] Both applications' `web.config` Content Security Policies name your API origin, and both `dist` folders actually contain a `web.config`.
 - [ ] The accounts site has a `privacy` virtual directory pointing at `PrivacyPolicyPublication:PhysicalPath`.
-- [ ] `ExternalAuth:Google` is either fully configured on both sides or set to `Enabled: false` — it ships enabled with a placeholder client id.
+- [ ] `ExternalAuth:Google` is either fully configured on both sides or left at the shipped `Enabled: false`.
 - [ ] The data-controller fields are filled in at **System settings → Data controller**. They ship empty on purpose and a privacy policy cannot be published until they are set.
 - [ ] Every system notification type has a published template — no `no published global Email template` line in the startup log.
 - [ ] A test email actually arrives ([Phase 6](#phase-6--email-and-notifications)).
@@ -1302,7 +1307,7 @@ very different mornings.
 - [ ] HTTPS with a valid certificate on all four domains. **Note what does and does not send HSTS:** the Auth API sends it (365 days, including subdomains, with preload) in every non-Development environment; the **Gateway does not send it at all** — it only redirects HTTP to HTTPS; both web application sites send their own from their `web.config`. If the Gateway is your public origin, add the header at the IIS level.
 - [ ] The seeded admin has a password you chose, set through Phase 2 Step 5. Confirm the seed left it empty and your `UPDATE` filled it: `SELECT CASE WHEN [PasswordHash] IS NULL THEN 'no password - sign-in refused' ELSE 'set' END FROM [dbo].[Users] WHERE [Email] = 'admin@company.com';`
 - [ ] The SQL login is least-privilege — read and write on one database, not `sa`.
-- [ ] `SecretManagement:EnableAdminApi` is `false`. It ships `true`; turn it on only while provisioning keys.
+- [ ] `SecretManagement:EnableAdminApi` is `false` — it now ships that way, so confirm nothing in your Production file turns it back on. Enable it only while provisioning keys.
 - [ ] `HealthChecks:ExposeErrorDetails` is `false` on both applications. `/health` and `/ready` bypass gateway-token validation, so they are publicly reachable.
 - [ ] `AllowedHosts` is your own domain, not the shipped `"*"`.
 - [ ] `SecretManagement:AutoGenerateKeys` is back to `false` after the first successful run.
@@ -1735,10 +1740,10 @@ This is the only way to make **Dpapi** mode portable — see
 
 All key operations live under `…/api/v1/admin/secrets/` and are gated four ways:
 
-* **`SecretManagement:EnableAdminApi` must be `true`.** The settings class defaults it to `false`,
-  but **the shipped `appsettings.json` sets it to `true`**, so a deployment that never mentions the
-  key already has it on. Set it explicitly `false` in your Production file and turn it on only for
-  the minutes you are provisioning, then off again (Phase 9 checklist).
+* **`SecretManagement:EnableAdminApi` must be `true`.** It ships **`false`**, matching the settings
+  class, so a deployment that never mentions the key has these endpoints refused. Turn it on in your
+  Production file for the minutes you are provisioning, then off again (Phase 9 checklist). It needs
+  a restart both ways — the console cannot change it.
 * **A bearer token from a user holding the `secrets.manage` permission.** On a clean database that
   means the seeded `super-admin` and nobody else (Phase 2 step 4).
 * **HTTPS.** These requests carry private keys. Never send them over plain HTTP.

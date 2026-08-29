@@ -801,7 +801,7 @@ The gateway applies four buckets: a global one across everything, then tighter o
     "SecretFilePath": "",
     "PlainTextTargetFile": "",
     "AutoGenerateKeys": true,
-    "EnableAdminApi": true,
+    "EnableAdminApi": false,
     "RequiredPermission": "secrets.manage"
   }
 }
