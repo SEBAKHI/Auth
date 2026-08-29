@@ -2,10 +2,13 @@
  * Decides whether a set of held permission codes satisfies a required one,
  * using the same semantics the API enforces.
  *
- * This is a port, not an invention. The rule lives in three C# copies —
- * `PermissionRequirementHandler.PermissionMatches`, `PermissionChecker` and
- * `PermissionCode.Matches` — and the frontend used to implement only two thirds
- * of it: `"*"` and an exact string match, but not the prefix wildcard.
+ * This is a port, not an invention. The rule lives in four C# copies —
+ * `PermissionRequirementHandler.PermissionMatches`, `PermissionChecker`,
+ * `PermissionCode.Matches`, and a fourth in `Auth.Sdk/Authorization` for
+ * downstream applications, which reads three claim types instead of one and has
+ * no organization branch. Nothing holds the four together; this comment is the
+ * only place that says they exist. The frontend used to implement two thirds of
+ * the rule: `"*"` and an exact string match, but not the prefix wildcard.
  *
  * That gap is invisible while nobody holds a prefix wildcard, and becomes a
  * lockout the moment someone does. A holder of `users:*` passes every API call

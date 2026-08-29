@@ -179,22 +179,8 @@ public class AuditCatalogCoverageTests
     }
 
     /// <summary>Every non-test C# file under the solution.</summary>
-    private static IEnumerable<(string File, string Source)> ProductionSources()
-    {
-        var root = SolutionDirectory();
-
-        foreach (var file in Directory.EnumerateFiles(root, "*.cs", SearchOption.AllDirectories))
-        {
-            if (file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                || file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                || file.Contains("Tests", StringComparison.Ordinal))
-            {
-                continue;
-            }
-
-            yield return (file, File.ReadAllText(file));
-        }
-    }
+    private static IEnumerable<(string File, string Source)> ProductionSources() =>
+        ApiSourceScan.ProductionSources();
 
     /// <summary>
     /// The argument list of every audit-row factory call in one file.
@@ -237,15 +223,4 @@ public class AuditCatalogCoverageTests
         }
     }
 
-    private static string SolutionDirectory()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Auth.sln")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName
-            ?? throw new InvalidOperationException("Auth.sln not found above the test output directory.");
-    }
 }

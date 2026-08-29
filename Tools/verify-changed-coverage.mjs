@@ -203,13 +203,28 @@ function verify(label, report, changed, scope) {
       console.log(`${label}: no changed source files in this scope.`);
       return true;
     }
-    // Files changed here, yet none of them appear in the coverage report. That
+
+    const absent = inScope.filter((file) => !report.has(file));
+    if (absent.length === 0) {
+      // Every changed file IS instrumented; not one changed LINE carries
+      // executable code. A comment-only edit looks exactly like this, and it
+      // used to be reported as "none appear in the coverage report" and fail -
+      // a sentence that was simply untrue about the file, and that pushed
+      // whoever met it toward deleting a correct comment to appease the gate.
+      // There is nothing here to measure, which is not the same as a miss.
+      console.log(
+        `${label}: ${inScope.length} changed file(s) in scope, none with executable changed lines - nothing to measure.`,
+      );
+      return true;
+    }
+
+    // Files changed here, yet they are absent from the coverage report. That
     // is the shape of a broken gate - a wrong scope, a path-casing mismatch, a
     // report read from the wrong run - not of a well-covered diff.
     console.error(
-      `${label}: ${inScope.length} changed file(s) in scope, but none appear in the coverage report.`,
+      `${label}: ${absent.length} changed file(s) in scope, but none appear in the coverage report.`,
     );
-    for (const file of inScope.slice(0, 20)) console.error(`  missing ${file}`);
+    for (const file of absent.slice(0, 20)) console.error(`  missing ${file}`);
     return false;
   }
 

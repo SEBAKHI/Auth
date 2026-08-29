@@ -1,7 +1,4 @@
-using System.Reflection;
 using System.Text.RegularExpressions;
-using Auth_API.Authorization;
-using Microsoft.AspNetCore.Mvc;
 
 namespace Auth_API.Tests.Infrastructure;
 
@@ -32,18 +29,6 @@ namespace Auth_API.Tests.Infrastructure;
 public class PermissionSeedCoverageTests
 {
     /// <summary>
-    /// Codes enforced in handler or controller bodies rather than by the
-    /// attribute, which reflection cannot see. Each entry costs a deliberate
-    /// edit, the way GatewayRouteCoverageTests handles its exclusions.
-    /// </summary>
-    private static readonly string[] EnforcedInCode =
-    [
-        "users:manage",          // UsersController: includeDeleted widening
-        "organizations:read",    // OrganizationsController: platform scope
-        "organizations:manage",  // OrganizationsController: platform scope
-    ];
-
-    /// <summary>
     /// Seeded rows that are not permission gates and must not be read as one:
     /// the global wildcard, and the area wildcards that exist to be granted
     /// rather than demanded. A wildcard satisfies its leaves by prefix, so it
@@ -55,7 +40,7 @@ public class PermissionSeedCoverageTests
     [Fact]
     public void EveryEnforcedPermission_HasASeededRow()
     {
-        var missing = EnforcedCodes()
+        var missing = PermissionEnforcement.All()
             .Except(SeededCodes(), StringComparer.OrdinalIgnoreCase)
             .OrderBy(code => code, StringComparer.Ordinal)
             .ToList();
@@ -71,7 +56,7 @@ public class PermissionSeedCoverageTests
     [Fact]
     public void EverySeededPermission_IsEnforcedSomewhere()
     {
-        var enforced = EnforcedCodes();
+        var enforced = PermissionEnforcement.All();
 
         var unenforced = SeededCodes()
             .Where(code => !IsGrantOnly(code))
@@ -86,23 +71,6 @@ public class PermissionSeedCoverageTests
         // someone who reasonably assumes it works.
         unenforced.Should().BeEmpty(
             "a permission the console can grant but no endpoint reads is a promise the system does not keep");
-    }
-
-    /// <summary>Codes the API demands, by attribute or in code.</summary>
-    private static IReadOnlyCollection<string> EnforcedCodes()
-    {
-        var fromAttributes = typeof(PermissionRequirementHandler).Assembly
-            .GetTypes()
-            .Where(type => typeof(ControllerBase).IsAssignableFrom(type) && !type.IsAbstract)
-            .SelectMany(type => type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
-                .Cast<MemberInfo>()
-                .Append(type))
-            .SelectMany(member => member.GetCustomAttributes<RequirePermissionAttribute>())
-            .Select(attribute => attribute.Permission);
-
-        return fromAttributes
-            .Concat(EnforcedInCode)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -199,17 +167,5 @@ public class PermissionSeedCoverageTests
     }
 
     private static string PostDeploymentScriptPath() => Path.Combine(
-        SolutionDirectory(), "Auth_DB", "dbo", "PostDeployment", "Script.PostDeployment.sql");
-
-    private static string SolutionDirectory()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Auth.sln")))
-        {
-            directory = directory.Parent;
-        }
-
-        return directory?.FullName
-            ?? throw new InvalidOperationException("Auth.sln not found above the test output directory.");
-    }
+        ApiSourceScan.SolutionDirectory(), "Auth_DB", "dbo", "PostDeployment", "Script.PostDeployment.sql");
 }

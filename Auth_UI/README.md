@@ -220,8 +220,13 @@ source via tsconfig paths + Vite aliases (no per-package build step).
 - **RBAC**: navigation, routes, and actions are gated by the `permissions` claim,
   mirroring the API's `[RequirePermission]`. The API remains the source of truth
   (403s are handled gracefully). The `PERMISSIONS` map in
-  `apps/console/src/lib/permissions.ts` is hand-mirrored — renaming a permission
-  server-side breaks a gate with no compile error.
+  `apps/console/src/lib/permissions.ts` is written by hand and **held to the
+  backend by `permissions.test.ts`**, which reads
+  `Auth/Auth.Domain/Constants/PermissionCodes.cs` and compares
+  `[key path, code]` pairs — so a rename, and a swap of two codes between keys,
+  both fail the suite. The same test forbids gating on a literal, because a gate
+  that skips the map is a gate no comparison can see. Organization-scoped
+  (`org:`) codes are deliberately out of the map; see *Known constraints*.
 - Generated secret material (API/webhook keys, generated PEM/token, 2FA recovery
   codes) is shown **once** in a copy dialog and never persisted in app state.
   Destructive key operations additionally require an emailed code.
@@ -359,12 +364,38 @@ step 4 until step 3 succeeds. For rollback, restore the previous Accounts
 role permissions read-only, and a single unsplit bundle — were all lifted during
 August 2026. What remains:*
 
-- **The permission map is hand-mirrored.** `apps/console/src/lib/permissions.ts`
-  restates the API's `[RequirePermission]` codes as string constants, with no
-  codegen and no coverage test tying it to the backend. A permission renamed
-  server-side fails safe (the control disappears, or the route 403s) but fails
-  *silently*. This is the last significant drift surface that is not automated —
-  every comparable one (DTO types, locale parity, the settings registry) is.
+- **Nothing proves a control is gated on its own endpoint's permission.**
+  `permissions.test.ts` now holds the map and
+  `Auth/Auth.Domain/Constants/PermissionCodes.cs` to the same codes, and forbids
+  gating on a literal — so the *set* can no longer drift and no gate can hide
+  from the comparison. But the relation that actually decides whether a screen is
+  right runs button → endpoint → code, and no test follows it. A delete button
+  gated on `users:update` passes every check here. Treat a green suite as
+  "the two halves know the same words", not "the gates are correct".
+- **The eight `org:` codes are enforced by the API and absent from the map, on
+  purpose.** They are satisfied from the `org_perm` claim, which this client does
+  not read, so a gate keyed on one would evaluate false for the organization
+  owner who holds it. `permissions.test.ts` names all eight and fails on a ninth,
+  which forces a decision rather than a silent omission. Closing this means
+  teaching the client to read that claim *and* answering what it does when the
+  claim is absent because the token predates the membership — the server answers
+  that with a live membership lookup the client has no equivalent of.
+  Consequently the organization screen's **Invite member**, **Change role** and
+  **Remove member** controls are shown to every viewer. No security consequence
+  (the API refuses), but the UI promises what it cannot deliver.
+- **The wildcard matching rule lives in five hand-kept copies.** Four in C#
+  (`PermissionRequirementHandler`, `PermissionChecker`, `PermissionCode.Matches`,
+  and `Auth.Sdk/Authorization`) and the port in
+  `packages/auth/src/permission-matching.ts`. Each is unit-tested against its own
+  expectations; nothing tests them against each other, and the SDK copy differs
+  from the other three. Codes are now guarded; the rule that interprets them is
+  not.
+- **The permission catalogue is a fifth copy until the attribute migration.**
+  `PermissionCodes.cs` is bound to what the API demands by
+  `PermissionCatalogueCoverageTests`, in both directions — but the 140
+  `[RequirePermission("...")]` sites still carry string literals rather than
+  referencing it. Making them reference it is what removes the attributes as an
+  independent copy. Until then, do not add a permission to the system.
 - **Signed-out arrival at `/` still costs more than `/login`.** The router
   resolves a matched route's module before rendering, and `RequireAuth` is a
   render-time element, so typing the bare origin loads the shell and dashboard
