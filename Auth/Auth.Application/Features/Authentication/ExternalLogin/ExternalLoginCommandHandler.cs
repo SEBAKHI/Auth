@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Features.Users.Common;
@@ -103,7 +104,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         {
             _logger.LogWarning(
                 "External login rejected: email not verified by provider {Provider} for {Email}",
-                request.Provider, externalUser.Email);
+                request.Provider, EmailMasking.Mask(externalUser.Email));
             return ExternalAuthErrors.EmailNotVerifiedByProvider;
         }
 
@@ -155,7 +156,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
                 // Link external provider to existing user
                 _logger.LogInformation(
                     "Linking {Provider} to existing user {UserId} ({Email})",
-                    request.Provider, user.Id, user.Email);
+                    request.Provider, user.Id, EmailMasking.Mask(user.Email));
 
                 // An account registered by email and only now linked to a provider has
                 // no picture of its own; this is where it gets one.
@@ -208,7 +209,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
 
                 _logger.LogInformation(
                     "New user {UserId} registered via {Provider} ({Email})",
-                    user.Id, request.Provider, user.Email);
+                    user.Id, request.Provider, EmailMasking.Mask(user.Email));
             }
 
             // Create external login record

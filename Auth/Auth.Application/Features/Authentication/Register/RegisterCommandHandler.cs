@@ -149,7 +149,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
 
         _logger.LogInformation(
             "User registered: {UserId} ({Email})",
-            user.Id, user.Email);
+            user.Id, EmailMasking.Mask(user.Email));
 
         return new RegisterResponse(
             user.Id,

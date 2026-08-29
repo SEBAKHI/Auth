@@ -74,7 +74,7 @@ public class SendEmailVerificationCommandHandler
         {
             _logger.LogWarning(
                 "Rate limit exceeded for email verification: {Email}",
-                user.Email);
+                EmailMasking.Mask(user.Email));
             return EmailVerificationErrors.TooManyRequests;
         }
 

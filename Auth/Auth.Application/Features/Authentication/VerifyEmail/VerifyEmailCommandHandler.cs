@@ -1,3 +1,4 @@
+using Auth.Application.Common;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Common;
 using Auth.Application.Interfaces;
@@ -128,7 +129,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
 
         _logger.LogInformation(
             "Email verified successfully for user {UserId} ({Email})",
-            user.Id, user.Email);
+            user.Id, EmailMasking.Mask(user.Email));
 
         // Admin (user-id-keyed) path: confirm only, never issue tokens for another
         // user. The controller maps a null login to 204 No Content.
