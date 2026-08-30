@@ -15,7 +15,6 @@ public class TokenClaimsResolverTests
 {
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
     private readonly Mock<IPermissionRepository> _permissionRepositoryMock = new();
-    private readonly Mock<IPermissionChecker> _permissionCheckerMock = new();
     private readonly Mock<IOrganizationRepository> _organizationRepositoryMock = new();
     private readonly TokenClaimsResolver _resolver;
 
@@ -28,7 +27,6 @@ public class TokenClaimsResolverTests
         _resolver = new TokenClaimsResolver(
             _roleRepositoryMock.Object,
             _permissionRepositoryMock.Object,
-            _permissionCheckerMock.Object,
             _organizationRepositoryMock.Object);
     }
 
@@ -97,11 +95,13 @@ public class TokenClaimsResolverTests
     }
 
     [Fact]
-    public async Task ResolveAsync_WithApplication_TakesPermissionsFromTheScopedChecker()
+    public async Task ResolveAsync_WithApplication_TakesPermissionsFromTheApplicationScopedQuery()
     {
-        // Arrange — the checker is the one component that unions the
-        // application-scoped direct grants with the organization-mediated ones,
-        // so the resolver must go through it rather than query directly.
+        // The flat claim comes from the APPLICATION-SCOPED direct grants and
+        // nothing else. This used to go through the permission checker, which
+        // unioned in every organization's delegated permissions - flat, with no
+        // record of which organization granted what. See
+        // ResolveAsync_WithApplication_NeverFlattensADelegatedPermissionIntoTheUnscopedClaim.
         _roleRepositoryMock
             .Setup(r => r.GetUserRolesForApplicationAsync(_userId, _appA, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
@@ -146,12 +146,126 @@ public class TokenClaimsResolverTests
 
     private void SetupScopedPermissions(Guid applicationId, params string[] codes)
     {
-        _permissionCheckerMock
-            .Setup(c => c.GetUserPermissionsAsync(_userId, applicationId, It.IsAny<CancellationToken>()))
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(_userId, applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(codes.ToList());
         _organizationRepositoryMock
             .Setup(r => r.GetMembershipPermissionCodesForApplicationAsync(
                 _userId, applicationId, It.IsAny<CancellationToken>()))
             .ReturnsAsync([]);
+        _organizationRepositoryMock
+            .Setup(r => r.GetEffectivePermissionPairsForApplicationAsync(
+                _userId, applicationId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_WithApplication_NeverFlattensADelegatedPermissionIntoTheUnscopedClaim()
+    {
+        // The defect this asserts against: a user in TWO organizations that both
+        // enable the application received ONE token whose flat "permissions"
+        // claim contained every delegated code from both, with nothing recording
+        // which organization granted which. The SDK authorizes on that claim, so
+        // a permission granted in org A was spendable on org B's data.
+        var orgA = Guid.NewGuid();
+        var orgB = Guid.NewGuid();
+
+        _roleRepositoryMock
+            .Setup(r => r.GetUserRolesForApplicationAsync(_userId, _appA, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        SetupScopedPermissions(_appA, "app:wide:read");
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetEffectivePermissionPairsForApplicationAsync(
+                _userId, _appA, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([(orgA, "invoices:delete"), (orgB, "invoices:read")]);
+
+        var claims = await _resolver.ResolveAsync(_userId, _appA, CancellationToken.None);
+
+        // The flat claim carries application-wide authority and nothing else.
+        claims.Permissions.Should().BeEquivalentTo(["app:wide:read"]);
+        claims.Permissions.Should().NotContain("invoices:delete",
+            "a permission granted inside one organization must never appear unscoped");
+
+        // Each delegated permission is present, tagged with its own organization.
+        claims.OrganizationPermissions.Should().BeEquivalentTo(
+            [(orgA, "invoices:delete"), (orgB, "invoices:read")]);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_WithApplication_CombinesMembershipAndDelegatedOrganizationClaims()
+    {
+        // Membership authority ('org:%' codes from the membership role) and
+        // delegated authority (any code, granted per organization per
+        // application) are separate queries and must both reach the token.
+        var orgId = Guid.NewGuid();
+
+        _roleRepositoryMock
+            .Setup(r => r.GetUserRolesForApplicationAsync(_userId, _appA, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        SetupScopedPermissions(_appA);
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetMembershipPermissionCodesForApplicationAsync(
+                _userId, _appA, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([(orgId, "org:members:read")]);
+        _organizationRepositoryMock
+            .Setup(r => r.GetEffectivePermissionPairsForApplicationAsync(
+                _userId, _appA, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([(orgId, "invoices:read")]);
+
+        var claims = await _resolver.ResolveAsync(_userId, _appA, CancellationToken.None);
+
+        claims.OrganizationPermissions.Should().BeEquivalentTo(
+            [(orgId, "org:members:read"), (orgId, "invoices:read")]);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_WithApplication_DeduplicatesOverlappingOrganizationClaims()
+    {
+        // The same code can arrive from both sources; the token should carry it
+        // once rather than growing a duplicate claim per source.
+        var orgId = Guid.NewGuid();
+
+        _roleRepositoryMock
+            .Setup(r => r.GetUserRolesForApplicationAsync(_userId, _appA, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        SetupScopedPermissions(_appA);
+
+        _organizationRepositoryMock
+            .Setup(r => r.GetMembershipPermissionCodesForApplicationAsync(
+                _userId, _appA, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([(orgId, "org:members:read")]);
+        _organizationRepositoryMock
+            .Setup(r => r.GetEffectivePermissionPairsForApplicationAsync(
+                _userId, _appA, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([(orgId, "org:members:read")]);
+
+        var claims = await _resolver.ResolveAsync(_userId, _appA, CancellationToken.None);
+
+        claims.OrganizationPermissions.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task ResolveAsync_WithoutApplication_DoesNotAskForDelegatedPairs()
+    {
+        // A platform token resolves authority from the platform-scoped queries;
+        // the per-application delegated pairs have no meaning there.
+        _roleRepositoryMock
+            .Setup(r => r.GetUserRolesAsync(_userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _permissionRepositoryMock
+            .Setup(r => r.GetUserEffectivePermissionsAsync(_userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _organizationRepositoryMock
+            .Setup(r => r.GetMembershipPermissionCodesAsync(_userId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+
+        await _resolver.ResolveAsync(_userId, null, CancellationToken.None);
+
+        _organizationRepositoryMock.Verify(
+            r => r.GetEffectivePermissionPairsForApplicationAsync(
+                It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

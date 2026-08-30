@@ -1236,6 +1236,65 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<(Guid OrganizationId, string Code)>> GetEffectivePermissionPairsForApplicationAsync(
+        Guid userId,
+        Guid applicationId,
+        CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // The same two branches as the overload above, carrying the organization
+        // each code was granted in. That column is the entire point: without it a
+        // user who is a member of two organizations that both enable this
+        // application receives one flat set, and a relying party has no way to
+        // tell which grant belongs to which organization - so a permission held
+        // in one is spent on the other's data. The codes are NOT filtered to
+        // 'org:%' here, unlike the membership queries: these are delegated
+        // business permissions, and their whole purpose is to name application
+        // capabilities.
+        var rows = await connection.QueryAsync<(Guid OrganizationId, string Code)>(@"
+            SELECT DISTINCT o.[Id] AS [OrganizationId], p.[Code]
+            FROM [dbo].[OrganizationUsers] ou
+            INNER JOIN [dbo].[Organizations] o ON ou.[OrganizationId] = o.[Id]
+            INNER JOIN [dbo].[OrganizationApplications] oa
+                ON oa.[OrganizationId] = o.[Id] AND oa.[ApplicationId] = @ApplicationId
+            INNER JOIN [dbo].[OrganizationUserRoles] our
+                ON our.[OrganizationId] = o.[Id]
+               AND our.[UserId] = @UserId
+               AND our.[ApplicationId] = @ApplicationId
+            INNER JOIN [dbo].[RolePermissions] rp ON our.[RoleId] = rp.[RoleId]
+            INNER JOIN [dbo].[Permissions] p ON rp.[PermissionId] = p.[Id]
+            WHERE ou.[UserId] = @UserId
+              AND ou.[IsActive] = 1 AND o.[IsActive] = 1 AND oa.[IsActive] = 1
+              AND our.[IsActive] = 1 AND p.[IsActive] = 1
+              AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())
+              AND (oa.[ExpiresAt] IS NULL OR oa.[ExpiresAt] > GETUTCDATE())
+              AND (our.[ExpiresAt] IS NULL OR our.[ExpiresAt] > GETUTCDATE())
+
+            UNION
+
+            SELECT DISTINCT o.[Id] AS [OrganizationId], p.[Code]
+            FROM [dbo].[OrganizationUsers] ou
+            INNER JOIN [dbo].[Organizations] o ON ou.[OrganizationId] = o.[Id]
+            INNER JOIN [dbo].[OrganizationApplications] oa
+                ON oa.[OrganizationId] = o.[Id] AND oa.[ApplicationId] = @ApplicationId
+            INNER JOIN [dbo].[OrganizationUserPermissions] oup
+                ON oup.[OrganizationId] = o.[Id]
+               AND oup.[UserId] = @UserId
+               AND oup.[ApplicationId] = @ApplicationId
+            INNER JOIN [dbo].[Permissions] p ON oup.[PermissionId] = p.[Id]
+            WHERE ou.[UserId] = @UserId
+              AND ou.[IsActive] = 1 AND o.[IsActive] = 1 AND oa.[IsActive] = 1
+              AND oup.[IsActive] = 1 AND p.[IsActive] = 1
+              AND (ou.[ExpiresAt] IS NULL OR ou.[ExpiresAt] > GETUTCDATE())
+              AND (oa.[ExpiresAt] IS NULL OR oa.[ExpiresAt] > GETUTCDATE())
+              AND (oup.[ExpiresAt] IS NULL OR oup.[ExpiresAt] > GETUTCDATE())",
+            new { UserId = userId, ApplicationId = applicationId });
+
+        return rows.ToList();
+    }
+
+    /// <inheritdoc />
     public async Task<bool> HasPermissionInAnyOrgAsync(
         Guid userId,
         Guid applicationId,

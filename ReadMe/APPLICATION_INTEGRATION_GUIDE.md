@@ -648,9 +648,40 @@ names defined in `Auth/Auth.Domain/Constants/JwtClaimNames.cs`.
 | `org_perm` | one claim per organization-scoped permission | `{organizationId}:{permissionCode}` |
 | `iss`, `aud`, `exp`, `nbf` | always | Issuer, audience, expiry and not-before |
 
-**The SDK does not understand `org_perm`.** Its permission check reads only `permissions`, `permission`
-and `scope`, so an organization-scoped grant never satisfies `[RequirePermission]` in your application.
-*In code:* `Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs:16`.
+**`permissions` is application-wide authority. `org_perm` is authority inside one organization.**
+The two are separate claims because they answer separate questions, and the SDK now has an attribute
+for each:
+
+| Your endpoint acts on… | Use | Reads |
+|---|---|---|
+| the application as a whole | `[RequirePermission("code")]` | `permissions`, `permission`, `scope` |
+| one organization's data | `[RequireOrganizationPermission("code")]` | `org_perm`, narrowed to the organization in the route |
+
+`[RequireOrganizationPermission]` takes the target organization from the route — name the parameter
+`orgId` or `organizationId`, or pass your own name as the second argument. If the route names no
+organization, **authorization fails**: an unresolvable scope is not an absent one, and failing closed
+surfaces a mis-annotated endpoint on its first call instead of after an incident.
+
+```csharp
+[HttpDelete("organizations/{orgId:guid}/invoices/{id:guid}")]
+[RequireOrganizationPermission("invoices:delete")]
+public Task<IActionResult> Delete(Guid orgId, Guid id) { ... }
+```
+
+**Why this matters, concretely.** A user who belongs to two organizations that both enable your
+application signs in once and gets one token. Application tokens used to flatten every organization's
+delegated permissions into the unscoped `permissions` claim, so that user arrived carrying a bare
+`invoices:delete` with nothing recording which organization granted it — and `[RequirePermission]`,
+reading exactly that claim, would grant it against either organization's data. Delegated permissions
+now ride only in `org_perm`, tagged with the organization that granted them.
+
+**If you are upgrading:** any endpoint that acts on one organization's records and is currently
+annotated `[RequirePermission]` must move to `[RequireOrganizationPermission]`. Left alone it will
+start denying rather than over-granting — a visible failure, not a silent one, which is the correct
+direction for this class of change.
+
+*In code:* `Auth/Auth.Sdk/Authorization/PermissionRequirementHandler.cs` (application-wide) and
+`Auth/Auth.Sdk/Authorization/OrganizationPermissionRequirementHandler.cs` (organization-scoped).
 
 **From the `ApiKey` scheme.** Minted locally by the SDK from the validation response.
 *In code:* `Auth/Auth.Sdk/Handlers/ApiKeyAuthenticationHandler.cs:46-59`.

@@ -374,7 +374,31 @@ public interface IOrganizationRepository
     /// form of "walk the memberships, then ask each one". Used on the token-mint
     /// path, where the per-membership loop cost 1 + 2N round trips.
     /// </summary>
+    /// <remarks>
+    /// Returns codes with no organization attached, so it answers "does this user
+    /// hold X anywhere inside this application" and nothing narrower. That is the
+    /// right question for a server-side capability check and the WRONG one for a
+    /// token: see <see cref="GetEffectivePermissionPairsForApplicationAsync"/>.
+    /// </remarks>
     Task<IReadOnlyList<string>> GetEffectivePermissionCodesForApplicationAsync(
+        Guid userId,
+        Guid applicationId,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The same effective permissions, each paired with the organization that
+    /// granted it.
+    /// </summary>
+    /// <remarks>
+    /// This is what a token must carry. A user who belongs to two organizations
+    /// that both enable an application receives one token; flattening their
+    /// delegated permissions into a single unscoped list means a relying party
+    /// cannot tell which organization a permission came from, and the shipped SDK
+    /// - authorizing on exactly that flat list - would grant a permission held in
+    /// one organization while the caller acts on another's data. The pairing is
+    /// the only thing that makes the distinction recoverable.
+    /// </remarks>
+    Task<IReadOnlyList<(Guid OrganizationId, string Code)>> GetEffectivePermissionPairsForApplicationAsync(
         Guid userId,
         Guid applicationId,
         CancellationToken cancellationToken);
