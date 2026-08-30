@@ -12,13 +12,44 @@ public static class AuthDataProtectionExtensions
 {
     /// <summary>
     /// Parses a storage-mode string (case-insensitive) into a <see cref="SecretStorageMode"/>.
-    /// Falls back to <see cref="SecretStorageMode.PlainText"/> for null, empty, or unrecognized values.
+    /// Null or blank means "not configured" and yields <see cref="SecretStorageMode.PlainText"/>,
+    /// matching the class default on <c>SecretManagementSettings</c>.
     /// </summary>
+    /// <exception cref="InvalidOperationException">
+    /// A non-blank value that names no known mode. This THROWS rather than falling back, because
+    /// falling back meant a single typo picked the weakest mode in silence: the configured value
+    /// and the effective value were then equal, so the "falling back" warning in Program.cs never
+    /// fired, and with the shipped AutoGenerateKeys default the JWT signing key and the refresh
+    /// HMAC key were generated and written as PLAIN TEXT into an appsettings file inside the
+    /// deploy tree. Refusing to start is the only outcome that cannot be missed.
+    /// </exception>
     public static SecretStorageMode ParseStorageMode(string? value)
     {
-        return Enum.TryParse<SecretStorageMode>(value, ignoreCase: true, out var mode)
-            ? mode
-            : SecretStorageMode.PlainText;
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return SecretStorageMode.PlainText;
+        }
+
+        var trimmed = value.Trim();
+
+        // Matched against the NAMES, not through Enum.TryParse. TryParse also accepts
+        // the underlying ordinals, so a stray "0" in a configuration file would resolve
+        // to whichever member happens to sit first — PlainText — which is the same
+        // silent downgrade this method exists to stop, arriving by a different door.
+        // The configuration contract here is a name; a number is not one.
+        foreach (var name in Enum.GetNames<SecretStorageMode>())
+        {
+            if (string.Equals(name, trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                return Enum.Parse<SecretStorageMode>(name);
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Refusing to start: SecretManagement:StorageMode is '{value}', which is not a known storage mode. " +
+            $"Valid values (case-insensitive): {string.Join(", ", Enum.GetNames<SecretStorageMode>())}. " +
+            "Leave the key blank only if you genuinely intend PlainText; an unrecognised value used to " +
+            "resolve to PlainText silently, which strips encryption at rest from the signing key.");
     }
 
     /// <summary>
