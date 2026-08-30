@@ -50,6 +50,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Auth_Localization.Extensions;
 using Serilog;
+using Serilog.Events;
 
 // Prevent JWT claim type mapping (e.g., "sub" -> ClaimTypes.NameIdentifier)
 // This ensures we can access claims by their original JWT names
@@ -973,7 +974,21 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 // Security headers middleware (OWASP A02: Security Misconfiguration)
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
-app.UseSerilogRequestLogging();
+// RequestPath is rebuilt rather than taken verbatim: the invitation endpoints
+// carry a bearer token as a path segment, and the default logger would write it
+// into a file production keeps for ninety rolls. See SensitiveRoutePathRedactor
+// for why the substitution is narrow rather than wholesale.
+app.UseSerilogRequestLogging(options =>
+{
+    options.GetMessageTemplateProperties = (httpContext, requestPath, elapsedMs, statusCode) =>
+    [
+        new LogEventProperty("RequestMethod", new ScalarValue(httpContext.Request.Method)),
+        new LogEventProperty("RequestPath", new ScalarValue(
+            SensitiveRoutePathRedactor.Redact(httpContext, requestPath))),
+        new LogEventProperty("StatusCode", new ScalarValue(statusCode)),
+        new LogEventProperty("Elapsed", new ScalarValue(elapsedMs)),
+    ];
+});
 
 // Localization middleware (must be before exception handling to set culture)
 app.UseAuthLocalization();

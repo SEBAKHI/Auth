@@ -1313,19 +1313,23 @@ public class OrganizationRepository : IOrganizationRepository
     }
 
     /// <inheritdoc />
-    public async Task<OrganizationInvitation?> GetInvitationByTokenAsync(
-        string token,
+    public async Task<OrganizationInvitation?> GetInvitationByTokenHashAsync(
+        string tokenHash,
         CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
+        // The [Token] column holds the HMAC hash, not the token. Lookup is by hash
+        // alone, exactly as refresh tokens and password-reset tokens are: the value
+        // carries enough entropy to identify the row by itself, and the plaintext
+        // never has to exist here to find it.
         var dto = await connection.QueryFirstOrDefaultAsync<OrganizationInvitationDto>(@"
             SELECT
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
                 [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt]
             FROM [dbo].[OrganizationInvitations]
-            WHERE [Token] = @Token",
-            new { Token = token });
+            WHERE [Token] = @TokenHash",
+            new { TokenHash = tokenHash });
 
         return dto?.ToEntity();
     }
@@ -1380,7 +1384,7 @@ public class OrganizationRepository : IOrganizationRepository
                 [Id], [OrganizationId], [Email], [RoleId], [Token], [Status],
                 [ExpiresAt], [InvitedBy], [AcceptedAt], [AcceptedByUserId], [CreatedAt]
             ) VALUES (
-                @Id, @OrganizationId, @Email, @RoleId, @Token, @Status,
+                @Id, @OrganizationId, @Email, @RoleId, @TokenHash, @Status,
                 @ExpiresAt, @InvitedBy, @AcceptedAt, @AcceptedByUserId, @CreatedAt
             )",
             new
@@ -1389,7 +1393,7 @@ public class OrganizationRepository : IOrganizationRepository
                 invitation.OrganizationId,
                 Email = invitation.Email.Value,
                 invitation.RoleId,
-                invitation.Token,
+                invitation.TokenHash,
                 Status = invitation.Status.ToString(),
                 invitation.ExpiresAt,
                 invitation.InvitedBy,
@@ -1410,7 +1414,7 @@ public class OrganizationRepository : IOrganizationRepository
 
         await connection.ExecuteAsync(@"
             UPDATE [dbo].[OrganizationInvitations] SET
-                [Token] = @Token,
+                [Token] = @TokenHash,
                 [Status] = @Status,
                 [ExpiresAt] = @ExpiresAt,
                 [AcceptedAt] = @AcceptedAt,
@@ -1419,7 +1423,7 @@ public class OrganizationRepository : IOrganizationRepository
             new
             {
                 invitation.Id,
-                invitation.Token,
+                invitation.TokenHash,
                 Status = invitation.Status.ToString(),
                 invitation.ExpiresAt,
                 invitation.AcceptedAt,
@@ -1619,6 +1623,12 @@ public class OrganizationRepository : IOrganizationRepository
         public Guid OrganizationId { get; init; }
         public string Email { get; init; } = string.Empty;
         public Guid RoleId { get; init; }
+
+        // Named for the COLUMN, which is still [Token]; the value in it is the
+        // HMAC hash. This record mirrors the physical schema on purpose, and
+        // ToEntity below hands it to the entity's tokenHash parameter, where the
+        // name becomes honest again. Renaming the column would be a DACPAC
+        // drop-and-add on a UNIQUE-constrained column for no gain.
         public string Token { get; init; } = string.Empty;
         public string Status { get; init; } = string.Empty;
         public DateTime ExpiresAt { get; init; }

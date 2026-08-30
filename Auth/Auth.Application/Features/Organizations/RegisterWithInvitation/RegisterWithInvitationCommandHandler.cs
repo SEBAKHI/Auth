@@ -30,6 +30,7 @@ public class RegisterWithInvitationCommandHandler
     private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IMediator _mediator;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly IRefreshTokenKeyService _tokenKeyService;
 
     private readonly ILogger<RegisterWithInvitationCommandHandler> _logger;
 
@@ -42,9 +43,11 @@ public class RegisterWithInvitationCommandHandler
         IdentifierReservationGuard reservationGuard,
         IMediator mediator,
         IDomainEventDispatcher eventDispatcher,
+        IRefreshTokenKeyService tokenKeyService,
 
         ILogger<RegisterWithInvitationCommandHandler> logger)
     {
+        _tokenKeyService = tokenKeyService;
         _userRepository = userRepository;
         _organizationRepository = organizationRepository;
         _passwordHasher = passwordHasher;
@@ -63,7 +66,8 @@ public class RegisterWithInvitationCommandHandler
     {
         // All pre-checks run before creating the user so a failure cannot
         // leave a half-onboarded account behind.
-        var invitation = await _organizationRepository.GetInvitationByTokenAsync(request.Token, cancellationToken);
+        var invitation = await _organizationRepository.GetInvitationByTokenHashAsync(
+            _tokenKeyService.ComputeTokenHash(request.Token), cancellationToken);
         if (invitation == null)
         {
             return OrganizationErrors.InvitationNotFoundByToken;
@@ -147,7 +151,7 @@ public class RegisterWithInvitationCommandHandler
         user.ConfirmEmail(user.Id);
 
         await _userRepository.CreateAsync(user, cancellationToken);
-
+
 
 
 

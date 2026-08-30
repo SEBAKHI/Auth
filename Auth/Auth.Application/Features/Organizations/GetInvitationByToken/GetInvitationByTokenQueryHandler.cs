@@ -1,4 +1,5 @@
 using Auth.Application.DTOs;
+using Auth.Application.Interfaces;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -16,17 +17,20 @@ public class GetInvitationByTokenQueryHandler : IRequestHandler<GetInvitationByT
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly ILogger<GetInvitationByTokenQueryHandler> _logger;
 
     public GetInvitationByTokenQueryHandler(
         IOrganizationRepository organizationRepository,
         IUserRepository userRepository,
         IRoleRepository roleRepository,
+        IRefreshTokenKeyService tokenKeyService,
         ILogger<GetInvitationByTokenQueryHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _tokenKeyService = tokenKeyService;
         _logger = logger;
     }
 
@@ -34,7 +38,8 @@ public class GetInvitationByTokenQueryHandler : IRequestHandler<GetInvitationByT
         GetInvitationByTokenQuery request,
         CancellationToken cancellationToken)
     {
-        var invitation = await _organizationRepository.GetInvitationByTokenAsync(request.Token, cancellationToken);
+        var invitation = await _organizationRepository.GetInvitationByTokenHashAsync(
+            _tokenKeyService.ComputeTokenHash(request.Token), cancellationToken);
         if (invitation == null)
         {
             return OrganizationErrors.InvitationNotFoundByToken;

@@ -22,6 +22,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRepository _userRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
+    private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<ResendInvitationCommandHandler> _logger;
@@ -31,6 +32,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         IRoleRepository roleRepository,
         IUserRepository userRepository,
         ISecureTokenGenerator tokenGenerator,
+        IRefreshTokenKeyService tokenKeyService,
         INotificationService notificationService,
         IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<ResendInvitationCommandHandler> logger)
@@ -39,6 +41,7 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
         _roleRepository = roleRepository;
         _userRepository = userRepository;
         _tokenGenerator = tokenGenerator;
+        _tokenKeyService = tokenKeyService;
         _notificationService = notificationService;
         _emailSettings = emailSettings.Value;
         _logger = logger;
@@ -59,8 +62,11 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
             return OrganizationErrors.InvitationNotFound(request.InvitationId);
         }
 
+        // Only the hash is stored; newToken goes into the email and into the DTO
+        // returned to the administrator who asked for the resend. Regenerating also
+        // invalidates the previous token, because the old hash is overwritten.
         var newToken = _tokenGenerator.Generate();
-        var result = invitation.RegenerateToken(newToken);
+        var result = invitation.RegenerateToken(_tokenKeyService.ComputeTokenHash(newToken));
         if (result.IsError)
         {
             return result.Errors;

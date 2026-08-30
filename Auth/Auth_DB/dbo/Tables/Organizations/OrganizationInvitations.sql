@@ -34,7 +34,14 @@ GO
 -- Cancelled = Invitation was cancelled by the org admin
 
 -- RoleId = the org-level role (org-owner, org-admin, org-member) to assign upon acceptance
--- Token = secure random token for accepting/declining via email link
+--
+-- Token = the HMAC-SHA256 HASH of the invitation token, base64, 44 characters.
+--         NOT the token. The plaintext lives in the invitation e-mail and in the
+--         request that redeems it, and is never stored. The column keeps its old
+--         name because renaming it would be a DACPAC drop-and-add on a
+--         UNIQUE-constrained column; the domain entity is called TokenHash.
+--         See Scripts\Upgrades\2026-08-30_InvitationTokenHashing.sql.
+--         The UNIQUE constraint still holds: a hash is as unique as its token.
 -- AcceptedByUserId = the user who accepted (may differ from Email if user already has an account)
 
 -- Indexes

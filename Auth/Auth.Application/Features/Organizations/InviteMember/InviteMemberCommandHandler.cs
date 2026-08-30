@@ -25,6 +25,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly ISecureTokenGenerator _tokenGenerator;
+    private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly INotificationService _notificationService;
     private readonly EmailSettings _emailSettings;
     private readonly ILogger<InviteMemberCommandHandler> _logger;
@@ -34,6 +35,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         ISecureTokenGenerator tokenGenerator,
+        IRefreshTokenKeyService tokenKeyService,
         INotificationService notificationService,
         IOptionsSnapshot<EmailSettings> emailSettings,
         ILogger<InviteMemberCommandHandler> logger)
@@ -42,6 +44,7 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _tokenGenerator = tokenGenerator;
+        _tokenKeyService = tokenKeyService;
         _notificationService = notificationService;
         _emailSettings = emailSettings.Value;
         _logger = logger;
@@ -120,15 +123,19 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             return OrganizationErrors.PendingInvitationExists(request.Email);
         }
 
-        // Generate secure token
+        // Generate the secure token, then store only its hash. The plaintext lives
+        // in the invitation email and in the DTO returned to the inviter who just
+        // created it; it is never written down. Same treatment, and the same HMAC
+        // key, as refresh tokens and password-reset tokens.
         var token = _tokenGenerator.Generate();
+        var tokenHash = _tokenKeyService.ComputeTokenHash(token);
 
         // Create invitation
         var invitation = OrganizationInvitation.Create(
             organizationId: request.OrganizationId,
             email: request.Email.ToLowerInvariant(),
             roleId: request.RoleId,
-            token: token,
+            tokenHash: tokenHash,
             invitedBy: request.InvitedBy,
             expiresInDays: InvitationExpirationDays);
 

@@ -27,9 +27,24 @@ public class OrganizationInvitation : EntityBase
     public Guid RoleId { get; private set; }
 
     /// <summary>
-    /// Gets the secure token used to accept/decline the invitation.
+    /// Gets the HMAC-SHA256 hash of the token used to accept or decline the
+    /// invitation. The plaintext token exists only in the invitation email and in
+    /// the caller's request; it is never stored and cannot be recovered from here.
     /// </summary>
-    public string Token { get; private set; } = string.Empty;
+    /// <remarks>
+    /// This was the one bearer credential in the system kept in plaintext while
+    /// every other one — refresh tokens, authorization codes, password-reset
+    /// tokens, API keys, OTPs — was hashed. Anyone who could read one row could
+    /// join the organization it named, with the role it named.
+    /// <para>
+    /// The database column is still called <c>Token</c>, deliberately: the value is
+    /// a 44-character base64 hash, the column is already
+    /// <c>NVARCHAR(500) NOT NULL UNIQUE</c>, and a hash is exactly as unique as the
+    /// token it stands for — so no schema change, no DACPAC column rename, and no
+    /// data-loss risk on publish. The property carries the honest name instead.
+    /// </para>
+    /// </remarks>
+    public string TokenHash { get; private set; } = string.Empty;
 
     /// <summary>
     /// Gets the status of the invitation.
@@ -71,7 +86,7 @@ public class OrganizationInvitation : EntityBase
         Guid organizationId,
         string email,
         Guid roleId,
-        string token,
+        string tokenHash,
         InvitationStatus status,
         DateTime expiresAt,
         Guid invitedBy,
@@ -82,7 +97,7 @@ public class OrganizationInvitation : EntityBase
         OrganizationId = organizationId;
         Email = Email.From(email);
         RoleId = roleId;
-        Token = token;
+        TokenHash = tokenHash;
         Status = status;
         ExpiresAt = expiresAt;
         InvitedBy = invitedBy;
@@ -97,7 +112,10 @@ public class OrganizationInvitation : EntityBase
     /// <param name="organizationId">The organization ID</param>
     /// <param name="email">The email to invite</param>
     /// <param name="roleId">The org-level role to assign upon acceptance</param>
-    /// <param name="token">The secure invitation token</param>
+    /// <param name="tokenHash">
+    /// The HMAC hash of the invitation token. Callers must hash before calling:
+    /// the plaintext token belongs in the email and nowhere else.
+    /// </param>
     /// <param name="invitedBy">Who sent the invitation</param>
     /// <param name="expiresInDays">Number of days until expiration (default 7)</param>
     /// <returns>New OrganizationInvitation instance</returns>
@@ -105,7 +123,7 @@ public class OrganizationInvitation : EntityBase
         Guid organizationId,
         string email,
         Guid roleId,
-        string token,
+        string tokenHash,
         Guid invitedBy,
         int expiresInDays = 7)
     {
@@ -114,7 +132,7 @@ public class OrganizationInvitation : EntityBase
             OrganizationId = organizationId,
             Email = Email.From(email.ToLowerInvariant().Trim()),
             RoleId = roleId,
-            Token = token,
+            TokenHash = tokenHash,
             Status = InvitationStatus.Pending,
             ExpiresAt = DateTime.UtcNow.AddDays(expiresInDays),
             InvitedBy = invitedBy,
@@ -209,7 +227,7 @@ public class OrganizationInvitation : EntityBase
     /// Regenerates the invitation token and resets the expiration.
     /// Used when the invited user has lost their original invitation.
     /// </summary>
-    public ErrorOr<Success> RegenerateToken(string newToken, int expiresInDays = 7)
+    public ErrorOr<Success> RegenerateToken(string newTokenHash, int expiresInDays = 7)
     {
         if (Status != InvitationStatus.Pending)
         {
@@ -218,7 +236,7 @@ public class OrganizationInvitation : EntityBase
                 description: "Only pending invitations can be resent.");
         }
 
-        Token = newToken;
+        TokenHash = newTokenHash;
         ExpiresAt = DateTime.UtcNow.AddDays(expiresInDays);
         return Result.Success;
     }

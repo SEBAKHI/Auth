@@ -22,6 +22,7 @@ public class RegisterWithInvitationCommandHandlerTests
     private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
     private readonly Mock<IMediator> _mediatorMock = new();
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock = new();
+    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
 
     private readonly RegisterWithInvitationCommandHandler _handler;
 
@@ -29,6 +30,11 @@ public class RegisterWithInvitationCommandHandlerTests
 
     public RegisterWithInvitationCommandHandlerTests()
     {
+        // Identity hash - see the note in AcceptInvitationCommandHandlerTests.
+        _tokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
+            .Returns<string>(token => token);
+
         var passwordSettings = TestHelpers.CreatePasswordSettings();
         var passwordValidator = new PasswordValidator(TestHelpers.CreateOptions(passwordSettings));
 
@@ -55,6 +61,7 @@ public class RegisterWithInvitationCommandHandlerTests
             TestHelpers.CreatePassingReservationGuard(),
             _mediatorMock.Object,
             _eventDispatcherMock.Object,
+            _tokenKeyServiceMock.Object,
             new Mock<ILogger<RegisterWithInvitationCommandHandler>>().Object);
     }
 
@@ -76,7 +83,7 @@ public class RegisterWithInvitationCommandHandlerTests
             expiresAt: expiresAt);
         var org = TestHelpers.CreateOrganization(id: orgId, name: "Test Org", isActive: orgActive);
 
-        _orgRepoMock.Setup(r => r.GetInvitationByTokenAsync(Token, It.IsAny<CancellationToken>())).ReturnsAsync(invitation);
+        _orgRepoMock.Setup(r => r.GetInvitationByTokenHashAsync(Token, It.IsAny<CancellationToken>())).ReturnsAsync(invitation);
         _orgRepoMock.Setup(r => r.GetByIdAsync(orgId, It.IsAny<CancellationToken>())).ReturnsAsync(org);
         _userRepoMock
             .Setup(r => r.ExistsByEmailAsync("invitee@example.com", It.IsAny<CancellationToken>()))
@@ -127,7 +134,7 @@ public class RegisterWithInvitationCommandHandlerTests
     public async Task Handle_UnknownToken_ReturnsNotFound()
     {
         _orgRepoMock
-            .Setup(r => r.GetInvitationByTokenAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetInvitationByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((OrganizationInvitation?)null);
 
         var result = await _handler.Handle(CreateCommand(), CancellationToken.None);

@@ -24,6 +24,10 @@ It creates all seed data in the correct order.
 -- include above either one applies the fix and then discards it in the same deploy - and the
 -- log still reads as a success.
 :r ..\Scripts\Upgrades\2026-08-23_EmailLayoutFooterSurface.sql
+-- Independent of the e-mail layout chain above; ordering against it does not matter.
+-- Cancels pending invitations whose token predates hashing, so they fail with a
+-- stated reason instead of a silent "not found" the invitee cannot interpret.
+:r ..\Scripts\Upgrades\2026-08-30_InvitationTokenHashing.sql
 
 PRINT 'Starting post-deployment seed data...';
 PRINT '======================================';

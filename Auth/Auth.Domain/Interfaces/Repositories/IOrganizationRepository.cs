@@ -401,10 +401,16 @@ public interface IOrganizationRepository
         CancellationToken cancellationToken);
 
     /// <summary>
-    /// Gets an invitation by its token.
+    /// Gets an invitation by the HMAC hash of its token.
     /// </summary>
-    Task<OrganizationInvitation?> GetInvitationByTokenAsync(
-        string token,
+    /// <remarks>
+    /// Takes the hash, never the token. Callers hash what the caller presented and
+    /// look the row up by that, so the plaintext invitation token exists only in
+    /// the email and in the inbound request — never in the database, and never in
+    /// a query this repository issues.
+    /// </remarks>
+    Task<OrganizationInvitation?> GetInvitationByTokenHashAsync(
+        string tokenHash,
         CancellationToken cancellationToken);
 
     /// <summary>
