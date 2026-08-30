@@ -13,11 +13,32 @@
  * Every probe restores what it changed; overrides are reset on exit.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const API = "http://localhost:5100";
-const LOGS = String.raw`D:\01 - Companies\00 - Astoom\Repos\AuthSystem\Auth\Auth_API\Logs`;
-const ADMIN = { email: "admin@company.com", password: "Admin@123!" };
+const API = process.env.VERIFY_API_URL ?? "http://localhost:5100";
+
+// Derived from this file's own location, not from one machine's absolute path.
+// The literal that used to sit here named the author's drive and company folder,
+// so the script only ran on one computer and published that layout to anyone
+// reading the repository.
+const LOGS =
+  process.env.VERIFY_LOGS_DIR ??
+  resolve(dirname(fileURLToPath(import.meta.url)), "..", "Auth", "Auth_API", "Logs");
+
+// Read from the environment. A password literal in a file tracked by a public
+// repository is a credential published to everyone, whether or not it is the one
+// a given deployment uses — and this script authenticates as a super-admin.
+const ADMIN = { email: process.env.VERIFY_ADMIN_EMAIL, password: process.env.VERIFY_ADMIN_PASSWORD };
+
+if (!ADMIN.email || !ADMIN.password) {
+  console.error(
+    "Set VERIFY_ADMIN_EMAIL and VERIFY_ADMIN_PASSWORD before running this script.\n" +
+      "  PowerShell:  $env:VERIFY_ADMIN_EMAIL='admin@company.com'; $env:VERIFY_ADMIN_PASSWORD='...'\n" +
+      "  bash:        VERIFY_ADMIN_EMAIL=admin@company.com VERIFY_ADMIN_PASSWORD=... node Tools/verify-system-settings.mjs",
+  );
+  process.exit(2);
+}
 
 let token = "";
 const results = [];
