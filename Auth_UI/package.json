@@ -7,6 +7,7 @@
     "dev": "pnpm --filter @authsystem/console dev",
     "dev:accounts": "pnpm --filter @authsystem/accounts dev",
     "build": "pnpm -r build",
+    "build:test": "pnpm -r build:test",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
@@ -16,8 +17,8 @@
     "test:coverage": "vitest run --coverage",
     "test:coverage:changed": "vitest run --coverage && node ../Tools/verify-changed-coverage.mjs --frontend Auth_UI/coverage/coverage-final.json --threshold 90",
     "e2e": "playwright test",
-    "e2e:isolated": "pnpm --filter @authsystem/console build && playwright test --config playwright.isolated.config.ts",
-    "e2e:production": "pnpm build && playwright test --config playwright.production.config.ts"
+    "e2e:isolated": "pnpm --filter @authsystem/console build:test && playwright test --config playwright.isolated.config.ts",
+    "e2e:production": "pnpm build:test && playwright test --config playwright.production.config.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
