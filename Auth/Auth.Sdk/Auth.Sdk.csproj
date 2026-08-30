@@ -15,6 +15,11 @@
     <!-- Package Metadata -->
     <PackageTags>authentication;authorization;jwt;apikey;webhook;sdk</PackageTags>
     <RepositoryType>git</RepositoryType>
+    <!-- Without this a consumer's package manager reports the licence as unknown,
+         which is the one answer that stops a corporate legal review dead. -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/SEBAKHI/Auth</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/SEBAKHI/Auth</PackageProjectUrl>
 
     <!-- Build Settings -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
