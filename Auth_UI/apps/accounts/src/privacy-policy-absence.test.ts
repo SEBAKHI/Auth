@@ -91,4 +91,42 @@ describe("the accounts app ships no policy document", () => {
     expect(webConfig).not.toContain("https://auth-sandbox.sebakhi.com/privacy")
     expect(privacyCspRemoval).toBeNull()
   })
+
+  it("commits the placeholder API origin, never a real deployment's", () => {
+    // The deployed origin is written into dist/web.config by
+    // scripts/seal-web-config.mjs at build time, from VITE_API_BASE_URL. Editing
+    // this committed file to a real domain instead would publish that domain in a
+    // public repository and hand every fork an origin that is not theirs - the
+    // exact defect the placeholder exists to prevent. Listing the whole allowed
+    // set rather than banning one string also makes any new source a decision:
+    // add it here, or the build stays red.
+    const ALLOWED = new Set([
+      "'self'",
+      "'none'",
+      "'unsafe-inline'",
+      "data:",
+      "https://auth.example.com",
+      "https://accounts.google.com",
+      "https://appleid.apple.com",
+      "https://appleid.cdn-apple.com",
+    ])
+
+    const value = new DOMParser()
+      .parseFromString(webConfig, "application/xml")
+      .querySelector('customHeaders > add[name="Content-Security-Policy"]')
+      ?.getAttribute("value")
+
+    expect(value).toBeTruthy()
+
+    const undeclared = value!
+      .split(";")
+      .map((directive) => directive.trim())
+      .filter(Boolean)
+      .flatMap((directive) => {
+        const [name, ...sources] = directive.split(/\s+/)
+        return sources.filter((s) => !ALLOWED.has(s)).map((s) => `${name} ${s}`)
+      })
+
+    expect(undeclared).toEqual([])
+  })
 })

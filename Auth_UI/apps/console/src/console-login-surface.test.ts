@@ -75,6 +75,30 @@ describe("the console login surface", () => {
     expect(CSP["connect-src"]).not.toContain("https://appleid.apple.com")
   })
 
+  it("commits the placeholder API origin, never a real deployment's", () => {
+    // The deployed origin is written into dist/web.config by
+    // scripts/seal-web-config.mjs at build time, from VITE_API_BASE_URL. Editing
+    // this committed file to a real domain instead would publish that domain in a
+    // public repository and hand every fork an origin that is not theirs - the
+    // exact defect the placeholder exists to prevent. Listing the whole allowed
+    // set rather than banning one string also makes any new source a decision:
+    // add it here, or the build stays red.
+    const ALLOWED = new Set([
+      "'self'",
+      "'none'",
+      "'unsafe-inline'",
+      "data:",
+      "https://auth.example.com",
+      GOOGLE,
+    ])
+
+    const undeclared = Object.entries(CSP).flatMap(([directive, sources]) =>
+      sources.filter((source) => !ALLOWED.has(source)).map((s) => `${directive} ${s}`)
+    )
+
+    expect(undeclared).toEqual([])
+  })
+
   it("mounts the login page with its providers slot filled", () => {
     expect(routes).toContain("<ExternalProviders recoveryPath=")
     expect(routes).toMatch(/<LoginPage\s+recoveryPath=/)
