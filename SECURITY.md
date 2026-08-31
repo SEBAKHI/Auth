@@ -11,14 +11,9 @@ findings accordingly, and give us the chance to fix one before it is public.
 between you and the maintainers, needs no email address from either side, and
 gives us a place to publish an advisory once a fix ships.
 
-> If private reporting is not enabled on this repository, or you cannot use it,
-> write to the address below.
->
-> **Contact:** `SECURITY_CONTACT_EMAIL_TO_BE_FILLED_IN`
->
-> _Maintainer: replace that placeholder with a monitored address before this
-> file is of any use. A reporting policy nobody can reach is worse than none,
-> because it looks like a channel exists._
+If private reporting is not enabled on this repository, or you cannot use it,
+write to **info@sebakhi.com** instead. Say "security" in the subject line so it
+is not read as a general enquiry.
 
 **Please do not** open a public issue, a pull request, or a discussion for a
 security defect. A public report is a public exploit for every deployment that
