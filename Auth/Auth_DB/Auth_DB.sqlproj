@@ -176,6 +176,7 @@
     <None Include="dbo\Scripts\Upgrades\2026-08-10_EmailLayoutDarkModeAndLogo.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-08-10_EmailLayoutRtlHardening.sql" />
     <None Include="dbo\Scripts\Upgrades\2026-08-23_EmailLayoutFooterSurface.sql" />
+    <None Include="dbo\Scripts\Upgrades\2026-08-30_InvitationTokenHashing.sql" />
     <None Include="dbo\Scripts\ALTER_Users_PasswordHash_Nullable.sql" />
     <None Include="dbo\Scripts\RECONCILE_prod_constraint_names.sql" />
     <None Include="PublishLocations\Astoom_Auth.publish.xml" />

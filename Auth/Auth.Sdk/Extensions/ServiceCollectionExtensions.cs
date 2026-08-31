@@ -33,9 +33,22 @@ public static class ServiceCollectionExtensions
         // Register the AuthSystemClient
         services.AddSingleton<AuthSystemClient>();
 
-        // Register permission-based authorization
+        // Register permission-based authorization.
+        //
+        // Two handlers, because there are two genuinely different questions.
+        // [RequirePermission] asks about application-wide authority and reads the
+        // flat "permissions" claim. [RequireOrganizationPermission] asks whether
+        // the caller holds it IN THE ORGANIZATION THIS REQUEST NAMES, and reads
+        // the organization-tagged "org_perm" claims. Using the first where the
+        // second belongs is how a permission granted inside one organization gets
+        // spent on another's data.
         services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
         services.AddScoped<IAuthorizationHandler, PermissionRequirementHandler>();
+        services.AddScoped<IAuthorizationHandler, OrganizationPermissionRequirementHandler>();
+
+        // The organization handler resolves the target organization from the
+        // route, so it needs the request.
+        services.AddHttpContextAccessor();
 
         // Register memory cache for validation result caching
         services.AddMemoryCache();

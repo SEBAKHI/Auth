@@ -1,0 +1,163 @@
+# Continuous integration.
+#
+# This repository had 2004 backend test cases and 116 frontend test files, and
+# nothing ran any of them on any commit. Every quality guarantee here was
+# optional and manual, which means a security regression could reach production
+# with nothing standing in its way. This file is that missing thing.
+#
+# Two deliberate constraints shape it:
+#
+#   1. Windows runners. The deployment target is IIS on Windows and the secret
+#      storage modes are Windows-oriented; running the suite anywhere else would
+#      be testing a configuration nobody ships.
+#
+#   2. Projects are built individually, never through Auth/Auth.sln. The
+#      solution includes Auth_DB, an SSDT project whose build targets only
+#      Visual Studio's MSBuild can load — see README.md, which says so in bold.
+#      Auth_API.Tests transitively references Auth_API, Auth.Infrastructure,
+#      Auth.Sdk and through them Application, Domain, Shared and Localization,
+#      so the three entries below cover every non-SSDT project in the tree.
+#
+# Not here yet, on purpose: CodeQL. It is worth adding, but it fails closed on a
+# private repository without GitHub Advanced Security, and a pipeline that is red
+# on its first run is a pipeline people learn to ignore. Add it once repository
+# visibility is settled.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend build and test
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: |
+          dotnet restore Auth/Auth_API.Tests/Auth_API.Tests.csproj
+          dotnet restore Auth/API_Gateway/API_Gateway.csproj
+          dotnet restore Auth/Auth_Setup/Auth_Setup.csproj
+
+      - name: Build
+        run: |
+          dotnet build Auth/Auth_API.Tests/Auth_API.Tests.csproj --no-restore --configuration Release
+          dotnet build Auth/API_Gateway/API_Gateway.csproj --no-restore --configuration Release
+          dotnet build Auth/Auth_Setup/Auth_Setup.csproj --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test Auth/Auth_API.Tests/Auth_API.Tests.csproj --no-build --configuration Release --logger "trx;LogFileName=backend.trx" --results-directory TestResults/ci
+
+      - name: Publish test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: TestResults/ci
+          if-no-files-found: warn
+
+  frontend:
+    name: Frontend lint, typecheck and test
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: Auth_UI
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: Auth_UI/pnpm-lock.yaml
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+  secrets:
+    name: Committed key material
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Targeted rather than generic. A general-purpose scanner finds generic
+      # shapes; this repository has a specific, enumerated set of crown jewels
+      # (Auth.Shared/Configuration/RequiredSecretsRegistry.cs declares them) and
+      # a specific way they escape: an operator pastes one into a committed
+      # appsettings file, or a git-ignored local layer stops being ignored.
+      # The PEM header alone is not the signal: this codebase legitimately writes
+      # that literal (Auth.Shared key export), documents it, and asserts on it in
+      # tests whose fixtures use a body of "abc". A real key is the header
+      # FOLLOWED BY a base64 body, so that is what this matches. Matching the
+      # header alone would fail on the first run, and a pipeline that is red on
+      # day one is a pipeline people learn to ignore.
+      #
+      # Output is captured rather than tested through xargs' exit code: xargs
+      # returns 123 when any batch exits non-zero, so a genuine hit in one batch
+      # alongside a clean other batch would have looked like success.
+      - name: Refuse committed private keys
+        run: |
+          hits=$(git ls-files -z | LC_ALL=C xargs -0 grep -lzaP -- '-----BEGIN [A-Z ]*PRIVATE KEY-----[[:space:]]+[A-Za-z0-9+/=]{60,}' || true)
+          if [ -n "$hits" ]; then
+            echo "$hits"
+            echo "::error::A private key is committed to this repository. Remove it, then ROTATE it - a key that reached git history is a compromised key."
+            exit 1
+          fi
+
+      - name: Refuse committed secret-bearing settings layers
+        run: |
+          offenders=$(git ls-files | grep -E 'appsettings\..*\.local\.json$|appsettings\.Production\.json$|\.pfx$|\.p12$|\.env\.production\.local$' || true)
+          if [ -n "$offenders" ]; then
+            echo "$offenders"
+            echo "::error::These files carry live key material or per-deployment secrets and must stay git-ignored."
+            exit 1
+          fi
+
+      - name: Refuse populated crown-jewel settings values
+        run: |
+          # Empty strings and {{PLACEHOLDER}} values are the shipped, correct state.
+          # Anything else in these keys is real key material in a tracked file.
+          pattern='"(JwtPrivateKeyPem|PrivateKeyPem|PrivateKeyEncrypted|RefreshTokenHmacKeyPlain|IdentifierHmacKeyPlain|ExpectedToken|GatewayToken)"[[:space:]]*:[[:space:]]*"[^"{]+"'
+          if git grep -I -n -E -- "$pattern" -- '*.json' ':!.github/workflows/ci.yml'; then
+            echo "::error::A crown-jewel secret has a non-empty value in a tracked JSON file. It belongs in the encrypted secrets file, never in configuration."
+            exit 1
+          fi

@@ -21,7 +21,10 @@ public class InviteMemberCommandHandlerTests
     private readonly Mock<IOrganizationRepository> _organizationRepositoryMock;
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IRoleRepository> _roleRepositoryMock;
+    private const string GeneratedToken = "dGVzdC10b2tlbi1mb3ItaW52aXRhdGlvbi10aGF0LWlzLWxvbmctZW5vdWdo";
+
     private readonly Mock<ISecureTokenGenerator> _tokenGeneratorMock;
+    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
     private readonly Mock<INotificationService> _notificationServiceMock;
     private readonly Mock<ILogger<InviteMemberCommandHandler>> _loggerMock;
     private readonly InviteMemberCommandHandler _handler;
@@ -37,17 +40,24 @@ public class InviteMemberCommandHandlerTests
 
         _tokenGeneratorMock
             .Setup(g => g.Generate())
-            .Returns("dGVzdC10b2tlbi1mb3ItaW52aXRhdGlvbi10aGF0LWlzLWxvbmctZW5vdWdo");
+            .Returns(GeneratedToken);
 
         _notificationServiceMock
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success);
+
+        // A hash that is visibly not its input, so a test asserting "the stored
+        // value is not the token" cannot pass by accident.
+        _tokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
+            .Returns<string>(token => $"HASHED({token})");
 
         _handler = new InviteMemberCommandHandler(
             _organizationRepositoryMock.Object,
             _userRepositoryMock.Object,
             _roleRepositoryMock.Object,
             _tokenGeneratorMock.Object,
+            _tokenKeyServiceMock.Object,
             _notificationServiceMock.Object,
             TestHelpers.CreateOptions(new EmailSettings { FrontendBaseUrl = "https://accounts.example.com" }),
             _loggerMock.Object);
@@ -413,13 +423,19 @@ public class InviteMemberCommandHandlerTests
         // Act
         await _handler.Handle(command, CancellationToken.None);
 
-        // Assert - token should be URL-safe Base64 and sufficiently long
+        // Assert - what is PERSISTED is the hash, never the token itself. This
+        // used to assert the opposite (that the stored value was URL-safe base64
+        // of the right length), which was an accurate description of a defect:
+        // the invitation token was the one bearer credential in this system kept
+        // in clear text, so a single SELECT on this table was a working
+        // invitation into the organization it named.
         capturedInvitation.Should().NotBeNull();
-        capturedInvitation!.Token.Should().NotBeNullOrEmpty();
-        capturedInvitation.Token.Should().NotContain("+"); // URL-safe
-        capturedInvitation.Token.Should().NotContain("/"); // URL-safe
-        capturedInvitation.Token.Should().NotEndWith("="); // No padding
-        capturedInvitation.Token.Length.Should().BeGreaterThanOrEqualTo(40); // Reasonable length for 32 bytes
+        capturedInvitation!.TokenHash.Should().NotBeNullOrEmpty();
+        capturedInvitation.TokenHash.Should().NotBe(GeneratedToken,
+            "the plaintext token belongs in the e-mail and nowhere else");
+        capturedInvitation.TokenHash.Should().Be($"HASHED({GeneratedToken})",
+            "the stored value must come from the shared token-hashing service, " +
+            "not from some second hashing scheme invented at this call site");
     }
 
     [Fact]

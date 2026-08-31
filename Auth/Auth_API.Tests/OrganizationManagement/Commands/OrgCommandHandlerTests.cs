@@ -310,9 +310,18 @@ public class ResendInvitationCommandHandlerTests
 
     private const string NewToken = "new-token-value-that-is-long-enough-for-validation";
 
+    private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
+
     public ResendInvitationCommandHandlerTests()
     {
         _tokenGenMock.Setup(g => g.Generate()).Returns(NewToken);
+
+        // Visibly not its input, so an assertion that the stored value is the
+        // hash rather than the token cannot pass by accident.
+        _tokenKeyServiceMock
+            .Setup(s => s.ComputeTokenHash(It.IsAny<string>()))
+            .Returns<string>(token => $"HASHED({token})");
+
         _notificationServiceMock
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success);
@@ -321,6 +330,7 @@ public class ResendInvitationCommandHandlerTests
             _roleRepoMock.Object,
             _userRepoMock.Object,
             _tokenGenMock.Object,
+            _tokenKeyServiceMock.Object,
             _notificationServiceMock.Object,
             TestHelpers.CreateOptions(new Auth.Application.Configuration.EmailSettings
             {

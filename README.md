@@ -241,3 +241,19 @@ changed, least-privilege SQL user, secrets backed up, database backups scheduled
 
 Start with the **Developer Guide** to run the system locally, or the **Production Deployment Guide**
 to put it on a server. Both are written for someone meeting this codebase for the first time.
+
+---
+
+## Security
+
+Found a vulnerability? Please read [SECURITY.md](SECURITY.md) and report it privately. Do not open a
+public issue — this is an identity provider, and a public report is a public exploit for every
+deployment that has not patched yet.
+
+## License
+
+[MIT](LICENSE). Copyright (c) 2026 Omar Sebakhi.
+
+Publishing a repository does not license it; without this file the code was legally "all rights
+reserved" and no one could adopt it. If your organisation needs an explicit patent grant, Apache-2.0
+is the usual alternative and swapping to it is a one-file change.

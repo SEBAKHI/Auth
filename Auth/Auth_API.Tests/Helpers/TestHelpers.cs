@@ -262,7 +262,7 @@ public static class TestHelpers
             organizationId: organizationId ?? Guid.NewGuid(),
             email: email ?? $"invited-{invitationId:N}@test.com",
             roleId: roleId ?? Guid.NewGuid(),
-            token: token ?? Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
+            tokenHash: token ?? Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
             status: status,
             expiresAt: expiresAt ?? DateTime.UtcNow.AddDays(7),
             invitedBy: invitedBy ?? Guid.NewGuid(),

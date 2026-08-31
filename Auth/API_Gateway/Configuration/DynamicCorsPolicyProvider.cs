@@ -22,11 +22,20 @@ public sealed class DynamicCorsPolicyProvider : ICorsPolicyProvider
         ["X-Correlation-ID", "X-RateLimit-Remaining", "Retry-After", "Content-Disposition"];
 
     private readonly GatewayRuntimeSettingsProvider _settings;
+    private readonly IWebHostEnvironment _environment;
+    private readonly ILogger<DynamicCorsPolicyProvider> _logger;
     private readonly object _sync = new();
     private (string Fingerprint, CorsPolicy Policy)? _cache;
 
-    public DynamicCorsPolicyProvider(GatewayRuntimeSettingsProvider settings)
-        => _settings = settings;
+    public DynamicCorsPolicyProvider(
+        GatewayRuntimeSettingsProvider settings,
+        IWebHostEnvironment environment,
+        ILogger<DynamicCorsPolicyProvider> logger)
+    {
+        _settings = settings;
+        _environment = environment;
+        _logger = logger;
+    }
 
     public Task<CorsPolicy?> GetPolicyAsync(HttpContext context, string? policyName)
     {
@@ -50,9 +59,25 @@ public sealed class DynamicCorsPolicyProvider : ICorsPolicyProvider
 
             var builder = new CorsPolicyBuilder();
 
-            if (origins.Contains("*"))
+            // "*" is honoured in Development ONLY, matching the Auth API's provider
+            // of the same name. The asymmetry that used to exist here was the wrong
+            // way round: this process is the EDGE browsers actually talk to, so a
+            // wildcard accepted here is the one that reaches real users, and the
+            // origin list arrives over the settings pull from a console field — one
+            // careless save was enough to publish the whole API cross-origin in
+            // production. Outside Development the wildcard is dropped and the policy
+            // falls through to deny-all, which is the same shape a runtime state
+            // with no origins already produces: a closed edge, never an open one.
+            if (origins.Contains("*") && _environment.IsDevelopment())
             {
                 builder.AllowAnyOrigin();
+            }
+            else if (origins.Contains("*"))
+            {
+                _logger.LogError(
+                    "CORS origin '*' was received from the settings pull but is refused outside Development. " +
+                    "No origin is allowed until an explicit list is configured. Set Cors:AllowedOrigins to the " +
+                    "exact front-end origins in the system-settings console.");
             }
             else if (origins.Length > 0)
             {

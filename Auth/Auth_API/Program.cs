@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -51,6 +50,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Auth_Localization.Extensions;
 using Serilog;
+using Serilog.Events;
 
 // Prevent JWT claim type mapping (e.g., "sub" -> ClaimTypes.NameIdentifier)
 // This ensures we can access claims by their original JWT names
@@ -848,9 +848,19 @@ builder.Services.AddRateLimiter(options =>
     // sharing a NAT. Falls back to IP only when the principal has no id to key on,
     // which should not happen behind [RequirePermission] but must not open the
     // bucket if it ever does.
+    //
+    // The claim is "sub", NOT ClaimTypes.NameIdentifier. This process clears
+    // DefaultInboundClaimTypeMap and sets MapInboundClaims = false (see the top of
+    // this file and the bearer registration below), precisely so claims keep their
+    // JWT names — which means the SOAP-era ClaimTypes.NameIdentifier URI is never
+    // present on any principal here. Reading it returned null on every request, so
+    // this policy silently fell through to the IP fallback for its whole life: the
+    // exact collapse the paragraph above says it exists to prevent. That the
+    // limiter also has to run AFTER UseAuthentication for the principal to be
+    // populated at all is the other half of the same defect; see the pipeline.
     options.AddPolicy("apikey-validate", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: $"v{settingsVersion()}:{httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            partitionKey: $"v{settingsVersion()}:{httpContext.User.FindFirst(Auth.Domain.Constants.JwtClaimNames.Subject)?.Value
                 ?? ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
             factory: _ => new FixedWindowRateLimiterOptions
             {
@@ -964,7 +974,21 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 // Security headers middleware (OWASP A02: Security Misconfiguration)
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
-app.UseSerilogRequestLogging();
+// RequestPath is rebuilt rather than taken verbatim: the invitation endpoints
+// carry a bearer token as a path segment, and the default logger would write it
+// into a file production keeps for ninety rolls. See SensitiveRoutePathRedactor
+// for why the substitution is narrow rather than wholesale.
+app.UseSerilogRequestLogging(options =>
+{
+    options.GetMessageTemplateProperties = (httpContext, requestPath, elapsedMs, statusCode) =>
+    [
+        new LogEventProperty("RequestMethod", new ScalarValue(httpContext.Request.Method)),
+        new LogEventProperty("RequestPath", new ScalarValue(
+            SensitiveRoutePathRedactor.Redact(httpContext, requestPath))),
+        new LogEventProperty("StatusCode", new ScalarValue(statusCode)),
+        new LogEventProperty("Elapsed", new ScalarValue(elapsedMs)),
+    ];
+});
 
 // Localization middleware (must be before exception handling to set culture)
 app.UseAuthLocalization();
@@ -1029,8 +1053,21 @@ app.UseStaticFiles(new StaticFileOptions
 });
 
 app.UseCors();
-app.UseRateLimiter();
 app.UseAuthentication();
+
+// AFTER UseAuthentication, deliberately. A limiter placed ahead of it sees only
+// the anonymous principal, so any policy that partitions on the caller silently
+// degrades to its IP fallback — which is what "apikey-validate" did, turning a
+// per-caller budget into a shared one and handing a single NAT the power to
+// throttle every integration behind it. Still BEFORE UseAuthorization, because a
+// request must be throttled before the endpoint runs, and before the blacklist
+// check so a revoked token cannot spend an unbounded number of them.
+//
+// The anonymous policies ("login", "password-reset") are unaffected by the move:
+// their endpoints carry no Authorization header, so the bearer handler is a no-op
+// on them and they partition on the client IP exactly as before.
+app.UseRateLimiter();
+
 app.UseMiddleware<JwtBlacklistValidationMiddleware>();
 app.UseAuthorization();
 

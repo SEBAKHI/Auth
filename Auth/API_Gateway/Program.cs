@@ -133,10 +133,21 @@ builder.Services.AddReverseProxy()
             return ValueTask.CompletedTask;
         });
 
-        // Forward client IP
-        builderContext.AddXForwardedFor();
-        builderContext.AddXForwardedHost();
-        builderContext.AddXForwardedProto();
+        // Forward client IP.
+        //
+        // Set, stated EXPLICITLY rather than left to the library default. The Auth
+        // API takes the FIRST entry of X-Forwarded-For as the client address and
+        // partitions its login and password-reset limiters on it (ClientIpResolver),
+        // so whether that entry is trustworthy is decided right here: Set replaces
+        // whatever the caller sent with the address THIS process observed, while
+        // Append would preserve the caller's value in front of it and hand every
+        // client the power to pick its own rate-limit bucket and to write any
+        // address it likes into the audit log. That is far too load-bearing to rest
+        // on a default parameter in a dependency, which a package upgrade could
+        // change without a single line of this repository moving.
+        builderContext.AddXForwardedFor(action: ForwardedTransformActions.Set);
+        builderContext.AddXForwardedHost(action: ForwardedTransformActions.Set);
+        builderContext.AddXForwardedProto(action: ForwardedTransformActions.Set);
 
         // Add correlation ID
         builderContext.AddRequestTransform(context =>
