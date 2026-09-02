@@ -6579,10 +6579,11 @@ curl -X POST "https://localhost:5101/api/v1/Images" \
 |---|---|---|
 | ‏وما عداها يُرفَض | ‏`image/png` و`image/jpeg` و`image/webp` و`image/gif` | ‏`ImageStorage:AllowedContentTypes` |
 | ‏والملف الأكبر يُرفَض. وحدّ جسم الطلب يتبع هذا الإعداد حيّاً، فلا يمكن أن يختلفا أبداً | ‏`4194304` — ‏4 ميغابايت | ‏`ImageStorage:MaxSizeBytes` |
-| ‏والملف الذي يقع داخل حدّ البايتات لكنه هائل الأبعاد يُرفَض، وهذا ما يوقف هجوم فكّ الضغط | ‏`50` | ‏`ImageStorage:MaxMegapixels` |
+| ‏والملف الذي يقع داخل حدّ البايتات لكنه هائل الأبعاد يُرفَض، وهذا ما يوقف هجوم فكّ الضغط. وكل ميغابكسل يُقبَل يكلّف 4 ميغابايت من الذاكرة أثناء فكّ الترميز، فهذه ميزانية ذاكرة لا سقف توافق | ‏`24` | ‏`ImageStorage:MaxMegapixels` |
 | ‏وليس رفضاً — فما زاد على ذلك يُصغَّر | ‏`1024` | ‏`ImageStorage:MaxEdgePx` |
+| ‏كم عملية رفع يجوز أن تكون في طور فكّ الترميز في اللحظة نفسها على مستوى العملية كلها؛ وتنتظر الأربع التالية، وما زاد يُرفَض بـ`429` | ‏`2` | ‏`RateLimiting:ImageUploadConcurrencyLimit` |
 
-**‏وإخفاقات هذه النقطة لا تشبه الإخفاقات في أي موضع آخر من هذه الواجهة.** ‏فهذا المتحكّم يعيد جسماً خاصاً به — نصٌّ واحد اسمه `error` — ‏بدل كائن ProblemDetails ‏الذي يعيده كل ما عداه. وسترى `400` ‏مع `{"error": "No file provided."}` ‏أو `{"error": "File exceeds the maximum size of 4194304 bytes."}` ‏أو `{"error": "Unsupported image type 'image/bmp'."}` ‏أو `{"error": "The uploaded file is not a valid image."}`، ‏وسترى `500` ‏مع `{"error": "…"}` ‏حين يكون العطب في التخزين نفسه — مثل مجلد رفع لا يستطيع التطبيق الكتابة فيه. ففرّع على رمز حالة HTTP، ‏لا على حقل `title`، ‏لأنه لا وجود له هنا.
+**‏وإخفاقات هذه النقطة لا تشبه الإخفاقات في أي موضع آخر من هذه الواجهة.** ‏فهذا المتحكّم يعيد جسماً خاصاً به — نصٌّ واحد اسمه `error` — ‏بدل كائن ProblemDetails ‏الذي يعيده كل ما عداه. وسترى `400` ‏مع `{"error": "No file provided."}` ‏أو `{"error": "File exceeds the maximum size of 4194304 bytes."}` ‏أو `{"error": "Unsupported image type 'image/bmp'."}` ‏أو `{"error": "The uploaded file is not a valid image."}`، ‏وسترى `500` ‏مع `{"error": "…"}` ‏حين يكون العطب في التخزين نفسه — مثل مجلد رفع لا يستطيع التطبيق الكتابة فيه، ‏وسترى `429` ‏مع `{"error": "…", "retryAfter": 5}` ‏حين يزيد عدد عمليات الرفع الجارية على ما يسمح به `RateLimiting:ImageUploadConcurrencyLimit` ‏ويمتلئ الطابور القصير خلفه. ففرّع على رمز حالة HTTP، ‏لا على حقل `title`، ‏لأنه لا وجود له هنا.
 *في الشيفرة:* ‏الملف `Auth/Auth_API/Modules/Media/Controllers/ImagesController.cs`؛ والمعالجة في `Auth/Auth.Infrastructure/Services/FileSystemImageStorageService.cs`.
 
 **‏والملفات المرفوعة تُقدَّم مرة أخرى كملفات ساكنة من `/uploads/images/...`، ‏بلا رمز مطلوب.** ‏فمن يملك العنوان يستطيع جلب الصورة، فلا ترفع عبر هذه النقطة شيئاً لا ينبغي أن يكون علنياً.

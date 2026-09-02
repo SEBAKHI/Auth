@@ -183,7 +183,16 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("PasswordResetPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 10),
                 new SettingFieldDefinition("PasswordResetWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 new SettingFieldDefinition("ApiKeyValidatePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 60),
-                new SettingFieldDefinition("ApiKeyValidateWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+                new SettingFieldDefinition("ApiKeyValidateWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // Not a window: a ceiling on how many uploads may be DECODING at
+                // once, process-wide. The upload path allocates width*height*4
+                // bytes on the request thread for every in-flight decode, and a
+                // per-IP request counter cannot see simultaneity — a hundred
+                // uploads inside one minute are legal under the edge "api" policy
+                // and nothing stopped all of them from decoding at the same
+                // instant. Size it with ImageStorage:MaxMegapixels: permits x
+                // megapixels x 4 MB is the memory the upload path may hold.
+                new SettingFieldDefinition("ImageUploadConcurrencyLimit", SettingKind.Int, Min: 1, Max: 64, DefaultValue: 2)
             ]),
 
         new SettingSectionDefinition(
@@ -397,7 +406,7 @@ public static class SystemSettingsRegistry
                 // deployment; GatewayRouteCoverageTests fails when the two drift.
                 new SettingFieldDefinition("RequestPath", SettingKind.String, RestartRequired: true, DefaultValue: "/uploads/images"),
                 new SettingFieldDefinition("MaxSizeBytes", SettingKind.Int, Min: 1024, Max: 104857600, DefaultValue: 4194304),
-                new SettingFieldDefinition("MaxMegapixels", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 50),
+                new SettingFieldDefinition("MaxMegapixels", SettingKind.Int, Min: 1, Max: 500, DefaultValue: 24),
                 new SettingFieldDefinition("MaxEdgePx", SettingKind.Int, Min: 64, Max: 8192, DefaultValue: 1024),
                 new SettingFieldDefinition("WebpQuality", SettingKind.Int, Min: 1, Max: 100, DefaultValue: 90),
                 new SettingFieldDefinition(

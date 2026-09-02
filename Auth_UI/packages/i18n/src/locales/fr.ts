@@ -1824,6 +1824,9 @@ export const fr: TranslationResources = {
         "Fenêtre de comptage des validations (secondes)",
       apiKeyValidateWindowSecondsHint:
         "La durée sur laquelle le comptage ci-dessus est mesuré. La fenêtre est fixe et non glissante : le compteur revient à zéro à sa fin, et un appelant qui a épuisé son quota attend jusque-là.",
+      imageUploadConcurrencyLimit: "Envois décodés simultanément",
+      imageUploadConcurrencyLimitHint:
+        "Pas une fenêtre : combien d'images peuvent être décodées au même instant, pour tout le processus. Chacune retient Mégapixels maximum × 4 Mo de mémoire jusqu'à l'écriture du WebP ; ce nombre multiplié par ce budget est la mémoire que les envois peuvent occuper. Les quatre suivants patientent un instant ; au-delà, refus en 429 avec un court délai de nouvelle tentative.",
     },
     gatewayRateLimiting: {
       title: "Limitation de débit (passerelle)",
@@ -2020,7 +2023,7 @@ export const fr: TranslationResources = {
         "Recommandé : 4194304 (4 Mo) — largement suffisant pour les logos et avatars.",
       maxMegapixels: "Mégapixels maximum",
       maxMegapixelsHint:
-        "Rejette les bombes de décompression avant traitement. Recommandé : 50.",
+        "Rejette les bombes de décompression avant traitement. Recommandé : 24 — chaque mégapixel admis coûte 4 Mo de mémoire pendant le décodage, et cette limite agit avec la limite de simultanéité des envois.",
       maxEdgePx: "Bord maximal (pixels)",
       maxEdgePxHint:
         "Les images plus grandes sont réduites à ce bord. Recommandé : 1024.",

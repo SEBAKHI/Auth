@@ -1784,6 +1784,9 @@ export const tr: TranslationResources = {
       apiKeyValidateWindowSeconds: "API anahtarı doğrulama penceresi (saniye)",
       apiKeyValidateWindowSecondsHint:
         "Yukarıdaki sayımın ölçüldüğü süre. Pencere kayan değil sabittir: süre bittiğinde sayaç sıfırlanır ve hakkını tüketen çağıran o ana kadar bekler.",
+      imageUploadConcurrencyLimit: "Aynı anda çözülen yüklemeler",
+      imageUploadConcurrencyLimitHint:
+        "Bir pencere değil: tüm süreçte aynı anda kaç görselin çözülebileceği. Her biri WebP yazılana dek En fazla megapiksel × 4 MB bellek tutar; bu sayı çarpı o bütçe, yüklemelerin kaplayabileceği bellektir. Sonraki dördü kısa süre bekler; fazlası 429 ve kısa bir yeniden deneme ipucuyla reddedilir.",
     },
     gatewayRateLimiting: {
       title: "İstek hızı sınırlama (Ağ geçidi)",
@@ -1977,7 +1980,7 @@ export const tr: TranslationResources = {
         "Önerilen: 4194304 (4 MB) — logolar ve avatarlar için fazlasıyla yeterli.",
       maxMegapixels: "En fazla megapiksel",
       maxMegapixelsHint:
-        "Açma bombalarını işlemeden önce reddeder. Önerilen: 50.",
+        "Açma bombalarını işlemeden önce reddeder. Önerilen: 24 — kabul edilen her megapiksel, görsel çözülürken 4 MB bellek tutar ve bu sınır yükleme eşzamanlılık sınırıyla birlikte çalışır.",
       maxEdgePx: "En fazla kenar (piksel)",
       maxEdgePxHint:
         "Daha büyük görseller bu kenar uzunluğuna küçültülür. Önerilen: 1024.",

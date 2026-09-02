@@ -29,6 +29,7 @@ public class RateLimitPolicyCoverageTests
     public static readonly TheoryData<string, string> MustBeThrottled = new()
     {
         { "ApiKeyManagement/Controllers/ApiKeysController.cs", "ValidateApiKey" },
+        { "Media/Controllers/ImagesController.cs", "Upload" },
     };
 
     [Theory]

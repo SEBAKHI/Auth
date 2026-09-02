@@ -44,7 +44,16 @@ public class ImageStorageSettings
     /// BEFORE decoding pixels, so a small but huge-dimensioned "decompression
     /// bomb" cannot force a multi-gigabyte allocation (width*height*4 bytes).
     /// </summary>
-    public int MaxMegapixels { get; set; } = 50;
+    /// <remarks>
+    /// A memory budget, not a compatibility ceiling: every megapixel admitted
+    /// here costs 4 MB of process memory for the whole decode, on the request
+    /// thread, however small the compressed file was. 24 admits the largest
+    /// common camera output (the default of current phones and APS-C cameras)
+    /// at ~96 MB per decode; the previous 50 admitted ~200 MB per decode for
+    /// an output that never exceeds <see cref="MaxEdgePx"/> anyway. Read it
+    /// together with RateLimiting:ImageUploadConcurrencyLimit — the two multiply.
+    /// </remarks>
+    public int MaxMegapixels { get; set; } = 24;
 
     /// <summary>Max width/height in pixels; larger images are resized down preserving aspect ratio.</summary>
     public int MaxEdgePx { get; set; } = 1024;

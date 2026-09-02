@@ -897,6 +897,30 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // Image upload is the one path that allocates in proportion to the request
+    // rather than the response: every in-flight decode holds width*height*4
+    // bytes (ImageStorage:MaxMegapixels x 4 MB) on the request thread until the
+    // WebP is written. Every other policy here counts requests per window, and
+    // a window cannot see simultaneity — the edge "api" policy admits a hundred
+    // uploads a minute from one address, and nothing stopped all of them from
+    // decoding at once. So this is a CONCURRENCY limiter, not a window, and it
+    // is deliberately process-wide (a single partition): the resource it guards
+    // is this process's memory, not a client's fair share. The short queue lets
+    // a console user who drops three files at once wait a second or two instead
+    // of seeing a 429 for the third; a queued request holds a connection, never
+    // a bitmap. The version stamp keeps the limit hot: the old limiter finishes
+    // its in-flight leases while the new one starts, which briefly allows both
+    // budgets together — the accepted cost of not restarting.
+    options.AddPolicy("image-upload", httpContext =>
+        RateLimitPartition.GetConcurrencyLimiter(
+            partitionKey: $"v{settingsVersion()}:image-upload",
+            factory: _ => new ConcurrencyLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:ImageUploadConcurrencyLimit", 2),
+                QueueLimit = 4,
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst
+            }));
+
     options.OnRejected = async (context, token) =>
     {
         var localizer = context.HttpContext.RequestServices
@@ -909,9 +933,14 @@ builder.Services.AddRateLimiter(options =>
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
             error = message,
+            // Window policies attach RetryAfter; the image-upload concurrency
+            // policy cannot (a slot frees when a decode finishes, not on a
+            // clock), so its rejection lands on the fallback. A few seconds is
+            // the honest hint there — sixty would tell a console user to wait a
+            // minute for a queue that drains in one.
             retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
                 ? retryAfter.TotalSeconds
-                : 60
+                : 5
         }, token);
     };
 });

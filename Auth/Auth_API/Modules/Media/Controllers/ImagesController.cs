@@ -6,6 +6,7 @@ using Auth_API.Modules.Media.Filters;
 using ErrorOr;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 namespace Auth_API.Modules.Media.Controllers;
@@ -56,8 +57,12 @@ public class ImagesController : ControllerBase
     // The body limit follows ImageStorage:MaxSizeBytes live; a constant here would
     // put a second, invisible ceiling under the one the console publishes.
     [ServiceFilter(typeof(ImageUploadSizeLimitFilter))]
+    // Concurrency, not a window: the decode behind this action holds
+    // ImageStorage:MaxMegapixels x 4 MB per in-flight request. See the policy.
+    [EnableRateLimiting("image-upload")]
     [ProducesResponseType(typeof(UploadImageResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Upload(IFormFile file, CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
