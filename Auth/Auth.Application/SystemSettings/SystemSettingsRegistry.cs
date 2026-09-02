@@ -169,6 +169,17 @@ public static class SystemSettingsRegistry
             [
                 new SettingFieldDefinition("LoginPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
                 new SettingFieldDefinition("LoginWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // Registration has its own budget because it is the one endpoint
+                // in the login family whose demand is an event rather than a
+                // habit: a launch or a campaign asks for thousands of accounts in
+                // an hour, and without a separate limit the only way to serve
+                // that is to widen the bucket that also holds sign-in, token
+                // exchange and account recovery. The default matches the others
+                // in shape (a permit count over a window in seconds) and nothing
+                // else — 200 is a working default for a five-egress deployment,
+                // not a universal one; the console hint carries the arithmetic.
+                new SettingFieldDefinition("RegisterPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 200),
+                new SettingFieldDefinition("RegisterWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 new SettingFieldDefinition("PasswordResetPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 10),
                 new SettingFieldDefinition("PasswordResetWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 new SettingFieldDefinition("ApiKeyValidatePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 60),
@@ -209,6 +220,15 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("GlobalQueueLimit", SettingKind.Int, Min: 0, Max: 10000, DefaultValue: 100),
                 new SettingFieldDefinition("AuthPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 20),
                 new SettingFieldDefinition("AuthWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The edge half of the registration split. Both halves have to
+                // move together: the gateway policy runs first, so raising the
+                // API's RegisterPermitLimit while this one stays at the auth
+                // value changes nothing a client can observe — the request is
+                // already refused a process earlier. Kept beside the auth pair
+                // rather than appended, because the order here is the order the
+                // console renders and the two belong side by side.
+                new SettingFieldDefinition("RegisterPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 200),
+                new SettingFieldDefinition("RegisterWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 new SettingFieldDefinition("ApiPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 100),
                 new SettingFieldDefinition("ApiWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 // 120, not the 10 this shipped with. Ten requests a minute was

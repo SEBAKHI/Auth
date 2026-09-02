@@ -821,6 +821,34 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // Registration, split out of the login policy above. Not a loosening of that
+    // policy — a second bucket beside it: a named policy owns its own partitions,
+    // so an IP spending its registration allowance still has its full login
+    // allowance, and vice versa. That separation is the point. Registration
+    // demand is an event (a launch, a campaign) while sign-in demand is a habit,
+    // and while the two shared one bucket the only way to serve a registration
+    // surge was to widen the bucket that also holds sign-in, token exchange,
+    // account recovery and the deletion challenges — nineteen other endpoints.
+    //
+    // The number is a deployment fact, not a constant: what one IP may spend
+    // here has to be read against how many client addresses the traffic arrives
+    // from and what the hashing costs. This limit does not raise capacity; it
+    // stops standing far below it. See the console hint, which carries the
+    // arithmetic an operator needs to size it for their own deployment.
+    //
+    // The gateway has a matching "register" policy in front of this one. Both
+    // must move together: every request passes the edge first, so this limit
+    // alone is invisible.
+    options.AddPolicy("register", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:RegisterPermitLimit", 200),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:RegisterWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
     // Redeeming a reset token cannot be brute forced (the token carries 256 bits
     // of entropy), so this is hygiene for an anonymous endpoint rather than a
     // guessing defence — a stricter per-client bucket than the login policy.

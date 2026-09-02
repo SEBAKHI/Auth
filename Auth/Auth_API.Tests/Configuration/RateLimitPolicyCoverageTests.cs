@@ -1,4 +1,6 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
+using Auth.Application.SystemSettings;
 
 namespace Auth_API.Tests.Configuration;
 
@@ -98,6 +100,108 @@ public class RateLimitPolicyCoverageTests
             .ToList();
 
         missing.Should().BeEmpty("SystemSettingsRegistry must expose every RateLimiting field as an editable setting");
+    }
+
+    /// <summary>
+    /// Each of these limits is written down three times — as the fallback
+    /// <c>GetValue</c> is given in Program.cs, as the file-layer value in
+    /// appsettings.json, and as the registry's DefaultValue — and nothing in the
+    /// compiler ties the three together.
+    ///
+    /// <para>
+    /// Drift between them is silent and each way of drifting misleads someone
+    /// different. The registry's copy is the number the console prints under
+    /// "Default", so a stale one tells an administrator the system reverts to a
+    /// value it does not. The Program.cs copy is what actually runs whenever a
+    /// deployment ships without that key in its appsettings — the ordinary state
+    /// of a rolling upgrade that adds a limit — so a stale one is a throttle
+    /// nobody chose, enforced in production, agreeing with no file in the repo.
+    /// </para>
+    ///
+    /// <para>
+    /// The gateway's half of this has been guarded since its section was written
+    /// (GatewayRateLimitingParityTests). This is the same guard for the limits
+    /// this process applies to itself.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void EveryLimit_ReadsTheSameNumberFromAllThreeOfItsHomes()
+    {
+        var root = SolutionDirectory();
+        var program = File.ReadAllText(Path.Combine(root, "Auth_API", "Program.cs"));
+
+        var section = SystemSettingsRegistry.TryGet("RateLimiting");
+        section.Should().NotBeNull();
+
+        using var settings = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(root, "Auth_API", "appsettings.json")),
+            new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+
+        var fileLayer = settings.RootElement.GetProperty("RateLimiting");
+
+        var fallbacks = Regex.Matches(program, @"GetValue\(""RateLimiting:(?<field>[^""]+)"",\s*(?<value>\d+)\)")
+            .Select(match => (Field: match.Groups["field"].Value, Value: long.Parse(match.Groups["value"].Value)))
+            .ToList();
+
+        fallbacks.Should().NotBeEmpty("the policies pass a literal fallback to every GetValue");
+
+        var disagreements = new List<string>();
+        foreach (var (field, codeFallback) in fallbacks)
+        {
+            if (!fileLayer.TryGetProperty(field, out var fileValue))
+            {
+                disagreements.Add($"{field}: absent from appsettings.json");
+                continue;
+            }
+
+            if (fileValue.GetInt64() != codeFallback)
+            {
+                disagreements.Add($"{field}: Program.cs says {codeFallback}, appsettings.json says {fileValue.GetInt64()}");
+            }
+
+            var registryField = SystemSettingsRegistry.TryGetField(section!, field);
+            if (registryField is null)
+            {
+                // Reported by EveryRegisteredPolicy_IsConfigurable with its own reason.
+                continue;
+            }
+
+            if (Convert.ToInt64(registryField.DefaultValue) != codeFallback)
+            {
+                disagreements.Add(
+                    $"{field}: Program.cs says {codeFallback}, the registry default says {registryField.DefaultValue}");
+            }
+        }
+
+        disagreements.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// The mirror of the rule above: a key sitting in appsettings that no policy
+    /// reads is a limit no endpoint applies. Three of them lived here once,
+    /// feeding a policy nothing was attached to, while the console offered them
+    /// as live controls.
+    /// </summary>
+    [Fact]
+    public void NoLimitSitsInTheFile_WithoutAPolicyThatReadsIt()
+    {
+        var root = SolutionDirectory();
+        var program = File.ReadAllText(Path.Combine(root, "Auth_API", "Program.cs"));
+
+        var read = Regex.Matches(program, @"GetValue\(""RateLimiting:(?<field>[^""]+)""")
+            .Select(match => match.Groups["field"].Value)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        using var settings = JsonDocument.Parse(
+            File.ReadAllText(Path.Combine(root, "Auth_API", "appsettings.json")),
+            new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+
+        settings.RootElement.GetProperty("RateLimiting").EnumerateObject()
+            // Underscore-prefixed keys are this repository's comment convention.
+            .Where(property => !property.Name.StartsWith('_'))
+            .Select(property => property.Name)
+            .Where(name => !read.Contains(name))
+            .Should().BeEmpty("a limit no policy reads throttles nothing while looking like a setting");
     }
 
     private static string SolutionDirectory()

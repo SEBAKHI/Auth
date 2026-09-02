@@ -23,6 +23,8 @@ public class GatewayRateLimitingTests
         "GlobalQueueLimit",
         "AuthPermitLimit",
         "AuthWindowSeconds",
+        "RegisterPermitLimit",
+        "RegisterWindowSeconds",
         "ApiPermitLimit",
         "ApiWindowSeconds",
         "AdminPermitLimit",
@@ -39,7 +41,7 @@ public class GatewayRateLimitingTests
     #region Registry shape
 
     [Fact]
-    public void Section_ExposesExactlyTheNineGatewayLimits()
+    public void Section_ExposesExactlyTheKnownGatewayLimits()
     {
         var section = Section();
 
@@ -149,7 +151,46 @@ public class GatewayRateLimitingTests
         var errors = Validate(payload: [], effective: effective);
 
         errors.Should().NotBeEmpty("a slow global window still caps every policy under it");
-        errors.Should().HaveCount(3, "nothing was edited, so each capped policy is flagged on its own field");
+
+        // Counted rather than hard-coded: adding a policy to this section must
+        // widen this assertion, not fail it for the wrong reason.
+        var policyCount = ExpectedFields.Count(field =>
+            field.EndsWith("PermitLimit", StringComparison.Ordinal)
+            && !field.StartsWith("Global", StringComparison.Ordinal));
+
+        errors.Should().HaveCount(policyCount,
+            "nothing was edited, so each capped policy is flagged on its own field");
+    }
+
+    /// <summary>
+    /// The cross-field rule reads its policies from a hand-written list, and a
+    /// pair added to this section but not to that list is not rejected by it —
+    /// it is ignored by it. The console then accepts a policy faster than the
+    /// global bucket, reports the save succeeded, and the edge goes on throttling
+    /// at the unchanged ceiling: a control that does nothing, which is the exact
+    /// failure the list was written to prevent, returning through the door left
+    /// open for the next policy.
+    /// </summary>
+    [Fact]
+    public void EveryPolicyPairInThisSection_IsSubjectToTheGlobalCeilingRule()
+    {
+        var policyPermits = Section().Fields
+            .Select(field => field.Path)
+            .Where(path => path.EndsWith("PermitLimit", StringComparison.Ordinal)
+                        && !path.StartsWith("Global", StringComparison.Ordinal))
+            .ToList();
+
+        policyPermits.Should().NotBeEmpty("the section defines per-route policies below the global bucket");
+
+        var unguarded = policyPermits
+            // 2000 per the default 60s window is twice the global bucket's rate,
+            // so a guarded field must be reported and an unguarded one stays silent.
+            .Where(permit => Validate([(permit, 2000)], Defaults())
+                .All(error => !error.Description.Contains(permit, StringComparison.Ordinal)))
+            .ToList();
+
+        unguarded.Should().BeEmpty(
+            "add the (permit, window) pair to GatewayRatePolicies in SystemSettingsValueValidator");
     }
 
     [Fact]

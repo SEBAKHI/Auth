@@ -1762,10 +1762,16 @@ export const tr: TranslationResources = {
         "İstemci IP'si başına istek kısıtlaması. Katmanlı savunmanın bir katmanı: hesap kilitleme parola tahminini durdururken bu, otomatik kötüye kullanımı yavaşlatır. Değiştirilen sınırlar yeni istemci pencerelerine hemen uygulanır.",
       loginPermitLimit: "Pencere başına kimlik doğrulama isteği",
       loginPermitLimitHint:
-        "Tek bir istemci IP'sinin 429 ile reddedilmeden önce yapabileceği kimlik doğrulama isteği sayısı. Yalnızca oturum açmayı değil; kaydı, harici oturum açmayı, token değişimini, parolamı unuttum akışını, e-posta doğrulamayı ve yeniden göndermeyi, iki adımlı doğrulamayı, davet açmayı ve kabul etmeyi, hesap silme ile kurtarmayı ve gizli anahtar işlem doğrulamalarını da kapsar. İki katmanın ilkidir: bu, çok sayıda hesabı deneyen saldırganı yavaşlatır; hesap kilitleme ise tek hesapta çok sayıda parola deneyeni durdurur.",
+        "Tek bir istemci IP'sinin 429 ile reddedilmeden önce yapabileceği kimlik doğrulama isteği sayısı. Yalnızca oturum açmayı değil; harici oturum açmayı, token değişimini, parolamı unuttum akışını, e-posta doğrulamayı ve yeniden göndermeyi, iki adımlı doğrulamayı, davet açmayı ve kabul etmeyi, hesap silme ile kurtarmayı ve gizli anahtar işlem doğrulamalarını da kapsar. Yeni hesap oluşturma ise aşağıda ayrıca sayılır. İki katmanın ilkidir: bu, çok sayıda hesabı deneyen saldırganı yavaşlatır; hesap kilitleme ise tek hesapta çok sayıda parola deneyeni durdurur.",
       loginWindowSeconds: "Kimlik doğrulama sayım penceresi (saniye)",
       loginWindowSecondsHint:
         "Yukarıdaki sayımın ölçüldüğü süre. Pencere kayan değil sabittir: süre bittiğinde sayaç sıfırlanır ve hakkını tüketen istemci o ana kadar bekler. Uzatmak hem sınırı sıkılaştırır hem de ret sonrası beklemeyi uzatır.",
+      registerPermitLimit: "Pencere başına kayıt isteği",
+      registerPermitLimitHint:
+        "Tek bir istemci IP'sinin 429 ile reddedilmeden önce oluşturabileceği yeni hesap sayısı. Yukarıdaki kimlik doğrulama sınırından ayrıdır, çünkü kayıt talebi bir olaydır, oturum açma talebi ise bir alışkanlık: bir lansman ya da kampanya bir saat içinde binlerce hesap ister ve ikisi tek bir hakkı paylaştığı sürece bunu karşılamanın tek yolu oturum açma sınırını da genişletmekti. Boyutlandırmak için: bu sayıyı kayıtların geldiği istemci IP adresi sayısıyla çarpın, pencereye bölün; izin verilen saniye başına hesap sayısını elde edersiniz — bunu sunucunun karma hesaplayabileceğinin altında tutun, çünkü bir ret neredeyse bedavadır, yarım kalmış bir kayıt ise değil. Bunu yükseltmek kapasite eklemez; kapasitenin altında kalmayı bırakır.",
+      registerWindowSeconds: "Kayıt sayım penceresi (saniye)",
+      registerWindowSecondsHint:
+        "Yukarıdaki kayıt sayımının ölçüldüğü süre, aynı sabit pencere mekaniğiyle: sayaç kayarak değil, pencere bittiğinde sıfırlanır. Her iki alan da kaydettiğiniz anda yeni istemci pencerelerine uygulanır; böylece bir etkinlik sınırı gün için yükseltilip sonrasında yeniden başlatma olmadan düşürülebilir — ve düşürülmelidir, çünkü geniş bir kayıt hakkını otomatik bir çağıran da gerçek bir kalabalık kadar kolay harcar.",
       passwordResetPermitLimit: "Pencere başına sıfırlama bağlantısı kullanımı",
       passwordResetPermitLimitHint:
         "Tek bir istemci IP'sinin sıfırlama tokenıyla birlikte kaç kez yeni parola gönderebileceği. Bu, bağlantının kullanılmasıdır; bağlantının istenmesi değil — sıfırlama e-postası istemek yukarıdaki kimlik doğrulama sınırına girer. Tokenın kendisi 256 bit entropi taşır ve tahmin edilemez, dolayısıyla bu sınır tokenı korumaktan çok, oturum açmadan erişilebilen bir uç nokta için temel hijyendir.",
@@ -1798,6 +1804,12 @@ export const tr: TranslationResources = {
       authWindowSeconds: "Oturum açma penceresi (saniye)",
       authWindowSecondsHint:
         "Oturum açma isteklerinin uçta sayıldığı süre. Hakkını tüketen istemci pencere bitene kadar reddedilir; bu yüzden süreyi uzatmak hem sınırı sıkılaştırır hem de o beklemeyi uzatır.",
+      registerPermitLimit: "Pencere başına kayıt isteği",
+      registerPermitLimitHint:
+        "Yalnızca kayıt uç noktasını kapsar. API bölümündeki kayıt sınırının dış ikizidir ve sonucu belirleyen odur: her istek önce bu sınırlayıcıyla karşılaşır, dolayısıyla bu düşük kalırken API'nin sınırını yükseltmek ziyaretçinin göreceği hiçbir şeyi değiştirmez. İkisini birlikte taşıyın ve bunu içteki sınırın seviyesinde ya da üstünde tutun.",
+      registerWindowSeconds: "Kayıt penceresi (saniye)",
+      registerWindowSecondsHint:
+        "Kayıtların uçta sayıldığı süre, aynı sabit pencere mekaniğiyle. Buradaki bir değişiklik ağ geçidine anında değil yaklaşık 30 saniye içinde ulaşır, çünkü ayarlarını çeken ayrı bir süreçtir — bu yüzden etkinlik başlamadan önce yükseltin, trafik gelirken değil.",
       apiPermitLimit: "Pencere başına genel API isteği",
       apiPermitLimitHint:
         "Olağan okuma ve yazma uç noktalarını kapsar: kullanıcılar, roller, uygulamalar, kuruluşlar, görseller, denetim kayıtları.",

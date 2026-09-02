@@ -104,7 +104,7 @@ public class AuthController : ApiController
     /// <returns>Registration confirmation with user ID and masked email</returns>
     [HttpPost("register")]
     [AllowAnonymous]
-    [EnableRateLimiting("login")]
+    [EnableRateLimiting("register")]
     [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]

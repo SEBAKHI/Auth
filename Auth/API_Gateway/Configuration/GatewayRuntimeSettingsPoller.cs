@@ -157,10 +157,20 @@ public sealed class GatewayRuntimeSettingsPoller : BackgroundService
     /// treated as no payload. A queue length of zero is legitimate — it means
     /// reject on arrival rather than hold.
     /// </summary>
+    /// <remarks>
+    /// EVERY permit/window pair has to be listed here, including any added later.
+    /// A pair the API does not yet send arrives as 0 through the record, and a
+    /// pair missing from this check is a pair that reaches the limiter as 0 —
+    /// which does not degrade the route, it closes it: PermitLimit 0 refuses
+    /// every request to it while the log reports the settings applied cleanly.
+    /// The registration pair is exactly that shape, because a gateway deployed
+    /// ahead of the API is the ordinary state of a rolling upgrade.
+    /// </remarks>
     private static bool IsUsable(GatewayRateLimits? limits) =>
         limits is not null
         && limits.GlobalPermitLimit > 0 && limits.GlobalWindowSeconds > 0 && limits.GlobalQueueLimit >= 0
         && limits.AuthPermitLimit > 0 && limits.AuthWindowSeconds > 0
+        && limits.RegisterPermitLimit > 0 && limits.RegisterWindowSeconds > 0
         && limits.ApiPermitLimit > 0 && limits.ApiWindowSeconds > 0
         && limits.AdminPermitLimit > 0 && limits.AdminWindowSeconds > 0;
 

@@ -30,10 +30,20 @@ ON [dbo].[EmailVerificationTokens] ([ExpiresAt])
 WHERE [UsedAt] IS NULL;
 GO
 
--- Index for rate limiting queries (count recent tokens by email)
+-- Serves the one query it was created for: the email rate-limit count in
+-- EmailVerificationTokenRepository.GetRecentTokenCountAsync, which counts rows
+-- by [Email] over a window.
+--
+-- Deliberately NOT filtered. It carried WHERE [UsedAt] IS NULL, and that filter
+-- is why it served nothing: an index filtered on a predicate can only be used by
+-- a query whose own predicate implies it, and the counting query has no [UsedAt]
+-- clause at all -- correctly so, because a rate limit that stopped counting
+-- redeemed codes would be weaker than it claims. So every count fell back to a
+-- clustered scan of the whole table, growing linearly with retained rows, on the
+-- registration path. Adding the predicate to the query instead would have made
+-- the scan disappear by making the limit mean something else.
 CREATE NONCLUSTERED INDEX [IX_EmailVerificationTokens_Email_CreatedAt]
-ON [dbo].[EmailVerificationTokens] ([Email], [CreatedAt] DESC)
-WHERE [UsedAt] IS NULL;
+ON [dbo].[EmailVerificationTokens] ([Email], [CreatedAt] DESC);
 GO
 
 -- Serves the retention sweep, which deletes used and unused rows alike.
