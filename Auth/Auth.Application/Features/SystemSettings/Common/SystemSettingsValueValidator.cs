@@ -254,6 +254,7 @@ internal static class SystemSettingsValueValidator
     private static readonly (string Permit, string Window)[] GatewayRatePolicies =
     [
         ("AuthPermitLimit", "AuthWindowSeconds"),
+        ("RegisterPermitLimit", "RegisterWindowSeconds"),
         ("ApiPermitLimit", "ApiWindowSeconds"),
         ("AdminPermitLimit", "AdminWindowSeconds")
     ];

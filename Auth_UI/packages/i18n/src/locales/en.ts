@@ -1769,10 +1769,16 @@ export const en = {
         "Per-client-IP request throttling. One layer of a layered defense: it slows automated abuse while account lockout stops password guessing. Changed limits apply to new client windows immediately.",
       loginPermitLimit: "Authentication requests per window",
       loginPermitLimitHint:
-        "How many authentication requests one client IP may make before it is refused with 429. Wider than sign-in alone: registration, external sign-in, token exchange, forgot-password, email verification and resend, two-factor verification, invitation lookup and acceptance, account deletion and recovery, and secret-operation challenges. The first of two layers — this slows an attacker working across many accounts, while account lockout stops one working through many passwords on a single account.",
+        "How many authentication requests one client IP may make before it is refused with 429. Wider than sign-in alone: external sign-in, token exchange, forgot-password, email verification and resend, two-factor verification, invitation lookup and acceptance, account deletion and recovery, and secret-operation challenges. Creating an account is counted separately, below. The first of two layers — this slows an attacker working across many accounts, while account lockout stops one working through many passwords on a single account.",
       loginWindowSeconds: "Authentication counting window (seconds)",
       loginWindowSecondsHint:
         "The span the count above is measured over. The window is fixed, not rolling: the counter returns to zero when it ends, and a client that has spent its allowance waits until then. Lengthening it tightens the limit and lengthens the wait after a refusal at the same time.",
+      registerPermitLimit: "Sign-up requests per window",
+      registerPermitLimitHint:
+        "How many new accounts one client IP may create before it is refused with 429. Separate from the authentication limit above because sign-up demand is an event and sign-in demand is a habit: a launch or a campaign asks for thousands of accounts in an hour, and while the two shared one allowance the only way to serve that was to widen sign-in too. To size it: multiply this number by the client IP addresses your sign-ups arrive from, divide by the window, and you have the accounts per second this permits — keep that under what the server can hash, because a refusal is nearly free while a half-finished sign-up is not. Raising it does not add capacity; it stops standing below it.",
+      registerWindowSeconds: "Sign-up counting window (seconds)",
+      registerWindowSecondsHint:
+        "The span the sign-up count above is measured over, on the same fixed-window mechanic: the counter returns to zero when the window ends rather than sliding. Both fields apply to new client windows the moment you save, so an event limit can be raised for the day and lowered afterwards without a restart — and it should be, since a wide sign-up allowance is one an automated caller can spend just as easily as a real crowd.",
       passwordResetPermitLimit: "Reset-link redemptions per window",
       passwordResetPermitLimitHint:
         "How many times one client IP may submit a new password together with a reset token. This is redemption, not the request for the email — asking for a reset link falls under the authentication limit above. The token carries 256 bits of entropy and cannot be guessed, so this limit is hygiene for an endpoint open without sign-in rather than a defence of the token.",
@@ -1805,6 +1811,12 @@ export const en = {
       authWindowSeconds: "Sign-in window (seconds)",
       authWindowSecondsHint:
         "The span sign-in requests are counted over at the edge. A client that has spent its allowance is refused until the window ends, so lengthening this both tightens the limit and lengthens that wait.",
+      registerPermitLimit: "Sign-up requests per window",
+      registerPermitLimitHint:
+        "Covers the sign-up endpoint only. The outer twin of the sign-up limit in the API section, and the one that decides the outcome: every request meets this limiter first, so raising the API's limit while this one stays low changes nothing a visitor can see. Move the two together, and keep this one at or above the inner one.",
+      registerWindowSeconds: "Sign-up window (seconds)",
+      registerWindowSecondsHint:
+        "The span sign-ups are counted over at the edge, on the same fixed-window mechanic. A change here reaches the gateway within about 30 seconds rather than instantly, because it is a separate process that pulls its settings — so raise it before an event starts, not as the traffic arrives.",
       apiPermitLimit: "General API requests per window",
       apiPermitLimitHint:
         "Covers the ordinary read and write endpoints: users, roles, applications, organizations, images, audit logs.",

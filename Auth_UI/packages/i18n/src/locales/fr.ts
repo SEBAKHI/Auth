@@ -1799,10 +1799,16 @@ export const fr: TranslationResources = {
         "Limitation des requêtes par IP cliente. Une couche d'une défense en profondeur : elle ralentit les abus automatisés tandis que le verrouillage de compte stoppe la devinette de mots de passe. Les limites modifiées s'appliquent immédiatement aux nouvelles fenêtres client.",
       loginPermitLimit: "Requêtes d'authentification par fenêtre",
       loginPermitLimitHint:
-        "Nombre de requêtes d'authentification qu'une même IP cliente peut effectuer avant d'être refusée avec un 429. Plus large que la seule connexion : inscription, connexion externe, échange de jetons, mot de passe oublié, vérification d'e-mail et renvoi, double authentification, ouverture et acceptation d'invitations, suppression et récupération de compte, et défis d'opération sur les secrets. Première de deux couches : elle ralentit un attaquant qui parcourt de nombreux comptes, tandis que le verrouillage de compte arrête celui qui essaie de nombreux mots de passe sur un seul.",
+        "Nombre de requêtes d'authentification qu'une même IP cliente peut effectuer avant d'être refusée avec un 429. Plus large que la seule connexion : connexion externe, échange de jetons, mot de passe oublié, vérification d'e-mail et renvoi, double authentification, ouverture et acceptation d'invitations, suppression et récupération de compte, et défis d'opération sur les secrets. La création de compte est comptée séparément, ci-dessous. Première de deux couches : elle ralentit un attaquant qui parcourt de nombreux comptes, tandis que le verrouillage de compte arrête celui qui essaie de nombreux mots de passe sur un seul.",
       loginWindowSeconds: "Fenêtre de comptage d'authentification (secondes)",
       loginWindowSecondsHint:
         "Durée sur laquelle le compte ci-dessus est mesuré. La fenêtre est fixe et non glissante : le compteur revient à zéro à sa fin, et un client ayant épuisé son quota attend jusque-là. L'allonger resserre la limite et allonge l'attente après un refus, en même temps.",
+      registerPermitLimit: "Inscriptions par fenêtre",
+      registerPermitLimitHint:
+        "Nombre de comptes qu'une même IP cliente peut créer avant d'être refusée avec un 429. Distincte de la limite d'authentification ci-dessus, parce que la demande d'inscription est un événement quand celle de connexion est une habitude : un lancement ou une campagne réclame des milliers de comptes en une heure, et tant que les deux partageaient un même quota, la seule façon d'y répondre était d'élargir aussi la connexion. Pour la dimensionner : multipliez ce nombre par les adresses IP clientes d'où arrivent vos inscriptions, divisez par la fenêtre, et vous obtenez le nombre de comptes par seconde autorisé — gardez-le sous ce que le serveur peut hacher, car un refus est presque gratuit alors qu'une inscription à moitié faite ne l'est pas. L'augmenter n'ajoute pas de capacité ; cela cesse simplement de rester en dessous.",
+      registerWindowSeconds: "Fenêtre de comptage des inscriptions (secondes)",
+      registerWindowSecondsHint:
+        "Durée sur laquelle le compte d'inscriptions ci-dessus est mesuré, selon la même mécanique de fenêtre fixe : le compteur revient à zéro à la fin de la fenêtre au lieu de glisser. Les deux champs s'appliquent aux nouvelles fenêtres clientes dès l'enregistrement : une limite d'événement peut donc être relevée pour la journée puis abaissée ensuite, sans redémarrage — et elle devrait l'être, car un quota d'inscription large se dépense aussi facilement par un automate que par une vraie foule.",
       passwordResetPermitLimit:
         "Utilisations du lien de réinitialisation par fenêtre",
       passwordResetPermitLimitHint:
@@ -1838,6 +1844,12 @@ export const fr: TranslationResources = {
       authWindowSeconds: "Fenêtre de connexion (secondes)",
       authWindowSecondsHint:
         "Durée sur laquelle les requêtes de connexion sont comptées en périphérie. Un client ayant épuisé son quota est refusé jusqu'à la fin de la fenêtre : l'allonger resserre donc la limite et prolonge cette attente.",
+      registerPermitLimit: "Inscriptions par fenêtre",
+      registerPermitLimitHint:
+        "Couvre uniquement le point d'entrée d'inscription. Le jumeau externe de la limite d'inscription de la section API, et celui qui décide du résultat : chaque requête rencontre ce limiteur en premier, donc relever la limite de l'API pendant que celle-ci reste basse ne change rien de visible pour un visiteur. Déplacez les deux ensemble, et gardez celle-ci au niveau de la limite interne ou au-dessus.",
+      registerWindowSeconds: "Fenêtre d'inscription (secondes)",
+      registerWindowSecondsHint:
+        "Durée sur laquelle les inscriptions sont comptées en périphérie, selon la même mécanique de fenêtre fixe. Un changement ici atteint la passerelle en une trentaine de secondes plutôt qu'instantanément, car c'est un processus distinct qui tire ses réglages — relevez-la donc avant le début de l'événement, pas à l'arrivée du trafic.",
       apiPermitLimit: "Requêtes API générales par fenêtre",
       apiPermitLimitHint:
         "Couvre les points de terminaison de lecture et d'écriture ordinaires : utilisateurs, rôles, applications, organisations, images, journaux d'audit.",
