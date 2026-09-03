@@ -31,22 +31,26 @@ import {
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
 import { api } from "@authsystem/api/client"
+import { PasswordField } from "@authsystem/auth/password-field"
+import {
+  applyPasswordServerErrors,
+  passwordSchema,
+} from "@authsystem/auth/password-rules"
 import { SetPasswordPanel } from "@authsystem/auth/set-password-panel"
-import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
+import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import type { Schemas } from "@authsystem/api/types"
 import { Spinner } from "@authsystem/ui/spinner"
 
 function ChangePasswordCard() {
   const { t } = useTranslation()
+  const { policy } = usePasswordPolicy()
 
   const schema = z
     .object({
       currentPassword: z.string().min(1, t("validation.required")),
-      newPassword: z
-        .string()
-        .min(PASSWORD_LENGTH_FLOOR, t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR })),
+      newPassword: passwordSchema(policy),
       confirmNewPassword: z.string().min(1, t("validation.required")),
     })
     .refine((data) => data.newPassword === data.confirmNewPassword, {
@@ -80,7 +84,11 @@ function ChangePasswordCard() {
       toast.success(t("profile.passwordChanged"))
       form.reset()
     },
-    onError: (error) => toast.error(getErrorMessage(error)),
+    onError: (error) => {
+      if (!applyPasswordServerErrors(form, "newPassword", error)) {
+        toast.error(getErrorMessage(error))
+      }
+    },
   })
 
   return (
@@ -113,22 +121,10 @@ function ChangePasswordCard() {
                   </FormItem>
                 )}
               />
-              <FormField
+              <PasswordField
                 control={form.control}
                 name="newPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t("auth.newPassword")}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        autoComplete="new-password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+                label={t("auth.newPassword")}
               />
               <FormField
                 control={form.control}

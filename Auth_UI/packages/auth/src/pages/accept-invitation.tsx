@@ -20,13 +20,16 @@ import {
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
 import { api } from "@authsystem/api/client"
-import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import { unwrap } from "@authsystem/api/helpers"
+import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import type { Schemas } from "@authsystem/api/types"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { formatDateTime } from "@authsystem/ui/format"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
+
+import { PasswordField } from "../password-field"
+import { applyPasswordServerErrors, passwordSchema } from "../password-rules"
 
 type InvitationPreview = Schemas["InvitationPreviewDto"]
 
@@ -171,14 +174,13 @@ function RegisterAndJoin({
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { policy } = usePasswordPolicy()
 
   const schema = z
     .object({
       firstName: z.string().min(1, t("validation.required")),
       lastName: z.string().min(1, t("validation.required")),
-      password: z
-        .string()
-        .min(PASSWORD_LENGTH_FLOOR, t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR })),
+      password: passwordSchema(policy),
       confirmPassword: z.string().min(1, t("validation.required")),
     })
     .refine((data) => data.password === data.confirmPassword, {
@@ -211,7 +213,9 @@ function RegisterAndJoin({
       toast.success(t("auth.invitationRegisterSuccess"))
       navigate("/login", { state: { email: preview.email } })
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      if (!applyPasswordServerErrors(form, "password", error)) {
+        toast.error(getErrorMessage(error))
+      }
     }
   }
 
@@ -257,22 +261,10 @@ function RegisterAndJoin({
                 </FormItem>
               )}
             />
-            <FormField
+            <PasswordField
               control={form.control}
               name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("auth.password")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      autoComplete="new-password"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label={t("auth.password")}
             />
             <FormField
               control={form.control}

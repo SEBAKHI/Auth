@@ -131,9 +131,35 @@ function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
   )
 }
 
-function FormMessage({ className, ...props }: React.ComponentProps<"div">) {
+function FormMessage({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<"div">) {
   const { error, formMessageId } = useFormField()
-  const body = error ? String(error?.message ?? "") : props.children
+
+  // `setError(name, { types })` is how a caller hands one field SEVERAL
+  // sentences — every password rule a submission broke, say. A lone `message`
+  // would show the first and hide the rest, and hiding the rest is exactly the
+  // one-rule-per-submit experience the callers that use `types` exist to end.
+  const messages = error?.types
+    ? Object.values(error.types).filter(
+        (value): value is string =>
+          typeof value === "string" && value.length > 0
+      )
+    : []
+  if (messages.length > 1) {
+    return (
+      <FieldError
+        id={formMessageId}
+        className={className}
+        errors={messages.map((message) => ({ message }))}
+        {...props}
+      />
+    )
+  }
+
+  const body = error ? String(error?.message ?? "") : children
 
   if (!body) {
     return null

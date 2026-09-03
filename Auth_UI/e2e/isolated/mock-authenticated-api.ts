@@ -52,6 +52,16 @@ export async function installAuthenticatedApi(
       await fulfillJson(route, { platformName: "AuthSystem" })
       return
     }
+    if (url.pathname.toLowerCase() === "/api/v1/platform/password-policy") {
+      await fulfillJson(route, {
+        minimumLength: 8,
+        requireUppercase: true,
+        requireLowercase: true,
+        requireDigit: true,
+        requireSpecialCharacter: true,
+      })
+      return
+    }
     if (await handle(route, url)) return
 
     await fulfillJson(route, { title: "Unexpected isolated API request" }, 404)

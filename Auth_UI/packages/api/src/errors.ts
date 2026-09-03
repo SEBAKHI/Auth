@@ -308,3 +308,37 @@ export function getFieldErrors(error: unknown): Record<string, string> {
   }
   return result
 }
+
+/**
+ * Every localized sentence the backend attached to one failure, in the order
+ * it listed them, each with the code that produced it.
+ *
+ * `getErrorMessage` deliberately collapses a multi-rule refusal to its first
+ * sentence — right for a toast, wrong for a control whose rules the person has
+ * to satisfy all at once. PasswordValidator reports every rule a password broke
+ * in one response, and showing them one per submit is what made a sign-up feel
+ * like an interrogation. Same trust boundary as `localizedDetail`: catalog
+ * codes only, never an opaque one, never a bare validation property name.
+ */
+export function getErrorDescriptions(
+  error: unknown
+): Array<{ code: string; description: string }> {
+  if (!error || typeof error !== "object") return []
+  const body = error as ApiErrorBody
+
+  if (Array.isArray(body.errors)) {
+    const entries: Array<{ code: string; description: string }> = []
+    for (const entry of body.errors) {
+      if (!entry.code || !isDomainCode(entry.code)) continue
+      if (OPAQUE_DETAIL_CODES.has(entry.code)) continue
+      const description = entry.description?.trim()
+      if (!description || description === entry.code) continue
+      entries.push({ code: entry.code, description })
+    }
+    return entries
+  }
+
+  const codes = getErrorCodes(error)
+  const detail = localizedDetail(error, codes)
+  return detail && codes[0] ? [{ code: codes[0], description: detail }] : []
+}

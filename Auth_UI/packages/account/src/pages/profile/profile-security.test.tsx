@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
 
 import type { Schemas } from "@authsystem/api/types"
@@ -31,6 +32,8 @@ vi.mock("react-i18next", () => ({
   // import time; without it the whole module graph fails to load.
   initReactI18next: { type: "3rdParty", init: () => {} },
 }))
+
+import { api } from "@authsystem/api/client"
 
 import { ProfileSecurity } from "./profile-security"
 
@@ -79,4 +82,47 @@ describe("the Security tab password card", () => {
     expect(screen.getByText(CURRENT_PASSWORD_LABEL)).toBeInTheDocument()
     expect(screen.queryByText(SET_PASSWORD_TITLE)).not.toBeInTheDocument()
   })
+
+  it("puts every reason the server refuses the new password under its field", async () => {
+    // The API reports every broken rule at once; the card must show them all
+    // under the control rather than the first one in a toast.
+    const post = api.POST as unknown as ReturnType<typeof vi.fn>
+    post.mockResolvedValue({
+      error: {
+        status: 400,
+        title: "Password.TooShort",
+        detail: "Password must be at least 12 characters long.",
+        errors: [
+          {
+            code: "Password.TooShort",
+            description: "Password must be at least 12 characters long.",
+          },
+          {
+            code: "Password.RequiresDigit",
+            description: "Password must contain at least one digit.",
+          },
+        ],
+      },
+    })
+    const user = userEvent.setup()
+    renderTab({ email: "john@example.com", hasPassword: true })
+
+    await user.type(screen.getByLabelText(CURRENT_PASSWORD_LABEL), "OldPass1!")
+    await user.type(screen.getByLabelText("auth.newPassword"), "NewPass1!")
+    await user.type(screen.getByLabelText("auth.confirmPassword"), "NewPass1!")
+    await user.click(
+      screen.getByRole("button", { name: "profile.changePassword" })
+    )
+
+    expect(
+      await screen.findByText("Password must be at least 12 characters long.")
+    ).toBeVisible()
+    expect(
+      screen.getByText("Password must contain at least one digit.")
+    ).toBeVisible()
+    expect(screen.getByLabelText("auth.newPassword")).toHaveAttribute(
+      "aria-invalid",
+      "true"
+    )
+  }, 15_000)
 })

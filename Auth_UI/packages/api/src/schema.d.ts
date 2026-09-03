@@ -11231,6 +11231,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/Platform/password-policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PasswordPolicyDto"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/platform-settings": {
         parameters: {
             query?: never;
@@ -13118,6 +13153,10 @@ export interface components {
             /** Format: int32 */
             authWindowSeconds: number | string;
             /** Format: int32 */
+            registerPermitLimit: number | string;
+            /** Format: int32 */
+            registerWindowSeconds: number | string;
+            /** Format: int32 */
             apiPermitLimit: number | string;
             /** Format: int32 */
             apiWindowSeconds: number | string;
@@ -13891,6 +13930,14 @@ export interface components {
             totalPages?: number | string;
             hasPreviousPage?: boolean;
             hasNextPage?: boolean;
+        };
+        PasswordPolicyDto: {
+            /** Format: int32 */
+            minimumLength: number | string;
+            requireUppercase: boolean;
+            requireLowercase: boolean;
+            requireDigit: boolean;
+            requireSpecialCharacter: boolean;
         };
         PermissionDto: {
             /** Format: uuid */

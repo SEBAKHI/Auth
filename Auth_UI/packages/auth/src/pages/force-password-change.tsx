@@ -6,13 +6,15 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { api } from "@authsystem/api/client"
-import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import { unwrap } from "@authsystem/api/helpers"
+import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import { Button } from "@authsystem/ui/button"
 import { FieldGroup } from "@authsystem/ui/field"
 import { Skeleton } from "@authsystem/ui/skeleton"
 
 import { useLoginCompletion } from "../login-completion"
+import { PasswordField } from "../password-field"
+import { applyPasswordServerErrors, passwordSchema } from "../password-rules"
 import { SetPasswordPanel } from "../set-password-panel"
 import {
   Form,
@@ -74,13 +76,12 @@ function ForcePasswordChangeForm() {
   // actually asked for, so it ends the authentication like any other screen
   // that can: a pending authorize request has to survive it, not die here.
   const { complete } = useLoginCompletion()
+  const { policy } = usePasswordPolicy()
 
   const schema = z
     .object({
       currentPassword: z.string().min(1, t("validation.required")),
-      newPassword: z
-        .string()
-        .min(PASSWORD_LENGTH_FLOOR, t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR })),
+      newPassword: passwordSchema(policy),
       confirmNewPassword: z.string().min(1, t("validation.required")),
     })
     .refine((data) => data.newPassword === data.confirmNewPassword, {
@@ -112,7 +113,9 @@ function ForcePasswordChangeForm() {
       toast.success(t("profile.passwordChanged"))
       complete({ requiresPasswordChange: false })
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      if (!applyPasswordServerErrors(form, "newPassword", error)) {
+        toast.error(getErrorMessage(error))
+      }
     }
   }
 
@@ -138,22 +141,10 @@ function ForcePasswordChangeForm() {
                 </FormItem>
               )}
             />
-            <FormField
+            <PasswordField
               control={form.control}
               name="newPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("auth.newPassword")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      autoComplete="new-password"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label={t("auth.newPassword")}
             />
             <FormField
               control={form.control}

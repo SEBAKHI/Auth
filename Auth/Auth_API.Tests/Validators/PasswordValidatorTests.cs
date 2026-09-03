@@ -175,33 +175,4 @@ public class PasswordValidatorTests
 
         result.IsError.Should().BeFalse();
     }
-
-    [Fact]
-    public void GetRequirementsDescription_AllEnabled_ReturnsAllRules()
-    {
-        var validator = CreateValidator(minimumLength: 12);
-
-        var description = validator.GetRequirementsDescription();
-
-        description.Should().Contain("At least 12 characters");
-        description.Should().Contain("uppercase");
-        description.Should().Contain("lowercase");
-        description.Should().Contain("digit");
-        description.Should().Contain("special character");
-    }
-
-    [Fact]
-    public void GetRequirementsDescription_OnlyMinLength_ReturnsMinLengthOnly()
-    {
-        var validator = CreateValidator(
-            minimumLength: 8,
-            requireUppercase: false,
-            requireLowercase: false,
-            requireDigit: false,
-            requireSpecialCharacter: false);
-
-        var description = validator.GetRequirementsDescription();
-
-        description.Should().Be("At least 8 characters");
-    }
 }

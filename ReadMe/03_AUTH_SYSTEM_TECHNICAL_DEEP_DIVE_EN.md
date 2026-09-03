@@ -432,6 +432,13 @@ not.
 | Banned substrings, case-insensitive | `password`, `123456`, `qwerty`, `abc123`, `letmein`, `admin`, `welcome`, `monkey`, `dragon`, `master`, `login` | **hardcoded** |
 | Password history depth | **3** | `Password:HistoryCount` |
 
+**The five composition rules are public.** `GET /api/v1/Platform/password-policy` returns the minimum
+length and the four character-class switches anonymously, so the sign-up, invitation, reset and
+change-password forms show a live checklist while the person types instead of learning the rules one
+refusal at a time. Nothing else in this table or the lockout table below is disclosed; the banned
+substrings, the breach check and the history check are judged only on submit, and every reason comes
+back in the response's `errors` array.
+
 **Password history blocks four values, not three.** The check compares a candidate against the stored
 history hashes *and* against the current password, so with `HistoryCount` at 3 a user cannot reuse any of
 their last four passwords.

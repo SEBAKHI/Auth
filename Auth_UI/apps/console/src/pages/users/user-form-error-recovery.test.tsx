@@ -105,4 +105,43 @@ describe("UserFormDialog API recovery", () => {
     await waitFor(() => expect(post).toHaveBeenCalledTimes(2))
     expect(post.mock.calls[1]).toEqual(post.mock.calls[0])
   }, 10_000)
+
+  it("puts every reason a password was refused under the control, not in the alert", async () => {
+    // A password rule is a domain code, so the field-name mapping above would
+    // never place it; the whole list must still land beside the control.
+    post.mockResolvedValue({
+      error: {
+        status: 400,
+        title: "Password.CommonPattern",
+        detail: "Password contains a common pattern that is easy to guess.",
+        errors: [
+          {
+            code: "Password.CommonPattern",
+            description:
+              "Password contains a common pattern that is easy to guess.",
+          },
+          {
+            code: "Password.TooShort",
+            description: "Password must be at least 20 characters long.",
+          },
+        ],
+      },
+    })
+    renderDialog()
+
+    await submitValidForm()
+
+    const password = screen.getByLabelText(en.users.password)
+    expect(
+      await screen.findByText(
+        "Password contains a common pattern that is easy to guess."
+      )
+    ).toBeVisible()
+    expect(
+      screen.getByText("Password must be at least 20 characters long.")
+    ).toBeVisible()
+    expect(password).toHaveAttribute("aria-invalid", "true")
+    await waitFor(() => expect(document.activeElement).toBe(password))
+    expect(screen.queryByText(en.errors.feedback.title)).not.toBeInTheDocument()
+  }, 10_000)
 })

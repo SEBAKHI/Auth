@@ -43,6 +43,7 @@ const PUBLIC_QUERY_KEYS: readonly string[] = [
   "platform-branding",
   "external-providers",
   "privacy-policy-version",
+  "password-policy",
 ]
 
 function isPublicQuery(key: QueryKey): boolean {
