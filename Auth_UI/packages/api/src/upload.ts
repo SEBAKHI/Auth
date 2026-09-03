@@ -1,4 +1,5 @@
 import { ensureFreshAccessToken, sharedRefresh } from "@authsystem/api/client"
+import { prepareImageForUpload } from "@authsystem/api/image-downscale"
 import { getRefreshToken } from "@authsystem/api/token-store"
 import { API_BASE_URL } from "@authsystem/api/env"
 import i18n from "@authsystem/i18n"
@@ -13,8 +14,15 @@ import i18n from "@authsystem/i18n"
 export async function uploadImage(
   file: File
 ): Promise<{ key: string; url: string }> {
+  // Shrink in the browser first: the server keeps 1024 px at most and refuses
+  // anything over its byte and megapixel limits, so a phone photo sent as-is
+  // was rejected for exceeding what the server was about to discard anyway.
+  // This is the single upload path, so every surface gets it. The original is
+  // sent unchanged whenever shrinking is impossible or would not save bytes.
+  const prepared = await prepareImageForUpload(file)
+
   const body = new FormData()
-  body.append("file", file)
+  body.append("file", prepared, prepared.name)
 
   const send = (token: string | null) =>
     fetch(`${API_BASE_URL}/api/v1/Images`, {
