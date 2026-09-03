@@ -1,3 +1,5 @@
+using Auth.Domain.Constants;
+
 namespace Auth.Application.SystemSettings;
 
 /// <summary>
@@ -62,7 +64,9 @@ public static class SystemSettingsRegistry
                 // the console's "default" and a reset both land on the same
                 // number. Before this, Min 8 forbade the default of 6 the
                 // console displayed — a range that excluded its own default.
-                new SettingFieldDefinition("MinimumLength", SettingKind.Int, Min: 6, Max: 128, DefaultValue: 8),
+                // Max is pinned to the input ceiling every password field enforces,
+                // so an operator can never require a minimum no password may reach.
+                new SettingFieldDefinition("MinimumLength", SettingKind.Int, Min: 6, Max: PasswordLimits.MaxLength, DefaultValue: 8),
                 new SettingFieldDefinition("RequireUppercase", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("RequireLowercase", SettingKind.Bool, DefaultValue: true),
                 new SettingFieldDefinition("RequireDigit", SettingKind.Bool, DefaultValue: true),

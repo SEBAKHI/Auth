@@ -161,6 +161,11 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // Mark the reset token as used
         await _passwordResetTokenRepository.MarkAsUsedAsync(resetToken.Id, cancellationToken);
 
+        // Invalidate on use, not on request: any other live link for this
+        // account (issued before the one-live-link rule shipped, or still in
+        // an inbox) dies now that the password has changed.
+        await _passwordResetTokenRepository.InvalidateAllForUserAsync(user.Id, cancellationToken);
+
         // Cleanup old password history
         await _passwordHistoryRepository.CleanupOldHistoryAsync(
             user.Id,

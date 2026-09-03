@@ -271,6 +271,24 @@ public class ResetPasswordCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_ValidReset_InvalidatesEveryOtherLiveLink()
+    {
+        // Arrange — invalidate on use, not on request
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+
+        SetupValidResetScenario(user, resetToken, command);
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        _passwordResetTokenRepositoryMock.Verify(r => r.InvalidateAllForUserAsync(
+            user.Id, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task Handle_TerminateSessionsTrue_RevokesEveryCredential()
     {
         // Arrange

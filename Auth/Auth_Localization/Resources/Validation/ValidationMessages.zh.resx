@@ -42,6 +42,9 @@
   <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
     <value>电话号码长度不能超过20个字符。</value>
   </data>
+  <data name="Validation.Password.MaxLength" xml:space="preserve">
+    <value>密码长度不能超过128个字符。</value>
+  </data>
   <data name="Validation.Password.Required" xml:space="preserve">
     <value>密码为必填项。</value>
   </data>

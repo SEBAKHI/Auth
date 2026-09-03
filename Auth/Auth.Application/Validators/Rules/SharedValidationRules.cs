@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using FluentValidation;
 
 namespace Auth.Application.Validators.Rules;
@@ -39,7 +40,12 @@ public static class SharedValidationRules
     public static IRuleBuilderOptions<T, string> IsRequiredPassword<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Validation.Password.Required");
+            .NotEmpty().WithMessage("Validation.Password.Required")
+            // A ceiling, not policy: PasswordValidator owns complexity and the
+            // minimum. Without one this field accepted a request-body-sized
+            // string, and every byte of it was regex-scanned and then fed to
+            // Argon2id on an anonymous endpoint.
+            .MaximumLength(PasswordLimits.MaxLength).WithMessage("Validation.Password.MaxLength");
     }
 
     public static IRuleBuilderOptions<T, string> IsValidCode<T>(this IRuleBuilder<T, string> ruleBuilder)

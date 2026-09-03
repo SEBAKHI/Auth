@@ -2653,6 +2653,8 @@ Initiate password reset flow (sends email with reset token/OTP).
 
 > The response is intentionally vague to prevent email enumeration.
 
+> **One live link per account.** While an unused, unexpired link exists, a further request reissues nothing — no new token, no invalidation, no mail — and returns this same body, so a repeat cannot be told apart from a fresh issue. This is what keeps a stranger who knows your address from killing your link by asking again. The cost is explicit: a lost email waits out `Email:ResetTokenExpirationMinutes` (shipped **30**), which is therefore also the reissue interval. A successful reset invalidates every other live link for the account.
+
 #### POST `/api/v1/auth/reset-password`
 
 Complete a password reset using the token from the emailed link.
@@ -2963,6 +2965,8 @@ Resend email verification to a specific email address.
   "maskedEmail": "us***@example.com"
 }
 ```
+
+> **One live code per account.** While a valid code exists — unused, unexpired, attempts remaining — a further request reissues nothing and returns this same body; the code already in the inbox stays the only one that works, so a stranger cannot kill it by asking again. A code whose attempts are exhausted does not count as live, so its owner can always get a fresh one. A lost email waits out `Email:OtpExpirationMinutes` (shipped **15**).
 
 #### Deleting an account without signing in
 
@@ -6636,7 +6640,7 @@ Each workflow below is a complete ordered sequence: every call in the order it m
 
 **Success is 200 carrying a full login response** — access token, refresh token and user — and the identity-provider sign-in cookie is set on the same response. **The person is now signed in. There is no separate login call.** Nobody has to type a password again immediately after proving they own the mailbox.
 
-**Step 3 — Only when the code never arrived.** `POST /api/v1/auth/resend-verification-email` with `{ "email": "newuser@example.com" }`, anonymous, returns 200 with a fresh `expiresAt`.
+**Step 3 — Only when the code never arrived.** `POST /api/v1/auth/resend-verification-email` with `{ "email": "newuser@example.com" }`, anonymous, returns 200 with an `expiresAt`. A fresh code is minted only when no live one exists; while the first code is still valid the call is a no-op with the same body, so it cannot be used to kill a code someone is about to type.
 
 **Do not reach for `POST /api/v1/auth/send-verification-email` here.** That endpoint requires a bearer token, and nobody has one until Step 2 succeeds. It exists for a person who is already signed in and whose address is still unconfirmed.
 

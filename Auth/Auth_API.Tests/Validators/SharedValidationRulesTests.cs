@@ -1,4 +1,7 @@
+using Auth.Application.Features.Authentication.Register;
+using Auth.Application.Features.Authentication.ResetPassword;
 using Auth.Application.Features.Users.UpdateProfile;
+using Auth.Domain.Constants;
 
 namespace Auth_API.Tests.Validators;
 
@@ -95,5 +98,27 @@ public class SharedValidationRulesTests
         var result = _validator.Validate(new UpdateProfileCommand(Guid.NewGuid()));
 
         result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Password_AtTheCeiling_IsAccepted()
+    {
+        var result = new RegisterCommandValidator().Validate(
+            new RegisterCommand("john@example.com", new string('a', PasswordLimits.MaxLength), "John", "Doe"));
+
+        result.Errors.Should().NotContain(e => e.ErrorMessage == "Validation.Password.MaxLength");
+    }
+
+    [Fact]
+    public void Password_OverTheCeiling_IsRejected_WhetherSetOrPresented()
+    {
+        var oversized = new string('a', PasswordLimits.MaxLength + 1);
+
+        new RegisterCommandValidator()
+            .Validate(new RegisterCommand("john@example.com", oversized, "John", "Doe"))
+            .Errors.Should().Contain(e => e.ErrorMessage == "Validation.Password.MaxLength");
+        new ResetPasswordCommandValidator()
+            .Validate(new ResetPasswordCommand("token", oversized))
+            .Errors.Should().Contain(e => e.ErrorMessage == "Validation.Password.MaxLength");
     }
 }
