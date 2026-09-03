@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using FluentValidation;
 
 namespace Auth.Application.Features.AccountDeletion.RecoverAccount;
@@ -14,6 +15,7 @@ public class RecoverAccountCommandValidator : AbstractValidator<RecoverAccountCo
             .EmailAddress().WithMessage("Validation.Email.InvalidFormat");
 
         RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("Validation.Password.Required");
+            .NotEmpty().WithMessage("Validation.Password.Required")
+            .MaximumLength(PasswordLimits.MaxLength).WithMessage("Validation.Password.MaxLength");
     }
 }

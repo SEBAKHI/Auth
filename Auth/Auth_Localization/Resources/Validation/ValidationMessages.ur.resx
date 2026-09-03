@@ -42,6 +42,9 @@
   <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
     <value>فون نمبر ۲۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
   </data>
+  <data name="Validation.Password.MaxLength" xml:space="preserve">
+    <value>پاس ورڈ ۱۲۸ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
   <data name="Validation.Password.Required" xml:space="preserve">
     <value>پاس ورڈ لازمی ہے۔</value>
   </data>

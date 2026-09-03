@@ -74,6 +74,26 @@ public class ResendEmailVerificationCommandHandler
             return EmailVerificationErrors.EmailAlreadyVerified;
         }
 
+        // One live code per account. A valid code (unused, unexpired, attempts
+        // remaining) is still in the owner's inbox, so nothing is reissued — no
+        // new code, no invalidation, no mail — and the reply is the same generic
+        // shape as the unknown-address branch above. Before this check every
+        // resend invalidated the existing code before minting the next, so a
+        // stranger calling this endpoint with someone else's address killed the
+        // code that person was about to type. A code whose attempts are
+        // exhausted is not live: its owner must be able to get a fresh one.
+        var liveCode = await _tokenRepository.GetValidTokenForUserAsync(user.Id, cancellationToken);
+        if (liveCode is { IsValid: true })
+        {
+            _logger.LogInformation(
+                "Verification code requested for user {UserId} while a live code exists; not reissued",
+                user.Id);
+
+            return new ResendEmailVerificationResponse(
+                DateTime.UtcNow.AddMinutes(_emailSettings.OtpExpirationMinutes),
+                EmailMasking.Mask(user.Email));
+        }
+
         // Rate limiting check
         var recentCount = await _tokenRepository.GetRecentTokenCountAsync(
             user.Email,
@@ -88,7 +108,9 @@ public class ResendEmailVerificationCommandHandler
             return EmailVerificationErrors.TooManyRequests;
         }
 
-        // Invalidate any existing tokens
+        // Only dead codes (expired, used, or attempts exhausted) remain here;
+        // marking them used is hygiene, and it no longer touches a code the
+        // owner is still holding.
         await _tokenRepository.InvalidateAllForUserAsync(user.Id, cancellationToken);
 
         // Generate OTP

@@ -1691,6 +1691,9 @@ export const zh: TranslationResources = {
       apiKeyValidateWindowSeconds: "API 密钥校验计数窗口（秒）",
       apiKeyValidateWindowSecondsHint:
         "上面计数所依据的时间跨度。窗口是固定的而非滑动的：窗口结束时计数器归零，用尽配额的调用方需等到那时。",
+      imageUploadConcurrencyLimit: "同时解码的上传数",
+      imageUploadConcurrencyLimitHint:
+        "这不是时间窗口：整个进程在同一时刻最多可解码多少张图片。每张在写出 WebP 之前都占用“百万像素上限 × 4 MB”的内存，因此此数乘以该预算就是上传可占用的内存。接下来的四个请求会稍作等待；再多的将以 429 拒绝并附带简短的重试提示。",
     },
     gatewayRateLimiting: {
       title: "请求速率限制（网关）",
@@ -1868,7 +1871,8 @@ export const zh: TranslationResources = {
       maxSizeBytes: "上传大小上限（字节）",
       maxSizeBytesHint: "推荐：4194304（4 MB）——对徽标和头像绰绰有余。",
       maxMegapixels: "百万像素上限",
-      maxMegapixelsHint: "在处理前拦截解压炸弹。推荐：50。",
+      maxMegapixelsHint:
+        "在处理前拦截解压炸弹。推荐：24——每接受一百万像素，解码时就要占用 4 MB 内存；此项与上传并发上限共同起作用。",
       maxEdgePx: "最长边（像素）",
       maxEdgePxHint: "更大的图片将被缩小到此边长。推荐：1024。",
       webpQuality: "WebP 质量",

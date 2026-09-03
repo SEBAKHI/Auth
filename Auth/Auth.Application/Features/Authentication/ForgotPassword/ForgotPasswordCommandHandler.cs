@@ -68,7 +68,32 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
                 EmailMasking.Mask(request.Email));
         }
 
-        // Invalidate any existing reset tokens for this user
+        // One live link per account. If an unused, unexpired link already
+        // exists it is still in the account owner's inbox, so nothing is
+        // reissued: no new token, no invalidation, no mail. This is what stops
+        // an anonymous caller from killing a victim's link by asking again —
+        // before this check the call below invalidated every earlier link, so
+        // a stranger firing this endpoint every few seconds kept the real
+        // owner's link permanently dead and denied them recovery. The reply is
+        // the same generic shape as the unknown-address branch above, so a
+        // no-op cannot be told apart from a fresh issue (enumeration). The
+        // trade-off is explicit: an owner whose mail was lost waits for the
+        // live link to expire (Email:ResetTokenExpirationMinutes), which is
+        // therefore also the reissue interval.
+        if (await _passwordResetTokenRepository.HasLiveTokenAsync(user.Id, cancellationToken))
+        {
+            _logger.LogInformation(
+                "Password reset requested for user {UserId} while a live reset link exists; not reissued",
+                user.Id);
+
+            return new ForgotPasswordResponse(
+                DateTime.UtcNow.AddMinutes(expirationMinutes),
+                EmailMasking.Mask(user.Email));
+        }
+
+        // Only dead rows (expired, never used) can remain at this point; marking
+        // them used is hygiene, and it no longer touches a link the owner may
+        // still be holding.
         await _passwordResetTokenRepository.InvalidateAllForUserAsync(user.Id, cancellationToken);
 
         // Generate a new 256-bit token. It is hashed with HMAC-SHA256 rather than

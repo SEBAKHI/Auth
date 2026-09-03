@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.ChangePassword;
@@ -13,10 +14,12 @@ public class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCo
             .NotEmpty().WithMessage("Validation.UserId.Required");
 
         RuleFor(x => x.CurrentPassword)
-            .NotEmpty().WithMessage("Validation.CurrentPassword.Required");
+            .NotEmpty().WithMessage("Validation.CurrentPassword.Required")
+            .MaximumLength(PasswordLimits.MaxLength).WithMessage("Validation.Password.MaxLength");
 
         RuleFor(x => x.NewPassword)
-            .NotEmpty().WithMessage("Validation.NewPassword.Required");
+            .NotEmpty().WithMessage("Validation.NewPassword.Required")
+            .MaximumLength(PasswordLimits.MaxLength).WithMessage("Validation.Password.MaxLength");
 
         RuleFor(x => x.NewPassword)
             .NotEqual(x => x.CurrentPassword)

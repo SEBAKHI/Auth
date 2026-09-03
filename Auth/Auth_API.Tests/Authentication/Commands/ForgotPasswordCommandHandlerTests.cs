@@ -98,7 +98,7 @@ public class ForgotPasswordCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_ExistingUser_InvalidatesPreviousTokens()
+    public async Task Handle_NoLiveLink_MarksDeadTokensUsedBeforeIssuing()
     {
         // Arrange
         var user = TestHelpers.CreateUser(email: "john@example.com");
@@ -323,5 +323,53 @@ public class ForgotPasswordCommandHandlerTests
         // Assert - anti-enumeration: response stays a generic success
         result.IsError.Should().BeFalse();
         result.Value.MaskedEmail.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task Handle_LiveLinkExists_ReissuesNothingAndAnswersLikeAFreshIssue()
+    {
+        // Arrange — the owner's link is still in their inbox
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        ArrangeExistingUser(user);
+        _passwordResetTokenRepositoryMock
+            .Setup(r => r.HasLiveTokenAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        var command = new ForgotPasswordCommand("john@example.com");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert — a repeat request, the owner's or a stranger's, must not touch that link
+        result.IsError.Should().BeFalse();
+        result.Value.MaskedEmail.Should().NotBeNullOrEmpty();
+        result.Value.ExpiresAt.Should().BeAfter(DateTime.UtcNow);
+        _passwordResetTokenRepositoryMock.Verify(r => r.InvalidateAllForUserAsync(
+            It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+        _passwordResetTokenRepositoryMock.Verify(r => r.CreateAsync(
+            It.IsAny<PasswordResetToken>(), It.IsAny<CancellationToken>()), Times.Never);
+        _notificationServiceMock.Verify(s => s.SendAsync(
+            It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_NoLiveLink_IssuesOneAndMailsIt()
+    {
+        // Arrange
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        ArrangeExistingUser(user);
+        _passwordResetTokenRepositoryMock
+            .Setup(r => r.HasLiveTokenAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        var command = new ForgotPasswordCommand("john@example.com");
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        _passwordResetTokenRepositoryMock.Verify(r => r.CreateAsync(
+            It.Is<PasswordResetToken>(t => t.UserId == user.Id),
+            It.IsAny<CancellationToken>()), Times.Once);
+        _notificationServiceMock.Verify(s => s.SendAsync(
+            It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

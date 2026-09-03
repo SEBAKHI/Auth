@@ -37,6 +37,15 @@ public interface IPasswordResetTokenRepository
     Task InvalidateAllForUserAsync(Guid userId, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Whether the user currently holds a live token: unused and not yet
+    /// expired. Issuance asks this first — one live link per account, and a
+    /// request that finds one reissues nothing.
+    /// </summary>
+    /// <param name="userId">The user ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task<bool> HasLiveTokenAsync(Guid userId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Deletes at most <paramref name="batchSize"/> rows that fell out of use
     /// before <paramref name="olderThanUtc"/>, and reports how many went.
     /// </summary>

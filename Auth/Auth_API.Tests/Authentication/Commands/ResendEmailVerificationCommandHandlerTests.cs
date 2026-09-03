@@ -264,4 +264,66 @@ public class ResendEmailVerificationCommandHandlerTests
                 null,
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
             times);
+
+    [Fact]
+    public async Task Handle_LiveCodeExists_ReissuesNothingAndAnswersLikeAFreshIssue()
+    {
+        // Arrange — the owner's code is still in their inbox
+        var user = TestHelpers.CreateUser(email: "test@example.com", emailConfirmed: false);
+        var command = new ResendEmailVerificationCommand("test@example.com");
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _tokenRepositoryMock
+            .Setup(r => r.GetValidTokenForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateEmailVerificationToken(userId: user.Id, email: user.Email));
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert — a repeat request, the owner's or a stranger's, must not touch that code
+        result.IsError.Should().BeFalse();
+        result.Value.MaskedEmail.Should().NotBeNullOrEmpty();
+        _tokenRepositoryMock.Verify(
+            r => r.InvalidateAllForUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _tokenRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<EmailVerificationToken>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _notificationServiceMock.Verify(
+            s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_LiveCodeAttemptsExhausted_IssuesAFreshOne()
+    {
+        // Arrange — a burned code is not live: its owner must be able to get another
+        var user = TestHelpers.CreateUser(email: "test@example.com", emailConfirmed: false);
+        var command = new ResendEmailVerificationCommand("test@example.com");
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _tokenRepositoryMock
+            .Setup(r => r.GetValidTokenForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateEmailVerificationToken(
+                userId: user.Id, email: user.Email, attemptCount: EmailVerificationToken.MaxAttempts));
+        _tokenRepositoryMock
+            .Setup(r => r.GetRecentTokenCountAsync(user.Email, _emailSettings.RateLimitWindow, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _otpGeneratorMock.Setup(g => g.GenerateNumericOtp(6)).Returns("123456");
+        _passwordHasherMock.Setup(h => h.HashPassword("123456")).Returns("hashed-otp");
+        _notificationServiceMock
+            .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        _tokenRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<EmailVerificationToken>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
 }

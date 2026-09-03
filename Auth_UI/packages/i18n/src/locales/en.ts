@@ -1804,6 +1804,9 @@ export const en = {
       apiKeyValidateWindowSeconds: "API key validation window (seconds)",
       apiKeyValidateWindowSecondsHint:
         "The span the validation count above is measured over. The window is fixed, not rolling: the counter returns to zero when it ends, and a caller that has spent its allowance waits until then.",
+      imageUploadConcurrencyLimit: "Uploads decoding at once",
+      imageUploadConcurrencyLimitHint:
+        "Not a window: how many image uploads may be decoding at the same moment, for the whole process. Each one holds Max megapixels × 4 MB of memory until its WebP is written, so this number times that budget is the memory uploads may occupy. The next four wait a moment; anything beyond that is refused with 429 and a short retry hint.",
     },
     gatewayRateLimiting: {
       title: "Rate limiting (Gateway)",
@@ -1995,7 +1998,7 @@ export const en = {
         "Recommended: 4194304 (4 MB) — plenty for logos and avatars.",
       maxMegapixels: "Max megapixels",
       maxMegapixelsHint:
-        "Rejects decompression bombs before processing. Recommended: 50.",
+        "Rejects decompression bombs before processing. Recommended: 24 — every megapixel admitted costs 4 MB of memory while the upload is decoded, and this runs alongside the upload concurrency limit.",
       maxEdgePx: "Max edge (pixels)",
       maxEdgePxHint:
         "Larger images are downscaled to this edge. Recommended: 1024.",

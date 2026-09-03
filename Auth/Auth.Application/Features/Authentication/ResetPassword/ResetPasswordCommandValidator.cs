@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.ResetPassword;
@@ -13,6 +14,7 @@ public class ResetPasswordCommandValidator : AbstractValidator<ResetPasswordComm
             .NotEmpty().WithMessage("Validation.ResetToken.Required");
 
         RuleFor(x => x.NewPassword)
-            .NotEmpty().WithMessage("Validation.NewPassword.Required");
+            .NotEmpty().WithMessage("Validation.NewPassword.Required")
+            .MaximumLength(PasswordLimits.MaxLength).WithMessage("Validation.Password.MaxLength");
     }
 }

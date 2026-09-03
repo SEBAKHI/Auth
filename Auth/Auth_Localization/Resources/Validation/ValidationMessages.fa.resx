@@ -42,6 +42,9 @@
   <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
     <value>شماره تلفن نباید بیش از ۲۰ کاراکتر باشد.</value>
   </data>
+  <data name="Validation.Password.MaxLength" xml:space="preserve">
+    <value>گذرواژه نباید بیش از ۱۲۸ کاراکتر باشد.</value>
+  </data>
   <data name="Validation.Password.Required" xml:space="preserve">
     <value>رمز عبور الزامی است.</value>
   </data>

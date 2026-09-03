@@ -42,6 +42,9 @@
   <data name="Validation.PhoneNumber.MaxLength" xml:space="preserve">
     <value>Telefon numarası 20 karakteri aşmamalıdır.</value>
   </data>
+  <data name="Validation.Password.MaxLength" xml:space="preserve">
+    <value>Parola 128 karakteri aşmamalıdır.</value>
+  </data>
   <data name="Validation.Password.Required" xml:space="preserve">
     <value>Parola gereklidir.</value>
   </data>

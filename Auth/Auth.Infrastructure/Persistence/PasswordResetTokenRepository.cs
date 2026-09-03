@@ -82,6 +82,21 @@ public class PasswordResetTokenRepository : IPasswordResetTokenRepository
     }
 
     /// <inheritdoc />
+    public async Task<bool> HasLiveTokenAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Seeks IX_PasswordResetTokens_UserId; EXISTS stops at the first row.
+        return await connection.ExecuteScalarAsync<bool>(@"
+            SELECT CAST(CASE WHEN EXISTS (
+                SELECT 1 FROM [dbo].[PasswordResetTokens]
+                WHERE [UserId] = @UserId
+                  AND [UsedAt] IS NULL
+                  AND [ExpiresAt] > GETUTCDATE()) THEN 1 ELSE 0 END AS BIT)",
+            new { UserId = userId });
+    }
+
+    /// <inheritdoc />
     public async Task<int> CleanupExpiredAsync(
         DateTime olderThanUtc, int batchSize, CancellationToken cancellationToken)
     {
