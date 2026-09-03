@@ -2199,8 +2199,8 @@ These are not part of the 199 and have no permission gate. They are listed so yo
 
 | Method | Path | What it does |
 |---|---|---|
-| GET | `/health` | Liveness. Answers as long as the process is running |
-| GET | `/ready` | Readiness. Runs the SQL Server probe and the signing-key check |
+| GET | `/health` | Liveness. Answers as long as the process is running. Carries the process-wide `public-surface` concurrency ceiling (16 in flight), shared with `/ready` and the discovery documents |
+| GET | `/ready` | Readiness. Runs the SQL Server probe and the signing-key check. The probe result is cached for 5 seconds and only one probe runs at a time, so a burst of requests costs one pooled connection, not one per request. Same `public-surface` ceiling |
 | GET | `/uploads/images/**` | Serves uploaded images as static files |
 | GET | the OpenAPI document | A JSON description of the API, **registered only in Development** — production serves no API document at all. It is a JSON file, not a browsable page: this system ships no interactive API explorer in any environment |
 

@@ -76,6 +76,53 @@ public class RevokeTokenCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_AccessTokenThatFailsValidation_StoresNothingAndAnswers200()
+    {
+        // Arrange — forged, expired or malformed: the endpoint is anonymous, so a
+        // token that is not provably ours must leave no trace in memory
+        var command = new RevokeTokenCommand("header.payload.forged-signature", TokenTypeHint.AccessToken, null);
+        _jwtTokenServiceMock
+            .Setup(s => s.ValidateAccessToken(command.Token))
+            .Returns(AuthErrors.InvalidToken);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert — RFC 7009: 200 either way, but nothing pinned
+        result.IsError.Should().BeFalse();
+        _tokenBlacklistServiceMock.Verify(
+            s => s.BlacklistToken(It.IsAny<string>(), It.IsAny<DateTime>()),
+            Times.Never());
+        _jwtTokenServiceMock.Verify(
+            s => s.GetTokenId(It.IsAny<string>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_ValidAccessToken_BlacklistsUntilItsOwnExpiry()
+    {
+        // Arrange — the entry lives as long as the token would have, not a flat day
+        var exp = DateTimeOffset.UtcNow.AddMinutes(15);
+        var command = new RevokeTokenCommand("header.payload.signature", TokenTypeHint.AccessToken, null);
+        var claims = new ClaimsPrincipal(new ClaimsIdentity(new[]
+        {
+            new Claim("jti", "token-jti"),
+            new Claim("exp", exp.ToUnixTimeSeconds().ToString())
+        }));
+        _jwtTokenServiceMock
+            .Setup(s => s.ValidateAccessToken(command.Token))
+            .Returns(claims);
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        _tokenBlacklistServiceMock.Verify(
+            s => s.BlacklistToken("token-jti", It.Is<DateTime>(d => Math.Abs((d - exp.UtcDateTime).TotalSeconds) < 1)),
+            Times.Once());
+    }
+
+    [Fact]
     public async Task Handle_ValidRefreshToken_RevokesToken()
     {
         // Arrange
