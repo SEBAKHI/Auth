@@ -6,10 +6,10 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { api } from "@authsystem/api/client"
-import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import { privacyPolicyUrl } from "@authsystem/api/env"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
+import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
 import { FieldGroup } from "@authsystem/ui/field"
@@ -25,6 +25,11 @@ import { Input } from "@authsystem/ui/input"
 
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
 import { useLoginCompletion } from "@authsystem/auth/login-completion"
+import { PasswordField } from "@authsystem/auth/password-field"
+import {
+  applyPasswordServerErrors,
+  passwordSchema,
+} from "@authsystem/auth/password-rules"
 import { Spinner } from "@authsystem/ui/spinner"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -36,6 +41,7 @@ export function RegisterPage() {
   // verification code signs the user in, so the pending request has to reach
   // the screen that ends it.
   const { interstitial } = useLoginCompletion()
+  const { policy } = usePasswordPolicy()
 
   const schema = z
     .object({
@@ -45,9 +51,7 @@ export function RegisterPage() {
         .regex(EMAIL_RE, t("validation.email")),
       firstName: z.string().min(1, t("validation.required")),
       lastName: z.string().min(1, t("validation.required")),
-      password: z
-        .string()
-        .min(PASSWORD_LENGTH_FLOOR, t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR })),
+      password: passwordSchema(policy),
       confirmPassword: z.string().min(1, t("validation.required")),
     })
     .refine((data) => data.password === data.confirmPassword, {
@@ -90,7 +94,11 @@ export function RegisterPage() {
         expiresAt: data.verificationCodeExpiresAt,
       })
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      // A refused password lands under the field, every reason at once; only
+      // a failure about something else is left to the toast.
+      if (!applyPasswordServerErrors(form, "password", error)) {
+        toast.error(getErrorMessage(error))
+      }
     }
   }
 
@@ -170,22 +178,10 @@ export function RegisterPage() {
                 </FormItem>
               )}
             />
-            <FormField
+            <PasswordField
               control={form.control}
               name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("auth.password")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      autoComplete="new-password"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label={t("auth.password")}
             />
             <FormField
               control={form.control}

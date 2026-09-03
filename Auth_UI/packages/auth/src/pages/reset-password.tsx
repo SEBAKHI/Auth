@@ -7,7 +7,7 @@ import { toast } from "sonner"
 import { z } from "zod"
 
 import { api } from "@authsystem/api/client"
-import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
+import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import { Button } from "@authsystem/ui/button"
 import { FieldGroup } from "@authsystem/ui/field"
 import {
@@ -23,6 +23,9 @@ import { getErrorMessage } from "@authsystem/api/errors"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Spinner } from "@authsystem/ui/spinner"
 
+import { PasswordField } from "../password-field"
+import { applyPasswordServerErrors, passwordSchema } from "../password-rules"
+
 /**
  * Sets a new password from a reset link. The token in the query string is the
  * whole credential - it identifies the user server-side, so nothing else is
@@ -33,6 +36,7 @@ export function ResetPasswordPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const { policy } = usePasswordPolicy()
 
   const [token] = React.useState(() => searchParams.get("token") ?? "")
 
@@ -44,9 +48,7 @@ export function ResetPasswordPage() {
 
   const schema = z
     .object({
-      newPassword: z
-        .string()
-        .min(PASSWORD_LENGTH_FLOOR, t("validation.minLength", { count: PASSWORD_LENGTH_FLOOR })),
+      newPassword: passwordSchema(policy),
       confirmNewPassword: z.string().min(1, t("validation.required")),
     })
     .refine((data) => data.newPassword === data.confirmNewPassword, {
@@ -68,7 +70,9 @@ export function ResetPasswordPage() {
       toast.success(t("auth.resetSuccess"))
       navigate("/login", { replace: true })
     } catch (error) {
-      toast.error(getErrorMessage(error))
+      if (!applyPasswordServerErrors(form, "newPassword", error)) {
+        toast.error(getErrorMessage(error))
+      }
     }
   }
 
@@ -103,23 +107,11 @@ export function ResetPasswordPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)}>
           <FieldGroup>
-            <FormField
+            <PasswordField
               control={form.control}
               name="newPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("auth.newPassword")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      autoComplete="new-password"
-                      autoFocus
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label={t("auth.newPassword")}
+              autoFocus
             />
             <FormField
               control={form.control}

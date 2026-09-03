@@ -22,13 +22,18 @@ import {
 import { Input } from "@authsystem/ui/input"
 import { Spinner } from "@authsystem/ui/spinner"
 import { api } from "@authsystem/api/client"
-import { PASSWORD_LENGTH_FLOOR } from "@authsystem/api/constants"
 import {
   getErrorFeedback,
   getFieldErrors,
   type ApiErrorFeedback,
 } from "@authsystem/api/errors"
+import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import type { Schemas } from "@authsystem/api/types"
+import { PasswordField } from "@authsystem/auth/password-field"
+import {
+  applyPasswordServerErrors,
+  passwordIssue,
+} from "@authsystem/auth/password-rules"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -48,6 +53,7 @@ export function UserFormDialog({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const isEdit = Boolean(user)
+  const { policy } = usePasswordPolicy()
 
   const schema = React.useMemo(
     () =>
@@ -70,21 +76,17 @@ export function UserFormDialog({
                 message: t("validation.email"),
               })
             }
-            if (
-              !values.password ||
-              values.password.length < PASSWORD_LENGTH_FLOOR
-            ) {
+            const passwordMessage = passwordIssue(values.password ?? "", policy)
+            if (passwordMessage) {
               ctx.addIssue({
                 code: "custom",
                 path: ["password"],
-                message: t("validation.minLength", {
-                  count: PASSWORD_LENGTH_FLOOR,
-                }),
+                message: passwordMessage,
               })
             }
           }
         }),
-    [isEdit, t]
+    [isEdit, policy, t]
   )
 
   type Values = z.infer<typeof schema>
@@ -154,6 +156,13 @@ export function UserFormDialog({
       onOpenChange(false)
     },
     onError: (error, values) => {
+      // A refused password is a domain rule, not a field name, so
+      // getFieldErrors below would never place it; put every reason under the
+      // control instead of one sentence in the alert.
+      if (!isEdit && applyPasswordServerErrors(form, "password", error)) {
+        setFormFailure(null)
+        return
+      }
       const fieldErrors = getFieldErrors(error)
       const availableFields: ReadonlyArray<keyof Values> = isEdit
         ? [
@@ -257,22 +266,10 @@ export function UserFormDialog({
                 </FormItem>
               )}
             />
-            <FormField
+            <PasswordField
               control={form.control}
               name="password"
-              render={({ field, fieldState }) => (
-                <FormItem data-invalid={fieldState.invalid}>
-                  <FormLabel>{t("users.password")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      autoComplete="new-password"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+              label={t("users.password")}
             />
           </>
         ) : null}

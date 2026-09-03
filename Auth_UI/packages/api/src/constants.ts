@@ -3,13 +3,14 @@ export const DEFAULT_PAGE_SIZE = 20
 
 /**
  * The shortest password the server can ever be configured to accept
- * (`Password:MinimumLength` bottoms out here), so anything below it is
- * rejectable locally without a round trip.
+ * (`Password:MinimumLength` bottoms out here, at the System Settings
+ * registry's floor).
  *
- * It is a floor, NOT the live policy: the configured minimum is usually higher
- * (8 out of the box) and only the server knows it. Forms check this, submit,
- * and let the server's answer — which names the real minimum — be the
- * authority. Do not "helpfully" raise this to 8; that is the guess this
- * constant exists to stop each form from making on its own.
+ * It is a floor, NOT the live policy. Forms learn the live policy from
+ * `usePasswordPolicy` (GET /Platform/password-policy) and show it as the person
+ * types; this number only backs FALLBACK_PASSWORD_POLICY, the rule set enforced
+ * while that request has not answered or has failed. Do not "helpfully" raise
+ * it to 8: a fallback stricter than the real policy refuses passwords the
+ * server accepts the moment the policy cannot be fetched.
  */
 export const PASSWORD_LENGTH_FLOOR = 6

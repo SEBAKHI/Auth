@@ -1,13 +1,28 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { describe, expect, it, vi, beforeEach } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { render, screen, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { MemoryRouter, Route, Routes } from "react-router-dom"
 
 import "@authsystem/i18n"
 
 const postMock = vi.fn()
+// The page fetches the live password policy to draw its requirement list; the
+// rules below are the ones "NewPass1!" satisfies further down.
+const getMock = vi.fn(async () => ({
+  data: {
+    minimumLength: 8,
+    requireUppercase: true,
+    requireLowercase: true,
+    requireDigit: true,
+    requireSpecialCharacter: true,
+  },
+}))
 vi.mock("@authsystem/api/client", () => ({
-  api: { POST: (...args: unknown[]) => postMock(...args) },
+  api: {
+    POST: (...args: unknown[]) => postMock(...args),
+    GET: () => getMock(),
+  },
 }))
 
 // The real AuthLayout is only chrome here, but it drags in the theme/language
@@ -36,14 +51,19 @@ vi.mock("@authsystem/ui/auth-layout", () => ({
 const { ResetPasswordPage } = await import("./reset-password")
 
 function renderAt(entry: string) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
   return render(
-    <MemoryRouter initialEntries={[entry]}>
-      <Routes>
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/login" element={<div>signed-in screen</div>} />
-        <Route path="/forgot-password" element={<div>request form</div>} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[entry]}>
+        <Routes>
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/login" element={<div>signed-in screen</div>} />
+          <Route path="/forgot-password" element={<div>request form</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   )
 }
 
@@ -68,6 +88,21 @@ describe("ResetPasswordPage", () => {
     // was really a 43-character token nobody would ever retype.
     expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/reset code/i)).not.toBeInTheDocument()
+  })
+
+  it("shows the live policy under the new password and ticks it as typed", async () => {
+    const user = userEvent.setup()
+    renderAt("/reset-password?token=abc123")
+
+    const list = await screen.findByRole("list", {
+      name: /password requirements/i,
+    })
+    expect(within(list).getAllByRole("listitem")).toHaveLength(5)
+    expect(list.querySelectorAll('[data-met="true"]')).toHaveLength(0)
+
+    await user.type(screen.getByLabelText(/^new password$/i), "NewPass1!")
+
+    expect(list.querySelectorAll('[data-met="true"]')).toHaveLength(5)
   })
 
   it("submits the token from the link and never an email", async () => {

@@ -79,31 +79,11 @@ public partial class PasswordValidator
         return errors.Count > 0 ? errors : Result.Success;
     }
 
-    /// <summary>
-    /// Gets a user-friendly description of the password requirements.
-    /// </summary>
-    public string GetRequirementsDescription()
-    {
-        var requirements = new List<string>
-        {
-            $"At least {_settings.MinimumLength} characters"
-        };
-
-        if (_settings.RequireUppercase)
-            requirements.Add("At least one uppercase letter");
-
-        if (_settings.RequireLowercase)
-            requirements.Add("At least one lowercase letter");
-
-        if (_settings.RequireDigit)
-            requirements.Add("At least one digit");
-
-        if (_settings.RequireSpecialCharacter)
-            requirements.Add("At least one special character");
-
-        return string.Join(", ", requirements);
-    }
-
+    // The character classes below are mirrored, byte for byte, by
+    // PASSWORD_CHARACTER_CLASSES in Auth_UI/packages/api/src/password-policy.ts,
+    // which drives the requirement list a person sees while typing; its test
+    // reads this file and fails on any drift. They are ASCII on purpose: a
+    // Latin-1 capital or an Arabic question mark satisfies neither side.
     [GeneratedRegex("[A-Z]")]
     private static partial Regex UppercaseRegex();
 

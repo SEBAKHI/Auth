@@ -376,6 +376,20 @@ export const fr: TranslationResources = {
     resetSubtitle: "Choisissez un nouveau mot de passe pour votre compte.",
     newPassword: "Nouveau mot de passe",
     confirmPassword: "Confirmer le mot de passe",
+    passwordRulesTitle: "Exigences du mot de passe",
+    passwordRuleMinLength: "Au moins {{count}} caractères",
+    passwordRuleUppercase: "Au moins une lettre majuscule (A–Z)",
+    passwordRuleLowercase: "Au moins une lettre minuscule (a–z)",
+    passwordRuleDigit: "Au moins un chiffre (0–9)",
+    passwordRuleSpecial: "Au moins un symbole, par exemple ! @ # $ %",
+    passwordRuleMet: "Respectée",
+    passwordRuleUnmet: "Pas encore respectée",
+    passwordRulesProgress:
+      "{{met}} exigence(s) sur {{total}} respectée(s) pour le mot de passe",
+    passwordRulesAlsoChecked:
+      "Les mots de passe très courants ou faciles à deviner sont également refusés.",
+    passwordDoesNotMeetRules:
+      "Le mot de passe ne respecte pas toutes les exigences.",
     resetPassword: "Réinitialiser le mot de passe",
     resetSuccess:
       "Votre mot de passe a été réinitialisé. Vous pouvez maintenant vous connecter.",

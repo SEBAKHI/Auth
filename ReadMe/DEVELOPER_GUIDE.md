@@ -2136,11 +2136,12 @@ Outside `/api/`, unversioned, and meant to be linked to from an app store listin
 | GET | `/privacy/{language}` | The published notice as a complete HTML page | Anonymous |
 | GET | `/privacy/v{version}/{language}` | A superseded revision, at a permanent address | Anonymous |
 
-#### Platform — 1 endpoint
+#### Platform — 2 endpoints
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
 | GET | `/api/v1/Platform/branding` | The platform name and logo addresses that sign-in screens draw before anyone is signed in | Anonymous |
+| GET | `/api/v1/Platform/password-policy` | The composition rules a new password must satisfy — the minimum length and the four character-class switches — so sign-up, invitation and reset forms can show them live while the person types | Anonymous |
 
 #### Platform Settings — 2 endpoints
 
@@ -6367,15 +6368,16 @@ Content-Security-Policy: default-src 'none'; style-src 'sha256-…'; base-uri 'n
 
 **Base route:** `/api/v1/Platform`
 
-One anonymous endpoint that answers a question every sign-in screen has to ask before anybody is signed in: what is this platform called, and what is its logo?
+Two anonymous endpoints that answer questions the screens before sign-in have to ask before anybody is signed in: what is this platform called and what is its logo, and what must a new password look like?
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
 | GET | `/api/v1/Platform/branding` | The platform name and logo addresses | **Anonymous** |
+| GET | `/api/v1/Platform/password-policy` | The composition rules for a new password | **Anonymous** |
 
 #### GET `/api/v1/Platform/branding`
 
-**Auth:** Anonymous. **It is the only endpoint on this controller, and it is anonymous by necessity** — the login page, the invitation-acceptance page and the browser tab icon all need it before a token exists.
+**Auth:** Anonymous. **It is anonymous by necessity** — the login page, the invitation-acceptance page and the browser tab icon all need it before a token exists.
 
 **Response (200), on an installation that has a light logo and nothing else:**
 
@@ -6391,6 +6393,26 @@ One anonymous endpoint that answers a question every sign-in screen has to ask b
 **Absolute addresses come from `ImageStorage:PublicBaseUrl`**, which in development is `https://localhost:5101/uploads/images`. The stored value is only a key; the API composes the address when it answers. Changing that setting changes every logo address at once.
 
 **This endpoint reads the same record that [5.21](#521-platform-settings) writes.** It simply returns less of it, and asks for nothing.
+
+#### GET `/api/v1/Platform/password-policy`
+
+**Auth:** Anonymous, for the same reason: the sign-up, invitation-acceptance and reset-password forms take a new password before a token exists, and a form cannot show rules it does not know.
+
+**Response (200), with the shipped policy:**
+
+```json
+{
+  "minimumLength": 8,
+  "requireUppercase": true,
+  "requireLowercase": true,
+  "requireDigit": true,
+  "requireSpecialCharacter": true
+}
+```
+
+**These five properties are the whole payload, by design.** They are the rules a person can act on while typing, and each one is already implied by the validation error it produces. Nothing else under `Password:*` is disclosed — not the lock-out threshold, the history depth, the hashing parameters, nor the breach-check settings — and a test (`PasswordPolicyDisclosureTests`) fails the build the moment a property is added to the DTO.
+
+**The server still judges every submission.** Common patterns, breached passwords and password history are checked only on submit, so a password that satisfies all five rules can still be refused, and every reason comes back localized in the ProblemDetails `errors` array. The values are read live from the same settings the console edits under System settings; the response carries `Cache-Control: public, max-age=60`, so an operator's change reaches the next visitor within the minute.
 
 ---
 
