@@ -34,6 +34,8 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly ExternalNonceGuard _nonceGuard;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly ILoginAttemptRepository _loginAttemptRepository;
+    private readonly Auth.Application.Configuration.PasswordSettings _passwordSettings;
     private readonly ILogger<ExternalLoginCommandHandler> _logger;
 
     public ExternalLoginCommandHandler(
@@ -51,11 +53,15 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         ITwoFactorChallengeService twoFactorChallengeService,
         ExternalNonceGuard nonceGuard,
         IDomainEventDispatcher eventDispatcher,
+        ILoginAttemptRepository loginAttemptRepository,
+        Microsoft.Extensions.Options.IOptionsSnapshot<Auth.Application.Configuration.PasswordSettings> passwordSettings,
         ILogger<ExternalLoginCommandHandler> logger)
     {
         _providerFactory = providerFactory;
         _externalLoginRepository = externalLoginRepository;
         _userRepository = userRepository;
+        _loginAttemptRepository = loginAttemptRepository;
+        _passwordSettings = passwordSettings.Value;
         _permissionRepository = permissionRepository;
         _accountDeletionRequestRepository = accountDeletionRequestRepository;
         _reservationGuard = reservationGuard;
@@ -246,12 +252,29 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         if (statusCheck.IsError)
             return statusCheck.Errors;
 
-        // Check lockout
+        // Check lockout — for strangers only, and only for the automatic lock.
+        // A provider sign-in proves identity by the provider's token rather than
+        // by a guessable password, so when the failure counter raised the lock
+        // the owner's own device (an address they signed in from within thirty
+        // days, or a device with a live session) is not shut out by strangers'
+        // wrong passwords; an administrator's lock stands for everyone. See
+        // LoginCommandHandler for the rule and its per-source ceiling.
         if (user.IsLockedOut())
-            return UserErrors.AccountLockedUntil(user.LockoutEnd);
+        {
+            var familiar = user.IsLockedByFailedAttempts(_passwordSettings.MaxFailedAttempts)
+                && await AuthenticationHelper.IsFamiliarSourceAsync(
+                    _loginAttemptRepository, user.Id, request.IpAddress, request.DeviceId, cancellationToken);
+            if (!familiar)
+                return UserErrors.AccountLockedUntil(user.LockoutEnd);
 
+            // The provider has already vouched for this person: clear the
+            // strangers' lock in full rather than leave a Status=Locked row that
+            // credential renewal would refuse as indefinite.
+            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
+            user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
+        }
         // Auto-unlock if lockout has expired
-        if (user.Status == UserStatus.Locked)
+        else if (user.Status == UserStatus.Locked)
         {
             await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
             user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;

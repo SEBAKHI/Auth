@@ -25,6 +25,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly Auth.Application.Configuration.PasswordSettings _passwordSettings;
     private readonly ILogger<VerifyEmailCommandHandler> _logger;
 
     public VerifyEmailCommandHandler(
@@ -34,6 +35,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
         IDomainEventDispatcher eventDispatcher,
+        Microsoft.Extensions.Options.IOptionsSnapshot<Auth.Application.Configuration.PasswordSettings> passwordSettings,
         ILogger<VerifyEmailCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -42,6 +44,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         _loginResponseBuilder = loginResponseBuilder;
         _twoFactorChallengeService = twoFactorChallengeService;
         _eventDispatcher = eventDispatcher;
+        _passwordSettings = passwordSettings.Value;
         _logger = logger;
     }
 
@@ -158,6 +161,31 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         if (statusCheck.IsError)
         {
             return statusCheck.Errors;
+        }
+
+        // Lockout, mirroring the sign-in handlers. The code just entered proves
+        // control of the mailbox exactly as a completed password reset does, so
+        // a lock raised by strangers' wrong passwords is cleared before the
+        // courtesy sign-in; an administrator's lock is honoured — the address is
+        // verified and stays verified, only the sign-in is refused. Without this
+        // the sign-in below reached RecordSuccessfulLoginAsync on a Locked row
+        // and left it Locked with no expiry: an indefinite lock that credential
+        // renewal refuses and no self-service path could clear.
+        if (user.IsLockedOut())
+        {
+            if (!user.IsLockedByFailedAttempts(_passwordSettings.MaxFailedAttempts))
+            {
+                return UserErrors.AccountLockedUntil(user.LockoutEnd);
+            }
+
+            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
+            user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
+        }
+        else if (user.Status == Auth.Domain.Enums.UserStatus.Locked)
+        {
+            // Expired lock left on the row: repair it as the sign-in handlers do.
+            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
+            user = (await _userRepository.GetByIdAsync(user.Id, cancellationToken))!;
         }
 
         // Defensive parity with login: a user cannot enable two-factor before

@@ -5,6 +5,7 @@ using Auth.Domain.Entities;
 using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Application.DTOs;
+using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
@@ -83,20 +84,65 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return statusCheck.Errors;
         }
 
-        // Check lockout
+        // Check lockout — for strangers only, and only for the automatic lock.
+        // The lock raised by wrong passwords made the counter a weapon: a
+        // stranger who knew the address could lock the owner out — of password
+        // and provider sign-in alike — with five requests, and keep it so for as
+        // long as they cared to repeat them. So when the failure counter raised
+        // the lock (a timed expiry and a count at the threshold; an
+        // administrator's Lock leaves the counter alone), a FAMILIAR source may
+        // still prove the password: an address this account signed in from
+        // within thirty days, or a device with a live session. Everyone else is
+        // refused as before — and so is everyone when the lock is administrative.
         if (user.IsLockedOut())
         {
-            await RecordFailureAsync(user.Id, request.Email,"Account locked",
-                request.IpAddress, request.UserAgent, cancellationToken);
+            var familiar = user.IsLockedByFailedAttempts(_passwordSettings.MaxFailedAttempts)
+                && await AuthenticationHelper.IsFamiliarSourceAsync(
+                    _loginAttemptRepository, user.Id, request.IpAddress, request.DeviceId, cancellationToken);
+            if (!familiar)
+            {
+                await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.AccountLocked,
+                    request.IpAddress, request.UserAgent, cancellationToken);
 
-            return UserErrors.AccountLockedUntil(user.LockoutEnd);
+                return UserErrors.AccountLockedUntil(user.LockoutEnd);
+            }
+
+            _logger.LogInformation(
+                "Locked account {UserId} attempted from a familiar source; admitting to password verification",
+                user.Id);
         }
-
         // Auto-unlock if lockout has expired
-        if (user.Status == UserStatus.Locked)
+        else if (user.Status == UserStatus.Locked)
         {
             await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
             user = (await _userRepository.GetByEmailAsync(request.Email, cancellationToken))!;
+        }
+
+        // Per-source ceiling: the same number of WRONG PASSWORDS from one address
+        // refuses that address for the lockout window, locked account or not. It
+        // is what keeps the familiar-source door above from being an unlimited
+        // guessing slot for an attacker who shares the owner's network, and it
+        // stops a guessing address before its next Argon2 verify rather than
+        // after. Only genuine password failures count: this refusal, the
+        // account-locked refusal and open two-factor ceremonies are recorded but
+        // never extend the window, so an address is free again exactly one
+        // window after its last wrong guess. No address (proxy-less tests, odd
+        // clients) means nothing to attribute to, so nothing extra to refuse.
+        if (request.IpAddress is not null)
+        {
+            var wrongPasswordsFromThisSource = await _loginAttemptRepository.CountFailedAttemptsForUserFromIpAsync(
+                user.Id, request.IpAddress, _passwordSettings.LockoutDuration, cancellationToken);
+            if (wrongPasswordsFromThisSource >= _passwordSettings.MaxFailedAttempts)
+            {
+                await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.SourceLocked,
+                    request.IpAddress, request.UserAgent, cancellationToken);
+
+                // No timestamp: the account is not locked, this address is, and
+                // its window ends one lockout period after its last wrong guess —
+                // a moment this branch does not know. The generic locked answer
+                // is the honest one.
+                return UserErrors.AccountLockedUntil(null);
+            }
         }
 
         // Guard: external-only users (no password) cannot use password login
@@ -118,13 +164,26 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
                 _passwordSettings.LockoutDuration,
                 cancellationToken);
 
-            await RecordFailureAsync(user.Id, request.Email,"Invalid password",
+            await RecordFailureAsync(user.Id, request.Email, LoginFailureReasons.InvalidPassword,
                 request.IpAddress, request.UserAgent, cancellationToken);
 
             _logger.LogWarning("Failed login attempt for user {UserId} from {IpAddress}",
                 user.Id, request.IpAddress);
 
             return UserErrors.InvalidCredentials;
+        }
+
+        // The password is right. If the account was still under the automatic
+        // lock — reachable here only from a familiar source — clear it now, in
+        // full. Leaving Status=Locked while the success below resets the counter
+        // and expiry would read as an INDEFINITE lock: credential renewal
+        // refuses it (User.CanRenewCredentials) and every new device is shut out
+        // with no end. The strangers who raised it keep their per-source
+        // refusals; the account itself is the owner's again.
+        if (user.Status == UserStatus.Locked)
+        {
+            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
+            user = (await _userRepository.GetByEmailAsync(request.Email, cancellationToken))!;
         }
 
         // Check if email is confirmed (only after successful password verification)
@@ -138,8 +197,10 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, ErrorOr<LoginRe
             return UserErrors.EmailNotConfirmed;
         }
 
-        // Check if password needs rehash (parameters changed)
-        if (_passwordHasher.NeedsRehash(user.PasswordHash))
+        // Check if password needs rehash (parameters changed). The hash cannot be
+        // null here — it verified a few lines up — but the unlock above may have
+        // re-read the row, which resets the compiler's null-state narrowing.
+        if (_passwordHasher.NeedsRehash(user.PasswordHash!))
         {
             var newHash = _passwordHasher.HashPassword(request.Password);
             await _userRepository.UpdatePasswordAsync(user.Id, newHash, user.Id, cancellationToken);

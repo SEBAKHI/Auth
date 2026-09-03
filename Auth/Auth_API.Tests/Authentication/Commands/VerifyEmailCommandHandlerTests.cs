@@ -2,6 +2,7 @@ using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.VerifyEmail;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Auth_API.Tests.Helpers;
@@ -38,8 +39,110 @@ public class VerifyEmailCommandHandlerTests
             _loginResponseBuilderMock.Object,
             _twoFactorChallengeServiceMock.Object,
             _eventDispatcherMock.Object,
+            TestHelpers.CreateOptions(new Auth.Application.Configuration.PasswordSettings()),
             _loggerMock.Object);
     }
+
+    [Fact]
+    public async Task Handle_ValidOtpByEmail_AutomaticallyLockedAccount_ClearsTheLockBeforeSigningIn()
+    {
+        // Arrange — strangers locked the account while its address was still
+        // unconfirmed; the code proves the mailbox, so the courtesy sign-in clears
+        // that lock instead of leaving a Locked row with no expiry behind a success
+        var lockedUser = CreateLockedUnconfirmedUser(failedLoginAttempts: 5, lockoutEnd: DateTime.UtcNow.AddMinutes(15));
+        var unlockedUser = TestHelpers.CreateUser(id: lockedUser.Id, email: lockedUser.Email, emailConfirmed: false);
+        var token = TestHelpers.CreateEmailVerificationToken(userId: lockedUser.Id);
+        var command = new VerifyEmailCommand(null, "123456", lockedUser.Email, "127.0.0.1", "TestAgent/1.0");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(lockedUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lockedUser);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(lockedUser.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(unlockedUser);
+        _tokenRepositoryMock
+            .Setup(r => r.GetValidTokenForUserAsync(lockedUser.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(token);
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
+            .Returns(true);
+        SetupTokenBuilder();
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.Login!.Token.Should().NotBeNull();
+        _userRepositoryMock.Verify(
+            r => r.UnlockAsync(lockedUser.Id, lockedUser.Id, It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_ValidOtpByEmail_AdministrativelyLockedAccount_ConfirmsButRefusesTheSignIn()
+    {
+        // Arrange — an administrator's lock (no expiry, counter untouched): the
+        // address is verified and stays verified, but no session is handed out
+        var lockedUser = CreateLockedUnconfirmedUser(failedLoginAttempts: 0, lockoutEnd: null);
+        var token = TestHelpers.CreateEmailVerificationToken(userId: lockedUser.Id);
+        var command = new VerifyEmailCommand(null, "123456", lockedUser.Email, "127.0.0.1", "TestAgent/1.0");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(lockedUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lockedUser);
+        _tokenRepositoryMock
+            .Setup(r => r.GetValidTokenForUserAsync(lockedUser.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(token);
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
+            .Returns(true);
+        SetupTokenBuilder();
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.AccountLocked");
+        _userRepositoryMock.Verify(
+            r => r.ConfirmEmailAsync(lockedUser.Id, lockedUser.Id, It.IsAny<CancellationToken>()),
+            Times.Once());
+        _userRepositoryMock.Verify(
+            r => r.UnlockAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _loginResponseBuilderMock.Verify(
+            b => b.BuildAsync(It.IsAny<User>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    private static User CreateLockedUnconfirmedUser(int failedLoginAttempts, DateTime? lockoutEnd) => new(
+        id: Guid.NewGuid(),
+        email: "locked@example.com",
+        normalizedEmail: "LOCKED@EXAMPLE.COM",
+        passwordHash: "TestPasswordHash",
+        firstName: "Test",
+        lastName: "User",
+        displayName: null,
+        phoneNumber: null,
+        status: UserStatus.Locked,
+        emailConfirmed: false,
+        phoneConfirmed: false,
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        failedLoginAttempts: failedLoginAttempts,
+        lockoutEnd: lockoutEnd,
+        lastLoginAt: null,
+        passwordChangedAt: DateTime.UtcNow,
+        mustChangePassword: false,
+        preferredLanguage: "en",
+        timeZone: "UTC",
+        metadata: null,
+        isSystemUser: false,
+        createdAt: DateTime.UtcNow,
+        createdBy: Guid.NewGuid(),
+        modifiedAt: null,
+        modifiedBy: null);
 
     private static LoginResponse CreateLoginResponse() => new()
     {

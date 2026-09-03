@@ -477,7 +477,7 @@ export const en = {
       "Down {{points}} points on the previous period, now {{rate}}%.",
     alertLockedOut: "{{count}} account(s) are locked out",
     alertLockedOutBody:
-      "They cannot sign in until the lockout expires or is cleared.",
+      "Strangers cannot sign in until the lockout expires or is cleared; the owner's usual device still can.",
     alertFailingIp: "One address is generating repeated failures",
     alertFailingIpBody:
       "{{ip}} produced {{count}} failed attempts across {{users}} username(s).",
@@ -1696,10 +1696,10 @@ export const en = {
         "How many of the user's past passwords cannot be reused. Recommended: 3–5. 0 disables the check.",
       maxFailedAttempts: "Failed attempts before lockout",
       maxFailedAttemptsHint:
-        "After this many wrong passwords the account locks temporarily. Recommended: 5 — low enough to stop guessing, high enough for honest typos.",
+        "After this many wrong passwords the account locks temporarily — for strangers: an address the account signed in from within 30 days, or a device with a live session, may still try, and the same count also caps any single address on its own. Recommended: 5 — low enough to stop guessing, high enough for honest typos.",
       lockoutDurationMinutes: "Lockout duration (minutes)",
       lockoutDurationMinutesHint:
-        "How long the account stays locked. Recommended: 15 — meaningful brake on attackers with limited user pain.",
+        "How long the account stays locked — and how long a single address is refused after its own wrong passwords. Recommended: 15 — meaningful brake on attackers with limited user pain.",
       argon2MemorySize: "Argon2 memory (KB)",
       argon2MemorySizeHint:
         "Memory used to hash each password. Recommended: 19456 (19 MiB, the OWASP minimum). Higher is stronger but slows every sign-in.",

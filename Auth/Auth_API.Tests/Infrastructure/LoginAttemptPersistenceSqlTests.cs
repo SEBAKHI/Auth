@@ -107,6 +107,48 @@ public class LoginAttemptPersistenceSqlTests
     }
 
     [Fact]
+    public void ThePerAddressCeilingCountsOnlyWrongPasswords()
+    {
+        // Refusals ("Account locked", "Source locked") and open ceremonies are rows
+        // too. Counting them would let each refused retry re-arm the window, and a
+        // shared address could then be kept refused for ever by one request per
+        // window.
+        var count = MethodBody(
+            ReadLoginAttemptRepository(),
+            "public async Task<int> CountFailedAttemptsForUserFromIpAsync",
+            "public async Task<bool> HasSucceededFromAsync");
+
+        count.Should().Contain("AND [IsSuccessful] = 0");
+        count.Should().Contain("AND [FailureReason] = @WrongPassword");
+        count.Should().Contain("LoginFailureReasons.InvalidPassword");
+    }
+
+    [Fact]
+    public void FamiliarityByDeviceRequiresALiveSession()
+    {
+        // Session rows are kept for history. A device the owner forgot or an
+        // administrator revoked must not stay familiar for the life of the table.
+        var familiar = MethodBody(
+            ReadLoginAttemptRepository(),
+            "public async Task<bool> HasSucceededFromAsync",
+            "public async Task CleanupOldAttemptsAsync");
+
+        familiar.Should().Contain("AND [IsSuccessful] = 1");
+        familiar.Should().Contain("AND [EndedAt] IS NULL");
+        familiar.Should().Contain("AND [ExpiresAt] > GETUTCDATE()");
+    }
+
+    [Fact]
+    public void TheReasonConstantsStillSpellTheLiteralsTheReadersMatch()
+    {
+        // The dashboard matches N'Account locked' as prose; the per-address ceiling
+        // matches the constant. Both stay true only while the constants keep the
+        // exact text the table comment documents.
+        Auth.Domain.Constants.LoginFailureReasons.AccountLocked.Should().Be("Account locked");
+        Auth.Domain.Constants.LoginFailureReasons.InvalidPassword.Should().Be("Invalid password");
+    }
+
+    [Fact]
     public void TheLockedOutMetricStillMatchesTheLiteralTheLoginFlowWrites()
     {
         // Coupled to prose by design, and noted in the table comment. If the

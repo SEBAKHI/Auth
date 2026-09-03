@@ -3,6 +3,7 @@ using Auth.Application.Features.Authentication.ResetPassword;
 using Auth.Application.Interfaces;
 using Auth.Application.Validators;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
@@ -286,6 +287,109 @@ public class ResetPasswordCommandHandlerTests
         // Assert
         _passwordResetTokenRepositoryMock.Verify(r => r.InvalidateAllForUserAsync(
             user.Id, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AutomaticallyLockedAccount_ClearsTheLock()
+    {
+        // Arrange — locked by strangers' wrong passwords (timed, counter at the
+        // threshold); a completed reset proves the mailbox, so nothing is left to guard
+        var user = CreateLockedUser(failedLoginAttempts: 5, lockoutEnd: DateTime.UtcNow.AddMinutes(15));
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+
+        SetupValidResetScenario(user, resetToken, command);
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        _userRepositoryMock.Verify(r => r.UnlockAsync(
+            user.Id, user.Id, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AdministrativelyLockedAccount_LeavesTheLockInPlace()
+    {
+        // Arrange — an administrator's lock: no expiry, counter untouched. A
+        // self-service reset must never undo an incident-response decision.
+        var user = CreateLockedUser(failedLoginAttempts: 0, lockoutEnd: null);
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+
+        SetupValidResetScenario(user, resetToken, command);
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        _userRepositoryMock.Verify(r => r.UnlockAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_TimedAdministrativeLock_LeavesTheLockInPlace()
+    {
+        // Arrange — an administrator's 24-hour lock; Lock() zeroed the counter, so
+        // the expiry alone must not make a self-service reset clear it
+        var user = CreateLockedUser(failedLoginAttempts: 0, lockoutEnd: DateTime.UtcNow.AddHours(24));
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+
+        SetupValidResetScenario(user, resetToken, command);
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        _userRepositoryMock.Verify(r => r.UnlockAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    private static User CreateLockedUser(int failedLoginAttempts, DateTime? lockoutEnd) => new(
+        id: Guid.NewGuid(),
+        email: "john@example.com",
+        normalizedEmail: "JOHN@EXAMPLE.COM",
+        passwordHash: "OldHashedPassword",
+        firstName: "John",
+        lastName: "Doe",
+        displayName: null,
+        phoneNumber: null,
+        status: UserStatus.Locked,
+        emailConfirmed: true,
+        phoneConfirmed: false,
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        failedLoginAttempts: failedLoginAttempts,
+        lockoutEnd: lockoutEnd,
+        lastLoginAt: null,
+        passwordChangedAt: DateTime.UtcNow.AddDays(-30),
+        mustChangePassword: false,
+        preferredLanguage: "en",
+        timeZone: "UTC",
+        metadata: null,
+        isSystemUser: false,
+        createdAt: DateTime.UtcNow.AddDays(-60),
+        createdBy: Guid.NewGuid(),
+        modifiedAt: null,
+        modifiedBy: null);
+
+    [Fact]
+    public async Task Handle_ActiveAccount_LeavesStatusAlone()
+    {
+        // Arrange
+        var user = TestHelpers.CreateUser(email: "john@example.com");
+        var resetToken = TestHelpers.CreatePasswordResetToken(userId: user.Id, tokenHash: ValidTokenHash);
+        var command = new ResetPasswordCommand(ValidToken, "NewPass1!");
+
+        SetupValidResetScenario(user, resetToken, command);
+
+        // Act
+        await _handler.Handle(command, CancellationToken.None);
+
+        // Assert — Unlock also sets Active, so it must not run for an account that is not Locked
+        _userRepositoryMock.Verify(r => r.UnlockAsync(
+            It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

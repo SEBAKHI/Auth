@@ -478,7 +478,7 @@ export const tr: TranslationResources = {
       "Önceki döneme göre {{points}} puan düşerek %{{rate}} oldu.",
     alertLockedOut: "{{count}} hesap kilitli",
     alertLockedOutBody:
-      "Kilit sona erene veya kaldırılana kadar giriş yapamazlar.",
+      "Yabancılar kilit sona erene veya kaldırılana kadar giriş yapamaz; hesap sahibinin alışılmış cihazı yapabilir.",
     alertFailingIp: "Bir adres tekrarlayan hatalar üretiyor",
     alertFailingIpBody:
       "{{ip}}, {{users}} kullanıcı adı üzerinde {{count}} başarısız deneme üretti.",
@@ -1688,10 +1688,10 @@ export const tr: TranslationResources = {
         "Kullanıcının geçmiş parolalarından kaçının yeniden kullanılamayacağı. Önerilen: 3–5. 0 denetimi devre dışı bırakır.",
       maxFailedAttempts: "Kilitlenmeden önceki başarısız denemeler",
       maxFailedAttemptsHint:
-        "Bu kadar yanlış paroladan sonra hesap geçici olarak kilitlenir. Önerilen: 5 — tahmini durduracak kadar düşük, masum yazım hatalarına yer bırakacak kadar yüksek.",
+        "Bu kadar yanlış paroladan sonra hesap geçici olarak kilitlenir — yabancılara karşı: hesabın son 30 günde giriş yaptığı bir adres veya canlı oturumu olan bir cihaz denemeye devam edebilir ve aynı sayı her adresi tek başına da sınırlar. Önerilen: 5 — tahmini durduracak kadar düşük, masum yazım hatalarına yer bırakacak kadar yüksek.",
       lockoutDurationMinutes: "Kilitleme süresi (dakika)",
       lockoutDurationMinutesHint:
-        "Hesabın ne kadar süre kilitli kaldığı. Önerilen: 15 — kullanıcıyı fazla zorlamadan saldırganlara anlamlı bir fren.",
+        "Hesabın ne kadar süre kilitli kaldığı — ve tek bir adresin kendi yanlış parolalarından sonra ne kadar süre reddedildiği. Önerilen: 15 — kullanıcıyı fazla zorlamadan saldırganlara anlamlı bir fren.",
       argon2MemorySize: "Argon2 belleği (KB)",
       argon2MemorySizeHint:
         "Her parolayı karma işleminden geçirmek için kullanılan bellek. Önerilen: 19456 (19 MiB, OWASP alt sınırı). Daha yüksek değer daha güçlüdür ama her oturum açmayı yavaşlatır.",
