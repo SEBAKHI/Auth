@@ -42,11 +42,27 @@ public class TokenBlacklistService : ITokenBlacklistService, IDisposable
         _cleanupTimer = new Timer(_ => CleanupExpiredEntries(), null, TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
     }
 
+    /// <summary>
+    /// Longest key this store accepts. Matches RevokedTokens.RevocationKey
+    /// (NVARCHAR(200)), so nothing can sit in memory that the durable copy
+    /// would refuse — and this process never issues a jti or session id
+    /// anywhere near it (they are GUIDs). Anything longer is not one of ours.
+    /// </summary>
+    public const int MaxKeyLength = 200;
+
     /// <inheritdoc />
     public void BlacklistToken(string jti, DateTime expiresAt)
     {
         if (string.IsNullOrEmpty(jti))
         {
+            return;
+        }
+
+        if (jti.Length > MaxKeyLength)
+        {
+            _logger.LogWarning(
+                "Refused to blacklist a {Length}-character jti: keys longer than {Max} are never issued by this process and cannot be persisted",
+                jti.Length, MaxKeyLength);
             return;
         }
 

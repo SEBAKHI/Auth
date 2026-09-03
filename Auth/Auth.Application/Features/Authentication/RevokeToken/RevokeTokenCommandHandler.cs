@@ -71,16 +71,17 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
 
         if (validationResult.IsError)
         {
-            // Even if validation fails, try to extract the JTI and blacklist it
-            var jti = _jwtTokenService.GetTokenId(token);
-            if (!string.IsNullOrEmpty(jti))
-            {
-                // Blacklist with a generous expiration
-                _tokenBlacklistService.BlacklistToken(jti, DateTime.UtcNow.AddHours(24));
-                _logger.LogInformation("Blacklisted invalid/expired access token with JTI: {Jti}", jti);
-                return Result.Success;
-            }
-
+            // Nothing is stored for a token this process did not sign. A
+            // fallback used to live here that read the UNVERIFIED JWT anyway
+            // and pinned its jti in memory for 24 hours — which made this
+            // anonymous endpoint a memory sink: any caller could mint an
+            // unsigned token carrying a 250 KB jti (the parser's size limit)
+            // and park it here at the edge's twenty requests a minute per
+            // address, for a day, with nothing to evict it but the clock. A
+            // token that fails validation is forged (nothing of ours to
+            // revoke), expired (already dead) or malformed — in every case the
+            // correct amount of state to keep is zero.
+            //
             // RFC 7009 2.2: "the authorization server responds with HTTP status
             // code 200 if the token has been revoked successfully OR IF THE CLIENT
             // SUBMITTED AN INVALID TOKEN." Answering an error would tell an
@@ -89,7 +90,7 @@ public class RevokeTokenCommandHandler : IRequestHandler<RevokeTokenCommand, Err
             // revoked because there was nothing to revoke, which is the outcome
             // the caller asked for.
             _logger.LogInformation(
-                "Revocation requested for a token that could not be parsed; nothing to revoke");
+                "Revocation requested for a token that could not be validated; nothing to revoke");
             return Result.Success;
         }
 

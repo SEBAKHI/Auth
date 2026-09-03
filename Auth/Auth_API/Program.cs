@@ -921,6 +921,32 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             }));
 
+    // The gateway-exempt public surface: /health, /ready and the three
+    // /.well-known discovery documents answer without the gateway token, so
+    // they are the one place this process meets anonymous traffic it cannot
+    // attribute — a direct caller writes X-Forwarded-For itself, and a
+    // per-client partition here would hand every request a fresh bucket.
+    // Hence a SINGLE process-wide partition and a concurrency ceiling rather
+    // than a window: the number bounds how many of these requests are in
+    // flight at once, which is what shields the thread pool and, behind
+    // /ready, the cached single-flight database probe. Sixteen is generous
+    // for any real probe cadence (monitors ask every ten to thirty seconds)
+    // and is a constant rather than a setting because it sizes this process's
+    // own headroom, not tenant demand. Rejections are 429 like every other
+    // policy; a monitor that sees one during a flood is seeing the truth.
+    // The version stamp is kept even though nothing here is read from settings
+    // today: every named policy in this process is stamped, the guard test
+    // enforces it, and it costs nothing — if the ceiling ever becomes a
+    // setting, the hot-reload path is already in place.
+    options.AddPolicy("public-surface", _ =>
+        RateLimitPartition.GetConcurrencyLimiter(
+            partitionKey: $"v{settingsVersion()}:public-surface",
+            factory: _ => new ConcurrencyLimiterOptions
+            {
+                PermitLimit = 16,
+                QueueLimit = 0
+            }));
+
     options.OnRejected = async (context, token) =>
     {
         var localizer = context.HttpContext.RequestServices
@@ -964,15 +990,18 @@ builder.Services.AddOpenApi("v1", options =>
 //                                       AND the JWT signing key is loaded.
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy("Auth API process is running."), tags: ["live"])
-    // Bounded explicitly: the database is on a remote host, and a probe that
-    // hangs on a network stall is worse than one that reports Degraded — an
-    // unbounded readiness check turns a slow link into an apparent outage.
-    .AddSqlServer(
-        connectionString,
-        name: "database",
+    // Cached and single-flight, not the stock SQL Server check: /ready is
+    // exempt from the gateway token, so it is where anonymous, unattributable
+    // traffic can make this process open pooled connections. The stock check
+    // opened one per request, and a burst of free GETs could hold the whole
+    // pool for the probe's five-second timeout with sign-in starving behind
+    // it. This one asks the database at most once per five seconds and lets
+    // every concurrent caller share that answer; the timeout is unchanged.
+    .AddTypeActivatedCheck<DatabaseReadinessHealthCheck>(
+        "database",
         failureStatus: HealthStatus.Degraded,
         tags: ["ready"],
-        timeout: TimeSpan.FromSeconds(5))
+        args: connectionString)
     .AddTypeActivatedCheck<SigningKeyHealthCheck>(
         "signing-key",
         failureStatus: HealthStatus.Unhealthy,
@@ -1140,16 +1169,18 @@ Task WriteHealthResponse(HttpContext httpContext, HealthReport report)
     return httpContext.Response.WriteAsync(HealthCheckJsonFormatter.Serialize(report, exposeHealthErrors));
 }
 
+// Both probes carry the public-surface concurrency ceiling (see the policy):
+// they are exempt from the gateway token and answer anonymous callers directly.
 app.MapHealthChecks("/health", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("live"),
     ResponseWriter = WriteHealthResponse
-});
+}).RequireRateLimiting("public-surface");
 app.MapHealthChecks("/ready", new HealthCheckOptions
 {
     Predicate = check => check.Tags.Contains("ready"),
     ResponseWriter = WriteHealthResponse
-});
+}).RequireRateLimiting("public-surface");
 
 app.MapControllers();
 

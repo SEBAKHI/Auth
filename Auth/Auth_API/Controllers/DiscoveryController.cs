@@ -7,6 +7,7 @@ using Auth.Application.Features.Discovery.GetPublicKey;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 namespace Auth_API.Controllers;
@@ -18,6 +19,9 @@ namespace Auth_API.Controllers;
 [ApiController]
 [ApiVersionNeutral]  // Excludes from API versioning - OIDC spec requires fixed paths
 [AllowAnonymous]
+// Gateway-token exempt and anonymous, so it shares the process-wide public-surface
+// concurrency ceiling with /health and /ready. See the policy in Program.cs.
+[EnableRateLimiting("public-surface")]
 public class DiscoveryController : ApiController
 {
     private readonly ISender _sender;

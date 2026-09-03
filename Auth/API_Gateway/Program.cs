@@ -356,7 +356,11 @@ else
 
 builder.Services.AddHealthChecks()
     .AddCheck("self", () => HealthCheckResult.Healthy("API Gateway process is running."), tags: ["live"])
-    .AddUrlGroup(new Uri(authApiReadyUrl), name: "auth-api", tags: ["ready"]);
+    // Bounded like the origin's own database probe: without a timeout this
+    // check rode the HttpClient default of 100 seconds, so a slow origin parked
+    // every gateway /ready caller for that long. Five seconds matches the
+    // origin's probe timeout, and the origin now caches its answer anyway.
+    .AddUrlGroup(new Uri(authApiReadyUrl), name: "auth-api", tags: ["ready"], timeout: TimeSpan.FromSeconds(5));
 
 // System settings shared with the Auth API (CORS origins, health-error detail).
 // This process has no database layer by design, so it pulls them from the API
