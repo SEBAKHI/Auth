@@ -123,10 +123,20 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             return OrganizationErrors.PendingInvitationExists(request.Email);
         }
 
-        // Generate the secure token, then store only its hash. The plaintext lives
-        // in the invitation email and in the DTO returned to the inviter who just
-        // created it; it is never written down. Same treatment, and the same HMAC
-        // key, as refresh tokens and password-reset tokens.
+        // Generate the secure token, then store only its hash. Same treatment, and
+        // the same HMAC key, as refresh tokens and password-reset tokens.
+        //
+        // The plaintext goes to the invited mailbox and to nowhere the inviter can
+        // reach. That is not tidiness: redeeming this token confirms the new
+        // account's address with no further proof, so the whole design rests on
+        // delivery to that mailbox being the only way to obtain it. This handler
+        // used to return the plaintext to its caller, which made the premise false.
+        //
+        // One copy does outlive the send, and the comment here once denied it: the
+        // rendered mail is persisted in NotificationOutbox.BodyHtml and readable
+        // through the outbox screen. That is a platform permission an organization
+        // owner does not hold, so the boundary stands — but it is a real copy and
+        // saying otherwise is how the next reader re-derives the wrong conclusion.
         var token = _tokenGenerator.Generate();
         var tokenHash = _tokenKeyService.ComputeTokenHash(token);
 
@@ -172,19 +182,24 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
             },
             cancellationToken);
 
-        // Email failure must not fail the command: the token stays available
-        // to the admin in the response/UI and can be shared manually.
+        // Email failure must not fail the command. The invitation is created and
+        // stands; what failed is one delivery attempt, and resending re-mails it.
+        //
+        // This used to say the token stayed available to the administrator in the
+        // response so it could be shared by hand. That fallback was never reachable
+        // from the product — the only caller discards the response body — and it
+        // was the whole vulnerability. There is deliberately no replacement: a
+        // "reveal the token" endpoint would be the same hole under a better name.
         if (sendResult.IsError)
         {
             _logger.LogWarning(
-                "Failed to send invitation email for invitation {InvitationId}: {Error}; token remains available to admin",
+                "Failed to send invitation email for invitation {InvitationId}: {Error}; the invitation stands and can be resent",
                 invitation.Id, sendResult.FirstError.Description);
         }
 
         return new OrganizationInvitationDto
         {
             Id = invitation.Id,
-            Token = token,
             OrganizationId = invitation.OrganizationId,
             OrganizationName = organization.Name,
             OrganizationLogoUrl = organization.LogoUrl,

@@ -13671,7 +13671,6 @@ export interface components {
         OrganizationInvitationDto: {
             /** Format: uuid */
             id?: string;
-            token?: null | string;
             /** Format: uuid */
             organizationId?: string;
             organizationName?: string;
