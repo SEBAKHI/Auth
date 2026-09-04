@@ -288,7 +288,6 @@ export const ur: TranslationResources = {
     theme: "تھیم",
     timeZone: "ٹائم زون",
     timestamp: "وقت",
-    token: "ٹوکن",
     translationCount: "تراجم",
     twoFactorEnabled: "دو مرحلہ توثیق فعال",
     typeCode: "قسم کا کوڈ",

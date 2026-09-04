@@ -285,7 +285,6 @@ export const zh: TranslationResources = {
     theme: "主题",
     timeZone: "时区",
     timestamp: "时间戳",
-    token: "令牌",
     translationCount: "翻译",
     twoFactorEnabled: "双重认证已启用",
     typeCode: "类型代码",

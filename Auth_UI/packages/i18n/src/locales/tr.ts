@@ -288,7 +288,6 @@ export const tr: TranslationResources = {
     theme: "Tema",
     timeZone: "Saat dilimi",
     timestamp: "Zaman damgası",
-    token: "Jeton",
     translationCount: "Çeviriler",
     twoFactorEnabled: "İki adımlı doğrulama etkin",
     typeCode: "Tür kodu",

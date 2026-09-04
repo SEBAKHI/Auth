@@ -287,7 +287,6 @@ export const fa: TranslationResources = {
     theme: "پوسته",
     timeZone: "منطقه زمانی",
     timestamp: "زمان",
-    token: "توکن",
     translationCount: "ترجمه‌ها",
     twoFactorEnabled: "احراز دومرحله‌ای فعال",
     typeCode: "کد نوع",

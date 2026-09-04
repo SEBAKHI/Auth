@@ -289,7 +289,6 @@ export const en = {
     theme: "Theme",
     timeZone: "Time zone",
     timestamp: "Timestamp",
-    token: "Token",
     translationCount: "Translations",
     twoFactorEnabled: "Two-factor enabled",
     typeCode: "Type code",

@@ -288,7 +288,6 @@ export const fr: TranslationResources = {
     theme: "Thème",
     timeZone: "Fuseau horaire",
     timestamp: "Horodatage",
-    token: "Jeton",
     translationCount: "Traductions",
     twoFactorEnabled: "Deux facteurs activés",
     typeCode: "Code du type",

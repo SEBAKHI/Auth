@@ -286,7 +286,6 @@ export const ar: TranslationResources = {
     theme: "السمة",
     timeZone: "المنطقة الزمنية",
     timestamp: "التوقيت",
-    token: "الرمز المميز",
     translationCount: "الترجمات",
     twoFactorEnabled: "المصادقة الثنائية مفعّلة",
     typeCode: "رمز النوع",
