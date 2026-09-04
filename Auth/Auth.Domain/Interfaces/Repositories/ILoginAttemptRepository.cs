@@ -70,6 +70,30 @@ public interface ILoginAttemptRepository
         CancellationToken cancellationToken);
 
     /// <summary>
+    /// Counts failed attempts against one account from one client address
+    /// within a time window. The per-source half of the lockout: an address
+    /// that keeps failing is refused even when it is otherwise trusted.
+    /// </summary>
+    Task<int> CountFailedAttemptsForUserFromIpAsync(
+        Guid userId,
+        string ipAddress,
+        TimeSpan window,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Whether this account has signed in successfully from the given client
+    /// address within <paramref name="lookback"/>, or holds a session on the
+    /// given device — a "familiar" source, which a lock raised by strangers'
+    /// wrong passwords does not shut out.
+    /// </summary>
+    Task<bool> HasSucceededFromAsync(
+        Guid userId,
+        string? ipAddress,
+        string? deviceId,
+        TimeSpan lookback,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Cleans up old login attempts.
     /// </summary>
     Task CleanupOldAttemptsAsync(DateTime olderThan, CancellationToken cancellationToken);

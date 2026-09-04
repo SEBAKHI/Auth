@@ -459,6 +459,13 @@ Lockout is applied in a single SQL `UPDATE` that increments the failure counter 
 sets both the lockout expiry and the user's status. The account unlocks itself on the next login attempt
 after the lockout window passes.
 
+Since September 2026 that automatic lock is not absolute. A *familiar source* — a client address with a
+successful sign-in for the account in the last 30 days, or a device holding a live session — may still sign in
+(password or provider) while the lock stands, and a success clears the lock in full. An administrator's lock
+(no expiry, counter untouched) is never relaxed, and a completed password reset clears only the automatic
+lock. Independently, each client address is refused after the same five wrong passwords against the account
+within one window, before the password is verified; refusals do not extend the window.
+
 **The email-unconfirmed check happens after password verification, deliberately** — checking it first
 would let an attacker enumerate which addresses are registered.
 
@@ -691,7 +698,7 @@ Protection is entirely application-side. A deployed connection string may carry
 | **SQL injection** | Parameterized queries via Dapper — user input is never concatenated into SQL |
 | **XSS** (cross-site scripting) | Content Security Policy headers on both the API and the two SPAs; React escapes rendered text by default |
 | **CSRF** (cross-site request forgery) | The API is token-authenticated: a browser sends a bearer token, not an ambient cookie, so classic CSRF does not apply to the API surface. The one cookie the system sets is the identity-provider session cookie `auth_idp` — `HttpOnly`, `Secure`, `SameSite=Lax`, host-only. **No anti-forgery token is issued or validated anywhere in this repository.** |
-| **Brute force** | Two separate controls. **Rate limit:** 20 requests per 60 seconds per client IP on the `login` policy. **Account lockout:** 5 failed password verifications lock the account for 15 minutes. |
+| **Brute force** | Two separate controls. **Rate limit:** 20 requests per 60 seconds per client IP on the `login` policy. **Account lockout:** 5 failed password verifications lock the account for 15 minutes — for strangers; a source the account recently signed in from still may, and each address is capped at the same five on its own (see Account lockout). |
 | **Session hijacking** | Refresh-token rotation with reuse detection; the identity-provider cookie is `HttpOnly` and `Secure`; the access token is never written to disk by either SPA |
 | **Protocol downgrade** | HTTPS redirection always on; HSTS outside Development |
 

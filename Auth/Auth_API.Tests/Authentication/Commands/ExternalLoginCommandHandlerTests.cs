@@ -1,7 +1,9 @@
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Interfaces;
+using Auth.Application.Configuration;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
@@ -30,6 +32,7 @@ public class ExternalLoginCommandHandlerTests
     private readonly List<IDomainEvent> _dispatchedEvents = [];
     private readonly Mock<ILogger<ExternalLoginCommandHandler>> _loggerMock;
     private readonly Mock<IExternalAuthProvider> _providerMock;
+    private readonly Mock<ILoginAttemptRepository> _loginAttemptRepositoryMock = new();
     private readonly ExternalLoginCommandHandler _handler;
 
     public ExternalLoginCommandHandlerTests()
@@ -78,6 +81,8 @@ public class ExternalLoginCommandHandlerTests
             _twoFactorChallengeServiceMock.Object,
             TestHelpers.CreateExternalNonceGuard(),
             _eventDispatcherMock.Object,
+            _loginAttemptRepositoryMock.Object,
+            TestHelpers.CreateOptions(new PasswordSettings()),
             _loggerMock.Object);
     }
 
@@ -137,6 +142,8 @@ public class ExternalLoginCommandHandlerTests
             _twoFactorChallengeServiceMock.Object,
             TestHelpers.CreateExternalNonceGuard(requireNonce: true),
             _eventDispatcherMock.Object,
+            _loginAttemptRepositoryMock.Object,
+            TestHelpers.CreateOptions(new PasswordSettings()),
             _loggerMock.Object);
 
     [Fact]
@@ -225,6 +232,136 @@ public class ExternalLoginCommandHandlerTests
         var result = await _handler.Handle(CreateCommand(), CancellationToken.None);
 
         result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_LockedAccount_FamiliarDevice_SignsInAndClearsTheLock()
+    {
+        // Arrange — locked by strangers' wrong passwords; the provider has vouched
+        // for this person and the device holds a live session, so the lock is not theirs
+        var lockedUser = CreateLockedUser(failedLoginAttempts: 5, lockoutEnd: DateTime.UtcNow.AddMinutes(15));
+        var unlockedUser = TestHelpers.CreateUser(id: lockedUser.Id, email: lockedUser.Email);
+
+        _providerFactoryMock.Setup(f => f.GetProvider("google")).Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync("valid-id-token", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateExternalUserInfo());
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync("google", "provider-user-123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("external@test.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lockedUser);
+        _userRepositoryMock
+            .Setup(r => r.GetByIdAsync(lockedUser.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(unlockedUser);
+        _loginAttemptRepositoryMock
+            .Setup(r => r.HasSucceededFromAsync(
+                lockedUser.Id, It.IsAny<string?>(), "known-device", It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(
+                It.IsAny<Auth.Domain.Entities.User>(), It.IsAny<string?>(), It.IsAny<string?>(),
+                It.IsAny<string?>(), It.IsAny<CancellationToken>(), true, null, null))
+            .ReturnsAsync(CreateLoginResponse());
+
+        // Act
+        var result = await _handler.Handle(CreateCommand(deviceId: "known-device"), CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        _userRepositoryMock.Verify(
+            r => r.UnlockAsync(lockedUser.Id, lockedUser.Id, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_LockedAccount_UnfamiliarDevice_IsRefused()
+    {
+        // Arrange — same lock, a device the account has never used
+        var lockedUser = CreateLockedUser(failedLoginAttempts: 5, lockoutEnd: DateTime.UtcNow.AddMinutes(15));
+
+        _providerFactoryMock.Setup(f => f.GetProvider("google")).Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync("valid-id-token", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateExternalUserInfo());
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync("google", "provider-user-123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("external@test.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lockedUser);
+
+        // Act
+        var result = await _handler.Handle(CreateCommand(deviceId: "new-device"), CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.AccountLockedUntil");
+        _userRepositoryMock.Verify(
+            r => r.UnlockAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    private static User CreateLockedUser(int failedLoginAttempts, DateTime? lockoutEnd) => new(
+        id: Guid.NewGuid(),
+        email: "external@test.com",
+        normalizedEmail: "EXTERNAL@TEST.COM",
+        passwordHash: null,
+        firstName: "External",
+        lastName: "User",
+        displayName: null,
+        phoneNumber: null,
+        status: UserStatus.Locked,
+        emailConfirmed: true,
+        phoneConfirmed: false,
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        failedLoginAttempts: failedLoginAttempts,
+        lockoutEnd: lockoutEnd,
+        lastLoginAt: null,
+        passwordChangedAt: null,
+        mustChangePassword: false,
+        preferredLanguage: "en",
+        timeZone: "UTC",
+        metadata: null,
+        isSystemUser: false,
+        createdAt: DateTime.UtcNow,
+        createdBy: Guid.NewGuid(),
+        modifiedAt: null,
+        modifiedBy: null);
+
+    [Fact]
+    public async Task Handle_AdministrativelyLockedAccount_FamiliarDevice_IsStillRefused()
+    {
+        // Arrange — an administrator's lock: no expiry, counter untouched. A
+        // provider token from a familiar device does not open that door.
+        var adminLocked = CreateLockedUser(failedLoginAttempts: 0, lockoutEnd: null);
+
+        _providerFactoryMock.Setup(f => f.GetProvider("google")).Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync("valid-id-token", null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateExternalUserInfo());
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync("google", "provider-user-123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("external@test.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(adminLocked);
+        _loginAttemptRepositoryMock
+            .Setup(r => r.HasSucceededFromAsync(
+                It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _handler.Handle(CreateCommand(deviceId: "known-device"), CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.AccountLocked");
+        _userRepositoryMock.Verify(
+            r => r.UnlockAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

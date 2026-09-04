@@ -285,6 +285,410 @@ public class LoginCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_LockedAccount_FamiliarSource_SignsInAndClearsTheLock()
+    {
+        // Arrange — locked by strangers' wrong passwords (timed, counter at the
+        // threshold), but this device has signed in before: the lock is for them
+        var lockedUser = new User(
+            id: Guid.NewGuid(),
+            email: "owner@example.com",
+            normalizedEmail: "OWNER@EXAMPLE.COM",
+            passwordHash: "TestPasswordHash",
+            firstName: "Test",
+            lastName: "User",
+            displayName: null,
+            phoneNumber: null,
+            status: UserStatus.Locked,
+            emailConfirmed: true,
+            phoneConfirmed: false,
+            twoFactorEnabled: false,
+            twoFactorSecret: null,
+            failedLoginAttempts: 5,
+            lockoutEnd: DateTime.UtcNow.AddMinutes(15),
+            lastLoginAt: null,
+            passwordChangedAt: DateTime.UtcNow,
+            mustChangePassword: false,
+            preferredLanguage: "en",
+            timeZone: "UTC",
+            metadata: null,
+            isSystemUser: false,
+            createdAt: DateTime.UtcNow,
+            createdBy: Guid.NewGuid(),
+            modifiedAt: null,
+            modifiedBy: null);
+
+        var unlockedUser = TestHelpers.CreateUser(id: lockedUser.Id, email: lockedUser.Email);
+        var command = CreateCommand(email: lockedUser.Email, deviceId: "known-device");
+        var loginResponse = CreateLoginResponse();
+
+        _userRepositoryMock
+            .SetupSequence(r => r.GetByEmailAsync(lockedUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lockedUser)
+            .ReturnsAsync(unlockedUser);
+        _loginAttemptRepositoryMock
+            .Setup(r => r.HasSucceededFromAsync(
+                lockedUser.Id, command.IpAddress, command.DeviceId, It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword(command.Password, lockedUser.PasswordHash!))
+            .Returns(true);
+        _passwordHasherMock
+            .Setup(h => h.NeedsRehash(unlockedUser.PasswordHash!))
+            .Returns(false);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(unlockedUser, command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(loginResponse);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert — the owner gets in, and the account is theirs again: the lock
+        // is cleared in full, not left as a Status=Locked row that credential
+        // renewal would read as indefinite
+        result.IsError.Should().BeFalse();
+        _userRepositoryMock.Verify(
+            r => r.UnlockAsync(lockedUser.Id, lockedUser.Id, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Handle_AdministrativeLock_FamiliarSource_IsStillRefused()
+    {
+        // Arrange — locked by an administrator: no expiry, counter untouched.
+        // Familiarity must not open that door; it is an incident-response decision.
+        var adminLocked = new User(
+            id: Guid.NewGuid(),
+            email: "incident@example.com",
+            normalizedEmail: "INCIDENT@EXAMPLE.COM",
+            passwordHash: "TestPasswordHash",
+            firstName: "Test",
+            lastName: "User",
+            displayName: null,
+            phoneNumber: null,
+            status: UserStatus.Locked,
+            emailConfirmed: true,
+            phoneConfirmed: false,
+            twoFactorEnabled: false,
+            twoFactorSecret: null,
+            failedLoginAttempts: 0,
+            lockoutEnd: null,
+            lastLoginAt: null,
+            passwordChangedAt: DateTime.UtcNow,
+            mustChangePassword: false,
+            preferredLanguage: "en",
+            timeZone: "UTC",
+            metadata: null,
+            isSystemUser: false,
+            createdAt: DateTime.UtcNow,
+            createdBy: Guid.NewGuid(),
+            modifiedAt: null,
+            modifiedBy: null);
+
+        var command = CreateCommand(email: adminLocked.Email, deviceId: "known-device");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(adminLocked.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(adminLocked);
+        _loginAttemptRepositoryMock
+            .Setup(r => r.HasSucceededFromAsync(
+                It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.AccountLocked");
+        _passwordHasherMock.Verify(
+            h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+        _userRepositoryMock.Verify(
+            r => r.UnlockAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_LockedAccount_UnfamiliarSource_IsRefusedAndRecorded()
+    {
+        // Arrange — the stranger's own request against the lock they raised
+        var lockedUser = new User(
+            id: Guid.NewGuid(),
+            email: "target@example.com",
+            normalizedEmail: "TARGET@EXAMPLE.COM",
+            passwordHash: "TestPasswordHash",
+            firstName: "Test",
+            lastName: "User",
+            displayName: null,
+            phoneNumber: null,
+            status: UserStatus.Locked,
+            emailConfirmed: true,
+            phoneConfirmed: false,
+            twoFactorEnabled: false,
+            twoFactorSecret: null,
+            failedLoginAttempts: 5,
+            lockoutEnd: DateTime.UtcNow.AddMinutes(15),
+            lastLoginAt: null,
+            passwordChangedAt: DateTime.UtcNow,
+            mustChangePassword: false,
+            preferredLanguage: "en",
+            timeZone: "UTC",
+            metadata: null,
+            isSystemUser: false,
+            createdAt: DateTime.UtcNow,
+            createdBy: Guid.NewGuid(),
+            modifiedAt: null,
+            modifiedBy: null);
+
+        var command = CreateCommand(email: lockedUser.Email);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(lockedUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lockedUser);
+        _loginAttemptRepositoryMock
+            .Setup(r => r.HasSucceededFromAsync(
+                lockedUser.Id, command.IpAddress, command.DeviceId, It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.AccountLockedUntil");
+        _loginAttemptRepositoryMock.Verify(
+            r => r.CreateAsync(
+                It.Is<LoginAttempt>(a => a.FailureReason == Auth.Domain.Constants.LoginFailureReasons.AccountLocked),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+        _passwordHasherMock.Verify(
+            h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_NoClientAddress_SkipsThePerSourceCeiling()
+    {
+        // Arrange — nothing to attribute the attempt to, so nothing extra to refuse
+        var user = TestHelpers.CreateUser();
+        var command = CreateCommand(email: user.Email, ipAddress: null);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword(command.Password, user.PasswordHash!))
+            .Returns(true);
+        _passwordHasherMock
+            .Setup(h => h.NeedsRehash(user.PasswordHash!))
+            .Returns(false);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(user, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        _loginAttemptRepositoryMock.Verify(
+            r => r.CountFailedAttemptsForUserFromIpAsync(
+                It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_TooManyFailuresFromThisSource_RefusesBeforeVerifyingThePassword()
+    {
+        // Arrange — an active account, but this address has already spent its allowance
+        var user = TestHelpers.CreateUser();
+        var command = CreateCommand(email: user.Email);
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(user.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _loginAttemptRepositoryMock
+            .Setup(r => r.CountFailedAttemptsForUserFromIpAsync(
+                user.Id, command.IpAddress!, It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(5);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert — refused as locked (the generic, undated answer: the address is
+        // refused, not the account) and no Argon2 work was spent on it
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.AccountLocked");
+        _passwordHasherMock.Verify(
+            h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+        _userRepositoryMock.Verify(
+            r => r.RecordFailedLoginAsync(It.IsAny<Guid>(), It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_LockedAccount_FamiliarSource_WrongPassword_KeepsTheLock()
+    {
+        // Arrange — familiarity opens the door to password verification, not past it
+        var lockedUser = CreateAutomaticallyLockedUser("owner-typo@example.com");
+        var command = CreateCommand(email: lockedUser.Email, deviceId: "known-device");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(lockedUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lockedUser);
+        _loginAttemptRepositoryMock
+            .Setup(r => r.HasSucceededFromAsync(
+                lockedUser.Id, command.IpAddress, command.DeviceId, It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword(command.Password, lockedUser.PasswordHash!))
+            .Returns(false);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.InvalidCredentials");
+        _userRepositoryMock.Verify(
+            r => r.RecordFailedLoginAsync(lockedUser.Id, It.IsAny<int>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+        _userRepositoryMock.Verify(
+            r => r.UnlockAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_LockedAccount_FamiliarSource_WithTwoFactor_UnlocksBeforeTheChallenge()
+    {
+        // Arrange — the unlock must precede the challenge, or the verify step
+        // (which re-reads the row and refuses a live lock) fails the owner's code
+        var lockedUser = CreateAutomaticallyLockedUser("owner-2fa@example.com");
+        var unlockedUser = TestHelpers.CreateUser(id: lockedUser.Id, email: lockedUser.Email, twoFactorEnabled: true);
+        var command = CreateCommand(email: lockedUser.Email, deviceId: "known-device");
+        var order = new List<string>();
+
+        _userRepositoryMock
+            .SetupSequence(r => r.GetByEmailAsync(lockedUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(lockedUser)
+            .ReturnsAsync(unlockedUser);
+        _userRepositoryMock
+            .Setup(r => r.UnlockAsync(lockedUser.Id, lockedUser.Id, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("unlock"))
+            .Returns(Task.CompletedTask);
+        _loginAttemptRepositoryMock
+            .Setup(r => r.HasSucceededFromAsync(
+                lockedUser.Id, command.IpAddress, command.DeviceId, It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _passwordHasherMock
+            .Setup(h => h.VerifyPassword(command.Password, lockedUser.PasswordHash!))
+            .Returns(true);
+        _passwordHasherMock
+            .Setup(h => h.NeedsRehash(unlockedUser.PasswordHash!))
+            .Returns(false);
+        _twoFactorChallengeServiceMock
+            .Setup(s => s.CreateChallengeAsync(
+                It.IsAny<User>(), command.IpAddress, command.UserAgent, It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("challenge"))
+            .ReturnsAsync("challenge-token");
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeFalse();
+        result.Value.RequiresTwoFactor.Should().BeTrue();
+        order.Should().Equal("unlock", "challenge");
+    }
+
+    [Fact]
+    public async Task Handle_TimedAdministrativeLock_FamiliarSource_IsStillRefused()
+    {
+        // Arrange — an administrator locked the account for a day while it was
+        // being brute-forced. Lock() zeroed the counter, so the timed expiry alone
+        // must not make it read as automatic.
+        var adminLocked = new User(
+            id: Guid.NewGuid(),
+            email: "incident-timed@example.com",
+            normalizedEmail: "INCIDENT-TIMED@EXAMPLE.COM",
+            passwordHash: "TestPasswordHash",
+            firstName: "Test",
+            lastName: "User",
+            displayName: null,
+            phoneNumber: null,
+            status: UserStatus.Locked,
+            emailConfirmed: true,
+            phoneConfirmed: false,
+            twoFactorEnabled: false,
+            twoFactorSecret: null,
+            failedLoginAttempts: 0,
+            lockoutEnd: DateTime.UtcNow.AddHours(24),
+            lastLoginAt: null,
+            passwordChangedAt: DateTime.UtcNow,
+            mustChangePassword: false,
+            preferredLanguage: "en",
+            timeZone: "UTC",
+            metadata: null,
+            isSystemUser: false,
+            createdAt: DateTime.UtcNow,
+            createdBy: Guid.NewGuid(),
+            modifiedAt: null,
+            modifiedBy: null);
+
+        var command = CreateCommand(email: adminLocked.Email, deviceId: "known-device");
+
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(adminLocked.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(adminLocked);
+        _loginAttemptRepositoryMock
+            .Setup(r => r.HasSucceededFromAsync(
+                It.IsAny<Guid>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _handler.Handle(command, CancellationToken.None);
+
+        // Assert
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.AccountLockedUntil");
+        _passwordHasherMock.Verify(
+            h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()),
+            Times.Never);
+        _userRepositoryMock.Verify(
+            r => r.UnlockAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    private static User CreateAutomaticallyLockedUser(string email) => new(
+        id: Guid.NewGuid(),
+        email: email,
+        normalizedEmail: email.ToUpperInvariant(),
+        passwordHash: "TestPasswordHash",
+        firstName: "Test",
+        lastName: "User",
+        displayName: null,
+        phoneNumber: null,
+        status: UserStatus.Locked,
+        emailConfirmed: true,
+        phoneConfirmed: false,
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+        failedLoginAttempts: 5,
+        lockoutEnd: DateTime.UtcNow.AddMinutes(15),
+        lastLoginAt: null,
+        passwordChangedAt: DateTime.UtcNow,
+        mustChangePassword: false,
+        preferredLanguage: "en",
+        timeZone: "UTC",
+        metadata: null,
+        isSystemUser: false,
+        createdAt: DateTime.UtcNow,
+        createdBy: Guid.NewGuid(),
+        modifiedAt: null,
+        modifiedBy: null);
+
+    [Fact]
     public async Task Handle_ExternalOnlyUser_NullPasswordHash_ReturnsInvalidCredentials()
     {
         // Arrange

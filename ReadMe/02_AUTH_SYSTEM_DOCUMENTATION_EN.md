@@ -367,7 +367,7 @@ Two details matter. The Content-Security-Policy above is a **baseline that is ap
 | **Session hijacking** | Refresh tokens are rotated on every use, and presenting an already-rotated token revokes every token the user holds and emails them about it |
 | **Downgrade to plain HTTP** | HTTPS redirection always, and HSTS outside Development |
 
-**Brute force gets two layers because one is not enough.** Per-address throttling stops one machine spraying many accounts: 20 requests per 60 seconds on the interactive sign-in endpoints. Per-account lockout stops many machines grinding down one account: **5 failed passwords locks that account for 15 minutes**, regardless of where the attempts came from. Neither number is the other; the older documentation conflated them.
+**Brute force gets two layers because one is not enough.** Per-address throttling stops one machine spraying many accounts: 20 requests per 60 seconds on the interactive sign-in endpoints. Per-account lockout stops many machines grinding down one account: **5 failed passwords locks that account for 15 minutes** — for strangers. A client address or a device the account has recently signed in from may still sign in and, on success, clears the lock; every single address is also refused after its own five wrong passwords. An administrator's lock is never relaxed this way. Neither number is the other; the older documentation conflated them.
 
 ### Account Protection
 

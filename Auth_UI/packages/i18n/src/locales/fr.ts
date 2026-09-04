@@ -483,7 +483,7 @@ export const fr: TranslationResources = {
       "En baisse de {{points}} points sur la période précédente, désormais {{rate}} %.",
     alertLockedOut: "{{count}} compte(s) verrouillé(s)",
     alertLockedOutBody:
-      "Ils ne peuvent pas se connecter avant l'expiration ou la levée du verrou.",
+      "Les inconnus ne peuvent pas se connecter avant l'expiration ou la levée du verrou ; l'appareil habituel du titulaire le peut toujours.",
     alertFailingIp: "Une adresse génère des échecs répétés",
     alertFailingIpBody:
       "{{ip}} a produit {{count}} tentatives échouées sur {{users}} identifiant(s).",
@@ -1723,10 +1723,10 @@ export const fr: TranslationResources = {
         "Nombre d'anciens mots de passe de l'utilisateur qui ne peuvent pas être réutilisés. Recommandé : 3–5. 0 désactive la vérification.",
       maxFailedAttempts: "Tentatives échouées avant verrouillage",
       maxFailedAttemptsHint:
-        "Après ce nombre de mots de passe erronés, le compte est verrouillé temporairement. Recommandé : 5 — assez bas pour bloquer les tentatives de devinette, assez haut pour tolérer les fautes de frappe.",
+        "Après ce nombre de mots de passe erronés, le compte est verrouillé temporairement — pour les inconnus : une adresse utilisée pour se connecter dans les 30 derniers jours, ou un appareil ayant une session active, peut encore essayer, et le même nombre plafonne aussi chaque adresse prise séparément. Recommandé : 5 — assez bas pour bloquer les tentatives de devinette, assez haut pour tolérer les fautes de frappe.",
       lockoutDurationMinutes: "Durée de verrouillage (minutes)",
       lockoutDurationMinutesHint:
-        "Durée pendant laquelle le compte reste verrouillé. Recommandé : 15 — un frein réel pour les attaquants, avec une gêne limitée pour les utilisateurs.",
+        "Durée pendant laquelle le compte reste verrouillé — et pendant laquelle une adresse est refusée après ses propres mots de passe erronés. Recommandé : 15 — un frein réel pour les attaquants, avec une gêne limitée pour les utilisateurs.",
       argon2MemorySize: "Mémoire Argon2 (KB)",
       argon2MemorySizeHint:
         "Mémoire utilisée pour hacher chaque mot de passe. Recommandé : 19456 (19 MiB, le minimum OWASP). Une valeur plus élevée renforce la sécurité mais ralentit chaque connexion.",

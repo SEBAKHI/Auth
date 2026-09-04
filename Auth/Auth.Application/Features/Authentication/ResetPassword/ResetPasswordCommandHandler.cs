@@ -2,6 +2,7 @@ using Auth.Application.Interfaces;
 using Auth.Application.Configuration;
 using Auth.Application.Validators;
 using Auth.Domain.Entities;
+using Auth.Domain.Enums;
 using Auth.Domain.Interfaces.Repositories;
 using Auth.Domain.Errors;
 using ErrorOr;
@@ -165,6 +166,16 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         // account (issued before the one-live-link rule shipped, or still in
         // an inbox) dies now that the password has changed.
         await _passwordResetTokenRepository.InvalidateAllForUserAsync(user.Id, cancellationToken);
+
+        // A completed reset proves control of the mailbox, so a lock raised by
+        // strangers' wrong passwords has nothing left to protect: clear it. Only
+        // THAT lock: an administrator's lock (no expiry, counter untouched) is an
+        // incident-response decision a self-service reset must never undo, and
+        // Inactive/Pending are administrative states likewise.
+        if (user.IsLockedByFailedAttempts(_passwordSettings.MaxFailedAttempts))
+        {
+            await _userRepository.UnlockAsync(user.Id, user.Id, cancellationToken);
+        }
 
         // Cleanup old password history
         await _passwordHistoryRepository.CleanupOldHistoryAsync(

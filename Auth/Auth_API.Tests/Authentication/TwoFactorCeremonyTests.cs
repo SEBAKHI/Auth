@@ -74,6 +74,14 @@ public class TwoFactorCeremonyTests
             string ipAddress, TimeSpan window, CancellationToken cancellationToken) =>
             throw new NotSupportedException("Not exercised by these tests.");
 
+        public Task<int> CountFailedAttemptsForUserFromIpAsync(
+            Guid userId, string ipAddress, TimeSpan window, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("Not exercised by these tests.");
+
+        public Task<bool> HasSucceededFromAsync(
+            Guid userId, string? ipAddress, string? deviceId, TimeSpan lookback, CancellationToken cancellationToken) =>
+            throw new NotSupportedException("Not exercised by these tests.");
+
         public Task CleanupOldAttemptsAsync(DateTime olderThan, CancellationToken cancellationToken) =>
             throw new NotSupportedException("Not exercised by these tests.");
     }

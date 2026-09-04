@@ -464,7 +464,8 @@ export const zh: TranslationResources = {
     alertRateDrop: "登录成功率下降",
     alertRateDropBody: "较上一周期下降 {{points}} 个百分点，当前为 {{rate}}%。",
     alertLockedOut: "{{count}} 个账户已被锁定",
-    alertLockedOutBody: "在锁定到期或被解除之前，它们无法登录。",
+    alertLockedOutBody:
+      "在锁定到期或被解除之前，陌生来源无法登录；账户所有者的常用设备仍然可以。",
     alertFailingIp: "某个地址持续产生失败尝试",
     alertFailingIpBody:
       "{{ip}} 针对 {{users}} 个用户名产生了 {{count}} 次失败尝试。",
@@ -1586,10 +1587,10 @@ export const zh: TranslationResources = {
         "用户不能重复使用的历史密码数量。推荐：3–5。设为 0 则禁用此检查。",
       maxFailedAttempts: "锁定前允许的失败次数",
       maxFailedAttemptsHint:
-        "密码输错达到此次数后，账户将被临时锁定。推荐：5——既能阻止猜测攻击，又能容忍正常的输入失误。",
+        "密码输错达到此次数后，账户将被临时锁定——仅针对陌生来源：账户在最近 30 天内登录过的地址，或持有有效会话的设备，仍可尝试；同一次数也会单独限制每个地址。推荐：5——既能阻止猜测攻击，又能容忍正常的输入失误。",
       lockoutDurationMinutes: "锁定时长（分钟）",
       lockoutDurationMinutesHint:
-        "账户保持锁定的时长。推荐：15——能有效遏制攻击者，同时对用户影响有限。",
+        "账户保持锁定的时长——也是单个地址在自身密码输错后被拒绝的时长。推荐：15——能有效遏制攻击者，同时对用户影响有限。",
       argon2MemorySize: "Argon2 内存（KB）",
       argon2MemorySizeHint:
         "哈希每个密码所使用的内存。推荐：19456（19 MiB，OWASP 最低值）。数值越高越安全，但会拖慢每次登录。",

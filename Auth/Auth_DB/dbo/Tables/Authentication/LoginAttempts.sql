@@ -46,12 +46,16 @@ GO
 -- The read path LEFT JOINs it for the failed-code count and tolerates a missing row.
 --
 -- FailureReason holds prose a person reads, not a code. The values the application
--- actually writes are: 'User not found', 'Account locked', 'No password set',
--- 'Invalid password', 'Email not confirmed', 'Too many incorrect verification codes',
--- 'Maximum concurrent sessions reached', and the localized description of a failed
--- account-status check.
--- WARNING: DashboardStatsRepository hardcodes N'Account locked'. Changing that
--- literal silently zeroes the locked-out-attempts metric rather than failing.
+-- actually writes are: 'User not found', 'Account locked', 'Source locked' (this
+-- client address had spent its own allowance of wrong passwords against the
+-- account), 'No password set', 'Invalid password', 'Email not confirmed',
+-- 'Too many incorrect verification codes', 'Maximum concurrent sessions reached',
+-- and the localized description of a failed account-status check.
+-- WARNING: DashboardStatsRepository hardcodes N'Account locked', and the per-address
+-- lockout ceiling (LoginAttemptRepository.CountFailedAttemptsForUserFromIpAsync)
+-- counts only N'Invalid password' rows. The sign-in handlers write those two from
+-- Auth.Domain.Constants.LoginFailureReasons; changing a literal in one place
+-- silently zeroes a control rather than failing.
 
 -- Indexes
 CREATE NONCLUSTERED INDEX [IX_LoginAttempts_UserId]

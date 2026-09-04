@@ -418,6 +418,13 @@ public class User : AggregateRoot
     {
         Status = UserStatus.Locked;
         LockoutEnd = lockoutEnd;
+        // An administrative lock starts a new episode: the counter is what marks
+        // a lock as raised by wrong passwords (IsLockedByFailedAttempts), so an
+        // administrator's timed lock placed during a brute-force run must not
+        // inherit the attacker's count and read as automatic — that is the
+        // difference between a lock a familiar device may pass and one nobody
+        // may. The forensic history stays in LoginAttempts.
+        FailedLoginAttempts = 0;
         SetModified(modifiedBy);
         RaiseDomainEvent(new UserLockedEvent(Id, lockoutEnd, modifiedBy));
     }
@@ -472,6 +479,22 @@ public class User : AggregateRoot
     {
         return Status == UserStatus.Locked &&
                (LockoutEnd == null || LockoutEnd > DateTime.UtcNow);
+    }
+
+    /// <summary>
+    /// Locked by the sign-in failure counter rather than by an administrator:
+    /// <see cref="UserStatus.Locked"/> with a timed expiry AND a failure count at
+    /// or past the threshold. <see cref="Lock"/> zeroes the counter (and may lock
+    /// without an expiry), so the two locks are distinguishable by construction
+    /// without a schema change — and this is the only lock a familiar source may
+    /// pass, or a completed password reset or email verification may clear. One
+    /// known drift, fail-closed: raising <c>Password:MaxFailedAttempts</c> while
+    /// an automatic lock is live makes it read as administrative for the rest
+    /// of its window — the owner waits, a stranger never gains.
+    /// </summary>
+    public bool IsLockedByFailedAttempts(int maxFailedAttempts)
+    {
+        return IsLockedOut() && LockoutEnd.HasValue && FailedLoginAttempts >= maxFailedAttempts;
     }
 
     /// <summary>
