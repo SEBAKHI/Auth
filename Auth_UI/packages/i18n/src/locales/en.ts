@@ -1887,6 +1887,9 @@ export const en = {
       allowExternalProvisioning: "Sign-up through Google or Apple",
       allowExternalProvisioningHint:
         "Whether a provider identity matching no account here may create one on its first sign-in. This is self-registration by another route, and it stays open while the switch above is closed unless you close this one too. Accounts that already exist keep signing in either way, and a provider can still be linked to an account with the same address.",
+      allowInvitationRegistration: "Sign-up through an invitation",
+      allowInvitationRegistrationHint:
+        "Whether redeeming an organization invitation may create an account. Closing public sign-up usually means accounts should arrive by invitation instead, so this is a separate switch; close all three and accounts exist only when an administrator creates them. Invitations already sent are not cancelled, and someone who already has an account can still accept one, because that adds a membership rather than creating an account.",
     },
     organizations: {
       title: "Who may create an organization",

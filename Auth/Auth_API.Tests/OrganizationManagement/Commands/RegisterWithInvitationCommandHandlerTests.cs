@@ -1,3 +1,4 @@
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Organizations.AcceptInvitation;
 using Auth.Application.Features.Organizations.RegisterWithInvitation;
@@ -24,6 +25,7 @@ public class RegisterWithInvitationCommandHandlerTests
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock = new();
     private readonly Mock<IRefreshTokenKeyService> _tokenKeyServiceMock = new();
 
+    private readonly PasswordValidator _passwordValidator;
     private readonly RegisterWithInvitationCommandHandler _handler;
 
     private const string Token = "aW52aXRlLXJlZ2lzdGVyLXRva2VuLWxvbmctZW5vdWdo";
@@ -52,16 +54,23 @@ public class RegisterWithInvitationCommandHandlerTests
                 Message = "Successfully joined the organization."
             });
 
-        _handler = new RegisterWithInvitationCommandHandler(
+        _passwordValidator = passwordValidator;
+        _handler = CreateHandler(new RegistrationSettings());
+    }
+
+    private RegisterWithInvitationCommandHandler CreateHandler(RegistrationSettings settings)
+    {
+        return new RegisterWithInvitationCommandHandler(
             _userRepoMock.Object,
             _orgRepoMock.Object,
             _passwordHasherMock.Object,
-            passwordValidator,
+            _passwordValidator,
             TestHelpers.CreatePassingBreachEvaluator(),
             TestHelpers.CreatePassingReservationGuard(),
             _mediatorMock.Object,
             _eventDispatcherMock.Object,
             _tokenKeyServiceMock.Object,
+            TestHelpers.CreateOptions(settings),
             new Mock<ILogger<RegisterWithInvitationCommandHandler>>().Object);
     }
 
@@ -208,4 +217,52 @@ public class RegisterWithInvitationCommandHandlerTests
         // The user account was still created and can sign in to accept manually
         _userRepoMock.Verify(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    #region The third registration door
+
+    /// <summary>
+    /// The console reported both registration doors closed while this one, which
+    /// creates an account with the address already confirmed, stayed open and was
+    /// not mentioned.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WhenInvitationRegistrationIsClosed_RefusesBeforeLookingUpTheToken()
+    {
+        var handler = CreateHandler(new RegistrationSettings { AllowInvitationRegistration = false });
+
+        var result = await handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.InvitationRegistrationClosed");
+
+        _orgRepoMock.Verify(
+            r => r.GetInvitationByTokenHashAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "a closed server that answered differently for a real token and an invented one "
+            + "would be an oracle for whether a token is valid");
+        _userRepoMock.Verify(
+            r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Handle_WhenTheOtherTwoDoorsAreClosed_InvitationsStillWork()
+    {
+        // The switches are separate because closing one usually means preferring
+        // another: a deployment that shuts public sign-up commonly wants accounts
+        // to arrive by invitation instead.
+        SetupInvitation();
+
+        var handler = CreateHandler(new RegistrationSettings
+        {
+            AllowSelfRegistration = false,
+            AllowExternalProvisioning = false
+        });
+
+        var result = await handler.Handle(CreateCommand(), CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    #endregion
 }

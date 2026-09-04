@@ -92,6 +92,9 @@
   <data name="User.ExternalRegistrationClosed" xml:space="preserve">
     <value>یہ فراہم کنندہ اکاؤنٹ اس سرور کے کسی اکاؤنٹ سے منسلک نہیں ہے، اور فراہم کنندہ کے ذریعے نئے اکاؤنٹ نہیں بنائے جا سکتے۔</value>
   </data>
+  <data name="User.InvitationRegistrationClosed" xml:space="preserve">
+    <value>اس سرور پر دعوت ناموں سے اکاؤنٹ نہیں بنائے جا سکتے۔ جس تنظیم نے آپ کو دعوت دی ہے اس سے کہیں کہ آپ کو کسی اور طریقے سے شامل کرے۔</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>متعدد ناکام لاگ ان کوششوں کی وجہ سے یہ اکاؤنٹ مقفل کر دیا گیا ہے۔</value>
   </data>

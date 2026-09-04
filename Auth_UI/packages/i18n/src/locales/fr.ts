@@ -1921,6 +1921,9 @@ export const fr: TranslationResources = {
       allowExternalProvisioning: "Inscription via Google ou Apple",
       allowExternalProvisioningHint:
         "Si une identité de fournisseur qui ne correspond à aucun compte ici peut en créer un lors de sa première connexion. C'est une auto-inscription par une autre voie, et elle reste ouverte quand l'interrupteur ci-dessus est fermé, sauf si vous fermez aussi celui-ci. Les comptes existants continuent de se connecter dans les deux cas, et un fournisseur peut toujours être lié à un compte portant la même adresse.",
+      allowInvitationRegistration: "Inscription par invitation",
+      allowInvitationRegistrationHint:
+        "Si l'utilisation d'une invitation d'organisation peut créer un compte. Fermer l'inscription publique signifie généralement que les comptes doivent arriver par invitation, d'où un interrupteur distinct ; fermez les trois et les comptes n'existent que si un administrateur les crée. Les invitations déjà envoyées ne sont pas annulées, et une personne ayant déjà un compte peut toujours accepter, car cela ajoute une adhésion sans créer de compte.",
     },
     organizations: {
       title: "Qui peut créer une organisation",

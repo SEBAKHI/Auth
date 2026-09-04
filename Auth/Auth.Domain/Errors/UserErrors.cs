@@ -43,6 +43,21 @@ public static class UserErrors
         code: "User.ExternalRegistrationClosed",
         description: "This provider account is not linked to any account on this server, and new accounts cannot be created from a provider.");
 
+    /// <summary>
+    /// The invitation door is shut by configuration. Returned before the token is
+    /// looked up, so a closed server cannot be used to test whether a token is
+    /// real.
+    /// </summary>
+    /// <remarks>
+    /// The message tells the holder their invitation is not the problem, because
+    /// it is not: they hold a genuine one and nothing they can do will redeem it
+    /// here. Someone at the organization has to be told, and the message points
+    /// there rather than leaving them retrying.
+    /// </remarks>
+    public static Error InvitationRegistrationClosed => Error.Forbidden(
+        code: "User.InvitationRegistrationClosed",
+        description: "Accounts cannot be created from invitations on this server. Ask the organization that invited you to add you another way.");
+
     public static Error InvalidCredentials => Error.Validation(
         code: "User.InvalidCredentials",
         description: "The provided credentials are invalid.");

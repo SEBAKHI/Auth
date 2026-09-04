@@ -92,6 +92,9 @@
   <data name="User.ExternalRegistrationClosed" xml:space="preserve">
     <value>Ce compte de fournisseur n'est lié à aucun compte sur ce serveur, et la création de comptes via un fournisseur est désactivée.</value>
   </data>
+  <data name="User.InvitationRegistrationClosed" xml:space="preserve">
+    <value>Les comptes ne peuvent pas être créés à partir d'invitations sur ce serveur. Demandez à l'organisation qui vous a invité de vous ajouter autrement.</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>Ce compte a été verrouillé en raison de plusieurs tentatives de connexion échouées.</value>
   </data>

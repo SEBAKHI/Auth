@@ -1880,6 +1880,9 @@ export const tr: TranslationResources = {
       allowExternalProvisioning: "Google veya Apple ile kayıt",
       allowExternalProvisioningHint:
         "Burada hiçbir hesapla eşleşmeyen bir sağlayıcı kimliğinin ilk girişte hesap oluşturup oluşturamayacağı. Bu, başka bir yoldan kendi kendine kayıttır ve siz bunu da kapatmadıkça yukarıdaki anahtar kapalıyken bile açık kalır. Mevcut hesaplar her iki durumda da girmeye devam eder ve bir sağlayıcı aynı adresli bir hesaba yine bağlanabilir.",
+      allowInvitationRegistration: "Davetle kayıt",
+      allowInvitationRegistrationHint:
+        "Bir kuruluş davetinin kullanılmasının hesap oluşturup oluşturamayacağı. Herkese açık kaydı kapatmak genellikle hesapların davetle gelmesi gerektiği anlamına gelir; bu yüzden ayrı bir anahtardır. Üçünü de kapatın, hesaplar yalnızca bir yönetici oluşturduğunda var olur. Gönderilmiş davetler iptal edilmez ve hesabı olan biri daveti yine kabul edebilir, çünkü bu hesap oluşturmaz, üyelik ekler.",
     },
     organizations: {
       title: "Kuruluşu kim oluşturabilir",

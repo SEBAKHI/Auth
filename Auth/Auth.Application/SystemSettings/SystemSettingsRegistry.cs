@@ -334,7 +334,13 @@ public static class SystemSettingsRegistry
                 // the switches existed, and an upgrade must not silently shut a
                 // door the operator still wants open.
                 new SettingFieldDefinition("AllowSelfRegistration", SettingKind.Bool, DefaultValue: true),
-                new SettingFieldDefinition("AllowExternalProvisioning", SettingKind.Bool, DefaultValue: true)
+                new SettingFieldDefinition("AllowExternalProvisioning", SettingKind.Bool, DefaultValue: true),
+                // The third door, and the one the console did not mention while
+                // reporting the other two closed. Kept a separate switch because
+                // an operator who shuts public sign-up has usually decided that
+                // accounts arrive by invitation instead — folding the two
+                // together would break the workflow the first choice implies.
+                new SettingFieldDefinition("AllowInvitationRegistration", SettingKind.Bool, DefaultValue: true)
             ]),
 
         // Beside Registration rather than inside it. That section answers who may

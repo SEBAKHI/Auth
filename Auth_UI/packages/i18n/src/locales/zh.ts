@@ -1773,6 +1773,9 @@ export const zh: TranslationResources = {
       allowExternalProvisioning: "通过 Google 或 Apple 注册",
       allowExternalProvisioningHint:
         "与此处任何账户都不匹配的第三方身份，是否可以在首次登录时创建账户。这是另一条路径上的自助注册；除非你也关闭它，否则上面的开关关闭时它仍然开启。两种情况下已存在的账户都可继续登录，第三方仍可关联到相同地址的账户。",
+      allowInvitationRegistration: "通过邀请注册",
+      allowInvitationRegistrationHint:
+        "使用组织邀请是否可以创建账户。关闭公开注册通常意味着账户应改为通过邀请产生，因此这是一个独立开关；三个都关闭后，账户只有管理员创建时才存在。已发出的邀请不会被取消；已有账户的人仍可接受邀请，因为那只是添加成员身份，并不创建账户。",
     },
     organizations: {
       title: "谁可以创建组织",

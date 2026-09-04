@@ -92,6 +92,9 @@
   <data name="User.ExternalRegistrationClosed" xml:space="preserve">
     <value>此第三方账户未关联到本服务器上的任何账户，且不允许通过第三方创建新账户。</value>
   </data>
+  <data name="User.InvitationRegistrationClosed" xml:space="preserve">
+    <value>此服务器上无法通过邀请创建账户。请让邀请你的组织以其他方式添加你。</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>由于多次登录失败，此账户已被锁定。</value>
   </data>

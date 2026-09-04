@@ -1,4 +1,5 @@
 using System.Globalization;
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Organizations.AcceptInvitation;
 using Auth.Application.Features.Users.Common;
@@ -10,6 +11,7 @@ using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Organizations.RegisterWithInvitation;
 
@@ -31,6 +33,7 @@ public class RegisterWithInvitationCommandHandler
     private readonly IMediator _mediator;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly IRefreshTokenKeyService _tokenKeyService;
+    private readonly RegistrationSettings _registrationSettings;
 
     private readonly ILogger<RegisterWithInvitationCommandHandler> _logger;
 
@@ -44,10 +47,12 @@ public class RegisterWithInvitationCommandHandler
         IMediator mediator,
         IDomainEventDispatcher eventDispatcher,
         IRefreshTokenKeyService tokenKeyService,
+        IOptionsSnapshot<RegistrationSettings> registrationSettings,
 
         ILogger<RegisterWithInvitationCommandHandler> logger)
     {
         _tokenKeyService = tokenKeyService;
+        _registrationSettings = registrationSettings.Value;
         _userRepository = userRepository;
         _organizationRepository = organizationRepository;
         _passwordHasher = passwordHasher;
@@ -64,6 +69,25 @@ public class RegisterWithInvitationCommandHandler
         RegisterWithInvitationCommand request,
         CancellationToken cancellationToken)
     {
+        // The door, before the token is even looked up.
+        //
+        // This is the third path that brings an account into existence for
+        // somebody who is not signed in, and it was the one the console did not
+        // mention while reporting the other two closed. The old justification for
+        // leaving it uncovered was that an invitation means somebody already
+        // decided this person belongs — true only once "somebody" is not simply
+        // any signed-in user, which is what the organization-creation switch and
+        // the removal of the token from the invite response together establish.
+        //
+        // Ahead of the lookup deliberately: a closed server that answered
+        // differently for a real token and a made-up one would be an oracle for
+        // whether a token is valid.
+        if (!_registrationSettings.AllowInvitationRegistration)
+        {
+            _logger.LogInformation("Invitation registration refused from a closed server");
+            return UserErrors.InvitationRegistrationClosed;
+        }
+
         // All pre-checks run before creating the user so a failure cannot
         // leave a half-onboarded account behind.
         var invitation = await _organizationRepository.GetInvitationByTokenHashAsync(

@@ -92,6 +92,9 @@
   <data name="User.ExternalRegistrationClosed" xml:space="preserve">
     <value>Bu sağlayıcı hesabı bu sunucudaki hiçbir hesaba bağlı değil ve sağlayıcı üzerinden yeni hesap oluşturulamaz.</value>
   </data>
+  <data name="User.InvitationRegistrationClosed" xml:space="preserve">
+    <value>Bu sunucuda davetlerden hesap oluşturulamaz. Sizi davet eden kuruluştan sizi başka bir yolla eklemesini isteyin.</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>Birden fazla başarısız giriş denemesi nedeniyle bu hesap kilitlenmiştir.</value>
   </data>
