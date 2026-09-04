@@ -1788,6 +1788,12 @@ export const en = {
       registerWindowSeconds: "Sign-up counting window (seconds)",
       registerWindowSecondsHint:
         "The span the sign-up count above is measured over, on the same fixed-window mechanic: the counter returns to zero when the window ends rather than sliding. Both fields apply to new client windows the moment you save, so an event limit can be raised for the day and lowered afterwards without a restart — and it should be, since a wide sign-up allowance is one an automated caller can spend just as easily as a real crowd.",
+      signInPagePermitLimit: "Sign-in page loads per window",
+      signInPagePermitLimitHint:
+        "What a sign-in or sign-up page spends just by rendering: the list of enabled external providers, and the nonce the Google button must hold before it initialises. Two requests per page open, so this number halved is how many times one client IP may open those pages per window. Split out of the authentication limit because rendering a page is not attempting to sign in — while the two shared an allowance, opening the sign-up page spent two of twenty, and one shared address such as an office or a mobile carrier could complete only about six sign-ups a minute however high the sign-up limit was set.",
+      signInPageWindowSeconds: "Sign-in page counting window (seconds)",
+      signInPageWindowSecondsHint:
+        "The period the count above covers. Sixty seconds is the usual choice; a longer window smooths bursts and punishes them for longer.",
       passwordResetPermitLimit: "Reset-link redemptions per window",
       passwordResetPermitLimitHint:
         "How many times one client IP may submit a new password together with a reset token. This is redemption, not the request for the email — asking for a reset link falls under the authentication limit above. The token carries 256 bits of entropy and cannot be guessed, so this limit is hygiene for an endpoint open without sign-in rather than a defence of the token.",

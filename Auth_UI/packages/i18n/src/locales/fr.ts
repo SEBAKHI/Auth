@@ -1819,6 +1819,12 @@ export const fr: TranslationResources = {
       registerWindowSeconds: "Fenêtre de comptage des inscriptions (secondes)",
       registerWindowSecondsHint:
         "Durée sur laquelle le compte d'inscriptions ci-dessus est mesuré, selon la même mécanique de fenêtre fixe : le compteur revient à zéro à la fin de la fenêtre au lieu de glisser. Les deux champs s'appliquent aux nouvelles fenêtres clientes dès l'enregistrement : une limite d'événement peut donc être relevée pour la journée puis abaissée ensuite, sans redémarrage — et elle devrait l'être, car un quota d'inscription large se dépense aussi facilement par un automate que par une vraie foule.",
+      signInPagePermitLimit: "Chargements de page de connexion par fenêtre",
+      signInPagePermitLimitHint:
+        "Ce qu'une page de connexion ou d'inscription dépense rien qu'en s'affichant : la liste des fournisseurs externes activés et le nonce que le bouton Google doit détenir avant de s'initialiser. Deux requêtes par ouverture de page, donc la moitié de ce nombre est le nombre d'ouvertures autorisées par adresse IP et par fenêtre. Séparé de la limite d'authentification parce qu'afficher une page n'est pas tenter de se connecter : tant qu'ils partageaient une allocation, ouvrir la page d'inscription en consommait deux sur vingt, et une adresse partagée (bureau, opérateur mobile) ne pouvait achever qu'environ six inscriptions par minute, quelle que soit la limite d'inscription.",
+      signInPageWindowSeconds: "Fenêtre de comptage de la page de connexion (secondes)",
+      signInPageWindowSecondsHint:
+        "La période couverte par le compte ci-dessus. Soixante secondes est le choix habituel ; une fenêtre plus longue lisse les pics et les pénalise plus longtemps.",
       passwordResetPermitLimit:
         "Utilisations du lien de réinitialisation par fenêtre",
       passwordResetPermitLimitHint:

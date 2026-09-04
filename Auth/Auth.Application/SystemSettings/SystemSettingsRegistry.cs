@@ -184,6 +184,13 @@ public static class SystemSettingsRegistry
                 // not a universal one; the console hint carries the arithmetic.
                 new SettingFieldDefinition("RegisterPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 200),
                 new SettingFieldDefinition("RegisterWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // What a sign-in or sign-up page spends by rendering: the provider
+                // list and the Google nonce. Two per page open, so sixty permits
+                // is thirty openings a minute from one address. Sized against page
+                // views rather than sign-in attempts, which is the whole reason it
+                // is not the login pair above.
+                new SettingFieldDefinition("SignInPagePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 60),
+                new SettingFieldDefinition("SignInPageWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 new SettingFieldDefinition("PasswordResetPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 10),
                 new SettingFieldDefinition("PasswordResetWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 new SettingFieldDefinition("ApiKeyValidatePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 60),

@@ -856,6 +856,32 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // What the sign-in and sign-up PAGES spend merely by rendering: the list of
+    // enabled external providers, and the nonce the Google button must hold before
+    // it initialises. Neither carries a credential, neither can be guessed at, and
+    // the nonce endpoint touches no database — it returns a random value and a
+    // keyed hash of it.
+    //
+    // Split out of the login policy because they were being counted as sign-in
+    // attempts. Opening the sign-up page spent two of that policy's twenty, and
+    // completing a registration spent a third on the verification step, so a
+    // shared address — an office, a campus, a mobile carrier — was capped at
+    // roughly six completed sign-ups a minute no matter what the registration
+    // limit said. The registration limit was raised to two hundred on measured
+    // evidence and could never be reached from a browser, because this bucket ran
+    // out first. That is the same mistake the registration split corrected, one
+    // endpoint further along: page rendering is not authentication, and a bucket
+    // sized to slow down guessing has no business holding it.
+    options.AddPolicy("sign-in-page", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:SignInPagePermitLimit", 60),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:SignInPageWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
     // Redeeming a reset token cannot be brute forced (the token carries 256 bits
     // of entropy), so this is hygiene for an anonymous endpoint rather than a
     // guessing defence — a stricter per-client bucket than the login policy.
