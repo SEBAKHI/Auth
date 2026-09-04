@@ -288,7 +288,6 @@ export const tr: TranslationResources = {
     theme: "Tema",
     timeZone: "Saat dilimi",
     timestamp: "Zaman damgası",
-    token: "Jeton",
     translationCount: "Çeviriler",
     twoFactorEnabled: "İki adımlı doğrulama etkin",
     typeCode: "Tür kodu",
@@ -1782,6 +1781,12 @@ export const tr: TranslationResources = {
       registerWindowSeconds: "Kayıt sayım penceresi (saniye)",
       registerWindowSecondsHint:
         "Yukarıdaki kayıt sayımının ölçüldüğü süre, aynı sabit pencere mekaniğiyle: sayaç kayarak değil, pencere bittiğinde sıfırlanır. Her iki alan da kaydettiğiniz anda yeni istemci pencerelerine uygulanır; böylece bir etkinlik sınırı gün için yükseltilip sonrasında yeniden başlatma olmadan düşürülebilir — ve düşürülmelidir, çünkü geniş bir kayıt hakkını otomatik bir çağıran da gerçek bir kalabalık kadar kolay harcar.",
+      signInPagePermitLimit: "Pencere başına oturum açma sayfası yüklemesi",
+      signInPagePermitLimitHint:
+        "Bir oturum açma veya kayıt sayfasının yalnızca görüntülenerek harcadığı şey: etkin dış sağlayıcıların listesi ve Google düğmesinin başlatılmadan önce tutması gereken nonce. Sayfa açılışı başına iki istek, yani bu sayının yarısı bir istemci IP'sinin pencere başına o sayfaları kaç kez açabileceğidir. Kimlik doğrulama limitinden ayrıldı, çünkü sayfa görüntülemek oturum açma denemesi değildir: ikisi tek bir kotayı paylaşırken kayıt sayfasını açmak yirmiden ikisini harcıyordu ve paylaşılan bir adres (ofis, mobil operatör) kayıt limiti ne kadar yüksek olursa olsun dakikada ancak altı kadar kaydı tamamlayabiliyordu.",
+      signInPageWindowSeconds: "Oturum açma sayfası sayım penceresi (saniye)",
+      signInPageWindowSecondsHint:
+        "Yukarıdaki sayımın kapsadığı süre. Altmış saniye olağan seçimdir; daha uzun pencere ani yükleri yumuşatır ve daha uzun süre cezalandırır.",
       passwordResetPermitLimit: "Pencere başına sıfırlama bağlantısı kullanımı",
       passwordResetPermitLimitHint:
         "Tek bir istemci IP'sinin sıfırlama tokenıyla birlikte kaç kez yeni parola gönderebileceği. Bu, bağlantının kullanılmasıdır; bağlantının istenmesi değil — sıfırlama e-postası istemek yukarıdaki kimlik doğrulama sınırına girer. Tokenın kendisi 256 bit entropi taşır ve tahmin edilemez, dolayısıyla bu sınır tokenı korumaktan çok, oturum açmadan erişilebilen bir uç nokta için temel hijyendir.",
@@ -1881,6 +1886,17 @@ export const tr: TranslationResources = {
       allowExternalProvisioning: "Google veya Apple ile kayıt",
       allowExternalProvisioningHint:
         "Burada hiçbir hesapla eşleşmeyen bir sağlayıcı kimliğinin ilk girişte hesap oluşturup oluşturamayacağı. Bu, başka bir yoldan kendi kendine kayıttır ve siz bunu da kapatmadıkça yukarıdaki anahtar kapalıyken bile açık kalır. Mevcut hesaplar her iki durumda da girmeye devam eder ve bir sağlayıcı aynı adresli bir hesaba yine bağlanabilir.",
+      allowInvitationRegistration: "Davetle kayıt",
+      allowInvitationRegistrationHint:
+        "Bir kuruluş davetinin kullanılmasının hesap oluşturup oluşturamayacağı. Herkese açık kaydı kapatmak genellikle hesapların davetle gelmesi gerektiği anlamına gelir; bu yüzden ayrı bir anahtardır. Üçünü de kapatın, hesaplar yalnızca bir yönetici oluşturduğunda var olur. Gönderilmiş davetler iptal edilmez ve hesabı olan biri daveti yine kabul edebilir, çünkü bu hesap oluşturmaz, üyelik ekler.",
+    },
+    organizations: {
+      title: "Kuruluşu kim oluşturabilir",
+      description:
+        "Kuruluş oluşturmak hesap oluşturmaz; yetki oluşturur: oluşturan kişi sahibi olur ve sahip rolü, herhangi bir e-posta adresini davet etmek dahil tüm org: izinlerini taşır.",
+      allowSelfServiceCreation: "Self servis kuruluşlar",
+      allowSelfServiceCreationHint:
+        "Sıradan bir oturum açmış kullanıcının kendisi için kuruluş oluşturup oluşturamayacağı. Açıkken, hesabı olan herkes bir kuruluş oluşturup hemen ardından herhangi bir adresi davet edebilir. Kapalıyken, hesaplar uygulaması düğmeyi göstermeye devam eder ve istek gönderimde reddedilir; mevcut kuruluşlar etkilenmez ve organizations:manage iznine sahip bir platform yöneticisi oluşturmayı sürdürür.",
     },
     identityProvider: {
       title: "Kimlik sağlayıcı (SSO)",

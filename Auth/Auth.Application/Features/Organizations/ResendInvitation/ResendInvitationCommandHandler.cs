@@ -108,19 +108,25 @@ public class ResendInvitationCommandHandler : IRequestHandler<ResendInvitationCo
             },
             cancellationToken);
 
-        // Email failure must not fail the command: the regenerated token stays
-        // available to the admin in the response/UI and can be shared manually.
+        // Email failure must not fail the command. The regenerated invitation
+        // stands and can be resent again.
+        //
+        // The regenerated plaintext is NOT returned to the caller, for the reason
+        // given at length in InviteMemberCommandHandler: redeeming it confirms an
+        // address with no further proof, so it may exist only in the mailbox it
+        // was sent to. This path mattered as much as the mint — it hands out a
+        // freshly minted token under the same permission, so leaving it behind
+        // would have left a one-call route to exactly what was closed there.
         if (sendResult.IsError)
         {
             _logger.LogWarning(
-                "Failed to send invitation email for resent invitation {InvitationId}: {Error}; token remains available to admin",
+                "Failed to send invitation email for resent invitation {InvitationId}: {Error}; the invitation stands and can be resent",
                 invitation.Id, sendResult.FirstError.Description);
         }
 
         return new OrganizationInvitationDto
         {
             Id = invitation.Id,
-            Token = newToken,
             OrganizationId = invitation.OrganizationId,
             OrganizationName = organization?.Name ?? string.Empty,
             Email = invitation.Email.Value,

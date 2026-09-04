@@ -10,9 +10,18 @@ namespace Auth.Application.Configuration;
 /// real policy, and so is its opposite.
 /// </para>
 /// <para>
-/// Neither switch touches the paths where somebody already decided this person
-/// belongs: an administrator creating a user, or a registration that redeems an
-/// organization invitation.
+/// A third door redeems an organization invitation. It used to be described here
+/// as a path where "somebody already decided this person belongs", and left
+/// uncovered on that basis. The description was wrong: the somebody was any
+/// signed-in user, because creating an organization required no permission and
+/// its owner may invite any address. That is now two separate controls — who may
+/// create an organization at all, and this switch — and the invitation's own
+/// premise was repaired by keeping the token out of the inviter's hands.
+/// </para>
+/// <para>
+/// Still untouched by any of them: an administrator creating a user. That path
+/// has a named, authenticated, permission-checked actor and an audit row naming
+/// them, which is what the other three did not.
 /// </para>
 /// </summary>
 public class RegistrationSettings
@@ -35,4 +44,25 @@ public class RegistrationSettings
     /// continue to work.
     /// </summary>
     public bool AllowExternalProvisioning { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets whether an account may be created by redeeming an
+    /// organization invitation. Open by default, because closing it stops a
+    /// normal onboarding flow that most deployments want.
+    /// <para>
+    /// Separate from <see cref="AllowSelfRegistration"/> on purpose. An operator
+    /// who closes public sign-up has usually decided that accounts arrive by
+    /// invitation instead, so folding the two together would break the very
+    /// workflow that closing the first one implies. An operator who wants
+    /// accounts to exist ONLY when an administrator creates them closes all
+    /// three.
+    /// </para>
+    /// <para>
+    /// Closing this does not cancel invitations already sent, and does not stop
+    /// an invited person who ALREADY has an account from accepting one: that path
+    /// adds a membership to an existing account rather than creating one, which
+    /// is not what any of these switches govern.
+    /// </para>
+    /// </summary>
+    public bool AllowInvitationRegistration { get; set; } = true;
 }

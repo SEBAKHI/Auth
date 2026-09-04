@@ -25,6 +25,12 @@
   <ItemGroup>
     <ProjectReference Include="..\Auth.Infrastructure\Auth.Infrastructure.csproj" />
     <ProjectReference Include="..\Auth_Localization\Auth_Localization.csproj" />
+    <!-- Declared rather than inherited through Auth.Infrastructure. This host
+         uses Auth.Shared directly (the rate-limit rejection log it shares with
+         the gateway), and a compile-time dependency that survives only because
+         some other project happens to reference it is one refactor away from
+         breaking a build for reasons nothing here explains. -->
+    <ProjectReference Include="..\Auth.Shared\Auth.Shared.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -28,6 +28,22 @@ public static class OrganizationErrors
         code: "Organization.Inactive",
         description: "This organization is currently inactive.");
 
+    /// <summary>
+    /// Self-service organization creation is shut by configuration. Returned
+    /// before the duplicate-code lookup, so a closed server answers the same for a
+    /// code that is taken and one that is free.
+    /// </summary>
+    /// <remarks>
+    /// Not a permission failure, and the message avoids saying so: a platform
+    /// administrator passes this check, but an ordinary user is not missing a
+    /// grant that anybody could give them — the capability is off for everyone
+    /// here. Telling them to ask for a permission would send them somewhere no
+    /// answer lives.
+    /// </remarks>
+    public static Error SelfServiceCreationClosed => Error.Forbidden(
+        code: "Organization.SelfServiceCreationClosed",
+        description: "Organizations cannot be created on this server.");
+
     public static Error CannotDeleteWithMembers => Error.Forbidden(
         code: "Organization.CannotDeleteWithMembers",
         description: "Cannot delete an organization that still has members. Remove all members first.");

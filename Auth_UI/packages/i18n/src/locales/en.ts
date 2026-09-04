@@ -289,7 +289,6 @@ export const en = {
     theme: "Theme",
     timeZone: "Time zone",
     timestamp: "Timestamp",
-    token: "Token",
     translationCount: "Translations",
     twoFactorEnabled: "Two-factor enabled",
     typeCode: "Type code",
@@ -1789,6 +1788,12 @@ export const en = {
       registerWindowSeconds: "Sign-up counting window (seconds)",
       registerWindowSecondsHint:
         "The span the sign-up count above is measured over, on the same fixed-window mechanic: the counter returns to zero when the window ends rather than sliding. Both fields apply to new client windows the moment you save, so an event limit can be raised for the day and lowered afterwards without a restart — and it should be, since a wide sign-up allowance is one an automated caller can spend just as easily as a real crowd.",
+      signInPagePermitLimit: "Sign-in page loads per window",
+      signInPagePermitLimitHint:
+        "What a sign-in or sign-up page spends just by rendering: the list of enabled external providers, and the nonce the Google button must hold before it initialises. Two requests per page open, so this number halved is how many times one client IP may open those pages per window. Split out of the authentication limit because rendering a page is not attempting to sign in — while the two shared an allowance, opening the sign-up page spent two of twenty, and one shared address such as an office or a mobile carrier could complete only about six sign-ups a minute however high the sign-up limit was set.",
+      signInPageWindowSeconds: "Sign-in page counting window (seconds)",
+      signInPageWindowSecondsHint:
+        "The period the count above covers. Sixty seconds is the usual choice; a longer window smooths bursts and punishes them for longer.",
       passwordResetPermitLimit: "Reset-link redemptions per window",
       passwordResetPermitLimitHint:
         "How many times one client IP may submit a new password together with a reset token. This is redemption, not the request for the email — asking for a reset link falls under the authentication limit above. The token carries 256 bits of entropy and cannot be guessed, so this limit is hygiene for an endpoint open without sign-in rather than a defence of the token.",
@@ -1888,6 +1893,17 @@ export const en = {
       allowExternalProvisioning: "Sign-up through Google or Apple",
       allowExternalProvisioningHint:
         "Whether a provider identity matching no account here may create one on its first sign-in. This is self-registration by another route, and it stays open while the switch above is closed unless you close this one too. Accounts that already exist keep signing in either way, and a provider can still be linked to an account with the same address.",
+      allowInvitationRegistration: "Sign-up through an invitation",
+      allowInvitationRegistrationHint:
+        "Whether redeeming an organization invitation may create an account. Closing public sign-up usually means accounts should arrive by invitation instead, so this is a separate switch; close all three and accounts exist only when an administrator creates them. Invitations already sent are not cancelled, and someone who already has an account can still accept one, because that adds a membership rather than creating an account.",
+    },
+    organizations: {
+      title: "Who may create an organization",
+      description:
+        "Creating an organization creates no account. It creates authority: the creator becomes the owner, and the owner role carries every org: permission, including inviting people by email address.",
+      allowSelfServiceCreation: "Self-service organizations",
+      allowSelfServiceCreationHint:
+        "Whether an ordinary signed-in user may create an organization for themselves. Open, anyone with an account can create one and immediately invite any address to it. Closed, the accounts app still shows the button and the attempt is refused on submit, existing organizations are untouched, and a platform administrator holding organizations:manage still creates them.",
     },
     identityProvider: {
       title: "Identity provider (SSO)",

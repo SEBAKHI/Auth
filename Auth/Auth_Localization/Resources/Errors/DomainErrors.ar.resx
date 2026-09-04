@@ -92,6 +92,9 @@
   <data name="User.ExternalRegistrationClosed" xml:space="preserve">
     <value>حساب المزوّد هذا غير مرتبط بأيّ حساب على هذا الخادم، وإنشاء حسابات جديدة عبر المزوّدين غير متاح.</value>
   </data>
+  <data name="User.InvitationRegistrationClosed" xml:space="preserve">
+    <value>لا يمكن إنشاء حسابات عبر الدعوات على هذا الخادم. اطلب من المؤسّسة التي دعتك إضافتك بطريقة أخرى.</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>تم قفل هذا الحساب بسبب محاولات تسجيل دخول فاشلة متعددة.</value>
   </data>
@@ -159,6 +162,9 @@
   </data>
   <data name="Organization.Inactive" xml:space="preserve">
     <value>هذه المنظمة غير نشطة حاليًا.</value>
+  </data>
+  <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
+    <value>لا يمكن إنشاء منظمات على هذا الخادم.</value>
   </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>لا يمكن حذف منظمة لا تزال تحتوي على أعضاء. قم بإزالة جميع الأعضاء أولًا.</value>

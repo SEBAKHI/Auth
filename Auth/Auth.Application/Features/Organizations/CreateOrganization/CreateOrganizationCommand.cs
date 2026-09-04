@@ -20,4 +20,16 @@ public record CreateOrganizationCommand(
     /// The ID of the user creating this organization (becomes owner).
     /// </summary>
     public Guid CreatedBy { get; init; }
+
+    /// <summary>
+    /// True when the caller acts as a platform administrator rather than as a
+    /// user creating an organization for themselves.
+    /// </summary>
+    /// <remarks>
+    /// Set at the edge from the caller's <c>organizations:manage</c> claim, the
+    /// same way <c>DeleteOrganizationCommand</c> does. It widens scope past the
+    /// self-service switch; it is not an endpoint gate, and nothing here treats
+    /// it as one.
+    /// </remarks>
+    public bool PlatformScope { get; init; }
 }

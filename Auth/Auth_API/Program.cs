@@ -99,6 +99,7 @@ builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(Gat
 builder.Services.PostConfigure<GatewaySettings>(SettingsArrayNormalizer.Apply);
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
 builder.Services.Configure<RegistrationSettings>(builder.Configuration.GetSection(RegistrationSettings.SectionName));
+builder.Services.Configure<OrganizationSettings>(builder.Configuration.GetSection(OrganizationSettings.SectionName));
 builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSection(IdentityProviderSettings.SectionName));
 // Password reset and email verification links are built from FrontendBaseUrl. An
 // empty value silently yields a relative URL, i.e. a dead link in every email, so
@@ -542,6 +543,11 @@ builder.Services.AddSingleton<ITokenBlacklistService>(sp => sp.GetRequiredServic
 builder.Services.AddHostedService<TokenRevocationBackgroundService>();
 builder.Services.AddSingleton<IRefreshTokenKeyService, RefreshTokenKeyService>();
 builder.Services.AddSingleton<IIdentifierHasher, IdentifierHasher>();
+// Confirmation codes are keyed-hashed rather than password-hashed. Singleton
+// alongside the key service it borrows: it holds no per-request state, and the
+// password hasher it falls back to for codes minted before this shipped is a
+// singleton too.
+builder.Services.AddSingleton<IOtpHasher, HmacOtpHasher>();
 // Scoped: the protector now rides the per-user crypto service (scoped DEK repo).
 builder.Services.AddScoped<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
 builder.Services.AddScoped<IPerUserCryptoService, PerUserCryptoService>();
@@ -850,6 +856,32 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // What the sign-in and sign-up PAGES spend merely by rendering: the list of
+    // enabled external providers, and the nonce the Google button must hold before
+    // it initialises. Neither carries a credential, neither can be guessed at, and
+    // the nonce endpoint touches no database — it returns a random value and a
+    // keyed hash of it.
+    //
+    // Split out of the login policy because they were being counted as sign-in
+    // attempts. Opening the sign-up page spent two of that policy's twenty, and
+    // completing a registration spent a third on the verification step, so a
+    // shared address — an office, a campus, a mobile carrier — was capped at
+    // roughly six completed sign-ups a minute no matter what the registration
+    // limit said. The registration limit was raised to two hundred on measured
+    // evidence and could never be reached from a browser, because this bucket ran
+    // out first. That is the same mistake the registration split corrected, one
+    // endpoint further along: page rendering is not authentication, and a bucket
+    // sized to slow down guessing has no business holding it.
+    options.AddPolicy("sign-in-page", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:SignInPagePermitLimit", 60),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:SignInPageWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
     // Redeeming a reset token cannot be brute forced (the token carries 256 bits
     // of entropy), so this is hygiene for an anonymous endpoint rather than a
     // guessing defence — a stricter per-client bucket than the login policy.
@@ -956,18 +988,48 @@ builder.Services.AddRateLimiter(options =>
             ? localizer["Middleware.TooManyRequests"].Value
             : "Too many requests. Please try again later.";
 
+        // Window policies attach RetryAfter; the image-upload and public-surface
+        // concurrency policies cannot (a slot frees when work finishes, not on a
+        // clock), so their rejections land on the fallback. A few seconds is the
+        // honest hint there — sixty would tell a console user to wait a minute
+        // for a queue that drains in one.
+        var retryAfterSeconds = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
+            ? retryAfter.TotalSeconds
+            : 5;
+
+        // Name the allowance that ran out. Unambiguous in this process, and only
+        // here: there is no GlobalLimiter in this host (see the note at the top
+        // of this block), so the sole limiter that can refuse a request is the
+        // named policy its endpoint opted into. A null policy would mean a
+        // refusal arrived from a limiter no endpoint asked for, which is not a
+        // state this configuration can reach — so it is logged as "unnamed"
+        // rather than silently treated as one of the known buckets.
+        RateLimitRejectionLog.Write(
+            context.HttpContext.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("Auth_API.RateLimiting"),
+            context.HttpContext,
+            RateLimitRejectionLog.PolicyOf(context.HttpContext) ?? "unnamed",
+            ClientIpResolver.Resolve(context.HttpContext),
+            retryAfterSeconds);
+
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.Headers.RetryAfter =
+            ((int)retryAfterSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
+            // Not decoration. The SPA derives an error's KIND from this field and
+            // from nothing else — getErrorStatus reads the body, never the
+            // transport status — so while this body omitted it, a refusal here
+            // was classified "unknown" and the user was told to contact support
+            // instead of to wait a moment. The gateway's own 429 carries the
+            // field and said the right thing, which is why the defect survived:
+            // the two hosts refuse the same request for the same reason, and
+            // whichever one gets there first has to say so identically.
+            status = StatusCodes.Status429TooManyRequests,
             error = message,
-            // Window policies attach RetryAfter; the image-upload concurrency
-            // policy cannot (a slot frees when a decode finishes, not on a
-            // clock), so its rejection lands on the fallback. A few seconds is
-            // the honest hint there — sixty would tell a console user to wait a
-            // minute for a queue that drains in one.
-            retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
-                ? retryAfter.TotalSeconds
-                : 5
+            retryAfter = retryAfterSeconds
         }, token);
     };
 });

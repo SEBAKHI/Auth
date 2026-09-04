@@ -22,7 +22,7 @@ public class SendEmailVerificationCommandHandlerTests
     private readonly Mock<IEmailVerificationTokenRepository> _tokenRepositoryMock;
     private readonly Mock<INotificationService> _notificationServiceMock;
     private readonly Mock<IOtpGenerator> _otpGeneratorMock;
-    private readonly Mock<IPasswordHasher> _passwordHasherMock;
+    private readonly Mock<IOtpHasher> _otpHasherMock;
     private readonly Mock<IEnvironmentInfo> _environmentInfoMock;
     private readonly Mock<ILogger<SendEmailVerificationCommandHandler>> _loggerMock;
     private readonly EmailSettings _emailSettings;
@@ -34,7 +34,7 @@ public class SendEmailVerificationCommandHandlerTests
         _tokenRepositoryMock = new Mock<IEmailVerificationTokenRepository>();
         _notificationServiceMock = new Mock<INotificationService>();
         _otpGeneratorMock = new Mock<IOtpGenerator>();
-        _passwordHasherMock = new Mock<IPasswordHasher>();
+        _otpHasherMock = new Mock<IOtpHasher>();
         // Left without a Setup on purpose: Moq defaults the bool to false, which is
         // the production shape, so every existing test runs with the OTP log shut.
         _environmentInfoMock = new Mock<IEnvironmentInfo>();
@@ -53,7 +53,7 @@ public class SendEmailVerificationCommandHandlerTests
             _tokenRepositoryMock.Object,
             _notificationServiceMock.Object,
             _otpGeneratorMock.Object,
-            _passwordHasherMock.Object,
+            _otpHasherMock.Object,
             TestHelpers.CreateOptions(_emailSettings),
             _environmentInfoMock.Object,
             _loggerMock.Object);
@@ -206,8 +206,8 @@ public class SendEmailVerificationCommandHandlerTests
             .Setup(g => g.GenerateNumericOtp(6))
             .Returns("123456");
 
-        _passwordHasherMock
-            .Setup(h => h.HashPassword("123456"))
+        _otpHasherMock
+            .Setup(h => h.Hash(It.IsAny<string>(), "123456"))
             .Returns("HashedOtp");
 
         _notificationServiceMock
@@ -293,8 +293,8 @@ public class SendEmailVerificationCommandHandlerTests
             .Setup(g => g.GenerateNumericOtp(6))
             .Returns("123456");
 
-        _passwordHasherMock
-            .Setup(h => h.HashPassword("123456"))
+        _otpHasherMock
+            .Setup(h => h.Hash(It.IsAny<string>(), "123456"))
             .Returns("HashedOtp");
 
         _notificationServiceMock

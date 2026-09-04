@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
+using Yarp.ReverseProxy.Model;
 using Yarp.ReverseProxy.Transforms;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -206,8 +207,30 @@ builder.Services.AddRateLimiter(options =>
     static string ClientId(HttpContext context) =>
         context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-    // Global rate limit
-    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    // Asked only from the rejection handler, and only to name which allowance
+    // refused. Guarded because it re-runs the partitioner — which resolves the
+    // settings provider and reads the current limits — and a throw there would
+    // turn a 429 into a 500. A request that was already refused must still be
+    // told so; losing the label is the acceptable half of that trade.
+    static bool GlobalBucketIsEmpty(PartitionedRateLimiter<HttpContext> limiter, HttpContext context)
+    {
+        try
+        {
+            return limiter.GetStatistics(context)?.CurrentAvailablePermits == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // Global rate limit.
+    //
+    // Held in a local as well as assigned, so the rejection handler below can ask
+    // it whether it still has permits. That question is the only way this process
+    // can name which allowance refused a request: two limiters can refuse — this
+    // one and the route's own policy — and OnRejected is told neither.
+    var globalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
     {
         var limits = Limits(context);
 
@@ -221,6 +244,8 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst
             });
     });
+
+    options.GlobalLimiter = globalLimiter;
 
     // Per-endpoint rate limits
     options.AddPolicy("auth", context =>
@@ -304,6 +329,33 @@ builder.Services.AddRateLimiter(options =>
             : 60;
 
         context.HttpContext.Response.Headers.RetryAfter = retryAfter.ToString();
+
+        // Name the allowance that ran out.
+        //
+        // Two limiters can refuse here and the handler is told neither: the
+        // global bucket runs first, and the route's own policy runs after it.
+        // The discriminator is the global bucket's remaining allowance, and it
+        // works because of the order — a route-policy refusal can only happen
+        // AFTER the global lease was granted, so an empty global bucket at this
+        // point means the global bucket is what refused. Both empty at once
+        // reports "global", which is true as well as first.
+        //
+        // A route that names no policy has only the global bucket to be refused
+        // by, so a missing policy name is not a gap here the way it would be in
+        // the API.
+        RateLimitRejectionLog.Write(
+            context.HttpContext.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("API_Gateway.RateLimiting"),
+            context.HttpContext,
+            GlobalBucketIsEmpty(globalLimiter, context.HttpContext)
+                ? "global"
+                : RateLimitRejectionLog.PolicyOf(context.HttpContext)
+                    ?? context.HttpContext.GetEndpoint()?.Metadata
+                        .GetMetadata<RouteModel>()?.Config.RateLimiterPolicy
+                    ?? "global",
+            ClientId(context.HttpContext),
+            retryAfter);
 
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {

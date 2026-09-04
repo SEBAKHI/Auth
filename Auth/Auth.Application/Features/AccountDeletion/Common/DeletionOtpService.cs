@@ -31,7 +31,7 @@ public class DeletionOtpService
     private readonly IAccountDeletionVerificationRepository _verificationRepository;
     private readonly INotificationService _notificationService;
     private readonly IOtpGenerator _otpGenerator;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IOtpHasher _otpHasher;
     private readonly AccountDeletionSettings _settings;
     private readonly EmailSettings _emailSettings;
     private readonly IEnvironmentInfo _environment;
@@ -41,7 +41,7 @@ public class DeletionOtpService
         IAccountDeletionVerificationRepository verificationRepository,
         INotificationService notificationService,
         IOtpGenerator otpGenerator,
-        IPasswordHasher passwordHasher,
+        IOtpHasher otpHasher,
         IOptionsSnapshot<AccountDeletionSettings> settings,
         IOptionsSnapshot<EmailSettings> emailSettings,
         IEnvironmentInfo environment,
@@ -50,7 +50,7 @@ public class DeletionOtpService
         _verificationRepository = verificationRepository;
         _notificationService = notificationService;
         _otpGenerator = otpGenerator;
-        _passwordHasher = passwordHasher;
+        _otpHasher = otpHasher;
         _settings = settings.Value;
         _emailSettings = emailSettings.Value;
         _environment = environment;
@@ -90,7 +90,7 @@ public class DeletionOtpService
         }
 
         var verification = AccountDeletionVerification.Create(
-            user.Id, user.Email, _passwordHasher.HashPassword(otp), _settings.OtpExpirationMinutes);
+            user.Id, user.Email, _otpHasher.Hash(user.Id.ToString(), otp), _settings.OtpExpirationMinutes);
         await _verificationRepository.CreateAsync(verification, cancellationToken);
 
         var recipientName = AccountDeletionRequestor.DisplayNameOf(user);
@@ -165,7 +165,7 @@ public class DeletionOtpService
 
         foreach (var candidate in candidates)
         {
-            if (!candidate.IsValid || !_passwordHasher.VerifyPassword(otpCode, candidate.OtpHash))
+            if (!candidate.IsValid || !_otpHasher.Verify(candidate.UserId?.ToString() ?? string.Empty, otpCode, candidate.OtpHash))
             {
                 continue;
             }

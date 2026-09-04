@@ -136,7 +136,12 @@ public class AuthController : ApiController
     /// <returns>List of enabled providers with code, name, and icon URL</returns>
     [HttpGet("external-providers")]
     [AllowAnonymous]
+    // Page rendering, not authentication. Carried no limiter at all before, which
+    // was its own gap: the gateway's catch-all was the only thing counting it, and
+    // it counted it as a sign-in attempt.
+    [EnableRateLimiting("sign-in-page")]
     [ProducesResponseType(typeof(IReadOnlyList<ExternalAuthProviderResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> GetExternalProviders(
         [FromQuery] string? sortBy = null,
         [FromQuery] SortDirection sortDirection = SortDirection.Asc,
@@ -167,7 +172,10 @@ public class AuthController : ApiController
     /// <returns>The plain nonce for the caller to pass to the provider.</returns>
     [HttpPost("external-nonce")]
     [AllowAnonymous]
-    [EnableRateLimiting("login")]
+    // Fetched on mount by every sign-in and sign-up page that offers Google, so it
+    // is page rendering rather than a sign-in attempt. The work is a random value
+    // and one keyed hash, with no database touched.
+    [EnableRateLimiting("sign-in-page")]
     [ProducesResponseType(typeof(ExternalNonceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> IssueExternalNonce(CancellationToken cancellationToken)

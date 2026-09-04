@@ -184,6 +184,13 @@ public static class SystemSettingsRegistry
                 // not a universal one; the console hint carries the arithmetic.
                 new SettingFieldDefinition("RegisterPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 200),
                 new SettingFieldDefinition("RegisterWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // What a sign-in or sign-up page spends by rendering: the provider
+                // list and the Google nonce. Two per page open, so sixty permits
+                // is thirty openings a minute from one address. Sized against page
+                // views rather than sign-in attempts, which is the whole reason it
+                // is not the login pair above.
+                new SettingFieldDefinition("SignInPagePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 60),
+                new SettingFieldDefinition("SignInPageWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 new SettingFieldDefinition("PasswordResetPermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 10),
                 new SettingFieldDefinition("PasswordResetWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
                 new SettingFieldDefinition("ApiKeyValidatePermitLimit", SettingKind.Int, Min: 1, Max: 10000, DefaultValue: 60),
@@ -334,7 +341,32 @@ public static class SystemSettingsRegistry
                 // the switches existed, and an upgrade must not silently shut a
                 // door the operator still wants open.
                 new SettingFieldDefinition("AllowSelfRegistration", SettingKind.Bool, DefaultValue: true),
-                new SettingFieldDefinition("AllowExternalProvisioning", SettingKind.Bool, DefaultValue: true)
+                new SettingFieldDefinition("AllowExternalProvisioning", SettingKind.Bool, DefaultValue: true),
+                // The third door, and the one the console did not mention while
+                // reporting the other two closed. Kept a separate switch because
+                // an operator who shuts public sign-up has usually decided that
+                // accounts arrive by invitation instead — folding the two
+                // together would break the workflow the first choice implies.
+                new SettingFieldDefinition("AllowInvitationRegistration", SettingKind.Bool, DefaultValue: true)
+            ]),
+
+        // Beside Registration rather than inside it. That section answers who may
+        // create an ACCOUNT; this one answers who may create AUTHORITY — an
+        // organization's creator becomes its owner, and the seeded owner role
+        // carries the org:* family, invitation included. One screen answering both
+        // questions is how an operator ends up believing a door is shut.
+        new SettingSectionDefinition(
+            Key: "Organizations",
+            ConfigRoot: "Organizations",
+            Group: SettingGroups.Access,
+            Editable: true,
+            Fields:
+            [
+                // Read through IOptionsSnapshot, so a save applies on the next
+                // request. Defaults open: the endpoint has always been reachable
+                // by any signed-in user, and an upgrade must not silently remove
+                // a capability the accounts app still offers on its own page.
+                new SettingFieldDefinition("AllowSelfServiceCreation", SettingKind.Bool, DefaultValue: true)
             ]),
 
         new SettingSectionDefinition(

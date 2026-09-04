@@ -15,7 +15,7 @@ public class VerifyEmailCommandHandlerTests
 {
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IEmailVerificationTokenRepository> _tokenRepositoryMock;
-    private readonly Mock<IPasswordHasher> _passwordHasherMock;
+    private readonly Mock<IOtpHasher> _otpHasherMock;
     private readonly Mock<ILoginResponseBuilder> _loginResponseBuilderMock;
     private readonly Mock<ITwoFactorChallengeService> _twoFactorChallengeServiceMock;
     private readonly Mock<IDomainEventDispatcher> _eventDispatcherMock;
@@ -26,7 +26,7 @@ public class VerifyEmailCommandHandlerTests
     {
         _userRepositoryMock = new Mock<IUserRepository>();
         _tokenRepositoryMock = new Mock<IEmailVerificationTokenRepository>();
-        _passwordHasherMock = new Mock<IPasswordHasher>();
+        _otpHasherMock = new Mock<IOtpHasher>();
         _loginResponseBuilderMock = new Mock<ILoginResponseBuilder>();
         _twoFactorChallengeServiceMock = new Mock<ITwoFactorChallengeService>();
         _eventDispatcherMock = new Mock<IDomainEventDispatcher>();
@@ -35,7 +35,7 @@ public class VerifyEmailCommandHandlerTests
         _handler = new VerifyEmailCommandHandler(
             _userRepositoryMock.Object,
             _tokenRepositoryMock.Object,
-            _passwordHasherMock.Object,
+            _otpHasherMock.Object,
             _loginResponseBuilderMock.Object,
             _twoFactorChallengeServiceMock.Object,
             _eventDispatcherMock.Object,
@@ -63,8 +63,8 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(lockedUser.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
+        _otpHasherMock
+            .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
             .Returns(true);
         SetupTokenBuilder();
 
@@ -94,8 +94,8 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(lockedUser.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
+        _otpHasherMock
+            .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
             .Returns(true);
         SetupTokenBuilder();
 
@@ -190,8 +190,8 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
+        _otpHasherMock
+            .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
             .Returns(true);
 
         // Act
@@ -227,8 +227,8 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
+        _otpHasherMock
+            .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
             .Returns(true);
         SetupTokenBuilder();
 
@@ -266,8 +266,8 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("123456", token.OtpHash))
+        _otpHasherMock
+            .Setup(h => h.Verify(It.IsAny<string>(), "123456", token.OtpHash))
             .Returns(true);
         _twoFactorChallengeServiceMock
             .Setup(s => s.CreateChallengeAsync(
@@ -405,8 +405,8 @@ public class VerifyEmailCommandHandlerTests
         _tokenRepositoryMock
             .Setup(r => r.GetValidTokenForUserAsync(userId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(token);
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword("999999", token.OtpHash))
+        _otpHasherMock
+            .Setup(h => h.Verify(It.IsAny<string>(), "999999", token.OtpHash))
             .Returns(false);
 
         // Act

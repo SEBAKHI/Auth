@@ -288,7 +288,6 @@ export const fr: TranslationResources = {
     theme: "Thème",
     timeZone: "Fuseau horaire",
     timestamp: "Horodatage",
-    token: "Jeton",
     translationCount: "Traductions",
     twoFactorEnabled: "Deux facteurs activés",
     typeCode: "Code du type",
@@ -1820,6 +1819,12 @@ export const fr: TranslationResources = {
       registerWindowSeconds: "Fenêtre de comptage des inscriptions (secondes)",
       registerWindowSecondsHint:
         "Durée sur laquelle le compte d'inscriptions ci-dessus est mesuré, selon la même mécanique de fenêtre fixe : le compteur revient à zéro à la fin de la fenêtre au lieu de glisser. Les deux champs s'appliquent aux nouvelles fenêtres clientes dès l'enregistrement : une limite d'événement peut donc être relevée pour la journée puis abaissée ensuite, sans redémarrage — et elle devrait l'être, car un quota d'inscription large se dépense aussi facilement par un automate que par une vraie foule.",
+      signInPagePermitLimit: "Chargements de page de connexion par fenêtre",
+      signInPagePermitLimitHint:
+        "Ce qu'une page de connexion ou d'inscription dépense rien qu'en s'affichant : la liste des fournisseurs externes activés et le nonce que le bouton Google doit détenir avant de s'initialiser. Deux requêtes par ouverture de page, donc la moitié de ce nombre est le nombre d'ouvertures autorisées par adresse IP et par fenêtre. Séparé de la limite d'authentification parce qu'afficher une page n'est pas tenter de se connecter : tant qu'ils partageaient une allocation, ouvrir la page d'inscription en consommait deux sur vingt, et une adresse partagée (bureau, opérateur mobile) ne pouvait achever qu'environ six inscriptions par minute, quelle que soit la limite d'inscription.",
+      signInPageWindowSeconds: "Fenêtre de comptage de la page de connexion (secondes)",
+      signInPageWindowSecondsHint:
+        "La période couverte par le compte ci-dessus. Soixante secondes est le choix habituel ; une fenêtre plus longue lisse les pics et les pénalise plus longtemps.",
       passwordResetPermitLimit:
         "Utilisations du lien de réinitialisation par fenêtre",
       passwordResetPermitLimitHint:
@@ -1922,6 +1927,17 @@ export const fr: TranslationResources = {
       allowExternalProvisioning: "Inscription via Google ou Apple",
       allowExternalProvisioningHint:
         "Si une identité de fournisseur qui ne correspond à aucun compte ici peut en créer un lors de sa première connexion. C'est une auto-inscription par une autre voie, et elle reste ouverte quand l'interrupteur ci-dessus est fermé, sauf si vous fermez aussi celui-ci. Les comptes existants continuent de se connecter dans les deux cas, et un fournisseur peut toujours être lié à un compte portant la même adresse.",
+      allowInvitationRegistration: "Inscription par invitation",
+      allowInvitationRegistrationHint:
+        "Si l'utilisation d'une invitation d'organisation peut créer un compte. Fermer l'inscription publique signifie généralement que les comptes doivent arriver par invitation, d'où un interrupteur distinct ; fermez les trois et les comptes n'existent que si un administrateur les crée. Les invitations déjà envoyées ne sont pas annulées, et une personne ayant déjà un compte peut toujours accepter, car cela ajoute une adhésion sans créer de compte.",
+    },
+    organizations: {
+      title: "Qui peut créer une organisation",
+      description:
+        "Créer une organisation ne crée aucun compte. Cela crée une autorité : le créateur en devient propriétaire, et le rôle de propriétaire porte toutes les permissions org:, y compris inviter n'importe quelle adresse e-mail.",
+      allowSelfServiceCreation: "Organisations en libre-service",
+      allowSelfServiceCreationHint:
+        "Si un utilisateur connecté ordinaire peut créer une organisation pour lui-même. Ouvert, toute personne ayant un compte peut en créer une et y inviter aussitôt n'importe quelle adresse. Fermé, l'application des comptes affiche toujours le bouton et la tentative est refusée à l'envoi, les organisations existantes ne sont pas touchées, et un administrateur de la plateforme détenant organizations:manage continue d'en créer.",
     },
     identityProvider: {
       title: "Fournisseur d'identité (SSO)",

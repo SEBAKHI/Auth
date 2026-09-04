@@ -92,6 +92,9 @@
   <data name="User.ExternalRegistrationClosed" xml:space="preserve">
     <value>This provider account is not linked to any account on this server, and new accounts cannot be created from a provider.</value>
   </data>
+  <data name="User.InvitationRegistrationClosed" xml:space="preserve">
+    <value>Accounts cannot be created from invitations on this server. Ask the organization that invited you to add you another way.</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>This account has been locked due to multiple failed login attempts.</value>
   </data>
@@ -159,6 +162,9 @@
   </data>
   <data name="Organization.Inactive" xml:space="preserve">
     <value>This organization is currently inactive.</value>
+  </data>
+  <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
+    <value>Organizations cannot be created on this server.</value>
   </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>Cannot delete an organization that still has members. Remove all members first.</value>

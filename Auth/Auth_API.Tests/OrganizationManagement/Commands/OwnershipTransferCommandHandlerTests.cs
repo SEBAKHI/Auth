@@ -27,7 +27,7 @@ public class OwnershipTransferCommandHandlerTests
     private readonly Mock<IRoleRepository> _roleRepositoryMock = new();
     private readonly Mock<IOwnershipTransferCodeRepository> _transferCodeRepositoryMock = new();
     private readonly Mock<IOtpGenerator> _otpGeneratorMock = new();
-    private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
+    private readonly Mock<IOtpHasher> _otpHasherMock = new();
     private readonly Mock<INotificationService> _notificationServiceMock = new();
     private readonly Mock<IPublisher> _publisherMock = new();
 
@@ -61,7 +61,7 @@ public class OwnershipTransferCommandHandlerTests
         _userRepositoryMock.Object,
         _transferCodeRepositoryMock.Object,
         _otpGeneratorMock.Object,
-        _passwordHasherMock.Object,
+        _otpHasherMock.Object,
         _notificationServiceMock.Object,
         _publisherMock.Object,
         TestHelpers.CreateOptions(new EmailSettings { Enabled = false }),
@@ -73,7 +73,7 @@ public class OwnershipTransferCommandHandlerTests
         _userRepositoryMock.Object,
         _roleRepositoryMock.Object,
         _transferCodeRepositoryMock.Object,
-        _passwordHasherMock.Object,
+        _otpHasherMock.Object,
         _publisherMock.Object,
         new Mock<ILogger<TransferOwnershipCommandHandler>>().Object);
 
@@ -113,7 +113,7 @@ public class OwnershipTransferCommandHandlerTests
                 org.Id, ownerId, targetId, ownerRole.Id, adminRole.Id, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         _otpGeneratorMock.Setup(g => g.GenerateNumericOtp(6)).Returns("123456");
-        _passwordHasherMock.Setup(h => h.HashPassword("123456")).Returns("hashed-otp");
+        _otpHasherMock.Setup(h => h.Hash(It.IsAny<string>(), "123456")).Returns("hashed-otp");
         _notificationServiceMock
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success);
@@ -388,7 +388,7 @@ public class OwnershipTransferCommandHandlerTests
         _transferCodeRepositoryMock
             .Setup(r => r.GetValidForOrganizationAsync(org.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateCode(org.Id, targetUserId: Guid.NewGuid()));
-        _passwordHasherMock.Setup(h => h.VerifyPassword("123456", "hashed-otp")).Returns(true);
+        _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), "123456", "hashed-otp")).Returns(true);
         var command = new TransferOwnershipCommand(org.Id, targetId, "123456") { RequestedBy = ownerId };
 
         var result = await CreateTransferHandler().Handle(command, CancellationToken.None);
@@ -425,7 +425,7 @@ public class OwnershipTransferCommandHandlerTests
         _transferCodeRepositoryMock
             .Setup(r => r.GetValidForOrganizationAsync(org.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(code);
-        _passwordHasherMock.Setup(h => h.VerifyPassword("999999", "hashed-otp")).Returns(false);
+        _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), "999999", "hashed-otp")).Returns(false);
         var command = new TransferOwnershipCommand(org.Id, targetId, "999999") { RequestedBy = ownerId };
 
         var result = await CreateTransferHandler().Handle(command, CancellationToken.None);
@@ -444,7 +444,7 @@ public class OwnershipTransferCommandHandlerTests
         _transferCodeRepositoryMock
             .Setup(r => r.GetValidForOrganizationAsync(org.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(code);
-        _passwordHasherMock.Setup(h => h.VerifyPassword("123456", "hashed-otp")).Returns(true);
+        _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), "123456", "hashed-otp")).Returns(true);
         var command = new TransferOwnershipCommand(org.Id, targetId, "123456") { RequestedBy = ownerId };
 
         var result = await CreateTransferHandler().Handle(command, CancellationToken.None);
@@ -502,7 +502,7 @@ public class OwnershipTransferCommandHandlerTests
         _transferCodeRepositoryMock
             .Setup(r => r.GetValidForOrganizationAsync(org.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(code);
-        _passwordHasherMock.Setup(h => h.VerifyPassword("123456", "hashed-otp")).Returns(true);
+        _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), "123456", "hashed-otp")).Returns(true);
         _organizationRepositoryMock
             .Setup(r => r.TransferOwnershipAsync(
                 org.Id, ownerId, targetId, ownerRole.Id, adminRole.Id, ownerId, It.IsAny<CancellationToken>()))

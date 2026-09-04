@@ -285,7 +285,6 @@ export const zh: TranslationResources = {
     theme: "主题",
     timeZone: "时区",
     timestamp: "时间戳",
-    token: "令牌",
     translationCount: "翻译",
     twoFactorEnabled: "双重认证已启用",
     typeCode: "类型代码",
@@ -1678,6 +1677,12 @@ export const zh: TranslationResources = {
       registerWindowSeconds: "注册计数窗口（秒）",
       registerWindowSecondsHint:
         "统计上述注册次数的时间跨度，采用同样的固定窗口机制：计数在窗口结束时归零，而不是随时间滑动。两个字段在保存后立即对新的客户端窗口生效，因此活动期间的限制可以当天调高、事后调低，无需重启——而且理应如此，因为宽松的注册配额，自动化调用者花起来和真实人群一样容易。",
+      signInPagePermitLimit: "每个窗口的登录页加载次数",
+      signInPagePermitLimitHint:
+        "登录页或注册页仅仅渲染就会消耗的请求：已启用的第三方登录列表，以及 Google 按钮初始化前必须持有的一次性随机值。每次打开页面两个请求，因此该数字的一半就是同一客户端 IP 在一个窗口内可以打开这些页面的次数。之所以从认证限额中拆出来，是因为渲染页面并不是尝试登录：两者共用配额时，打开注册页就要花掉二十个中的两个，于是一个共享地址（办公室、移动运营商）无论注册限额设得多高，每分钟也只能完成约六次注册。",
+      signInPageWindowSeconds: "登录页计数窗口（秒）",
+      signInPageWindowSecondsHint:
+        "上面计数所覆盖的时间段。六十秒是通常的选择；更长的窗口会平滑突发流量，但惩罚持续更久。",
       passwordResetPermitLimit: "每窗口重置链接使用次数",
       passwordResetPermitLimitHint:
         "单个客户端 IP 可携带重置令牌提交新密码的次数。这是使用链接，而非索取链接——索取重置邮件属于上面的认证限制。令牌本身带有 256 位熵、无法被猜出，因此该限制是对一个无需登录即可访问的端点的基本防护，而不是对令牌的防御。",
@@ -1774,6 +1779,17 @@ export const zh: TranslationResources = {
       allowExternalProvisioning: "通过 Google 或 Apple 注册",
       allowExternalProvisioningHint:
         "与此处任何账户都不匹配的第三方身份，是否可以在首次登录时创建账户。这是另一条路径上的自助注册；除非你也关闭它，否则上面的开关关闭时它仍然开启。两种情况下已存在的账户都可继续登录，第三方仍可关联到相同地址的账户。",
+      allowInvitationRegistration: "通过邀请注册",
+      allowInvitationRegistrationHint:
+        "使用组织邀请是否可以创建账户。关闭公开注册通常意味着账户应改为通过邀请产生，因此这是一个独立开关；三个都关闭后，账户只有管理员创建时才存在。已发出的邀请不会被取消；已有账户的人仍可接受邀请，因为那只是添加成员身份，并不创建账户。",
+    },
+    organizations: {
+      title: "谁可以创建组织",
+      description:
+        "创建组织不会创建账户，而是创建权限：创建者成为所有者，而所有者角色拥有全部 org: 权限，包括邀请任意邮箱地址。",
+      allowSelfServiceCreation: "自助创建组织",
+      allowSelfServiceCreationHint:
+        "普通的已登录用户是否可以为自己创建组织。开启时，任何拥有账户的人都能创建组织并立即邀请任意地址加入。关闭时，账户应用仍会显示该按钮，提交时被拒绝；已有组织不受影响；持有 organizations:manage 的平台管理员仍可创建。",
     },
     identityProvider: {
       title: "身份提供方（SSO）",

@@ -408,7 +408,13 @@ public class ResendInvitationCommandHandlerTests
             CancellationToken.None);
 
         result.IsError.Should().BeFalse();
-        result.Value.Token.Should().Be(NewToken);
+
+        // The regenerated plaintext goes to the invited mailbox and nowhere else.
+        // The caller gets the invitation's identity; the Verify below is where the
+        // token itself is asserted, in the notification addressed to the invitee.
+        // (That the DTO cannot carry a token at all is held by
+        // InvitationResponseGuardTests, which checks the type rather than a case.)
+        result.Value.Id.Should().Be(invId);
         _notificationServiceMock.Verify(s => s.SendAsync(
             It.Is<NotificationRequest>(r =>
                 r.RecipientAddress == "invited@example.com" &&
@@ -435,9 +441,11 @@ public class ResendInvitationCommandHandlerTests
             new ResendInvitationCommand(orgId, invId) { ResentBy = Guid.NewGuid() },
             CancellationToken.None);
 
-        // Email failure must not fail the command; token stays available to admin
+        // Email failure must not fail the command. The regenerated invitation
+        // stands and can be resent; the token is not handed back as a manual
+        // fallback, which is the shape this assertion used to hold.
         result.IsError.Should().BeFalse();
-        result.Value.Token.Should().Be(NewToken);
+        result.Value.Id.Should().Be(invId);
     }
 
     [Fact]

@@ -597,9 +597,11 @@ public class InviteMemberCommandHandlerTests
         // Act
         var result = await _handler.Handle(command, CancellationToken.None);
 
-        // Assert - email failure must not fail the command; token stays available to admin
+        // Assert - email failure must not fail the command. The invitation exists
+        // and can be resent; what must NOT happen is the token coming back to the
+        // caller as a manual fallback, which is the shape this once had.
         result.IsError.Should().BeFalse();
-        result.Value.Token.Should().NotBeNullOrEmpty();
+        result.Value.Id.Should().NotBeEmpty();
     }
 
     [Fact]

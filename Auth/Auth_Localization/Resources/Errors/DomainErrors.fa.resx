@@ -92,6 +92,9 @@
   <data name="User.ExternalRegistrationClosed" xml:space="preserve">
     <value>این حساب ارائه‌دهنده به هیچ حسابی روی این سرور متصل نیست و ایجاد حساب جدید از طریق ارائه‌دهنده ممکن نیست.</value>
   </data>
+  <data name="User.InvitationRegistrationClosed" xml:space="preserve">
+    <value>روی این سرور نمی‌توان از راه دعوت‌نامه حساب ساخت. از سازمانی که شما را دعوت کرده بخواهید به روش دیگری شما را اضافه کند.</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>این حساب به دلیل تلاش‌های ناموفق متعدد برای ورود قفل شده است.</value>
   </data>
@@ -159,6 +162,9 @@
   </data>
   <data name="Organization.Inactive" xml:space="preserve">
     <value>این سازمان در حال حاضر غیرفعال است.</value>
+  </data>
+  <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
+    <value>امکان ایجاد سازمان روی این سرور وجود ندارد.</value>
   </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>امکان حذف سازمانی که هنوز اعضا دارد وجود ندارد. ابتدا تمام اعضا را حذف کنید.</value>
