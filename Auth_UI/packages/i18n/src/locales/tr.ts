@@ -1879,7 +1879,7 @@ export const tr: TranslationResources = {
     registration: {
       title: "Kim hesap oluşturabilir",
       description:
-        "Bir yabancının yönetici olmadan geçebileceği iki kapı. İkisini de kapatmak, hesapların yalnızca buradan oluşturulduğunda ya da davet edildiğinde var olması demektir; iki anahtar da mevcut bir hesaba dokunmaz.",
+        "Oturum açmamış birine hesap kazandıran üç kapı. Üçünü de kapatmak, hesabın yalnızca bir yönetici oluşturduğunda var olması demektir. Ayrı anahtarlardır, çünkü birini kapatmak genellikle diğerini tercih etmek anlamına gelir: herkese açık kaydı kapatan çoğunlukla hesapların davetle gelmesini ister. Hiçbiri mevcut bir hesaba dokunmaz.",
       allowSelfRegistration: "Herkese açık kayıt",
       allowSelfRegistrationHint:
         "Kayıt formunun arkasındaki uç nokta. Geçen her istek bir parola özeti, bir kullanıcı satırı ve yazılan adrese gönderilen bir e-posta demektir; herkese açık kayıt istemeyen bir sunucu bunların hiçbirini ödemeden reddetmelidir. Kapalıyken her adrese aynı yanıt verilir, böylece uç nokta burada kimin kayıtlı olduğunu kimseye söylemez. Formun kendisi gizlenmez — bu ayarı kayıt sayfasına duyuran bir şey yok — bu yüzden ziyaretçi formu doldurur ve gönderirken reddedilir. Davetler ve yöneticinin oluşturduğu kullanıcılar etkilenmez.",

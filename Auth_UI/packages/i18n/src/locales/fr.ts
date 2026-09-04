@@ -1920,7 +1920,7 @@ export const fr: TranslationResources = {
     registration: {
       title: "Qui peut créer un compte",
       description:
-        "Les deux portes qu'un inconnu peut franchir sans administrateur. Les fermer toutes les deux signifie qu'un compte n'existe que s'il est créé ici ou invité ; aucun des deux interrupteurs ne touche un compte déjà existant.",
+        "Les trois portes par lesquelles un compte apparaît pour quelqu'un qui n'est pas connecté. Les fermer toutes les trois signifie qu'un compte n'existe que si un administrateur le crée. Ce sont des interrupteurs distincts parce que fermer l'un signifie généralement préférer un autre : qui ferme l'inscription publique veut le plus souvent que les comptes arrivent par invitation. Aucun ne touche un compte déjà existant.",
       allowSelfRegistration: "Inscription publique",
       allowSelfRegistrationHint:
         "Le point d'accès derrière le formulaire d'inscription. Chaque requête qui passe coûte une empreinte de mot de passe, une ligne utilisateur et un e-mail envoyé à l'adresse saisie ; un serveur qui ne veut pas d'inscription publique doit refuser avant de payer tout cela. Désactivé, il répond la même chose à toutes les adresses et ne révèle donc pas qui est inscrit ici. Le formulaire, lui, reste visible — rien ne publie ce réglage vers la page d'inscription — donc un visiteur le remplit et se voit refuser à l'envoi. Les invitations et les comptes créés par un administrateur ne sont pas concernés.",

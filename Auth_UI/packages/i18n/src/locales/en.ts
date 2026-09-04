@@ -1886,7 +1886,7 @@ export const en = {
     registration: {
       title: "Who may create an account",
       description:
-        "The two doors a stranger can walk through without an administrator. Closing both means accounts exist only when someone here creates or invites them; neither switch touches an account that already exists.",
+        "The three doors that bring an account into existence for somebody who is not signed in. Closing all three means an account exists only when an administrator creates it. They are separate switches because closing one usually means preferring another: a deployment that shuts public sign-up commonly wants accounts to arrive by invitation instead. None of them touches an account that already exists.",
       allowSelfRegistration: "Public sign-up",
       allowSelfRegistrationHint:
         "The endpoint behind the sign-up form. Every request that gets through costs a password hash, a user row and an email sent to whatever address was typed, so a server that does not want public sign-up should refuse before paying any of it. Off, every address gets the same answer, so the endpoint tells nobody who is registered here. The form itself is not hidden — nothing publishes this setting to the sign-up page — so a visitor still fills it in and is refused on submit. Invitations and administrator-created users are unaffected.",
