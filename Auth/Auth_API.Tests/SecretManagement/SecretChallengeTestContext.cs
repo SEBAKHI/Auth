@@ -30,7 +30,7 @@ public sealed class SecretChallengeTestContext
     public Mock<IUserRepository> UserRepository { get; } = new();
     public Mock<INotificationService> NotificationService { get; } = new();
     public Mock<IOtpGenerator> OtpGenerator { get; } = new();
-    public Mock<IPasswordHasher> PasswordHasher { get; } = new();
+    public Mock<IOtpHasher> PasswordHasher { get; } = new();
     public Mock<IEnvironmentInfo> EnvironmentInfo { get; } = new();
 
     public EmailSettings EmailSettings { get; } = new();
@@ -40,10 +40,10 @@ public sealed class SecretChallengeTestContext
     public SecretChallengeTestContext()
     {
         OtpGenerator.Setup(g => g.GenerateNumericOtp(It.IsAny<int>())).Returns(CorrectCode);
-        PasswordHasher.Setup(h => h.HashPassword(It.IsAny<string>())).Returns(CodeHash);
+        PasswordHasher.Setup(h => h.Hash(It.IsAny<string>(), It.IsAny<string>())).Returns(CodeHash);
         PasswordHasher
-            .Setup(h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()))
-            .Returns((string code, string hash) => code == CorrectCode && hash == CodeHash);
+            .Setup(h => h.Verify(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Returns((string _, string code, string hash) => code == CorrectCode && hash == CodeHash);
 
         NotificationService
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))

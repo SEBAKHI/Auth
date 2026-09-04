@@ -27,7 +27,7 @@ public class InitiateOwnershipTransferCommandHandler
     private readonly IUserRepository _userRepository;
     private readonly IOwnershipTransferCodeRepository _transferCodeRepository;
     private readonly IOtpGenerator _otpGenerator;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IOtpHasher _otpHasher;
     private readonly INotificationService _notificationService;
     private readonly IPublisher _publisher;
     private readonly EmailSettings _emailSettings;
@@ -39,7 +39,7 @@ public class InitiateOwnershipTransferCommandHandler
         IUserRepository userRepository,
         IOwnershipTransferCodeRepository transferCodeRepository,
         IOtpGenerator otpGenerator,
-        IPasswordHasher passwordHasher,
+        IOtpHasher otpHasher,
         INotificationService notificationService,
         IPublisher publisher,
         IOptionsSnapshot<EmailSettings> emailSettings,
@@ -50,7 +50,7 @@ public class InitiateOwnershipTransferCommandHandler
         _userRepository = userRepository;
         _transferCodeRepository = transferCodeRepository;
         _otpGenerator = otpGenerator;
-        _passwordHasher = passwordHasher;
+        _otpHasher = otpHasher;
         _notificationService = notificationService;
         _publisher = publisher;
         _emailSettings = emailSettings.Value;
@@ -122,7 +122,7 @@ public class InitiateOwnershipTransferCommandHandler
         await _transferCodeRepository.InvalidateAllForOrganizationAsync(request.OrganizationId, cancellationToken);
 
         var otp = _otpGenerator.GenerateNumericOtp(6);
-        var otpHash = _passwordHasher.HashPassword(otp);
+        var otpHash = _otpHasher.Hash(request.OrganizationId.ToString(), otp);
 
         // With email disabled the log is the only other place the code exists,
         // which is what makes the flow testable locally. Gated on the environment

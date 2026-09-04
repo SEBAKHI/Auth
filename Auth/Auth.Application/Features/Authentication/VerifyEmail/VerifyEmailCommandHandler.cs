@@ -21,7 +21,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
 {
     private readonly IUserRepository _userRepository;
     private readonly IEmailVerificationTokenRepository _tokenRepository;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IOtpHasher _otpHasher;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly IDomainEventDispatcher _eventDispatcher;
@@ -31,7 +31,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
     public VerifyEmailCommandHandler(
         IUserRepository userRepository,
         IEmailVerificationTokenRepository tokenRepository,
-        IPasswordHasher passwordHasher,
+        IOtpHasher otpHasher,
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
         IDomainEventDispatcher eventDispatcher,
@@ -40,7 +40,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
     {
         _userRepository = userRepository;
         _tokenRepository = tokenRepository;
-        _passwordHasher = passwordHasher;
+        _otpHasher = otpHasher;
         _loginResponseBuilder = loginResponseBuilder;
         _twoFactorChallengeService = twoFactorChallengeService;
         _eventDispatcher = eventDispatcher;
@@ -111,7 +111,7 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
         }
 
         // Verify OTP using Argon2id
-        var isValid = _passwordHasher.VerifyPassword(request.Otp, token.OtpHash);
+        var isValid = _otpHasher.Verify(user.Id.ToString(), request.Otp, token.OtpHash);
 
         if (!isValid)
         {

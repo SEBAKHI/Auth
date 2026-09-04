@@ -22,7 +22,7 @@ public class SendEmailVerificationCommandHandler
     private readonly IEmailVerificationTokenRepository _tokenRepository;
     private readonly INotificationService _notificationService;
     private readonly IOtpGenerator _otpGenerator;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IOtpHasher _otpHasher;
     private readonly EmailSettings _emailSettings;
     private readonly IEnvironmentInfo _environment;
     private readonly ILogger<SendEmailVerificationCommandHandler> _logger;
@@ -32,7 +32,7 @@ public class SendEmailVerificationCommandHandler
         IEmailVerificationTokenRepository tokenRepository,
         INotificationService notificationService,
         IOtpGenerator otpGenerator,
-        IPasswordHasher passwordHasher,
+        IOtpHasher otpHasher,
         IOptionsSnapshot<EmailSettings> emailSettings,
         IEnvironmentInfo environment,
         ILogger<SendEmailVerificationCommandHandler> logger)
@@ -41,7 +41,7 @@ public class SendEmailVerificationCommandHandler
         _tokenRepository = tokenRepository;
         _notificationService = notificationService;
         _otpGenerator = otpGenerator;
-        _passwordHasher = passwordHasher;
+        _otpHasher = otpHasher;
         _emailSettings = emailSettings.Value;
         _environment = environment;
         _logger = logger;
@@ -83,7 +83,7 @@ public class SendEmailVerificationCommandHandler
 
         // Generate OTP
         var otp = _otpGenerator.GenerateNumericOtp(6);
-        var otpHash = _passwordHasher.HashPassword(otp);
+        var otpHash = _otpHasher.Hash(user.Id.ToString(), otp);
 
         // With email disabled the log is the only other place the OTP exists,
         // which is what makes the flow testable locally. Gated on the environment

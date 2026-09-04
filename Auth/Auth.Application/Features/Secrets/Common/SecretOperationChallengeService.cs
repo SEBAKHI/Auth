@@ -29,7 +29,7 @@ public class SecretOperationChallengeService
     private readonly IUserRepository _userRepository;
     private readonly INotificationService _notificationService;
     private readonly IOtpGenerator _otpGenerator;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IOtpHasher _otpHasher;
     private readonly EmailSettings _emailSettings;
     private readonly IEnvironmentInfo _environment;
     private readonly ILogger<SecretOperationChallengeService> _logger;
@@ -39,7 +39,7 @@ public class SecretOperationChallengeService
         IUserRepository userRepository,
         INotificationService notificationService,
         IOtpGenerator otpGenerator,
-        IPasswordHasher passwordHasher,
+        IOtpHasher otpHasher,
         IOptionsSnapshot<EmailSettings> emailSettings,
         IEnvironmentInfo environment,
         ILogger<SecretOperationChallengeService> logger)
@@ -48,7 +48,7 @@ public class SecretOperationChallengeService
         _userRepository = userRepository;
         _notificationService = notificationService;
         _otpGenerator = otpGenerator;
-        _passwordHasher = passwordHasher;
+        _otpHasher = otpHasher;
         _emailSettings = emailSettings.Value;
         _environment = environment;
         _logger = logger;
@@ -102,7 +102,7 @@ public class SecretOperationChallengeService
         await _challengeRepository.InvalidateOutstandingForUserAsync(requestedBy, cancellationToken);
 
         var otp = _otpGenerator.GenerateNumericOtp(6);
-        var codeHash = _passwordHasher.HashPassword(otp);
+        var codeHash = _otpHasher.Hash(requestedBy.ToString(), otp);
 
         var challenge = SecretOperationChallenge.Create(
             requestedBy,
@@ -206,7 +206,7 @@ public class SecretOperationChallengeService
             return SecretErrors.InvalidChallengeCode;
         }
 
-        if (!_passwordHasher.VerifyPassword(code, challenge.CodeHash))
+        if (!_otpHasher.Verify(challenge.RequestedBy.ToString(), code, challenge.CodeHash))
         {
             // Mirror the claimed attempt onto the in-memory row for the log line
             // only. It is deliberately NOT mirrored on the success path below,

@@ -31,7 +31,7 @@ public class RequestAccountDeletionCommandHandlerTests
     private readonly Mock<ICredentialRevocationService> _credentialRevocationMock = new();
     private readonly Mock<IAccountDeletionVerificationRepository> _verificationRepositoryMock = new();
     private readonly Mock<INotificationService> _notificationServiceMock = new();
-    private readonly Mock<IPasswordHasher> _passwordHasherMock = new();
+    private readonly Mock<IOtpHasher> _otpHasherMock = new();
     private readonly RequestAccountDeletionCommandHandler _handler;
 
     public RequestAccountDeletionCommandHandlerTests()
@@ -58,7 +58,7 @@ public class RequestAccountDeletionCommandHandlerTests
             _verificationRepositoryMock.Object,
             _notificationServiceMock.Object,
             new Mock<IOtpGenerator>().Object,
-            _passwordHasherMock.Object,
+            _otpHasherMock.Object,
             settings,
             TestHelpers.CreateOptions(new EmailSettings()),
             new Mock<IEnvironmentInfo>().Object,
@@ -98,8 +98,8 @@ public class RequestAccountDeletionCommandHandlerTests
 
         result.IsError.Should().BeFalse();
         _userRepositoryMock.Verify(r => r.DeleteAsync(user.Id, It.IsAny<CancellationToken>()), Times.Once);
-        _passwordHasherMock.Verify(
-            h => h.VerifyPassword(It.IsAny<string>(), user.PasswordHash!), Times.Never,
+        _otpHasherMock.Verify(
+            h => h.Verify(It.IsAny<string>(), It.IsAny<string>(), user.PasswordHash!), Times.Never,
             "the stored password hash must never be consulted by the deletion flow");
     }
 
@@ -147,7 +147,7 @@ public class RequestAccountDeletionCommandHandlerTests
         _verificationRepositoryMock
             .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { strayVerification });
-        _passwordHasherMock.Setup(h => h.VerifyPassword(ValidOtp, OtpHash)).Returns(true);
+        _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), ValidOtp, OtpHash)).Returns(true);
 
         var result = await _handler.Handle(
             new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
@@ -170,8 +170,8 @@ public class RequestAccountDeletionCommandHandlerTests
         _verificationRepositoryMock
             .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { newer, held });
-        _passwordHasherMock.Setup(h => h.VerifyPassword(ValidOtp, OtpHash)).Returns(true);
-        _passwordHasherMock.Setup(h => h.VerifyPassword(ValidOtp, "someone-elses-hash")).Returns(false);
+        _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), ValidOtp, OtpHash)).Returns(true);
+        _otpHasherMock.Setup(h => h.Verify(It.IsAny<string>(), ValidOtp, "someone-elses-hash")).Returns(false);
 
         var result = await _handler.Handle(
             new RequestAccountDeletionCommand(user.Id, ValidOtp), CancellationToken.None);
@@ -214,8 +214,8 @@ public class RequestAccountDeletionCommandHandlerTests
         _verificationRepositoryMock
             .Setup(r => r.GetValidForEmailAsync(It.IsAny<string>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { verification });
-        _passwordHasherMock
-            .Setup(h => h.VerifyPassword(It.IsAny<string>(), OtpHash))
+        _otpHasherMock
+            .Setup(h => h.Verify(It.IsAny<string>(), It.IsAny<string>(), OtpHash))
             .Returns(matches);
 
         return verification;

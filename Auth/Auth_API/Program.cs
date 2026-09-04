@@ -543,6 +543,11 @@ builder.Services.AddSingleton<ITokenBlacklistService>(sp => sp.GetRequiredServic
 builder.Services.AddHostedService<TokenRevocationBackgroundService>();
 builder.Services.AddSingleton<IRefreshTokenKeyService, RefreshTokenKeyService>();
 builder.Services.AddSingleton<IIdentifierHasher, IdentifierHasher>();
+// Confirmation codes are keyed-hashed rather than password-hashed. Singleton
+// alongside the key service it borrows: it holds no per-request state, and the
+// password hasher it falls back to for codes minted before this shipped is a
+// singleton too.
+builder.Services.AddSingleton<IOtpHasher, HmacOtpHasher>();
 // Scoped: the protector now rides the per-user crypto service (scoped DEK repo).
 builder.Services.AddScoped<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
 builder.Services.AddScoped<IPerUserCryptoService, PerUserCryptoService>();

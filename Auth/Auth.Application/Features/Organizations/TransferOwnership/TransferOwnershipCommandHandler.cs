@@ -23,7 +23,7 @@ public class TransferOwnershipCommandHandler : IRequestHandler<TransferOwnership
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IOwnershipTransferCodeRepository _transferCodeRepository;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly IOtpHasher _otpHasher;
     private readonly IPublisher _publisher;
     private readonly ILogger<TransferOwnershipCommandHandler> _logger;
 
@@ -32,7 +32,7 @@ public class TransferOwnershipCommandHandler : IRequestHandler<TransferOwnership
         IUserRepository userRepository,
         IRoleRepository roleRepository,
         IOwnershipTransferCodeRepository transferCodeRepository,
-        IPasswordHasher passwordHasher,
+        IOtpHasher otpHasher,
         IPublisher publisher,
         ILogger<TransferOwnershipCommandHandler> logger)
     {
@@ -40,7 +40,7 @@ public class TransferOwnershipCommandHandler : IRequestHandler<TransferOwnership
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _transferCodeRepository = transferCodeRepository;
-        _passwordHasher = passwordHasher;
+        _otpHasher = otpHasher;
         _publisher = publisher;
         _logger = logger;
     }
@@ -188,7 +188,7 @@ public class TransferOwnershipCommandHandler : IRequestHandler<TransferOwnership
             return OrganizationErrors.TransferCodeTooManyAttempts;
         }
 
-        if (!_passwordHasher.VerifyPassword(request.Code, transferCode.CodeHash))
+        if (!_otpHasher.Verify(request.OrganizationId.ToString(), request.Code, transferCode.CodeHash))
         {
             await _transferCodeRepository.IncrementAttemptCountAsync(transferCode.Id, cancellationToken);
             _logger.LogWarning(

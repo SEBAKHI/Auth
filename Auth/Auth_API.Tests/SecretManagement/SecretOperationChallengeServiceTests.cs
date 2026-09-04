@@ -210,7 +210,7 @@ public class SecretOperationChallengeServiceTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Secret.InvalidChallengeCode");
         _context.PasswordHasher.Verify(
-            h => h.VerifyPassword(It.IsAny<string>(), It.IsAny<string>()),
+            h => h.Verify(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()),
             Times.Never,
             "a request that cannot claim an attempt must be answered without " +
             "evaluating the submitted code");

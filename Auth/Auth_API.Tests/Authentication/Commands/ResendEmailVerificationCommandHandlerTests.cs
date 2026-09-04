@@ -17,7 +17,7 @@ public class ResendEmailVerificationCommandHandlerTests
     private readonly Mock<IEmailVerificationTokenRepository> _tokenRepositoryMock;
     private readonly Mock<INotificationService> _notificationServiceMock;
     private readonly Mock<IOtpGenerator> _otpGeneratorMock;
-    private readonly Mock<IPasswordHasher> _passwordHasherMock;
+    private readonly Mock<IOtpHasher> _otpHasherMock;
     private readonly Mock<IEnvironmentInfo> _environmentInfoMock;
     private readonly Mock<ILogger<ResendEmailVerificationCommandHandler>> _loggerMock;
     private readonly EmailSettings _emailSettings;
@@ -29,7 +29,7 @@ public class ResendEmailVerificationCommandHandlerTests
         _tokenRepositoryMock = new Mock<IEmailVerificationTokenRepository>();
         _notificationServiceMock = new Mock<INotificationService>();
         _otpGeneratorMock = new Mock<IOtpGenerator>();
-        _passwordHasherMock = new Mock<IPasswordHasher>();
+        _otpHasherMock = new Mock<IOtpHasher>();
         // Left without a Setup on purpose: Moq defaults the bool to false, which is
         // the production shape, so every existing test runs with the OTP log shut.
         _environmentInfoMock = new Mock<IEnvironmentInfo>();
@@ -48,7 +48,7 @@ public class ResendEmailVerificationCommandHandlerTests
             _tokenRepositoryMock.Object,
             _notificationServiceMock.Object,
             _otpGeneratorMock.Object,
-            _passwordHasherMock.Object,
+            _otpHasherMock.Object,
             TestHelpers.CreateOptions(_emailSettings),
             _environmentInfoMock.Object,
             _loggerMock.Object);
@@ -70,8 +70,8 @@ public class ResendEmailVerificationCommandHandlerTests
         _otpGeneratorMock
             .Setup(g => g.GenerateNumericOtp(6))
             .Returns("123456");
-        _passwordHasherMock
-            .Setup(h => h.HashPassword("123456"))
+        _otpHasherMock
+            .Setup(h => h.Hash(It.IsAny<string>(), "123456"))
             .Returns("hashed-otp");
         _notificationServiceMock
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
@@ -168,8 +168,8 @@ public class ResendEmailVerificationCommandHandlerTests
         _otpGeneratorMock
             .Setup(g => g.GenerateNumericOtp(6))
             .Returns("123456");
-        _passwordHasherMock
-            .Setup(h => h.HashPassword("123456"))
+        _otpHasherMock
+            .Setup(h => h.Hash(It.IsAny<string>(), "123456"))
             .Returns("hashed-otp");
         _notificationServiceMock
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
@@ -206,8 +206,8 @@ public class ResendEmailVerificationCommandHandlerTests
         _otpGeneratorMock
             .Setup(g => g.GenerateNumericOtp(6))
             .Returns(LoggedOtp);
-        _passwordHasherMock
-            .Setup(h => h.HashPassword(LoggedOtp))
+        _otpHasherMock
+            .Setup(h => h.Hash(It.IsAny<string>(), LoggedOtp))
             .Returns("hashed-otp");
         _notificationServiceMock
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
@@ -312,7 +312,7 @@ public class ResendEmailVerificationCommandHandlerTests
             .Setup(r => r.GetRecentTokenCountAsync(user.Email, _emailSettings.RateLimitWindow, It.IsAny<CancellationToken>()))
             .ReturnsAsync(0);
         _otpGeneratorMock.Setup(g => g.GenerateNumericOtp(6)).Returns("123456");
-        _passwordHasherMock.Setup(h => h.HashPassword("123456")).Returns("hashed-otp");
+        _otpHasherMock.Setup(h => h.Hash(It.IsAny<string>(), "123456")).Returns("hashed-otp");
         _notificationServiceMock
             .Setup(s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(Result.Success);
