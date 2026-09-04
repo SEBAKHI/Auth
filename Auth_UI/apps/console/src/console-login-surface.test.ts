@@ -47,7 +47,12 @@ const CSP = (() => {
 const GOOGLE = "https://accounts.google.com"
 
 describe("the console login surface", () => {
-  it.each(["script-src", "connect-src", "frame-src"])(
+  // style-src is in this list because it was missing from it. The policy admitted
+  // Google's script and its button iframe and refused the stylesheet that script
+  // fetches from /gsi/style, so the button rendered unstyled and every page
+  // offering it logged two violations - observed on the deployed sandbox, and
+  // invisible to every test here because only three directives were checked.
+  it.each(["script-src", "connect-src", "frame-src", "style-src"])(
     "allows Google Identity Services in %s",
     (directive) => {
       expect(CSP[directive]).toContain(GOOGLE)
