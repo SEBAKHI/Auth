@@ -1427,6 +1427,7 @@ newly minted pepper material, in memory (only on the boot that mints it)
 | ‏هل تظهر تفاصيل الفحوص الفاشلة في جسم استجابة الصحة | ‏`HealthChecks:ExposeErrorDetails` | ‏`HealthChecks` |
 | ‏مضيف SMTP ومنفذه وبيانات اعتماده وعنوان المرسِل وأساس الروابط ومُدد كلمات المرور لمرة واحدة وكوابحها | ‏13 مفتاحاً تحت `Email:*` | ‏`Email` |
 | ‏سلوك صندوق الصادر وتنبيه الجهاز الجديد | ‏7 مفاتيح تحت `Notifications:*` | ‏`Notifications` |
+| ‏هل يجوز للغرباء إنشاء حسابات — ‏من نقطة التسجيل العلنية، ومن أوّل دخولٍ عبر Google أو Apple. وكلاهما مفتوح في الإعداد المشحون، ويُقرأ مع كل طلب | ‏`Registration:AllowSelfRegistration` و`Registration:AllowExternalProvisioning` | ‏`Registration` |
 | ‏أصل تطبيق الحسابات، والأصل العلني لهذه الواجهة، ومدة الرمز، واسم ملف تعريف الجلسة ومدته | ‏5 مفاتيح تحت `IdentityProvider:*` | ‏`IdentityProvider` |
 | ‏إعدادات Google وApple، إضافةً إلى استيراد الصورة الرمزية | ‏12 مفتاحاً تحت `ExternalAuth:*` | ‏`ExternalAuth` |
 | ‏مهلة السماح، وإيقاع العامل الخلفي، وآفاق الاحتفاظ، ونسخة السياسة، ومفتاح المعرّف الدائم | ‏13 مفتاحاً تحت `AccountDeletion:*` | ‏`AccountDeletion` |

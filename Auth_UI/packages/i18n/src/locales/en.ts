@@ -742,7 +742,6 @@ export const en = {
     redirectUrisHint:
       "One URI per line. Exact match — https required (http only for localhost).",
     contactEmail: "Contact email",
-    allowSelfRegistration: "Allow self-registration",
     requireTwoFactor: "Require two-factor",
     requireEmailVerification: "Require email verification",
     sessionTimeout: "Session timeout (minutes)",
@@ -763,8 +762,6 @@ export const en = {
       "Address users are pointed to for help with this application.",
     sessionTimeoutHint:
       "How long a signed-in session stays valid without activity.",
-    allowSelfRegistrationHint:
-      "Let anyone create their own account for this application.",
     requireTwoFactorHint:
       "Every user must pass a second verification step to sign in.",
     requireEmailVerificationHint:
@@ -1880,6 +1877,17 @@ export const en = {
       avatarImportMaxBytes: "Import size limit (bytes)",
       avatarImportMaxBytesHint:
         "Larger responses are refused while being read, not on the strength of the length the provider declares.",
+    },
+    registration: {
+      title: "Who may create an account",
+      description:
+        "The two doors a stranger can walk through without an administrator. Closing both means accounts exist only when someone here creates or invites them; neither switch touches an account that already exists.",
+      allowSelfRegistration: "Public sign-up",
+      allowSelfRegistrationHint:
+        "The endpoint behind the sign-up form. Every request that gets through costs a password hash, a user row and an email sent to whatever address was typed, so a server that does not want public sign-up should refuse before paying any of it. Off, every address gets the same answer, so the endpoint tells nobody who is registered here. The form itself is not hidden — nothing publishes this setting to the sign-up page — so a visitor still fills it in and is refused on submit. Invitations and administrator-created users are unaffected.",
+      allowExternalProvisioning: "Sign-up through Google or Apple",
+      allowExternalProvisioningHint:
+        "Whether a provider identity matching no account here may create one on its first sign-in. This is self-registration by another route, and it stays open while the switch above is closed unless you close this one too. Accounts that already exist keep signing in either way, and a provider can still be linked to an account with the same address.",
     },
     identityProvider: {
       title: "Identity provider (SSO)",

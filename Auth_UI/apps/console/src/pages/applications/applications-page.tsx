@@ -151,7 +151,12 @@ export function ApplicationsPage() {
       id: "name",
       accessorFn: (row) => row.name ?? "",
       header: t("common.name"),
-      meta: { label: t("common.name"), covers: ["code"] },
+      // `allowSelfRegistration` is claimed here so auto-discovery stops
+      // surfacing it. It is still on the DTO for compatibility and nothing
+      // enforces it, so a hidden column an operator could switch on — and an
+      // export that carries it — would restate the promise this change removed
+      // from the form and the detail view.
+      meta: { label: t("common.name"), covers: ["code", "allowSelfRegistration"] },
       cell: ({ row }) => (
         <RecordLink
           href={applicationHref(row.original.id)}

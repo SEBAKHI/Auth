@@ -22,6 +22,27 @@ public static class UserErrors
         description: $"A user with email '{email}' already exists.",
         metadata: new() { ["args"] = new object[] { email } });
 
+    /// <summary>
+    /// The public sign-up door is shut by configuration. Returned before any
+    /// work is done, so the refusal costs no password hash, no row and no
+    /// email — and before the duplicate-email check, so a closed server answers
+    /// every address identically and tells no one who is registered here.
+    /// </summary>
+    public static Error SelfRegistrationClosed => Error.Forbidden(
+        code: "User.SelfRegistrationClosed",
+        description: "New accounts cannot be created on this server.");
+
+    /// <summary>
+    /// A provider identity that matches no account here, on a server that does
+    /// not create accounts from providers. Distinct from
+    /// <see cref="SelfRegistrationClosed"/> because the person did authenticate
+    /// successfully — with Google or Apple — and needs to know that the missing
+    /// piece is an account, not a credential.
+    /// </summary>
+    public static Error ExternalRegistrationClosed => Error.Forbidden(
+        code: "User.ExternalRegistrationClosed",
+        description: "This provider account is not linked to any account on this server, and new accounts cannot be created from a provider.");
+
     public static Error InvalidCredentials => Error.Validation(
         code: "User.InvalidCredentials",
         description: "The provided credentials are invalid.");

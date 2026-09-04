@@ -1772,6 +1772,7 @@ no longer exist**; there is no general API rate limit, by design.
 | `HealthChecks` | `HealthChecks:ExposeErrorDetails` | Whether failed-check details appear in the health body |
 | `Email` | 13 keys under `Email:*` | SMTP host, port, credentials, sender, link base URL, one-time-password lifetimes and throttles |
 | `Notifications` | 7 keys under `Notifications:*` | Outbox behaviour and the new-device alert |
+| `Registration` | `Registration:AllowSelfRegistration`, `Registration:AllowExternalProvisioning` | Whether strangers may create accounts — through the public sign-up endpoint, and through a first sign-in with Google or Apple. Both ship open; both are read per request |
 | `IdentityProvider` | 5 keys under `IdentityProvider:*` | Accounts application origin, this API's public origin, code lifetime, session cookie name and lifetime |
 | `ExternalAuth` | 10 keys under `ExternalAuth:*` | Google and Apple configuration, plus avatar import |
 | `AccountDeletion` | 13 keys under `AccountDeletion:*` | Grace period, worker cadence, retention horizons, policy version, the permanent identifier key |

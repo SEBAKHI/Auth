@@ -1,3 +1,4 @@
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Features.Authentication.Register;
 using Auth.Application.Features.Authentication.SendEmailVerification;
@@ -39,7 +40,17 @@ public class RegisterCommandHandlerTests
         var passwordSettings = TestHelpers.CreatePasswordSettings();
         _passwordValidator = new PasswordValidator(TestHelpers.CreateOptions(passwordSettings));
 
-        _handler = new RegisterCommandHandler(
+        _handler = CreateHandler(new RegistrationSettings());
+    }
+
+    /// <summary>
+    /// The default settings leave both doors open, which is what every
+    /// deployment had before the switches existed; a test that wants the door
+    /// shut says so.
+    /// </summary>
+    private RegisterCommandHandler CreateHandler(RegistrationSettings settings)
+    {
+        return new RegisterCommandHandler(
             _userRepositoryMock.Object,
             _passwordHasherMock.Object,
             _passwordValidator,
@@ -48,6 +59,7 @@ public class RegisterCommandHandlerTests
             _personalOrgCreatorMock.Object,
             _mediatorMock.Object,
             _eventDispatcherMock.Object,
+            TestHelpers.CreateOptions(settings),
             _loggerMock.Object);
     }
 
@@ -320,6 +332,79 @@ public class RegisterCommandHandlerTests
             r => r.CreateAsync(
                 It.Is<User>(u => u.PreferredLanguage == "ar" && u.TimeZone == "Asia/Riyadh"),
                 It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_WhenSelfRegistrationIsClosed_RefusesBeforeSpendingAnything()
+    {
+        // The whole point of the switch: a closed door costs the server nothing.
+        // Not a lookup, not a password hash, not a row, and above all not an
+        // email to an address an anonymous caller chose.
+        var handler = CreateHandler(new RegistrationSettings { AllowSelfRegistration = false });
+        var command = CreateCommand();
+
+        var result = await handler.Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.SelfRegistrationClosed");
+        result.FirstError.Type.Should().Be(ErrorType.Forbidden);
+
+        _userRepositoryMock.Verify(
+            r => r.ExistsByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _passwordHasherMock.Verify(h => h.HashPassword(It.IsAny<string>()), Times.Never());
+        _userRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _mediatorMock.Verify(
+            m => m.Send(It.IsAny<SendEmailVerificationCommand>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        _personalOrgCreatorMock.Verify(
+            c => c.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_WhenSelfRegistrationIsClosed_AnswersATakenAddressIdenticallyToAFreeOne()
+    {
+        // The refusal comes before the duplicate check on purpose. If it came
+        // after, a closed server would answer "already registered" for the
+        // addresses it holds and "closed" for the rest — an oracle for who has
+        // an account here, offered to anyone who can spell an email.
+        var handler = CreateHandler(new RegistrationSettings { AllowSelfRegistration = false });
+        _userRepositoryMock
+            .Setup(r => r.ExistsByEmailAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        var taken = await handler.Handle(CreateCommand(), CancellationToken.None);
+
+        taken.IsError.Should().BeTrue();
+        taken.FirstError.Code.Should().Be("User.SelfRegistrationClosed");
+    }
+
+    [Fact]
+    public async Task Handle_WhenSelfRegistrationIsOpen_StillRegisters()
+    {
+        // The default, and the upgrade path: a deployment that never touches
+        // the new section keeps the behaviour it had.
+        var command = CreateCommand();
+        _userRepositoryMock
+            .Setup(r => r.ExistsByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _passwordHasherMock
+            .Setup(h => h.HashPassword(command.Password))
+            .Returns("hashed-password");
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<SendEmailVerificationCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SendVerificationResponse(DateTime.UtcNow.AddMinutes(15), "t***t@example.com"));
+
+        var result = await CreateHandler(new RegistrationSettings { AllowSelfRegistration = true })
+            .Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _userRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Once());
     }
 }

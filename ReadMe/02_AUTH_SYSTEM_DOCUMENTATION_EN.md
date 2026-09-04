@@ -392,6 +392,8 @@ These are the shipped defaults. Every one of them is editable from the console's
 
 One field deserves a warning. Each registered application carries its own `MaxConcurrentSessions` value. It is stored, validated, returned by the API and sortable in the console — and **it is enforced by nothing**. Only the global setting is applied. The same is true of that application's `SessionTimeoutMinutes` and `RequireEmailVerification` fields.
 
+`AllowSelfRegistration` was in that list and no longer pretends otherwise. It could never have worked as written: sign-up carries no application identity, and giving it one would not help, because the caller would be the party naming the application. **Whether strangers may create accounts is a property of the server**, and it now has a switch that works — System settings → *Who may create an account*. Two switches, in fact, because there are two doors: the public sign-up endpoint, and the first sign-in of a Google or Apple identity that matches no account here, which creates one. Both ship open, which is what every deployment had before they existed. Closing only the first leaves the second wide open. The application field remains on the API contract so integrations do not break, and the console no longer offers it as a control.
+
 ---
 
 ## 4. Performance: The Design Choices, and What Has Not Been Measured

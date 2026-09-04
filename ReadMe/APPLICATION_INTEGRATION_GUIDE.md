@@ -191,17 +191,17 @@ the browser keeps the identity-provider session cookie.
 3. **Note that the Code is stored upper-cased.** If you type `crm-web`, the stored Code is `CRM-WEB`, and
    that upper-case form is what appears in tokens. Use the upper-case form when you configure the SDK's
    `Audience` setting.
-   *In code:* `Auth/Auth.Domain/Entities/Application.cs:188`.
+   *In code:* `Auth/Auth.Domain/Entities/Application.cs:200`.
 4. Register every address AuthSystem may send a signed-in user back to — your redirect URIs. The match is
    exact and case-sensitive over the whole string, so `https://app.example.com/callback` and
    `https://app.example.com/callback/` are two different values, and a URI you did not register is
    rejected outright.
-   *In code:* `Auth/Auth.Domain/Entities/Application.cs:276-279`.
+   *In code:* `Auth/Auth.Domain/Entities/Application.cs:288-291`.
 5. Grant your users access. A new application's access mode is **Restricted**, which means only users with
    an explicit access row may sign in. Until you grant access, every sign-in attempt ends with
    `error=access_denied` — including yours.
    *In code:* the database default is `Auth/Auth_DB/dbo/Tables/Core/Applications.sql:24` (`DEFAULT 2`), the
-   entity default is `Auth/Auth.Domain/Entities/Application.cs:193`, and the check that refuses entry is
+   entity default is `Auth/Auth.Domain/Entities/Application.cs:205`, and the check that refuses entry is
    `Auth/Auth.Application/Features/Authentication/Authorize/AuthorizeCommandHandler.cs:165`.
 
 **What success looks like.** The application appears in the console's Applications list, its detail page
@@ -597,7 +597,7 @@ names"; the SDK never sets it at all. If mapping is on in your host, the standar
 `name`, `given_name` and `family_name` are rewritten to long WS-\* URIs before your code sees them, and
 `User.FindFirst("sub")` returns `null`. The custom claims — `permissions`, `roles`, `org_perm`, `sid`,
 `locale`, `timezone`, `theme` — are not in the standard map and survive either way.
-*In code:* `Auth/Auth_API/Program.cs:724-725`; the SDK's options block is `ServiceCollectionExtensions.cs:70-85`.
+*In code:* `Auth/Auth_API/Program.cs:725-726`; the SDK's options block is `ServiceCollectionExtensions.cs:70-85`.
 
 **What to do:** set the option yourself, on the same named options the SDK already configured, in a
 separate call placed **after** `AddAuthSystemAuthentication`. Configuration callbacks for one named
@@ -1280,7 +1280,7 @@ converts handler errors through `Problem(errors)`.
 `Retry-After` header. The gateway, if you are going through it, answers 429 differently again: a
 `type`/`title`/`status`/`detail`/`retryAfter` body with an integer `retryAfter`, plus a real `Retry-After`
 header. If you write retry logic, handle both.
-*In code:* `Auth/Auth_API/Program.cs:822-838`; `Auth/API_Gateway/Program.cs:263-272`.
+*In code:* `Auth/Auth_API/Program.cs:823-839`; `Auth/API_Gateway/Program.cs:263-272`.
 
 ---
 
@@ -1290,7 +1290,7 @@ header. If you write retry logic, handle both.
 `POST /api/v1/auth/login` and to `POST /api/v1/auth/token` — the token-exchange endpoint of the browser
 flow. The window is fixed and the queue length is zero, so request 21 inside the window is rejected
 immediately rather than waiting.
-*In code:* the policy is `Auth/Auth_API/Program.cs:799-807`; the numbers are
+*In code:* the policy is `Auth/Auth_API/Program.cs:800-808`; the numbers are
 `Auth/Auth_API/appsettings.json:243-244`; the endpoints opt in at
 `Auth/Auth_API/Modules/Authentication/Controllers/AuthController.cs:72,269`.
 
@@ -1298,7 +1298,7 @@ immediately rather than waiting.
 one above and a stricter one for password reset — and no global limiter is configured. The key-validation
 endpoints are therefore not throttled by the API at all. If you go through the gateway, its own `api`
 policy applies instead.
-*In code:* `Auth/Auth_API/Program.cs:784-791`.
+*In code:* `Auth/Auth_API/Program.cs:785-792`.
 
 ---
 

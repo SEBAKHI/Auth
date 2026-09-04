@@ -86,6 +86,12 @@
   <data name="User.InvalidCredentials" xml:space="preserve">
     <value>بيانات الاعتماد المُقدَّمة غير صالحة.</value>
   </data>
+  <data name="User.SelfRegistrationClosed" xml:space="preserve">
+    <value>لا يمكن إنشاء حسابات جديدة على هذا الخادم.</value>
+  </data>
+  <data name="User.ExternalRegistrationClosed" xml:space="preserve">
+    <value>حساب المزوّد هذا غير مرتبط بأيّ حساب على هذا الخادم، وإنشاء حسابات جديدة عبر المزوّدين غير متاح.</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>تم قفل هذا الحساب بسبب محاولات تسجيل دخول فاشلة متعددة.</value>
   </data>

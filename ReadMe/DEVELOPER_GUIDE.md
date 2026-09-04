@@ -1754,15 +1754,15 @@ The API listens on `https://localhost:5101` **only** when you start it with the 
 **Production addresses are not in this repository.** Every committed configuration value for a public origin is a placeholder such as `{{JWT_ISSUER_URL}}`. Do not copy a hostname out of this guide into a production client.
 
 **The version segment is part of the path, and `v1` is its only value today.** A client writes it literally: `/api/v1/auth/login`. The route template behind it is `api/v{version:apiVersion}`, and exactly one version — `1.0` — is declared anywhere in the code, so no other value matches. Two alternative ways of naming a version are also registered, the request header `X-Api-Version` and the query-string parameter `api-version`, but neither can replace the path segment: without the segment the route does not match at all, so the header and the query string are only ever redundant. Three groups of endpoints carry no version segment because they are fixed public addresses: the three discovery endpoints under `/.well-known/`, the three public policy pages under `/privacy`, and the two health endpoints `/health` and `/ready`.
-*In code:* `Auth/Auth_API/Program.cs:699-714`.
+*In code:* `Auth/Auth_API/Program.cs:700-715`.
 
 **Route matching ignores letter case.** The route templates spell some segments with a capital letter, because they are generated from the C# class name — `UsersController` produces `/api/v1/Users`. ASP.NET Core matches routes case-insensitively, so `/api/v1/users` reaches the same action. The index in 5.0 prints the literal template casing so you can see what the code actually declares; the per-endpoint sections that follow use lowercase. Both work.
 
 **Most endpoints need a bearer token.** Send it as the request header `Authorization: Bearer <access token>`, where the access token is the `token.accessToken` value that signing in returned. Endpoints marked *Anonymous* in the tables take no token. Endpoints marked with a permission code need a token whose permission claims satisfy that code — the matching rule is in [4.4](#44-permission-based-authorization), and the catalogue of codes is in [Section 11](#11-permission-matrix).
-*One surprise worth knowing:* an access token is also accepted in the `access_token` query-string parameter, not only in the header (`Auth/Auth_API/Program.cs:745-754`).
+*One surprise worth knowing:* an access token is also accepted in the `access_token` query-string parameter, not only in the header (`Auth/Auth_API/Program.cs:746-755`).
 
 **There is no response envelope.** A successful body is the object itself. There is no `success` flag, no `data` wrapper and no `message` field around it — if a description below says the response is a `UserDto`, then the whole body is that user object. Three serialization rules apply to every response: property names are camelCase; **any property whose value is null is omitted from the body entirely**, so a client must treat "absent" and "null" as the same thing; and every date-time value is written in Coordinated Universal Time (UTC) with a trailing `Z`, for example `2026-03-12T10:00:00Z`.
-*In code:* `Auth/Auth_API/Program.cs:687-696`.
+*In code:* `Auth/Auth_API/Program.cs:688-697`.
 
 **A paged list is a small object whose item array is named after the entity, not `items`.** The user list calls its array `users`, the audit-log list calls its array `logs`, and so on. The remaining fields are the same everywhere:
 
@@ -1804,13 +1804,13 @@ Calling through the API Gateway returns a five-field body, where `retryAfter` is
 }
 ```
 
-*In code:* `Auth/Auth_API/Program.cs:822-838` and `Auth/API_Gateway/Program.cs:256-273`.
+*In code:* `Auth/Auth_API/Program.cs:823-839` and `Auth/API_Gateway/Program.cs:256-273`.
 
 **The API itself rate-limits only two things, and there is no general limit.** Two named policies exist, both counted per client IP address over a rolling window: `login` allows **20 requests per 60 seconds**, and `password-reset` allows **10 requests per 60 seconds**. Only the endpoints marked with a policy in the tables below are limited; every other endpoint on the API has no limit at all, deliberately. The gateway is where broad limits live, and it applies its own four policies to whole path prefixes — see [4.8](#48-api-gateway-yarp).
-*In code:* `Auth/Auth_API/Program.cs:769-839`; the numbers come from `RateLimiting:LoginPermitLimit`, `RateLimiting:LoginWindowSeconds`, `RateLimiting:PasswordResetPermitLimit` and `RateLimiting:PasswordResetWindowSeconds` in `Auth/Auth_API/appsettings.json:241-247`.
+*In code:* `Auth/Auth_API/Program.cs:770-840`; the numbers come from `RateLimiting:LoginPermitLimit`, `RateLimiting:LoginWindowSeconds`, `RateLimiting:PasswordResetPermitLimit` and `RateLimiting:PasswordResetWindowSeconds` in `Auth/Auth_API/appsettings.json:241-247`.
 
 **Enumerated values travel as their names, spelled exactly as the code declares them.** A user's status is the string `"Active"`, never the number `1`; a sort direction is `"Asc"` or `"Desc"`. Two enumerations override this and use lower-case names fixed by the specification they implement: a token type hint is `"access_token"` or `"refresh_token"`, and a device type is `"unknown"`, `"desktop"`, `"mobile"` or `"tablet"`.
-*In code:* `Auth/Auth_API/Program.cs:691`; the two exceptions are `Auth/Auth.Domain/Enums/TokenTypeHint.cs` and `Auth/Auth.Domain/Enums/DeviceType.cs`.
+*In code:* `Auth/Auth_API/Program.cs:692`; the two exceptions are `Auth/Auth.Domain/Enums/TokenTypeHint.cs` and `Auth/Auth.Domain/Enums/DeviceType.cs`.
 
 **Every list endpoint takes the same paging and sorting parameters, and going outside their limits is an error, not a silent correction.** All four are optional.
 
@@ -2363,7 +2363,15 @@ Authenticate a user with email and password.
 
 Self-registration for new users.
 
-**Auth:** Anonymous | **Rate Limited:** `login` policy
+**Auth:** Anonymous | **Rate Limited:** `register` policy
+
+**This door can be shut.** `Registration:AllowSelfRegistration` (System settings → Who may create an account) decides whether this endpoint creates accounts at all. It ships open, which is what every deployment had before the switch existed. Closed, the endpoint answers `403 User.SelfRegistrationClosed` **before** the duplicate-email lookup, the password hash, the row and the verification email — so a refusal costs the server nothing and reveals nothing about who is registered here. Invitation redemption (`POST /api/v1/invitations/{token}/register`) and administrator-created users are not affected.
+
+*In code:* `Auth/Auth.Application/Features/Authentication/Register/RegisterCommandHandler.cs`, first block of `Handle`.
+
+**The provider door is separate.** A first sign-in through Google or Apple that matches no local account also creates one, so closing this switch alone leaves self-registration open by another route. `Registration:AllowExternalProvisioning` closes that one; see the external-login endpoint below.
+
+**Neither switch means "administrators only".** An organization invitation still registers the address it was sent to, with the email already confirmed — and any signed-in user may create an organization and invite. Closing both switches buys "no account without someone here", which is a different sentence.
 
 **Request:**
 
@@ -2431,6 +2439,9 @@ List all enabled external authentication providers.
 Authenticate via external provider (e.g., Google).
 
 **Auth:** Anonymous | **Rate Limited:** `login` policy
+
+**A first sign-in here is a registration.** When the provider identity matches no account, this endpoint creates one. `Registration:AllowExternalProvisioning` decides whether it may; closed, it answers `403 User.ExternalRegistrationClosed` before the avatar import, and creates nothing. Only that branch is gated — an account that already exists keeps signing in, and a provider still links to an account holding the same address.
+*In code:* `Auth/Auth.Application/Features/Authentication/ExternalLogin/ExternalLoginCommandHandler.cs`, in the branch that creates a user, after the reservation guard and before the avatar import.
 
 **Request:**
 
@@ -4031,7 +4042,7 @@ An application is a system that uses this platform for identity — a website, a
 *In code:* `Auth/Auth.Domain/Enums/ApplicationAccessMode.cs`.
 
 **Five fields on this object are stored and returned but change nothing.** They round-trip through create, update, the response and the sort allow-list, and no sign-in path reads them: `allowSelfRegistration`, `requireTwoFactor`, `requireEmailVerification`, `sessionTimeoutMinutes` and `maxConcurrentSessions`. The only concurrent-session cap that is applied is the platform-wide `Session:MaxConcurrentSessions` setting. Do not build a security expectation on any of the five.
-*In code:* the enforced cap is read in `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:102`; the entity's own comment on `MaxConcurrentSessions` says "Stored, never enforced" (`Auth/Auth.Domain/Entities/Application.cs:79-95`).
+*In code:* the enforced cap is read in `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:102`; the entity's own comment on `MaxConcurrentSessions` says "Stored, never enforced" (`Auth/Auth.Domain/Entities/Application.cs:91-107`).
 
 All four codes this area enforces — `applications:read`, `applications:create`, `applications:update`, `applications:delete` — have no row in a freshly published database. See [Section 11](#11-permission-matrix).
 
@@ -4086,7 +4097,7 @@ List applications, paged.
 ```
 
 **`redirectUris` is deliberately empty in this list.** It is filled in only when you read a single application, because the list query does not join the redirect-URI table. Do not conclude from an empty array here that an application has no redirect URIs.
-*In code:* `Auth/Auth.Application/DTOs/ApplicationDto.cs:45-49`.
+*In code:* `Auth/Auth.Application/DTOs/ApplicationDto.cs:49-53`.
 
 #### GET `/api/v1/applications/{clientId}/public-branding`
 

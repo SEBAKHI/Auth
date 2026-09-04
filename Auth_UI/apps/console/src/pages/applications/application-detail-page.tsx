@@ -805,12 +805,11 @@ export function ApplicationDetailPage() {
                 label: t("applications.contactEmail"),
                 value: app.contactEmail,
               },
-              {
-                label: t("applications.allowSelfRegistration"),
-                value: app.allowSelfRegistration
-                  ? t("common.yes")
-                  : t("common.no"),
-              },
+              // allowSelfRegistration is deliberately not shown: no registration
+              // path consults the column, so displaying it stated a policy that
+              // was never applied. The enforced one is
+              // Registration:AllowSelfRegistration under System settings, and it
+              // governs the whole server rather than one application.
               {
                 label: t("applications.requireTwoFactor"),
                 value: app.requireTwoFactor ? t("common.yes") : t("common.no"),

@@ -28,6 +28,10 @@ public class ApplicationDto
     /// </summary>
     public ApplicationAccessMode AccessMode { get; set; }
 
+    /// <summary>
+    /// Stored, never enforced — see <see cref="Auth.Domain.Entities.Application"/>.
+    /// The switch that works is <c>Registration:AllowSelfRegistration</c>.
+    /// </summary>
     public bool AllowSelfRegistration { get; set; }
     public bool RequireTwoFactor { get; set; }
     public bool RequireEmailVerification { get; set; }
