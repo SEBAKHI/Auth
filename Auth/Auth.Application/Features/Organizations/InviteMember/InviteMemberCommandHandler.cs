@@ -132,11 +132,15 @@ public class InviteMemberCommandHandler : IRequestHandler<InviteMemberCommand, E
         // delivery to that mailbox being the only way to obtain it. This handler
         // used to return the plaintext to its caller, which made the premise false.
         //
-        // One copy does outlive the send, and the comment here once denied it: the
-        // rendered mail is persisted in NotificationOutbox.BodyHtml and readable
-        // through the outbox screen. That is a platform permission an organization
-        // owner does not hold, so the boundary stands — but it is a real copy and
-        // saying otherwise is how the next reader re-derives the wrong conclusion.
+        // The rendered mail does sit in the outbox row while dispatch still needs
+        // it, and that copy is deliberately temporary: organization-invitation is
+        // one of NotificationTypeCodes.SensitiveContentCodes, so the stored body is
+        // overwritten with a placeholder the moment delivery succeeds, and the
+        // admin delivery log refuses to return it for these types in ANY status.
+        // Verified on a live deployment: reading that message back yields
+        // "[redacted]" for both bodies. So there is no durable copy and no readable
+        // one — which is the invariant this design needs, and it is held by the
+        // notification layer rather than by anything here.
         var token = _tokenGenerator.Generate();
         var tokenHash = _tokenKeyService.ComputeTokenHash(token);
 
