@@ -86,6 +86,12 @@
   <data name="User.InvalidCredentials" xml:space="preserve">
     <value>提供的凭据无效。</value>
   </data>
+  <data name="User.SelfRegistrationClosed" xml:space="preserve">
+    <value>此服务器不允许创建新账户。</value>
+  </data>
+  <data name="User.ExternalRegistrationClosed" xml:space="preserve">
+    <value>此第三方账户未关联到本服务器上的任何账户，且不允许通过第三方创建新账户。</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>由于多次登录失败，此账户已被锁定。</value>
   </data>

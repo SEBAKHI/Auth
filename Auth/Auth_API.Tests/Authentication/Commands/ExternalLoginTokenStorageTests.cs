@@ -71,6 +71,7 @@ public class ExternalLoginTokenStorageTests
             new Mock<IDomainEventDispatcher>().Object,
             new Mock<ILoginAttemptRepository>().Object,
             TestHelpers.CreateOptions(new Auth.Application.Configuration.PasswordSettings()),
+            TestHelpers.CreateOptions(new Auth.Application.Configuration.RegistrationSettings()),
             new Mock<ILogger<ExternalLoginCommandHandler>>().Object);
     }
 

@@ -86,6 +86,12 @@
   <data name="User.InvalidCredentials" xml:space="preserve">
     <value>Les identifiants fournis sont invalides.</value>
   </data>
+  <data name="User.SelfRegistrationClosed" xml:space="preserve">
+    <value>La création de nouveaux comptes est désactivée sur ce serveur.</value>
+  </data>
+  <data name="User.ExternalRegistrationClosed" xml:space="preserve">
+    <value>Ce compte de fournisseur n'est lié à aucun compte sur ce serveur, et la création de comptes via un fournisseur est désactivée.</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>Ce compte a été verrouillé en raison de plusieurs tentatives de connexion échouées.</value>
   </data>

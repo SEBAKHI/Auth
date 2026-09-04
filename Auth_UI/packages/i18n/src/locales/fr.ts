@@ -760,7 +760,6 @@ export const fr: TranslationResources = {
     redirectUrisHint:
       "Une URI par ligne. Correspondance exacte — https requis (http uniquement pour localhost).",
     contactEmail: "E-mail de contact",
-    allowSelfRegistration: "Autoriser l'auto-inscription",
     requireTwoFactor: "Exiger deux facteurs",
     requireEmailVerification: "Exiger la vérification de l'e-mail",
     sessionTimeout: "Expiration de session (minutes)",
@@ -784,8 +783,6 @@ export const fr: TranslationResources = {
       "Adresse indiquée aux utilisateurs pour obtenir de l'aide.",
     sessionTimeoutHint:
       "Durée pendant laquelle une session reste valide sans activité.",
-    allowSelfRegistrationHint:
-      "Autoriser chacun à créer son propre compte pour cette application.",
     requireTwoFactorHint:
       "Chaque utilisateur doit franchir une deuxième étape de vérification.",
     requireEmailVerificationHint:
@@ -1914,6 +1911,17 @@ export const fr: TranslationResources = {
       avatarImportMaxBytes: "Limite de taille d'importation (octets)",
       avatarImportMaxBytesHint:
         "Les réponses plus volumineuses sont refusées pendant la lecture, et non d'après la longueur déclarée par le fournisseur.",
+    },
+    registration: {
+      title: "Qui peut créer un compte",
+      description:
+        "Les deux portes qu'un inconnu peut franchir sans administrateur. Les fermer toutes les deux signifie qu'un compte n'existe que s'il est créé ici ou invité ; aucun des deux interrupteurs ne touche un compte déjà existant.",
+      allowSelfRegistration: "Inscription publique",
+      allowSelfRegistrationHint:
+        "Le point d'accès derrière le formulaire d'inscription. Chaque requête qui passe coûte une empreinte de mot de passe, une ligne utilisateur et un e-mail envoyé à l'adresse saisie ; un serveur qui ne veut pas d'inscription publique doit refuser avant de payer tout cela. Désactivé, il répond la même chose à toutes les adresses et ne révèle donc pas qui est inscrit ici. Le formulaire, lui, reste visible — rien ne publie ce réglage vers la page d'inscription — donc un visiteur le remplit et se voit refuser à l'envoi. Les invitations et les comptes créés par un administrateur ne sont pas concernés.",
+      allowExternalProvisioning: "Inscription via Google ou Apple",
+      allowExternalProvisioningHint:
+        "Si une identité de fournisseur qui ne correspond à aucun compte ici peut en créer un lors de sa première connexion. C'est une auto-inscription par une autre voie, et elle reste ouverte quand l'interrupteur ci-dessus est fermé, sauf si vous fermez aussi celui-ci. Les comptes existants continuent de se connecter dans les deux cas, et un fournisseur peut toujours être lié à un compte portant la même adresse.",
     },
     identityProvider: {
       title: "Fournisseur d'identité (SSO)",

@@ -8,6 +8,9 @@ CREATE TABLE [dbo].[Applications]
     [LogoUrl] NVARCHAR(500) NULL,
     [ContactEmail] NVARCHAR(255) NULL,
     [IsActive] BIT NOT NULL CONSTRAINT [DF_Applications_IsActive] DEFAULT 1,
+    -- RETIRED, still written and read so the API contract does not break: no registration path
+    -- ever consulted this, and none can - sign-up carries no application identity. The switch that
+    -- works is Registration:AllowSelfRegistration in system settings, applied per server.
     [AllowSelfRegistration] BIT NOT NULL CONSTRAINT [DF_Applications_AllowSelfRegistration] DEFAULT 0,
     [RequireEmailVerification] BIT NOT NULL CONSTRAINT [DF_Applications_RequireEmailVerification] DEFAULT 0,
     [RequireTwoFactor] BIT NOT NULL CONSTRAINT [DF_Applications_RequireTwoFactor] DEFAULT 0,

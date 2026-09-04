@@ -86,6 +86,12 @@
   <data name="User.InvalidCredentials" xml:space="preserve">
     <value>اطلاعات ورود ارائه شده نامعتبر است.</value>
   </data>
+  <data name="User.SelfRegistrationClosed" xml:space="preserve">
+    <value>امکان ایجاد حساب جدید روی این سرور وجود ندارد.</value>
+  </data>
+  <data name="User.ExternalRegistrationClosed" xml:space="preserve">
+    <value>این حساب ارائه‌دهنده به هیچ حسابی روی این سرور متصل نیست و ایجاد حساب جدید از طریق ارائه‌دهنده ممکن نیست.</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>این حساب به دلیل تلاش‌های ناموفق متعدد برای ورود قفل شده است.</value>
   </data>

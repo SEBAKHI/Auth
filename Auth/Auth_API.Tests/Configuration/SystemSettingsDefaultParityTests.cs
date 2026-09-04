@@ -27,6 +27,7 @@ public class SystemSettingsDefaultParityTests
         ["Notifications"] = new NotificationSettings(),
         ["AccountDeletion"] = new AccountDeletionSettings(),
         ["ImageStorage"] = Normalized(new ImageStorageSettings()),
+        ["Registration"] = new RegistrationSettings(),
         ["IdentityProvider"] = new IdentityProviderSettings(),
         // ExternalAuth is omitted: its Google/Apple sub-objects default to
         // null (provider treats that as "not configured"), so nested class

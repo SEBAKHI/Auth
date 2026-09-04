@@ -322,6 +322,22 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("RefreshTokenDays", SettingKind.Int, Min: 90, Max: 730, DefaultValue: 90)
             ]),
         new SettingSectionDefinition(
+            Key: "Registration",
+            ConfigRoot: "Registration",
+            Group: SettingGroups.Access,
+            Editable: true,
+            Fields:
+            [
+                // Both handlers read these through IOptionsSnapshot, so a save
+                // takes effect on the next request — the point of a kill switch.
+                // Both default to true: that is what every deployment did before
+                // the switches existed, and an upgrade must not silently shut a
+                // door the operator still wants open.
+                new SettingFieldDefinition("AllowSelfRegistration", SettingKind.Bool, DefaultValue: true),
+                new SettingFieldDefinition("AllowExternalProvisioning", SettingKind.Bool, DefaultValue: true)
+            ]),
+
+        new SettingSectionDefinition(
             Key: "IdentityProvider",
             ConfigRoot: "IdentityProvider",
             Group: SettingGroups.Access,

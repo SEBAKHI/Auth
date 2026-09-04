@@ -83,6 +83,7 @@ public class ExternalLoginCommandHandlerTests
             _eventDispatcherMock.Object,
             _loginAttemptRepositoryMock.Object,
             TestHelpers.CreateOptions(new PasswordSettings()),
+            TestHelpers.CreateOptions(new RegistrationSettings()),
             _loggerMock.Object);
     }
 
@@ -123,6 +124,31 @@ public class ExternalLoginCommandHandlerTests
     };
 
     /// <summary>
+    /// A handler for a server that does not create accounts from providers.
+    /// </summary>
+    private ExternalLoginCommandHandler CreateHandlerRefusingProvisioning()
+        => new(
+            _providerFactoryMock.Object,
+            _externalLoginRepositoryMock.Object,
+            _userRepositoryMock.Object,
+            _permissionRepositoryMock.Object,
+            _accountDeletionRequestRepositoryMock.Object,
+            new Auth.Application.Features.Users.Common.IdentifierReservationGuard(
+                _tombstoneRepositoryMock.Object, new Mock<IIdentifierHasher>().Object),
+            _tokenLifecycles,
+            _perUserCryptoMock.Object,
+            _avatarImporterMock.Object,
+            _personalOrgCreatorMock.Object,
+            _loginResponseBuilderMock.Object,
+            _twoFactorChallengeServiceMock.Object,
+            TestHelpers.CreateExternalNonceGuard(),
+            _eventDispatcherMock.Object,
+            _loginAttemptRepositoryMock.Object,
+            TestHelpers.CreateOptions(new PasswordSettings()),
+            TestHelpers.CreateOptions(new RegistrationSettings { AllowExternalProvisioning = false }),
+            _loggerMock.Object);
+
+    /// <summary>
     /// A handler whose nonce guard is switched on, for the enforcement tests.
     /// </summary>
     private ExternalLoginCommandHandler CreateHandlerRequiringNonce()
@@ -144,6 +170,7 @@ public class ExternalLoginCommandHandlerTests
             _eventDispatcherMock.Object,
             _loginAttemptRepositoryMock.Object,
             TestHelpers.CreateOptions(new PasswordSettings()),
+            TestHelpers.CreateOptions(new RegistrationSettings()),
             _loggerMock.Object);
 
     [Fact]
@@ -529,6 +556,79 @@ public class ExternalLoginCommandHandlerTests
         _userRepositoryMock.Verify(
             r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Once());
+        _externalLoginRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<UserExternalLogin>(), It.IsAny<CancellationToken>()),
+            Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_WhenProvisioningIsClosed_RefusesToCreateAnAccountForAnUnknownProviderIdentity()
+    {
+        // The second door. A valid Google token that matches nothing here is a
+        // registration, not a sign-in, and a server that closed public sign-up
+        // while leaving this open closed nothing at all.
+        var command = CreateCommand();
+        var externalUser = CreateExternalUserInfo();
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(externalUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var result = await CreateHandlerRefusingProvisioning().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be("User.ExternalRegistrationClosed");
+        _userRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+        // The refusal precedes the avatar import: an outbound fetch made for a
+        // caller who is about to be turned away is one the server pays for.
+        _avatarImporterMock.Verify(
+            i => i.TryImportAsync(It.IsAny<string?>(), It.IsAny<CancellationToken>()),
+            Times.Never());
+    }
+
+    [Fact]
+    public async Task Handle_WhenProvisioningIsClosed_StillLinksAProviderToAnAccountThatAlreadyExists()
+    {
+        // Closing the door creates no accounts; it does not lock out the ones
+        // already through it. An owner adding Google to the account they signed
+        // up for with a password is not registering.
+        var command = CreateCommand();
+        var externalUser = CreateExternalUserInfo();
+        var existingUser = TestHelpers.CreateUser(email: externalUser.Email);
+
+        _providerFactoryMock
+            .Setup(f => f.GetProvider(command.Provider))
+            .Returns(_providerMock.Object);
+        _providerMock
+            .Setup(p => p.ValidateTokenAsync(command.IdToken, command.Nonce, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(externalUser);
+        _externalLoginRepositoryMock
+            .Setup(r => r.GetByProviderAsync(command.Provider, externalUser.ProviderUserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((UserExternalLogin?)null);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(externalUser.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(existingUser);
+        _loginResponseBuilderMock
+            .Setup(b => b.BuildAsync(It.IsAny<User>(), command.IpAddress, It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateLoginResponse());
+
+        var result = await CreateHandlerRefusingProvisioning().Handle(command, CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+        _userRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
+            Times.Never());
         _externalLoginRepositoryMock.Verify(
             r => r.CreateAsync(It.IsAny<UserExternalLogin>(), It.IsAny<CancellationToken>()),
             Times.Once());

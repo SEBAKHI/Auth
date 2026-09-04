@@ -36,6 +36,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly ILoginAttemptRepository _loginAttemptRepository;
     private readonly Auth.Application.Configuration.PasswordSettings _passwordSettings;
+    private readonly Auth.Application.Configuration.RegistrationSettings _registrationSettings;
     private readonly ILogger<ExternalLoginCommandHandler> _logger;
 
     public ExternalLoginCommandHandler(
@@ -55,6 +56,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         IDomainEventDispatcher eventDispatcher,
         ILoginAttemptRepository loginAttemptRepository,
         Microsoft.Extensions.Options.IOptionsSnapshot<Auth.Application.Configuration.PasswordSettings> passwordSettings,
+        Microsoft.Extensions.Options.IOptionsSnapshot<Auth.Application.Configuration.RegistrationSettings> registrationSettings,
         ILogger<ExternalLoginCommandHandler> logger)
     {
         _providerFactory = providerFactory;
@@ -62,6 +64,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         _userRepository = userRepository;
         _loginAttemptRepository = loginAttemptRepository;
         _passwordSettings = passwordSettings.Value;
+        _registrationSettings = registrationSettings.Value;
         _permissionRepository = permissionRepository;
         _accountDeletionRequestRepository = accountDeletionRequestRepository;
         _reservationGuard = reservationGuard;
@@ -187,6 +190,25 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
                     externalUser.Email, cancellationToken);
                 if (reservation.IsError)
                     return reservation.Errors;
+
+                // The second door. Reaching here means a valid provider identity
+                // matched no account here, so the next lines would CREATE one —
+                // self-registration by another route, and the one an operator
+                // who closed public sign-up would otherwise never notice was
+                // still open. Refused before the avatar import, which is an
+                // outbound request made on the caller's behalf.
+                //
+                // Only this branch is gated. An account that already exists
+                // keeps signing in, and a provider still links to an account
+                // with the same address: closing the door creates no accounts,
+                // it does not lock out the accounts already through it.
+                if (!_registrationSettings.AllowExternalProvisioning)
+                {
+                    _logger.LogInformation(
+                        "External provisioning refused for {Email} via {Provider} from a closed server",
+                        EmailMasking.Mask(externalUser.Email), request.Provider);
+                    return UserErrors.ExternalRegistrationClosed;
+                }
 
                 // Create new user from external provider. Apple never puts the
                 // name in the ID token — it arrives client-side on the FIRST

@@ -98,6 +98,7 @@ builder.Services.Configure<GatewaySettings>(builder.Configuration.GetSection(Gat
 // console reports it gone. Runs on every rebind, so it also holds after a save.
 builder.Services.PostConfigure<GatewaySettings>(SettingsArrayNormalizer.Apply);
 builder.Services.Configure<SessionSettings>(builder.Configuration.GetSection(SessionSettings.SectionName));
+builder.Services.Configure<RegistrationSettings>(builder.Configuration.GetSection(RegistrationSettings.SectionName));
 builder.Services.Configure<IdentityProviderSettings>(builder.Configuration.GetSection(IdentityProviderSettings.SectionName));
 // Password reset and email verification links are built from FrontendBaseUrl. An
 // empty value silently yields a relative URL, i.e. a dead link in every email, so

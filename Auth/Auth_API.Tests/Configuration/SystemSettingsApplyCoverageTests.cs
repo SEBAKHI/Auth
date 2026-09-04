@@ -129,7 +129,11 @@ public class SystemSettingsApplyCoverageTests
     [
         "JwtSettings", "PasswordSettings", "SessionSettings", "GatewaySettings",
         "EmailSettings", "NotificationSettings", "AccountDeletionSettings",
-        "ImageStorageSettings", "IdentityProviderSettings", "ExternalAuthSettings"
+        "ImageStorageSettings", "IdentityProviderSettings", "ExternalAuthSettings",
+        // A kill switch that needed a restart would not be one: the moment an
+        // operator closes registration is the moment it has to stop creating
+        // accounts.
+        "RegistrationSettings"
     ];
 
     /// <summary>

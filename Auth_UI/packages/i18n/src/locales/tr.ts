@@ -748,7 +748,6 @@ export const tr: TranslationResources = {
     redirectUrisHint:
       "Her satıra bir URI. Birebir eşleşme — https zorunlu (http yalnızca localhost için).",
     contactEmail: "İletişim e-postası",
-    allowSelfRegistration: "Kendi kendine kayda izin ver",
     requireTwoFactor: "İki adımlı doğrulama zorunlu",
     requireEmailVerification: "E-posta doğrulaması zorunlu",
     sessionTimeout: "Oturum zaman aşımı (dakika)",
@@ -770,8 +769,6 @@ export const tr: TranslationResources = {
       "Bu uygulamayla ilgili yardım için kullanıcılara gösterilen adres.",
     sessionTimeoutHint:
       "Oturumun herhangi bir etkinlik olmadan ne kadar geçerli kalacağı.",
-    allowSelfRegistrationHint:
-      "Herkesin bu uygulama için kendi hesabını oluşturmasına izin ver.",
     requireTwoFactorHint:
       "Her kullanıcı oturum açmak için ikinci bir doğrulama adımını geçmelidir.",
     requireEmailVerificationHint:
@@ -1873,6 +1870,17 @@ export const tr: TranslationResources = {
       avatarImportMaxBytes: "İçe aktarma boyut sınırı (bayt)",
       avatarImportMaxBytesHint:
         "Daha büyük yanıtlar, sağlayıcının bildirdiği uzunluğa göre değil okunurken reddedilir.",
+    },
+    registration: {
+      title: "Kim hesap oluşturabilir",
+      description:
+        "Bir yabancının yönetici olmadan geçebileceği iki kapı. İkisini de kapatmak, hesapların yalnızca buradan oluşturulduğunda ya da davet edildiğinde var olması demektir; iki anahtar da mevcut bir hesaba dokunmaz.",
+      allowSelfRegistration: "Herkese açık kayıt",
+      allowSelfRegistrationHint:
+        "Kayıt formunun arkasındaki uç nokta. Geçen her istek bir parola özeti, bir kullanıcı satırı ve yazılan adrese gönderilen bir e-posta demektir; herkese açık kayıt istemeyen bir sunucu bunların hiçbirini ödemeden reddetmelidir. Kapalıyken her adrese aynı yanıt verilir, böylece uç nokta burada kimin kayıtlı olduğunu kimseye söylemez. Formun kendisi gizlenmez — bu ayarı kayıt sayfasına duyuran bir şey yok — bu yüzden ziyaretçi formu doldurur ve gönderirken reddedilir. Davetler ve yöneticinin oluşturduğu kullanıcılar etkilenmez.",
+      allowExternalProvisioning: "Google veya Apple ile kayıt",
+      allowExternalProvisioningHint:
+        "Burada hiçbir hesapla eşleşmeyen bir sağlayıcı kimliğinin ilk girişte hesap oluşturup oluşturamayacağı. Bu, başka bir yoldan kendi kendine kayıttır ve siz bunu da kapatmadıkça yukarıdaki anahtar kapalıyken bile açık kalır. Mevcut hesaplar her iki durumda da girmeye devam eder ve bir sağlayıcı aynı adresli bir hesaba yine bağlanabilir.",
     },
     identityProvider: {
       title: "Kimlik sağlayıcı (SSO)",

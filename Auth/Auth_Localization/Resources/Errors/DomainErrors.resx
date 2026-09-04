@@ -86,6 +86,12 @@
   <data name="User.InvalidCredentials" xml:space="preserve">
     <value>The provided credentials are invalid.</value>
   </data>
+  <data name="User.SelfRegistrationClosed" xml:space="preserve">
+    <value>New accounts cannot be created on this server.</value>
+  </data>
+  <data name="User.ExternalRegistrationClosed" xml:space="preserve">
+    <value>This provider account is not linked to any account on this server, and new accounts cannot be created from a provider.</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>This account has been locked due to multiple failed login attempts.</value>
   </data>

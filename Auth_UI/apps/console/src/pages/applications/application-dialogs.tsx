@@ -122,19 +122,14 @@ function AccessModeChoice({
   )
 }
 
-type ToggleName =
-  | "allowSelfRegistration"
-  | "requireTwoFactor"
-  | "requireEmailVerification"
+// allowSelfRegistration is absent on purpose: nothing enforced it, so the
+// toggle promised a per-application sign-up policy the server never had. The
+// switch that works is Registration:AllowSelfRegistration in System settings.
+type ToggleName = "requireTwoFactor" | "requireEmailVerification"
 
 function useToggles(): { name: ToggleName; label: string; hint: string }[] {
   const { t } = useTranslation()
   return [
-    {
-      name: "allowSelfRegistration",
-      label: t("applications.allowSelfRegistration"),
-      hint: t("applications.allowSelfRegistrationHint"),
-    },
     {
       name: "requireTwoFactor",
       label: t("applications.requireTwoFactor"),
@@ -228,7 +223,6 @@ export function ApplicationCreateDialog({
     logoUrl: z.string().optional(),
     contactEmail: z.string().optional(),
     accessMode: z.enum(["Everyone", "Restricted"]),
-    allowSelfRegistration: z.boolean(),
     requireTwoFactor: z.boolean(),
     requireEmailVerification: z.boolean(),
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
@@ -250,7 +244,6 @@ export function ApplicationCreateDialog({
       // until its owner invites people or opens it up — deliberately, since
       // born-open is the defect this whole field exists to fix.
       accessMode: "Restricted",
-      allowSelfRegistration: false,
       requireTwoFactor: false,
       requireEmailVerification: false,
       sessionTimeoutMinutes: "60",
@@ -274,7 +267,9 @@ export function ApplicationCreateDialog({
           logoUrl: emptyToNull(values.logoUrl),
           contactEmail: emptyToNull(values.contactEmail),
           accessMode: accessModeForWire(values.accessMode),
-          allowSelfRegistration: values.allowSelfRegistration,
+          // Not editable here either — nothing enforces it. The contract still
+          // requires the field, so the column's own default goes on the wire.
+          allowSelfRegistration: false,
           requireTwoFactor: values.requireTwoFactor,
           requireEmailVerification: values.requireEmailVerification,
           sessionTimeoutMinutes: Number(values.sessionTimeoutMinutes) || 60,
@@ -551,7 +546,6 @@ export function ApplicationEditDialog({
     logoUrl: z.string().optional(),
     contactEmail: z.string().optional(),
     accessMode: z.enum(["Everyone", "Restricted"]),
-    allowSelfRegistration: z.boolean(),
     requireTwoFactor: z.boolean(),
     requireEmailVerification: z.boolean(),
     sessionTimeoutMinutes: z.string().min(1, t("validation.required")),
@@ -569,7 +563,6 @@ export function ApplicationEditDialog({
       logoUrl: "",
       contactEmail: "",
       accessMode: "Restricted",
-      allowSelfRegistration: false,
       requireTwoFactor: false,
       requireEmailVerification: false,
       sessionTimeoutMinutes: "60",
@@ -617,7 +610,6 @@ export function ApplicationEditDialog({
       logoUrl: detail.logoUrl ?? "",
       contactEmail: detail.contactEmail ?? "",
       accessMode: accessMode(detail.accessMode),
-      allowSelfRegistration: detail.allowSelfRegistration ?? false,
       requireTwoFactor: detail.requireTwoFactor ?? false,
       requireEmailVerification: detail.requireEmailVerification ?? false,
       sessionTimeoutMinutes: String(detail.sessionTimeoutMinutes ?? 60),
@@ -640,7 +632,10 @@ export function ApplicationEditDialog({
           logoUrl: emptyToNull(values.logoUrl),
           contactEmail: emptyToNull(values.contactEmail),
           accessMode: accessModeForWire(values.accessMode),
-          allowSelfRegistration: values.allowSelfRegistration,
+          // Not editable here either, and the same replacement rule applies:
+          // the stored flag is sent back untouched so a save cannot change a
+          // value the operator was never shown.
+          allowSelfRegistration: detail?.allowSelfRegistration ?? false,
           requireTwoFactor: values.requireTwoFactor,
           requireEmailVerification: values.requireEmailVerification,
           sessionTimeoutMinutes: Number(values.sessionTimeoutMinutes) || 60,

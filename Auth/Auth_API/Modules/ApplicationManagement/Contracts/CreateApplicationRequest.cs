@@ -7,6 +7,13 @@ namespace Auth_API.Modules.ApplicationManagement.Contracts;
 /// one: switching an application off is its own endpoint. A full-object PUT
 /// assembled from possibly stale client state must never be able to switch a
 /// deactivated application back on as a side effect of, say, uploading a logo.
+/// <para>
+/// <c>AllowSelfRegistration</c> is accepted and stored but has NO EFFECT: no
+/// registration path reads it, and none can — sign-up carries no application
+/// identity. Whether strangers may create accounts is a server-wide policy,
+/// <c>Registration:AllowSelfRegistration</c> in system settings. The field
+/// stays on the contract so existing integrations do not break.
+/// </para>
 /// </summary>
 public record CreateApplicationRequest(
     string Code,

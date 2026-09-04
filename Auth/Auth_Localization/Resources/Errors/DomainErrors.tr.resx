@@ -86,6 +86,12 @@
   <data name="User.InvalidCredentials" xml:space="preserve">
     <value>Sağlanan kimlik bilgileri geçersiz.</value>
   </data>
+  <data name="User.SelfRegistrationClosed" xml:space="preserve">
+    <value>Bu sunucuda yeni hesap oluşturulamaz.</value>
+  </data>
+  <data name="User.ExternalRegistrationClosed" xml:space="preserve">
+    <value>Bu sağlayıcı hesabı bu sunucudaki hiçbir hesaba bağlı değil ve sağlayıcı üzerinden yeni hesap oluşturulamaz.</value>
+  </data>
   <data name="User.AccountLocked" xml:space="preserve">
     <value>Birden fazla başarısız giriş denemesi nedeniyle bu hesap kilitlenmiştir.</value>
   </data>

@@ -724,7 +724,6 @@ export const zh: TranslationResources = {
     redirectUrisHint:
       "每行一个 URI。精确匹配——必须使用 https（仅 localhost 允许 http）。",
     contactEmail: "联系邮箱",
-    allowSelfRegistration: "允许自助注册",
     requireTwoFactor: "强制双重认证",
     requireEmailVerification: "强制邮箱验证",
     sessionTimeout: "会话超时（分钟）",
@@ -741,7 +740,6 @@ export const zh: TranslationResources = {
     logoUrlHint: "在该应用登录界面显示的公开图片地址。",
     contactEmailHint: "向用户提供的、就该应用寻求帮助的联系地址。",
     sessionTimeoutHint: "无操作时登录会话保持有效的时长。",
-    allowSelfRegistrationHint: "允许任何人为该应用自行创建账户。",
     requireTwoFactorHint: "每位用户登录时都必须通过第二重验证。",
     requireEmailVerificationHint: "用户必须先确认邮箱地址才能登录。",
     roles: "角色",
@@ -1765,6 +1763,17 @@ export const zh: TranslationResources = {
       avatarImportMaxBytes: "导入大小上限（字节）",
       avatarImportMaxBytesHint:
         "超出上限的响应在读取过程中被拒绝，而不是依据提供方声明的长度。",
+    },
+    registration: {
+      title: "谁可以创建账户",
+      description:
+        "陌生人无需管理员即可通过的两道门。两者都关闭，意味着账户只能由此处创建或经邀请产生；两个开关都不会影响已存在的账户。",
+      allowSelfRegistration: "公开注册",
+      allowSelfRegistrationHint:
+        "注册表单背后的接口。每个通过的请求都要付出一次密码哈希、一行用户记录，以及向所填地址发出的一封邮件；不希望公开注册的服务器应当在付出这些之前就拒绝。关闭后，对任何地址都返回相同结果，因此不会泄露谁在此注册。表单本身不会隐藏——没有任何机制把该设置公布给注册页面——所以访客仍会填写，并在提交时被拒绝。邀请和管理员创建的用户不受影响。",
+      allowExternalProvisioning: "通过 Google 或 Apple 注册",
+      allowExternalProvisioningHint:
+        "与此处任何账户都不匹配的第三方身份，是否可以在首次登录时创建账户。这是另一条路径上的自助注册；除非你也关闭它，否则上面的开关关闭时它仍然开启。两种情况下已存在的账户都可继续登录，第三方仍可关联到相同地址的账户。",
     },
     identityProvider: {
       title: "身份提供方（SSO）",

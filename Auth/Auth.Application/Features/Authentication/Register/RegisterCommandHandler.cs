@@ -1,5 +1,6 @@
 using System.Globalization;
 using Auth.Application.Common;
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Application.Validators;
@@ -11,6 +12,7 @@ using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Authentication.Register;
 
@@ -28,6 +30,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
     private readonly IMediator _mediator;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly RegistrationSettings _registrationSettings;
 
     private readonly ILogger<RegisterCommandHandler> _logger;
 
@@ -40,6 +43,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         IPersonalOrganizationCreator personalOrganizationCreator,
         IMediator mediator,
         IDomainEventDispatcher eventDispatcher,
+        IOptionsSnapshot<RegistrationSettings> registrationSettings,
 
         ILogger<RegisterCommandHandler> logger)
     {
@@ -51,6 +55,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         _personalOrganizationCreator = personalOrganizationCreator;
         _mediator = mediator;
         _eventDispatcher = eventDispatcher;
+        _registrationSettings = registrationSettings.Value;
 
         _logger = logger;
     }
@@ -59,6 +64,24 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         RegisterCommand request,
         CancellationToken cancellationToken)
     {
+        // The door itself, before anything is spent on the caller. Every step
+        // below costs the server something an anonymous stranger chose for it:
+        // an Argon2 hash sized in tens of megabytes, a user row, sometimes a
+        // whole organization, and an email to an address the caller typed. A
+        // deployment that does not want public sign-up needs those to cost
+        // nothing, so the refusal comes first.
+        //
+        // Ahead of the duplicate-email check on purpose: when the door is shut,
+        // every address must get the same answer, or the endpoint keeps working
+        // as an oracle for who is registered here.
+        if (!_registrationSettings.AllowSelfRegistration)
+        {
+            _logger.LogInformation(
+                "Self-registration refused for {Email} from a closed server",
+                EmailMasking.Mask(request.Email));
+            return UserErrors.SelfRegistrationClosed;
+        }
+
         // Check for duplicate email
         if (await _userRepository.ExistsByEmailAsync(request.Email, cancellationToken))
         {

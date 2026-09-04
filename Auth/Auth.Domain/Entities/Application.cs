@@ -57,7 +57,19 @@ public class Application : AggregateRoot
     public ApplicationAccessMode AccessMode { get; private set; }
 
     /// <summary>
-    /// Gets whether the application allows self-registration.
+    /// Stored, never enforced. No registration path reads this value, and none
+    /// can: sign-up carries no application identity, and adding one would not
+    /// help, since the caller would be the party naming the application. Whether
+    /// strangers may create accounts is a property of this server and lives in
+    /// <c>Registration:AllowSelfRegistration</c>, applied in
+    /// <c>RegisterCommandHandler</c> and <c>ExternalLoginCommandHandler</c>.
+    /// <para>
+    /// Kept for the same reason as <see cref="MaxConcurrentSessions"/>: the
+    /// column and the API contract are older than that finding, and removing
+    /// them would be a breaking change buying nothing. The console no longer
+    /// offers it as a control, which is what mattered — it was showing operators
+    /// a switch that switched nothing.
+    /// </para>
     /// </summary>
     public bool AllowSelfRegistration { get; private set; }
 
