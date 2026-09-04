@@ -160,6 +160,9 @@
   <data name="Organization.Inactive" xml:space="preserve">
     <value>یہ تنظیم فی الحال غیر فعال ہے۔</value>
   </data>
+  <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
+    <value>اس سرور پر تنظیمیں نہیں بنائی جا سکتیں۔</value>
+  </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>ایسی تنظیم کو حذف نہیں کیا جا سکتا جس میں ابھی ممبران موجود ہوں۔ پہلے تمام ممبران کو ہٹائیں۔</value>
   </data>

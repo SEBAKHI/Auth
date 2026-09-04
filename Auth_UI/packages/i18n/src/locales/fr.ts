@@ -1922,6 +1922,14 @@ export const fr: TranslationResources = {
       allowExternalProvisioningHint:
         "Si une identité de fournisseur qui ne correspond à aucun compte ici peut en créer un lors de sa première connexion. C'est une auto-inscription par une autre voie, et elle reste ouverte quand l'interrupteur ci-dessus est fermé, sauf si vous fermez aussi celui-ci. Les comptes existants continuent de se connecter dans les deux cas, et un fournisseur peut toujours être lié à un compte portant la même adresse.",
     },
+    organizations: {
+      title: "Qui peut créer une organisation",
+      description:
+        "Créer une organisation ne crée aucun compte. Cela crée une autorité : le créateur en devient propriétaire, et le rôle de propriétaire porte toutes les permissions org:, y compris inviter n'importe quelle adresse e-mail.",
+      allowSelfServiceCreation: "Organisations en libre-service",
+      allowSelfServiceCreationHint:
+        "Si un utilisateur connecté ordinaire peut créer une organisation pour lui-même. Ouvert, toute personne ayant un compte peut en créer une et y inviter aussitôt n'importe quelle adresse. Fermé, l'application des comptes affiche toujours le bouton et la tentative est refusée à l'envoi, les organisations existantes ne sont pas touchées, et un administrateur de la plateforme détenant organizations:manage continue d'en créer.",
+    },
     identityProvider: {
       title: "Fournisseur d'identité (SSO)",
       description:

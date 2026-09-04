@@ -1774,6 +1774,14 @@ export const zh: TranslationResources = {
       allowExternalProvisioningHint:
         "与此处任何账户都不匹配的第三方身份，是否可以在首次登录时创建账户。这是另一条路径上的自助注册；除非你也关闭它，否则上面的开关关闭时它仍然开启。两种情况下已存在的账户都可继续登录，第三方仍可关联到相同地址的账户。",
     },
+    organizations: {
+      title: "谁可以创建组织",
+      description:
+        "创建组织不会创建账户，而是创建权限：创建者成为所有者，而所有者角色拥有全部 org: 权限，包括邀请任意邮箱地址。",
+      allowSelfServiceCreation: "自助创建组织",
+      allowSelfServiceCreationHint:
+        "普通的已登录用户是否可以为自己创建组织。开启时，任何拥有账户的人都能创建组织并立即邀请任意地址加入。关闭时，账户应用仍会显示该按钮，提交时被拒绝；已有组织不受影响；持有 organizations:manage 的平台管理员仍可创建。",
+    },
     identityProvider: {
       title: "身份提供方（SSO）",
       description:

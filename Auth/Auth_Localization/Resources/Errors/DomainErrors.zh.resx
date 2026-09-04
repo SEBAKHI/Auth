@@ -160,6 +160,9 @@
   <data name="Organization.Inactive" xml:space="preserve">
     <value>此组织当前处于未激活状态。</value>
   </data>
+  <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
+    <value>此服务器上无法创建组织。</value>
+  </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>无法删除仍有成员的组织，请先移除所有成员。</value>
   </data>

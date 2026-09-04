@@ -1,4 +1,6 @@
+using Auth.Application.Configuration;
 using Auth.Application.Features.Organizations.CreateOrganization;
+using Auth.Domain.Errors;
 using Auth_API.Tests.Helpers;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -26,10 +28,16 @@ public class CreateOrganizationCommandHandlerTests
         _userRepositoryMock = new Mock<IUserRepository>();
         _loggerMock = new Mock<ILogger<CreateOrganizationCommandHandler>>();
 
-        _handler = new CreateOrganizationCommandHandler(
+        _handler = CreateHandler(new OrganizationSettings());
+    }
+
+    private CreateOrganizationCommandHandler CreateHandler(OrganizationSettings settings)
+    {
+        return new CreateOrganizationCommandHandler(
             _organizationRepositoryMock.Object,
             _roleRepositoryMock.Object,
             _userRepositoryMock.Object,
+            TestHelpers.CreateOptions(settings),
             _loggerMock.Object);
     }
 
@@ -273,4 +281,100 @@ public class CreateOrganizationCommandHandlerTests
             r => r.GetByCodeAsync((Guid?)null, "org-owner", cancellationToken),
             Times.Once);
     }
+
+    #region Who may create an organization
+
+    /// <summary>
+    /// Creating an organization creates authority, not an account: the creator
+    /// becomes owner, and the seeded owner role carries org:* including
+    /// invitation. While every signed-in user could do this, the whole user
+    /// population stood in front of the invitation surface.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WhenSelfServiceIsClosed_RefusesBeforeSpendingAnything()
+    {
+        var handler = CreateHandler(new OrganizationSettings { AllowSelfServiceCreation = false });
+
+        var result = await handler.Handle(
+            new CreateOrganizationCommand("acme", "Acme", "owner@example.com")
+            {
+                CreatedBy = Guid.NewGuid()
+            },
+            CancellationToken.None);
+
+        result.IsError.Should().BeTrue();
+        result.FirstError.Code.Should().Be(OrganizationErrors.SelfServiceCreationClosed.Code);
+
+        _organizationRepositoryMock.Verify(
+            r => r.ExistsByCodeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "the refusal comes before the duplicate-code lookup, so a closed server answers "
+            + "the same for a code that is taken and one that is free");
+        _organizationRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    /// <summary>
+    /// The switch governs self-service, not administration. Without this, closing
+    /// it would take the capability away from the platform's own operators, who
+    /// are the people expected to run the deployment that closed it.
+    /// </summary>
+    [Fact]
+    public async Task Handle_WhenSelfServiceIsClosed_StillAllowsAPlatformAdministrator()
+    {
+        var handler = CreateHandler(new OrganizationSettings { AllowSelfServiceCreation = false });
+
+        _organizationRepositoryMock
+            .Setup(r => r.ExistsByCodeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _roleRepositoryMock
+            .Setup(r => r.GetByCodeAsync((Guid?)null, "org-owner", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(code: "org-owner", name: "Owner"));
+        _organizationRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Organization org, CancellationToken _) => org);
+        _organizationRepositoryMock
+            .Setup(r => r.AddMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationUser member, CancellationToken _) => member);
+
+        var result = await handler.Handle(
+            new CreateOrganizationCommand("acme", "Acme", "owner@example.com")
+            {
+                CreatedBy = Guid.NewGuid(),
+                PlatformScope = true
+            },
+            CancellationToken.None);
+
+        result.IsError.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Handle_WhenSelfServiceIsOpen_StillCreates()
+    {
+        _organizationRepositoryMock
+            .Setup(r => r.ExistsByCodeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _roleRepositoryMock
+            .Setup(r => r.GetByCodeAsync((Guid?)null, "org-owner", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(TestHelpers.CreateRole(code: "org-owner", name: "Owner"));
+        _organizationRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<Organization>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Organization org, CancellationToken _) => org);
+        _organizationRepositoryMock
+            .Setup(r => r.AddMemberAsync(It.IsAny<OrganizationUser>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((OrganizationUser member, CancellationToken _) => member);
+
+        var result = await CreateHandler(new OrganizationSettings())
+            .Handle(
+                new CreateOrganizationCommand("acme", "Acme", "owner@example.com")
+                {
+                    CreatedBy = Guid.NewGuid()
+                },
+                CancellationToken.None);
+
+        result.IsError.Should().BeFalse("the switch defaults open — an upgrade must not remove a shipped capability");
+    }
+
+    #endregion
 }

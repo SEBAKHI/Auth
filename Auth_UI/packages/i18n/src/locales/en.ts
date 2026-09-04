@@ -1888,6 +1888,14 @@ export const en = {
       allowExternalProvisioningHint:
         "Whether a provider identity matching no account here may create one on its first sign-in. This is self-registration by another route, and it stays open while the switch above is closed unless you close this one too. Accounts that already exist keep signing in either way, and a provider can still be linked to an account with the same address.",
     },
+    organizations: {
+      title: "Who may create an organization",
+      description:
+        "Creating an organization creates no account. It creates authority: the creator becomes the owner, and the owner role carries every org: permission, including inviting people by email address.",
+      allowSelfServiceCreation: "Self-service organizations",
+      allowSelfServiceCreationHint:
+        "Whether an ordinary signed-in user may create an organization for themselves. Open, anyone with an account can create one and immediately invite any address to it. Closed, the accounts app still shows the button and the attempt is refused on submit, existing organizations are untouched, and a platform administrator holding organizations:manage still creates them.",
+    },
     identityProvider: {
       title: "Identity provider (SSO)",
       description:

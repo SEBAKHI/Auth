@@ -1881,6 +1881,14 @@ export const tr: TranslationResources = {
       allowExternalProvisioningHint:
         "Burada hiçbir hesapla eşleşmeyen bir sağlayıcı kimliğinin ilk girişte hesap oluşturup oluşturamayacağı. Bu, başka bir yoldan kendi kendine kayıttır ve siz bunu da kapatmadıkça yukarıdaki anahtar kapalıyken bile açık kalır. Mevcut hesaplar her iki durumda da girmeye devam eder ve bir sağlayıcı aynı adresli bir hesaba yine bağlanabilir.",
     },
+    organizations: {
+      title: "Kuruluşu kim oluşturabilir",
+      description:
+        "Kuruluş oluşturmak hesap oluşturmaz; yetki oluşturur: oluşturan kişi sahibi olur ve sahip rolü, herhangi bir e-posta adresini davet etmek dahil tüm org: izinlerini taşır.",
+      allowSelfServiceCreation: "Self servis kuruluşlar",
+      allowSelfServiceCreationHint:
+        "Sıradan bir oturum açmış kullanıcının kendisi için kuruluş oluşturup oluşturamayacağı. Açıkken, hesabı olan herkes bir kuruluş oluşturup hemen ardından herhangi bir adresi davet edebilir. Kapalıyken, hesaplar uygulaması düğmeyi göstermeye devam eder ve istek gönderimde reddedilir; mevcut kuruluşlar etkilenmez ve organizations:manage iznine sahip bir platform yöneticisi oluşturmayı sürdürür.",
+    },
     identityProvider: {
       title: "Kimlik sağlayıcı (SSO)",
       description:

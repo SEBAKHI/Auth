@@ -160,6 +160,9 @@
   <data name="Organization.Inactive" xml:space="preserve">
     <value>This organization is currently inactive.</value>
   </data>
+  <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
+    <value>Organizations cannot be created on this server.</value>
+  </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>Cannot delete an organization that still has members. Remove all members first.</value>
   </data>

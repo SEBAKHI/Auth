@@ -337,6 +337,25 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("AllowExternalProvisioning", SettingKind.Bool, DefaultValue: true)
             ]),
 
+        // Beside Registration rather than inside it. That section answers who may
+        // create an ACCOUNT; this one answers who may create AUTHORITY — an
+        // organization's creator becomes its owner, and the seeded owner role
+        // carries the org:* family, invitation included. One screen answering both
+        // questions is how an operator ends up believing a door is shut.
+        new SettingSectionDefinition(
+            Key: "Organizations",
+            ConfigRoot: "Organizations",
+            Group: SettingGroups.Access,
+            Editable: true,
+            Fields:
+            [
+                // Read through IOptionsSnapshot, so a save applies on the next
+                // request. Defaults open: the endpoint has always been reachable
+                // by any signed-in user, and an upgrade must not silently remove
+                // a capability the accounts app still offers on its own page.
+                new SettingFieldDefinition("AllowSelfServiceCreation", SettingKind.Bool, DefaultValue: true)
+            ]),
+
         new SettingSectionDefinition(
             Key: "IdentityProvider",
             ConfigRoot: "IdentityProvider",

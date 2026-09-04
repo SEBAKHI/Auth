@@ -160,6 +160,9 @@
   <data name="Organization.Inactive" xml:space="preserve">
     <value>این سازمان در حال حاضر غیرفعال است.</value>
   </data>
+  <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
+    <value>امکان ایجاد سازمان روی این سرور وجود ندارد.</value>
+  </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>امکان حذف سازمانی که هنوز اعضا دارد وجود ندارد. ابتدا تمام اعضا را حذف کنید.</value>
   </data>

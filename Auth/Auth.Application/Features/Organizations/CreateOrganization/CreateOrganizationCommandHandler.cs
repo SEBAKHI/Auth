@@ -1,10 +1,12 @@
 using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
+using Auth.Application.Configuration;
 using Auth.Application.DTOs;
 using Auth.Domain.Errors;
 using ErrorOr;
 using MediatR;
+using Microsoft.Extensions.Options;
 
 namespace Auth.Application.Features.Organizations.CreateOrganization;
 
@@ -17,17 +19,20 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
     private readonly IOrganizationRepository _organizationRepository;
     private readonly IRoleRepository _roleRepository;
     private readonly IUserRepository _userRepository;
+    private readonly OrganizationSettings _settings;
     private readonly ILogger<CreateOrganizationCommandHandler> _logger;
 
     public CreateOrganizationCommandHandler(
         IOrganizationRepository organizationRepository,
         IRoleRepository roleRepository,
         IUserRepository userRepository,
+        IOptionsSnapshot<OrganizationSettings> settings,
         ILogger<CreateOrganizationCommandHandler> logger)
     {
         _organizationRepository = organizationRepository;
         _roleRepository = roleRepository;
         _userRepository = userRepository;
+        _settings = settings.Value;
         _logger = logger;
     }
 
@@ -35,6 +40,29 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
         CreateOrganizationCommand request,
         CancellationToken cancellationToken)
     {
+        // The door, before anything is spent on the caller.
+        //
+        // This endpoint is authenticated and nothing more, so every signed-in user
+        // could mint an organization and become its owner — and the seeded owner
+        // role carries org:*, which includes inviting any address. That made the
+        // whole user population the population able to reach the invitation
+        // surface. The switch does not close the invitation surface, which is
+        // closed on its own terms; it decides how many people stand in front of it.
+        //
+        // Platform administrators pass regardless: the switch governs self-service,
+        // not administration. The claim is read at the edge, as the delete path
+        // reads it, because a handler has no principal to ask.
+        //
+        // Ahead of the duplicate-code lookup deliberately, so a closed server does
+        // not answer differently for a code that is taken and one that is free.
+        if (!request.PlatformScope && !_settings.AllowSelfServiceCreation)
+        {
+            _logger.LogInformation(
+                "Self-service organization creation refused for user {UserId} on a closed server",
+                request.CreatedBy);
+            return OrganizationErrors.SelfServiceCreationClosed;
+        }
+
         // Check for duplicate code
         if (await _organizationRepository.ExistsByCodeAsync(request.Code, cancellationToken))
         {

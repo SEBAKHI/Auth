@@ -126,6 +126,12 @@ public class OrganizationsController : ApiController
     [ProducesResponseType(typeof(OrganizationDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    // Organizations:AllowSelfServiceCreation closed —
+    // Organization.SelfServiceCreationClosed. Authenticated on purpose and
+    // carrying no [RequirePermission]: creating an organization for oneself is an
+    // end-user capability the accounts app offers on its own page, so the control
+    // is an operator switch rather than a grant. The handler enforces it.
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<IActionResult> CreateOrganization([FromBody] CreateOrganizationRequest request, CancellationToken cancellationToken)
     {
@@ -138,7 +144,12 @@ public class OrganizationsController : ApiController
             request.LogoUrl,
             request.Website)
         {
-            CreatedBy = userId
+            CreatedBy = userId,
+            // Widening past the self-service switch, not gating the endpoint —
+            // the same distinction, and the same idiom, as DeleteOrganization
+            // below. A handler has no principal to interrogate, so the claim is
+            // read here and carried in.
+            PlatformScope = HasPermissionClaim(PermissionCodes.Organizations.Manage)
         };
 
         var result = await _sender.Send(command, cancellationToken);

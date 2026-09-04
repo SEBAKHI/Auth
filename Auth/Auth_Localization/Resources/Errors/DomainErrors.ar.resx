@@ -160,6 +160,9 @@
   <data name="Organization.Inactive" xml:space="preserve">
     <value>هذه المنظمة غير نشطة حاليًا.</value>
   </data>
+  <data name="Organization.SelfServiceCreationClosed" xml:space="preserve">
+    <value>لا يمكن إنشاء منظمات على هذا الخادم.</value>
+  </data>
   <data name="Organization.CannotDeleteWithMembers" xml:space="preserve">
     <value>لا يمكن حذف منظمة لا تزال تحتوي على أعضاء. قم بإزالة جميع الأعضاء أولًا.</value>
   </data>
