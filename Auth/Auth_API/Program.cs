@@ -26,6 +26,7 @@ using Auth.Infrastructure.Services;
 using Auth.Infrastructure.Notifications;
 using Auth.Infrastructure.Notifications.Channels;
 using Auth.Infrastructure.Notifications.Outbox;
+using Auth.Shared.Diagnostics;
 using Microsoft.Extensions.FileProviders;
 using Auth.Infrastructure.Configuration;
 using Auth.Infrastructure.PrivacyPolicy;
@@ -956,18 +957,48 @@ builder.Services.AddRateLimiter(options =>
             ? localizer["Middleware.TooManyRequests"].Value
             : "Too many requests. Please try again later.";
 
+        // Window policies attach RetryAfter; the image-upload and public-surface
+        // concurrency policies cannot (a slot frees when work finishes, not on a
+        // clock), so their rejections land on the fallback. A few seconds is the
+        // honest hint there — sixty would tell a console user to wait a minute
+        // for a queue that drains in one.
+        var retryAfterSeconds = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
+            ? retryAfter.TotalSeconds
+            : 5;
+
+        // Name the allowance that ran out. Unambiguous in this process, and only
+        // here: there is no GlobalLimiter in this host (see the note at the top
+        // of this block), so the sole limiter that can refuse a request is the
+        // named policy its endpoint opted into. A null policy would mean a
+        // refusal arrived from a limiter no endpoint asked for, which is not a
+        // state this configuration can reach — so it is logged as "unnamed"
+        // rather than silently treated as one of the known buckets.
+        RateLimitRejectionLog.Write(
+            context.HttpContext.RequestServices
+                .GetRequiredService<ILoggerFactory>()
+                .CreateLogger("Auth_API.RateLimiting"),
+            context.HttpContext,
+            RateLimitRejectionLog.PolicyOf(context.HttpContext) ?? "unnamed",
+            ClientIpResolver.Resolve(context.HttpContext),
+            retryAfterSeconds);
+
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.Headers.RetryAfter =
+            ((int)retryAfterSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
+
         await context.HttpContext.Response.WriteAsJsonAsync(new
         {
+            // Not decoration. The SPA derives an error's KIND from this field and
+            // from nothing else — getErrorStatus reads the body, never the
+            // transport status — so while this body omitted it, a refusal here
+            // was classified "unknown" and the user was told to contact support
+            // instead of to wait a moment. The gateway's own 429 carries the
+            // field and said the right thing, which is why the defect survived:
+            // the two hosts refuse the same request for the same reason, and
+            // whichever one gets there first has to say so identically.
+            status = StatusCodes.Status429TooManyRequests,
             error = message,
-            // Window policies attach RetryAfter; the image-upload concurrency
-            // policy cannot (a slot frees when a decode finishes, not on a
-            // clock), so its rejection lands on the fallback. A few seconds is
-            // the honest hint there — sixty would tell a console user to wait a
-            // minute for a queue that drains in one.
-            retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
-                ? retryAfter.TotalSeconds
-                : 5
+            retryAfter = retryAfterSeconds
         }, token);
     };
 });
