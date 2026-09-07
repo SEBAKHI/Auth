@@ -238,7 +238,10 @@ export function PlatformSettingsPage() {
   })
 
   return (
-    <div className="flex flex-col gap-6">
+    // Same cap as the system settings page, and for the same reason: this page
+    // is a form, and its one free-text input is `w-full` from the primitive, so
+    // an uncapped column stretches the platform name across a 2560px monitor.
+    <div className="flex max-w-(--content-measure) flex-col gap-6">
       <PageHeader
         title={t("platformSettings.title")}
         description={t("platformSettings.subtitle")}

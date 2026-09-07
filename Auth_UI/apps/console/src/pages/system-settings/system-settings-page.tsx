@@ -101,7 +101,16 @@ export function SystemSettingsPage() {
     // so the header and the banners stay put and each of the two columns below
     // carries its own scrollbar. Below that breakpoint the columns stack and
     // `main` is the single scroller again, as on every other page.
-    <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1">
+    //
+    // The cap is on THIS element, not on the card: header, banners, section nav
+    // and card are one column, so the title still sits over the thing it names
+    // and the nav stays against the card it drives. It is a max-width on a
+    // stretched flex item (`main` is `flex … flex-col`, app-shell.tsx:198), so
+    // it clamps and then aligns at the cross-start — the inline start in both
+    // directions, with no `mx-auto` anywhere. Centring would open a void
+    // between the nav and the card and break the adjacency that makes the nav
+    // read as this card's index.
+    <div className="flex max-w-(--content-measure) flex-col gap-6 lg:min-h-0 lg:flex-1">
       <PageHeader
         title={t("systemSettings.title")}
         description={t("systemSettings.subtitle")}
@@ -119,9 +128,11 @@ export function SystemSettingsPage() {
         // either of them to scroll inside it.
         <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:flex-row">
           <SectionNav groups={groups} activeKey={active?.key ?? ""} />
-          {/* The card keeps the full page width: extra width is spent by the
-              rows (label at the start, control pinned to the end), never by
-              stretching a control.
+          {/* The card fills the page column, and the column is capped at
+              `--content-measure`: extra width past that measure is spent by
+              nobody. The rows still put the label at the start and pin the
+              control to the end — that geometry is what aligns the controls
+              into one column — but the distance they span is now bounded.
 
               `lg:p-2` is not decoration. A Card is outlined by `ring-1` and
               lifted by `shadow-md`, and both paint outside its box. Setting

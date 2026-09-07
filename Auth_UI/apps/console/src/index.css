@@ -20,3 +20,23 @@
 @source "../../../packages/auth/src";
 @source "../../../packages/i18n/src";
 @source "../../../packages/ui/src";
+
+/* The measure a FORM-shaped page is read at.
+
+   72rem is not a taste; it is the number that closes a measured gap. In the
+   settings page's two-column row the page column becomes the card:
+     column 1152 − nav 224 (lg:w-56) − column gap 24 (gap-6)
+            − pane padding 16 (lg:p-2, both sides)          = card 888
+     card 888 − CardContent px-6 (24 × 2)                   = row content 840
+     row 840 − hint 672 (max-w-2xl) − Field gap 12 (gap-3)
+             − Switch 44 (w-11)                             = 112 of slack
+   so the end of a hint and the start of its switch are 124px apart. Uncapped,
+   a 1920 monitor made that 588 and a 2560 one made it 1228. A row whose two
+   ends are a third of a metre apart is not a row.
+
+   It is applied to the page column of the settings pages, never to `main`:
+   a data table legitimately spends every pixel it is given, and capping the
+   shell would narrow every list in the console to make two forms readable. */
+:root {
+  --content-measure: 72rem;
+}
