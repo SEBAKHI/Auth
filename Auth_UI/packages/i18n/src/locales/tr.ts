@@ -1783,6 +1783,10 @@ export const tr: TranslationResources = {
       title: "Hız sınırlama (API)",
       description:
         "İstemci IP'si başına istek kısıtlaması. Katmanlı savunmanın bir katmanı: hesap kilitleme parola tahminini durdururken bu, otomatik kötüye kullanımı yavaşlatır. Değiştirilen sınırlar yeni istemci pencerelerine hemen uygulanır.",
+      groups: {
+        windows: "Bir istemci ne sıklıkta çağırabilir",
+        concurrency: "Aynı anda ne kadar iş çalışır",
+      },
       loginPermitLimit: "Pencere başına kimlik doğrulama isteği",
       loginPermitLimitHint:
         "Tek bir istemci IP'sinin 429 ile reddedilmeden önce yapabileceği kimlik doğrulama isteği sayısı. Yalnızca oturum açmayı değil; harici oturum açmayı, token değişimini, parolamı unuttum akışını, e-posta doğrulamayı ve yeniden göndermeyi, iki adımlı doğrulamayı, davet açmayı ve kabul etmeyi, hesap silme ile kurtarmayı ve gizli anahtar işlem doğrulamalarını da kapsar. Yeni hesap oluşturma ise aşağıda ayrıca sayılır. İki katmanın ilkidir: bu, çok sayıda hesabı deneyen saldırganı yavaşlatır; hesap kilitleme ise tek hesapta çok sayıda parola deneyeni durdurur.",
@@ -1821,6 +1825,12 @@ export const tr: TranslationResources = {
       title: "İstek hızı sınırlama (Ağ geçidi)",
       description:
         "İstek API'ye ulaşmadan önce, uçta istemci IP'si başına uygulanan sınırlama. Dış halka; yukarıdaki API bölümü ise iç halka. Kaydedilen değişiklik ağ geçidine yaklaşık 30 saniye içinde ulaşır: ağ geçidi bu veritabanını paylaşmayan, ayarlarını kendisi çeken ayrı bir süreçtir.",
+      groups: {
+        global: "Her şeyin üstündeki tavan",
+        perRoute: "Rota bazlı sınırlar",
+        perRouteDescription:
+          "Her biri tek bir rota ailesini kapsar. Yukarıdaki genel tavan bunların hepsinin üstünde uygulanır; bu yüzden sessizce kısıtlayacağı politikadan daha dar olmamalıdır.",
+      },
       globalPermitLimit: "Genel istek tavanı",
       globalPermitLimitHint:
         "Aşağıdaki üç politikanın üstünde, ağ geçidinden geçen her isteğe uygulanır. Bunların en hızlısından yavaş olmamalıdır, aksi hâlde onları sessizce kısar.",

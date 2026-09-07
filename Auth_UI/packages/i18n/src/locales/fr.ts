@@ -1821,6 +1821,11 @@ export const fr: TranslationResources = {
       title: "Limitation de débit (API)",
       description:
         "Limitation des requêtes par IP cliente. Une couche d'une défense en profondeur : elle ralentit les abus automatisés tandis que le verrouillage de compte stoppe la devinette de mots de passe. Les limites modifiées s'appliquent immédiatement aux nouvelles fenêtres client.",
+      groups: {
+        windows:
+          "À quelle fréquence un client peut appeler",
+        concurrency: "Combien de travail s'exécute à la fois",
+      },
       loginPermitLimit: "Requêtes d'authentification par fenêtre",
       loginPermitLimitHint:
         "Nombre de requêtes d'authentification qu'une même IP cliente peut effectuer avant d'être refusée avec un 429. Plus large que la seule connexion : connexion externe, échange de jetons, mot de passe oublié, vérification d'e-mail et renvoi, double authentification, ouverture et acceptation d'invitations, suppression et récupération de compte, et défis d'opération sur les secrets. La création de compte est comptée séparément, ci-dessous. Première de deux couches : elle ralentit un attaquant qui parcourt de nombreux comptes, tandis que le verrouillage de compte arrête celui qui essaie de nombreux mots de passe sur un seul.",
@@ -1862,6 +1867,12 @@ export const fr: TranslationResources = {
       title: "Limitation de débit (passerelle)",
       description:
         "Limitation par adresse IP cliente en périphérie, appliquée avant que la requête n'atteigne l'API. L'anneau externe ; la section API ci-dessus est l'anneau interne. Une modification enregistrée parvient à la passerelle en 30 secondes environ, car il s'agit d'un processus distinct qui récupère ses réglages au lieu de partager cette base de données.",
+      groups: {
+        global: "Le plafond au-dessus de tout",
+        perRoute: "Limites par route",
+        perRouteDescription:
+          "Chacune couvre une famille de routes. Le plafond global ci-dessus s'applique par-dessus toutes, il ne doit donc jamais être plus strict que la politique qu'il plafonnerait silencieusement.",
+      },
       globalPermitLimit: "Plafond global de requêtes",
       globalPermitLimitHint:
         "S'applique à toute requête passant par la passerelle, au-dessus des trois politiques ci-dessous. Il ne doit pas être plus lent que la plus rapide d'entre elles, sinon il les bride silencieusement.",

@@ -1790,6 +1790,10 @@ export const en = {
       title: "Rate limiting (API)",
       description:
         "Per-client-IP request throttling. One layer of a layered defense: it slows automated abuse while account lockout stops password guessing. Changed limits apply to new client windows immediately.",
+      groups: {
+        windows: "How often a client may call",
+        concurrency: "How much work runs at once",
+      },
       loginPermitLimit: "Authentication requests per window",
       loginPermitLimitHint:
         "How many authentication requests one client IP may make before it is refused with 429. Wider than sign-in alone: external sign-in, token exchange, forgot-password, email verification and resend, two-factor verification, invitation lookup and acceptance, account deletion and recovery, and secret-operation challenges. Creating an account is counted separately, below. The first of two layers — this slows an attacker working across many accounts, while account lockout stops one working through many passwords on a single account.",
@@ -1828,6 +1832,12 @@ export const en = {
       title: "Rate limiting (Gateway)",
       description:
         "Per-client-IP throttling at the edge, applied before a request reaches the API. The outer ring; the API section above is the inner one. A saved change reaches the gateway within about 30 seconds, because it is a separate process that pulls its settings rather than sharing this database.",
+      groups: {
+        global: "The ceiling over everything",
+        perRoute: "Per-route limits",
+        perRouteDescription:
+          "Each covers one family of routes. The global ceiling above applies on top of every one of them, so it must never be tighter than the policy it would silently cap.",
+      },
       globalPermitLimit: "Global request ceiling",
       globalPermitLimitHint:
         "Applies to every request through the gateway, on top of the three policies below. It must not be slower than the fastest of them, or it silently caps them.",

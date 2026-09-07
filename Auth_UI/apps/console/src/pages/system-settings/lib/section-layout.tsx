@@ -288,6 +288,57 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
       claims: ["NewDeviceAlertEnabled", "NewDeviceAlertMinIntervalMinutes"],
     },
   ],
+
+  // Ten of these settings are five limit/window pairs, and their labels
+  // already pair them - each says which policy it belongs to. What the flat
+  // list hides is the eleventh: an upload concurrency cap that is not a rate
+  // at all, and whose hint has to open by saying so. The two headings name the
+  // two KINDS of limit, which is the distinction no label can carry alone.
+  RateLimiting: [
+    {
+      kind: "group",
+      key: "windows",
+      claims: [
+        "LoginPermitLimit",
+        "LoginWindowSeconds",
+        "RegisterPermitLimit",
+        "RegisterWindowSeconds",
+        "SignInPagePermitLimit",
+        "SignInPageWindowSeconds",
+        "PasswordResetPermitLimit",
+        "PasswordResetWindowSeconds",
+        "ApiKeyValidatePermitLimit",
+        "ApiKeyValidateWindowSeconds",
+      ],
+    },
+    { kind: "group", key: "concurrency", claims: ["ImageUploadConcurrencyLimit"] },
+  ],
+
+  // Here the split carries a rule rather than a theme. The global ceiling
+  // applies ON TOP of every per-route policy, so a global value tighter than
+  // one of them caps that policy silently - and nothing in a flat list of
+  // eleven says the first three rows outrank the other eight.
+  GatewayRateLimiting: [
+    {
+      kind: "group",
+      key: "global",
+      claims: ["GlobalPermitLimit", "GlobalWindowSeconds", "GlobalQueueLimit"],
+    },
+    {
+      kind: "group",
+      key: "perRoute",
+      claims: [
+        "AuthPermitLimit",
+        "AuthWindowSeconds",
+        "RegisterPermitLimit",
+        "RegisterWindowSeconds",
+        "ApiPermitLimit",
+        "ApiWindowSeconds",
+        "AdminPermitLimit",
+        "AdminWindowSeconds",
+      ],
+    },
+  ],
 }
 
 export interface ResolvedBlock {

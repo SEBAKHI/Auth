@@ -1678,6 +1678,10 @@ export const zh: TranslationResources = {
       title: "速率限制（API）",
       description:
         "按客户端 IP 进行请求节流。这是分层防御中的一层：它能减缓自动化滥用，而账户锁定则负责阻止密码猜测。修改后的限制会立即应用于新的客户端窗口。",
+      groups: {
+        windows: "客户端可以调用的频率",
+        concurrency: "同时运行多少工作",
+      },
       loginPermitLimit: "每窗口认证请求数",
       loginPermitLimitHint:
         "单个客户端 IP 在被以 429 拒绝之前可发起的认证请求数。范围不止登录：还包括外部登录、令牌交换、忘记密码、邮箱验证与重发、两步验证、打开与接受邀请、账户删除与恢复，以及密钥操作确认。创建新账户单独计数，见下方。这是两层防御中的第一层——它拖慢逐个尝试大量账户的攻击者，而账户锁定则阻止在单个账户上穷举密码的人。",
@@ -1716,6 +1720,12 @@ export const zh: TranslationResources = {
       title: "请求速率限制（网关）",
       description:
         "在边缘按客户端 IP 限流，请求尚未到达 API 之前即生效。这是外圈，上方的 API 部分是内圈。保存后的改动大约 30 秒内送达网关：网关是独立进程，自行拉取设置，并不共享此数据库。",
+      groups: {
+        global: "凌驾一切的上限",
+        perRoute: "按路由的限制",
+        perRouteDescription:
+          "每一项覆盖一组路由。上面的全局上限叠加在它们之上，因此绝不能比它会悄悄压低的那条策略更严。",
+      },
       globalPermitLimit: "全局请求上限",
       globalPermitLimitHint:
         "适用于经过网关的每个请求，位于下方三项策略之上。它不得比其中最快的一项还慢，否则会悄悄压低它们。",
