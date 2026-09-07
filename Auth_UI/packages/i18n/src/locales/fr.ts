@@ -1651,9 +1651,23 @@ export const fr: TranslationResources = {
     resetConfirmBody:
       "Toutes les valeurs personnalisées de cette section seront supprimées et les valeurs par défaut s'appliqueront de nouveau.",
     saved: "Paramètres enregistrés.",
+    savedRestartNeeded:
+      "Paramètres enregistrés. Modifications nécessitant un redémarrage de l'API : {{count}}. Elles s'appliqueront automatiquement après le prochain redémarrage.",
     resetDone: "Section réinitialisée aux valeurs par défaut.",
+    conflictTitle: "Modifié par quelqu'un d'autre",
     conflict:
-      "Quelqu'un d'autre a modifié cette section entre-temps. Elle a été rechargée — veuillez réappliquer vos modifications.",
+      "Quelqu'un d'autre a modifié cette section pendant que vous y travailliez. Vos valeurs sont toujours là et toujours non enregistrées — comparez-les aux valeurs actuelles avant d'enregistrer à nouveau.",
+    conflictFields:
+      "Quelqu'un d'autre a modifié ces paramètres pendant que vous y travailliez : {{fields}}. Vos valeurs sont toujours là et toujours non enregistrées. Si vous enregistrez maintenant, les vôtres remplaceront les leurs.",
+    unsavedCount: "Modifications non enregistrées : {{count}}",
+    invalidSubmit:
+      "Rien n'a été enregistré. Certaines valeurs ne sont pas valides — la première est mise en évidence ci-dessous.",
+    invalidInDisabledCategory:
+      "La catégorie {{category}} est désactivée, la valeur à corriger ne peut donc pas être modifiée. Réactivez-la, corrigez la valeur, puis enregistrez.",
+    highImpactConfirmTitle:
+      "Enregistrer des paramètres qui contrôlent l'accès ?",
+    highImpactConfirmBody:
+      "Ces paramètres déterminent qui peut se connecter et comment : {{fields}}. Une valeur acceptée par le serveur peut malgré tout empêcher tous les administrateurs de se connecter, vous compris. Vérifiez-les avant d'enregistrer.",
     arrayFieldHint: "Une entrée par ligne.",
     sendTestEmail: "Envoyer un e-mail de test",
     testEmailSent:

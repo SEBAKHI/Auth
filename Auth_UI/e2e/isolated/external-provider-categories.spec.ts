@@ -289,3 +289,70 @@ test("the section survives a backend that stops declaring a provider switch", as
   expect(await panelOf(page, "Google:ClientId")).toBe("Google sign-in")
   await expectNoShellOverflow(page, "social sign-in without an Apple switch")
 })
+
+/** A provider's credential row, addressed by id because the path carries a colon. */
+const credential = (page: Page, path: string) =>
+  page.locator(`[id="setting-${path}"]`)
+
+test("a switched-off provider's settings are inert", async ({ page }) => {
+  await openSection(page)
+
+  // A panel says off by BEING off. Rows that still accept typing while nothing
+  // they say can happen are a promise the page does not keep.
+  for (const path of ["Apple:ServicesId", "Apple:TeamId", "Apple:KeyId"]) {
+    const row = credential(page, path)
+    // BOTH assertions, and the second is not a spelling of the first:
+    // `data-disabled="true"` is also what a read-only row renders, so the
+    // attribute alone would pass on a row that has nothing to do with gating.
+    // The disabled control is what makes this about the gate.
+    await expect(row, path).toHaveAttribute("data-disabled", "true")
+    await expect(row.locator("input"), path).toBeDisabled()
+  }
+
+  // Google arrives switched on, so its credential is editable — the guard
+  // against a gate that reaches past its own panel.
+  const google = credential(page, "Google:ClientId")
+  await expect(google).not.toHaveAttribute("data-disabled", /.*/)
+  await expect(google.locator("input")).toBeEnabled()
+})
+
+test("switching a provider on releases its settings, and gating never clears a value", async ({
+  page,
+}) => {
+  await openSection(page)
+
+  const appleSwitch = credential(page, "Apple:Enabled").getByRole("switch")
+  await appleSwitch.click()
+
+  for (const path of ["Apple:ServicesId", "Apple:TeamId", "Apple:KeyId"]) {
+    const row = credential(page, path)
+    await expect(row, path).not.toHaveAttribute("data-disabled", /.*/)
+    await expect(row.locator("input"), path).toBeEnabled()
+  }
+
+  // Apple is now on with three empty credentials, which is the one state that
+  // reports itself nowhere else: nothing errors, nothing logs, and sign-in
+  // with Apple simply never happens.
+  const warning = page.getByRole("alert")
+  await expect(warning).toHaveCount(1)
+  expect(
+    await warning.evaluate((el) => {
+      const set = el.closest('[data-slot="field-set"]')
+      return set
+        ?.querySelector('[data-slot="field-label"]')
+        ?.textContent?.trim()
+    })
+  ).toBe("Apple sign-in")
+
+  // Gating is a DOM prop on the control, never a change to the form's values,
+  // so switching a category off and back on finds the credentials still there.
+  // The order matters: `fill()` waits for an editable element, so the value has
+  // to go in while the panel is on.
+  const teamId = credential(page, "Apple:TeamId").locator("input")
+  await teamId.fill("TEAM123")
+  await appleSwitch.click()
+  await expect(teamId).toBeDisabled()
+  await appleSwitch.click()
+  await expect(teamId).toBeEnabled()
+  await expect(teamId).toHaveValue("TEAM123")
+})

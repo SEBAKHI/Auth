@@ -1626,9 +1626,22 @@ export const en = {
     resetConfirmBody:
       "All customized values in this section will be removed and the default values will apply again.",
     saved: "Settings saved.",
+    savedRestartNeeded:
+      "Settings saved. Changes that need an API restart: {{count}}. They apply automatically after the next restart.",
     resetDone: "Section reset to defaults.",
+    conflictTitle: "Changed by someone else",
     conflict:
-      "Someone else changed this section in the meantime. It has been reloaded — please reapply your changes.",
+      "Someone else changed this section while you were editing it. Your values are still here and still unsaved — compare them with the current ones before saving again.",
+    conflictFields:
+      "Someone else changed these settings while you were editing: {{fields}}. Your values are still here and still unsaved. Saving now replaces theirs.",
+    unsavedCount: "Unsaved changes: {{count}}",
+    invalidSubmit:
+      "Nothing was saved. Some values are not valid — the first one is highlighted below.",
+    invalidInDisabledCategory:
+      "{{category}} is switched off, so the value that needs fixing cannot be edited. Switch it back on, correct the value, then save.",
+    highImpactConfirmTitle: "Save settings that control access?",
+    highImpactConfirmBody:
+      "These settings decide who can sign in and how: {{fields}}. A value the server accepts can still lock every administrator out, including you. Check them before saving.",
     arrayFieldHint: "One entry per line.",
     sendTestEmail: "Send test email",
     testEmailSent: "Test email sent — check your inbox.",

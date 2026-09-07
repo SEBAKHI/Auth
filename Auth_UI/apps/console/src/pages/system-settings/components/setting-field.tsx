@@ -30,6 +30,7 @@ import {
   fieldI18nKey,
   formFieldName,
   settingAnchorId,
+  valueDirection,
   type SystemSettingsField,
 } from "../lib/sections"
 
@@ -78,7 +79,20 @@ const ROW_BASE =
 export type RowPlacement = "card" | "category" | "categoryHeader"
 
 const ROW: Record<RowPlacement, string> = {
-  card: `${ROW_BASE} border-b -mx-3 w-[calc(100%+1.5rem)] px-3 py-4`,
+  // `last:border-b-0` for the same reason `category` has always had it: a rule
+  // separates a row from what follows, and the last row in a run has nothing
+  // following. In an editable section it got away without one while a `pt-6`
+  // action row came after the last card-level row; after the Save/Cancel move
+  // that row is gone for any section that is not Email and has no overrides —
+  // which is every section in its default state — and the rule was left
+  // floating in the card's own bottom padding. A bootstrap section never had
+  // that action row at all, so there the rule had always been the dangling one.
+  //
+  // Where something DOES follow the rows — the companion-page footer on
+  // SecretManagement and DataRetention — the seam is drawn by that footer's own
+  // `border-t` in `section-form`, which also disappears with the footer when
+  // the permission gate hides it. A rule on the row could never do that.
+  card: `${ROW_BASE} border-b last:border-b-0 -mx-3 w-[calc(100%+1.5rem)] px-3 py-4`,
   category: `${ROW_BASE} border-b last:border-b-0 px-4 py-4`,
   // Full-strength `muted`, not a fraction of it: the palette's only tint step
   // is 3% in light mode, so anything less than all of it is not a band. The
@@ -94,7 +108,19 @@ const ROW: Record<RowPlacement, string> = {
   categoryHeader: `${ROW_BASE} rounded-t-xl border-b bg-muted px-4 py-3.5 hover:bg-muted focus-within:bg-muted [&>[data-slot=field-content]]:me-auto`,
 }
 
-/** Explanatory text stops at a comfortable measure rather than the card edge. */
+/**
+ * Explanatory text stops at a comfortable measure rather than the card edge.
+ *
+ * 42rem at the 12px FieldDescription size is about 107 characters per line,
+ * above the 75 that reads comfortably. It is NOT narrowed here, and the reason
+ * is counter-intuitive: what the eye measures across a row is the ink, not the
+ * box. Shrinking the text block does not shrink the gap between a hint and its
+ * control — it widens the empty space between them, because the hint is the
+ * thing that bridges the distance. Fixing the measure honestly means changing
+ * the shared FieldDescription type size, which is a workspace-wide typographic
+ * decision and out of scope here. 107 against 75: written down so the next
+ * reader knows it was weighed rather than missed.
+ */
 const TEXT_BLOCK = "max-w-2xl"
 
 /**
@@ -114,6 +140,17 @@ const CONTROL = {
 /** The row's anchor; highlighted for a moment on arrival — see `section-form`. */
 function anchorId(field: SystemSettingsField): string {
   return settingAnchorId(field.path ?? "")
+}
+
+/**
+ * The id of a row's label, so two things can point at it: the row itself, which
+ * is a `role="group"` and would otherwise be an unnamed group, and the enum
+ * control, which is a `div role="radiogroup"` — `<label for>` associates only
+ * with labelable elements, so the label the row already renders reaches the
+ * toggle group through `aria-labelledby` or not at all.
+ */
+function labelId(field: SystemSettingsField): string {
+  return `${anchorId(field)}-label`
 }
 
 function useFieldTexts(sectionI18n: string | undefined, field: SystemSettingsField) {
@@ -172,9 +209,10 @@ export function SecretFieldRow({
       orientation="responsive"
       className={ROW[placement]}
       id={anchorId(field)}
+      aria-labelledby={labelId(field)}
     >
       <FieldContent className={TEXT_BLOCK}>
-        <FieldLabel>{label}</FieldLabel>
+        <FieldLabel id={labelId(field)}>{label}</FieldLabel>
         <FieldDescription>{t("systemSettings.managedInSecrets")}</FieldDescription>
       </FieldContent>
       <Button variant="outline" size="sm" asChild>
@@ -189,10 +227,17 @@ export function ReadOnlyFieldRow({
   sectionI18n,
   field,
   placement = "card",
+  sectionKey,
 }: {
   sectionI18n: string | undefined
   field: SystemSettingsField
   placement?: RowPlacement
+  /**
+   * The backend section key. Direction is a property of a setting's VALUE, not
+   * of its kind, and the registry that knows which is which is keyed by section.
+   * Optional so a caller that has not been updated keeps today's behaviour.
+   */
+  sectionKey?: string
 }) {
   const { t } = useTranslation()
   const { label, hint } = useFieldTexts(sectionI18n, field)
@@ -202,19 +247,26 @@ export function ReadOnlyFieldRow({
       orientation="responsive"
       className={`${ROW[placement]} ${CONTROL.text}`}
       id={anchorId(field)}
+      aria-labelledby={labelId(field)}
       data-disabled
     >
       <FieldContent className={TEXT_BLOCK}>
-        <FieldLabel>
+        <FieldLabel id={labelId(field)}>
           {label}
           <Badge variant="outline">{t("systemSettings.readOnly")}</Badge>
         </FieldLabel>
         {hint ? <FieldDescription>{hint}</FieldDescription> : null}
       </FieldContent>
+      {/* Naming the row's `role="group"` does not name the control inside it —
+          a group's name does not reach its children. This row's label carries
+          no `htmlFor` (there is no form control id to point at), so without
+          this the value reads as an unnamed read-only text box and nothing
+          says which setting it belongs to. */}
       <Input
         value={value === null || value === undefined ? "" : String(value)}
         disabled
-        dir="ltr"
+        aria-labelledby={labelId(field)}
+        dir={valueDirection(sectionKey, field.path ?? "")}
       />
     </Field>
   )
@@ -231,6 +283,8 @@ export function SettingField({
   field,
   placement = "card",
   media,
+  sectionKey,
+  disabled = false,
 }: {
   control: Control<FieldValues>
   sectionI18n: string | undefined
@@ -242,12 +296,27 @@ export function SettingField({
    * caller is the one that knows what the mark is.
    */
   media?: React.ReactNode
+  /**
+   * The backend section key. Direction is a property of a setting's VALUE, not
+   * of its kind — `SmtpHost` and `SenderName` are both strings and only one is
+   * prose — and the registry that knows which is which is keyed by section,
+   * because seven field paths repeat across sections. Optional so a caller that
+   * has not been updated keeps today's behaviour rather than guessing.
+   */
+  sectionKey?: string
+  /**
+   * The switch governing this field's category is off. The control is inert and
+   * the row says so; the VALUE is untouched, so switching the category back on
+   * finds the credentials still there.
+   */
+  disabled?: boolean
 }) {
   const { t } = useTranslation()
   const { label, hint } = useFieldTexts(sectionI18n, field)
   const name = formFieldName(field.path ?? "")
   const kind = field.kind ?? "string"
   const heading = placement === "categoryHeader"
+  const dir = valueDirection(sectionKey, field.path ?? "")
 
   // The hint, the bounds, the default-value note and any validation message
   // all belong to the text block; as direct row children they would become
@@ -262,7 +331,10 @@ export function SettingField({
           emphasis the other labels carry — except when the switch heads a
           category, where it names everything under it and would otherwise be
           the lightest text in a panel it governs. */}
-      <FormLabel className={kind === "bool" && !heading ? "font-normal" : undefined}>
+      <FormLabel
+        id={labelId(field)}
+        className={kind === "bool" && !heading ? "font-normal" : undefined}
+      >
         {label}
         <FieldBadges field={field} />
       </FormLabel>
@@ -289,11 +361,17 @@ export function SettingField({
             orientation="horizontal"
             className={ROW[placement]}
             id={anchorId(field)}
+            aria-labelledby={labelId(field)}
+            data-disabled={disabled ? true : undefined}
           >
             {media}
             {textBlock()}
             <FormControl>
-              <Switch checked={rhf.value === true} onCheckedChange={rhf.onChange} />
+              <Switch
+                checked={rhf.value === true}
+                onCheckedChange={rhf.onChange}
+                disabled={disabled}
+              />
             </FormControl>
           </FormItem>
         )}
@@ -311,6 +389,8 @@ export function SettingField({
             orientation="responsive"
             className={ROW[placement]}
             id={anchorId(field)}
+            aria-labelledby={labelId(field)}
+            data-disabled={disabled ? true : undefined}
           >
             {textBlock()}
             <FormControl>
@@ -320,6 +400,8 @@ export function SettingField({
                 variant="outline"
                 // Wraps only when the row is too narrow to hold every option.
                 className="flex-wrap"
+                aria-labelledby={labelId(field)}
+                disabled={disabled}
                 value={typeof rhf.value === "string" ? rhf.value : ""}
                 onValueChange={(value) => {
                   if (value) rhf.onChange(value)
@@ -348,6 +430,8 @@ export function SettingField({
             orientation="responsive"
             className={`${ROW[placement]} ${CONTROL.area}`}
             id={anchorId(field)}
+            aria-labelledby={labelId(field)}
+            data-disabled={disabled ? true : undefined}
           >
             {textBlock(t("systemSettings.arrayFieldHint"))}
             <FormControl>
@@ -356,7 +440,8 @@ export function SettingField({
                 onChange={rhf.onChange}
                 onBlur={rhf.onBlur}
                 rows={4}
-                dir="ltr"
+                dir={dir}
+                disabled={disabled}
               />
             </FormControl>
           </FormItem>
@@ -392,6 +477,8 @@ export function SettingField({
           orientation="responsive"
           className={`${ROW[placement]} ${isInt ? CONTROL.int : CONTROL.text}`}
           id={anchorId(field)}
+          aria-labelledby={labelId(field)}
+          data-disabled={disabled ? true : undefined}
         >
           {textBlock()}
           <FormControl>
@@ -400,7 +487,8 @@ export function SettingField({
               onChange={rhf.onChange}
               onBlur={rhf.onBlur}
               inputMode={isInt ? "numeric" : undefined}
-              dir="ltr"
+              dir={dir}
+              disabled={disabled}
             />
           </FormControl>
         </FormItem>

@@ -1618,9 +1618,22 @@ export const tr: TranslationResources = {
     resetConfirmBody:
       "Bu bölümdeki tüm özelleştirilmiş değerler kaldırılacak ve varsayılan değerler yeniden geçerli olacak.",
     saved: "Ayarlar kaydedildi.",
+    savedRestartNeeded:
+      "Ayarlar kaydedildi. API'nin yeniden başlatılmasını gerektiren değişiklik sayısı: {{count}}. Bunlar bir sonraki yeniden başlatmadan sonra otomatik olarak uygulanır.",
     resetDone: "Bölüm varsayılanlara sıfırlandı.",
+    conflictTitle: "Başkası tarafından değiştirildi",
     conflict:
-      "Bu bölüm bu sırada başka biri tarafından değiştirildi. Bölüm yeniden yüklendi — lütfen değişikliklerinizi yeniden uygulayın.",
+      "Siz düzenlerken bu bölümü başka biri değiştirdi. Değerleriniz hâlâ burada ve hâlâ kaydedilmedi — yeniden kaydetmeden önce bunları geçerli değerlerle karşılaştırın.",
+    conflictFields:
+      "Siz düzenlerken bu ayarları başka biri değiştirdi: {{fields}}. Değerleriniz hâlâ burada ve hâlâ kaydedilmedi. Şimdi kaydederseniz sizin değerleriniz onunkilerin yerine geçer.",
+    unsavedCount: "Kaydedilmemiş değişiklik sayısı: {{count}}",
+    invalidSubmit:
+      "Hiçbir şey kaydedilmedi. Bazı değerler geçerli değil — ilki aşağıda vurgulanmıştır.",
+    invalidInDisabledCategory:
+      "{{category}} kapalı olduğundan düzeltilmesi gereken değer düzenlenemiyor. Yeniden açın, değeri düzeltin, sonra kaydedin.",
+    highImpactConfirmTitle: "Erişimi denetleyen ayarlar kaydedilsin mi?",
+    highImpactConfirmBody:
+      "Bu ayarlar kimin nasıl oturum açabileceğini belirler: {{fields}}. Sunucunun kabul ettiği bir değer bile, siz dahil tüm yöneticilerin oturum açmasını engelleyebilir. Kaydetmeden önce bunları kontrol edin.",
     arrayFieldHint: "Her satıra bir girdi.",
     sendTestEmail: "Test e-postası gönder",
     testEmailSent: "Test e-postası gönderildi — gelen kutunuzu kontrol edin.",

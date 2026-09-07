@@ -1519,9 +1519,21 @@ export const zh: TranslationResources = {
     resetConfirmTitle: "重置此部分？",
     resetConfirmBody: "此部分中所有自定义的值将被移除，默认值将重新生效。",
     saved: "设置已保存。",
+    savedRestartNeeded:
+      "设置已保存。需要重启 API 才能生效的更改数量：{{count}}。它们将在下次重启后自动应用。",
     resetDone: "该部分已重置为默认值。",
+    conflictTitle: "已被他人修改",
     conflict:
-      "其他人在此期间修改了此部分。内容已重新加载——请重新应用您的更改。",
+      "在您编辑期间，其他人修改了此部分。您填写的值仍然在此，且仍未保存——请在再次保存前将它们与当前值进行比较。",
+    conflictFields:
+      "在您编辑期间，其他人修改了这些设置：{{fields}}。您填写的值仍然在此，且仍未保存。现在保存将覆盖他们的值。",
+    unsavedCount: "未保存的更改数量：{{count}}",
+    invalidSubmit: "未保存任何内容。部分值无效——第一处已在下方高亮显示。",
+    invalidInDisabledCategory:
+      "「{{category}}」已关闭，因此需要修正的值无法编辑。请重新启用，修正该值，然后保存。",
+    highImpactConfirmTitle: "保存控制访问权限的设置？",
+    highImpactConfirmBody:
+      "这些设置决定谁可以登录以及如何登录：{{fields}}。即使服务器接受某个值，它仍可能将包括您在内的所有管理员挡在门外。保存前请仔细检查。",
     arrayFieldHint: "每行一个条目。",
     sendTestEmail: "发送测试邮件",
     testEmailSent: "测试邮件已发送——请查收您的收件箱。",

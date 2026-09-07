@@ -5,7 +5,15 @@ import { describe, expect, it } from "vitest"
 
 import { en } from "@authsystem/i18n/locales/en"
 
-import { fieldI18nKey, SECTION_I18N } from "./sections"
+import {
+  HIGH_IMPACT_PATHS,
+  PROSE_VALUE_PATHS,
+  fieldI18nKey,
+  isHighImpactPath,
+  isProseValuePath,
+  valueDirection,
+  SECTION_I18N,
+} from "./sections"
 
 /**
  * The console does not invent its settings sections — the API sends them, from
@@ -161,4 +169,85 @@ describe("every editable field has a label", () => {
       ).toBeTruthy()
     }
   )
+})
+
+/**
+ * The two path registries are the console's own opinion about settings the
+ * backend describes. Their entries are plain strings, so a renamed field or a
+ * mistyped path costs nothing at build time and everything at runtime: a
+ * confirmation that never appears, or a value that stays pinned left-to-right
+ * while somebody types Arabic into it. Neither failure raises anything.
+ *
+ * So the same C# file the tests above read is read once more, and every claim
+ * is held against it.
+ */
+describe("the path registries name settings that exist", () => {
+  // The two registries are iterated SEPARATELY, not merged with a spread.
+  // They share no section key today, but a spread would silently drop one
+  // side's entries the day they do — a guard test that quietly stops guarding.
+  const entries = [
+    ...Object.entries(HIGH_IMPACT_PATHS).flatMap(([section, paths]) =>
+      paths.map((path) => ({ registry: "HIGH_IMPACT_PATHS", section, path }))
+    ),
+    ...Object.entries(PROSE_VALUE_PATHS).flatMap(([section, paths]) =>
+      paths.map((path) => ({ registry: "PROSE_VALUE_PATHS", section, path }))
+    ),
+  ]
+
+  it("finds entries at all", () => {
+    // Self-guard: a registry emptied by a refactor must not turn this file
+    // into a green no-op. 23 today.
+    expect(entries.length).toBeGreaterThan(20)
+  })
+
+  it.each(entries)(
+    "$registry $section:$path exists in the registry",
+    ({ section, path }) => {
+      expect(
+        registrySections(),
+        `${section} is not a section the API sends`
+      ).toContain(section)
+      expect(
+        registryFields(section).map((f) => f.name),
+        `${section}:${path} is not a field the API sends — a typo here is a silently dead entry`
+      ).toContain(path)
+    }
+  )
+
+  it.each(entries)("$registry $section:$path is editable", ({ section, path }) => {
+    // A confirmation or a direction rule on a field the form cannot write is
+    // pure noise: sensitive fields render as a link to Secret management.
+    const field = registryFields(section).find((f) => f.name === path)
+    expect(
+      field?.sensitive,
+      `${section}:${path} is sensitive — the form never writes it`
+    ).toBe(false)
+  })
+
+  it("claims no path twice within a section", () => {
+    for (const registry of [HIGH_IMPACT_PATHS, PROSE_VALUE_PATHS]) {
+      for (const [section, paths] of Object.entries(registry)) {
+        expect(new Set(paths).size, `${section} lists a path twice`).toBe(
+          paths.length
+        )
+      }
+    }
+  })
+})
+
+describe("isHighImpactPath / isProseValuePath", () => {
+  it("does not match a path from another section", () => {
+    // `Enabled` is declared by three sections and `RegisterPermitLimit` by two:
+    // a bare-path registry would have gated the wrong rows.
+    expect(isHighImpactPath("RateLimiting", "RegisterPermitLimit")).toBe(false)
+    expect(isProseValuePath("Email", "SmtpHost")).toBe(false)
+    expect(isProseValuePath("DataController", "LegalName")).toBe(true)
+    expect(isHighImpactPath("Session", "MaxConcurrentSessions")).toBe(true)
+  })
+
+  it("defaults to ltr for an unknown section", () => {
+    expect(valueDirection(undefined, "LegalName")).toBe("ltr")
+    expect(valueDirection("Jwt", "Issuer")).toBe("ltr")
+    expect(valueDirection("DataController", "Address")).toBe("auto")
+  })
 })

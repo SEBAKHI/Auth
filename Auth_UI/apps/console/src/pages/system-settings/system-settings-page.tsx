@@ -59,10 +59,19 @@ function SectionNav({
                       : key}
                   </span>
                   {pending ? (
-                    <span
-                      aria-hidden
-                      className="ms-auto size-2 rounded-full bg-destructive"
-                    />
+                    <>
+                      {/* The dot is the whole message for a sighted reader and
+                          nothing at all for anyone else. `sr-only` is absolutely
+                          positioned, so the text costs the row no width and the
+                          dot keeps its `ms-auto`. */}
+                      <span className="sr-only">
+                        {t("systemSettings.pendingRestart")}
+                      </span>
+                      <span
+                        aria-hidden
+                        className="ms-auto size-2 rounded-full bg-destructive"
+                      />
+                    </>
                   ) : null}
                 </Link>
               </Button>
@@ -119,7 +128,13 @@ export function SystemSettingsPage() {
       {query.data?.restartPending ? <RestartBanner /> : null}
       {query.isPending ? (
         <Skeleton className="h-64 w-full" />
-      ) : query.isError ? (
+      ) : query.isError && !query.data ? (
+        // Only when there is nothing to show. A query that already has data and
+        // then fails a REFETCH keeps that data, and swapping the page for this
+        // paragraph would unmount the form with everything unsaved in it — the
+        // exact loss this page was just fixed for, one failed background
+        // request later. The 409 path refetches deliberately, which is what
+        // makes a failure there reachable rather than theoretical.
         <p className="py-8 text-center text-sm text-muted-foreground">
           {t("errors.generic")}
         </p>
@@ -141,11 +156,15 @@ export function SystemSettingsPage() {
               flush against its own top and inline-start edges and the card
               reads as an unbounded slab. */}
           <div className="min-w-0 flex-1 lg:min-h-0 lg:overflow-y-auto lg:p-2">
+            {/* Keyed on the SECTION only. It used to carry the row version too,
+                which made every refetch that changed it a full remount — and
+                the 409 path refetches. So a save conflict destroyed the values
+                the operator had just typed and left a toast where their work
+                had been. Fresh server values now reach the form through a reset
+                the form itself decides on (see `section-form`), which is the
+                only place that knows whether there is anything to lose. */}
             {active ? (
-              <SectionForm
-                key={`${active.key}:${active.rowVersion ?? "none"}`}
-                section={active}
-              />
+              <SectionForm key={active.key ?? ""} section={active} />
             ) : null}
           </div>
         </div>

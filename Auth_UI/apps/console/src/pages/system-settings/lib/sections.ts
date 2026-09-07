@@ -106,6 +106,87 @@ export const SECTION_COMPANION_PAGES: Record<string, SectionCompanionPage> = {
 }
 
 /**
+ * Settings whose value decides who can sign in — the ones where a value the
+ * server accepts can still lock every administrator out of the console.
+ * Saving one goes through a confirmation, so a wrong number is a decision
+ * rather than a keystroke.
+ *
+ * Keyed by SECTION KEY, not by bare path: seven field paths repeat across
+ * sections (RegisterPermitLimit, Enabled, WorkerPollMinutes, BatchSize,
+ * PublicBaseUrl, OtpExpirationMinutes, RegisterWindowSeconds), so a flat set
+ * of paths would gate the wrong section's row. Values are section-relative
+ * paths exactly as the backend registry declares them; matching is exact,
+ * with no prefix claims.
+ *
+ * This list belongs on SettingFieldDefinition in
+ * Auth/Auth.Application/SystemSettings/SystemSettingsRegistry.cs — the server
+ * is what knows a setting's blast radius, and a console a release behind would
+ * then still confirm a newly dangerous field. It lives here because this change
+ * ships no backend, and it is deliberately shaped like SECTION_COMPANION_PAGES
+ * so moving it later is a deletion on this side, not a redesign.
+ *
+ * A section or path absent from here saves exactly as it does today.
+ */
+export const HIGH_IMPACT_PATHS: Record<string, string[]> = {
+  Jwt: ["Issuer", "Audience"],
+  Password: ["MaxFailedAttempts", "LockoutDurationMinutes", "Argon2MemorySize"],
+  Session: ["MaxConcurrentSessions", "TerminateOldestOnMax"],
+  Gateway: ["ValidationEnabled"],
+  Cors: ["AllowedOrigins", "AllowCredentials"],
+  RateLimiting: ["LoginPermitLimit"],
+  GatewayRateLimiting: [
+    "GlobalPermitLimit",
+    "AuthPermitLimit",
+    "AdminPermitLimit",
+  ],
+  ExternalAuth: ["RequireNonce"],
+  IdentityProvider: ["IdpSessionCookieName"],
+}
+
+/**
+ * Settings whose VALUE is human language rather than a machine identifier: a
+ * legal name, a postal address, a person. The operator types those in their own
+ * script, so the input takes its direction from what was typed (`dir="auto"`)
+ * instead of being pinned left-to-right.
+ *
+ * Direction is a property of the value, never of the kind: `Email:SmtpHost` and
+ * `Email:SenderName` are both strings, and only one of them is prose. The three
+ * stringArray fields hold origins, URL prefixes and MIME types, so they stay
+ * pinned — they are absent from here on purpose.
+ *
+ * Same eventual home as HIGH_IMPACT_PATHS: SettingFieldDefinition on the server.
+ */
+export const PROSE_VALUE_PATHS: Record<string, string[]> = {
+  DataController: [
+    "LegalName",
+    "Address",
+    "EmailProvider",
+    "HostingProvider",
+    "HostingCountry",
+    "DpoContact",
+  ],
+  Email: ["SenderName"],
+}
+
+/** Whether saving this field needs the "you can lock yourself out" confirmation. */
+export function isHighImpactPath(sectionKey: string, path: string): boolean {
+  return (HIGH_IMPACT_PATHS[sectionKey] ?? []).includes(path)
+}
+
+/** Whether this field's value is prose, and so takes its direction from itself. */
+export function isProseValuePath(sectionKey: string, path: string): boolean {
+  return (PROSE_VALUE_PATHS[sectionKey] ?? []).includes(path)
+}
+
+/** The direction an editable value is typed and read in. */
+export function valueDirection(
+  sectionKey: string | undefined,
+  path: string
+): "ltr" | "auto" {
+  return sectionKey && isProseValuePath(sectionKey, path) ? "auto" : "ltr"
+}
+
+/**
  * Deterministic field-path → i18n key mapping so labels/hints need no
  * per-field table: "BreachedPasswordCheck:Mode" → "breachedPasswordCheckMode",
  * key = label, key + "Hint" = hint.
