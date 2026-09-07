@@ -63,7 +63,12 @@ function registryFields(
   const block = source.slice(start, next === -1 ? undefined : next)
 
   return [
-    ...block.matchAll(/new SettingFieldDefinition\("([^"]+)"([^)]*)\)/g),
+    // `\s*` because two declarations wrap their arguments onto following lines
+    // (Gateway:ExemptPaths at SystemSettingsRegistry.cs:136, and
+    // ImageStorage:AllowedContentTypes at :464). Without it this parser
+    // silently skipped both, and every registry this file cross-checks had
+    // two blind spots nobody could see.
+    ...block.matchAll(/new SettingFieldDefinition\(\s*"([^"]+)"([^)]*)\)/g),
   ].map((m) => ({ name: m[1], sensitive: m[2].includes("Sensitive: true") }))
 }
 
