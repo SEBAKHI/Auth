@@ -20,16 +20,21 @@ import {
   CardTitle,
 } from "@authsystem/ui/card"
 import { ConfirmDialog } from "@authsystem/ui/common/confirm-dialog"
-import { FieldGroup, FieldLegend, FieldSet } from "@authsystem/ui/field"
+import {
+  FieldDescription,
+  FieldGroup,
+  FieldLegend,
+  FieldSet,
+} from "@authsystem/ui/field"
 import { Form } from "@authsystem/ui/form"
 import { Spinner } from "@authsystem/ui/spinner"
 import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
 
 import {
-  categorizeFields,
   requiredCredentials,
-  type CategorizedSection,
-} from "../lib/field-categories"
+  resolveSectionLayout,
+  type ResolvedBlock,
+} from "../lib/section-layout"
 import {
   SECTION_COMPANION_PAGES,
   SECTION_I18N,
@@ -209,12 +214,12 @@ function SettingRow({
 }
 
 /**
- * The one state a categorized provider can be in that reports itself nowhere
- * else: switched on with a credential still blank. Nothing errors, nothing
- * logs, and the sign-in button simply never appears — so the panel says it,
- * from the values in the form rather than from what was last saved.
+ * The one state a gated category can be in that reports itself nowhere else:
+ * switched on with a setting it needs still blank. Nothing errors, nothing
+ * logs, and the feature simply never happens — so the panel says it, from the
+ * values in the form rather than from what was last saved.
  *
- * Only the credentials this form can actually read are counted. A secret-owned
+ * Only the settings this form can actually read are counted. A secret-owned
  * field's value lives in Secret management, so its emptiness is not knowable
  * here and is not claimed.
  */
@@ -257,10 +262,14 @@ function CategoryIncomplete({
 }
 
 /**
- * One category of a section, drawn as a panel: the switch that governs it
- * wears the panel's header alongside the provider's own mark, and the settings
- * it gates sit under it inside the same border. The mark is what the reader
- * actually recognizes — the panel is found by logo before its title is read.
+ * A category, drawn as a panel: the switch that governs it wears the panel's
+ * header, and the settings it gates sit under it inside the same border. Where
+ * the subject has an official mark it goes in the header too — a panel is
+ * found by its logo before its title is read.
+ *
+ * `min-w-0`: a fieldset's own `min-inline-size: min-content` would stop it
+ * shrinking with the card, and the overflow would be the CARD's, not this
+ * element's — the kind of break that shows up two components away.
  */
 function CategoryPanel({
   sectionI18n,
@@ -269,21 +278,20 @@ function CategoryPanel({
 }: {
   sectionI18n: string | undefined
   control: Control<FieldValues>
-  entry: CategorizedSection["categories"][number]
+  entry: ResolvedBlock
 }) {
-  const { category, switchField, fields } = entry
-  const Icon = category.icon
+  const { block, switchField, fields } = entry
+  if (block.kind !== "category" || !switchField) return null
+  const Icon = block.icon
+
   return (
-    // `min-w-0`: a fieldset's own `min-inline-size: min-content` would stop it
-    // shrinking with the card, and the overflow would be the card's, not this
-    // element's — the kind of break that shows up two components away.
     <FieldSet className="min-w-0 gap-0 rounded-xl border">
       <SettingRow
         field={switchField}
         sectionI18n={sectionI18n}
         control={control}
         placement="categoryHeader"
-        media={<Icon className="size-5 shrink-0" />}
+        media={Icon ? <Icon className="size-5 shrink-0" /> : undefined}
       />
       <CategoryIncomplete
         control={control}
@@ -304,6 +312,54 @@ function CategoryPanel({
   )
 }
 
+/**
+ * A group, drawn as a legend over rows that stay at card level. No border:
+ * proximity and a heading already group them, and a container around every
+ * related pair would spend the one device that means "this has an off switch".
+ *
+ * The air goes on the MARGIN, not the padding — a `legend` is laid out against
+ * the fieldset's border box, so padding-top moves the rows down and leaves the
+ * heading welded to whatever sits above it. An untranslated heading renders as
+ * no heading rather than as a raw key.
+ */
+function GroupBlockRows({
+  sectionI18n,
+  control,
+  headingKey,
+  fields,
+}: {
+  sectionI18n: string | undefined
+  control?: Control<FieldValues>
+  headingKey: string
+  fields: SystemSettingsField[]
+}) {
+  const { t } = useTranslation()
+  const base = sectionI18n ? `systemSettings.${sectionI18n}.${headingKey}` : null
+  const heading = base ? t(base, { defaultValue: "" }) : ""
+  const description = base ? t(`${base}Description`, { defaultValue: "" }) : ""
+
+  // The fieldset renders whether or not the heading translated: it is the one
+  // flex item holding these rows flush against each other, and dropping it
+  // would let the parent's gap fall BETWEEN ruled rows that are meant to read
+  // as one run.
+  return (
+    <FieldSet className="mt-4 min-w-0 gap-0 first:mt-0">
+      {heading ? <FieldLegend>{heading}</FieldLegend> : null}
+      {description ? (
+        <FieldDescription className="-mt-2 mb-3">{description}</FieldDescription>
+      ) : null}
+      {fields.map((field) => (
+        <SettingRow
+          key={field.path}
+          field={field}
+          sectionI18n={sectionI18n}
+          control={control}
+        />
+      ))}
+    </FieldSet>
+  )
+}
+
 export function SectionForm({ section }: { section: SystemSettingsSection }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -318,8 +374,8 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
     () => fields.filter((f) => !f.sensitive && !f.readOnly),
     [fields]
   )
-  const { categories, general } = React.useMemo(
-    () => categorizeFields(sectionKey, fields),
+  const { blocks, general } = React.useMemo(
+    () => resolveSectionLayout(sectionKey, fields),
     [sectionKey, fields]
   )
 
@@ -422,14 +478,6 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
   const description = sectionI18n
     ? t(`systemSettings.${sectionI18n}.description`, { defaultValue: "" })
     : ""
-  // Only a section that HAS categories names its leftovers, and only if it
-  // supplied the wording: there is no generic phrase that is true of every
-  // section's remainder, so an untranslated one gets no heading rather than a
-  // wrong one.
-  const generalHeading =
-    categories.length > 0 && general.length > 0 && sectionI18n
-      ? t(`systemSettings.${sectionI18n}.generalTitle`, { defaultValue: "" })
-      : ""
 
   // Bootstrap sections are information cards: consumed before the database
   // layer exists, so there is nothing to save from here.
@@ -469,39 +517,43 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
             {/* Rows are ruled off from one another, so the breathing room
                 lives in the row padding and the group adds no extra gap. */}
             <FieldGroup className="gap-0">
-              {categories.length > 0 ? (
+              {/* Blocks in declared order, then whatever no block claimed. The
+                  peer gap is 4; a group adds its own `mt-4` on top of it, so a
+                  heading gets twice the air of a panel-to-panel seam — more
+                  space above a heading than below it, which is what makes it
+                  read as heading rather than as another row. */}
+              {blocks.length > 0 ? (
                 <div className="flex flex-col gap-4">
-                  {categories.map((entry) => (
-                    <CategoryPanel
-                      key={entry.category.prefix}
+                  {blocks.map((entry) =>
+                    entry.block.kind === "category" ? (
+                      <CategoryPanel
+                        key={entry.block.switchPath}
+                        sectionI18n={sectionI18n}
+                        control={form.control}
+                        entry={entry}
+                      />
+                    ) : (
+                      <GroupBlockRows
+                        key={entry.block.key}
+                        sectionI18n={sectionI18n}
+                        control={form.control}
+                        headingKey={`groups.${entry.block.key}`}
+                        fields={entry.fields}
+                      />
+                    )
+                  )}
+                  {/* Settings no block claimed stay at card level under their
+                      own heading. The difference in level is what says they
+                      belong to none of the blocks above. */}
+                  {general.length > 0 ? (
+                    <GroupBlockRows
                       sectionI18n={sectionI18n}
                       control={form.control}
-                      entry={entry}
+                      headingKey="groups.general"
+                      fields={general}
                     />
-                  ))}
+                  ) : null}
                 </div>
-              ) : null}
-              {/* Settings that belong to no category are the section's own, and
-                  they stay at card level rather than in a panel of their own:
-                  the difference in level is what says they are not part of any
-                  provider above. They get a heading only when there ARE panels
-                  to be told apart from. */}
-              {generalHeading ? (
-                // The air goes on the MARGIN, not the padding: a `legend` is
-                // laid out against the fieldset's border box, so padding-top
-                // moves the rows down and leaves the heading welded to the
-                // panel above it.
-                <FieldSet className="mt-8 min-w-0 gap-0">
-                  <FieldLegend>{generalHeading}</FieldLegend>
-                  {general.map((field) => (
-                    <SettingRow
-                      key={field.path}
-                      field={field}
-                      sectionI18n={sectionI18n}
-                      control={form.control}
-                    />
-                  ))}
-                </FieldSet>
               ) : (
                 general.map((field) => (
                   <SettingRow

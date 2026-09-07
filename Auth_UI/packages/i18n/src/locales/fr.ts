@@ -1701,6 +1701,13 @@ export const fr: TranslationResources = {
       title: "Politique de mot de passe",
       description:
         "Les règles que chaque mot de passe doit respecter, ce qui se passe après plusieurs connexions échouées et la robustesse du hachage des mots de passe. Les valeurs par défaut suivent les recommandations OWASP.",
+      groups: {
+        composition: "Ce que le mot de passe doit contenir",
+        lockout: "Après des échecs de connexion répétés",
+        hashing: "Comment les mots de passe sont stockés",
+        hashingDescription:
+          "Le coût du hachage d'un mot de passe. L'augmenter renforce chaque mot de passe stocké et ralentit d'autant chaque connexion.",
+      },
       minimumLength: "Longueur minimale",
       minimumLengthHint:
         "Recommandé : au moins 8 caractères (OWASP/NIST) ; la longueur protège plus que la complexité, envisagez donc 12 ou plus là où la sécurité compte le plus.",
@@ -1889,7 +1896,7 @@ export const fr: TranslationResources = {
       title: "Fournisseurs externes",
       description:
         "La connexion avec un compte que la personne possède déjà ailleurs. Les ID client ici sont des identifiants publics ; les clés privées vivent sous Gestion des secrets. Le fournisseur doit AUSSI être activé dans sa fiche de l'annuaire pour que son bouton apparaisse.",
-      generalTitle: "S'applique à tous les fournisseurs",
+      groups: { general: "S'applique à tous les fournisseurs" },
       incompleteTitle: "Identifiants manquants",
       incompleteBody:
         "Ce fournisseur est activé, mais son bouton de connexion reste masqué tant qu'un identifiant ici est vide.",

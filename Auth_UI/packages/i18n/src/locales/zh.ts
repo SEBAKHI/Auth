@@ -1567,6 +1567,13 @@ export const zh: TranslationResources = {
       title: "密码策略",
       description:
         "每个密码必须满足的规则、多次登录失败后的处理方式，以及密码哈希的强度。默认值遵循 OWASP 建议。",
+      groups: {
+        composition: "密码必须包含的内容",
+        lockout: "多次登录失败之后",
+        hashing: "密码的存储方式",
+        hashingDescription:
+          "计算单个密码哈希的开销。提高它会增强已存储的每个密码，也会以同样的幅度拖慢每次登录。",
+      },
       minimumLength: "最小长度",
       minimumLengthHint:
         "推荐：至少 8 个字符（OWASP/NIST）；长度比复杂度更能保护安全，对安全要求最高的场景请考虑 12 个字符以上。",
@@ -1744,7 +1751,7 @@ export const zh: TranslationResources = {
       title: "外部提供方登录",
       description:
         "使用用户在别处已有的账号登录。此处的客户端 ID 是公开标识符；私钥保存在机密页面。提供方还必须在其目录条目中启用，其登录按钮才会显示。",
-      generalTitle: "适用于所有提供方",
+      groups: { general: "适用于所有提供方" },
       incompleteTitle: "凭据缺失",
       incompleteBody:
         "该提供方已开启，但只要此处任一凭据为空，其登录按钮就不会显示。",

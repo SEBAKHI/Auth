@@ -1674,6 +1674,13 @@ export const en = {
       title: "Password policy",
       description:
         "The rules every password must meet, what happens after repeated failed sign-ins, and how strongly passwords are hashed. The defaults follow OWASP recommendations.",
+      groups: {
+        composition: "What a password must contain",
+        lockout: "After repeated failed sign-ins",
+        hashing: "How passwords are stored",
+        hashingDescription:
+          "The cost of hashing one password. Raising it strengthens every stored password and slows every sign-in by the same amount.",
+      },
       minimumLength: "Minimum length",
       minimumLengthHint:
         "Recommended: at least 8 characters (OWASP/NIST); length protects more than complexity, so consider 12+ where security matters most.",
@@ -1855,7 +1862,7 @@ export const en = {
       title: "External provider sign-in",
       description:
         "Signing in with an account people already hold elsewhere. The client IDs here are public identifiers; private keys live under Secret management. A provider must ALSO be enabled in its directory row for its button to appear.",
-      generalTitle: "Applies to every provider",
+      groups: { general: "Applies to every provider" },
       incompleteTitle: "Missing credentials",
       incompleteBody:
         "This provider is on, but its sign-in button stays hidden while any credential here is empty.",

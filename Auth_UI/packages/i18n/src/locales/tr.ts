@@ -1666,6 +1666,13 @@ export const tr: TranslationResources = {
       title: "Parola politikası",
       description:
         "Her parolanın karşılaması gereken kurallar, art arda başarısız oturum açma denemelerinden sonra ne olacağı ve parolaların ne kadar güçlü karma işleminden geçirileceği. Varsayılanlar OWASP önerilerini izler.",
+      groups: {
+        composition: "Parolanın içermesi gerekenler",
+        lockout: "Tekrarlanan başarısız girişlerden sonra",
+        hashing: "Parolaların nasıl saklandığı",
+        hashingDescription:
+          "Tek bir parolanın karma değerini hesaplamanın maliyeti. Yükseltmek saklanan her parolayı güçlendirir ve her oturum açmayı aynı ölçüde yavaşlatır.",
+      },
       minimumLength: "Minimum uzunluk",
       minimumLengthHint:
         "Önerilen: en az 8 karakter (OWASP/NIST); uzunluk karmaşıklıktan daha çok korur, bu yüzden güvenliğin en önemli olduğu yerlerde 12+ değerini düşünün.",
@@ -1848,7 +1855,7 @@ export const tr: TranslationResources = {
       title: "Harici sağlayıcı girişi",
       description:
         "İnsanların başka bir yerde zaten sahip olduğu bir hesapla oturum açma. Buradaki istemci kimlikleri genel tanımlayıcılardır; özel anahtarlar Gizli anahtar yönetimi altında durur. Düğmesinin görünmesi için sağlayıcının AYRICA kendi dizin satırında da etkinleştirilmesi gerekir.",
-      generalTitle: "Her sağlayıcı için geçerli",
+      groups: { general: "Her sağlayıcı için geçerli" },
       incompleteTitle: "Eksik kimlik bilgileri",
       incompleteBody:
         "Bu sağlayıcı açık, ancak buradaki kimlik bilgilerinden herhangi biri boş kaldığı sürece oturum açma düğmesi görünmez.",
