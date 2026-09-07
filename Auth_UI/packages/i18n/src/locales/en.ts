@@ -1852,9 +1852,13 @@ export const en = {
       requireNonce: "Require a server-issued nonce",
       requireNonceHint:
         "Makes a provider sign-in present a one-time value this server issued to that browser, so a stolen provider token minted for someone else's browser is refused. Turn it on only once the deployed app is fetching nonces; until then a browser-generated value is accepted, which proves nothing. Recommended: on.",
-      title: "External sign-in (Google / Apple)",
+      title: "External provider sign-in",
       description:
-        "Social sign-in providers. The client IDs here are public identifiers; private keys live under Secret management. The provider must ALSO be enabled in its directory row for the button to appear.",
+        "Signing in with an account people already hold elsewhere. The client IDs here are public identifiers; private keys live under Secret management. A provider must ALSO be enabled in its directory row for its button to appear.",
+      generalTitle: "Applies to every provider",
+      incompleteTitle: "Missing credentials",
+      incompleteBody:
+        "This provider is on, but its sign-in button stays hidden while any credential here is empty.",
       googleEnabled: "Google sign-in",
       googleEnabledHint: "Requires a valid client ID below.",
       googleClientId: "Google client ID",

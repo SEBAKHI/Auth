@@ -1845,9 +1845,13 @@ export const tr: TranslationResources = {
       requireNonce: "Sunucunun verdiği nonce zorunlu olsun",
       requireNonceHint:
         "Sağlayıcı ile girişin, bu sunucunun o tarayıcıya verdiği tek kullanımlık bir değeri sunmasını zorunlu kılar; böylece başkasının tarayıcısı için üretilmiş çalıntı bir sağlayıcı jetonu reddedilir. Yalnızca dağıtılmış uygulama bu değerleri almaya başladıktan sonra açın; o zamana kadar tarayıcının ürettiği bir değer kabul edilir ve bu hiçbir şey kanıtlamaz. Önerilen: açık.",
-      title: "Harici oturum açma (Google / Apple)",
+      title: "Harici sağlayıcı girişi",
       description:
-        "Sosyal oturum açma sağlayıcıları. Buradaki istemci kimlikleri genel tanımlayıcılardır; özel anahtarlar Gizli anahtar yönetimi altında durur. Düğmenin görünmesi için sağlayıcının AYRICA kendi dizin satırında da etkinleştirilmesi gerekir.",
+        "İnsanların başka bir yerde zaten sahip olduğu bir hesapla oturum açma. Buradaki istemci kimlikleri genel tanımlayıcılardır; özel anahtarlar Gizli anahtar yönetimi altında durur. Düğmesinin görünmesi için sağlayıcının AYRICA kendi dizin satırında da etkinleştirilmesi gerekir.",
+      generalTitle: "Her sağlayıcı için geçerli",
+      incompleteTitle: "Eksik kimlik bilgileri",
+      incompleteBody:
+        "Bu sağlayıcı açık, ancak buradaki kimlik bilgilerinden herhangi biri boş kaldığı sürece oturum açma düğmesi görünmez.",
       googleEnabled: "Google ile oturum açma",
       googleEnabledHint: "Aşağıda geçerli bir istemci kimliği gerektirir.",
       googleClientId: "Google istemci kimliği",

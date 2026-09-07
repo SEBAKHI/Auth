@@ -1,3 +1,4 @@
+import type * as React from "react"
 import { Link } from "react-router-dom"
 import { useTranslation } from "react-i18next"
 import type { Control, FieldValues } from "react-hook-form"
@@ -54,8 +55,44 @@ const SECRET_KEYS_ROUTE = SECTION_COMPANION_PAGES.SecretManagement.route
  * that needs the explicit width, because Field is `w-full` and a negative
  * margin alone would slide the row sideways instead of widening it.
  */
-const ROW =
-  "justify-between border-b -mx-3 w-[calc(100%+1.5rem)] px-3 py-4 transition-colors hover:bg-muted/50 focus-within:bg-muted/50 data-[highlight]:bg-muted"
+/**
+ * The arrival highlight is a ring rather than a tint. The palette has exactly
+ * one step between the card and a tinted surface — `muted` is 3% darker than
+ * `card` in light mode — which is enough for a hover cue the pointer already
+ * points at, and not enough for "here is the row you searched for" on a page
+ * of forty. It also has to land on the category header, which is tinted
+ * already and where a tint would have nothing left to say.
+ */
+const ROW_BASE =
+  "justify-between transition-colors hover:bg-muted/50 focus-within:bg-muted/50 data-[highlight]:ring-2 data-[highlight]:ring-ring data-[highlight]:ring-inset"
+
+/**
+ * Where the row sits, which is the only thing that changes about it.
+ *
+ * `card` is the row directly in the section card, bleeding into the card's own
+ * padding so the rule spans it. `category` is a row inside a provider panel,
+ * where the panel's border already bounds the rows, so the row keeps its own
+ * padding and the last one drops its rule onto the panel's. `categoryHeader`
+ * is the switch that governs a panel, worn as its header band.
+ */
+export type RowPlacement = "card" | "category" | "categoryHeader"
+
+const ROW: Record<RowPlacement, string> = {
+  card: `${ROW_BASE} border-b -mx-3 w-[calc(100%+1.5rem)] px-3 py-4`,
+  category: `${ROW_BASE} border-b last:border-b-0 px-4 py-4`,
+  // Full-strength `muted`, not a fraction of it: the palette's only tint step
+  // is 3% in light mode, so anything less than all of it is not a band. The
+  // hover tint is cancelled for the same reason — at 50% it would LIGHTEN this
+  // row in dark mode, where `muted` sits above `card`.
+  //
+  // The auto margin is what keeps the mark against the name. This is the one
+  // row with THREE children, and `justify-between` splits the slack into two
+  // gaps — parking the text block in the middle of the row, adrift from the
+  // logo that identifies it. The text block claims the slack itself instead,
+  // so the mark and the name read as one unit at the start and the switch
+  // still sits at the end. Logical (`me-`), so it holds in both directions.
+  categoryHeader: `${ROW_BASE} rounded-t-xl border-b bg-muted px-4 py-3.5 hover:bg-muted focus-within:bg-muted [&>[data-slot=field-content]]:me-auto`,
+}
 
 /** Explanatory text stops at a comfortable measure rather than the card edge. */
 const TEXT_BLOCK = "max-w-2xl"
@@ -122,14 +159,20 @@ function BaselineNote({ field }: { field: SystemSettingsField }) {
 export function SecretFieldRow({
   sectionI18n,
   field,
+  placement = "card",
 }: {
   sectionI18n: string | undefined
   field: SystemSettingsField
+  placement?: RowPlacement
 }) {
   const { t } = useTranslation()
   const { label } = useFieldTexts(sectionI18n, field)
   return (
-    <Field orientation="responsive" className={ROW} id={anchorId(field)}>
+    <Field
+      orientation="responsive"
+      className={ROW[placement]}
+      id={anchorId(field)}
+    >
       <FieldContent className={TEXT_BLOCK}>
         <FieldLabel>{label}</FieldLabel>
         <FieldDescription>{t("systemSettings.managedInSecrets")}</FieldDescription>
@@ -145,9 +188,11 @@ export function SecretFieldRow({
 export function ReadOnlyFieldRow({
   sectionI18n,
   field,
+  placement = "card",
 }: {
   sectionI18n: string | undefined
   field: SystemSettingsField
+  placement?: RowPlacement
 }) {
   const { t } = useTranslation()
   const { label, hint } = useFieldTexts(sectionI18n, field)
@@ -155,7 +200,7 @@ export function ReadOnlyFieldRow({
   return (
     <Field
       orientation="responsive"
-      className={`${ROW} ${CONTROL.text}`}
+      className={`${ROW[placement]} ${CONTROL.text}`}
       id={anchorId(field)}
       data-disabled
     >
@@ -184,15 +229,25 @@ export function SettingField({
   control,
   sectionI18n,
   field,
+  placement = "card",
+  media,
 }: {
   control: Control<FieldValues>
   sectionI18n: string | undefined
   field: SystemSettingsField
+  placement?: RowPlacement
+  /**
+   * A mark shown before the label — the provider's logo on the row that heads
+   * its panel. Rendered as given: the row applies no sizing, because the
+   * caller is the one that knows what the mark is.
+   */
+  media?: React.ReactNode
 }) {
   const { t } = useTranslation()
   const { label, hint } = useFieldTexts(sectionI18n, field)
   const name = formFieldName(field.path ?? "")
   const kind = field.kind ?? "string"
+  const heading = placement === "categoryHeader"
 
   // The hint, the bounds, the default-value note and any validation message
   // all belong to the text block; as direct row children they would become
@@ -203,7 +258,11 @@ export function SettingField({
   // could then drift from the value actually enforced.
   const textBlock = (extraHint?: string) => (
     <FieldContent className={TEXT_BLOCK}>
-      <FormLabel className={kind === "bool" ? "font-normal" : undefined}>
+      {/* A switch's label reads as prose beside its control, so it drops the
+          emphasis the other labels carry — except when the switch heads a
+          category, where it names everything under it and would otherwise be
+          the lightest text in a panel it governs. */}
+      <FormLabel className={kind === "bool" && !heading ? "font-normal" : undefined}>
         {label}
         <FieldBadges field={field} />
       </FormLabel>
@@ -226,7 +285,12 @@ export function SettingField({
         control={control}
         name={name}
         render={({ field: rhf }) => (
-          <FormItem orientation="horizontal" className={ROW} id={anchorId(field)}>
+          <FormItem
+            orientation="horizontal"
+            className={ROW[placement]}
+            id={anchorId(field)}
+          >
+            {media}
             {textBlock()}
             <FormControl>
               <Switch checked={rhf.value === true} onCheckedChange={rhf.onChange} />
@@ -243,7 +307,11 @@ export function SettingField({
         control={control}
         name={name}
         render={({ field: rhf }) => (
-          <FormItem orientation="responsive" className={ROW} id={anchorId(field)}>
+          <FormItem
+            orientation="responsive"
+            className={ROW[placement]}
+            id={anchorId(field)}
+          >
             {textBlock()}
             <FormControl>
               <ToggleGroup
@@ -278,7 +346,7 @@ export function SettingField({
         render={({ field: rhf }) => (
           <FormItem
             orientation="responsive"
-            className={`${ROW} ${CONTROL.area}`}
+            className={`${ROW[placement]} ${CONTROL.area}`}
             id={anchorId(field)}
           >
             {textBlock(t("systemSettings.arrayFieldHint"))}
@@ -322,7 +390,7 @@ export function SettingField({
       render={({ field: rhf }) => (
         <FormItem
           orientation="responsive"
-          className={`${ROW} ${isInt ? CONTROL.int : CONTROL.text}`}
+          className={`${ROW[placement]} ${isInt ? CONTROL.int : CONTROL.text}`}
           id={anchorId(field)}
         >
           {textBlock()}

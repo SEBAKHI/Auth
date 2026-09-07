@@ -1741,9 +1741,13 @@ export const zh: TranslationResources = {
       requireNonce: "要求由服务器签发的一次性随机值",
       requireNonceHint:
         "要求第三方登录出示本服务器为该浏览器签发的一次性值，使为他人浏览器签发的被盗令牌被拒绝。仅在已部署的前端开始获取该值之后再开启；在此之前将接受浏览器自行生成的值，而那并不能证明任何事。推荐：开启。",
-      title: "外部登录（Google / Apple）",
+      title: "外部提供方登录",
       description:
-        "社交登录提供方。此处的客户端 ID 是公开标识符；私钥保存在机密页面。提供方还必须在其目录条目中启用，登录按钮才会显示。",
+        "使用用户在别处已有的账号登录。此处的客户端 ID 是公开标识符；私钥保存在机密页面。提供方还必须在其目录条目中启用，其登录按钮才会显示。",
+      generalTitle: "适用于所有提供方",
+      incompleteTitle: "凭据缺失",
+      incompleteBody:
+        "该提供方已开启，但只要此处任一凭据为空，其登录按钮就不会显示。",
       googleEnabled: "Google 登录",
       googleEnabledHint: "需要在下方填写有效的客户端 ID。",
       googleClientId: "Google 客户端 ID",

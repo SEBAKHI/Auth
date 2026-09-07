@@ -1886,9 +1886,13 @@ export const fr: TranslationResources = {
       requireNonce: "Exiger un nonce émis par le serveur",
       requireNonceHint:
         "Oblige une connexion via fournisseur à présenter une valeur à usage unique émise par ce serveur pour ce navigateur, de sorte qu'un jeton volé émis pour le navigateur d'un autre soit refusé. À activer une fois seulement que l'application déployée demande ces valeurs ; avant cela une valeur générée par le navigateur est acceptée, ce qui ne prouve rien. Recommandé : activé.",
-      title: "Connexion externe (Google / Apple)",
+      title: "Fournisseurs externes",
       description:
-        "Fournisseurs de connexion sociale. Les ID client ici sont des identifiants publics ; les clés privées vivent sous Gestion des secrets. Le fournisseur doit AUSSI être activé dans sa fiche de l'annuaire pour que le bouton apparaisse.",
+        "La connexion avec un compte que la personne possède déjà ailleurs. Les ID client ici sont des identifiants publics ; les clés privées vivent sous Gestion des secrets. Le fournisseur doit AUSSI être activé dans sa fiche de l'annuaire pour que son bouton apparaisse.",
+      generalTitle: "S'applique à tous les fournisseurs",
+      incompleteTitle: "Identifiants manquants",
+      incompleteBody:
+        "Ce fournisseur est activé, mais son bouton de connexion reste masqué tant qu'un identifiant ici est vide.",
       googleEnabled: "Connexion Google",
       googleEnabledHint: "Nécessite un ID client valide ci-dessous.",
       googleClientId: "ID client Google",
