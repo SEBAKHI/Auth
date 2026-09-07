@@ -1879,6 +1879,9 @@ export const zh: TranslationResources = {
       title: "通知投递",
       description:
         "外发通知的投递方式：直接发送，或通过可靠发件箱——失败自动重试、重启后不丢失。内容和模板在通知页面管理。",
+      groups: {
+        delivery: "消息如何投递",
+      },
       useOutbox: "可靠发件箱",
       useOutboxHint:
         "推荐：生产环境开启——消息会先存储再发送，失败时重试而不是丢失。",
@@ -1907,6 +1910,10 @@ export const zh: TranslationResources = {
       title: "图片存储",
       description:
         "上传的徽标和头像：存储在磁盘的哪个位置、如何对外提供访问，以及上传时应用的大小限制。",
+      groups: {
+        location: "存储与分发",
+        limits: "接受哪些上传",
+      },
       provider: "存储提供方",
       providerHint: "文件系统存储；属于服务器部署的一部分，此处不可编辑。",
       physicalPath: "存储文件夹",
@@ -1933,6 +1940,10 @@ export const zh: TranslationResources = {
       title: "账户删除",
       description:
         "GDPR/KVKK 删除流程：永久擦除前的宽限期、确认码，以及执行删除的后台任务节奏。",
+      groups: {
+        request: "删除账号的人会看到什么",
+        execution: "删除如何执行",
+      },
       graceDays: "宽限期（天）",
       graceDaysHint: "永久删除前允许反悔的时间。推荐：30（常见的合规实践）。",
       workerPollMinutes: "工作进程轮询（分钟）",
@@ -1949,6 +1960,12 @@ export const zh: TranslationResources = {
       title: "数据控制者",
       description:
         "在隐私政策中公布的法律主体信息。必填项未填写前无法发布政策——未指明数据控制者的告知声明不符合 KVKK 第 10 条和 GDPR 第 13 条。",
+      groups: {
+        identity: "数据控制者是谁",
+        processors: "谁代其处理数据",
+        registrations: "土耳其登记",
+        registrationsDescription: "两项均为可选。仅在控制者已在土耳其登记时填写。",
+      },
       legalName: "法律实体名称",
       legalNameHint: "注册名称，须与应显示的形式完全一致。",
       address: "注册地址",
@@ -1982,6 +1999,11 @@ export const zh: TranslationResources = {
       batchSize: "每条语句的行数",
       batchSizeHint:
         "保持在 SQL Server 将行锁升级为整表锁的约 5000 个锁之下，否则会阻塞该表上的所有活动查询。推荐：4000。",
+      groups: {
+        sweeper: "清理如何运行",
+        retention: "失效记录保留多久",
+        retentionDescription: "这些设置管辖的每一行都已经过期。问题在于它作为“某事发生过”的证据还能有用多久。",
+      },
       maxRowsPerTablePerRun: "每次运行每表上限",
       maxRowsPerTablePerRunHint:
         "限制首次运行——只有它需要面对自部署以来积累的全部数据。剩余部分次日继续。推荐：200000。",

@@ -187,6 +187,107 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
       ],
     },
   ],
+
+  // Six fields of the identical shape ("… (days)") following four operational
+  // ones. The six answer a different question from the four, and only their
+  // shared shape says so.
+  ExpiredDataCleanup: [
+    {
+      kind: "group",
+      key: "sweeper",
+      claims: [
+        "Enabled",
+        "WorkerPollMinutes",
+        "BatchSize",
+        "MaxRowsPerTablePerRun",
+      ],
+    },
+    {
+      kind: "group",
+      key: "retention",
+      claims: [
+        "AuthorizationCodeDays",
+        "TwoFactorChallengeDays",
+        "PasswordResetTokenDays",
+        "EmailVerificationTokenDays",
+        "IdpSessionDays",
+        "RefreshTokenDays",
+      ],
+    },
+  ],
+
+  // Four read-only rows describing where the files sit, then five deciding
+  // what may be uploaded. Two questions, one run.
+  ImageStorage: [
+    {
+      kind: "group",
+      key: "location",
+      claims: ["Provider", "PhysicalPath", "PublicBaseUrl", "RequestPath"],
+    },
+    {
+      kind: "group",
+      key: "limits",
+      claims: [
+        "MaxSizeBytes",
+        "MaxMegapixels",
+        "MaxEdgePx",
+        "WebpQuality",
+        "AllowedContentTypes",
+      ],
+    },
+  ],
+
+  // Two settings the person deleting their account actually experiences, and
+  // four nobody outside this screen will ever see.
+  AccountDeletion: [
+    { kind: "group", key: "request", claims: ["GraceDays", "OtpExpirationMinutes"] },
+    {
+      kind: "group",
+      key: "execution",
+      claims: [
+        "WorkerPollMinutes",
+        "WorkerBatchSize",
+        "MaxExecutionAttempts",
+        "IdentifierHmacKeyPlain",
+      ],
+    },
+  ],
+
+  // Nine consecutive text fields with no seam anywhere. Three of them are
+  // optional and jurisdiction-specific, which the run gives no way to tell.
+  DataController: [
+    {
+      kind: "group",
+      key: "identity",
+      claims: ["LegalName", "Address", "PrivacyEmail", "DpoContact"],
+    },
+    {
+      kind: "group",
+      key: "processors",
+      claims: ["EmailProvider", "HostingProvider", "HostingCountry"],
+    },
+    { kind: "group", key: "registrations", claims: ["VerbisNo", "KepAddress"] },
+  ],
+
+  // A delivery worker, and inside it an unrelated feature with its own switch.
+  Notifications: [
+    {
+      kind: "group",
+      key: "delivery",
+      claims: [
+        "UseOutbox",
+        "PollIntervalSeconds",
+        "BatchSize",
+        "MaxAttempts",
+        "StaleClaimMinutes",
+      ],
+    },
+    {
+      kind: "category",
+      switchPath: "NewDeviceAlertEnabled",
+      claims: ["NewDeviceAlertEnabled", "NewDeviceAlertMinIntervalMinutes"],
+    },
+  ],
 }
 
 export interface ResolvedBlock {

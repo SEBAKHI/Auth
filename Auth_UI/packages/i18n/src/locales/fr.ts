@@ -2038,6 +2038,9 @@ export const fr: TranslationResources = {
       title: "Livraison des notifications",
       description:
         "Comment les notifications sortantes sont livrées : directement, ou via une boîte d'envoi durable qui réessaie les échecs et survit aux redémarrages. Le contenu et les modèles se gèrent sur les pages Notifications.",
+      groups: {
+        delivery: "Comment les messages sont remis",
+      },
       useOutbox: "Boîte d'envoi durable",
       useOutboxHint:
         "Recommandé : activé en production — les messages sont d'abord stockés puis réessayés en cas d'échec, au lieu d'être perdus.",
@@ -2069,6 +2072,10 @@ export const fr: TranslationResources = {
       title: "Stockage des images",
       description:
         "Logos et photos de profil téléversés : où ils sont stockés sur le disque, comment ils sont servis et les limites de taille appliquées au téléversement.",
+      groups: {
+        location: "Stockage et diffusion",
+        limits: "Quels envois sont acceptés",
+      },
       provider: "Fournisseur de stockage",
       providerHint:
         "Stockage sur le système de fichiers ; fait partie du déploiement du serveur, non modifiable ici.",
@@ -2100,6 +2107,11 @@ export const fr: TranslationResources = {
       title: "Suppression de compte",
       description:
         "Le pipeline de suppression RGPD/KVKK : le délai de grâce avant l'effacement définitif, le code de confirmation et le rythme du traitement en arrière-plan qui exécute les suppressions.",
+      groups: {
+        request:
+          "Ce que voit la personne qui supprime son compte",
+        execution: "Comment la suppression est exécutée",
+      },
       graceDays: "Délai de grâce (jours)",
       graceDaysHint:
         "Temps pour changer d'avis avant la suppression définitive. Recommandé : 30 (pratique réglementaire courante).",
@@ -2120,6 +2132,13 @@ export const fr: TranslationResources = {
       title: "Responsable du traitement",
       description:
         "L'identité légale publiée dans votre politique de confidentialité. Une politique ne peut pas être publiée tant que les champs obligatoires ne sont pas renseignés — une information qui ne nomme pas son responsable ne satisfait ni l'art. 10 de la KVKK ni l'art. 13 du RGPD.",
+      groups: {
+        identity: "Qui est le responsable du traitement",
+        processors: "Qui traite les données pour son compte",
+        registrations: "Enregistrements turcs",
+        registrationsDescription:
+          "Les deux sont facultatifs. Ne les remplissez que si le responsable est enregistré en Türkiye.",
+      },
       legalName: "Dénomination sociale",
       legalNameHint:
         "Raison sociale enregistrée, exactement telle qu'elle doit apparaître.",
@@ -2160,6 +2179,13 @@ export const fr: TranslationResources = {
       batchSize: "Lignes par instruction",
       batchSizeHint:
         "Maintenu sous les ~5000 verrous de ligne à partir desquels SQL Server verrouille la table entière, ce qui bloquerait toute requête active dessus. Recommandé : 4000.",
+      groups: {
+        sweeper: "Comment le nettoyage s'exécute",
+        retention:
+          "Durée de conservation des enregistrements morts",
+        retentionDescription:
+          "Chaque ligne régie par ces réglages a déjà expiré. La question est combien de temps elle reste utile comme preuve qu'un événement a eu lieu.",
+      },
       maxRowsPerTablePerRun: "Plafond par table et par exécution",
       maxRowsPerTablePerRunHint:
         "Borne la première exécution, la seule à affronter tout ce qui s'est accumulé depuis le déploiement. Le reste passe le lendemain. Recommandé : 200000.",

@@ -2000,6 +2000,9 @@ export const en = {
       title: "Notification delivery",
       description:
         "How outgoing notifications are delivered: directly, or through a durable outbox that retries failures and survives restarts. Content and templates are managed on the Notifications pages.",
+      groups: {
+        delivery: "How messages are delivered",
+      },
       useOutbox: "Durable outbox",
       useOutboxHint:
         "Recommended: on in production — messages are stored first and retried on failure instead of being lost.",
@@ -2030,6 +2033,10 @@ export const en = {
       title: "Image storage",
       description:
         "Uploaded logos and profile pictures: where they are stored on disk, how they are served, and the size limits applied on upload.",
+      groups: {
+        location: "Storage and serving",
+        limits: "What uploads are accepted",
+      },
       provider: "Storage provider",
       providerHint:
         "Filesystem storage; part of the server deployment, not editable here.",
@@ -2061,6 +2068,10 @@ export const en = {
       title: "Account deletion",
       description:
         "The GDPR/KVKK deletion pipeline: the grace period before permanent erasure, the confirmation code, and the pace of the background worker that carries deletions out.",
+      groups: {
+        request: "What the person deleting sees",
+        execution: "How the deletion is carried out",
+      },
       graceDays: "Grace period (days)",
       graceDaysHint:
         "Time to change one's mind before permanent deletion. Recommended: 30 (common regulatory practice).",
@@ -2081,6 +2092,13 @@ export const en = {
       title: "Data controller",
       description:
         "The legal identity published in your privacy policy. A policy cannot be published until the required fields are filled — a disclosure that does not name its controller does not satisfy KVKK Art. 10 or GDPR Art. 13.",
+      groups: {
+        identity: "Who the controller is",
+        processors: "Who processes data on its behalf",
+        registrations: "Turkish registrations",
+        registrationsDescription:
+          "Both are optional. Fill them only where the controller is registered in Türkiye.",
+      },
       legalName: "Legal entity name",
       legalNameHint:
         "Registered name, exactly as it should appear (e.g. Acme Corp LLC).",
@@ -2120,6 +2138,12 @@ export const en = {
       batchSize: "Rows per statement",
       batchSizeHint:
         "Kept under the ~5000 row locks at which SQL Server escalates to a whole-table lock, which would block every live query against that table. Recommended: 4000.",
+      groups: {
+        sweeper: "How the cleanup runs",
+        retention: "How long dead records are kept",
+        retentionDescription:
+          "Every row these govern has already expired. The question is how long it stays useful as evidence that something happened.",
+      },
       maxRowsPerTablePerRun: "Ceiling per table per run",
       maxRowsPerTablePerRunHint:
         "Bounds the first run, the only one facing everything accumulated since deployment. Whatever is left goes the next day. Recommended: 200000.",

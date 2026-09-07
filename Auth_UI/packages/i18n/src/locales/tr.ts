@@ -1994,6 +1994,9 @@ export const tr: TranslationResources = {
       title: "Bildirim teslimatı",
       description:
         "Giden bildirimlerin nasıl teslim edildiği: doğrudan ya da hataları yeniden deneyen ve yeniden başlatmalara dayanan kalıcı bir giden kutusu üzerinden. İçerik ve şablonlar Bildirimler sayfalarında yönetilir.",
+      groups: {
+        delivery: "Mesajlar nasıl iletilir",
+      },
       useOutbox: "Kalıcı giden kutusu",
       useOutboxHint:
         "Önerilen: üretimde açık — mesajlar kaybolmak yerine önce saklanır ve hata durumunda yeniden denenir.",
@@ -2025,6 +2028,10 @@ export const tr: TranslationResources = {
       title: "Görsel depolama",
       description:
         "Yüklenen logolar ve profil fotoğrafları: diskte nerede saklandıkları, nasıl sunuldukları ve yüklemede uygulanan boyut sınırları.",
+      groups: {
+        location: "Depolama ve sunum",
+        limits: "Hangi yüklemeler kabul edilir",
+      },
       provider: "Depolama sağlayıcısı",
       providerHint:
         "Dosya sistemi depolaması; sunucu dağıtımının parçasıdır, burada düzenlenemez.",
@@ -2056,6 +2063,10 @@ export const tr: TranslationResources = {
       title: "Hesap silme",
       description:
         "GDPR/KVKK silme hattı: kalıcı silmeden önceki bekleme süresi, onay kodu ve silmeleri yürüten arka plan görevinin temposu.",
+      groups: {
+        request: "Hesabını silen kişinin gördükleri",
+        execution: "Silme nasıl yürütülür",
+      },
       graceDays: "Bekleme süresi (gün)",
       graceDaysHint:
         "Kalıcı silmeden önce fikir değiştirme süresi. Önerilen: 30 (yaygın düzenleyici uygulama).",
@@ -2076,6 +2087,13 @@ export const tr: TranslationResources = {
       title: "Veri sorumlusu",
       description:
         "Gizlilik politikanızda yayımlanan yasal kimlik. Zorunlu alanlar doldurulmadan politika yayımlanamaz — veri sorumlusunu adıyla belirtmeyen bir aydınlatma metni KVKK m.10 ve GDPR m.13 gereğini karşılamaz.",
+      groups: {
+        identity: "Veri sorumlusu kimdir",
+        processors: "Onun adına veriyi kim işler",
+        registrations: "Türkiye kayıtları",
+        registrationsDescription:
+          "İkisi de isteğe bağlıdır. Yalnızca veri sorumlusu Türkiye'de kayıtlıysa doldurun.",
+      },
       legalName: "Tüzel kişilik unvanı",
       legalNameHint: "Tescilli unvan, görünmesi gerektiği şekliyle.",
       address: "Tescilli adres",
@@ -2115,6 +2133,12 @@ export const tr: TranslationResources = {
       batchSize: "İfade başına satır",
       batchSizeHint:
         "SQL Server'ın tüm tabloyu kilitlemeye geçtiği ~5000 satır kilidinin altında tutulur; aksi hâlde o tablodaki her canlı sorgu engellenir. Önerilen: 4000.",
+      groups: {
+        sweeper: "Temizlik nasıl çalışır",
+        retention: "Ölü kayıtlar ne kadar saklanır",
+        retentionDescription:
+          "Bunların yönettiği her satırın süresi zaten dolmuştur. Soru, bir şeyin olduğuna dair kanıt olarak ne kadar süre işe yarayacağıdır.",
+      },
       maxRowsPerTablePerRun: "Çalıştırma başına tablo tavanı",
       maxRowsPerTablePerRunHint:
         "Dağıtımdan bu yana birikmiş her şeyle karşılaşan tek çalıştırma olan ilkini sınırlar. Kalanı ertesi gün alınır. Önerilen: 200000.",
