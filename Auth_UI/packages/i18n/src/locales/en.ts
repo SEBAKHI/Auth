@@ -1644,6 +1644,13 @@ export const en = {
       title: "Tokens (JWT)",
       description:
         "The signed tokens users receive when they sign in: who issues them, who they are for, and how long they stay valid. Shorter lifetimes are safer; longer ones mean fewer re-logins.",
+      groups: {
+        identity: "Issuer and audience",
+        lifetimes: "How long tokens last",
+        keyMaterial: "Key material",
+        keyMaterialDescription:
+          "Set under Secret management, never here. Only the key's identifier lives in this section.",
+      },
       issuer: "Issuer URL",
       issuerHint:
         "The public address of this authentication server, stamped into every token (e.g. https://auth.example.com). Changing it invalidates tokens issued before the change.",
@@ -1943,6 +1950,13 @@ export const en = {
       enabled: "Email sending",
       enabledHint:
         "Master switch. When off, flows that need email (verification, reset) are unavailable.",
+      groups: {
+        server: "Mail server",
+        sender: "Sender and links",
+        codes: "Codes and send limits",
+        codesDescription:
+          "These govern the codes and links themselves, not the connection to the server.",
+      },
       smtpHost: "SMTP server",
       smtpHostHint: "Hostname of your mail server, e.g. mail.example.com.",
       smtpPort: "SMTP port",

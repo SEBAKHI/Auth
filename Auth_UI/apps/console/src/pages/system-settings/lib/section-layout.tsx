@@ -125,6 +125,68 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
       ],
     },
   ],
+
+  // Two token types with two different lifetimes, read as one undifferentiated
+  // run — and four consecutive rows whose entire content is the words "Manage
+  // secrets", with nothing saying what the four have in common.
+  Jwt: [
+    { kind: "group", key: "identity", claims: ["Issuer", "Audience"] },
+    {
+      kind: "group",
+      key: "lifetimes",
+      claims: [
+        "AccessTokenLifetimeMinutes",
+        "RefreshTokenLifetimeDays",
+        "RotateRefreshTokens",
+        "ClockSkewSeconds",
+      ],
+    },
+    {
+      kind: "group",
+      key: "keyMaterial",
+      claims: [
+        "KeyId",
+        "PrivateKeyPath",
+        "PrivateKeyPem",
+        "PrivateKeyEncrypted",
+        "RefreshTokenEncryptedKey",
+      ],
+    },
+  ],
+
+  // "Send test email" proves the first group and nothing else, and the last
+  // group is about the codes rather than the server it sits under — which is
+  // where an operator debugging delivery goes looking for a setting that was
+  // never the problem.
+  Email: [
+    {
+      kind: "group",
+      key: "server",
+      claims: [
+        "Enabled",
+        "SmtpHost",
+        "SmtpPort",
+        "UseSsl",
+        "Username",
+        "Password",
+      ],
+    },
+    {
+      kind: "group",
+      key: "sender",
+      claims: ["SenderEmail", "SenderName", "FrontendBaseUrl"],
+    },
+    {
+      kind: "group",
+      key: "codes",
+      claims: [
+        "OtpExpirationMinutes",
+        "ResetTokenExpirationMinutes",
+        "RateLimitWindowSeconds",
+        "MaxOtpRequestsPerWindow",
+      ],
+    },
+  ],
 }
 
 export interface ResolvedBlock {

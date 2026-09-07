@@ -1636,6 +1636,13 @@ export const tr: TranslationResources = {
       title: "Jetonlar (JWT)",
       description:
         "Kullanıcıların oturum açtıklarında aldıkları imzalı jetonlar: bunları kimin verdiği, kime yönelik oldukları ve ne kadar süre geçerli kaldıkları. Daha kısa ömürler daha güvenlidir; daha uzun ömürler ise daha az yeniden oturum açma demektir.",
+      groups: {
+        identity: "Veren ve hedef kitle",
+        lifetimes: "Jetonların geçerlilik süresi",
+        keyMaterial: "Anahtar malzemesi",
+        keyMaterialDescription:
+          "Burada değil, Gizli anahtar yönetimi altında ayarlanır. Bu bölümde yalnızca anahtarın tanımlayıcısı bulunur.",
+      },
       issuer: "Veren URL'si",
       issuerHint:
         "Bu kimlik doğrulama sunucusunun her jetona işlenen genel adresi (örn. https://auth.example.com). Değiştirmek, değişiklikten önce verilen jetonları geçersiz kılar.",
@@ -1936,6 +1943,13 @@ export const tr: TranslationResources = {
       enabled: "E-posta gönderimi",
       enabledHint:
         "Ana anahtar. Kapalıyken e-posta gerektiren akışlar (doğrulama, sıfırlama) kullanılamaz.",
+      groups: {
+        server: "Posta sunucusu",
+        sender: "Gönderen ve bağlantılar",
+        codes: "Kodlar ve gönderim sınırları",
+        codesDescription:
+          "Bunlar sunucu bağlantısını değil, kodların ve bağlantıların kendisini yönetir.",
+      },
       smtpHost: "SMTP sunucusu",
       smtpHostHint:
         "Posta sunucunuzun ana bilgisayar adı, örn. mail.example.com.",

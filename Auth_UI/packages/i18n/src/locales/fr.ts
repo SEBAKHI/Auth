@@ -1670,6 +1670,13 @@ export const fr: TranslationResources = {
       title: "Jetons (JWT)",
       description:
         "Les jetons signés que reçoivent les utilisateurs à la connexion : qui les émet, à qui ils sont destinés et combien de temps ils restent valides. Des durées plus courtes sont plus sûres ; des durées plus longues signifient moins de reconnexions.",
+      groups: {
+        identity: "Émetteur et audience",
+        lifetimes: "Durée de validité des jetons",
+        keyMaterial: "Matériel de clé",
+        keyMaterialDescription:
+          "Défini sous Gestion des secrets, jamais ici. Seul l'identifiant de la clé vit dans cette section.",
+      },
       issuer: "URL de l'émetteur",
       issuerHint:
         "L'adresse publique de ce serveur d'authentification, inscrite dans chaque jeton (p. ex. https://auth.example.com). La modifier invalide les jetons émis avant le changement.",
@@ -1978,6 +1985,13 @@ export const fr: TranslationResources = {
       enabled: "Envoi d'e-mails",
       enabledHint:
         "Interrupteur principal. Désactivé, les parcours nécessitant un e-mail (vérification, réinitialisation) sont indisponibles.",
+      groups: {
+        server: "Serveur de messagerie",
+        sender: "Expéditeur et liens",
+        codes: "Codes et limites d'envoi",
+        codesDescription:
+          "Ceux-ci régissent les codes et les liens eux-mêmes, pas la connexion au serveur.",
+      },
       smtpHost: "Serveur SMTP",
       smtpHostHint:
         "Nom d'hôte de votre serveur de messagerie, p. ex. mail.example.com.",

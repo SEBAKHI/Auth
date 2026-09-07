@@ -179,9 +179,14 @@ describe("resolveSectionLayout", () => {
     expect(shape("Password", onlyLockout).map((b) => b.name)).toEqual(["lockout"])
   })
 
+  // Session is four settings about one thing; it is on the list of sections
+  // that stay flat on purpose, because a heading there would be decoration.
   it("leaves a section with no declared blocks untouched", () => {
-    const fields = [field("Enabled", { kind: "bool" }), field("Host")]
-    const { blocks, general } = resolveSectionLayout("Email", fields)
+    const fields = [
+      field("MaxConcurrentSessions", { kind: "int" }),
+      field("TerminateOldestOnMax", { kind: "bool" }),
+    ]
+    const { blocks, general } = resolveSectionLayout("Session", fields)
 
     expect(blocks).toEqual([])
     expect(general).toEqual(fields)

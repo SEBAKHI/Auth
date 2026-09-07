@@ -1537,6 +1537,12 @@ export const zh: TranslationResources = {
       title: "令牌（JWT）",
       description:
         "用户登录时收到的签名令牌：由谁签发、面向谁、以及有效期多长。有效期越短越安全；越长则用户重新登录的次数越少。",
+      groups: {
+        identity: "签发者与受众",
+        lifetimes: "令牌的有效时长",
+        keyMaterial: "密钥材料",
+        keyMaterialDescription: "在机密页面设置，而非此处。本节只保存密钥的标识符。",
+      },
       issuer: "签发者 URL",
       issuerHint:
         "此认证服务器的公开地址，会写入每个令牌（例如 https://auth.example.com）。修改后，之前签发的令牌将全部失效。",
@@ -1828,6 +1834,12 @@ export const zh: TranslationResources = {
         "平台发送邮件的方式——验证码、密码重置、邀请函。更换服务器后，请先使用“发送测试邮件”验证连接，再让真实业务依赖它。",
       enabled: "邮件发送",
       enabledHint: "总开关。关闭后，需要邮件的流程（验证、重置）将不可用。",
+      groups: {
+        server: "邮件服务器",
+        sender: "发件人与链接",
+        codes: "验证码与发送限制",
+        codesDescription: "这些管理验证码和链接本身，而不是与服务器的连接。",
+      },
       smtpHost: "SMTP 服务器",
       smtpHostHint: "邮件服务器的主机名，例如 mail.example.com。",
       smtpPort: "SMTP 端口",
