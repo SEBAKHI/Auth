@@ -1875,7 +1875,7 @@ export const fr: TranslationResources = {
       },
       globalPermitLimit: "Plafond global de requêtes",
       globalPermitLimitHint:
-        "S'applique à toute requête passant par la passerelle, au-dessus des trois politiques ci-dessous. Il ne doit pas être plus lent que la plus rapide d'entre elles, sinon il les bride silencieusement.",
+        "S'applique à toute requête passant par la passerelle, au-dessus de chaque politique de route ci-dessous. Il ne doit pas être plus lent que la plus rapide d'entre elles, sinon il les bride silencieusement.",
       globalWindowSeconds: "Fenêtre globale (secondes)",
       globalWindowSecondsHint:
         "Durée sur laquelle le plafond global est compté. La fenêtre est fixe et non glissante : le compteur de chaque client revient à zéro à sa fin.",

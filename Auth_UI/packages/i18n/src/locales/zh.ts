@@ -1728,7 +1728,7 @@ export const zh: TranslationResources = {
       },
       globalPermitLimit: "全局请求上限",
       globalPermitLimitHint:
-        "适用于经过网关的每个请求，位于下方三项策略之上。它不得比其中最快的一项还慢，否则会悄悄压低它们。",
+        "适用于经过网关的每个请求，位于下方每一项路由策略之上。它不得比其中最快的一项还慢，否则会悄悄压低它们。",
       globalWindowSeconds: "全局窗口（秒）",
       globalWindowSecondsHint:
         "统计全局上限的时间跨度。窗口是固定的而非滑动的：到期时每个客户端的计数都归零。",

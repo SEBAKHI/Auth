@@ -325,7 +325,7 @@ internal static class SystemSettingsValueValidator
 
         if (editsGlobal)
         {
-            // Lowering the ceiling can undercut all three policies at once, but
+            // Lowering the ceiling can undercut every policy at once, but
             // that is one mistake, not three. Name the fastest — clear it and
             // the rest clear with it.
             var fastest = outrunning.MaxBy(policy => policy.Rate)!.Permit;

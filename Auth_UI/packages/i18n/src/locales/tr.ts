@@ -1833,7 +1833,7 @@ export const tr: TranslationResources = {
       },
       globalPermitLimit: "Genel istek tavanı",
       globalPermitLimitHint:
-        "Aşağıdaki üç politikanın üstünde, ağ geçidinden geçen her isteğe uygulanır. Bunların en hızlısından yavaş olmamalıdır, aksi hâlde onları sessizce kısar.",
+        "Aşağıdaki her rota politikasının üstünde, ağ geçidinden geçen her isteğe uygulanır. Bunların en hızlısından yavaş olmamalıdır, aksi hâlde onları sessizce kısar.",
       globalWindowSeconds: "Genel pencere (saniye)",
       globalWindowSecondsHint:
         "Genel tavanın sayıldığı süre. Pencere kayan değil sabittir: süre bittiğinde her istemcinin sayacı sıfırlanır.",

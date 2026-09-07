@@ -1840,7 +1840,7 @@ export const en = {
       },
       globalPermitLimit: "Global request ceiling",
       globalPermitLimitHint:
-        "Applies to every request through the gateway, on top of the three policies below. It must not be slower than the fastest of them, or it silently caps them.",
+        "Applies to every request through the gateway, on top of every per-route policy below. It must not be slower than the fastest of them, or it silently caps them.",
       globalWindowSeconds: "Global window (seconds)",
       globalWindowSecondsHint:
         "The span the global ceiling is counted over. The window is fixed, not rolling: every client's counter returns to zero when it ends.",

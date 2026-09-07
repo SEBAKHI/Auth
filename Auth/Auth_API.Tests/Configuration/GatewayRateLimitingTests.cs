@@ -129,7 +129,7 @@ public class GatewayRateLimitingTests
     [Fact]
     public void Save_ReportsTheErrorOnTheFieldTheAdministratorEdited()
     {
-        // Lowering the global ceiling undercuts all three policies at once, but
+        // Lowering the global ceiling undercuts every policy at once, but
         // that is one mistake and deserves one message — pointed at the control
         // just touched, not at the three it happens to cap.
         var errors = Validate(
