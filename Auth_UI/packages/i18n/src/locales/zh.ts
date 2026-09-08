@@ -1508,7 +1508,7 @@ export const zh: TranslationResources = {
     restartRequired: "需要重启",
     pendingRestart: "等待重启",
     overridden: "已自定义",
-    fileValue: "默认值：{{value}}",
+    fileValue: "配置文件：{{value}}",
     notSet: "未设置",
     managedInSecrets:
       "机密值——加密存储并在「机密管理」下管理，绝不在此处显示。",
@@ -1528,6 +1528,11 @@ export const zh: TranslationResources = {
     conflictFields:
       "在您编辑期间，其他人修改了这些设置：{{fields}}。您填写的值仍然在此，且仍未保存。现在保存将覆盖他们的值。",
     unsavedCount: "未保存的更改数量：{{count}}",
+    unsaved: "未保存",
+    previousValue: "原为 {{value}}",
+    currentValue: "现为 {{value}}",
+    reviewChanges: "查看未保存的更改",
+    changesTitle: "未保存的更改",
     invalidSubmit: "未保存任何内容。部分值无效——第一处已在下方高亮显示。",
     invalidInDisabledCategory:
       "「{{category}}」已关闭，因此需要修正的值无法编辑。请重新启用，修正该值，然后保存。",

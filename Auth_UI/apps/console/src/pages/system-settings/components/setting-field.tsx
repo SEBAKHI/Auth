@@ -33,6 +33,11 @@ import {
   valueDirection,
   type SystemSettingsField,
 } from "../lib/sections"
+import {
+  isolateFirstStrong,
+  renderSettingValue,
+  useValueLabels,
+} from "../lib/setting-value"
 
 /** Read from the registry so the card button and these rows can never diverge. */
 const SECRET_KEYS_ROUTE = SECTION_COMPANION_PAGES.SecretManagement.route
@@ -64,8 +69,52 @@ const SECRET_KEYS_ROUTE = SECTION_COMPANION_PAGES.SecretManagement.route
  * of forty. It also has to land on the category header, which is tinted
  * already and where a tint would have nothing left to say.
  */
+/**
+ * The unsaved rail: a 2px bar on the row's inline-start edge while the field
+ * differs from the values the form opened with.
+ *
+ * Drawn on the state, and PAID FOR out of the padding beside it. A border lives
+ * in the box model, so a 2px rail takes 2px out of what a border-box row has to
+ * give its content — and this row's geometry is measured rather than
+ * incidental: `settings-measure` asserts a hint of exactly 668px and a switch
+ * exactly 124px from the end of it, numbers `index.css` derives in a comment.
+ * Two ways to draw the rail both move those numbers, in opposite directions:
+ * reserving it on every row (transparent when clean) narrows all forty rows for
+ * good, and adding it only when the row turns dirty jolts the label and the
+ * control 2px sideways under the operator's own first keystroke.
+ *
+ * So the rail is added AND the inline-start padding gives back exactly what it
+ * takes: 12 → 10 on a card row (`px-3` → `ps-2.5`), 16 → 14 inside a panel
+ * (`px-4` → `ps-3.5`). A clean row is untouched, a dirty row's content sits
+ * where it always sat, and the mark costs the layout nothing in either state.
+ * The data-variant beats the plain `px-*` on specificity, so order in the class
+ * string is not load-bearing.
+ *
+ * `border-s-2` and `border-s-foreground` were both compiled against the
+ * installed Tailwind (4.3.1) before being written here — `border-inline-start-
+ * width: 2px` and `border-inline-start-color` respectively — because a logical
+ * per-side border COLOUR is the half of the pair that is easy to assume and not
+ * have. The colour is explicit because this repo sets a default border colour,
+ * and an uncoloured rail would inherit `border-border`: the same near-invisible
+ * hairline the row already draws underneath itself.
+ *
+ * `foreground`, not `primary`: `command` already marks the row-in-a-state with
+ * a `bg-foreground` bar at the inline start, and the unsaved LINE below the
+ * label is a `text-foreground` step — one state, one ink. `primary` in this
+ * console is the button fill, which reads as "act on me" rather than "you
+ * changed me". The palette is achromatic, so this is a luminance mark in both
+ * themes: 0.145 on a 1.0 card in light, 0.985 on a 0.205 card in dark.
+ *
+ * On `categoryHeader` the rail is kept as it is, with no special case. That row
+ * is `rounded-t-xl` and has no top border for the rail to meet, so the radius
+ * renders it as a 2px edge tapering to nothing as it climbs into the corner,
+ * where it crosses the panel's own 1px border. It does not cut square across
+ * the rounded corner, which was the thing worth checking. Special-casing it
+ * would mean a second visual language for one state — the thing this mark
+ * exists to avoid.
+ */
 const ROW_BASE =
-  "justify-between transition-colors hover:bg-muted/50 focus-within:bg-muted/50 data-[highlight]:ring-2 data-[highlight]:ring-ring data-[highlight]:ring-inset"
+  "justify-between transition-colors hover:bg-muted/50 focus-within:bg-muted/50 data-[dirty=true]:border-s-2 data-[dirty=true]:border-s-foreground data-[highlight]:ring-2 data-[highlight]:ring-ring data-[highlight]:ring-inset"
 
 /**
  * Where the row sits, which is the only thing that changes about it.
@@ -92,8 +141,11 @@ const ROW: Record<RowPlacement, string> = {
   // SecretManagement and DataRetention — the seam is drawn by that footer's own
   // `border-t` in `section-form`, which also disappears with the footer when
   // the permission gate hides it. A rule on the row could never do that.
-  card: `${ROW_BASE} border-b last:border-b-0 -mx-3 w-[calc(100%+1.5rem)] px-3 py-4`,
-  category: `${ROW_BASE} border-b last:border-b-0 px-4 py-4`,
+  // `data-[dirty=true]:ps-2.5` is the 2px the rail takes, given back — see
+  // ROW_BASE. 12 − 2 = 10 = `ps-2.5`.
+  card: `${ROW_BASE} border-b last:border-b-0 -mx-3 w-[calc(100%+1.5rem)] px-3 py-4 data-[dirty=true]:ps-2.5`,
+  // 16 − 2 = 14 = `ps-3.5`.
+  category: `${ROW_BASE} border-b last:border-b-0 px-4 py-4 data-[dirty=true]:ps-3.5`,
   // Full-strength `muted`, not a fraction of it: the palette's only tint step
   // is 3% in light mode, so anything less than all of it is not a band. The
   // hover tint is cancelled for the same reason — at 50% it would LIGHTEN this
@@ -105,7 +157,7 @@ const ROW: Record<RowPlacement, string> = {
   // logo that identifies it. The text block claims the slack itself instead,
   // so the mark and the name read as one unit at the start and the switch
   // still sits at the end. Logical (`me-`), so it holds in both directions.
-  categoryHeader: `${ROW_BASE} rounded-t-xl border-b bg-muted px-4 py-3.5 hover:bg-muted focus-within:bg-muted [&>[data-slot=field-content]]:me-auto`,
+  categoryHeader: `${ROW_BASE} rounded-t-xl border-b bg-muted px-4 py-3.5 hover:bg-muted focus-within:bg-muted data-[dirty=true]:ps-3.5 [&>[data-slot=field-content]]:me-auto`,
 }
 
 /**
@@ -153,6 +205,26 @@ function labelId(field: SystemSettingsField): string {
   return `${anchorId(field)}-label`
 }
 
+/** The id of the unsaved line, which names the row alongside its label. */
+function unsavedId(field: SystemSettingsField): string {
+  return `${anchorId(field)}-unsaved`
+}
+
+/**
+ * What names the row's `role="group"`: its label, and — while the row is one of
+ * the changed ones — the unsaved line as well.
+ *
+ * A group's name is announced on entering it, which is exactly when "this is
+ * one of the rows you changed, and it was 0" is worth hearing. The rail says it
+ * to the eye and nothing said it to a reader: the line is a `FieldDescription`,
+ * and the form primitive describes its control with the hint and the validation
+ * message only. Naming the group is the one channel available without taking an
+ * id the hint already owns.
+ */
+function rowLabelledBy(field: SystemSettingsField, dirty: boolean): string {
+  return dirty ? `${labelId(field)} ${unsavedId(field)}` : labelId(field)
+}
+
 function useFieldTexts(sectionI18n: string | undefined, field: SystemSettingsField) {
   const { t } = useTranslation()
   const key = fieldI18nKey(field.path ?? "")
@@ -182,14 +254,57 @@ function FieldBadges({ field }: { field: SystemSettingsField }) {
 /** Shows the default a customized field would fall back to. */
 function BaselineNote({ field }: { field: SystemSettingsField }) {
   const { t } = useTranslation()
+  const labels = useValueLabels()
   if (field.source !== "database") return null
-  const baseline = field.baselineValue
-  const rendered = Array.isArray(baseline)
-    ? baseline.join(", ")
-    : baseline === null || baseline === undefined || baseline === ""
-      ? t("systemSettings.notSet")
-      : String(baseline)
-  return <FieldDescription>{t("systemSettings.fileValue", { value: rendered })}</FieldDescription>
+  const rendered = renderSettingValue(field.baselineValue, labels)
+  return (
+    <FieldDescription>
+      {t("systemSettings.fileValue", { value: isolateFirstStrong(rendered) })}
+    </FieldDescription>
+  )
+}
+
+/**
+ * The mark the operator is hunting for: this row is one of the ones they
+ * changed, and here is what it used to say.
+ *
+ * FIRST in the description stack, above the hint. It is the answer to "which
+ * row did I touch"; under a paragraph of hint prose it would be found by
+ * reading rather than by scanning, which is the whole of the problem.
+ *
+ * `text-foreground font-medium` is a LUMINANCE step, not a colour: every
+ * non-destructive token in this palette is `oklch(L 0 0)`, and muted-foreground
+ * to foreground is 4.73:1 → 19.79:1 on card in light and 6.91:1 → 17.16:1 in
+ * dark. Against the muted line beside it that is 4.18:1 in light and 2.48:1 in
+ * dark — the step is real in both themes and clearly weaker in the dark one,
+ * which is why the weight moves with the ink rather than the ink alone doing
+ * the work. `command` marks a selected row's own description the same way at
+ * the same size. The three coloured alternatives are all taken: destructive
+ * belongs to `FormMessage` two lines down, primary belongs to links inside a
+ * description, and a Badge would put a control-shaped object in a stack of
+ * sentences.
+ *
+ * It carries an id because the row NAMES itself with this line while it is
+ * showing — see `rowLabelledBy`. A field description is not in the control's
+ * `aria-describedby` (the primitive reserves that for the hint and the
+ * message), so without that the one sentence this whole feature exists to write
+ * would be readable by everyone except the operator who cannot see the rail.
+ */
+function UnsavedNote({ id, previousValue }: { id: string; previousValue: unknown }) {
+  const { t } = useTranslation()
+  const labels = useValueLabels()
+  const rendered = renderSettingValue(previousValue, labels)
+  // Joined with the middot `FieldConstraints` already sets its parts with, so
+  // the two lines of the same stack punctuate alike.
+  const line = [
+    t("systemSettings.unsaved"),
+    t("systemSettings.previousValue", { value: isolateFirstStrong(rendered) }),
+  ].join(" · ")
+  return (
+    <FieldDescription id={id} className="font-medium text-foreground">
+      {line}
+    </FieldDescription>
+  )
 }
 
 /** A secret-owned field: the value lives in Secret Management, never here. */
@@ -228,6 +343,8 @@ export function ReadOnlyFieldRow({
   field,
   placement = "card",
   sectionKey,
+  dirty = false,
+  previousValue,
 }: {
   sectionI18n: string | undefined
   field: SystemSettingsField
@@ -238,6 +355,13 @@ export function ReadOnlyFieldRow({
    * Optional so a caller that has not been updated keeps today's behaviour.
    */
   sectionKey?: string
+  /**
+   * This field differs from the value the form opened with. Optional, like
+   * `disabled`: a caller that does not track it renders today's row.
+   */
+  dirty?: boolean
+  /** The value the field opened with. Read only while `dirty` is true. */
+  previousValue?: unknown
 }) {
   const { t } = useTranslation()
   const { label, hint } = useFieldTexts(sectionI18n, field)
@@ -247,14 +371,21 @@ export function ReadOnlyFieldRow({
       orientation="responsive"
       className={`${ROW[placement]} ${CONTROL.text}`}
       id={anchorId(field)}
-      aria-labelledby={labelId(field)}
+      aria-labelledby={rowLabelledBy(field, dirty)}
       data-disabled
+      // `true`, never bare: a valueless `data-dirty` serialises to the empty
+      // string, which `data-[dirty=true]` does not match, and the rail would
+      // never appear.
+      data-dirty={dirty ? true : undefined}
     >
       <FieldContent className={TEXT_BLOCK}>
         <FieldLabel id={labelId(field)}>
           {label}
           <Badge variant="outline">{t("systemSettings.readOnly")}</Badge>
         </FieldLabel>
+        {dirty ? (
+          <UnsavedNote id={unsavedId(field)} previousValue={previousValue} />
+        ) : null}
         {hint ? <FieldDescription>{hint}</FieldDescription> : null}
       </FieldContent>
       {/* Naming the row's `role="group"` does not name the control inside it —
@@ -285,6 +416,8 @@ export function SettingField({
   media,
   sectionKey,
   disabled = false,
+  dirty = false,
+  previousValue,
 }: {
   control: Control<FieldValues>
   sectionI18n: string | undefined
@@ -310,6 +443,23 @@ export function SettingField({
    * finds the credentials still there.
    */
   disabled?: boolean
+  /**
+   * This field differs from the value the form opened with — which is NOT the
+   * same as differing from the configuration file. A setting somebody
+   * customized last month differs from the file and nobody touched it this
+   * session; marking it would point the operator at a row they never edited.
+   * The caller sources this from the form's own dirty fields for that reason.
+   *
+   * Optional, like `disabled`: a caller that does not track it renders today's
+   * row.
+   */
+  dirty?: boolean
+  /**
+   * The value this field opened with — the last one the form and the server
+   * agreed on, not the configuration-file baseline that `BaselineNote` already
+   * renders on its own line. Read only while `dirty` is true.
+   */
+  previousValue?: unknown
 }) {
   const { t } = useTranslation()
   const { label, hint } = useFieldTexts(sectionI18n, field)
@@ -338,6 +488,10 @@ export function SettingField({
         {label}
         <FieldBadges field={field} />
       </FormLabel>
+      {/* Above the hint, not below it — see `UnsavedNote`. */}
+      {dirty ? (
+        <UnsavedNote id={unsavedId(field)} previousValue={previousValue} />
+      ) : null}
       {hint || extraHint ? (
         <FormDescription>{[hint, extraHint].filter(Boolean).join(" ")}</FormDescription>
       ) : null}
@@ -361,8 +515,9 @@ export function SettingField({
             orientation="horizontal"
             className={ROW[placement]}
             id={anchorId(field)}
-            aria-labelledby={labelId(field)}
+            aria-labelledby={rowLabelledBy(field, dirty)}
             data-disabled={disabled ? true : undefined}
+            data-dirty={dirty ? true : undefined}
           >
             {media}
             {textBlock()}
@@ -389,8 +544,9 @@ export function SettingField({
             orientation="responsive"
             className={ROW[placement]}
             id={anchorId(field)}
-            aria-labelledby={labelId(field)}
+            aria-labelledby={rowLabelledBy(field, dirty)}
             data-disabled={disabled ? true : undefined}
+            data-dirty={dirty ? true : undefined}
           >
             {textBlock()}
             <FormControl>
@@ -430,8 +586,9 @@ export function SettingField({
             orientation="responsive"
             className={`${ROW[placement]} ${CONTROL.area}`}
             id={anchorId(field)}
-            aria-labelledby={labelId(field)}
+            aria-labelledby={rowLabelledBy(field, dirty)}
             data-disabled={disabled ? true : undefined}
+            data-dirty={dirty ? true : undefined}
           >
             {textBlock(t("systemSettings.arrayFieldHint"))}
             <FormControl>
@@ -477,8 +634,9 @@ export function SettingField({
           orientation="responsive"
           className={`${ROW[placement]} ${isInt ? CONTROL.int : CONTROL.text}`}
           id={anchorId(field)}
-          aria-labelledby={labelId(field)}
+          aria-labelledby={rowLabelledBy(field, dirty)}
           data-disabled={disabled ? true : undefined}
+          data-dirty={dirty ? true : undefined}
         >
           {textBlock()}
           <FormControl>

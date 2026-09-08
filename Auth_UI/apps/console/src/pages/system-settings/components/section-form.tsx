@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { TriangleAlert } from "lucide-react"
+import { ChevronDown, TriangleAlert } from "lucide-react"
 import {
   useForm,
   useWatch,
@@ -33,6 +33,20 @@ import {
   FieldSet,
 } from "@authsystem/ui/field"
 import { Form } from "@authsystem/ui/form"
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemTitle,
+} from "@authsystem/ui/item"
+import {
+  Popover,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverTrigger,
+} from "@authsystem/ui/popover"
 import { Spinner } from "@authsystem/ui/spinner"
 import { useUnsavedChangesPrompt } from "@authsystem/ui/hooks/use-unsaved-changes"
 
@@ -54,6 +68,11 @@ import {
   type SystemSettingsField,
   type SystemSettingsSection,
 } from "../lib/sections"
+import {
+  isolateFirstStrong,
+  renderSettingValue,
+  useValueLabels,
+} from "../lib/setting-value"
 import {
   ReadOnlyFieldRow,
   SecretFieldRow,
@@ -108,6 +127,25 @@ function normalizedBaseline(field: SystemSettingsField): unknown {
 function sameValue(a: unknown, b: unknown): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
 }
+
+/** One unsaved change, as the bar's list states it. */
+interface UnsavedChange {
+  /** The registry path, so activating the entry can find the row. */
+  path: string
+  label: string
+  previous: string
+  current: string
+}
+
+/**
+ * Whether a row's field differs from the values the form opened with, and what
+ * it opened with. One lookup rather than two props threaded in parallel, so a
+ * row can never be told it is dirty without being told what it was.
+ */
+type DirtyLookup = (path: string) => { dirty: boolean; previousValue: unknown }
+
+/** No form, no unsaved state: the bootstrap sections render rows through here too. */
+const NO_DIRTY: DirtyLookup = () => ({ dirty: false, previousValue: undefined })
 
 /** Builds the sparse nested override object ("A:B:C" → {A:{B:{C: value}}}). */
 function setNested(target: Record<string, unknown>, path: string, value: unknown) {
@@ -246,6 +284,8 @@ function SettingRow({
   placement = "card",
   media,
   disabled = false,
+  dirty = false,
+  previousValue,
 }: {
   field: SystemSettingsField
   sectionKey: string
@@ -254,6 +294,10 @@ function SettingRow({
   placement?: RowPlacement
   media?: React.ReactNode
   disabled?: boolean
+  /** The field differs from the value the form opened with. */
+  dirty?: boolean
+  /** What it opened with. Only read while `dirty`. */
+  previousValue?: unknown
 }) {
   if (field.sensitive) {
     // No `disabled`: the value lives in Secret management, and a category
@@ -276,6 +320,9 @@ function SettingRow({
       />
     )
   }
+  // `dirty` and `previousValue` go only where `disabled` goes, and for the same
+  // reason: a secret-owned or read-only row is not in the form at all, so it
+  // holds no value that can differ from the one the form opened with.
   return (
     <SettingField
       control={control}
@@ -285,6 +332,8 @@ function SettingRow({
       placement={placement}
       media={media}
       disabled={disabled}
+      dirty={dirty}
+      previousValue={previousValue}
     />
   )
 }
@@ -351,11 +400,13 @@ function CategoryPanel({
   sectionI18n,
   control,
   entry,
+  dirtyOf = NO_DIRTY,
 }: {
   sectionKey: string
   sectionI18n: string | undefined
   control: Control<FieldValues>
   entry: ResolvedBlock
+  dirtyOf?: DirtyLookup
 }) {
   const { block, switchField } = entry
   if (block.kind !== "category" || !switchField) return null
@@ -367,6 +418,7 @@ function CategoryPanel({
       block={block}
       switchField={switchField}
       fields={entry.fields}
+      dirtyOf={dirtyOf}
     />
   )
 }
@@ -390,6 +442,7 @@ function CategoryPanelBody({
   block,
   switchField,
   fields,
+  dirtyOf = NO_DIRTY,
 }: {
   sectionKey: string
   sectionI18n: string | undefined
@@ -397,6 +450,7 @@ function CategoryPanelBody({
   block: CategoryBlock
   switchField: SystemSettingsField
   fields: SystemSettingsField[]
+  dirtyOf?: DirtyLookup
 }) {
   const Icon = block.icon
   const gate = useWatch({
@@ -417,6 +471,9 @@ function CategoryPanelBody({
       aria-labelledby={`${settingAnchorId(switchField.path ?? "")}-label`}
       className="min-w-0 gap-0 rounded-xl border"
     >
+      {/* The lookup answers with both halves at once — dirty, and what it was —
+          so the pair is spread rather than passed as two props that could drift
+          apart at one of the four call sites. */}
       <SettingRow
         field={switchField}
         sectionKey={sectionKey}
@@ -424,6 +481,7 @@ function CategoryPanelBody({
         control={control}
         placement="categoryHeader"
         media={Icon ? <Icon className="size-5 shrink-0" /> : undefined}
+        {...dirtyOf(switchField.path ?? "")}
       />
       <CategoryIncomplete
         control={control}
@@ -440,6 +498,7 @@ function CategoryPanelBody({
           control={control}
           placement="category"
           disabled={gated}
+          {...dirtyOf(field.path ?? "")}
         />
       ))}
     </FieldSet>
@@ -462,12 +521,14 @@ function GroupBlockRows({
   control,
   headingKey,
   fields,
+  dirtyOf = NO_DIRTY,
 }: {
   sectionKey: string
   sectionI18n: string | undefined
   control?: Control<FieldValues>
   headingKey: string
   fields: SystemSettingsField[]
+  dirtyOf?: DirtyLookup
 }) {
   const { t } = useTranslation()
   const base = sectionI18n ? `systemSettings.${sectionI18n}.${headingKey}` : null
@@ -491,9 +552,91 @@ function GroupBlockRows({
           sectionKey={sectionKey}
           sectionI18n={sectionI18n}
           control={control}
+          {...dirtyOf(field.path ?? "")}
         />
       ))}
     </FieldSet>
+  )
+}
+
+/**
+ * Every unsaved change in the section, one entry each, as a list that goes
+ * there.
+ *
+ * The count alone told an operator how many rows they had touched and nothing
+ * about WHICH — on a section of forty rows that is a scroll, not an answer.
+ * Each entry names the setting and both of its values, and activating one lands
+ * on the row through the same helper a `?field=` deep link uses.
+ *
+ * `max-h` with its own overflow rather than `ScrollArea`: a section can carry
+ * nineteen fields, and the Radix scroll area needs a ResizeObserver that this
+ * repo's jsdom tests do not have. `p-1` is not decoration — the focus ring is
+ * drawn OUTSIDE the entry, and a scroll container clips it flush.
+ */
+function UnsavedChangesList({
+  changes,
+  onJump,
+}: {
+  changes: UnsavedChange[]
+  onJump: (path: string) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <ItemGroup className="max-h-72 overflow-y-auto p-1">
+      {changes.map((change) => (
+        // `ItemGroup` declares `role="list"`, and a list whose children are
+        // buttons owns no list items at all — a reader counts the entries from
+        // what the list OWNS and announces "0 items" over three changes. The
+        // count is the first thing this panel says, so the wrapper is not
+        // pedantry here.
+        <div role="listitem" key={change.path}>
+          <Item
+            asChild
+            size="sm"
+            // `outline` rather than `muted`, and the hover tint is halved. The
+            // variants tint an anchor on hover and say nothing about a button,
+            // so an entry that moves the page needs its own answer to the
+            // pointer — but `muted` at full strength puts `ItemDescription`
+            // (muted-foreground, 14px) at 4.34:1 on this ground, under the 4.5
+            // that normal-size text has to clear. A border instead of a fill
+            // draws the hit target and leaves the ground pale enough to read
+            // on: 4.73:1 at rest, 4.53:1 hovered.
+            variant="outline"
+            className="hover:bg-muted/50"
+          >
+            <button
+              type="button"
+              className="text-start"
+              onClick={() => onJump(change.path)}
+            >
+              <ItemContent>
+                {/* Unclamped, both lines. The primitive clamps a title to one
+                    line and a description to two, which is right for a card
+                    and wrong here: the half that gets cut is the previous
+                    value, which is the one fact the operator opened this panel
+                    to read. */}
+                <ItemTitle className="line-clamp-none">{change.label}</ItemTitle>
+                {/* Both values, in the reader's own words, with no arrow
+                    between them: an arrow is a direction, and in Arabic it
+                    would point from the new value back to the old one. The
+                    middot is the separator `FieldConstraints` already uses for
+                    facts about one field. */}
+                <ItemDescription className="line-clamp-none">
+                  {[
+                    t("systemSettings.previousValue", {
+                      value: isolateFirstStrong(change.previous),
+                    }),
+                    t("systemSettings.currentValue", {
+                      value: isolateFirstStrong(change.current),
+                    }),
+                  ].join(" · ")}
+                </ItemDescription>
+              </ItemContent>
+            </button>
+          </Item>
+        </div>
+      ))}
+    </ItemGroup>
   )
 }
 
@@ -505,6 +648,9 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
   // The sticky bar sits OUTSIDE the card, so its Save reaches this form through
   // the `form` attribute rather than through the DOM tree.
   const formId = `system-settings-form-${sectionKey}`
+  // The same three words the rows use, from the same hook — the bar's list and
+  // the row it points at have to name a switch and an absent value alike.
+  const labels = useValueLabels()
 
   const [confirmReset, setConfirmReset] = React.useState(false)
   /**
@@ -515,6 +661,16 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
   const [pendingValues, setPendingValues] = React.useState<FieldValues | null>(null)
   const [highImpactNames, setHighImpactNames] = React.useState<string[]>([])
   const [conflictFields, setConflictFields] = React.useState<string[] | null>(null)
+  /** Whether the bar's list of unsaved changes is showing. */
+  const [changesOpen, setChangesOpen] = React.useState(false)
+  /** That list, taken when it opens — see `openChanges`. */
+  const [changes, setChanges] = React.useState<UnsavedChange[]>([])
+  /**
+   * The row an entry in that list sent us to, handed over only once the popover
+   * has actually closed: Radix returns focus to the trigger on close, and a row
+   * focused before that would lose it again a frame later.
+   */
+  const jumpTargetRef = React.useRef<string | null>(null)
   /** Where focus goes when the bar that had it unmounts on a successful save. */
   const titleRef = React.useRef<HTMLDivElement>(null)
   /**
@@ -580,7 +736,38 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
 
   const form = useForm<FieldValues>({ defaultValues })
   const isDirty = form.formState.isDirty
-  const dirtyCount = Object.keys(form.formState.dirtyFields).length
+  /**
+   * What the operator changed THIS session — the only honest source for both
+   * the mark on a row and the list in the bar.
+   *
+   * Not the save payload, which is every value that differs from the file
+   * baseline: that set includes settings somebody customized months ago and
+   * nobody has touched since, and marking those would point the operator at
+   * rows they never edited.
+   */
+  const dirtyFields = form.formState.dirtyFields as Record<string, unknown>
+  const dirtyCount = Object.keys(dirtyFields).length
+  /**
+   * The values the form opened with, which is what `dirtyFields` is measured
+   * against — so a row's mark and the value it names can never disagree.
+   *
+   * The same set as `syncedRef` (every gesture that moves one calls
+   * `form.reset` with the other), read from the form because a ref may not be
+   * read during render, and every row asks this question during render.
+   *
+   * THE INVARIANT, since two names for one fact is how they drift apart: every
+   * write to `syncedRef` is paired with a `form.reset` of the same object, and
+   * no `reset` here passes `keepDefaultValues`. Break either half and the row
+   * will say "was X" while the bar's list says "was Y" for the same setting,
+   * with nothing failing. The list reads `syncedRef` directly (it can — it runs
+   * in an event, not in render), which is what makes the pairing observable.
+   */
+  const openedWith = (form.formState.defaultValues ?? {}) as FieldValues
+  const dirtyOf: DirtyLookup = (path) => {
+    const name = formFieldName(path)
+    const dirty = Boolean(dirtyFields[name])
+    return { dirty, previousValue: dirty ? openedWith[name] : undefined }
+  }
 
   /**
    * The values this form is currently in agreement with the server about.
@@ -612,7 +799,14 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
     const unsubscribe = form.subscribe({
       formState: { isDirty: true },
       callback: ({ isDirty: dirty }) => {
-        if (!dirty) setConflictFields(null)
+        if (!dirty) {
+          setConflictFields(null)
+          // The list of unsaved changes is a statement about the same work, and
+          // the bar that holds it unmounts with it. Left standing, the open flag
+          // would still be true the next time an edit brings the bar back, and
+          // the popover would appear on its own.
+          setChangesOpen(false)
+        }
       },
     })
     return unsubscribe
@@ -671,6 +865,46 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
     },
     [sectionI18n, t]
   )
+
+  /**
+   * Builds the bar's list and shows it.
+   *
+   * Taken when the popover opens rather than followed live, which is not a
+   * shortcut: the popover holds focus while it is open and closes on the first
+   * click or Tab that leaves it, so nothing in the form can move underneath it.
+   * It is also the only way to read `syncedRef` at all — a ref may not be read
+   * during render, and this is an event.
+   *
+   * The previous value is `syncedRef`: what the form last agreed with the
+   * server about. NOT `baselineValue`, which is the configuration file's value
+   * and already has its own line on the row — naming that here would answer a
+   * question nobody asked ("what does the file say") in the place the operator
+   * asked a different one ("what did I change it FROM").
+   *
+   * `renderedPaths` orders the list the way the page is ordered, so scanning
+   * the list and scanning the section find things in the same order.
+   */
+  const openChanges = React.useCallback(() => {
+    const values = form.getValues()
+    const synced = syncedRef.current
+    const byPath = new Map(editable.map((field) => [field.path ?? "", field]))
+    setChanges(
+      renderedPaths
+        .map((path) => byPath.get(path))
+        .filter((field): field is SystemSettingsField => field !== undefined)
+        .filter((field) => Boolean(dirtyFields[formFieldName(field.path ?? "")]))
+        .map((field) => {
+          const name = formFieldName(field.path ?? "")
+          return {
+            path: field.path ?? "",
+            label: fieldLabel(field),
+            previous: renderSettingValue(synced[name], labels),
+            current: renderSettingValue(values[name], labels),
+          }
+        })
+    )
+    setChangesOpen(true)
+  }, [dirtyFields, editable, fieldLabel, form, labels, renderedPaths])
 
   /**
    * Which settings moved under us: the fields whose value on the server is no
@@ -1042,6 +1276,7 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
                           sectionI18n={sectionI18n}
                           control={form.control}
                           entry={entry}
+                          dirtyOf={dirtyOf}
                         />
                       ) : (
                         <GroupBlockRows
@@ -1051,6 +1286,7 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
                           control={form.control}
                           headingKey={`groups.${entry.block.key}`}
                           fields={entry.fields}
+                          dirtyOf={dirtyOf}
                         />
                       )
                     )}
@@ -1064,6 +1300,7 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
                         control={form.control}
                         headingKey="groups.general"
                         fields={general}
+                        dirtyOf={dirtyOf}
                       />
                     ) : null}
                   </div>
@@ -1075,6 +1312,7 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
                       sectionKey={sectionKey}
                       sectionI18n={sectionI18n}
                       control={form.control}
+                      {...dirtyOf(field.path ?? "")}
                     />
                   ))
                 )}
@@ -1171,9 +1409,80 @@ export function SectionForm({ section }: { section: SystemSettingsSection }) {
           aria-labelledby={`${formId}-unsaved`}
           className="sticky bottom-2 z-10 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 shadow-md"
         >
-          <p id={`${formId}-unsaved`} className="text-sm font-medium">
-            {t("systemSettings.unsavedCount", { count: dirtyCount })}
-          </p>
+          {/* The count is the question "which ones?" asked and not answered, so
+              it opens the answer. A Popover and not a Sheet or a Collapsible:
+              it is small contextual content on a click, and it portals to the
+              top layer, which is how it escapes the bar's own `z-10` without
+              anyone hand-picking a stacking order.
+
+              The region's name is still this element — whichever of the two it
+              is — so the landmark that makes a forty-row section reachable in
+              one jump keeps saying how much is unsaved. */}
+          {dirtyCount > 0 ? (
+            <Popover
+              open={changesOpen}
+              onOpenChange={(next) =>
+                next ? openChanges() : setChangesOpen(false)
+              }
+            >
+              <PopoverTrigger asChild>
+                {/* `-ms-3` gives back the button's own start padding: the count
+                    has to sit where it sat as a paragraph, on the bar's edge. */}
+                <Button type="button" variant="ghost" size="sm" className="-ms-3">
+                  <span id={`${formId}-unsaved`}>
+                    {t("systemSettings.unsavedCount", { count: dirtyCount })}
+                  </span>
+                  {/* What pressing it does, for a reader who cannot see the
+                      chevron. In its own element rather than in an `aria-label`,
+                      which would REPLACE the visible count — a control whose
+                      name does not contain its own visible text is one a voice
+                      user cannot ask for, and the region above would then be
+                      named after the action instead of the state. */}
+                  <span className="sr-only">
+                    {t("systemSettings.reviewChanges")}
+                  </span>
+                  <ChevronDown data-icon="inline-end" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="start"
+                // Wider than the primitive's `w-72`: an entry carries a setting
+                // label and two values, and the panel is anchored to a bar that
+                // spans the whole column, so there is room to spend.
+                className="w-96"
+                aria-labelledby={`${formId}-changes-title`}
+                onCloseAutoFocus={(event) => {
+                  const target = jumpTargetRef.current
+                  jumpTargetRef.current = null
+                  if (!target) return
+                  // An entry was pressed to go somewhere, so the row takes the
+                  // focus Radix was about to hand back to the trigger — and only
+                  // here, where the popover is already gone.
+                  event.preventDefault()
+                  focusRow(document.getElementById(settingAnchorId(target)))
+                }}
+              >
+                <PopoverHeader>
+                  <PopoverTitle id={`${formId}-changes-title`}>
+                    {t("systemSettings.changesTitle")}
+                  </PopoverTitle>
+                </PopoverHeader>
+                <UnsavedChangesList
+                  changes={changes}
+                  onJump={(path) => {
+                    jumpTargetRef.current = path
+                    setChangesOpen(false)
+                  }}
+                />
+              </PopoverContent>
+            </Popover>
+          ) : (
+            // Nothing to list: the bar is only still here because a save is in
+            // flight. The name the region points at has to exist either way.
+            <p id={`${formId}-unsaved`} className="text-sm font-medium">
+              {t("systemSettings.unsavedCount", { count: dirtyCount })}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"

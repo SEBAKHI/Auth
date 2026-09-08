@@ -1606,7 +1606,7 @@ export const tr: TranslationResources = {
     restartRequired: "Yeniden başlatma gerekli",
     pendingRestart: "Yeniden başlatma bekleniyor",
     overridden: "Özelleştirildi",
-    fileValue: "Varsayılan değer: {{value}}",
+    fileValue: "Yapılandırma dosyası: {{value}}",
     notSet: "Ayarlanmadı",
     managedInSecrets:
       "Gizli değer — şifreli olarak saklanır ve Gizli anahtar yönetimi altında yönetilir, asla burada değil.",
@@ -1627,6 +1627,11 @@ export const tr: TranslationResources = {
     conflictFields:
       "Siz düzenlerken bu ayarları başka biri değiştirdi: {{fields}}. Değerleriniz hâlâ burada ve hâlâ kaydedilmedi. Şimdi kaydederseniz sizin değerleriniz onunkilerin yerine geçer.",
     unsavedCount: "Kaydedilmemiş değişiklik sayısı: {{count}}",
+    unsaved: "Kaydedilmedi",
+    previousValue: "önceden {{value}}",
+    currentValue: "şimdi {{value}}",
+    reviewChanges: "Kaydedilmemiş değişiklikleri gözden geçir",
+    changesTitle: "Kaydedilmemiş değişiklikler",
     invalidSubmit:
       "Hiçbir şey kaydedilmedi. Bazı değerler geçerli değil — ilki aşağıda vurgulanmıştır.",
     invalidInDisabledCategory:

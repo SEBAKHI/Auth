@@ -1614,7 +1614,7 @@ export const en = {
     restartRequired: "Restart required",
     pendingRestart: "Waiting for restart",
     overridden: "Customized",
-    fileValue: "Default: {{value}}",
+    fileValue: "Configuration file: {{value}}",
     notSet: "Not set",
     managedInSecrets:
       "Secret value — stored encrypted and managed under Secret management, never here.",
@@ -1635,6 +1635,11 @@ export const en = {
     conflictFields:
       "Someone else changed these settings while you were editing: {{fields}}. Your values are still here and still unsaved. Saving now replaces theirs.",
     unsavedCount: "Unsaved changes: {{count}}",
+    unsaved: "Unsaved",
+    previousValue: "was {{value}}",
+    currentValue: "now {{value}}",
+    reviewChanges: "Review unsaved changes",
+    changesTitle: "Unsaved changes",
     invalidSubmit:
       "Nothing was saved. Some values are not valid — the first one is highlighted below.",
     invalidInDisabledCategory:

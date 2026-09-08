@@ -1592,7 +1592,7 @@ export const ur: TranslationResources = {
     restartRequired: "دوبارہ آغاز درکار ہے",
     pendingRestart: "دوبارہ آغاز کا انتظار",
     overridden: "ترمیم شدہ",
-    fileValue: "طے شدہ قدر: {{value}}",
+    fileValue: "کنفیگریشن فائل: {{value}}",
     notSet: "مقرر نہیں",
     managedInSecrets:
       "خفیہ قدر — خفیہ کاری کے ساتھ ذخیرہ ہوتی ہے اور اس کا انتظام «رازوں کا انتظام» کے تحت ہوتا ہے، یہاں کبھی نہیں۔",
@@ -1613,6 +1613,11 @@ export const ur: TranslationResources = {
     conflictFields:
       "آپ کی ترمیم کے دوران کسی اور نے یہ ترتیبات تبدیل کر دیں: {{fields}}۔ آپ کی قدریں اب بھی یہیں اور اب بھی غیر محفوظ ہیں۔ اب محفوظ کرنے سے ان کی قدروں کی جگہ آپ کی قدریں لے لیں گی۔",
     unsavedCount: "غیر محفوظ تبدیلیاں: {{count}}",
+    unsaved: "غیر محفوظ",
+    previousValue: "پہلے {{value}}",
+    currentValue: "اب {{value}}",
+    reviewChanges: "غیر محفوظ تبدیلیاں دیکھیں",
+    changesTitle: "غیر محفوظ تبدیلیاں",
     invalidSubmit:
       "کچھ بھی محفوظ نہیں ہوا۔ کچھ قدریں درست نہیں ہیں — پہلی قدر نیچے نمایاں کر دی گئی ہے۔",
     invalidInDisabledCategory:

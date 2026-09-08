@@ -1587,7 +1587,7 @@ export const fa: TranslationResources = {
     restartRequired: "نیاز به راه‌اندازی مجدد",
     pendingRestart: "در انتظار راه‌اندازی مجدد",
     overridden: "سفارشی‌شده",
-    fileValue: "مقدار پیش‌فرض: {{value}}",
+    fileValue: "فایل پیکربندی: {{value}}",
     notSet: "تنظیم نشده",
     managedInSecrets:
       "مقدار محرمانه — به‌صورت رمزگذاری‌شده ذخیره و ذیل «مدیریت اسرار» مدیریت می‌شود، نه اینجا.",
@@ -1608,6 +1608,11 @@ export const fa: TranslationResources = {
     conflictFields:
       "شخص دیگری هنگام ویرایش شما این تنظیمات را تغییر داده است: {{fields}}. مقادیر شما همچنان اینجا و همچنان ذخیره‌نشده‌اند. ذخیره‌کردن اکنون جای مقادیر او را می‌گیرد.",
     unsavedCount: "تغییرات ذخیره‌نشده: {{count}}",
+    unsaved: "ذخیره‌نشده",
+    previousValue: "پیش‌تر {{value}}",
+    currentValue: "اکنون {{value}}",
+    reviewChanges: "بررسی تغییرات ذخیره‌نشده",
+    changesTitle: "تغییرات ذخیره‌نشده",
     invalidSubmit:
       "چیزی ذخیره نشد. برخی مقادیر معتبر نیستند — نخستین مورد در پایین برجسته شده است.",
     invalidInDisabledCategory:

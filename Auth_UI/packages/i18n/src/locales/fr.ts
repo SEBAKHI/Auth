@@ -1639,7 +1639,7 @@ export const fr: TranslationResources = {
     restartRequired: "Redémarrage requis",
     pendingRestart: "En attente de redémarrage",
     overridden: "Personnalisé",
-    fileValue: "Valeur par défaut : {{value}}",
+    fileValue: "Fichier de configuration : {{value}}",
     notSet: "Non défini",
     managedInSecrets:
       "Valeur secrète — stockée chiffrée et gérée sous Gestion des secrets, jamais ici.",
@@ -1660,6 +1660,11 @@ export const fr: TranslationResources = {
     conflictFields:
       "Quelqu'un d'autre a modifié ces paramètres pendant que vous y travailliez : {{fields}}. Vos valeurs sont toujours là et toujours non enregistrées. Si vous enregistrez maintenant, les vôtres remplaceront les leurs.",
     unsavedCount: "Modifications non enregistrées : {{count}}",
+    unsaved: "Non enregistré",
+    previousValue: "avant {{value}}",
+    currentValue: "maintenant {{value}}",
+    reviewChanges: "Examiner les modifications non enregistrées",
+    changesTitle: "Modifications non enregistrées",
     invalidSubmit:
       "Rien n'a été enregistré. Certaines valeurs ne sont pas valides — la première est mise en évidence ci-dessous.",
     invalidInDisabledCategory:

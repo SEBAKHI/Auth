@@ -1562,7 +1562,7 @@ export const ar: TranslationResources = {
     restartRequired: "إعادة التشغيل مطلوبة",
     pendingRestart: "بانتظار إعادة التشغيل",
     overridden: "مخصص",
-    fileValue: "القيمة الافتراضية: {{value}}",
+    fileValue: "ملف الإعداد: {{value}}",
     notSet: "غير محدد",
     managedInSecrets:
       "قيمة سرّية — تُخزَّن مشفَّرة وتُدار ضمن «إدارة الأسرار»، وليس هنا أبدًا.",
@@ -1583,6 +1583,11 @@ export const ar: TranslationResources = {
     conflictFields:
       "غيَّر شخص آخر هذه الإعدادات أثناء تحريرك لها: {{fields}}. قيمك لا تزال هنا ولا تزال غير محفوظة. والحفظ الآن يكتب قيمك مكان القيم الحالية.",
     unsavedCount: "تغييرات غير محفوظة: {{count}}",
+    unsaved: "غير محفوظ",
+    previousValue: "سابقًا {{value}}",
+    currentValue: "الآن {{value}}",
+    reviewChanges: "مراجعة التغييرات غير المحفوظة",
+    changesTitle: "تغييرات غير محفوظة",
     invalidSubmit: "لم يُحفظ شيء. بعض القيم غير صالحة — وأولاها مميَّزة أدناه.",
     invalidInDisabledCategory:
       "«{{category}}» في وضع الإيقاف، لذا لا يمكن تحرير القيمة التي تحتاج إلى تصحيح. فعِّل هذه الفئة من جديد، ثم صحِّح القيمة، ثم احفظ.",
