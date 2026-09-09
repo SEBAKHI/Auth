@@ -3,7 +3,10 @@ import { ShieldCheck, type LucideIcon } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { NavLink, Outlet, useLocation } from "react-router-dom"
 
+import { buttonVariants } from "@authsystem/ui/button"
 import { Separator } from "@authsystem/ui/separator"
+import { cn } from "@authsystem/ui/utils"
+import { useIsMobile } from "@authsystem/ui/hooks/use-mobile"
 import {
   Sidebar,
   SidebarContent,
@@ -72,14 +75,50 @@ function ZonedOutlet() {
   )
 }
 
+/**
+ * The platform mark, as it appears wherever the shell links home.
+ *
+ * One definition for its two homes — the desktop header bar, and the nav
+ * drawer a phone opens over the page — so the mark, its fallback and the
+ * decision to drop the name text can never drift apart between them.
+ *
+ * The box it gets is fixed at `h-9` and never squeezed. A wordmark is wider
+ * than it is tall, and the collapsed rail used to force it into a 32px square:
+ * the aspect ratio held, so the name shrank to a few unreadable pixels of
+ * height. Nothing here may reintroduce a width that depends on the sidebar.
+ */
+function BrandMark() {
+  const branding = useBranding()
+
+  return (
+    <>
+      <BrandingLogo
+        className="h-9 w-auto max-w-40 object-contain"
+        fallback={
+          <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+            <ShieldCheck className="size-5" />
+          </div>
+        }
+      />
+      {/* A logo usually carries the brand name; avoid repeating it.
+          While branding is still unknown neither is shown: rendering
+          the name meant every cold load flashed the compiled-in
+          product name before the real logo replaced it. */}
+      {branding.isPending || branding.logoUrl ? null : (
+        <span className="max-w-40 truncate font-semibold">{branding.name}</span>
+      )}
+    </>
+  )
+}
+
 function AppSidebar({
   navItems,
   navGroupKey,
-}: Pick<AppShellProps, "navItems" | "navGroupKey">) {
+  homeHref = "/",
+}: Pick<AppShellProps, "navItems" | "navGroupKey" | "homeHref">) {
   const { t } = useTranslation()
   const { pathname } = useLocation()
   const { dir } = useLanguage()
-  const branding = useBranding()
   const { isMobile, setOpenMobile } = useSidebar()
 
   // On a phone the sidebar is a Sheet drawn over the page, so a link followed
@@ -99,31 +138,32 @@ function AppSidebar({
   return (
     <Sidebar collapsible="icon" side={dir === "rtl" ? "right" : "left"}>
       <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <NavLink to="/" onClick={closeOnMobile}>
-                <BrandingLogo
-                  className="h-9 w-auto max-w-40 object-contain group-data-[collapsible=icon]:size-8"
-                  fallback={
-                    <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                      <ShieldCheck className="size-5" />
-                    </div>
-                  }
-                />
-                {/* A logo usually carries the brand name; avoid repeating it.
-                    While branding is still unknown neither is shown: rendering
-                    the name meant every cold load flashed the compiled-in
-                    product name before the real logo replaced it. */}
-                {branding.isPending || branding.logoUrl ? null : (
-                  <span className="truncate font-semibold">
-                    {branding.name}
-                  </span>
-                )}
-              </NavLink>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+        {isMobile ? (
+          // The drawer is opened from the header bar and covers it, so the
+          // mark has to be repeated here — it is the only brand the visitor
+          // can see while the nav is open. The collapse control has no meaning
+          // on a phone: this sidebar is a drawer, and it is either open or gone.
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg" asChild>
+                <NavLink to={homeHref} onClick={closeOnMobile}>
+                  <BrandMark />
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        ) : (
+          // `h-10` inside the header's `p-2` makes this band exactly as tall as
+          // the header bar next to it, so the collapse control and the mark that
+          // replaced it sit on one line across the seam, and the group label
+          // below starts level with the page content.
+          <div className="flex h-10 items-center">
+            {/* Expanded, `ms-1` puts the icon on the same 20px gutter as every
+                nav icon below it. Collapsed, the rail is exactly this button
+                wide, so the offset has to go or it pushes the icon off-centre. */}
+            <SidebarTrigger className="ms-1 group-data-[collapsible=icon]:ms-0" />
+          </div>
+        )}
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -165,15 +205,43 @@ export function AppShell({
   showProfile,
   headerExtras,
 }: AppShellProps) {
+  // The same store `SidebarProvider` reads, so the header and the sidebar can
+  // never disagree about which of them is holding the collapse control.
+  const isMobile = useIsMobile()
+
   return (
     // The shell is exactly one viewport tall and never scrolls itself, so the
     // header — breadcrumbs, settings search, account menu — stays put however
     // long the page below it runs. Scrolling belongs to `main`.
     <SidebarProvider className="h-svh overflow-hidden">
-      <AppSidebar navItems={navItems} navGroupKey={navGroupKey} />
+      <AppSidebar
+        navItems={navItems}
+        navGroupKey={navGroupKey}
+        homeHref={homeHref}
+      />
       <SidebarInset className="min-h-0 overflow-hidden">
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger />
+          {/* The mark and the collapse control trade places at exactly the width
+              where the sidebar stops being a rail and becomes a drawer. Below
+              it the control cannot live inside the sidebar: the sidebar is off
+              screen, and a control you cannot reach is no way to open anything.
+              Above it the sidebar is always present, so the control belongs on
+              the thing it collapses and the mark gets a slot that never shrinks. */}
+          {isMobile ? (
+            <SidebarTrigger />
+          ) : (
+            <NavLink
+              to={homeHref ?? "/"}
+              // `px-2` inside the header's `px-4` starts the mark on the same
+              // 24px gutter the page content below it uses.
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "lg" }),
+                "shrink-0 gap-2 px-2"
+              )}
+            >
+              <BrandMark />
+            </NavLink>
+          )}
           <Separator orientation="vertical" className="h-6" />
           {/* The header carries the trail only where it fits. Below `lg` the
               search box, language, theme and account controls leave it about a

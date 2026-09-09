@@ -329,6 +329,9 @@ export const fa: TranslationResources = {
     security: "امنیت",
     platform: "پلتفرم",
     account: "حساب",
+    sidebar: "ناوبری",
+    sidebarDescription: "پیوند به بخش‌های اصلی.",
+    toggleSidebar: "نمایش یا پنهان کردن ناوبری",
   },
   auth: {
     continueWithApple: "ادامه با Apple",

@@ -330,6 +330,9 @@ export const ur: TranslationResources = {
     security: "سلامتی",
     platform: "پلیٹ فارم",
     account: "اکاؤنٹ",
+    sidebar: "نیویگیشن",
+    sidebarDescription: "بنیادی حصوں کے روابط۔",
+    toggleSidebar: "نیویگیشن دکھائیں یا چھپائیں",
   },
   auth: {
     continueWithApple: "Apple کے ساتھ جاری رکھیں",

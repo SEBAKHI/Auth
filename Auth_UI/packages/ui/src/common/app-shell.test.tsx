@@ -6,6 +6,7 @@ import { Navigate, RouterProvider, createMemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import "@authsystem/i18n"
+import { en } from "@authsystem/i18n/locales/en"
 import { DirectionProvider } from "@authsystem/i18n/direction"
 import { TooltipProvider } from "@authsystem/ui/tooltip"
 import { crumb } from "@authsystem/ui/crumbs"
@@ -20,7 +21,20 @@ vi.mock("@authsystem/ui/common/language-toggle", () => ({
 vi.mock("@authsystem/ui/common/theme-toggle", () => ({ ThemeToggle: () => null }))
 vi.mock("@authsystem/ui/branding", () => ({
   useBranding: () => ({ name: "Auth", logoUrl: null, isPending: false }),
-  BrandingLogo: ({ fallback }: { fallback: ReactNode }) => fallback,
+  // The box the mark is given is the point of the cases at the bottom of this
+  // file, so the mock has to carry the caller's classes into the DOM rather
+  // than render the fallback bare.
+  BrandingLogo: ({
+    fallback,
+    className,
+  }: {
+    fallback: ReactNode
+    className?: string
+  }) => (
+    <div data-testid="brand-mark" className={className}>
+      {fallback}
+    </div>
+  ),
 }))
 
 const PHONE_WIDTH = 390
@@ -127,7 +141,7 @@ function renderShell(...initialEntries: string[]) {
 const drawer = () => screen.queryByRole("dialog")
 
 async function openDrawer(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: /toggle sidebar/i }))
+  await user.click(screen.getByRole("button", { name: en.nav.toggleSidebar }))
   return screen.findByRole("dialog")
 }
 
@@ -276,5 +290,85 @@ describe("AppShell parent link", () => {
     renderLandingShell("/organizations")
 
     expect(parentLink()).toHaveAttribute("href", "/profile")
+  })
+})
+
+/**
+ * Where the platform mark and the collapse control live.
+ *
+ * The collapsed rail is 48px wide, so a mark parked in it was squeezed into a
+ * 32px square: fine for a glyph, and unreadable for the wordmark most platforms
+ * upload, whose name shrank with its width. So the two trade places - the
+ * control is a 32px glyph and belongs in the rail, and the mark moves to the
+ * header bar, which never narrows.
+ */
+describe("AppShell brand and collapse control", () => {
+  const trigger = () => screen.getByRole("button", { name: en.nav.toggleSidebar })
+  const headerBar = () => {
+    const bar = document.querySelector("header")
+    if (!bar) throw new Error("The shell rendered no header bar")
+    return bar
+  }
+
+  it("hands the sidebar the control and the header the mark", () => {
+    renderShell("/")
+
+    expect(trigger().closest('[data-slot="sidebar-header"]')).not.toBeNull()
+
+    const mark = screen.getByTestId("brand-mark")
+    expect(headerBar().contains(mark)).toBe(true)
+    expect(mark.closest("a")).toHaveAttribute("href", "/")
+  })
+
+  it("never ties the mark's box to the state of the sidebar", () => {
+    renderShell("/")
+
+    // The whole defect in one class: a width that followed the rail. The mark
+    // keeps its aspect ratio, so a square box does not crop a wordmark - it
+    // scales the entire thing down to a few pixels of height.
+    expect(screen.getByTestId("brand-mark").className).not.toContain(
+      "collapsible=icon"
+    )
+  })
+
+  it("points the mark at the app's declared landing page", () => {
+    // The accounts app's `/` only redirects; sending its mark there is a bounce.
+    renderLandingShell("/profile")
+
+    expect(screen.getByTestId("brand-mark").closest("a")).toHaveAttribute(
+      "href",
+      "/profile"
+    )
+  })
+
+  it("names the control and the drawer from the catalogue", async () => {
+    setViewportWidth(PHONE_WIDTH)
+    try {
+      const user = userEvent.setup()
+      renderShell("/")
+
+      // Neither string is ever drawn, so an operator reading the console in
+      // Arabic cannot see it drop back to English and cannot report it. The
+      // catalogue is the assertion: a literal in the primitive fails here.
+      expect(trigger()).toHaveAccessibleName(en.nav.toggleSidebar)
+      expect(await openDrawer(user)).toHaveAccessibleName(en.nav.sidebar)
+    } finally {
+      setViewportWidth(DESKTOP_WIDTH)
+    }
+  })
+
+  it("keeps the control reachable at phone width", () => {
+    setViewportWidth(PHONE_WIDTH)
+    try {
+      renderShell("/")
+
+      // Here the sidebar is a drawer, so a control housed inside it would be
+      // off screen for as long as the drawer is closed - and nothing else in
+      // the shell opens the nav. It stays in the header bar at this width.
+      expect(drawer()).toBeNull()
+      expect(headerBar().contains(trigger())).toBe(true)
+    } finally {
+      setViewportWidth(DESKTOP_WIDTH)
+    }
   })
 })

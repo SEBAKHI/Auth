@@ -330,6 +330,9 @@ export const tr: TranslationResources = {
     security: "Güvenlik",
     platform: "Platform",
     account: "Hesap",
+    sidebar: "Gezinme",
+    sidebarDescription: "Ana bölümlere bağlantılar.",
+    toggleSidebar: "Gezinmeyi aç veya kapat",
   },
   auth: {
     continueWithApple: "Apple ile devam et",

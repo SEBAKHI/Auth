@@ -328,6 +328,9 @@ export const ar: TranslationResources = {
     security: "الأمان",
     platform: "المنصة",
     account: "الحساب",
+    sidebar: "التنقل",
+    sidebarDescription: "روابط إلى الأقسام الرئيسية.",
+    toggleSidebar: "إظهار قائمة التنقل أو إخفاؤها",
   },
   auth: {
     continueWithApple: "المتابعة باستخدام Apple",

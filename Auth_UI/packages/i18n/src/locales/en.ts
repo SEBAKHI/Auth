@@ -331,6 +331,13 @@ export const en = {
     security: "Security",
     platform: "Platform",
     account: "Account",
+    // Announced, never drawn: the name of the nav panel and of the control
+    // that shows and hides it. A screen reader is the only way anyone meets
+    // these three, which is exactly why they were the last strings left in
+    // English while the seven visible catalogues were complete.
+    sidebar: "Navigation",
+    sidebarDescription: "Links to the main sections.",
+    toggleSidebar: "Toggle navigation",
   },
   auth: {
     continueWithApple: "Continue with Apple",

@@ -330,6 +330,9 @@ export const fr: TranslationResources = {
     security: "Sécurité",
     platform: "Plateforme",
     account: "Compte",
+    sidebar: "Navigation",
+    sidebarDescription: "Liens vers les sections principales.",
+    toggleSidebar: "Afficher ou masquer la navigation",
   },
   auth: {
     continueWithApple: "Continuer avec Apple",

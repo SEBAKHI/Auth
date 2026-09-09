@@ -327,6 +327,9 @@ export const zh: TranslationResources = {
     security: "安全",
     platform: "平台",
     account: "账户",
+    sidebar: "导航",
+    sidebarDescription: "指向主要板块的链接。",
+    toggleSidebar: "显示或隐藏导航",
   },
   auth: {
     continueWithApple: "通过 Apple 继续",
