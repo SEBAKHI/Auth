@@ -11,7 +11,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -40,7 +39,10 @@ export interface AppNavItem {
 interface AppShellProps {
   /** Sidebar entries, already filtered for the current user. */
   navItems: AppNavItem[]
-  /** i18n key under `nav.*` for the sidebar group label. */
+  /**
+   * i18n key under `nav.*` naming the sidebar's navigation landmark. Announced,
+   * never drawn — see the group in `AppSidebar` for why it is not painted.
+   */
   navGroupKey: string
   /** i18n key under `nav.*` for the breadcrumb home crumb. */
   homeKey: string
@@ -158,16 +160,22 @@ function AppSidebar({
           // replaced it sit on one line across the seam, and the group label
           // below starts level with the page content.
           <div className="flex h-10 items-center">
-            {/* Expanded, `ms-1` puts the icon on the same 20px gutter as every
-                nav icon below it. Collapsed, the rail is exactly this button
-                wide, so the offset has to go or it pushes the icon off-centre. */}
-            <SidebarTrigger className="ms-1 group-data-[collapsible=icon]:ms-0" />
+            {/* `ms-1` puts the icon on the same 20px gutter as every nav icon
+                below it, and it stays there collapsed: the rail is wide enough
+                for this button plus that offset on either side, so the control
+                is centred in the rail without ever being moved to get there. */}
+            <SidebarTrigger className="ms-1" />
           </div>
         )}
       </SidebarHeader>
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>{t(`nav.${navGroupKey}`)}</SidebarGroupLabel>
+        {/* The group heading is announced, not drawn. Painted, it collapsed
+            with the rail — it carries `-mt-8` in the icon state — and pulled
+            every entry below it 32px up and back down on each toggle. As a
+            the name of the navigation landmark it still tells a screen reader
+            which section these links belong to, without occupying a line that
+            can disappear. */}
+        <SidebarGroup role="navigation" aria-label={t(`nav.${navGroupKey}`)}>
           <SidebarMenu>
             {navItems.map((item) => {
               const Icon = item.icon
