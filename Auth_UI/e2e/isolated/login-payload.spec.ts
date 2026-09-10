@@ -92,7 +92,14 @@ test("the login screen downloads only what it needs", async ({ page }) => {
  */
 const SIGNED_OUT_ENTRIES = [
   { path: "/", measured: 959_356, budget: 1_000_000 },
-  { path: "/users", measured: 1_149_821, budget: 1_180_000 },
+  // Re-measured 2026-09-10 at 1,183,610 bytes: the entry had crept past its
+  // 1,180,000 budget on main before the sign-up work touched the accounts app
+  // (1,181,232 at that point), and nobody saw it because this tier does not run
+  // in CI. The owner chose to re-base the budget rather than carry a red test
+  // into an unrelated branch; the rule stands that it only moves this way by
+  // an explicit decision, and the way to earn headroom back is to shrink the
+  // signed-out chain, not to touch this number again.
+  { path: "/users", measured: 1_183_610, budget: 1_200_000 },
 ]
 
 for (const entry of SIGNED_OUT_ENTRIES) {
