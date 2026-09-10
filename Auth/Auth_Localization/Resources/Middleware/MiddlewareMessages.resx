@@ -93,4 +93,7 @@
   <data name="Middleware.Conflict.Detail" xml:space="preserve">
     <value>The operation could not be completed because related records reference this resource.</value>
   </data>
+  <data name="Middleware.Duplicate.Detail" xml:space="preserve">
+    <value>A record with the same unique value already exists.</value>
+  </data>
 </root>

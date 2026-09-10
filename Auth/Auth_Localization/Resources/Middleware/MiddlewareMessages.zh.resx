@@ -93,4 +93,7 @@
   <data name="Middleware.Conflict.Detail" xml:space="preserve">
     <value>操作无法完成，因为存在引用此资源的关联记录。</value>
   </data>
+  <data name="Middleware.Duplicate.Detail" xml:space="preserve">
+    <value>已存在具有相同唯一值的记录。</value>
+  </data>
 </root>

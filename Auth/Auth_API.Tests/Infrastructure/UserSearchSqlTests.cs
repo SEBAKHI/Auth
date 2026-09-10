@@ -10,7 +10,9 @@ namespace Auth_API.Tests.Infrastructure;
 /// person by the name shown on screen found nobody: "Le Ga" is FirstName "Le"
 /// and LastName "Ga", so it matched neither column, while FullName — a
 /// persisted computed column holding exactly that string — was never read.
-/// Username was never read either.
+/// Username was never read either. Username now holds the full address for
+/// rows written after the verify-first registration work and the local part
+/// for older rows; LIKE is what lets one predicate find both.
 ///
 /// The repositories are Dapper + raw SQL and the test project has no database,
 /// so the SQL text is the unit under test, as in <see cref="UserHardDeleteSqlTests"/>.
@@ -22,7 +24,7 @@ public class UserSearchSqlTests
 
     [Theory]
     [InlineData("Email", "the address is what most administrators type first")]
-    [InlineData("Username", "the sign-in identifier is a name a person may know someone by")]
+    [InlineData("Username", "the sign-in identifier is the full address on new rows and the local part on old ones; a pattern match finds either")]
     [InlineData("FullName", "\"First Last\" as displayed matches no single name column — this is the one that was missing")]
     [InlineData("FirstName", "a given name alone must still match")]
     [InlineData("LastName", "a family name alone must still match")]

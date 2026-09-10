@@ -93,4 +93,7 @@
   <data name="Middleware.Conflict.Detail" xml:space="preserve">
     <value>آپریشن مکمل نہیں ہو سکا کیونکہ متعلقہ ریکارڈ اس وسیلے کا حوالہ دیتے ہیں۔</value>
   </data>
+  <data name="Middleware.Duplicate.Detail" xml:space="preserve">
+    <value>اسی منفرد قدر والا ریکارڈ پہلے سے موجود ہے۔</value>
+  </data>
 </root>

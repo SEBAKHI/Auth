@@ -220,50 +220,7 @@ public class UserRepository : IUserRepository
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            INSERT INTO [dbo].[Users] (
-                [Id], [Username], [Email], [NormalizedEmail], [PasswordHash], [FirstName], [LastName],
-                [PhoneNumber], [PreferredLanguage], [TimeZone], [Theme],
-                [IsEmailConfirmed], [IsPhoneConfirmed], [IsTwoFactorEnabled],
-                [Status], [FailedLoginAttempts], [LockoutEndUtc], [LastLoginUtc],
-                [LastPasswordChangeUtc], [MustChangePassword], [ProfileImageUrl],
-                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
-            ) VALUES (
-                @Id, @Username, @Email, @NormalizedEmail, @PasswordHash, @FirstName, @LastName,
-                @PhoneNumber, @PreferredLanguage, @TimeZone, @Theme,
-                @IsEmailConfirmed, @IsPhoneConfirmed, @IsTwoFactorEnabled,
-                @Status, @FailedLoginAttempts, @LockoutEndUtc, @LastLoginUtc,
-                @LastPasswordChangeUtc, @MustChangePassword, @ProfileImageUrl,
-                @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
-            )",
-            new
-            {
-                user.Id,
-                Username = user.Email.Value.Split('@')[0],
-                Email = user.Email.Value,
-                user.NormalizedEmail,
-                user.PasswordHash,
-                user.FirstName,
-                user.LastName,
-                PhoneNumber = (string?)null,
-                user.PreferredLanguage,
-                user.TimeZone,
-                user.Theme,
-                IsEmailConfirmed = user.EmailConfirmed,
-                IsPhoneConfirmed = user.PhoneConfirmed,
-                IsTwoFactorEnabled = user.TwoFactorEnabled,
-                Status = (int)user.Status,
-                user.FailedLoginAttempts,
-                LockoutEndUtc = user.LockoutEnd,
-                LastLoginUtc = user.LastLoginAt,
-                LastPasswordChangeUtc = user.PasswordChangedAt,
-                user.MustChangePassword,
-                user.ProfileImageUrl,
-                user.CreatedAt,
-                user.CreatedBy,
-                user.ModifiedAt,
-                user.ModifiedBy
-            });
+        await InsertUserAsync(connection, user, transaction: null);
 
         // The per-user DEK row has an FK to Users, so the phone can only be
         // encrypted after the account row exists: insert without it, then
@@ -279,6 +236,77 @@ public class UserRepository : IUserRepository
 
         return user;
     }
+
+    /// <summary>
+    /// The one INSERT into Users in the application. Every code path that
+    /// brings an account into existence must issue this statement and no other
+    /// (the two seeded accounts are written by Script.PostDeployment.sql and
+    /// keep their local-part usernames), so the column list, the parameter
+    /// shape and the identifier rules live here once. The
+    /// transaction is optional: <see cref="CreateAsync"/> runs it alone, while a
+    /// caller that has to insert the row inside its own transaction (a verified
+    /// registration consuming its pending row in the same commit) passes the
+    /// transaction and gets the identical statement.
+    /// </summary>
+    private static Task InsertUserAsync(IDbConnection connection, User user, IDbTransaction? transaction)
+    {
+        return connection.ExecuteAsync(InsertUserSql, InsertUserParameters(user), transaction);
+    }
+
+    private const string InsertUserSql = @"
+            INSERT INTO [dbo].[Users] (
+                [Id], [Username], [Email], [NormalizedEmail], [PasswordHash], [FirstName], [LastName],
+                [PhoneNumber], [PreferredLanguage], [TimeZone], [Theme],
+                [IsEmailConfirmed], [IsPhoneConfirmed], [IsTwoFactorEnabled],
+                [Status], [FailedLoginAttempts], [LockoutEndUtc], [LastLoginUtc],
+                [LastPasswordChangeUtc], [MustChangePassword], [ProfileImageUrl],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+            ) VALUES (
+                @Id, @Username, @Email, @NormalizedEmail, @PasswordHash, @FirstName, @LastName,
+                @PhoneNumber, @PreferredLanguage, @TimeZone, @Theme,
+                @IsEmailConfirmed, @IsPhoneConfirmed, @IsTwoFactorEnabled,
+                @Status, @FailedLoginAttempts, @LockoutEndUtc, @LastLoginUtc,
+                @LastPasswordChangeUtc, @MustChangePassword, @ProfileImageUrl,
+                @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
+            )";
+
+    private static object InsertUserParameters(User user) => new
+    {
+        user.Id,
+        // The sign-in identifier is the full address. It used to be the local
+        // part — everything before '@' — and UQ_Users_Username made that a live
+        // fault: jane@a.example and jane@b.example collided on "jane", and the
+        // second registration died as an unhandled unique violation. Nothing
+        // reads Username as a local part (the search matches it with LIKE, the
+        // purge by equality against the stored value), so rows written before
+        // this keep their shape and no backfill is needed.
+        Username = user.Email.Value,
+        Email = user.Email.Value,
+        user.NormalizedEmail,
+        user.PasswordHash,
+        user.FirstName,
+        user.LastName,
+        // Written after the row exists: the ciphertext needs the per-user DEK,
+        // whose row has a foreign key to this one.
+        PhoneNumber = (string?)null,
+        user.PreferredLanguage,
+        user.TimeZone,
+        user.Theme,
+        IsEmailConfirmed = user.EmailConfirmed,
+        IsPhoneConfirmed = user.PhoneConfirmed,
+        IsTwoFactorEnabled = user.TwoFactorEnabled,
+        Status = (int)user.Status,
+        user.FailedLoginAttempts,
+        LockoutEndUtc = user.LockoutEnd,
+        LastLoginUtc = user.LastLoginAt,
+        LastPasswordChangeUtc = user.PasswordChangedAt,
+        user.MustChangePassword,
+        user.ProfileImageUrl,
+        user.CreatedAt,
+        user.CreatedBy,
+        user.ModifiedAt,
+        user.ModifiedBy
+    };
 
     /// <inheritdoc />
     public async Task UpdateAsync(User user, CancellationToken cancellationToken)

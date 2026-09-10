@@ -93,4 +93,7 @@
   <data name="Middleware.Conflict.Detail" xml:space="preserve">
     <value>تعذر إتمام العملية لوجود سجلات مرتبطة تشير إلى هذا المورد.</value>
   </data>
+  <data name="Middleware.Duplicate.Detail" xml:space="preserve">
+    <value>يوجد سجل بالقيمة الفريدة نفسها مسبقًا.</value>
+  </data>
 </root>

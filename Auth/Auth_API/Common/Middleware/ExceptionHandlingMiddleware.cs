@@ -111,6 +111,19 @@ public class ExceptionHandlingMiddleware
                     "The operation could not be completed because related records reference this resource."),
                 (object?)null
             ),
+            // SQL errors 2601 (unique index) and 2627 (unique constraint): a row
+            // that already exists is a conflict, not an internal error. The
+            // repositories that expect a race catch these themselves and resolve
+            // it; this is the backstop for the writes that do not — the Users
+            // insert first among them, whose UQ_Users_Username surfaced as a 500
+            // whenever two addresses shared a local part.
+            SqlException { Number: 2601 or 2627 } => (
+                HttpStatusCode.Conflict,
+                Localize(localizer, "Middleware.Conflict.Title", "Conflict"),
+                Localize(localizer, "Middleware.Duplicate.Detail",
+                    "A record with the same unique value already exists."),
+                (object?)null
+            ),
             _ => (
                 HttpStatusCode.InternalServerError,
                 Localize(localizer, "Middleware.InternalError.Title", "Internal Server Error"),

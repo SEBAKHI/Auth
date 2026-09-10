@@ -12,24 +12,59 @@ namespace Auth_API.Tests.Helpers;
 /// </summary>
 internal sealed class RecordingDbConnectionFactory(int affectedRows) : IDbConnectionFactory
 {
+    private readonly List<RecordedCommand> _commands = [];
+
     public RecordedCommand? LastCommand { get; private set; }
+
+    /// <summary>Every command issued, in order — for methods that issue several.</summary>
+    public IReadOnlyList<RecordedCommand> Commands => _commands;
+
+    /// <summary>The most recent transaction a connection handed out, if any.</summary>
+    public RecordingDbTransaction? LastTransaction { get; private set; }
 
     public Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult<IDbConnection>(new RecordingDbConnection(
             affectedRows,
-            command => LastCommand = command));
+            command => { _commands.Add(command); LastCommand = command; },
+            transaction => LastTransaction = transaction));
     }
 }
 
+/// <param name="InTransaction">
+/// Whether the command carried a transaction. Dapper only enlists a command in
+/// a transaction when the caller passes it explicitly, and SqlClient throws for
+/// a command issued on a connection with an open transaction it was not given
+/// — so a transactional method is only correct if every one of its commands
+/// records true here.
+/// </param>
 internal sealed record RecordedCommand(
     string CommandText,
-    IReadOnlyDictionary<string, object?> Parameters);
+    IReadOnlyDictionary<string, object?> Parameters,
+    bool InTransaction = false);
+
+/// <summary>
+/// A transaction that does nothing but remember how it ended. The double never
+/// simulates a database; it lets a method that opens a transaction run to its
+/// end so the commands it issued inside can be asserted on.
+/// </summary>
+internal sealed class RecordingDbTransaction(DbConnection connection, IsolationLevel isolationLevel) : DbTransaction
+{
+    public bool Committed { get; private set; }
+    public bool RolledBack { get; private set; }
+
+    public override IsolationLevel IsolationLevel => isolationLevel;
+    protected override DbConnection? DbConnection => connection;
+
+    public override void Commit() => Committed = true;
+    public override void Rollback() => RolledBack = true;
+}
 
 internal sealed class RecordingDbConnection(
     int affectedRows,
-    Action<RecordedCommand> record) : DbConnection
+    Action<RecordedCommand> record,
+    Action<RecordingDbTransaction>? onTransaction = null) : DbConnection
 {
     private ConnectionState _state = ConnectionState.Open;
 
@@ -50,8 +85,12 @@ internal sealed class RecordingDbConnection(
         return Task.CompletedTask;
     }
 
-    protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel) =>
-        throw new NotSupportedException();
+    protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
+    {
+        var transaction = new RecordingDbTransaction(this, isolationLevel);
+        onTransaction?.Invoke(transaction);
+        return transaction;
+    }
 
     protected override DbCommand CreateDbCommand() =>
         new RecordingDbCommand(this, affectedRows, record);
@@ -106,7 +145,8 @@ internal sealed class RecordingDbCommand(
             _parameters.Cast<DbParameter>().ToDictionary(
                 parameter => parameter.ParameterName.TrimStart('@'),
                 parameter => parameter.Value is DBNull ? null : parameter.Value,
-                StringComparer.OrdinalIgnoreCase)));
+                StringComparer.OrdinalIgnoreCase),
+            InTransaction: DbTransaction is not null));
         return affectedRows;
     }
 }

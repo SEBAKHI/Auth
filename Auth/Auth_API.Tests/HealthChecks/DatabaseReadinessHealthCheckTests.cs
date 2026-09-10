@@ -104,4 +104,42 @@ public class DatabaseReadinessHealthCheckTests
         first.Status.Should().Be(HealthStatus.Degraded);
         second.Status.Should().Be(HealthStatus.Degraded);
     }
+
+    /// <summary>
+    /// The database is published from Visual Studio, the API is uploaded
+    /// separately, and the two have gone out in the wrong order before. Every
+    /// schema change the code cannot run without is listed on the check, so an
+    /// API uploaded ahead of its database says so on /ready instead of failing
+    /// inside the first request that reaches the missing column.
+    /// </summary>
+    [Fact]
+    public void TheSchemaExpectations_CoverTheUsernameWidth()
+    {
+        DatabaseReadinessHealthCheck.SchemaExpectations.Should().Contain(
+            expectation => expectation.Sql.Contains("COL_LENGTH('dbo.Users', 'Username')")
+                           && expectation.Sql.Contains("510"),
+            "Username became the full address and NVARCHAR(255) is 510 bytes; " +
+            "an API that writes it into a 50-character column fails with a truncation error the middleware does not map");
+    }
+
+    [Fact]
+    public void ReadinessReportsAMissingSchemaHalf_ByName()
+    {
+        var expectation = DatabaseReadinessHealthCheck.SchemaExpectations[0];
+
+        var missing = DatabaseReadinessHealthCheck.SchemaShortfall(expectation, 0);
+        var present = DatabaseReadinessHealthCheck.SchemaShortfall(expectation, 1);
+        var presentAsBigint = DatabaseReadinessHealthCheck.SchemaShortfall(expectation, 1L);
+
+        missing.Should().NotBeNull();
+        missing!.Value.Status.Should().Be(HealthStatus.Degraded);
+        missing.Value.Exception.Should().NotBeNull();
+        missing.Value.Exception!.Message.Should().Contain(expectation.Name,
+            "the operator must be told which half is behind, not just that something is");
+        missing.Value.Description.Should().NotContain("Users.Username",
+            "/ready answers anonymous callers; the object name belongs on the gated error channel, not the public description");
+        missing.Value.Description.Should().Contain("Publish Auth_DB before this API");
+        present.Should().BeNull();
+        presentAsBigint.Should().BeNull("SQL Server may hand the CASE result back as either int or bigint");
+    }
 }

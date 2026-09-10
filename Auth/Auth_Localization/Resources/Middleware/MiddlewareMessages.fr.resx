@@ -93,4 +93,7 @@
   <data name="Middleware.Conflict.Detail" xml:space="preserve">
     <value>L'opération n'a pas pu être effectuée car des enregistrements liés référencent cette ressource.</value>
   </data>
+  <data name="Middleware.Duplicate.Detail" xml:space="preserve">
+    <value>Un enregistrement portant la même valeur unique existe déjà.</value>
+  </data>
 </root>

@@ -150,6 +150,62 @@ public class ExceptionHandlingMiddlewareTests
         var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
         body.Should().Contain("test-correlation-123");
     }
+
+    /// <summary>
+    /// A row that already exists is a conflict the caller can act on, not an
+    /// internal error. Two registrations whose addresses shared a local part
+    /// used to collide on UQ_Users_Username and surface as a 500 with nothing
+    /// in the body; the unique-violation numbers now map beside the
+    /// foreign-key one.
+    /// </summary>
+    [Theory]
+    [InlineData(2601)]
+    [InlineData(2627)]
+    public async Task InvokeAsync_UniqueViolation_IsAConflictNotAServerError(int number)
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        // Built before the delegate runs: a helper failure must surface as its
+        // own message, not be caught by the middleware under test and read as
+        // the wrong status code.
+        var thrown = SqlExceptions.WithNumber(number);
+        var middleware = CreateMiddleware(_ => throw thrown);
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(409,
+            $"SQL error {number} means the unique value is already taken, which the caller can change; " +
+            "a 500 tells them the server is broken");
+        context.Response.ContentType.Should().Be("application/problem+json");
+    }
+
+    [Fact]
+    public async Task InvokeAsync_ForeignKeyViolation_IsAConflict()
+    {
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        var thrown = SqlExceptions.WithNumber(547);
+        var middleware = CreateMiddleware(_ => throw thrown);
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(409);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_OtherSqlErrors_StayInternal()
+    {
+        // A deadlock victim (1205) or a timeout is not something the caller can
+        // fix by changing their request; only the two conflict classes are mapped.
+        var context = new DefaultHttpContext();
+        context.Response.Body = new MemoryStream();
+        var thrown = SqlExceptions.WithNumber(1205);
+        var middleware = CreateMiddleware(_ => throw thrown);
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.StatusCode.Should().Be(500);
+    }
 }
 
 #endregion

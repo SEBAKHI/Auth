@@ -1,7 +1,14 @@
 CREATE TABLE [dbo].[Users]
 (
     [Id] UNIQUEIDENTIFIER NOT NULL CONSTRAINT [DF_Users_Id] DEFAULT NEWID(),
-    [Username] NVARCHAR(50) NOT NULL,
+    -- The full e-mail address for every row the application has written since
+    -- the verify-first registration work; rows written before it, and the two
+    -- seeded accounts in Script.PostDeployment.sql, hold the local part (the
+    -- text before '@'), which is why two people at different domains could
+    -- collide on UQ_Users_Username below. Sized like [Email] so the address
+    -- always fits. No backfill: every reader tolerates both shapes (LIKE in
+    -- the search, equality against the stored value in the purge).
+    [Username] NVARCHAR(255) NOT NULL,
     [Email] NVARCHAR(255) NOT NULL,
     [NormalizedEmail] NVARCHAR(255) NOT NULL,
     [PasswordHash] NVARCHAR(500) NULL,
