@@ -57,6 +57,11 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
         // COL_LENGTH reports bytes; NVARCHAR(255) is 510.
         new("Users.Username widened to NVARCHAR(255)",
             "SELECT CASE WHEN COL_LENGTH('dbo.Users', 'Username') >= 510 THEN 1 ELSE 0 END"),
+        // The pending-registration table: its repository is swept daily and
+        // will be written by the registration flow, both of which fail as
+        // "Invalid object name" without it.
+        new("PendingRegistrations table",
+            "SELECT CASE WHEN OBJECT_ID('dbo.PendingRegistrations', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
     ];
 
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;

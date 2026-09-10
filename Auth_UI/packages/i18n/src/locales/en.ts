@@ -2198,6 +2198,9 @@ export const en = {
       refreshTokenDays: "Refresh tokens (days)",
       refreshTokenDaysHint:
         "The longest window and the one that matters most: a revoked row is the only thing that turns a stolen token into a detected theft, and the dashboard reports revocations over up to 90 days. Floored at 90 in code whatever is set here.",
+      pendingRegistrationDays: "Pending registrations (days)",
+      pendingRegistrationDaysHint:
+        "Sign-up attempts whose code has expired, whether they finished or not. Kept as evidence of who tried to register with which address. Recommended: 7.",
     },
     dataRetention: {
       title: "Privacy & data retention",

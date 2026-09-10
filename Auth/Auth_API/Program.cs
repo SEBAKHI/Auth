@@ -431,6 +431,7 @@ builder.Services.AddScoped<IRevokedTokenStore, RevokedTokenStore>();
 builder.Services.AddScoped<ITwoFactorAuthRepository, TwoFactorAuthRepository>();
 builder.Services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
+builder.Services.AddScoped<IPendingRegistrationRepository, PendingRegistrationRepository>();
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IOwnershipTransferCodeRepository, OwnershipTransferCodeRepository>();
 builder.Services.AddScoped<IExternalAuthProviderRepository, ExternalAuthProviderRepository>();
@@ -548,6 +549,7 @@ builder.Services.AddSingleton<IIdentifierHasher, IdentifierHasher>();
 // password hasher it falls back to for codes minted before this shipped is a
 // singleton too.
 builder.Services.AddSingleton<IOtpHasher, HmacOtpHasher>();
+builder.Services.AddSingleton<IPendingRegistrationHandle, PendingRegistrationHandle>();
 // Scoped: the protector now rides the per-user crypto service (scoped DEK repo).
 builder.Services.AddScoped<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
 builder.Services.AddScoped<IPerUserCryptoService, PerUserCryptoService>();

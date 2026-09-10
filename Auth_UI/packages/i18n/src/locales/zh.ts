@@ -2051,6 +2051,9 @@ export const zh: TranslationResources = {
       refreshTokenDays: "刷新令牌（天）",
       refreshTokenDaysHint:
         "最长也最关键的窗口：被吊销的记录是把被盗令牌变成已发现盗用的唯一凭据，而仪表板最多按 90 天统计吊销情况。无论此处填写多少，代码中都以 90 天为下限。",
+      pendingRegistrationDays: "待处理注册（天）",
+      pendingRegistrationDaysHint:
+        "验证码已过期的注册尝试，无论是否完成。保留作为谁曾用哪个地址尝试注册的证据。推荐：7。",
     },
     dataRetention: {
       title: "隐私与数据保留",

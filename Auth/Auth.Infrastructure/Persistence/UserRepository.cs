@@ -485,6 +485,14 @@ public class UserRepository : IUserRepository
             DELETE FROM [dbo].[OrganizationInvitations]
             WHERE [InvitedBy] = @Id OR [Email] = @Email;
             DELETE FROM [dbo].[OwnershipTransferCodes] WHERE [TargetUserId] = @Id OR [InitiatedBy] = @Id;
+            -- Self-registration attempts bound to the address in clear text.
+            -- Consumed or not: a consumed row is the record of how this account
+            -- came to exist, and an unconsumed one is a code the next holder of
+            -- the address must not be able to redeem. Deleted here, inside the
+            -- identifier-bound block and before the Users row goes, so the
+            -- purge takes the pending row after the account row it already
+            -- holds — the same order the completion step takes them in.
+            DELETE FROM [dbo].[PendingRegistrations] WHERE [Email] = @Email;
 
             -- Mail addressed to the user. RecipientUserId is deliberately a soft
             -- reference and is NULL for everything queued before the account

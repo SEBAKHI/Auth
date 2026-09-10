@@ -123,6 +123,14 @@ public class DatabaseReadinessHealthCheckTests
     }
 
     [Fact]
+    public void TheSchemaExpectations_CoverThePendingRegistrationsTable()
+    {
+        DatabaseReadinessHealthCheck.SchemaExpectations.Should().Contain(
+            expectation => expectation.Sql.Contains("OBJECT_ID('dbo.PendingRegistrations', 'U')"),
+            "the daily sweep and the registration flow both fail with 'Invalid object name' when the table was not published");
+    }
+
+    [Fact]
     public void ReadinessReportsAMissingSchemaHalf_ByName()
     {
         var expectation = DatabaseReadinessHealthCheck.SchemaExpectations[0];

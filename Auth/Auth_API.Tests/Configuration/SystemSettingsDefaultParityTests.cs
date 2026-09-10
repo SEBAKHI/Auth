@@ -26,6 +26,10 @@ public class SystemSettingsDefaultParityTests
         ["Email"] = new EmailSettings(),
         ["Notifications"] = new NotificationSettings(),
         ["AccountDeletion"] = new AccountDeletionSettings(),
+        // The ExpiredDataCleanup section binds to this root. It went unguarded
+        // until the retention window for pending registrations was added, so
+        // its ten older defaults are checked here for the first time too.
+        ["DataRetention"] = new DataRetentionSettings(),
         ["ImageStorage"] = Normalized(new ImageStorageSettings()),
         ["Registration"] = new RegistrationSettings(),
         ["IdentityProvider"] = new IdentityProviderSettings(),

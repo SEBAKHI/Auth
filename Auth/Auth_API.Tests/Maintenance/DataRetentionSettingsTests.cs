@@ -29,6 +29,7 @@ public class DataRetentionSettingsTests
             TwoFactorChallengeDays = hostile,
             PasswordResetTokenDays = hostile,
             EmailVerificationTokenDays = hostile,
+            PendingRegistrationDays = hostile,
             IdpSessionDays = hostile,
             RefreshTokenDays = hostile,
         };
@@ -37,6 +38,7 @@ public class DataRetentionSettingsTests
         settings.EffectiveTwoFactorChallengeDays.Should().BeGreaterThanOrEqualTo(1);
         settings.EffectivePasswordResetTokenDays.Should().BeGreaterThanOrEqualTo(1);
         settings.EffectiveEmailVerificationTokenDays.Should().BeGreaterThanOrEqualTo(1);
+        settings.EffectivePendingRegistrationDays.Should().BeGreaterThanOrEqualTo(1);
         settings.EffectiveIdpSessionDays.Should().BeGreaterThanOrEqualTo(1);
         settings.EffectiveRefreshTokenDays.Should().BeGreaterThanOrEqualTo(1);
     }
@@ -103,6 +105,7 @@ public class DataRetentionSettingsTests
         settings.EffectiveTwoFactorChallengeDays.Should().Be(7);
         settings.EffectivePasswordResetTokenDays.Should().Be(7);
         settings.EffectiveEmailVerificationTokenDays.Should().Be(7);
+        settings.EffectivePendingRegistrationDays.Should().Be(7);
         settings.EffectiveIdpSessionDays.Should().Be(30);
         settings.EffectiveRefreshTokenDays.Should().Be(90);
     }

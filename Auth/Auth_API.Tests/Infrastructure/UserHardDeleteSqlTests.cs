@@ -132,10 +132,30 @@ public class UserHardDeleteSqlTests
     [InlineData(@"\[Username\]\s*=\s*@Email\s+OR\s+\[Username\]\s*=\s*@Username",
         "LoginAttempts.Username holds the ATTEMPTED identifier: attempts that never resolved to an account " +
         "keep the e-mail in clear text under a NULL UserId and are missed by a UserId-only predicate")]
+    [InlineData(@"DELETE\s+FROM\s+\[dbo\]\.\[PendingRegistrations\]\s+WHERE\s+\[Email\]\s*=\s*@Email",
+        "PendingRegistrations has no foreign key to Users on purpose (the row exists before the account does), " +
+        "so the FK guard cannot see it; it is bound to the address in clear text and must be purged by it, " +
+        "or the next holder of the address inherits a redeemable code")]
     public void IdentifierBoundRows_AreCoveredByThePurge(string pattern, string because)
     {
         new Regex(pattern, RegexOptions.IgnoreCase).IsMatch(HardDeleteSql())
             .Should().BeTrue(because);
+    }
+
+    [Fact]
+    public void PendingRegistrations_AreDeletedBeforeTheAccountRow()
+    {
+        // The completion step holds the pending row and then inserts into
+        // Users; the purge holds the Users row from its first statement. Taking
+        // the pending rows before the Users delete keeps the purge inside the
+        // one lock order both paths share.
+        var sql = HardDeleteSql();
+
+        var pending = sql.IndexOf("DELETE FROM [dbo].[PendingRegistrations]", StringComparison.Ordinal);
+        var users = sql.IndexOf("DELETE FROM [dbo].[Users]", StringComparison.Ordinal);
+
+        pending.Should().BePositive();
+        users.Should().BeGreaterThan(pending, "the account row goes last");
     }
 
     [Fact]

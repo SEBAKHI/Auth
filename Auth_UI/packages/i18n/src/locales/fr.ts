@@ -2238,6 +2238,9 @@ export const fr: TranslationResources = {
       refreshTokenDays: "Jetons de rafraîchissement (jours)",
       refreshTokenDaysHint:
         "La plus longue fenêtre et la plus importante : une ligne révoquée est la seule chose qui transforme un jeton volé en vol détecté, et le tableau de bord rapporte les révocations sur 90 jours au maximum. Plancher de 90 imposé dans le code quelle que soit la valeur saisie.",
+      pendingRegistrationDays: "Inscriptions en attente (jours)",
+      pendingRegistrationDaysHint:
+        "Tentatives d'inscription dont le code a expiré, abouties ou non. Conservées comme trace de qui a tenté de s'inscrire avec quelle adresse. Recommandé : 7.",
     },
     dataRetention: {
       title: "Confidentialité et conservation des données",

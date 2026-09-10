@@ -19,6 +19,7 @@ public class ExpiredDataCleanupWorkerTests
     private readonly Mock<ITwoFactorChallengeRepository> _challenges = new();
     private readonly Mock<IPasswordResetTokenRepository> _resetTokens = new();
     private readonly Mock<IEmailVerificationTokenRepository> _verificationTokens = new();
+    private readonly Mock<IPendingRegistrationRepository> _pendingRegistrations = new();
     private readonly Mock<IIdpSessionRepository> _idpSessions = new();
     private readonly Mock<IRefreshTokenRepository> _refreshTokens = new();
     private readonly Mock<IUserSessionRepository> _userSessions = new();
@@ -32,6 +33,7 @@ public class ExpiredDataCleanupWorkerTests
         services.AddSingleton(_challenges.Object);
         services.AddSingleton(_resetTokens.Object);
         services.AddSingleton(_verificationTokens.Object);
+        services.AddSingleton(_pendingRegistrations.Object);
         services.AddSingleton(_idpSessions.Object);
         services.AddSingleton(_refreshTokens.Object);
         services.AddSingleton(_userSessions.Object);
@@ -52,6 +54,7 @@ public class ExpiredDataCleanupWorkerTests
         _challenges.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _resetTokens.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _verificationTokens.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        _pendingRegistrations.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _idpSessions.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _refreshTokens.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
         _userSessions.Setup(r => r.MarkExpiredSessionsEndedAsync(It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(0);
@@ -69,6 +72,7 @@ public class ExpiredDataCleanupWorkerTests
         _challenges.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _resetTokens.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _verificationTokens.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
+        _pendingRegistrations.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _idpSessions.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _refreshTokens.Verify(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
         _userSessions.Verify(r => r.MarkExpiredSessionsEndedAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -98,7 +102,7 @@ public class ExpiredDataCleanupWorkerTests
     public async Task RunSweep_UploadReclamationThrowing_LeavesTheRestOfTheRunIntact()
     {
         // Housekeeping runs last and must never undo a run that has already
-        // committed six table sweeps. This failed for real once: the settings
+        // committed the table sweeps. This failed for real once: the settings
         // lookup sat outside the guard, so a service it could not resolve threw
         // past the catch that exists to swallow exactly that.
         SetupAllDrained();
@@ -115,9 +119,10 @@ public class ExpiredDataCleanupWorkerTests
     [Fact]
     public async Task RunSweep_OneTableThrowing_LeavesTheOthersSwept()
     {
-        // The failure that must not cascade. Authorization codes are swept first,
-        // so a throw there would take the whole run down if it were not caught
-        // per table — and the largest table, refresh tokens, is swept last.
+        // The failure that must not cascade. Authorization codes are swept early
+        // (second, after pending registrations), so a throw there would take the
+        // rest of the run down if it were not caught per table — and the largest
+        // table, refresh tokens, is swept last.
         SetupAllDrained();
         _codes
             .Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
@@ -182,18 +187,25 @@ public class ExpiredDataCleanupWorkerTests
         // keeping for a different length of time.
         SetupAllDrained();
         var settings = new DataRetentionSettings();
-        DateTime codeCutoff = default, refreshCutoff = default;
+        DateTime codeCutoff = default, refreshCutoff = default, pendingCutoff = default;
+        var order = new List<string>();
 
         _codes.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .Callback<DateTime, int, CancellationToken>((c, _, _) => codeCutoff = c).ReturnsAsync(0);
+            .Callback<DateTime, int, CancellationToken>((c, _, _) => { codeCutoff = c; order.Add("codes"); }).ReturnsAsync(0);
         _refreshTokens.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .Callback<DateTime, int, CancellationToken>((c, _, _) => refreshCutoff = c).ReturnsAsync(0);
+            .Callback<DateTime, int, CancellationToken>((c, _, _) => { refreshCutoff = c; order.Add("refresh"); }).ReturnsAsync(0);
+        _pendingRegistrations.Setup(r => r.CleanupExpiredAsync(It.IsAny<DateTime>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .Callback<DateTime, int, CancellationToken>((c, _, _) => { pendingCutoff = c; order.Add("pending"); }).ReturnsAsync(0);
 
         await CreateWorker(settings).RunSweepAsync(CancellationToken.None);
 
         codeCutoff.Should().BeCloseTo(DateTime.UtcNow.AddDays(-7), TimeSpan.FromMinutes(1));
+        pendingCutoff.Should().BeCloseTo(DateTime.UtcNow.AddDays(-7), TimeSpan.FromMinutes(1),
+            "pending registrations have their own window (DataRetention:PendingRegistrationDays), not a borrowed one");
         refreshCutoff.Should().BeCloseTo(DateTime.UtcNow.AddDays(-90), TimeSpan.FromMinutes(1));
         refreshCutoff.Should().BeBefore(codeCutoff);
+        order.Should().StartWith("pending", "the smallest table is swept first so the cheap wins land even on a cut-short run");
+        order.Should().EndWith("refresh");
     }
 
     [Fact]

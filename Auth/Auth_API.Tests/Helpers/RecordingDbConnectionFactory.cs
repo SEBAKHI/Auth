@@ -8,11 +8,25 @@ namespace Auth_API.Tests.Helpers;
 
 /// <summary>
 /// Minimal ADO.NET test double that lets Dapper build a real command and
-/// parameters while controlling only the affected-row result.
+/// parameters while controlling only what comes back.
 /// </summary>
-internal sealed class RecordingDbConnectionFactory(int affectedRows) : IDbConnectionFactory
+/// <param name="affectedRows">What every non-query and scalar answers.</param>
+/// <param name="rowFor">
+/// Optional: the one row a query returns, chosen per recorded command (null
+/// for none). Its public properties become the reader's columns, so an
+/// anonymous object shaped like the repository's DTO is enough.
+/// </param>
+/// <param name="throwOn">
+/// Optional: an exception to raise instead of executing a recorded command,
+/// for the paths a repository takes when the database refuses a write.
+/// </param>
+internal sealed class RecordingDbConnectionFactory(
+    int affectedRows,
+    Func<RecordedCommand, object?>? rowFor = null,
+    Func<RecordedCommand, Exception?>? throwOn = null) : IDbConnectionFactory
 {
     private readonly List<RecordedCommand> _commands = [];
+    private readonly List<RecordingDbTransaction> _transactions = [];
 
     public RecordedCommand? LastCommand { get; private set; }
 
@@ -22,13 +36,18 @@ internal sealed class RecordingDbConnectionFactory(int affectedRows) : IDbConnec
     /// <summary>The most recent transaction a connection handed out, if any.</summary>
     public RecordingDbTransaction? LastTransaction { get; private set; }
 
+    /// <summary>Every transaction handed out, in order — one per connection that began one.</summary>
+    public IReadOnlyList<RecordingDbTransaction> Transactions => _transactions;
+
     public Task<IDbConnection> CreateConnectionAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult<IDbConnection>(new RecordingDbConnection(
             affectedRows,
             command => { _commands.Add(command); LastCommand = command; },
-            transaction => LastTransaction = transaction));
+            transaction => { _transactions.Add(transaction); LastTransaction = transaction; },
+            rowFor,
+            throwOn));
     }
 }
 
@@ -64,7 +83,9 @@ internal sealed class RecordingDbTransaction(DbConnection connection, IsolationL
 internal sealed class RecordingDbConnection(
     int affectedRows,
     Action<RecordedCommand> record,
-    Action<RecordingDbTransaction>? onTransaction = null) : DbConnection
+    Action<RecordingDbTransaction>? onTransaction = null,
+    Func<RecordedCommand, object?>? rowFor = null,
+    Func<RecordedCommand, Exception?>? throwOn = null) : DbConnection
 {
     private ConnectionState _state = ConnectionState.Open;
 
@@ -93,13 +114,15 @@ internal sealed class RecordingDbConnection(
     }
 
     protected override DbCommand CreateDbCommand() =>
-        new RecordingDbCommand(this, affectedRows, record);
+        new RecordingDbCommand(this, affectedRows, record, rowFor, throwOn);
 }
 
 internal sealed class RecordingDbCommand(
     DbConnection connection,
     int affectedRows,
-    Action<RecordedCommand> record) : DbCommand
+    Action<RecordedCommand> record,
+    Func<RecordedCommand, object?>? rowFor,
+    Func<RecordedCommand, Exception?>? throwOn) : DbCommand
 {
     private readonly RecordingDbParameterCollection _parameters = new();
 
@@ -122,14 +145,16 @@ internal sealed class RecordingDbCommand(
     // not only a write. A paged query runs its COUNT first and then the page, so
     // both have to answer something for the method to reach its end — and
     // LastCommand is the page, which is the one carrying the WHERE clause worth
-    // asserting on. Both return emptiness: this double exists to capture the SQL
-    // Dapper builds, never to simulate a database.
+    // asserting on. By default both return emptiness: this double exists to
+    // capture the SQL Dapper builds, never to simulate a database. A test that
+    // needs a repository to find a row hands one in through rowFor.
     public override object? ExecuteScalar() => Execute();
 
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
     {
-        Execute();
-        return new DataTableReader(new DataTable());
+        var command = Record();
+        var row = rowFor?.Invoke(command);
+        return new DataTableReader(row is null ? new DataTable() : TableOf(row));
     }
 
     public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
@@ -140,14 +165,40 @@ internal sealed class RecordingDbCommand(
 
     private int Execute()
     {
-        record(new RecordedCommand(
+        Record();
+        return affectedRows;
+    }
+
+    private RecordedCommand Record()
+    {
+        var command = new RecordedCommand(
             CommandText,
             _parameters.Cast<DbParameter>().ToDictionary(
                 parameter => parameter.ParameterName.TrimStart('@'),
                 parameter => parameter.Value is DBNull ? null : parameter.Value,
                 StringComparer.OrdinalIgnoreCase),
-            InTransaction: DbTransaction is not null));
-        return affectedRows;
+            InTransaction: DbTransaction is not null);
+        record(command);
+
+        if (throwOn?.Invoke(command) is { } refusal)
+        {
+            throw refusal;
+        }
+
+        return command;
+    }
+
+    private static DataTable TableOf(object row)
+    {
+        var properties = row.GetType().GetProperties();
+        var table = new DataTable();
+        foreach (var property in properties)
+        {
+            table.Columns.Add(property.Name, Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType);
+        }
+
+        table.Rows.Add(properties.Select(property => property.GetValue(row) ?? DBNull.Value).ToArray());
+        return table;
     }
 }
 

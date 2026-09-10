@@ -2189,6 +2189,9 @@ export const tr: TranslationResources = {
       refreshTokenDays: "Yenileme jetonları (gün)",
       refreshTokenDaysHint:
         "En uzun ve en önemli pencere: iptal edilmiş satır, çalınmış bir jetonu tespit edilmiş bir hırsızlığa dönüştüren tek şeydir ve pano iptalleri en fazla 90 güne kadar raporlar. Burada ne girilirse girilsin kodda 90 gün alt sınırı uygulanır.",
+      pendingRegistrationDays: "Bekleyen kayıtlar (gün)",
+      pendingRegistrationDaysHint:
+        "Kodu süresi dolmuş kayıt denemeleri, tamamlansın ya da tamamlanmasın. Kimin hangi adresle kaydolmayı denediğinin kanıtı olarak saklanır. Önerilen: 7.",
     },
     dataRetention: {
       title: "Gizlilik ve veri saklama",

@@ -326,7 +326,11 @@ public static class SystemSettingsRegistry
                 new SettingFieldDefinition("PasswordResetTokenDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 7),
                 new SettingFieldDefinition("EmailVerificationTokenDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 7),
                 new SettingFieldDefinition("IdpSessionDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 30),
-                new SettingFieldDefinition("RefreshTokenDays", SettingKind.Int, Min: 90, Max: 730, DefaultValue: 90)
+                new SettingFieldDefinition("RefreshTokenDays", SettingKind.Int, Min: 90, Max: 730, DefaultValue: 90),
+                // Appended last on purpose: other work edits this section in
+                // parallel, and a field at the end merges where one in the
+                // middle conflicts.
+                new SettingFieldDefinition("PendingRegistrationDays", SettingKind.Int, Min: 1, Max: 365, DefaultValue: 7)
             ]),
         new SettingSectionDefinition(
             Key: "Registration",

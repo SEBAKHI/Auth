@@ -188,9 +188,9 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
     },
   ],
 
-  // Six fields of the identical shape ("… (days)") following four operational
-  // ones. The six answer a different question from the four, and only their
-  // shared shape says so.
+  // Seven fields of the identical shape ("… (days)") following four
+  // operational ones. The seven answer a different question from the four,
+  // and only their shared shape says so.
   ExpiredDataCleanup: [
     {
       kind: "group",
@@ -212,6 +212,7 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
         "EmailVerificationTokenDays",
         "IdpSessionDays",
         "RefreshTokenDays",
+        "PendingRegistrationDays",
       ],
     },
   ],
