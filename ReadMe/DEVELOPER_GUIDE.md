@@ -1733,6 +1733,41 @@ There is also `RequirePermission`, which hides a button or menu item rather than
 
 **The accounts application has no permission guards at all, and no `/403` route.** Every screen in it is about the signed-in user's own account, so authentication is the only gate it needs.
 
+#### Sign-up and password managers
+
+Self-registration in the accounts application is three screens, and the third one is where a password manager decides whether it has just seen a new credential worth saving. The screens are:
+
+| Screen | What it asks for | What it sends |
+|---|---|---|
+| `/register` | The email address, nothing else | `POST /api/v1/Auth/registration/start` with the address and the display language |
+| `/register/verify` | The six-digit code that was mailed to that address | `POST /api/v1/Auth/registration/verify` with the pending handle and the code |
+| `/register/complete` | A first name, a last name and a password | `POST /api/v1/Auth/registration/complete` with the handle, the code, the password and the names — never the address |
+
+**The third screen shows the address in a real, read-only field with `autocomplete="username"`.** That field exists for password managers: it is the field they pair the new password with, so the saved entry carries the address a person can sign in with. The password field carries `autocomplete="new-password"` and a show/hide button instead of a "confirm password" field. When the account is created the form is removed from the page before the application navigates, and where the browser supports the Credential Management API the credential is offered to it directly.
+
+**Whether a given password manager actually saves the credential cannot be checked by the automated suites.** The browser-driven tests run without any password manager, and no password manager exposes its prompt to automation. So this is a manual check, and it is recorded here rather than assumed. Run it on a real deployment (or on the two development servers over https) after any change to `Auth_UI/apps/accounts/src/pages/auth/register-complete.tsx` or to `Auth_UI/packages/auth/src/password-field.tsx`, and write the date and the result into the table.
+
+**The procedure, once per row:**
+
+1. Sign out of the manager's existing entry for the site, so a stale entry cannot be mistaken for a new one.
+2. Open `/register`, enter an address you can read mail for, and go through the code screen.
+3. On `/register/complete`, click into the password field. Note whether the manager offers to generate a password.
+4. Enter the names and a password and press **Create account**.
+5. Note whether the manager offers to save. Open the saved entry and check that its username is the **full address**, not a masked form and not empty.
+6. Sign out, open `/login`, and note whether the manager fills both fields from that entry.
+
+| Password manager | Offers to generate on the password field | Offers to save on Create account | Saved username is the full address | Fills the sign-in form later | Last run (date, result) |
+|---|---|---|---|---|---|
+| Chrome — Google Password Manager | | | | | not yet run |
+| Microsoft Edge — built-in | | | | | not yet run |
+| Firefox — built-in | | | | | not yet run |
+| Safari on macOS — iCloud Keychain | | | | | not yet run |
+| Safari on iOS — iCloud Keychain | | | | | not yet run |
+| 1Password — browser extension | | | | | not yet run |
+| Bitwarden — browser extension | | | | | not yet run |
+
+**If a row fails, fix the screen, not the row.** The two things a manager keys on are the read-only username field beside the password and a form submission that is followed by leaving the page; both are deliberate in the completion screen, and a manager that ignores one of them is a finding about that screen.
+
 ---
 
 ## 5. API Reference

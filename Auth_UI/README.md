@@ -145,7 +145,7 @@ mismatch silently drops the post-login resume.
 | `pnpm test` / `pnpm test:watch` | Unit tests (all apps + packages) |
 | `pnpm test:coverage` | Unit tests with Istanbul coverage |
 | `pnpm test:coverage:changed` | Coverage gated on **changed lines** (threshold 90) |
-| `pnpm e2e:isolated` | **Primary browser tier** — builds the console, serves it, mocks the API |
+| `pnpm e2e:isolated` | **Primary browser tier** — builds both apps, serves them, mocks the API |
 | `pnpm e2e` | Credentialed e2e against real dev servers + a real API |
 | `pnpm e2e:production` | Both apps built, against the production-shaped config |
 | `pnpm lint` / `pnpm format` | Lint / format |
@@ -183,7 +183,8 @@ packages/
             data-table system, hooks, format utils, ThemeProvider,
             BrandingProvider, chunk recovery
 e2e/
-  isolated/   API-mocked suite against the built console (primary tier)
+  isolated/   API-mocked suite against the built apps (primary tier);
+              accounts/ holds the signed-out journeys of the accounts app
   console/    credentialed console specs
   accounts/   credentialed accounts specs
   production/ production-shaped build checks
@@ -260,7 +261,7 @@ Three browser tiers, split by what they depend on:
 
 | Tier | Depends on | Use it for |
 |------|-----------|------------|
-| `e2e:isolated` | nothing — built console + in-process API mocks | **default**: layout, a11y, permissions, i18n, bundle weight |
+| `e2e:isolated` | nothing — built console + built accounts + in-process API mocks | **default**: layout, a11y, permissions, i18n, bundle weight, sign-up |
 | `e2e` | dev servers + a running API + a real database | server behaviour and real sign-in ceremonies |
 | `e2e:production` | production-shaped build of both apps | deploy-shaped checks |
 
@@ -268,7 +269,10 @@ The isolated tier runs the **real production build** behind `vite preview`, so
 bundling, code-splitting, routing and CSS stay real while credentials, shared
 databases and rate limits disappear. `installAuthenticatedApi(page, permissions,
 handler, { preferredLanguage })` gives any permission set and any of the 7
-languages in one call.
+languages in one call. The accounts project starts signed out instead:
+`installAnonymousApi(page, handler, { seen })` answers only what a stranger's
+screens ask for and records every non-GET request with its parsed body, so a
+spec asserts what was **sent**, not only what was drawn.
 
 It carries the invariants that cheaper checks cannot see:
 
@@ -279,6 +283,12 @@ It carries the invariants that cheaper checks cannot see:
   a third of WCAG AA; what it cannot see is recorded as open, not implied passing.
 - `login-payload.spec.ts` — page weight measured from response bodies, asserting
   named heavy chunks are **absent** on the signed-out entries.
+- `accounts/registration.spec.ts` — verify-first sign-up end to end: a reload
+  of the code screen keeps the pending identity, a reload of the password screen
+  forgets the code, the completion body carries no address, and the session it
+  answers with lands on the profile. What no browser automation covers is how
+  each password manager treats the new credential; that matrix is manual and
+  lives in `ReadMe/DEVELOPER_GUIDE.md` under the two web applications.
 
 Unit tests run on Vitest + jsdom. Two environment facts that cost real time:
 jsdom has no `ResizeObserver` and Node ships a `localStorage` global that stays

@@ -17,7 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "test:coverage:changed": "vitest run --coverage && node ../Tools/verify-changed-coverage.mjs --frontend Auth_UI/coverage/coverage-final.json --threshold 90",
     "e2e": "playwright test",
-    "e2e:isolated": "pnpm --filter @authsystem/console build:test && playwright test --config playwright.isolated.config.ts",
+    "e2e:isolated": "pnpm --filter @authsystem/console build:test && pnpm --filter @authsystem/accounts build:test && playwright test --config playwright.isolated.config.ts",
     "e2e:production": "pnpm build:test && playwright test --config playwright.production.config.ts"
   },
   "devDependencies": {
