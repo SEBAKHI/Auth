@@ -65,6 +65,7 @@ public class ExternalLoginTokenStorageTests
             _perUserCryptoMock.Object,
             new Mock<IExternalAvatarImporter>().Object,
             new Mock<IPersonalOrganizationCreator>().Object,
+            new Mock<IPendingRegistrationConsumer>().Object,
             loginResponseBuilderMock.Object,
             new Mock<ITwoFactorChallengeService>().Object,
             TestHelpers.CreateExternalNonceGuard(),

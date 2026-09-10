@@ -37,7 +37,12 @@ public sealed record GatewayRateLimits(
     int ApiPermitLimit,
     int ApiWindowSeconds,
     int AdminPermitLimit,
-    int AdminWindowSeconds);
+    int AdminWindowSeconds,
+    // The sign-up follow-up pair (code check + completion). Appended last: an
+    // API deployed before this gateway does not send it, and the poller's
+    // IsUsable check is what keeps the resulting 0 from ever reaching a limiter.
+    int RegistrationFollowupPermitLimit,
+    int RegistrationFollowupWindowSeconds);
 
 /// <summary>
 /// Holds the current <see cref="GatewayRuntimeSettings"/> for every consumer in
@@ -83,5 +88,7 @@ public sealed class GatewayRuntimeSettingsProvider
         ApiPermitLimit: configuration.GetValue("RateLimiting:ApiPermitLimit", 100),
         ApiWindowSeconds: configuration.GetValue("RateLimiting:ApiWindowSeconds", 60),
         AdminPermitLimit: configuration.GetValue("RateLimiting:AdminPermitLimit", 120),
-        AdminWindowSeconds: configuration.GetValue("RateLimiting:AdminWindowSeconds", 60));
+        AdminWindowSeconds: configuration.GetValue("RateLimiting:AdminWindowSeconds", 60),
+        RegistrationFollowupPermitLimit: configuration.GetValue("RateLimiting:RegistrationFollowupPermitLimit", 400),
+        RegistrationFollowupWindowSeconds: configuration.GetValue("RateLimiting:RegistrationFollowupWindowSeconds", 60));
 }

@@ -14,9 +14,10 @@ namespace Auth.Infrastructure.Maintenance;
 /// </summary>
 /// <remarks>
 /// Six tables accumulated without bound because every repository had a cleanup
-/// method and none had a caller — written code that never ran. A seventh,
-/// UserSessions, is stamped rather than emptied: its rows are history a user can
-/// see, so the sweep corrects what they say instead of erasing them.
+/// method and none had a caller — written code that never ran; pending
+/// registrations joined them as a seventh sweep when that table was added. An
+/// eighth, UserSessions, is stamped rather than emptied: its rows are history
+/// a user can see, so the sweep corrects what they say instead of erasing them.
 /// <para>
 /// Like the other workers here, this depends on the application staying loaded.
 /// On a host that unloads an idle app pool the sweep is deferred, not lost: the
@@ -83,7 +84,7 @@ public class ExpiredDataCleanupWorker : BackgroundService
     /// <remarks>
     /// The date advances once the pass completes, and a pass completes even when
     /// individual tables failed — each is caught and logged so one bad table
-    /// cannot stop the other six, which means a table that failed waits until
+    /// cannot stop the others, which means a table that failed waits until
     /// tomorrow rather than retrying on the next poll.
     /// <para>
     /// Only a failure OUTSIDE the per-table loop — a scope that cannot be built,
@@ -114,7 +115,7 @@ public class ExpiredDataCleanupWorker : BackgroundService
     /// </summary>
     /// <remarks>
     /// Each table is independent: one that throws is logged and the rest still
-    /// run. A single failing table must not leave the other six growing.
+    /// run. A single failing table must not leave the others growing.
     /// <para>
     /// Cutoffs are computed here, once, from the application clock — so the whole
     /// run is evaluated against one instant, rather than each statement reading
@@ -133,6 +134,11 @@ public class ExpiredDataCleanupWorker : BackgroundService
         // short; refresh tokens, far the largest, go last.
         var steps = new (string Table, Func<DateTime, int, CancellationToken, Task<int>> Sweep, int Days)[]
         {
+            // Smallest of all: bounded by distinct addresses that tried to
+            // register within the window, and each row a few hundred bytes.
+            ("PendingRegistrations",
+                sp.GetRequiredService<IPendingRegistrationRepository>().CleanupExpiredAsync,
+                settings.EffectivePendingRegistrationDays),
             ("AuthorizationCodes",
                 sp.GetRequiredService<IAuthorizationCodeRepository>().CleanupExpiredAsync,
                 settings.EffectiveAuthorizationCodeDays),
@@ -183,7 +189,7 @@ public class ExpiredDataCleanupWorker : BackgroundService
     {
         try
         {
-            // Resolution inside the guard, not above it. The six sweeps in this
+            // Resolution inside the guard, not above it. The table sweeps in this
             // run have already committed by now, and a service this step cannot
             // resolve is still no reason to fail the run — which is what the
             // catch below exists to say, and what it could not do while the first

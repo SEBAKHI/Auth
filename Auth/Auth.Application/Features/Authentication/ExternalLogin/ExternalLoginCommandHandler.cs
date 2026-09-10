@@ -30,6 +30,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
     private readonly IPerUserCryptoService _perUserCrypto;
     private readonly IExternalAvatarImporter _avatarImporter;
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
+    private readonly IPendingRegistrationConsumer _pendingRegistrationConsumer;
     private readonly ILoginResponseBuilder _loginResponseBuilder;
     private readonly ITwoFactorChallengeService _twoFactorChallengeService;
     private readonly ExternalNonceGuard _nonceGuard;
@@ -50,6 +51,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         IPerUserCryptoService perUserCrypto,
         IExternalAvatarImporter avatarImporter,
         IPersonalOrganizationCreator personalOrganizationCreator,
+        IPendingRegistrationConsumer pendingRegistrationConsumer,
         ILoginResponseBuilder loginResponseBuilder,
         ITwoFactorChallengeService twoFactorChallengeService,
         ExternalNonceGuard nonceGuard,
@@ -72,6 +74,7 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
         _perUserCrypto = perUserCrypto;
         _avatarImporter = avatarImporter;
         _personalOrganizationCreator = personalOrganizationCreator;
+        _pendingRegistrationConsumer = pendingRegistrationConsumer;
         _loginResponseBuilder = loginResponseBuilder;
         _twoFactorChallengeService = twoFactorChallengeService;
         _nonceGuard = nonceGuard;
@@ -251,6 +254,11 @@ public class ExternalLoginCommandHandler : IRequestHandler<ExternalLoginCommand,
 
             await _externalLoginRepository.CreateAsync(externalLogin, cancellationToken);
             existingExternalLogin = externalLogin;
+
+            // The provider proved the address, for a new account and for a
+            // link to an existing one alike: a verify-first row pending for it
+            // is moot now that a Users row exists and this provider reaches it.
+            await _pendingRegistrationConsumer.ConsumeAsync(user.Email.Value, cancellationToken);
 
             if (linkedToExistingAccount)
             {

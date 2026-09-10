@@ -42,12 +42,12 @@ Both applications talk to the same back-end API, and neither can do anything the
 
 ### 1.2 API Capabilities at a Glance
 
-The back-end API exposes **199 endpoints across 25 route-bearing controllers**. An "endpoint" here means one HTTP action — one method in a controller marked with a verb attribute such as `[HttpGet]` or `[HttpPost]`. A "controller" is one C# class that groups related endpoints. There are 26 controller files in total; one of them, `Auth_API/Common/ApiController.cs`, is a shared base class with no endpoints of its own, which is why 25 rather than 26 carry routes.
+The back-end API exposes **201 endpoints across 25 route-bearing controllers**. An "endpoint" here means one HTTP action — one method in a controller marked with a verb attribute such as `[HttpGet]` or `[HttpPost]`. A "controller" is one C# class that groups related endpoints. There are 26 controller files in total; one of them, `Auth_API/Common/ApiController.cs`, is a shared base class with no endpoints of its own, which is why 25 rather than 26 carry routes.
 
 | Feature area | Endpoints | What it covers |
 |---|---|---|
 | **Discovery** | 3 | OpenID Connect (OIDC) discovery document, JSON Web Key Set (JWKS), public signing key |
-| **Authentication** | 27 | Login, register, external (Google/Apple) login, token refresh and revoke, password reset and change, email verification, sessions, and the authorization-code + PKCE endpoints |
+| **Authentication** | 29 | Login, the three-step verify-first sign-up, external (Google/Apple) login, token refresh and revoke, password reset and change, email verification, sessions, and the authorization-code + PKCE endpoints |
 | **Two-Factor Auth** | 4 | Time-based one-time password (TOTP) setup, enable, verify, disable |
 | **Users** | 29 | Create, read, update, delete, role and permission assignment, lock/unlock, activate/deactivate, self-service profile, hard delete |
 | **Roles** | 7 | Create, read, update, delete, plus the users and applications attached to a role |
@@ -101,7 +101,7 @@ Read this top to bottom. A person opens one of the two web applications in a bro
                  ┌─────────────┴──────────────┐
                  │ Auth_API (the REST API)    │
                  │ dev: https://localhost:5101│
-                 │ 199 actions, 25 controllers│
+                 │ 201 actions, 25 controllers│
                  │ JWT + permission checks    │
                  │ audit logging, email outbox│
                  └─────────────┬──────────────┘
@@ -136,7 +136,7 @@ AuthSystem/
 │   ├── Auth.Infrastructure      Dapper repositories, JWT, Argon2id, secret storage,
 │   │                            Google auth, TOTP, SMTP, image storage
 │   ├── Auth_API                 the ASP.NET Core 10 REST API — 25 route-bearing
-│   │                            controllers, 199 actions
+│   │                            controllers, 201 actions
 │   ├── Auth.Shared              configuration contracts and secret-storage primitives
 │   ├── Auth_Localization        resource files for 7 languages (en, ar, tr, fr, zh, ur, fa)
 │   ├── API_Gateway              YARP reverse proxy: rate limiting, security headers
@@ -278,7 +278,7 @@ The system stores its cryptographic keys in one of three ways, chosen by `Secret
 | Tool | How to check you have it | What it gives you |
 |---|---|---|
 | **SqlPackage** | `sqlpackage /version` | A command-line alternative to publishing the database from inside Visual Studio. It is a separate download and is frequently **not** already on your `PATH` |
-| **Postman** | The application opens | A request collection ships at `Auth/Auth_API/Postman/AuthSystem.postman_collection.json` (path is from the repository root). It covers 100 of the 199 endpoints and its `baseUrl` variable is set to a port nothing in this repository listens on — change `baseUrl` to `https://localhost:5101` before your first request |
+| **Postman** | The application opens | A request collection ships at `Auth/Auth_API/Postman/AuthSystem.postman_collection.json` (path is from the repository root). It covers 102 of the 201 endpoints and its `baseUrl` variable is set to a port nothing in this repository listens on — change `baseUrl` to `https://localhost:5101` before your first request |
 
 ---
 
@@ -1733,6 +1733,41 @@ There is also `RequirePermission`, which hides a button or menu item rather than
 
 **The accounts application has no permission guards at all, and no `/403` route.** Every screen in it is about the signed-in user's own account, so authentication is the only gate it needs.
 
+#### Sign-up and password managers
+
+Self-registration in the accounts application is three screens, and the third one is where a password manager decides whether it has just seen a new credential worth saving. The screens are:
+
+| Screen | What it asks for | What it sends |
+|---|---|---|
+| `/register` | The email address, nothing else | `POST /api/v1/Auth/registration/start` with the address and the display language |
+| `/register/verify` | The six-digit code that was mailed to that address | `POST /api/v1/Auth/registration/verify` with the pending handle and the code |
+| `/register/complete` | A first name, a last name and a password | `POST /api/v1/Auth/registration/complete` with the handle, the code, the password and the names — never the address |
+
+**The third screen shows the address in a real, read-only field with `autocomplete="username"`.** That field exists for password managers: it is the field they pair the new password with, so the saved entry carries the address a person can sign in with. The password field carries `autocomplete="new-password"` and a show/hide button instead of a "confirm password" field. When the account is created the form is removed from the page before the application navigates, and where the browser supports the Credential Management API the credential is offered to it directly.
+
+**Whether a given password manager actually saves the credential cannot be checked by the automated suites.** The browser-driven tests run without any password manager, and no password manager exposes its prompt to automation. So this is a manual check, and it is recorded here rather than assumed. Run it on a real deployment (or on the two development servers over https) after any change to `Auth_UI/apps/accounts/src/pages/auth/register-complete.tsx` or to `Auth_UI/packages/auth/src/password-field.tsx`, and write the date and the result into the table.
+
+**The procedure, once per row:**
+
+1. Sign out of the manager's existing entry for the site, so a stale entry cannot be mistaken for a new one.
+2. Open `/register`, enter an address you can read mail for, and go through the code screen.
+3. On `/register/complete`, click into the password field. Note whether the manager offers to generate a password.
+4. Enter the names and a password and press **Create account**.
+5. Note whether the manager offers to save. Open the saved entry and check that its username is the **full address**, not a masked form and not empty.
+6. Sign out, open `/login`, and note whether the manager fills both fields from that entry.
+
+| Password manager | Offers to generate on the password field | Offers to save on Create account | Saved username is the full address | Fills the sign-in form later | Last run (date, result) |
+|---|---|---|---|---|---|
+| Chrome — Google Password Manager | | | | | not yet run |
+| Microsoft Edge — built-in | | | | | not yet run |
+| Firefox — built-in | | | | | not yet run |
+| Safari on macOS — iCloud Keychain | | | | | not yet run |
+| Safari on iOS — iCloud Keychain | | | | | not yet run |
+| 1Password — browser extension | | | | | not yet run |
+| Bitwarden — browser extension | | | | | not yet run |
+
+**If a row fails, fix the screen, not the row.** The two things a manager keys on are the read-only username field beside the password and a form submission that is followed by leaving the page; both are deliberate in the completion screen, and a manager that ignores one of them is a finding about that screen.
+
 ---
 
 ## 5. API Reference
@@ -1846,7 +1881,7 @@ Calling through the API Gateway returns a five-field body, where `retryAfter` is
 
 ### 5.0 Endpoint Index
 
-**This is the complete list: all 199 endpoints, in the 25 route-bearing controllers.** Nothing is left out, including the areas that do not get their own worked example further down. Paths are printed with the literal casing the route templates declare; route matching ignores case, so a lowercase path reaches the same action.
+**This is the complete list: all 201 endpoints, in the 25 route-bearing controllers.** Nothing is left out, including the areas that do not get their own worked example further down. Paths are printed with the literal casing the route templates declare; route matching ignores case, so a lowercase path reaches the same action.
 
 How to read the last column. **Anonymous** means no token is required. **Authenticated** means any valid access token will do and no permission is checked. A code such as `users:read` means the token's permission claims must satisfy that code. `login` and `password-reset` name the rate-limit policy that applies — 20 and 10 requests per 60 seconds respectively, counted per client IP address.
 
@@ -1860,12 +1895,14 @@ These three carry no `/api/v1/` segment. They are the fixed addresses another sy
 | GET | `/.well-known/jwks.json` | The public signing keys as a JSON Web Key Set, so another service can verify a token offline | Anonymous |
 | GET | `/.well-known/public-key.pem` | The same signing key as plain PEM text, for tools that cannot read a key set | Anonymous |
 
-#### Authentication — 27 endpoints
+#### Authentication — 29 endpoints
 
 | Method | Path | What it does | Auth |
 |---|---|---|---|
 | POST | `/api/v1/Auth/login` | Sign in with email and password; also mints the browser sign-in cookie | Anonymous · `login` |
-| POST | `/api/v1/Auth/register` | Create an account for oneself and send the verification code | Anonymous · `login` |
+| POST | `/api/v1/Auth/registration/start` | Begin a sign-up: mail a code to an address, create nothing | Anonymous · `register` |
+| POST | `/api/v1/Auth/registration/verify` | Check the mailed code against the sign-up handle | Anonymous · `registration-followup` |
+| POST | `/api/v1/Auth/registration/complete` | Create the account for the proven address and sign it in | Anonymous · `registration-followup` |
 | GET | `/api/v1/Auth/external-providers` | List the external sign-in buttons a login screen should draw | Anonymous |
 | POST | `/api/v1/Auth/external-login` | Sign in with a Google or Apple identity token instead of a password | Anonymous · `login` |
 | POST | `/api/v1/Auth/refresh` | Trade a refresh token for a new pair of tokens | Anonymous |
@@ -2195,7 +2232,7 @@ This one path is deliberately **not** on the gateway's own route list: the gatew
 
 #### Four more HTTP addresses that are not controller endpoints
 
-These are not part of the 199 and have no permission gate. They are listed so you are not surprised by them.
+These are not part of the 201 and have no permission gate. They are listed so you are not surprised by them.
 
 | Method | Path | What it does |
 |---|---|---|
@@ -2359,60 +2396,107 @@ Authenticate a user with email and password.
 **About that last one.** When `Session:MaxConcurrentSessions` is set above zero and `Session:TerminateOldestOnMax` is `false`, a sign-in that would exceed the cap is **refused** rather than silently ending an older session. The refusal is a 400 whose `detail` names how many sessions are open, what the limit is, and — when it is known — the moment the earliest of them expires, so the user has a way forward: sign out on another device, or wait until that time. Shipped configuration sets `MaxConcurrentSessions` to `0`, which means no limit, so this error cannot occur until an operator changes it.
 *In code:* `Auth/Auth.Domain/Errors/SessionErrors.cs:41-53`; the check is at `Auth/Auth.Application/Features/Authentication/Common/LoginResponseBuilder.cs:102-131`.
 
-#### POST `/api/v1/auth/register`
+#### POST `/api/v1/auth/registration/start`
 
-Self-registration for new users.
+Self-registration is three requests, and this is the first. It takes an email address, mails a six-digit code to it, and **creates nothing** — no account, no password hash, no organization. Until the third request succeeds, the only thing on the server is a pending row keyed to the address.
 
-**Auth:** Anonymous | **Rate Limited:** `register` policy
-
-**This door can be shut.** `Registration:AllowSelfRegistration` (System settings → Who may create an account) decides whether this endpoint creates accounts at all. It ships open, which is what every deployment had before the switch existed. Closed, the endpoint answers `403 User.SelfRegistrationClosed` **before** the duplicate-email lookup, the password hash, the row and the verification email — so a refusal costs the server nothing and reveals nothing about who is registered here. Invitation redemption (`POST /api/v1/invitations/{token}/register`) and administrator-created users are not affected.
-
-*In code:* `Auth/Auth.Application/Features/Authentication/Register/RegisterCommandHandler.cs`, first block of `Handle`.
-
-**The provider door is separate.** A first sign-in through Google or Apple that matches no local account also creates one, so closing this switch alone leaves self-registration open by another route. `Registration:AllowExternalProvisioning` closes that one; see the external-login endpoint below.
-
-**Neither switch means "administrators only".** An organization invitation still registers the address it was sent to, with the email already confirmed — and any signed-in user may create an organization and invite. Closing both switches buys "no account without someone here", which is a different sentence.
+**Auth:** Anonymous | **Rate Limited:** `register` policy — this is the one request of a sign-up that sends mail, so it spends the sign-up budget: one permit per sign-up.
 
 **Request:**
 
 ```json
 {
   "email": "newuser@example.com",
+  "preferredLanguage": "en"
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `email` | Yes | The address the code is mailed to; it becomes the account's email and username |
+| `preferredLanguage` | No | The language the code email is written in, and the account's language if the completion request carries none |
+
+**Response (200):**
+
+```json
+{
+  "pendingId": "opaque-handle",
+  "maskedEmail": "n***r@example.com",
+  "expiresAt": "2026-03-12T10:15:00Z"
+}
+```
+
+**The response is the same shape, with the same timing, for every address** — one that is free, one that already has an account, and one that a deleted account has reserved. Only what is mailed differs: a free address receives the code; an address that already has an account receives a notice that someone tried to sign up with it, with links to sign in or reset the password, and no code. So nothing about this endpoint tells a caller whether an address is registered here, and the same holds for the two requests that follow.
+
+**Asking again rotates the code.** A second call for the same address while a code is live issues a new code and voids the old one; the handle stays the same. Each address may be mailed at most three times a minute, and a code stays valid until `expiresAt`.
+
+**This door can be shut.** `Registration:AllowSelfRegistration` (System settings → Who may create an account) decides whether this endpoint and the completion below do anything. Closed, both answer `403 User.SelfRegistrationClosed` before touching anything. Invitation redemption (`POST /api/v1/invitations/{token}/register`) and administrator-created users are not affected.
+
+**The provider door is separate.** A first sign-in through Google or Apple that matches no local account also creates one, so closing this switch alone leaves self-registration open by another route. `Registration:AllowExternalProvisioning` closes that one; see the external-login endpoint below.
+
+**Neither switch means "administrators only".** An organization invitation still registers the address it was sent to, with the email already confirmed — and any signed-in user may create an organization and invite. Closing both switches buys "no account without someone here", which is a different sentence.
+
+**In development with `Email:Enabled` set to `false`, the code is not mailed; it is written to the API log** as a warning line beginning `Email disabled - OTP for`, with the address masked. That is the only readable copy of it: the server stores a keyed hash.
+
+*In code:* `Auth/Auth.Application/Features/Authentication/StartRegistration/StartRegistrationCommandHandler.cs`.
+
+#### POST `/api/v1/auth/registration/verify`
+
+The second request: proves the code before a person is asked for a name and a password. A client that already has both may skip it and go straight to the completion, which checks the code itself.
+
+**Auth:** Anonymous | **Rate Limited:** `registration-followup` policy
+
+**Request:**
+
+```json
+{
+  "pendingId": "opaque-handle",
+  "otp": "123456"
+}
+```
+
+**Response:** `204 No Content`. The code stays valid for the completion.
+
+**Errors:** `400 EmailVerification.InvalidOrExpiredOtp` for a wrong or expired code, and `400 EmailVerification.TooManyAttempts` after five wrong codes, at which point the code is spent and only a fresh start issues another. The attempts are counted against the pending row under a lock, so a burst of parallel guesses does not get more than five.
+
+*In code:* `Auth/Auth.Application/Features/Authentication/VerifyRegistration/VerifyRegistrationCommandHandler.cs`.
+
+#### POST `/api/v1/auth/registration/complete`
+
+The third request, and the only one that creates anything. It takes the handle, the code once more, the password and the name — **never the email address**, which the handle already proves — creates the account with its address already confirmed, and answers with the same body as a sign-in.
+
+**Auth:** Anonymous | **Rate Limited:** `registration-followup` policy
+
+**Request:**
+
+```json
+{
+  "pendingId": "opaque-handle",
+  "otp": "123456",
   "password": "SecureP@ssw0rd!",
   "firstName": "Jane",
   "lastName": "Doe",
-  "displayName": "Jane Doe",
-  "phoneNumber": "+1234567890",
-  "preferredLanguage": "en",
-  "timeZone": "UTC",
+  "timeZone": "Europe/Istanbul",
   "createOrganization": false
 }
 ```
 
 | Field | Required | Description |
 |---|---|---|
-| `email` | Yes | Must be unique across all users |
-| `password` | Yes | Must meet password policy requirements |
-| `firstName` | Yes | User's first name |
-| `lastName` | Yes | User's last name |
+| `pendingId` | Yes | The handle from the start step |
+| `otp` | Yes | The mailed code, presented again |
+| `password` | Yes | Must meet the password policy; it is checked only after the code has passed |
+| `firstName`, `lastName` | Yes | The person's name |
+| `timeZone` | No | An IANA zone such as `Europe/Istanbul`; omitted, the profile stays on automatic |
 | `createOrganization` | No | If `true`, creates a personal organization for the user (default: `false`) |
 
-**Response (201):**
+**Response (200): a full login response** — access token, refresh token and user — and the identity-provider sign-in cookie is set on the same response, exactly as `POST /api/v1/auth/login` does. **The person is now signed in, with a confirmed address. There is no separate verification and no separate login call.**
 
-```json
-{
-  "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "maskedEmail": "new***@example.com",
-  "message": "Registration successful. Please verify your email.",
-  "organizationCreated": false,
-  "verificationCodeExpiresAt": "2026-03-12T10:15:00Z"
-}
-```
+**The order of checks is part of the contract.** The code is checked first, under the pending row's lock and with the same five-attempt gate as the verify step; then the password policy; only then whether the address already has an account. A caller holding a handle and no code therefore spends nothing of the server's and learns nothing about the address.
 
-**`verificationCodeExpiresAt` is how a client shows a countdown without asking for a second code.** If it is missing from the body, the verification email failed to send, and the person needs `POST /api/v1/auth/resend-verification-email` before they can do anything.
+**Errors:** the password policy's own codes (`Password.*`) and `EmailVerification.InvalidOrExpiredOtp` / `EmailVerification.TooManyAttempts` as 400; `403 User.SelfRegistrationClosed` when sign-up is closed; `409 User.DuplicateEmail` when the address gained an account while the code was being typed, or when the same request is sent twice — the account exists, and the answer is to sign in; and `409 User.AccountCreatedSignInRequired` in the rare case that the account was created but the session could not be issued, which the accounts application answers by sending the person to the sign-in screen.
 
-**Registering does not sign anyone in.** There are no tokens in this response. The account exists with an unconfirmed email; the next step is verification.
-*In code:* `Auth/Auth.Application/DTOs/RegisterResponse.cs`.
+*In code:* `Auth/Auth.Application/Features/Authentication/CompleteRegistration/CompleteRegistrationCommandHandler.cs`; the account and the consumed code are written in one transaction by `UserRepository.CreateVerifiedAsync`.
 
 #### GET `/api/v1/auth/external-providers`
 
@@ -6635,54 +6719,60 @@ Each workflow below is a complete ordered sequence: every call in the order it m
 
 **Two things are assumed true before any of these, because they are the two commonest reasons a first attempt fails.** The API is running on its `https` launch profile ([3.6](#36-running-the-api-and-gateway)), and you are signed in as an account that holds the permission each step names ([3.6c](#36c-sign-in-for-the-first-time)). Where a workflow needs a permission that a freshly published database does not grant to anybody, it says so at the top rather than at the point of failure.
 
-### 6.1 Register, Verify the Email Address, and End Up Signed In
+### 6.1 Sign Up: the Address, the Code, then the Name and Password
 
-**Registration emails the verification code by itself, and there is no token to hold until the address is confirmed.** Those two facts decide the whole shape of this flow: it is two calls, not four, and the middle one is not `send-verification-email`.
+**Nothing is created until the mailed code comes back, and the last request signs the person in.** Those two facts decide the whole shape of this flow: it is three calls, the address is proven before a password is ever asked for, and there is no separate login at the end.
 
-**Step 1 — Create the account.** `POST /api/v1/auth/register`, anonymous.
+**Step 1 — Send the code.** `POST /api/v1/auth/registration/start`, anonymous.
 
 ```json
 {
   "email": "newuser@example.com",
+  "preferredLanguage": "en"
+}
+```
+
+**Success is 200** with the handle for the next two calls, the masked address, and when the code expires:
+
+```json
+{
+  "pendingId": "opaque-handle",
+  "maskedEmail": "n***r@example.com",
+  "expiresAt": "2026-03-12T10:15:00Z"
+}
+```
+
+This answer is the same for every address, whether or not it already has an account; the difference is in the mail. **No account exists yet.** If the code never arrives, call Step 1 again: a new code is mailed and the old one is voided, up to three messages a minute per address.
+
+**Step 2 — Check the code.** `POST /api/v1/auth/registration/verify`, anonymous, with the handle and the six digits. Success is **204** and says nothing else. This step exists so a screen can ask for a name and a password only from someone who has already proven the mailbox; an API client that already holds all three may skip it.
+
+```json
+{
+  "pendingId": "opaque-handle",
+  "otp": "123456"
+}
+```
+
+**Step 3 — Create the account, which also signs the person in.** `POST /api/v1/auth/registration/complete`, anonymous. Send the handle and the code again, the password and the name — and **not** the email address; the handle already stands for it.
+
+```json
+{
+  "pendingId": "opaque-handle",
+  "otp": "123456",
   "password": "SecureP@ssw0rd!",
   "firstName": "Jane",
   "lastName": "Doe"
 }
 ```
 
-**Success is 201** with a body that carries **no tokens at all**:
+**Success is 200 carrying a full login response** — access token, refresh token and user — with the address already confirmed, and the identity-provider sign-in cookie set on the same response. **The person is now signed in. There is no verification step after this and no separate login call.**
 
-```json
-{
-  "userId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-  "maskedEmail": "new***@example.com",
-  "message": "Registration successful. Please verify your email.",
-  "organizationCreated": false,
-  "verificationCodeExpiresAt": "2026-03-12T10:15:00Z"
-}
-```
+**Three answers mean "stop and sign in instead".** `409 User.DuplicateEmail` means the address gained an account while the code was being typed, or this very request was sent twice; `409 User.AccountCreatedSignInRequired` means the account was created but the session could not be issued; both are answered by `POST /api/v1/auth/login` with the new password. A `400 EmailVerification.*` code at this step means the code was wrong, expired, or spent: go back to Step 2, or to Step 1 for a fresh code.
 
-`verificationCodeExpiresAt` is the deadline on the code that registration has already emailed — use it to show a countdown. **If that field is missing, the email failed to send**, and the person needs Step 3 before they can do anything.
+**`POST /api/v1/auth/verify-email` and `POST /api/v1/auth/resend-verification-email` are not part of this flow any more.** They remain for an account that exists with an unconfirmed address — one an administrator created, or one signed in with a correct password before confirming — and for that case the email-keyed verify-email still confirms the address and signs the person in. Both answer a confirmed address exactly as they answer an unknown one.
 
-**Step 2 — Confirm the address, which also signs the person in.** `POST /api/v1/auth/verify-email`, anonymous. Send `email`, not `userId`:
-
-```json
-{
-  "email": "newuser@example.com",
-  "otp": "123456"
-}
-```
-
-**Success is 200 carrying a full login response** — access token, refresh token and user — and the identity-provider sign-in cookie is set on the same response. **The person is now signed in. There is no separate login call.** Nobody has to type a password again immediately after proving they own the mailbox.
-
-**Step 3 — Only when the code never arrived.** `POST /api/v1/auth/resend-verification-email` with `{ "email": "newuser@example.com" }`, anonymous, returns 200 with an `expiresAt`. A fresh code is minted only when no live one exists; while the first code is still valid the call is a no-op with the same body, so it cannot be used to kill a code someone is about to type.
-
-**Do not reach for `POST /api/v1/auth/send-verification-email` here.** That endpoint requires a bearer token, and nobody has one until Step 2 succeeds. It exists for a person who is already signed in and whose address is still unconfirmed.
-
-**There is an administrative variant of Step 2, and it behaves differently.** Sending `userId` instead of `email` marks the address confirmed, signs nobody in, and returns **204 No Content**. A client that assumes one status code breaks on the other path; branch on the status code. Both are set out in [5.2](#52-authentication).
-
-**In the accounts application this is `/register` followed by `/verify-email`.** The two paths converge on the same screen: signing in with a correct password on an account whose address is still unconfirmed does not show an error either, it sends the person to `/verify-email`, where confirming the code signs them in.
-*In code:* `Auth_UI/packages/auth/src/pages/login.tsx:110-115`.
+**In the accounts application this is `/register`, then `/register/verify`, then `/register/complete`.** The identity of the pending sign-up is kept in the tab across a reload of the code screen; the code itself is kept in memory only, so a reload of the last screen asks for it again. Signing in with a correct password on an account whose address is still unconfirmed does not show an error either: it sends the person to `/verify-email`, where confirming the code signs them in.
+*In code:* `Auth_UI/apps/accounts/src/pages/auth/registration-flow.ts`; the sign-in branch is `Auth_UI/packages/auth/src/pages/login.tsx:110-115`.
 
 **No welcome email is sent after registration.** `welcome-email` is a seeded notification type, and it is the only seeded type with no template of its own, so there is nothing for the system to render.
 
@@ -7438,7 +7528,7 @@ A Postman collection ships with the repository at `Auth/Auth_API/Postman/AuthSys
 
 **Read this before you import it, because two things about it are misleading:**
 
-- **It is about half of the API.** The collection holds **100 requests** against an API that exposes **199** actions. Treat it as a starting point, not as a reference — the reference is [Section 5](#5-api-reference).
+- **It is about half of the API.** The collection holds **102 requests** against an API that exposes **201** actions. Treat it as a starting point, not as a reference — the reference is [Section 5](#5-api-reference).
 - **Its base address is wrong, and it is wrong in a way that fails silently.** The collection sets its `baseUrl` variable to `http://localhost:5000`. **Nothing in this system has ever listened on port 5000.** Every request will fail to connect until you change it.
 
 **Use it like this:**

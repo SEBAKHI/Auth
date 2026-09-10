@@ -875,4 +875,7 @@
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>این تصویر برای پیوست‌کردن در دسترس نیست. تصویر را دوباره بارگذاری کنید و دوباره تلاش کنید.</value>
   </data>
+  <data name="User.AccountCreatedSignInRequired" xml:space="preserve">
+    <value>حساب شما ساخته شد، اما ورود کامل نشد. لطفاً با رمز عبور جدید خود وارد شوید.</value>
+  </data>
 </root>

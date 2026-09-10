@@ -28,7 +28,12 @@ public class GatewayRateLimitingTests
         "ApiPermitLimit",
         "ApiWindowSeconds",
         "AdminPermitLimit",
-        "AdminWindowSeconds"
+        "AdminWindowSeconds",
+        // The verify-first sign-up follow-up pair, appended last: other work
+        // edits this section in parallel and the end is the one place that
+        // merges cleanly.
+        "RegistrationFollowupPermitLimit",
+        "RegistrationFollowupWindowSeconds"
     ];
 
     private static SettingSectionDefinition Section()

@@ -431,6 +431,7 @@ builder.Services.AddScoped<IRevokedTokenStore, RevokedTokenStore>();
 builder.Services.AddScoped<ITwoFactorAuthRepository, TwoFactorAuthRepository>();
 builder.Services.AddScoped<ITwoFactorChallengeRepository, TwoFactorChallengeRepository>();
 builder.Services.AddScoped<IEmailVerificationTokenRepository, EmailVerificationTokenRepository>();
+builder.Services.AddScoped<IPendingRegistrationRepository, PendingRegistrationRepository>();
 builder.Services.AddScoped<IOrganizationRepository, OrganizationRepository>();
 builder.Services.AddScoped<IOwnershipTransferCodeRepository, OwnershipTransferCodeRepository>();
 builder.Services.AddScoped<IExternalAuthProviderRepository, ExternalAuthProviderRepository>();
@@ -548,6 +549,7 @@ builder.Services.AddSingleton<IIdentifierHasher, IdentifierHasher>();
 // password hasher it falls back to for codes minted before this shipped is a
 // singleton too.
 builder.Services.AddSingleton<IOtpHasher, HmacOtpHasher>();
+builder.Services.AddSingleton<IPendingRegistrationHandle, PendingRegistrationHandle>();
 // Scoped: the protector now rides the per-user crypto service (scoped DEK repo).
 builder.Services.AddScoped<ITwoFactorSecretProtector, TwoFactorSecretProtector>();
 builder.Services.AddScoped<IPerUserCryptoService, PerUserCryptoService>();
@@ -681,6 +683,10 @@ builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
 builder.Services.AddScoped<ITokenClaimsResolver, TokenClaimsResolver>();
 builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
+// Every door that creates a Users row consumes the address's pending
+// verify-first registration through this; the completion step alone
+// consumes inside its own transaction.
+builder.Services.AddScoped<IPendingRegistrationConsumer, Auth.Application.Features.Authentication.Common.PendingRegistrationConsumer>();
 
 // Authorization
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
@@ -853,6 +859,28 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = builder.Configuration.GetValue("RateLimiting:RegisterPermitLimit", 200),
                 Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:RegisterWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
+    // The second and third requests of a verify-first sign-up: the code check
+    // and the completion. Their own budget rather than a wider "register",
+    // because only the start step produces a message. One number for all three
+    // would either triple the mail one address can cause — the start step is
+    // the whole of what the register budget was sized against — or, kept at
+    // the old number, refuse a sign-up at its second step. Sized at twice the
+    // register limit: a sign-up needs exactly one check and one completion. A
+    // wrong code is refused by the code's own five-attempt gate long before
+    // this bucket is, so this is quota hygiene, not the guessing defence.
+    //
+    // The gateway has a matching "registration-followup" policy in front of
+    // this one, on its own route. Both must move together, as for "register".
+    options.AddPolicy("registration-followup", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:RegistrationFollowupPermitLimit", 400),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:RegistrationFollowupWindowSeconds", 60)),
                 QueueLimit = 0
             }));
 

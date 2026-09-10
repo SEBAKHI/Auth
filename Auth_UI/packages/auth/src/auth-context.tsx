@@ -40,6 +40,20 @@ export interface ExternalLoginExtras {
   familyName?: string
 }
 
+/**
+ * The last step of a verify-first sign-up. The address is not a member: the
+ * server knows it from the handle, and a body that named one would be a body
+ * a caller could name differently.
+ */
+export interface CompleteRegistrationInput {
+  pendingId: string
+  otp: string
+  password: string
+  firstName: string
+  lastName: string
+  timeZone?: string
+}
+
 export type LoginResult =
   | { status: "authenticated"; requiresPasswordChange: boolean }
   | { status: "twoFactorRequired"; challengeToken: string }
@@ -75,6 +89,7 @@ interface AuthContextValue {
     useRecoveryCode: boolean
   ) => Promise<{ requiresPasswordChange: boolean }>
   completeEmailVerification: (email: string, otp: string) => Promise<LoginResult>
+  completeRegistration: (input: CompleteRegistrationInput) => Promise<LoginResult>
   logout: () => Promise<void>
   refreshUser: () => Promise<void>
 }
@@ -346,6 +361,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [adoptLoginResponse]
   )
 
+  const completeRegistration = React.useCallback(
+    async (input: CompleteRegistrationInput): Promise<LoginResult> => {
+      // The server answers with the same body a sign-in does, so the shared
+      // tail adopts the new account's session exactly as it would any other.
+      const { data, error } = await api.POST(
+        "/api/v1/Auth/registration/complete",
+        {
+          body: {
+            pendingId: input.pendingId,
+            otp: input.otp,
+            password: input.password,
+            firstName: input.firstName,
+            lastName: input.lastName,
+            timeZone: input.timeZone ?? null,
+          },
+        }
+      )
+      if (error || !data) {
+        throw error ?? new Error("Registration failed")
+      }
+
+      return adoptLoginResponse(data)
+    },
+    [adoptLoginResponse]
+  )
+
   const logout = React.useCallback(async () => {
     try {
       await api.POST("/api/v1/Auth/logout", {
@@ -398,6 +439,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       recoverAccountExternal,
       completeTwoFactor,
       completeEmailVerification,
+      completeRegistration,
       logout,
       refreshUser: loadCurrentUser,
     }),
@@ -414,6 +456,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       recoverAccountExternal,
       completeTwoFactor,
       completeEmailVerification,
+      completeRegistration,
       logout,
       loadCurrentUser,
     ]

@@ -3753,6 +3753,17 @@ export interface paths {
                         "text/json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
                 /** @description Conflict */
                 409: {
                     headers: {
@@ -6996,6 +7007,17 @@ export interface paths {
                         "text/json": components["schemas"]["ProblemDetails"];
                     };
                 };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/plain": components["schemas"]["ProblemDetails"];
+                        "application/json": components["schemas"]["ProblemDetails"];
+                        "text/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -7553,7 +7575,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/Auth/register": {
+    "/api/v1/Auth/registration/start": {
         parameters: {
             query?: never;
             header?: never;
@@ -7571,23 +7593,159 @@ export interface paths {
             };
             requestBody: {
                 content: {
-                    "application/json": components["schemas"]["RegisterRequest"];
-                    "text/json": components["schemas"]["RegisterRequest"];
-                    "application/*+json": components["schemas"]["RegisterRequest"];
+                    "application/json": components["schemas"]["StartRegistrationRequest"];
+                    "text/json": components["schemas"]["StartRegistrationRequest"];
+                    "application/*+json": components["schemas"]["StartRegistrationRequest"];
                 };
             };
             responses: {
-                /** @description Created */
-                201: {
+                /** @description OK */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["RegisterResponse"];
+                        "application/json": components["schemas"]["StartRegistrationResponse"];
                     };
                 };
                 /** @description Bad Request */
                 400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/registration/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VerifyRegistrationRequest"];
+                    "text/json": components["schemas"]["VerifyRegistrationRequest"];
+                    "application/*+json": components["schemas"]["VerifyRegistrationRequest"];
+                };
+            };
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": unknown;
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/Auth/registration/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CompleteRegistrationRequest"];
+                    "text/json": components["schemas"]["CompleteRegistrationRequest"];
+                    "application/*+json": components["schemas"]["CompleteRegistrationRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LoginResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
+                    };
+                };
+                /** @description Forbidden */
+                403: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -7647,6 +7805,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ExternalAuthProviderResponse"][];
+                    };
+                };
+                /** @description Too Many Requests */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProblemDetails"];
                     };
                 };
             };
@@ -12871,6 +13038,16 @@ export interface components {
             confirmNewPassword: string;
             terminateSessions?: null | boolean;
         };
+        CompleteRegistrationRequest: {
+            pendingId: string;
+            otp: string;
+            password: string;
+            firstName: string;
+            lastName: string;
+            timeZone?: null | string;
+            createOrganization?: boolean;
+            deviceId?: null | string;
+        };
         ConfirmedSecretOperationRequest: {
             /** Format: uuid */
             challengeId?: string;
@@ -13164,6 +13341,10 @@ export interface components {
             adminPermitLimit: number | string;
             /** Format: int32 */
             adminWindowSeconds: number | string;
+            /** Format: int32 */
+            registrationFollowupPermitLimit: number | string;
+            /** Format: int32 */
+            registrationFollowupWindowSeconds: number | string;
         };
         GatewayRuntimeSettingsResponse: {
             /** Format: int32 */
@@ -14148,26 +14329,6 @@ export interface components {
         RefreshTokenRequest: {
             refreshToken: string;
         };
-        RegisterRequest: {
-            email: string;
-            password: string;
-            firstName: string;
-            lastName: string;
-            phoneNumber?: null | string;
-            preferredLanguage?: null | string;
-            timeZone?: null | string;
-            createOrganization?: boolean;
-        };
-        RegisterResponse: {
-            /** Format: uuid */
-            userId: string;
-            maskedEmail: string;
-            message: string;
-            /** @default false */
-            organizationCreated: boolean;
-            /** Format: date-time */
-            verificationCodeExpiresAt?: null | string;
-        };
         RegisterWithInvitationRequest: {
             password: string;
             firstName: string;
@@ -14414,6 +14575,16 @@ export interface components {
             value: string;
         };
         SortDirection: number;
+        StartRegistrationRequest: {
+            email: string;
+            preferredLanguage?: null | string;
+        };
+        StartRegistrationResponse: {
+            pendingId: string;
+            maskedEmail: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         StringSegment: {
             buffer?: null | string;
             /** Format: int32 */
@@ -14797,6 +14968,10 @@ export interface components {
             email?: null | string;
             otp: string;
             deviceId?: null | string;
+        };
+        VerifyRegistrationRequest: {
+            pendingId: string;
+            otp: string;
         };
         VerifySecretOperationChallengeRequest: {
             code?: string;

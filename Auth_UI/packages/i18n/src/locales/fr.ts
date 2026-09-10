@@ -461,6 +461,17 @@ export const fr: TranslationResources = {
     noAccount: "Vous n'avez pas de compte ?",
     haveAccount: "Vous avez déjà un compte ?",
     signUp: "S'inscrire",
+    registerEmailHint: "Nous enverrons un code à 6 chiffres à cette adresse pour confirmer qu'elle est bien la vôtre.",
+    sendCode: "Envoyer le code",
+    sendingCode: "Envoi du code…",
+    requestNewCode: "Envoyer un nouveau code",
+    useDifferentEmail: "Utiliser une autre adresse e-mail",
+    registerCompleteTitle: "Configurez votre compte",
+    registerCompleteSubtitle: "Votre adresse est confirmée. Choisissez un nom et un mot de passe.",
+    changeEmail: "Changer d'adresse e-mail",
+    showPassword: "Afficher le mot de passe",
+    hidePassword: "Masquer le mot de passe",
+    accountCreated: "Votre compte est prêt.",
   },
   dashboard: {
     window: "Période",
@@ -1102,6 +1113,7 @@ export const fr: TranslationResources = {
       systemPolicyNotificationSent:
         "Avis de politique de confidentialité envoyé",
       systemRetentionSweep: "Balayage de conservation des données exécuté",
+      registrationStarted: "Inscription commencée",
     },
   },
   auditCatalog: {
@@ -1264,6 +1276,8 @@ export const fr: TranslationResources = {
       secretOperationChallenge: "Confirmation d'opération sur les clés",
       passwordCreated: "Mot de passe ajouté",
       passwordChanged: "Mot de passe modifié",
+      registrationVerification: "Code de vérification d'inscription",
+      registrationAttemptExistingAccount: "Tentative d'inscription avec une adresse existante",
     },
     application: "Application",
     global: "Global",
@@ -1856,7 +1870,7 @@ export const fr: TranslationResources = {
         "Durée sur laquelle le compte ci-dessus est mesuré. La fenêtre est fixe et non glissante : le compteur revient à zéro à sa fin, et un client ayant épuisé son quota attend jusque-là. L'allonger resserre la limite et allonge l'attente après un refus, en même temps.",
       registerPermitLimit: "Inscriptions par fenêtre",
       registerPermitLimitHint:
-        "Nombre de comptes qu'une même IP cliente peut créer avant d'être refusée avec un 429. Distincte de la limite d'authentification ci-dessus, parce que la demande d'inscription est un événement quand celle de connexion est une habitude : un lancement ou une campagne réclame des milliers de comptes en une heure, et tant que les deux partageaient un même quota, la seule façon d'y répondre était d'élargir aussi la connexion. Pour la dimensionner : multipliez ce nombre par les adresses IP clientes d'où arrivent vos inscriptions, divisez par la fenêtre, et vous obtenez le nombre de comptes par seconde autorisé — gardez-le sous ce que le serveur peut hacher, car un refus est presque gratuit alors qu'une inscription à moitié faite ne l'est pas. L'augmenter n'ajoute pas de capacité ; cela cesse simplement de rester en dessous.",
+        "Nombre de comptes qu'une même IP cliente peut créer avant d'être refusée avec un 429. Distincte de la limite d'authentification ci-dessus, parce que la demande d'inscription est un événement quand celle de connexion est une habitude : un lancement ou une campagne réclame des milliers de comptes en une heure, et tant que les deux partageaient un même quota, la seule façon d'y répondre était d'élargir aussi la connexion. Pour la dimensionner : multipliez ce nombre par les adresses IP clientes d'où arrivent vos inscriptions, divisez par la fenêtre, et vous obtenez le nombre de comptes par seconde autorisé — gardez-le sous ce que le serveur peut hacher, car un refus est presque gratuit alors qu'une inscription à moitié faite ne l'est pas. L'augmenter n'ajoute pas de capacité ; cela cesse simplement de rester en dessous. Une valeur enregistrée ici est stockée et survit à chaque déploiement : un nombre modifié plus tard dans le fichier de configuration reste masqué par elle tant que la valeur stockée n'est pas effacée.",
       registerWindowSeconds: "Fenêtre de comptage des inscriptions (secondes)",
       registerWindowSecondsHint:
         "Durée sur laquelle le compte d'inscriptions ci-dessus est mesuré, selon la même mécanique de fenêtre fixe : le compteur revient à zéro à la fin de la fenêtre au lieu de glisser. Les deux champs s'appliquent aux nouvelles fenêtres clientes dès l'enregistrement : une limite d'événement peut donc être relevée pour la journée puis abaissée ensuite, sans redémarrage — et elle devrait l'être, car un quota d'inscription large se dépense aussi facilement par un automate que par une vraie foule.",
@@ -1884,6 +1898,12 @@ export const fr: TranslationResources = {
       imageUploadConcurrencyLimit: "Envois décodés simultanément",
       imageUploadConcurrencyLimitHint:
         "Pas une fenêtre : combien d'images peuvent être décodées au même instant, pour tout le processus. Chacune retient Mégapixels maximum × 4 Mo de mémoire jusqu'à l'écriture du WebP ; ce nombre multiplié par ce budget est la mémoire que les envois peuvent occuper. Les quatre suivants patientent un instant ; au-delà, refus en 429 avec un court délai de nouvelle tentative.",
+      registrationFollowupPermitLimit: "Requêtes de suite d'inscription par fenêtre",
+      registrationFollowupPermitLimitHint:
+        "Combien de vérifications de code et de finalisations d'inscription une adresse IP cliente peut envoyer par fenêtre avant un refus 429. Ce sont les deuxième et troisième requêtes de chaque inscription à vérification préalable, comptées à part des requêtes d'inscription ci-dessus parce que seule la première étape envoie un message : un seul nombre pour les deux triplerait le courrier qu'une adresse peut provoquer ou étoufferait l'inscription à sa deuxième étape. Gardez-le au moins au double de la limite d'inscription — chaque inscription demande une vérification et une finalisation — et rappelez-vous qu'un code erroné est refusé par la limite de cinq essais du code lui-même bien avant celle-ci.",
+      registrationFollowupWindowSeconds: "Fenêtre de suite d'inscription (secondes)",
+      registrationFollowupWindowSecondsHint:
+        "La durée sur laquelle le compte de suite ci-dessus est mesuré, avec la même mécanique de fenêtre fixe : le compteur revient à zéro à la fin de la fenêtre. S'applique aux nouvelles fenêtres clientes dès l'enregistrement.",
     },
     gatewayRateLimiting: {
       title: "Limitation de débit (passerelle)",
@@ -1928,6 +1948,12 @@ export const fr: TranslationResources = {
       adminWindowSeconds: "Fenêtre de la console d'administration (secondes)",
       adminWindowSecondsHint:
         "Durée sur laquelle les requêtes d'administration sont comptées. La raccourcir rend plus vite un nouveau quota à l'administrateur après un refus ; l'allonger fait durer un seul refus plus longtemps.",
+      registrationFollowupPermitLimit: "Requêtes de suite d'inscription par fenêtre",
+      registrationFollowupPermitLimitHint:
+        "Couvre les étapes de vérification du code et de finalisation d'une inscription en bordure, sur leur propre route. Le jumeau extérieur de la limite de suite de la section API, et celui que le visiteur rencontre en premier : gardez-le au niveau de l'intérieur ou au-dessus, et au moins au double de la limite d'inscription voisine, sinon les inscriptions sont refusées à leur deuxième étape alors que le compteur d'inscription a encore de la place.",
+      registrationFollowupWindowSeconds: "Fenêtre de suite d'inscription (secondes)",
+      registrationFollowupWindowSecondsHint:
+        "La durée sur laquelle les requêtes de suite sont comptées en bordure, avec la même mécanique de fenêtre fixe. Un changement atteint la passerelle en 30 secondes environ plutôt qu'instantanément, car elle tire elle-même ses réglages — augmentez-le avant le début d'un événement.",
     },
     externalAuth: {
       requireNonce: "Exiger un nonce émis par le serveur",
@@ -2238,6 +2264,9 @@ export const fr: TranslationResources = {
       refreshTokenDays: "Jetons de rafraîchissement (jours)",
       refreshTokenDaysHint:
         "La plus longue fenêtre et la plus importante : une ligne révoquée est la seule chose qui transforme un jeton volé en vol détecté, et le tableau de bord rapporte les révocations sur 90 jours au maximum. Plancher de 90 imposé dans le code quelle que soit la valeur saisie.",
+      pendingRegistrationDays: "Inscriptions en attente (jours)",
+      pendingRegistrationDaysHint:
+        "Tentatives d'inscription dont le code a expiré, abouties ou non. Conservées comme trace de qui a tenté de s'inscrire avec quelle adresse. Recommandé : 7.",
     },
     dataRetention: {
       title: "Confidentialité et conservation des données",

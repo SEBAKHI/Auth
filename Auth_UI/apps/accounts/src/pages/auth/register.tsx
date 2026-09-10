@@ -1,7 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Link } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { z } from "zod"
 
@@ -9,96 +9,77 @@ import { api } from "@authsystem/api/client"
 import { privacyPolicyUrl } from "@authsystem/api/env"
 import { getErrorMessage } from "@authsystem/api/errors"
 import { unwrap } from "@authsystem/api/helpers"
-import { usePasswordPolicy } from "@authsystem/api/password-policy"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Button } from "@authsystem/ui/button"
 import { FieldGroup } from "@authsystem/ui/field"
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from "@authsystem/ui/form"
 import { Input } from "@authsystem/ui/input"
+import { Spinner } from "@authsystem/ui/spinner"
 
 import { ExternalProviders } from "@authsystem/auth/external/external-providers"
-import { useLoginCompletion } from "@authsystem/auth/login-completion"
-import { PasswordField } from "@authsystem/auth/password-field"
-import {
-  applyPasswordServerErrors,
-  passwordSchema,
-} from "@authsystem/auth/password-rules"
-import { Spinner } from "@authsystem/ui/spinner"
+
+import { savePendingRegistration } from "./registration-flow"
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-/** Public email/password self-registration (plus external providers). */
+/**
+ * First of the three sign-up screens: the address, and nothing else.
+ *
+ * Nothing about the person is asked for until the address has proven itself
+ * with the code the server mails to it, so a form here that took a name and a
+ * password would only be collecting what the server will refuse to store. The
+ * server answers this request identically for every address — free, already
+ * registered, or reserved — and so does this screen: every address goes on to
+ * the code screen, and the message tells the owner of a taken address what
+ * happened.
+ *
+ * The provider buttons sit OUTSIDE the form on purpose. A Google or Apple
+ * identity proves its own mailbox and skips the code entirely.
+ */
 export function RegisterPage() {
   const { t, i18n } = useTranslation()
-  // Registering from the hosted login is still the relying party's flow: the
-  // verification code signs the user in, so the pending request has to reach
-  // the screen that ends it.
-  const { interstitial } = useLoginCompletion()
-  const { policy } = usePasswordPolicy()
+  const navigate = useNavigate()
+  // A pending authorize request rides in the query string across all three
+  // screens; each link and navigation carries it forward unchanged.
+  const { search } = useLocation()
 
-  const schema = z
-    .object({
-      email: z
-        .string()
-        .min(1, t("validation.required"))
-        .regex(EMAIL_RE, t("validation.email")),
-      firstName: z.string().min(1, t("validation.required")),
-      lastName: z.string().min(1, t("validation.required")),
-      password: passwordSchema(policy),
-      confirmPassword: z.string().min(1, t("validation.required")),
-    })
-    .refine((data) => data.password === data.confirmPassword, {
-      message: t("validation.passwordMismatch"),
-      path: ["confirmPassword"],
-    })
+  const schema = z.object({
+    email: z
+      .string()
+      .trim()
+      .min(1, t("validation.required"))
+      .regex(EMAIL_RE, t("validation.email")),
+  })
 
   const form = useForm<z.infer<typeof schema>>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      email: "",
-      firstName: "",
-      lastName: "",
-      password: "",
-      confirmPassword: "",
-    },
+    defaultValues: { email: "" },
   })
 
   const onSubmit = async (values: z.infer<typeof schema>) => {
     try {
       const data = await unwrap(
-        api.POST("/api/v1/Auth/register", {
-          body: {
-            email: values.email,
-            password: values.password,
-            firstName: values.firstName,
-            lastName: values.lastName,
-            preferredLanguage: i18n.language,
-          },
+        api.POST("/api/v1/Auth/registration/start", {
+          body: { email: values.email, preferredLanguage: i18n.language },
         })
       )
-      // The message is localized by the API (verification email sent, …).
-      toast.success(data.message)
-      // A code was just emailed; go straight to entering it. Verifying there
-      // signs the user in, so they never see the login screen. Pass the expiry
-      // so the page shows a countdown without requesting a fresh code.
-      interstitial("/verify-email", {
+      savePendingRegistration({
+        pendingId: data.pendingId,
         email: values.email,
         maskedEmail: data.maskedEmail,
-        expiresAt: data.verificationCodeExpiresAt,
+        expiresAt: data.expiresAt,
       })
+      navigate({ pathname: "/register/verify", search })
     } catch (error) {
-      // A refused password lands under the field, every reason at once; only
-      // a failure about something else is left to the toast.
-      if (!applyPasswordServerErrors(form, "password", error)) {
-        toast.error(getErrorMessage(error))
-      }
+      toast.error(getErrorMessage(error))
     }
   }
 
@@ -109,7 +90,10 @@ export function RegisterPage() {
       footer={
         <span>
           {t("auth.haveAccount")}{" "}
-          <Link to="/login" className="underline-offset-4 hover:underline">
+          <Link
+            to={{ pathname: "/login", search }}
+            className="underline-offset-4 hover:underline"
+          >
             {t("auth.signIn")}
           </Link>
         </span>
@@ -148,54 +132,7 @@ export function RegisterPage() {
                       {...field}
                     />
                   </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("auth.firstName")}</FormLabel>
-                  <FormControl>
-                    <Input autoComplete="given-name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("auth.lastName")}</FormLabel>
-                  <FormControl>
-                    <Input autoComplete="family-name" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <PasswordField
-              control={form.control}
-              name="password"
-              label={t("auth.password")}
-            />
-            <FormField
-              control={form.control}
-              name="confirmPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t("auth.confirmPassword")}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="password"
-                      autoComplete="new-password"
-                      {...field}
-                    />
-                  </FormControl>
+                  <FormDescription>{t("auth.registerEmailHint")}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -207,11 +144,11 @@ export function RegisterPage() {
             >
               {form.formState.isSubmitting ? (
                 <>
-                  <Spinner />
-                  {t("auth.creatingAccount")}
+                  <Spinner data-icon="inline-start" />
+                  {t("auth.sendingCode")}
                 </>
               ) : (
-                t("auth.createAccount")
+                t("auth.sendCode")
               )}
             </Button>
           </FieldGroup>

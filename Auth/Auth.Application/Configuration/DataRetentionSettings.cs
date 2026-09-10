@@ -58,6 +58,13 @@ public class DataRetentionSettings
     /// <summary>Email verification tokens.</summary>
     public int EmailVerificationTokenDays { get; set; } = 7;
 
+    /// <summary>
+    /// Pending self-registrations, counted from the expiry of their last code,
+    /// whether the registration completed or was abandoned. Kept as evidence
+    /// of who tried to register with which address.
+    /// </summary>
+    public int PendingRegistrationDays { get; set; } = 7;
+
     /// <summary>IdP SSO sessions, counted from expiry or revocation.</summary>
     public int IdpSessionDays { get; set; } = 30;
 
@@ -92,6 +99,8 @@ public class DataRetentionSettings
     public int EffectivePasswordResetTokenDays => Math.Max(1, PasswordResetTokenDays);
 
     public int EffectiveEmailVerificationTokenDays => Math.Max(1, EmailVerificationTokenDays);
+
+    public int EffectivePendingRegistrationDays => Math.Max(1, PendingRegistrationDays);
 
     public int EffectiveIdpSessionDays => Math.Max(1, IdpSessionDays);
 

@@ -93,4 +93,7 @@
   <data name="Middleware.Conflict.Detail" xml:space="preserve">
     <value>İlişkili kayıtlar bu kaynağa başvurduğu için işlem tamamlanamadı.</value>
   </data>
+  <data name="Middleware.Duplicate.Detail" xml:space="preserve">
+    <value>Aynı benzersiz değere sahip bir kayıt zaten var.</value>
+  </data>
 </root>

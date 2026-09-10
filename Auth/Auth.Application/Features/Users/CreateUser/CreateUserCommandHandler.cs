@@ -24,6 +24,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
     private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly IPendingRegistrationConsumer _pendingRegistrationConsumer;
     private readonly ILogger<CreateUserCommandHandler> _logger;
 
     public CreateUserCommandHandler(
@@ -35,6 +36,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         IPasswordBreachEvaluator breachEvaluator,
         IdentifierReservationGuard reservationGuard,
         IDomainEventDispatcher eventDispatcher,
+        IPendingRegistrationConsumer pendingRegistrationConsumer,
         ILogger<CreateUserCommandHandler> logger)
     {
         _userRepository = userRepository;
@@ -45,6 +47,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
         _breachEvaluator = breachEvaluator;
         _reservationGuard = reservationGuard;
         _eventDispatcher = eventDispatcher;
+        _pendingRegistrationConsumer = pendingRegistrationConsumer;
         _logger = logger;
     }
 
@@ -94,6 +97,10 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Error
             theme: request.Theme ?? "system");
 
         await _userRepository.CreateAsync(user, cancellationToken);
+
+        // An administrator's policy, not a proof — but a Users row exists for
+        // the address now, so a verify-first row pending for it is moot.
+        await _pendingRegistrationConsumer.ConsumeAsync(user.Email.Value, cancellationToken);
 
         // Assign roles if provided
         var roleNames = new List<string>();

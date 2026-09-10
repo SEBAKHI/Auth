@@ -27,14 +27,21 @@ public class UserRepository : IUserRepository
         IOptionsSnapshot<PasswordSettings> passwordSettings,
         IIdentifierHasher identifierHasher,
         IOptionsSnapshot<AccountDeletionSettings> accountDeletionSettings,
-        IPerUserCryptoService perUserCrypto)
+        IPerUserCryptoService perUserCrypto,
+        IOtpHasher otpHasher)
     {
         _connectionFactory = connectionFactory;
         _passwordSettings = passwordSettings.Value;
         _identifierHasher = identifierHasher;
         _accountDeletionSettings = accountDeletionSettings.Value;
         _perUserCrypto = perUserCrypto;
+        _otpHasher = otpHasher;
     }
+
+    // Only for CreateVerifiedAsync: the registration code is re-checked under
+    // the pending row's lock, inside the same transaction that inserts the
+    // account, and that check cannot live anywhere but here.
+    private readonly IOtpHasher _otpHasher;
 
     /// <summary>
     /// Dual-read at the repository boundary: PhoneNumber is stored as v2
@@ -216,54 +223,29 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<UserNotificationIdentity?> GetNotificationIdentityByEmailAsync(string email, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Three columns and no IsDeleted predicate, on purpose: the caller
+        // classifies an address for a registration attempt, and a Users row in
+        // any state — active, locked, soft-deleted, in its deletion grace —
+        // means the address cannot become a new account. No phone decryption
+        // and no aggregate hydration: this runs on every registration start,
+        // free address or not, and must cost the same for both.
+        return await connection.QueryFirstOrDefaultAsync<UserNotificationIdentity>(@"
+            SELECT [Id], [FullName] AS [DisplayName], [PreferredLanguage], [IsDeleted]
+            FROM [dbo].[Users]
+            WHERE [NormalizedEmail] = @NormalizedEmail",
+            new { NormalizedEmail = email.Trim().ToUpperInvariant() });
+    }
+
+    /// <inheritdoc />
     public async Task<User> CreateAsync(User user, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
 
-        await connection.ExecuteAsync(@"
-            INSERT INTO [dbo].[Users] (
-                [Id], [Username], [Email], [NormalizedEmail], [PasswordHash], [FirstName], [LastName],
-                [PhoneNumber], [PreferredLanguage], [TimeZone], [Theme],
-                [IsEmailConfirmed], [IsPhoneConfirmed], [IsTwoFactorEnabled],
-                [Status], [FailedLoginAttempts], [LockoutEndUtc], [LastLoginUtc],
-                [LastPasswordChangeUtc], [MustChangePassword], [ProfileImageUrl],
-                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
-            ) VALUES (
-                @Id, @Username, @Email, @NormalizedEmail, @PasswordHash, @FirstName, @LastName,
-                @PhoneNumber, @PreferredLanguage, @TimeZone, @Theme,
-                @IsEmailConfirmed, @IsPhoneConfirmed, @IsTwoFactorEnabled,
-                @Status, @FailedLoginAttempts, @LockoutEndUtc, @LastLoginUtc,
-                @LastPasswordChangeUtc, @MustChangePassword, @ProfileImageUrl,
-                @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
-            )",
-            new
-            {
-                user.Id,
-                Username = user.Email.Value.Split('@')[0],
-                Email = user.Email.Value,
-                user.NormalizedEmail,
-                user.PasswordHash,
-                user.FirstName,
-                user.LastName,
-                PhoneNumber = (string?)null,
-                user.PreferredLanguage,
-                user.TimeZone,
-                user.Theme,
-                IsEmailConfirmed = user.EmailConfirmed,
-                IsPhoneConfirmed = user.PhoneConfirmed,
-                IsTwoFactorEnabled = user.TwoFactorEnabled,
-                Status = (int)user.Status,
-                user.FailedLoginAttempts,
-                LockoutEndUtc = user.LockoutEnd,
-                LastLoginUtc = user.LastLoginAt,
-                LastPasswordChangeUtc = user.PasswordChangedAt,
-                user.MustChangePassword,
-                user.ProfileImageUrl,
-                user.CreatedAt,
-                user.CreatedBy,
-                user.ModifiedAt,
-                user.ModifiedBy
-            });
+        await InsertUserAsync(connection, user, transaction: null);
 
         // The per-user DEK row has an FK to Users, so the phone can only be
         // encrypted after the account row exists: insert without it, then
@@ -279,6 +261,183 @@ public class UserRepository : IUserRepository
 
         return user;
     }
+
+    /// <inheritdoc />
+    public Task<VerifiedUserCreationOutcome> CreateVerifiedAsync(
+        User user, Guid pendingRegistrationId, string otp, CancellationToken cancellationToken)
+        => CreateVerifiedAsync(user, pendingRegistrationId, otp, retryAfterDeadlock: true, cancellationToken);
+
+    private async Task<VerifiedUserCreationOutcome> CreateVerifiedAsync(
+        User user, Guid pendingRegistrationId, string otp, bool retryAfterDeadlock, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await CreateVerifiedOnceAsync(user, pendingRegistrationId, otp, cancellationToken);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number is 1205 && retryAfterDeadlock)
+        {
+            // This transaction reaches the pending row through its clustered
+            // key and then, when it stamps ConsumedAt, needs the row's entries
+            // in the two filtered indexes; the check and start steps reach the
+            // same row through those indexes first. A check or a start landing
+            // on this row in the same few milliseconds — a double submit — can
+            // therefore deadlock with this one, and SQL Server kills one side.
+            // The victim's transaction is already rolled back; run it once more
+            // on a fresh connection. If the other side consumed or rotated the
+            // row in between, the re-run answers CodeRejected on its own.
+            return await CreateVerifiedAsync(user, pendingRegistrationId, otp, retryAfterDeadlock: false, cancellationToken);
+        }
+    }
+
+    private async Task<VerifiedUserCreationOutcome> CreateVerifiedOnceAsync(
+        User user, Guid pendingRegistrationId, string otp, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+        using var transaction = connection.BeginTransaction();
+
+        // The pending row under its lock, alive: unconsumed and unexpired by
+        // the application clock, the same predicate the check step reads by.
+        // Held from here to the commit, so nothing can rotate or consume the
+        // row between this check and the account row that depends on it.
+        var pending = await connection.QuerySingleOrDefaultAsync<PendingCodeRow>(@"
+            SELECT [Id], [OtpHash]
+            FROM [dbo].[PendingRegistrations] WITH (UPDLOCK, HOLDLOCK)
+            WHERE [Id] = @Id AND [ConsumedAt] IS NULL AND [ExpiresAt] > @Now",
+            new { Id = pendingRegistrationId, Now = DateTime.UtcNow },
+            transaction);
+
+        if (pending is null)
+        {
+            // Gone, expired, or consumed. Consumed is worth telling apart: it
+            // means an account exists for the address already — this very
+            // form submitted twice, or another door winning the race — and
+            // the caller, who has already presented the right code, should be
+            // sent to sign in rather than back to a code that is spent.
+            var consumed = await connection.ExecuteScalarAsync<int>(@"
+                SELECT COUNT(1) FROM [dbo].[PendingRegistrations]
+                WHERE [Id] = @Id AND [ConsumedAt] IS NOT NULL",
+                new { Id = pendingRegistrationId },
+                transaction);
+
+            transaction.Rollback();
+            return consumed > 0
+                ? VerifiedUserCreationOutcome.DuplicateEmail
+                : VerifiedUserCreationOutcome.CodeRejected;
+        }
+
+        // A mismatch here is not a wrong guess — the caller's guess was
+        // already charged and accepted by the check step under this same
+        // lock — it means the row was rotated under our feet. No attempt is
+        // spent and nothing is written.
+        if (!_otpHasher.Verify(PendingRegistration.OtpScopeFor(pendingRegistrationId), otp, pending.OtpHash))
+        {
+            transaction.Rollback();
+            return VerifiedUserCreationOutcome.CodeRejected;
+        }
+
+        try
+        {
+            await InsertUserAsync(connection, user, transaction);
+        }
+        catch (Microsoft.Data.SqlClient.SqlException ex) when (ex.Number is 2601 or 2627)
+        {
+            // Another door — Google, an invitation, an administrator — wrote
+            // the address first. The account exists; the caller can sign in
+            // through it. The pending row is left alone: the consumer that
+            // door ran will have stamped it, or will.
+            transaction.Rollback();
+            return VerifiedUserCreationOutcome.DuplicateEmail;
+        }
+
+        // ConsumedAt means one thing only: a Users row now exists for the
+        // address. It is stamped in the same transaction as that row.
+        await connection.ExecuteAsync(@"
+            UPDATE [dbo].[PendingRegistrations]
+            SET [ConsumedAt] = GETUTCDATE()
+            WHERE [Id] = @Id AND [ConsumedAt] IS NULL",
+            new { Id = pendingRegistrationId },
+            transaction);
+
+        transaction.Commit();
+        return VerifiedUserCreationOutcome.Created;
+    }
+
+    private sealed class PendingCodeRow
+    {
+        public Guid Id { get; init; }
+        public string OtpHash { get; init; } = string.Empty;
+    }
+
+    /// <summary>
+    /// The one INSERT into Users in the application. Every code path that
+    /// brings an account into existence must issue this statement and no other
+    /// (the two seeded accounts are written by Script.PostDeployment.sql and
+    /// keep their local-part usernames), so the column list, the parameter
+    /// shape and the identifier rules live here once. The
+    /// transaction is optional: <see cref="CreateAsync"/> runs it alone, while a
+    /// caller that has to insert the row inside its own transaction (a verified
+    /// registration consuming its pending row in the same commit) passes the
+    /// transaction and gets the identical statement.
+    /// </summary>
+    private static Task InsertUserAsync(IDbConnection connection, User user, IDbTransaction? transaction)
+    {
+        return connection.ExecuteAsync(InsertUserSql, InsertUserParameters(user), transaction);
+    }
+
+    private const string InsertUserSql = @"
+            INSERT INTO [dbo].[Users] (
+                [Id], [Username], [Email], [NormalizedEmail], [PasswordHash], [FirstName], [LastName],
+                [PhoneNumber], [PreferredLanguage], [TimeZone], [Theme],
+                [IsEmailConfirmed], [IsPhoneConfirmed], [IsTwoFactorEnabled],
+                [Status], [FailedLoginAttempts], [LockoutEndUtc], [LastLoginUtc],
+                [LastPasswordChangeUtc], [MustChangePassword], [ProfileImageUrl],
+                [CreatedAt], [CreatedBy], [ModifiedAt], [ModifiedBy]
+            ) VALUES (
+                @Id, @Username, @Email, @NormalizedEmail, @PasswordHash, @FirstName, @LastName,
+                @PhoneNumber, @PreferredLanguage, @TimeZone, @Theme,
+                @IsEmailConfirmed, @IsPhoneConfirmed, @IsTwoFactorEnabled,
+                @Status, @FailedLoginAttempts, @LockoutEndUtc, @LastLoginUtc,
+                @LastPasswordChangeUtc, @MustChangePassword, @ProfileImageUrl,
+                @CreatedAt, @CreatedBy, @ModifiedAt, @ModifiedBy
+            )";
+
+    private static object InsertUserParameters(User user) => new
+    {
+        user.Id,
+        // The sign-in identifier is the full address. It used to be the local
+        // part — everything before '@' — and UQ_Users_Username made that a live
+        // fault: jane@a.example and jane@b.example collided on "jane", and the
+        // second registration died as an unhandled unique violation. Nothing
+        // reads Username as a local part (the search matches it with LIKE, the
+        // purge by equality against the stored value), so rows written before
+        // this keep their shape and no backfill is needed.
+        Username = user.Email.Value,
+        Email = user.Email.Value,
+        user.NormalizedEmail,
+        user.PasswordHash,
+        user.FirstName,
+        user.LastName,
+        // Written after the row exists: the ciphertext needs the per-user DEK,
+        // whose row has a foreign key to this one.
+        PhoneNumber = (string?)null,
+        user.PreferredLanguage,
+        user.TimeZone,
+        user.Theme,
+        IsEmailConfirmed = user.EmailConfirmed,
+        IsPhoneConfirmed = user.PhoneConfirmed,
+        IsTwoFactorEnabled = user.TwoFactorEnabled,
+        Status = (int)user.Status,
+        user.FailedLoginAttempts,
+        LockoutEndUtc = user.LockoutEnd,
+        LastLoginUtc = user.LastLoginAt,
+        LastPasswordChangeUtc = user.PasswordChangedAt,
+        user.MustChangePassword,
+        user.ProfileImageUrl,
+        user.CreatedAt,
+        user.CreatedBy,
+        user.ModifiedAt,
+        user.ModifiedBy
+    };
 
     /// <inheritdoc />
     public async Task UpdateAsync(User user, CancellationToken cancellationToken)
@@ -457,6 +616,22 @@ public class UserRepository : IUserRepository
             DELETE FROM [dbo].[OrganizationInvitations]
             WHERE [InvitedBy] = @Id OR [Email] = @Email;
             DELETE FROM [dbo].[OwnershipTransferCodes] WHERE [TargetUserId] = @Id OR [InitiatedBy] = @Id;
+            -- Self-registration attempts bound to the address in clear text.
+            -- Consumed or not: a consumed row is the record of how this account
+            -- came to exist, and an unconsumed one is a code the next holder of
+            -- the address must not be able to redeem. Deleted here, inside the
+            -- identifier-bound block and before the Users row goes. Lock order,
+            -- stated plainly: this purge holds the Users row first and takes
+            -- the pending row second; the completion step (CreateVerifiedAsync)
+            -- holds the pending row first and inserts into Users second. The
+            -- orders are OPPOSITE, and the two can only meet on a code minted
+            -- for a soft-deleted address, which is never mailed — so the
+            -- inversion is unreachable without a one-in-a-million guess, and
+            -- if it were reached SQL Server would kill one side (1205), which
+            -- the completion step retries once. Keep it that way: never read
+            -- Users inside CreateVerifiedAsync's transaction, and never move
+            -- this delete after the Users delete below.
+            DELETE FROM [dbo].[PendingRegistrations] WHERE [Email] = @Email;
 
             -- Mail addressed to the user. RecipientUserId is deliberately a soft
             -- reference and is NULL for everything queued before the account

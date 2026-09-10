@@ -256,7 +256,8 @@ internal static class SystemSettingsValueValidator
         ("AuthPermitLimit", "AuthWindowSeconds"),
         ("RegisterPermitLimit", "RegisterWindowSeconds"),
         ("ApiPermitLimit", "ApiWindowSeconds"),
-        ("AdminPermitLimit", "AdminWindowSeconds")
+        ("AdminPermitLimit", "AdminWindowSeconds"),
+        ("RegistrationFollowupPermitLimit", "RegistrationFollowupWindowSeconds")
     ];
 
     /// <summary>

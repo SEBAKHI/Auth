@@ -69,6 +69,7 @@ public class RegisterWithInvitationCommandHandlerTests
             TestHelpers.CreatePassingReservationGuard(),
             _mediatorMock.Object,
             _eventDispatcherMock.Object,
+            new Mock<IPendingRegistrationConsumer>().Object,
             _tokenKeyServiceMock.Object,
             TestHelpers.CreateOptions(settings),
             new Mock<ILogger<RegisterWithInvitationCommandHandler>>().Object);

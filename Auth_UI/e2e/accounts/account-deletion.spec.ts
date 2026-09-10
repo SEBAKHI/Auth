@@ -95,7 +95,7 @@ async function waitForLogMatch(
   }
 }
 
-/** OTP logged by the register/resend verification path (email disabled). */
+/** OTP logged by the sign-up start step and the resend path (email disabled). */
 function registrationOtpPattern(email: string): RegExp {
   return new RegExp(
     `Email disabled - OTP for "?${escapeRegExp(maskEmail(email))}"?: "?(\\d{6})"?`
@@ -133,28 +133,43 @@ async function apiPost(api: APIRequestContext, url: string, data: unknown) {
 }
 
 /**
- * Provisions a login-capable throwaway user through the real product flow:
- * register → read the verification OTP from the Serilog file → verify-email
- * (which also consumes the code so it can't shadow later deletion OTPs).
+ * Walks the real verify-first sign-up: start (which mails the code, and in
+ * development writes it to the Serilog file instead) → read the code from the
+ * log → complete with the code, a name and a password. The completion consumes
+ * the code, so it cannot shadow a later deletion OTP for the same address, and
+ * answers with a full login body — the session the browser fixtures adopt.
  */
-async function createConfirmedUser(api: APIRequestContext, tag: string): Promise<string> {
+async function signUp(
+  api: APIRequestContext,
+  tag: string
+): Promise<{ email: string; refreshToken: string }> {
   const email = uniqueEmail(tag)
   const since = logOffset()
 
-  const registered = await apiPost(api, "/api/v1/Auth/register", {
-    email,
+  const started = await apiPost(api, "/api/v1/Auth/registration/start", { email })
+  expect(started.ok(), `registration/start failed: ${await started.text()}`).toBe(true)
+  const { pendingId } = (await started.json()) as { pendingId: string }
+
+  const otp = await waitForLogMatch(registrationOtpPattern(email), since)
+
+  const completed = await apiPost(api, "/api/v1/Auth/registration/complete", {
+    pendingId,
+    otp,
     password: PASSWORD,
     firstName: "E2e",
     lastName: `Deletion-${tag}`,
   })
-  expect(registered.ok(), `register failed: ${await registered.text()}`).toBe(true)
+  expect(completed.ok(), `registration/complete failed: ${await completed.text()}`).toBe(true)
 
-  const otp = await waitForLogMatch(registrationOtpPattern(email), since)
+  const body = (await completed.json()) as { token?: { refreshToken?: string } }
+  const refreshToken = body.token?.refreshToken
+  expect(refreshToken, "registration/complete did not return a session").toBeTruthy()
+  return { email, refreshToken: refreshToken as string }
+}
 
-  const verified = await apiPost(api, "/api/v1/Auth/verify-email", { email, otp })
-  expect(verified.ok(), `verify-email failed: ${await verified.text()}`).toBe(true)
-
-  return email
+/** Provisions a login-capable throwaway user; the address arrives confirmed. */
+async function createConfirmedUser(api: APIRequestContext, tag: string): Promise<string> {
+  return (await signUp(api, tag)).email
 }
 
 /**
@@ -180,35 +195,18 @@ function clearPasswordHash(email: string): void {
 }
 
 /**
- * Registers, strips the password, then confirms the email — the anonymous
- * verify-email path signs the user in, and its refresh token lets the browser
- * adopt the session the same way the SPA does (no login form to type into).
+ * Signs up, then strips the password the sign-up set. The session the
+ * completion issued stays valid — refresh does not read the hash — and its
+ * refresh token lets the browser adopt the session the same way the SPA does
+ * (no login form to type into, which a passwordless account could not use).
  */
 async function createPasswordlessUser(
   api: APIRequestContext,
   tag: string
 ): Promise<{ email: string; refreshToken: string }> {
-  const email = uniqueEmail(tag)
-  const since = logOffset()
-
-  const registered = await apiPost(api, "/api/v1/Auth/register", {
-    email,
-    password: PASSWORD,
-    firstName: "E2e",
-    lastName: `Deletion-${tag}`,
-  })
-  expect(registered.ok(), `register failed: ${await registered.text()}`).toBe(true)
-
-  clearPasswordHash(email)
-
-  const otp = await waitForLogMatch(registrationOtpPattern(email), since)
-  const verified = await apiPost(api, "/api/v1/Auth/verify-email", { email, otp })
-  expect(verified.ok(), `verify-email failed: ${await verified.text()}`).toBe(true)
-
-  const body = (await verified.json()) as { token?: { refreshToken?: string } }
-  const refreshToken = body.token?.refreshToken
-  expect(refreshToken, "verify-email did not return a session").toBeTruthy()
-  return { email, refreshToken: refreshToken as string }
+  const session = await signUp(api, tag)
+  clearPasswordHash(session.email)
+  return session
 }
 
 async function signIn(page: Page, email: string): Promise<void> {

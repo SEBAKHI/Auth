@@ -875,4 +875,7 @@
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>Bu görsel eklenmek için uygun değil. Görseli yeniden yükleyip tekrar deneyin.</value>
   </data>
+  <data name="User.AccountCreatedSignInRequired" xml:space="preserve">
+    <value>Hesabınız oluşturuldu ancak oturum açma tamamlanamadı. Lütfen yeni parolanızla giriş yapın.</value>
+  </data>
 </root>

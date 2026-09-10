@@ -49,6 +49,12 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         ForgotPasswordCommand request,
         CancellationToken cancellationToken)
     {
+        // The mask the caller sees is derived from the normalized input in every
+        // branch. Masking the raw input for an unknown address and the stored
+        // address for a known one let the letter case of the reply say which
+        // branch ran.
+        var maskedEmail = EmailMasking.Mask(request.Email.Trim().ToLowerInvariant());
+
         // Find user by email
         var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
 
@@ -60,12 +66,12 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
         {
             _logger.LogInformation(
                 "Password reset requested for non-existent email: {Email}",
-                EmailMasking.Mask(request.Email));
+                maskedEmail);
 
             // Return fake response to prevent enumeration
             return new ForgotPasswordResponse(
                 DateTime.UtcNow.AddMinutes(expirationMinutes),
-                EmailMasking.Mask(request.Email));
+                maskedEmail);
         }
 
         // One live link per account. If an unused, unexpired link already
@@ -88,7 +94,7 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
 
             return new ForgotPasswordResponse(
                 DateTime.UtcNow.AddMinutes(expirationMinutes),
-                EmailMasking.Mask(user.Email));
+                maskedEmail);
         }
 
         // Only dead rows (expired, never used) can remain at this point; marking
@@ -158,6 +164,6 @@ public class ForgotPasswordCommandHandler : IRequestHandler<ForgotPasswordComman
             "Password reset token generated for user {UserId}",
             user.Id);
 
-        return new ForgotPasswordResponse(resetToken.ExpiresAt, EmailMasking.Mask(user.Email));
+        return new ForgotPasswordResponse(resetToken.ExpiresAt, maskedEmail);
     }
 }

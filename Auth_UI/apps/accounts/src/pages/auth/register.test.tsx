@@ -1,31 +1,25 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { render, screen, waitFor, within } from "@testing-library/react"
+import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { MemoryRouter } from "react-router-dom"
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import "@authsystem/i18n"
 
-const { post, get, interstitial } = vi.hoisted(() => ({
+const { post, toast } = vi.hoisted(() => ({
   post: vi.fn(),
-  get: vi.fn(),
-  interstitial: vi.fn(),
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
 }))
 
+vi.mock("sonner", () => ({ toast }))
 vi.mock("@authsystem/api/client", () => ({
-  api: {
-    POST: (...args: unknown[]) => post(...args),
-    GET: (...args: unknown[]) => get(...args),
-  },
+  api: { POST: (...args: unknown[]) => post(...args) },
 }))
 vi.mock("@authsystem/api/env", () => ({
   privacyPolicyUrl: () => "/privacy/en",
 }))
-vi.mock("@authsystem/auth/login-completion", () => ({
-  useLoginCompletion: () => ({ interstitial, complete: vi.fn() }),
-}))
+// A real button, so the test can ask where it sits relative to the form.
 vi.mock("@authsystem/auth/external/external-providers", () => ({
-  ExternalProviders: () => null,
+  ExternalProviders: () => <button type="button">Continue with Google</button>,
 }))
 // Chrome only: the real layout drags in the theme and language toggles and
 // their provider stack. Keep the parts the form renders into.
@@ -51,125 +45,170 @@ vi.mock("@authsystem/ui/auth-layout", () => ({
 }))
 
 import { RegisterPage } from "./register"
+import {
+  clearRegistrationFlow,
+  readPendingRegistration,
+} from "./registration-flow"
 
-const POLICY = {
-  minimumLength: 8,
-  requireUppercase: true,
-  requireLowercase: true,
-  requireDigit: true,
-  requireSpecialCharacter: true,
+const AUTHORIZE =
+  "https://api.example.com/api/v1/auth/authorize?client_id=app&state=xyz"
+const RETURN_TO_QUERY = `?returnTo=${encodeURIComponent(AUTHORIZE)}`
+
+const STARTED = {
+  pendingId: "handle-1",
+  maskedEmail: "j***@one.example",
+  expiresAt: "2026-09-10T10:05:00.000Z",
 }
 
-function renderPage() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
-  })
-  render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <RegisterPage />
-      </MemoryRouter>
-    </QueryClientProvider>
+/** Reports where the router ended up. */
+function Landing() {
+  const location = useLocation()
+  return (
+    <div data-testid="landing">
+      {location.pathname}
+      {location.search}
+    </div>
   )
 }
 
-async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
-  await user.type(screen.getByLabelText(/^email$/i), "new@example.test")
-  await user.type(screen.getByLabelText(/^first name$/i), "New")
-  await user.type(screen.getByLabelText(/^last name$/i), "Person")
-  await user.type(screen.getByLabelText(/^password$/i), "NewPass1!")
-  await user.type(screen.getByLabelText(/^confirm password$/i), "NewPass1!")
-  await user.click(screen.getByRole("button", { name: /create account/i }))
+function renderAt(entry: string) {
+  return render(
+    <MemoryRouter initialEntries={[entry]}>
+      <Routes>
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="*" element={<Landing />} />
+      </Routes>
+    </MemoryRouter>
+  )
+}
+
+async function submitAddress(
+  user: ReturnType<typeof userEvent.setup>,
+  email: string
+) {
+  await user.type(screen.getByLabelText(/^email$/i), email)
+  await user.click(screen.getByRole("button", { name: /send code/i }))
 }
 
 describe("RegisterPage", () => {
   beforeEach(() => {
     post.mockReset()
-    interstitial.mockReset()
-    get.mockResolvedValue({ data: POLICY })
+    toast.error.mockReset()
+    clearRegistrationFlow()
   })
 
-  it("shows the live policy under the password field before anything is typed", async () => {
-    renderPage()
+  it("asks for an email and nothing else", () => {
+    renderAt("/register")
 
-    const list = await screen.findByRole("list", {
-      name: /password requirements/i,
-    })
-    expect(within(list).getAllByRole("listitem")).toHaveLength(5)
-    expect(list).toHaveTextContent("At least 8 characters")
-    expect(list.querySelectorAll('[data-met="true"]')).toHaveLength(0)
+    expect(screen.getByLabelText(/^email$/i)).toHaveAttribute("type", "email")
+    expect(screen.getAllByRole("textbox")).toHaveLength(1)
+    expect(screen.queryByLabelText(/password/i)).not.toBeInTheDocument()
+    expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/6-digit code/i)).toBeVisible()
   })
 
-  it("puts every reason the server refuses under the field, not one in a toast", async () => {
-    post.mockResolvedValue({
-      error: {
-        status: 400,
-        title: "Password.CommonPattern",
-        detail: "Password contains a common pattern that is easy to guess.",
-        errors: [
-          {
-            code: "Password.CommonPattern",
-            description:
-              "Password contains a common pattern that is easy to guess.",
-          },
-          {
-            code: "Password.TooShort",
-            description: "Password must be at least 12 characters long.",
-          },
-        ],
-      },
-    })
+  it("keeps the provider buttons outside the form", () => {
+    renderAt("/register")
+
+    const google = screen.getByRole("button", { name: /google/i })
+    expect(google.closest("form")).toBeNull()
+    expect(screen.getByRole("button", { name: /send code/i }).closest("form")).not.toBeNull()
+  })
+
+  it("sends the address and the language, and moves on to the code with the identity stored", async () => {
+    post.mockResolvedValue({ data: STARTED })
     const user = userEvent.setup()
-    renderPage()
-    await screen.findByRole("list", { name: /password requirements/i })
+    renderAt("/register")
 
-    await fillAndSubmit(user)
-
-    expect(
-      await screen.findByText(
-        "Password contains a common pattern that is easy to guess."
-      )
-    ).toBeVisible()
-    expect(
-      screen.getByText("Password must be at least 12 characters long.")
-    ).toBeVisible()
-    const password = screen.getByLabelText(/^password$/i)
-    expect(password).toHaveAttribute("aria-invalid", "true")
-    await waitFor(() => expect(document.activeElement).toBe(password))
-    expect(interstitial).not.toHaveBeenCalled()
-  }, 15_000)
-
-  it("hands a successful registration to the verification step", async () => {
-    post.mockResolvedValue({
-      data: {
-        message: "Check your inbox.",
-        maskedEmail: "n***@example.test",
-        verificationCodeExpiresAt: "2026-09-03T10:00:00Z",
-      },
-    })
-    const user = userEvent.setup()
-    renderPage()
-    await screen.findByRole("list", { name: /password requirements/i })
-
-    await fillAndSubmit(user)
+    await submitAddress(user, "jane@one.example")
 
     await waitFor(() =>
-      expect(interstitial).toHaveBeenCalledWith(
-        "/verify-email",
-        expect.objectContaining({
-          email: "new@example.test",
-          maskedEmail: "n***@example.test",
-        })
+      expect(screen.getByTestId("landing")).toHaveTextContent("/register/verify")
+    )
+    expect(post).toHaveBeenCalledWith("/api/v1/Auth/registration/start", {
+      body: { email: "jane@one.example", preferredLanguage: "en" },
+    })
+    expect(readPendingRegistration()).toEqual({
+      ...STARTED,
+      email: "jane@one.example",
+    })
+  })
+
+  it("says the same thing for an address that already has an account", async () => {
+    // The server's answer is byte-identical for a free and a taken address;
+    // this screen has no branch that could tell them apart, so the two
+    // journeys must end in the same place with the same stored shape.
+    const journeys: Array<{ landing: string; stored: string }> = []
+    for (const email of ["free@one.example", "taken@one.example"]) {
+      post.mockReset()
+      post.mockResolvedValue({ data: STARTED })
+      clearRegistrationFlow()
+      const user = userEvent.setup()
+      const view = renderAt("/register")
+
+      await submitAddress(user, email)
+      await waitFor(() =>
+        expect(screen.getByTestId("landing")).toHaveTextContent("/register/verify")
+      )
+
+      const stored = readPendingRegistration()!
+      journeys.push({
+        landing: screen.getByTestId("landing").textContent ?? "",
+        stored: JSON.stringify({ ...stored, email: "<address>" }),
+      })
+      view.unmount()
+    }
+
+    expect(journeys[0]).toEqual(journeys[1])
+  })
+
+  it("carries a pending authorize request to the code screen and the sign-in link", async () => {
+    post.mockResolvedValue({ data: STARTED })
+    const user = userEvent.setup()
+    renderAt(`/register${RETURN_TO_QUERY}`)
+
+    expect(screen.getByRole("link", { name: /sign in/i })).toHaveAttribute(
+      "href",
+      `/login${RETURN_TO_QUERY}`
+    )
+
+    await submitAddress(user, "jane@one.example")
+
+    await waitFor(() =>
+      expect(screen.getByTestId("landing")).toHaveTextContent(
+        `/register/verify${RETURN_TO_QUERY}`
       )
     )
-    expect(post).toHaveBeenCalledWith(
-      "/api/v1/Auth/register",
-      expect.objectContaining({
-        body: expect.objectContaining({
-          email: "new@example.test",
-          password: "NewPass1!",
-        }),
-      })
-    )
-  }, 15_000)
+  })
+
+  it("stays put and stores nothing when the server refuses", async () => {
+    post.mockResolvedValue({
+      error: {
+        status: 403,
+        title: "User.SelfRegistrationClosed",
+        detail: "Sign-up is closed.",
+      },
+    })
+    const user = userEvent.setup()
+    renderAt("/register")
+
+    await submitAddress(user, "jane@one.example")
+
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1))
+    expect(screen.queryByTestId("landing")).not.toBeInTheDocument()
+    expect(readPendingRegistration()).toBeNull()
+    // Said out loud: a button that merely comes back to rest is a silent failure.
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Sign-up is closed."))
+  })
+
+  it("does not call the server for an address that is not one", async () => {
+    const user = userEvent.setup()
+    renderAt("/register")
+
+    // Past the browser's own check (it accepts "a@b") and short of the page's.
+    await submitAddress(user, "jane@one")
+
+    expect(await screen.findByText(/valid email/i)).toBeVisible()
+    expect(post).not.toHaveBeenCalled()
+  })
 })

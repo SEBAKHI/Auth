@@ -33,6 +33,18 @@ public static class UserErrors
         description: "New accounts cannot be created on this server.");
 
     /// <summary>
+    /// The verify-first registration wrote and confirmed the account, and
+    /// then could not issue its first session. Not a failure of the
+    /// registration — the account exists and the ordinary sign-in works —
+    /// and the one code the completion screen routes to "sign in" on, so a
+    /// person who did everything right is never sent back to the code screen
+    /// for an account that is already theirs.
+    /// </summary>
+    public static Error AccountCreatedSignInRequired => Error.Conflict(
+        code: "User.AccountCreatedSignInRequired",
+        description: "Your account was created, but the sign-in could not be completed. Please sign in with your new password.");
+
+    /// <summary>
     /// A provider identity that matches no account here, on a server that does
     /// not create accounts from providers. Distinct from
     /// <see cref="SelfRegistrationClosed"/> because the person did authenticate

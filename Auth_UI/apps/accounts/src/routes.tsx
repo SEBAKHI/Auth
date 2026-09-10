@@ -34,6 +34,13 @@ export const router = createBrowserRouter([
         lazy: lazyRoute(() => import("./pages/auth/register"), (m) => m.RegisterPage),
       },
       {
+        path: "/register/verify",
+        lazy: lazyRoute(
+          () => import("./pages/auth/register-verify"),
+          (m) => m.RegisterVerifyPage
+        ),
+      },
+      {
         path: "/forgot-password",
         lazy: lazyRoute(
           () => import("@authsystem/auth/pages/forgot-password"),
@@ -99,6 +106,17 @@ export const router = createBrowserRouter([
         ],
       },
     ],
+  },
+  // Top-level on purpose: the last sign-up step signs the person in, and an
+  // anonymous-only guard would race that transition. The page guards itself —
+  // no verified code in memory sends it back to the code screen, and a visitor
+  // who is already signed in with no pending authorize request is sent home.
+  {
+    path: "/register/complete",
+    lazy: lazyRoute(
+      () => import("./pages/auth/register-complete"),
+      (m) => m.RegisterCompletePage
+    ),
   },
   // Top-level on purpose: the user holds a 2FA challenge but no tokens yet,
   // so the page belongs under neither RequireAnonymous nor RequireAuth.

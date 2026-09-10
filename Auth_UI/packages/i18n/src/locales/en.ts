@@ -461,6 +461,17 @@ export const en = {
     noAccount: "Don't have an account?",
     haveAccount: "Already have an account?",
     signUp: "Sign up",
+    registerEmailHint: "We'll send a 6-digit code to this address to confirm it's yours.",
+    sendCode: "Send code",
+    sendingCode: "Sending code…",
+    requestNewCode: "Send a new code",
+    useDifferentEmail: "Use a different email address",
+    registerCompleteTitle: "Set up your account",
+    registerCompleteSubtitle: "Your address is confirmed. Choose a name and a password.",
+    changeEmail: "Change email",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
+    accountCreated: "Your account is ready.",
   },
   dashboard: {
     window: "Period",
@@ -1083,6 +1094,7 @@ export const en = {
       systemPrivacyPolicyPublished: "Privacy policy published",
       systemPolicyNotificationSent: "Privacy policy notice sent",
       systemRetentionSweep: "Data retention sweep ran",
+      registrationStarted: "Sign-up started",
     },
   },
   auditCatalog: {
@@ -1250,6 +1262,8 @@ export const en = {
       secretOperationChallenge: "Secret operation confirmation",
       passwordCreated: "Password added",
       passwordChanged: "Password changed",
+      registrationVerification: "Registration verification code",
+      registrationAttemptExistingAccount: "Sign-up attempt on an existing address",
     },
     application: "Application",
     global: "Global",
@@ -1827,7 +1841,7 @@ export const en = {
         "The span the count above is measured over. The window is fixed, not rolling: the counter returns to zero when it ends, and a client that has spent its allowance waits until then. Lengthening it tightens the limit and lengthens the wait after a refusal at the same time.",
       registerPermitLimit: "Sign-up requests per window",
       registerPermitLimitHint:
-        "How many new accounts one client IP may create before it is refused with 429. Separate from the authentication limit above because sign-up demand is an event and sign-in demand is a habit: a launch or a campaign asks for thousands of accounts in an hour, and while the two shared one allowance the only way to serve that was to widen sign-in too. To size it: multiply this number by the client IP addresses your sign-ups arrive from, divide by the window, and you have the accounts per second this permits — keep that under what the server can hash, because a refusal is nearly free while a half-finished sign-up is not. Raising it does not add capacity; it stops standing below it.",
+        "How many new accounts one client IP may create before it is refused with 429. Separate from the authentication limit above because sign-up demand is an event and sign-in demand is a habit: a launch or a campaign asks for thousands of accounts in an hour, and while the two shared one allowance the only way to serve that was to widen sign-in too. To size it: multiply this number by the client IP addresses your sign-ups arrive from, divide by the window, and you have the accounts per second this permits — keep that under what the server can hash, because a refusal is nearly free while a half-finished sign-up is not. Raising it does not add capacity; it stops standing below it. A value saved here is stored and outlives every deployment: a number changed later in the configuration file stays shadowed by it until the stored value is cleared.",
       registerWindowSeconds: "Sign-up counting window (seconds)",
       registerWindowSecondsHint:
         "The span the sign-up count above is measured over, on the same fixed-window mechanic: the counter returns to zero when the window ends rather than sliding. Both fields apply to new client windows the moment you save, so an event limit can be raised for the day and lowered afterwards without a restart — and it should be, since a wide sign-up allowance is one an automated caller can spend just as easily as a real crowd.",
@@ -1852,6 +1866,12 @@ export const en = {
       imageUploadConcurrencyLimit: "Uploads decoding at once",
       imageUploadConcurrencyLimitHint:
         "Not a window: how many image uploads may be decoding at the same moment, for the whole process. Each one holds Max megapixels × 4 MB of memory until its WebP is written, so this number times that budget is the memory uploads may occupy. The next four wait a moment; anything beyond that is refused with 429 and a short retry hint.",
+      registrationFollowupPermitLimit: "Sign-up follow-up requests per window",
+      registrationFollowupPermitLimitHint:
+        "How many code checks and sign-up completions one client IP may make per window before it is refused with 429. These are the second and third requests of every verify-first sign-up, counted apart from the sign-up requests above because only the first step sends a message: one number for both would either triple the mail one address can cause or choke a sign-up at its second step. Keep it at least twice the sign-up limit — every sign-up needs one check and one completion — and remember that a wrong code is refused by the code's own five-attempt limit long before this one.",
+      registrationFollowupWindowSeconds: "Sign-up follow-up window (seconds)",
+      registrationFollowupWindowSecondsHint:
+        "The span the follow-up count above is measured over, on the same fixed-window mechanic as the others: the counter returns to zero when the window ends. Applies to new client windows the moment you save.",
     },
     gatewayRateLimiting: {
       title: "Rate limiting (Gateway)",
@@ -1896,6 +1916,12 @@ export const en = {
       adminWindowSeconds: "Admin console window (seconds)",
       adminWindowSecondsHint:
         "The span admin requests are counted over. Shortening it hands an administrator a fresh allowance sooner after a refusal; lengthening it makes a single refusal last longer.",
+      registrationFollowupPermitLimit: "Sign-up follow-up requests per window",
+      registrationFollowupPermitLimitHint:
+        "Covers the code-check and completion steps of a sign-up at the edge, on a route of their own. The outer twin of the follow-up limit in the API section, and the one a visitor meets first: keep it at or above the inner one, and at least twice the sign-up limit beside it, or sign-ups are refused at their second step while the sign-up counter still has room.",
+      registrationFollowupWindowSeconds: "Sign-up follow-up window (seconds)",
+      registrationFollowupWindowSecondsHint:
+        "The span follow-up requests are counted over at the edge, on the same fixed-window mechanic. A change reaches the gateway within about 30 seconds rather than instantly, because it pulls its own settings — raise it before an event starts.",
     },
     externalAuth: {
       requireNonce: "Require a server-issued nonce",
@@ -2198,6 +2224,9 @@ export const en = {
       refreshTokenDays: "Refresh tokens (days)",
       refreshTokenDaysHint:
         "The longest window and the one that matters most: a revoked row is the only thing that turns a stolen token into a detected theft, and the dashboard reports revocations over up to 90 days. Floored at 90 in code whatever is set here.",
+      pendingRegistrationDays: "Pending registrations (days)",
+      pendingRegistrationDaysHint:
+        "Sign-up attempts whose code has expired, whether they finished or not. Kept as evidence of who tried to register with which address. Recommended: 7.",
     },
     dataRetention: {
       title: "Privacy & data retention",

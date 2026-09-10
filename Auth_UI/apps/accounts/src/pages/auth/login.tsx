@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 
 import { privacyPolicyUrl } from "@authsystem/api/env"
 import { LoginPage } from "@authsystem/auth/pages/login"
@@ -18,6 +18,10 @@ import { ExternalProviders } from "@authsystem/auth/external/external-providers"
  */
 export function AccountsLoginPage() {
   const { t, i18n } = useTranslation()
+  // A pending authorize request rides in the query string; the sign-up link
+  // carries it so a relying party's visitor who creates an account still
+  // returns to that party at the end.
+  const { search } = useLocation()
   return (
     <LoginPage
       subtitle={t("auth.signInSubtitleAccounts")}
@@ -26,7 +30,10 @@ export function AccountsLoginPage() {
       footer={
         <span>
           {t("auth.noAccount")}{" "}
-          <Link to="/register" className="underline-offset-4 hover:underline">
+          <Link
+            to={{ pathname: "/register", search }}
+            className="underline-offset-4 hover:underline"
+          >
             {t("auth.signUp")}
           </Link>
         </span>

@@ -875,4 +875,7 @@
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>该图片无法附加。请重新上传后再试。</value>
   </data>
+  <data name="User.AccountCreatedSignInRequired" xml:space="preserve">
+    <value>您的账户已创建，但登录未能完成。请使用新密码登录。</value>
+  </data>
 </root>

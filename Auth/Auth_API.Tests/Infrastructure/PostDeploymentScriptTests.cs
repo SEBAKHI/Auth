@@ -72,6 +72,36 @@ public class PostDeploymentScriptTests
     }
 
     [Fact]
+    public void EveryVariableUsed_IsDeclaredInItsBatch()
+    {
+        // The mirror image of the duplicate-DECLARE guard. A variable is scoped
+        // to its batch, so a block that uses @SystemUserId from a batch that
+        // never declared it — a seed block pasted after its file's terminating
+        // GO, the shape of the 2026-07-28 incident — fails to compile with
+        // Msg 137 and aborts the publish after the schema has already changed.
+        var undeclared = new List<string>();
+
+        foreach (var (batch, index) in ComposeScript(PostDeploymentScriptPath()).Select((b, i) => (b, i)))
+        {
+            var declared = DeclaredVariable.Matches(batch)
+                .Select(match => match.Groups["name"].Value)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var name in UsedVariable.Matches(batch).Select(match => match.Groups["name"].Value).Distinct())
+            {
+                if (!declared.Contains(name))
+                {
+                    undeclared.Add($"batch #{index + 1}: @{name}");
+                }
+            }
+        }
+
+        undeclared.Should().BeEmpty(
+            "a variable used in a batch that does not declare it is Msg 137 at publish time — " +
+            "move the block inside the batch that declares the variable, or declare it again after the GO");
+    }
+
+    [Fact]
     public void ComposedScript_ResolvesEveryInclude()
     {
         var composed = Inline(PostDeploymentScriptPath());
@@ -95,6 +125,13 @@ public class PostDeploymentScriptTests
         @"N?VARCHAR|N?CHAR|DATE|DATETIME2?|DATETIMEOFFSET|TIME|DECIMAL|NUMERIC|FLOAT|REAL|MONEY|" +
         @"VARBINARY|BINARY|XML|TABLE|SQL_VARIANT|ROWVERSION|TIMESTAMP)\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Matches a variable reference. The look-behind excludes system functions
+    /// (<c>@@ROWCOUNT</c>, <c>@@FETCH_STATUS</c>) and the second half of them.
+    /// </summary>
+    private static readonly Regex UsedVariable = new(
+        @"(?<![@\w])@(?<name>\w+)", RegexOptions.Compiled);
 
     private static readonly Regex Include = new(
         @"^\s*:r\s+(?<path>\S+)\s*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);

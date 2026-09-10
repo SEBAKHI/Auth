@@ -262,8 +262,9 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
-    // POST /auth/register only, via register-route. The outer half of the
-    // registration split; the Auth API holds the inner half under the same name.
+    // POST /auth/registration/start only, via registration-start-route: the one
+    // request of a sign-up that sends mail. The outer half of the registration
+    // split; the Auth API holds the inner half under the same name.
     // Every request passes this limiter before the API's, so whichever of the two
     // is lower is the one a client actually meets — which is why the API's limit
     // cannot be raised alone and why the parity between the two files matters.
@@ -277,6 +278,27 @@ builder.Services.AddRateLimiter(options =>
             {
                 PermitLimit = limits.RegisterPermitLimit,
                 Window = TimeSpan.FromSeconds(limits.RegisterWindowSeconds),
+                QueueLimit = 0
+            });
+    });
+
+    // The code-check and completion steps of a verify-first sign-up, via
+    // registration-route. The outer half of the follow-up split; the Auth API
+    // holds the inner half under the same name. Separate from "register"
+    // because only the start step sends a message: this bucket is quota hygiene
+    // for two cheap requests per sign-up, not the mail budget, and it must sit
+    // at or above twice the register limit or sign-ups fail at their second
+    // step while the register counter still has room.
+    options.AddPolicy("registration-followup", context =>
+    {
+        var limits = Limits(context);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"v{SettingsVersion(context)}:{ClientId(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.RegistrationFollowupPermitLimit,
+                Window = TimeSpan.FromSeconds(limits.RegistrationFollowupWindowSeconds),
                 QueueLimit = 0
             });
     });

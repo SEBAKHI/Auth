@@ -43,6 +43,7 @@ public class CreateUserCommandHandlerTests
             TestHelpers.CreatePassingBreachEvaluator(),
             TestHelpers.CreatePassingReservationGuard(),
             _eventDispatcherMock.Object,
+            new Mock<IPendingRegistrationConsumer>().Object,
             _loggerMock.Object);
     }
 

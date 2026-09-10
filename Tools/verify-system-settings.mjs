@@ -97,6 +97,14 @@ const jwtLifetimeSeconds = (jwt) => {
   return payload.exp - payload.iat;
 };
 
+/** The API's own mask for a logged address: first character, up to four stars, last character, domain. */
+function maskEmail(email) {
+  const [local, domain] = email.split("@");
+  if (local.length === 1) return `*@${domain}`;
+  if (local.length <= 2) return `${local[0]}***@${domain}`;
+  return `${local[0]}${"*".repeat(Math.min(local.length - 2, 4))}${local[local.length - 1]}@${domain}`;
+}
+
 function newestLog() {
   const files = readdirSync(LOGS)
     .map((f) => join(LOGS, f))
@@ -122,14 +130,40 @@ async function probeJwtLifetime() {
 
 // ── Probe 2: IOptionsSnapshot-backed scoped consumer (PasswordValidator) ──
 async function probePasswordPolicy() {
-  // A too-short password always fails, so no account is ever created; the
-  // rejection message quotes the CONFIGURED minimum, which is the proof.
+  // Sign-up checks the password only after the mailed code has proven the
+  // address, so the probe starts a sign-up and reads the code from the log
+  // (Email:Enabled=false writes it there in Development). A too-short password
+  // then always fails before anything is written, so no account is ever
+  // created and the same code serves both attempts; the rejection message
+  // quotes the CONFIGURED minimum, which is the proof.
+  const email = `probe-${Date.now()}@example.com`;
+  const logBefore = newestLog().length;
+  const started = await call("/api/v1/Auth/registration/start", {
+    method: "POST",
+    auth: false,
+    body: { email },
+  });
+  if (!started.json?.pendingId) {
+    record("Password minimum length", "IOptionsSnapshot (scoped)", false,
+      `registration/start failed: ${started.status} ${JSON.stringify(started.json)}`);
+    return;
+  }
+  const masked = maskEmail(email).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const otp = newestLog()
+    .slice(logBefore)
+    .match(new RegExp(`Email disabled - OTP for "?${masked}"?: "?(\\d{6})"?`))?.[1];
+  if (!otp) {
+    record("Password minimum length", "IOptionsSnapshot (scoped)", false,
+      "the sign-up code was not found in the newest log; is Email:Enabled=false and the environment Development?");
+    return;
+  }
   const attempt = () =>
-    call("/api/v1/Auth/register", {
+    call("/api/v1/Auth/registration/complete", {
       method: "POST",
       auth: false,
       body: {
-        email: `probe-${Date.now()}@example.com`,
+        pendingId: started.json.pendingId,
+        otp,
         password: "Ab1!x", // 5 chars: below any allowed minimum
         firstName: "Probe",
         lastName: "Probe",

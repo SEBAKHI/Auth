@@ -93,4 +93,7 @@
   <data name="Middleware.Conflict.Detail" xml:space="preserve">
     <value>عملیات کامل نشد زیرا رکوردهای مرتبطی به این منبع اشاره می‌کنند.</value>
   </data>
+  <data name="Middleware.Duplicate.Detail" xml:space="preserve">
+    <value>رکوردی با همین مقدار یکتا از قبل وجود دارد.</value>
+  </data>
 </root>

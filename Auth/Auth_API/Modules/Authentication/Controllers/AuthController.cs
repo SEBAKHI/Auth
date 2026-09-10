@@ -4,6 +4,7 @@ using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Authorize;
 using Auth.Application.Features.Authentication.EndSession;
 using Auth.Application.Features.Authentication.ChangePassword;
+using Auth.Application.Features.Authentication.CompleteRegistration;
 using Auth.Application.Features.AccountDeletion.ConfirmPublicDeletion;
 using Auth.Application.Features.AccountDeletion.PublicRequestDeletion;
 using Auth.Application.Features.AccountDeletion.RecoverAccount;
@@ -17,15 +18,16 @@ using Auth.Application.Features.Authentication.Login;
 using Auth.Application.Features.Authentication.Logout;
 using Auth.Application.Features.Authentication.ExternalLogin;
 using Auth.Application.Features.Authentication.TokenExchange;
-using Auth.Application.Features.Authentication.Register;
 using Auth.Application.Features.Authentication.RefreshToken;
 using Auth.Application.Features.Authentication.ResendEmailVerification;
 using Auth.Application.Features.Authentication.ResetPassword;
 using Auth.Application.Features.Authentication.RevokeToken;
 using Auth.Application.Features.Authentication.SendEmailVerification;
+using Auth.Application.Features.Authentication.StartRegistration;
 using Auth.Application.Features.Authentication.TerminateAllSessions;
 using Auth.Application.Features.Authentication.TerminateSession;
 using Auth.Application.Features.Authentication.VerifyEmail;
+using Auth.Application.Features.Authentication.VerifyRegistration;
 using Auth_API.Modules.Authentication.Contracts;
 using Auth.Application.Features.Authentication.GetUserSessions;
 using Auth.Application.DTOs;
@@ -97,36 +99,101 @@ public class AuthController : ApiController
     }
 
     /// <summary>
-    /// Registers a new user account with email and password.
-    /// Creates a personal organization and sends email verification.
+    /// Step 1 of verify-first self-registration: takes an email address, mails
+    /// a code to it, and creates nothing. Answers the same shape for every
+    /// address, whether it is free, already an account, or reserved.
     /// </summary>
-    /// <param name="request">Registration details</param>
-    /// <returns>Registration confirmation with user ID and masked email</returns>
-    [HttpPost("register")]
+    /// <param name="request">The address and, optionally, the site language.</param>
+    /// <returns>The opaque handle for the next steps, the masked address, and when the code expires.</returns>
+    [HttpPost("registration/start")]
     [AllowAnonymous]
+    // The one request of a sign-up that produces a message, so it stays on the
+    // sign-up budget: one "register" permit per registration, as before.
     [EnableRateLimiting("register")]
-    [ProducesResponseType(typeof(RegisterResponse), StatusCodes.Status201Created)]
+    // 200, not 201: nothing was created.
+    [ProducesResponseType(typeof(StartRegistrationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     // Registration:AllowSelfRegistration closed — User.SelfRegistrationClosed.
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> StartRegistration([FromBody] StartRegistrationRequest request, CancellationToken cancellationToken)
     {
-        var command = new RegisterCommand(
+        var command = new StartRegistrationCommand(
             request.Email,
-            request.Password,
-            request.FirstName,
-            request.LastName,
-            request.PhoneNumber,
             request.PreferredLanguage,
-            request.TimeZone,
-            request.CreateOrganization);
+            GetClientIpAddress(),
+            GetUserAgent());
 
         var result = await _sender.Send(command, cancellationToken);
 
         return result.Match<IActionResult>(
-            response => StatusCode(StatusCodes.Status201Created, response),
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Step 2 of verify-first self-registration: checks the code against the
+    /// pending row and consumes nothing. The same code is presented again at
+    /// completion, which is the step that consumes it.
+    /// </summary>
+    /// <param name="request">The handle from step 1 and the six-digit code.</param>
+    [HttpPost("registration/verify")]
+    [AllowAnonymous]
+    // The follow-up budget, not the sign-up one: this step sends no message, and
+    // every sign-up makes two of these (a check and a completion) per start.
+    [EnableRateLimiting("registration-followup")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    // EmailVerification.InvalidOtpFormat | InvalidOrExpiredOtp | TooManyAttempts
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> VerifyRegistration([FromBody] VerifyRegistrationRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new VerifyRegistrationCommand(request.PendingId, request.Otp), cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Step 3 of verify-first self-registration: creates the account for the
+    /// address the code proved, consumes the code, and signs the new owner in.
+    /// </summary>
+    /// <param name="request">The handle, the code once more, the password and the name.</param>
+    /// <returns>The same session a sign-in issues.</returns>
+    [HttpPost("registration/complete")]
+    [AllowAnonymous]
+    [EnableRateLimiting("registration-followup")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    // Password policy, or EmailVerification.InvalidOtpFormat | InvalidOrExpiredOtp | TooManyAttempts.
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    // Registration:AllowSelfRegistration closed — User.SelfRegistrationClosed.
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    // User.DuplicateEmail: another door created the account first, or the address is reserved.
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> CompleteRegistration([FromBody] CompleteRegistrationRequest request, CancellationToken cancellationToken)
+    {
+        var command = new CompleteRegistrationCommand(
+            request.PendingId,
+            request.Otp,
+            request.Password,
+            request.FirstName,
+            request.LastName,
+            request.TimeZone,
+            request.CreateOrganization,
+            GetDeviceId(request.DeviceId),
+            GetClientIpAddress(),
+            GetUserAgent());
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response =>
+            {
+                IdpSessionCookie.Apply(Response, response, _idpSettings);
+                return Ok(response);
+            },
             errors => Problem(errors));
     }
 

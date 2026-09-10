@@ -37,6 +37,33 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
     /// </summary>
     public static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// A piece of schema the running code depends on, and the query that
+    /// answers 1 when the database has it.
+    /// </summary>
+    public sealed record SchemaExpectation(string Name, string Sql);
+
+    /// <summary>
+    /// Schema this build cannot run without. The database is published by hand
+    /// from Visual Studio, separately from the API upload, and the two have been
+    /// deployed out of order before — the API then fails deep inside a request,
+    /// as a 500 with a SQL error in the log, and nothing names the cause.
+    /// Reported here as Degraded, which /ready surfaces to the operator before
+    /// any user meets the failure. Each entry says which half is missing.
+    /// </summary>
+    public static readonly IReadOnlyList<SchemaExpectation> SchemaExpectations =
+    [
+        // Username became the full address, so the column must hold one.
+        // COL_LENGTH reports bytes; NVARCHAR(255) is 510.
+        new("Users.Username widened to NVARCHAR(255)",
+            "SELECT CASE WHEN COL_LENGTH('dbo.Users', 'Username') >= 510 THEN 1 ELSE 0 END"),
+        // The pending-registration table: its repository is swept daily and
+        // will be written by the registration flow, both of which fail as
+        // "Invalid object name" without it.
+        new("PendingRegistrations table",
+            "SELECT CASE WHEN OBJECT_ID('dbo.PendingRegistrations', 'U') IS NOT NULL THEN 1 ELSE 0 END"),
+    ];
+
     private readonly Func<CancellationToken, Task<HealthCheckResult>> _probe;
     private readonly TimeSpan _ttl;
     private readonly Func<DateTimeOffset> _clock;
@@ -117,6 +144,17 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
             await using var command = connection.CreateCommand();
             command.CommandText = "SELECT 1";
             await command.ExecuteScalarAsync(timeout.Token);
+
+            foreach (var expectation in SchemaExpectations)
+            {
+                command.CommandText = expectation.Sql;
+                var shortfall = SchemaShortfall(expectation, await command.ExecuteScalarAsync(timeout.Token));
+                if (shortfall is { } degraded)
+                {
+                    return degraded;
+                }
+            }
+
             return HealthCheckResult.Healthy("Database is reachable.");
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
@@ -127,5 +165,28 @@ public sealed class DatabaseReadinessHealthCheck : IHealthCheck
         {
             return HealthCheckResult.Degraded("Database is not reachable.", ex);
         }
+    }
+
+    /// <summary>
+    /// Turns one expectation's answer into the Degraded result, or null when
+    /// the schema is there. Separate from the probe so the interpretation is
+    /// testable without a database.
+    /// </summary>
+    /// <remarks>
+    /// /ready answers without the gateway token, so the public description says
+    /// only that the schema is behind. Which object is missing rides on the
+    /// exception, which the JSON formatter emits only when
+    /// HealthChecks:ExposeErrorDetails is on and the health service logs at
+    /// Warning either way — the operator reads it there, the anonymous prober
+    /// does not.
+    /// </remarks>
+    public static HealthCheckResult? SchemaShortfall(SchemaExpectation expectation, object? answer)
+    {
+        var present = answer is int i ? i == 1 : answer is long l && l == 1;
+        return present
+            ? null
+            : HealthCheckResult.Degraded(
+                "Database schema is behind this build. Publish Auth_DB before this API.",
+                new InvalidOperationException($"{expectation.Name} is missing."));
     }
 }

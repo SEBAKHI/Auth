@@ -36,6 +36,8 @@ export const NOTIFICATION_TYPE_CODES: readonly string[] = [
   "secret-operation-challenge",
   "password-created",
   "password-changed",
+  "registration-verification",
+  "registration-attempt-existing-account",
 ]
 
 /**

@@ -93,6 +93,14 @@ if (typeof Element.prototype.releasePointerCapture !== "function") {
     value: () => undefined,
   })
 }
+// jsdom has no layout, so it has no elementFromPoint. input-otp calls it from
+// a timer to detect a password-manager badge over a focused field; without the
+// shim that timer throws after the test that focused the field has finished.
+if (typeof document.elementFromPoint !== "function") {
+  Object.defineProperty(document, "elementFromPoint", {
+    value: () => null,
+  })
+}
 if (typeof Element.prototype.scrollIntoView !== "function") {
   Object.defineProperty(Element.prototype, "scrollIntoView", {
     value: () => undefined,
