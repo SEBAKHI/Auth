@@ -1243,6 +1243,8 @@ export const tr: TranslationResources = {
       secretOperationChallenge: "Gizli anahtar işlemi onayı",
       passwordCreated: "Parola eklendi",
       passwordChanged: "Parola değiştirildi",
+      registrationVerification: "Kayıt doğrulama kodu",
+      registrationAttemptExistingAccount: "Mevcut bir adresle kayıt girişimi",
     },
     application: "Uygulama",
     global: "Genel",

@@ -1212,6 +1212,8 @@ export const ar: TranslationResources = {
       secretOperationChallenge: "تأكيد عملية على الأسرار",
       passwordCreated: "إضافة كلمة مرور",
       passwordChanged: "تغيير كلمة المرور",
+      registrationVerification: "رمز التحقق من التسجيل",
+      registrationAttemptExistingAccount: "محاولة تسجيل بعنوان قائم",
     },
     application: "التطبيق",
     global: "عام",

@@ -1231,6 +1231,8 @@ export const ur: TranslationResources = {
       secretOperationChallenge: "خفیہ کلید کے عمل کی تصدیق",
       passwordCreated: "پاس ورڈ شامل ہوا",
       passwordChanged: "پاس ورڈ تبدیل ہوا",
+      registrationVerification: "رجسٹریشن تصدیقی کوڈ",
+      registrationAttemptExistingAccount: "موجودہ پتے سے رجسٹریشن کی کوشش",
     },
     application: "ایپلیکیشن",
     global: "عالمی",

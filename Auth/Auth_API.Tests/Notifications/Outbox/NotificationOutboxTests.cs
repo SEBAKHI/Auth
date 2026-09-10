@@ -238,6 +238,60 @@ public class NotificationOutboxTests
     }
 
     [Fact]
+    public async Task TheRegistrationCode_IsRedactedLikeEveryOtherOtp()
+    {
+        // The verify-first code is the only thing between a stranger's typing
+        // and a Users row. Once delivered, the outbox must not keep it.
+        var settings = new NotificationSettings { UseOutbox = true, PollIntervalSeconds = 60 };
+        var (dispatcher, repoMock, channelMock, _) = CreateDispatcher(settings);
+
+        var message = CreateMessage(typeCode: Auth.Domain.Constants.NotificationTypeCodes.RegistrationVerification);
+        var sent = new TaskCompletionSource();
+        var claims = 0;
+        repoMock
+            .Setup(r => r.ClaimBatchAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => Interlocked.Increment(ref claims) == 1 ? [message] : []);
+        channelMock
+            .Setup(c => c.SendAsync(It.IsAny<RenderedNotification>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
+        repoMock
+            .Setup(r => r.MarkSentAsync(message.Id, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask)
+            .Callback(() => sent.TrySetResult());
+
+        await RunOneCycleAsync(dispatcher, () => sent.Task);
+
+        repoMock.Verify(r => r.MarkSentAsync(message.Id, true, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task TheRegistrationNotice_KeepsItsBody()
+    {
+        // No secret in it — only links to ordinary pages — and an admin reading
+        // the delivery log has to be able to see what an owner was told.
+        var settings = new NotificationSettings { UseOutbox = true, PollIntervalSeconds = 60 };
+        var (dispatcher, repoMock, channelMock, _) = CreateDispatcher(settings);
+
+        var message = CreateMessage(typeCode: Auth.Domain.Constants.NotificationTypeCodes.RegistrationAttemptExistingAccount);
+        var sent = new TaskCompletionSource();
+        var claims = 0;
+        repoMock
+            .Setup(r => r.ClaimBatchAsync(It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => Interlocked.Increment(ref claims) == 1 ? [message] : []);
+        channelMock
+            .Setup(c => c.SendAsync(It.IsAny<RenderedNotification>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Result.Success);
+        repoMock
+            .Setup(r => r.MarkSentAsync(message.Id, It.IsAny<bool>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask)
+            .Callback(() => sent.TrySetResult());
+
+        await RunOneCycleAsync(dispatcher, () => sent.Task);
+
+        repoMock.Verify(r => r.MarkSentAsync(message.Id, false, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
     public async Task Dispatcher_FailedSend_SchedulesRetryWithBackoff()
     {
         var settings = new NotificationSettings { UseOutbox = true, PollIntervalSeconds = 60, MaxAttempts = 5 };

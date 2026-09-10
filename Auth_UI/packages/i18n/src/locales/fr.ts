@@ -1264,6 +1264,8 @@ export const fr: TranslationResources = {
       secretOperationChallenge: "Confirmation d'opération sur les clés",
       passwordCreated: "Mot de passe ajouté",
       passwordChanged: "Mot de passe modifié",
+      registrationVerification: "Code de vérification d'inscription",
+      registrationAttemptExistingAccount: "Tentative d'inscription avec une adresse existante",
     },
     application: "Application",
     global: "Global",

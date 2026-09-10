@@ -1227,6 +1227,8 @@ export const fa: TranslationResources = {
       secretOperationChallenge: "تأیید عملیات کلید محرمانه",
       passwordCreated: "افزودن رمز عبور",
       passwordChanged: "تغییر رمز عبور",
+      registrationVerification: "کد تأیید ثبت‌نام",
+      registrationAttemptExistingAccount: "تلاش ثبت‌نام با نشانی موجود",
     },
     application: "برنامه",
     global: "سراسری",

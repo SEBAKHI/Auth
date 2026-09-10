@@ -313,4 +313,49 @@ BEGIN
         1, GETUTCDATE(), @SystemUserId);
     PRINT 'Created password-changed notification type';
 END
+
+-- registration-verification (OTP, verify-first self-registration)
+-- Sent to an address that has no account yet, before any Users row exists, so
+-- there is no display name to greet by and the catalog carries none. The code
+-- is scoped to the pending row, never to a user. A separate type from
+-- email-verification on purpose: that one greets an existing user by name and
+-- requires UserName.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000019')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000019',
+        N'registration-verification',
+        N'Registration Verification',
+        N'One-time code sent to an address that is creating a new account, before the account exists',
+        1,
+        N'[{"name":"OtpCode","description":"6-digit verification code","example":"123456","required":true},{"name":"ExpirationMinutes","description":"Minutes until the code expires","example":"5","required":true}]',
+        N'{"OtpCode":"123456","ExpirationMinutes":5}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created registration-verification notification type';
+END
+
+-- registration-attempt-existing-account (notice, no code)
+-- Sent instead of a code when the address cannot be used to create a new
+-- account: it already has one, or it is reserved after a deletion. One message
+-- covers both so that the two cases cost the same on the wire and in the
+-- outbox, and the copy names neither. Written as an ordinary notice, not a
+-- security alert - nothing happened to the account - and its only links go to
+-- ordinary pages (sign-in, forgotten password), never to a one-click action
+-- that a mail scanner's prefetch could fire. No UserName: a reserved address
+-- has nobody to greet, and the two cases must render the same.
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTypes] WHERE [Id] = '40000000-0000-0000-0000-000000000020')
+BEGIN
+    INSERT INTO [dbo].[NotificationTypes] ([Id], [Code], [Name], [Description], [IsSystem], [VariablesJson], [SampleDataJson], [IsActive], [CreatedAt], [CreatedBy])
+    VALUES (
+        '40000000-0000-0000-0000-000000000020',
+        N'registration-attempt-existing-account',
+        N'Registration Attempt on an Existing Address',
+        N'Tells the holder of an address that cannot be used for a new account that someone tried to, and how to sign in or reset the password',
+        1,
+        N'[{"name":"SignInLink","description":"Absolute URL of the sign-in page","example":"https://example.com/login","required":true},{"name":"ResetPasswordLink","description":"Absolute URL of the forgotten-password page","example":"https://example.com/forgot-password","required":true},{"name":"AttemptedAt","description":"UTC timestamp of the attempt","example":"2026-09-10 09:14:00Z","required":true}]',
+        N'{"SignInLink":"https://example.com/login","ResetPasswordLink":"https://example.com/forgot-password","AttemptedAt":"2026-09-10 09:14:00Z"}',
+        1, GETUTCDATE(), @SystemUserId);
+    PRINT 'Created registration-attempt-existing-account notification type';
+END
 GO

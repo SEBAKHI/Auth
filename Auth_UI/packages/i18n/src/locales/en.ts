@@ -1250,6 +1250,8 @@ export const en = {
       secretOperationChallenge: "Secret operation confirmation",
       passwordCreated: "Password added",
       passwordChanged: "Password changed",
+      registrationVerification: "Registration verification code",
+      registrationAttemptExistingAccount: "Sign-up attempt on an existing address",
     },
     application: "Application",
     global: "Global",

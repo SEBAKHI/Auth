@@ -72,6 +72,28 @@ public static class NotificationTypeCodes
     public const string PasswordChanged = "password-changed";
 
     /// <summary>
+    /// The one-time code that starts a self-registration, sent to an address that
+    /// has no account yet. A SEPARATE type from <see cref="EmailVerification"/> on
+    /// purpose: that one greets an existing user by name and confirms an address
+    /// an account already holds, while this one is the only thing standing between
+    /// a stranger's typing and a Users row — no row, no name, no account exists
+    /// when it is sent. Its rendered body carries the live code, so it is a
+    /// sensitive type and its outbox body is redacted like every other OTP.
+    /// </summary>
+    public const string RegistrationVerification = "registration-verification";
+
+    /// <summary>
+    /// Sent instead of a code when the typed address cannot be used to create a
+    /// new account: it already belongs to one, or it is reserved after a deletion.
+    /// ONE type for both cases, so that the two cost the same on the wire and in
+    /// the outbox and the copy names neither; the response to the caller is the
+    /// same as for a free address. Written as an ordinary notice rather than a
+    /// security alert — nothing happened to the account — with links to ordinary
+    /// pages only, never to a one-click action a mail scanner's prefetch could fire.
+    /// </summary>
+    public const string RegistrationAttemptExistingAccount = "registration-attempt-existing-account";
+
+    /// <summary>
     /// System types that back critical auth flows; their global templates must
     /// always have a published version and cannot be unpublished or deleted.
     /// </summary>
@@ -100,7 +122,12 @@ public static class NotificationTypeCodes
             // hearing about it is the quietest possible takeover, and these are the only
             // messages that break that silence.
             PasswordCreated,
-            PasswordChanged
+            PasswordChanged,
+            // Self-registration cannot begin without the code, and the notice is
+            // the only thing that tells an account owner someone typed their
+            // address into the sign-up form. Neither is an operator's to switch off.
+            RegistrationVerification,
+            RegistrationAttemptExistingAccount
         ];
 
     /// <summary>
@@ -126,5 +153,10 @@ public static class NotificationTypeCodes
         OwnershipTransferCode,
         AccountDeletionVerification,
         SecretOperationChallenge,
+        // The code that lets a stranger's address become an account. The notice
+        // that goes to an existing owner is deliberately NOT here: it carries no
+        // secret, only links to ordinary pages, and an admin reading the delivery
+        // log has to be able to see what an owner was told.
+        RegistrationVerification,
     };
 }

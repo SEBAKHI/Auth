@@ -1176,6 +1176,8 @@ export const zh: TranslationResources = {
       secretOperationChallenge: "密钥操作确认",
       passwordCreated: "已添加密码",
       passwordChanged: "密码已修改",
+      registrationVerification: "注册验证码",
+      registrationAttemptExistingAccount: "使用现有地址的注册尝试",
     },
     application: "应用程序",
     global: "全局",

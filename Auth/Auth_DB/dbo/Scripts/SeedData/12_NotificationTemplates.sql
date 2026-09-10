@@ -2366,3 +2366,300 @@ BEGIN
     PRINT 'password-changed template already exists';
 END
 GO
+
+-- ============================================================
+-- Template 19: registration-verification (global, Email channel)
+--
+-- The first message a would-be account ever receives, sent before any Users
+-- row exists. No greeting by name: there is nobody to greet yet. The notice
+-- says so in as many words - "no account has been created" - because the
+-- reader who did not start this needs to know nothing is theirs to undo.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000019')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000019', '40000000-0000-0000-0000-000000000019', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000019', '42000000-0000-0000-0000-000000000019', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0019-000000000001', '43000000-0000-0000-0000-000000000019', N'en', N'Confirm your email address to create your account',
+N'<div class="header">
+    <p class="eyebrow">Create your account</p>
+    <h1>Confirm your email address</h1>
+</div>
+<p class="message">Hello,</p>
+<p class="message">Enter the code below to confirm this email address and continue creating your {{ Platform.Name }} account. It expires in {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Security notice</p>
+    <p class="notice-text">If you did not start creating an account, you can safely ignore this email: no account has been created, and none will be without this code. Never share this code with anyone — {{ Platform.Name }} will never ask you for it.</p>
+</div>'),
+    ('44000000-0000-0000-0019-000000000002', '43000000-0000-0000-0000-000000000019', N'ar', N'تأكيد بريدك الإلكتروني لإنشاء حسابك',
+N'<div class="header">
+    <p class="eyebrow">إنشاء حساب</p>
+    <h1>تأكيد عنوان بريدك الإلكتروني</h1>
+</div>
+<p class="message">مرحبًا،</p>
+<p class="message">أدخل الرمز أدناه لتأكيد هذا العنوان ومتابعة إنشاء حسابك على {{ Platform.Name }}. تنتهي صلاحيته خلال {{ ExpirationMinutes }} دقيقة.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">تنبيه أمني</p>
+    <p class="notice-text">إن لم تكن أنت من بدأ إنشاء حساب، فتجاهل هذا البريد بأمان: لم يُنشأ أي حساب، ولن يُنشأ بدون هذا الرمز. لا تشارك هذا الرمز مع أي شخص — لن يطلبه منك فريق {{ Platform.Name }} أبدًا.</p>
+</div>'),
+    ('44000000-0000-0000-0019-000000000003', '43000000-0000-0000-0000-000000000019', N'tr', N'Hesabınızı oluşturmak için e-posta adresinizi doğrulayın',
+N'<div class="header">
+    <p class="eyebrow">Hesap oluşturma</p>
+    <h1>E-posta adresinizi onaylayın</h1>
+</div>
+<p class="message">Merhaba,</p>
+<p class="message">Bu e-posta adresini onaylamak ve {{ Platform.Name }} hesabınızı oluşturmaya devam etmek için aşağıdaki kodu girin. Kodun süresi {{ ExpirationMinutes }} dakika içinde dolacaktır.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Güvenlik uyarısı</p>
+    <p class="notice-text">Hesap oluşturmaya siz başlamadıysanız bu e-postayı güvenle yok sayabilirsiniz: hiçbir hesap oluşturulmadı ve bu kod olmadan oluşturulmayacak. Bu kodu asla kimseyle paylaşmayın — {{ Platform.Name }} bu kodu sizden hiçbir zaman istemez.</p>
+</div>'),
+    ('44000000-0000-0000-0019-000000000004', '43000000-0000-0000-0000-000000000019', N'fr', N'Confirmez votre adresse e-mail pour créer votre compte',
+N'<div class="header">
+    <p class="eyebrow">Création de compte</p>
+    <h1>Confirmez votre adresse e-mail</h1>
+</div>
+<p class="message">Bonjour,</p>
+<p class="message">Saisissez le code ci-dessous pour confirmer cette adresse e-mail et poursuivre la création de votre compte {{ Platform.Name }}. Il expirera dans {{ ExpirationMinutes }} minutes.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">Avis de sécurité</p>
+    <p class="notice-text">Si vous n''avez pas commencé à créer un compte, vous pouvez ignorer cet e-mail en toute sécurité : aucun compte n''a été créé, et aucun ne le sera sans ce code. Ne partagez jamais ce code — {{ Platform.Name }} ne vous le demandera jamais.</p>
+</div>'),
+    ('44000000-0000-0000-0019-000000000005', '43000000-0000-0000-0000-000000000019', N'zh', N'验证您的邮箱地址以创建账户',
+N'<div class="header">
+    <p class="eyebrow">创建账户</p>
+    <h1>确认您的邮箱地址</h1>
+</div>
+<p class="message">您好，</p>
+<p class="message">请输入以下验证码以确认此邮箱地址，并继续创建您的 {{ Platform.Name }} 账户。验证码将在 {{ ExpirationMinutes }} 分钟后失效。</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">安全提示</p>
+    <p class="notice-text">如果您并未开始创建账户，请放心忽略此邮件：没有任何账户被创建，没有此验证码也不会创建。请勿与任何人分享此验证码 — {{ Platform.Name }} 绝不会向您索取。</p>
+</div>'),
+    ('44000000-0000-0000-0019-000000000006', '43000000-0000-0000-0000-000000000019', N'ur', N'اکاؤنٹ بنانے کے لیے اپنے ای میل ایڈریس کی تصدیق کریں',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ بنانا</p>
+    <h1>اپنے ای میل ایڈریس کی تصدیق کریں</h1>
+</div>
+<p class="message">السلام علیکم،</p>
+<p class="message">اس ای میل ایڈریس کی تصدیق اور اپنا {{ Platform.Name }} اکاؤنٹ بنانا جاری رکھنے کے لیے نیچے دیا گیا کوڈ درج کریں۔ اس کی میعاد {{ ExpirationMinutes }} منٹ میں ختم ہو جائے گی۔</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">حفاظتی نوٹس</p>
+    <p class="notice-text">اگر آپ نے اکاؤنٹ بنانا شروع نہیں کیا تو آپ اس ای میل کو بحفاظت نظر انداز کر سکتے ہیں: کوئی اکاؤنٹ نہیں بنایا گیا، اور اس کوڈ کے بغیر بنایا بھی نہیں جائے گا۔ یہ کوڈ کبھی کسی کے ساتھ شیئر نہ کریں — {{ Platform.Name }} کبھی آپ سے یہ کوڈ نہیں مانگے گا۔</p>
+</div>'),
+    ('44000000-0000-0000-0019-000000000007', '43000000-0000-0000-0000-000000000019', N'fa', N'برای ساخت حساب، آدرس ایمیل خود را تأیید کنید',
+N'<div class="header">
+    <p class="eyebrow">ساخت حساب</p>
+    <h1>آدرس ایمیل خود را تأیید کنید</h1>
+</div>
+<p class="message">سلام،</p>
+<p class="message">برای تأیید این آدرس ایمیل و ادامهٔ ساخت حساب {{ Platform.Name }} خود، کد زیر را وارد کنید. این کد تا {{ ExpirationMinutes }} دقیقه دیگر منقضی می‌شود.</p>
+<div class="code-container">
+    <div class="otp-code">{{ OtpCode }}</div>
+</div>
+<div class="notice">
+    <p class="notice-title">هشدار امنیتی</p>
+    <p class="notice-text">اگر شما ساخت حساب را آغاز نکرده‌اید، می‌توانید با خیال راحت این ایمیل را نادیده بگیرید: هیچ حسابی ساخته نشده و بدون این کد نیز ساخته نخواهد شد. این کد را هرگز با کسی به اشتراک نگذارید — {{ Platform.Name }} هرگز آن را از شما نمی‌خواهد.</p>
+</div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000019'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000019';
+
+    PRINT 'Created registration-verification template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'registration-verification template already exists';
+END
+GO
+
+-- ============================================================
+-- Template 20: registration-attempt-existing-account (global, Email channel)
+--
+-- Sent instead of a code when the typed address already has an account or is
+-- reserved after a deletion. One template for both, and the copy names
+-- neither: it says the address cannot be used for a NEW account, that nothing
+-- was created and nothing changed, and how to sign in or reset a forgotten
+-- password. No greeting by name - a reserved address has nobody to greet, and
+-- the two cases must render the same.
+--
+-- Deliberately NOT a security alert: nothing happened to the account, and the
+-- person who typed the address never received a code. The button goes to the
+-- ordinary sign-in page and the inline link to the ordinary forgotten-password
+-- page; neither carries a token, so a mail scanner's prefetch does nothing.
+-- ============================================================
+DECLARE @SystemUserId UNIQUEIDENTIFIER = '00000000-0000-0000-0000-000000000001';
+
+IF NOT EXISTS (SELECT 1 FROM [dbo].[NotificationTemplates] WHERE [Id] = '42000000-0000-0000-0000-000000000020')
+BEGIN
+    INSERT INTO [dbo].[NotificationTemplates] ([Id], [NotificationTypeId], [ApplicationId], [Channel], [DefaultLanguage], [CreatedAt], [CreatedBy])
+    VALUES ('42000000-0000-0000-0000-000000000020', '40000000-0000-0000-0000-000000000020', NULL, 1, N'en', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateVersions] ([Id], [TemplateId], [VersionNumber], [ChangeNote], [CreatedAt], [CreatedBy])
+    VALUES ('43000000-0000-0000-0000-000000000020', '42000000-0000-0000-0000-000000000020', 1, N'Initial version (SEBAKHI-brand design)', GETUTCDATE(), @SystemUserId);
+
+    INSERT INTO [dbo].[NotificationTemplateTranslations] ([Id], [VersionId], [LanguageCode], [Subject], [BodyHtml])
+    VALUES
+    ('44000000-0000-0000-0020-000000000001', '43000000-0000-0000-0000-000000000020', N'en', N'A sign-up was attempted with your email address',
+N'<div class="header">
+    <p class="eyebrow">Account notice</p>
+    <h1>This address cannot be used for a new account</h1>
+</div>
+<p class="message">Hello,</p>
+<p class="message">Someone — perhaps you — just tried to create a new {{ Platform.Name }} account with this email address. This address cannot be used to create a new account, so nothing was created and nothing about any existing account has changed.</p>
+<div class="notice">
+    <p class="notice-title">When</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">If you have an account with us, you can sign in as usual. If you have forgotten your password, you can <a href="{{ ResetPasswordLink }}">reset it</a>.</p>
+<p class="message">If this was not you, no action is required: whoever tried did not receive a code and cannot reach your account this way.</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">Sign in</a>
+</div>
+<p class="link-fallback">If the button does not work, copy this link into your browser:</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0020-000000000002', '43000000-0000-0000-0000-000000000020', N'ar', N'محاولة إنشاء حساب بعنوان بريدك الإلكتروني',
+N'<div class="header">
+    <p class="eyebrow">تنبيه بخصوص الحساب</p>
+    <h1>لا يمكن استعمال هذا العنوان لإنشاء حساب جديد</h1>
+</div>
+<p class="message">مرحبًا،</p>
+<p class="message">حاول شخص ما — ربما أنت — للتوّ إنشاء حساب جديد على {{ Platform.Name }} بعنوان البريد هذا. لا يمكن استعمال هذا العنوان لإنشاء حساب جديد، فلم يُنشأ شيء ولم يتغيّر شيء في أي حساب قائم.</p>
+<div class="notice">
+    <p class="notice-title">الوقت</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">إن كان لك حساب لدينا، فادخل كالمعتاد. وإن نسيت كلمة المرور، فيمكنك <a href="{{ ResetPasswordLink }}">إعادة تعيينها</a>.</p>
+<p class="message">وإن لم تكن أنت من حاول، فلا حاجة إلى أي إجراء: من حاول لم يتلقَّ أي رمز ولا يستطيع الوصول إلى حسابك بهذه الطريقة.</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">تسجيل الدخول</a>
+</div>
+<p class="link-fallback">إن لم يعمل الزر، فانسخ هذا الرابط والصقه في متصفحك:</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0020-000000000003', '43000000-0000-0000-0000-000000000020', N'tr', N'E-posta adresinizle bir hesap oluşturma girişimi',
+N'<div class="header">
+    <p class="eyebrow">Hesap bildirimi</p>
+    <h1>Bu adres yeni bir hesap için kullanılamaz</h1>
+</div>
+<p class="message">Merhaba,</p>
+<p class="message">Birisi — belki de siz — az önce bu e-posta adresiyle yeni bir {{ Platform.Name }} hesabı oluşturmayı denedi. Bu adres yeni bir hesap oluşturmak için kullanılamaz; bu nedenle hiçbir şey oluşturulmadı ve mevcut bir hesapta hiçbir şey değişmedi.</p>
+<div class="notice">
+    <p class="notice-title">Zaman</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">Bizde bir hesabınız varsa her zamanki gibi giriş yapabilirsiniz. Parolanızı unuttuysanız <a href="{{ ResetPasswordLink }}">sıfırlayabilirsiniz</a>.</p>
+<p class="message">Bunu siz yapmadıysanız yapmanız gereken bir şey yok: deneyen kişi bir kod almadı ve bu yolla hesabınıza ulaşamaz.</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">Giriş yap</a>
+</div>
+<p class="link-fallback">Düğme çalışmazsa bu bağlantıyı tarayıcınıza kopyalayın:</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0020-000000000004', '43000000-0000-0000-0000-000000000020', N'fr', N'Tentative de création de compte avec votre adresse e-mail',
+N'<div class="header">
+    <p class="eyebrow">Information sur le compte</p>
+    <h1>Cette adresse ne peut pas servir à créer un nouveau compte</h1>
+</div>
+<p class="message">Bonjour,</p>
+<p class="message">Quelqu''un — peut-être vous — vient d''essayer de créer un nouveau compte {{ Platform.Name }} avec cette adresse e-mail. Cette adresse ne peut pas servir à créer un nouveau compte : rien n''a été créé et rien n''a changé sur un compte existant.</p>
+<div class="notice">
+    <p class="notice-title">Quand</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">Si vous avez un compte chez nous, connectez-vous comme d''habitude. Si vous avez oublié votre mot de passe, vous pouvez <a href="{{ ResetPasswordLink }}">le réinitialiser</a>.</p>
+<p class="message">Si ce n''était pas vous, aucune action n''est nécessaire : la personne qui a essayé n''a reçu aucun code et ne peut pas accéder à votre compte de cette manière.</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">Se connecter</a>
+</div>
+<p class="link-fallback">Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0020-000000000005', '43000000-0000-0000-0000-000000000020', N'zh', N'有人尝试使用您的邮箱地址创建账户',
+N'<div class="header">
+    <p class="eyebrow">账户通知</p>
+    <h1>此地址无法用于创建新账户</h1>
+</div>
+<p class="message">您好，</p>
+<p class="message">有人（也许是您本人）刚刚尝试使用此邮箱地址创建新的 {{ Platform.Name }} 账户。此地址无法用于创建新账户，因此没有创建任何内容，现有账户也没有任何变化。</p>
+<div class="notice">
+    <p class="notice-title">时间</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">如果您在我们这里有账户，请照常登录。如果您忘记了密码，可以<a href="{{ ResetPasswordLink }}">重置密码</a>。</p>
+<p class="message">如果这不是您本人操作，则无需任何处理：尝试者没有收到验证码，也无法通过这种方式访问您的账户。</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">登录</a>
+</div>
+<p class="link-fallback">如果按钮无法使用，请将此链接复制到浏览器：</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0020-000000000006', '43000000-0000-0000-0000-000000000020', N'ur', N'آپ کے ای میل ایڈریس سے اکاؤنٹ بنانے کی کوشش',
+N'<div class="header">
+    <p class="eyebrow">اکاؤنٹ کی اطلاع</p>
+    <h1>یہ ایڈریس نئے اکاؤنٹ کے لیے استعمال نہیں ہو سکتا</h1>
+</div>
+<p class="message">السلام علیکم،</p>
+<p class="message">کسی نے — شاید آپ نے — ابھی اس ای میل ایڈریس سے نیا {{ Platform.Name }} اکاؤنٹ بنانے کی کوشش کی۔ یہ ایڈریس نیا اکاؤنٹ بنانے کے لیے استعمال نہیں ہو سکتا، اس لیے کچھ نہیں بنا اور کسی موجودہ اکاؤنٹ میں کوئی تبدیلی نہیں ہوئی۔</p>
+<div class="notice">
+    <p class="notice-title">وقت</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">اگر ہمارے پاس آپ کا اکاؤنٹ ہے تو معمول کے مطابق سائن اِن کریں۔ اگر آپ پاس ورڈ بھول گئے ہیں تو اسے <a href="{{ ResetPasswordLink }}">دوبارہ ترتیب دے سکتے ہیں</a>۔</p>
+<p class="message">اگر یہ کوشش آپ کی نہیں تھی تو کچھ کرنے کی ضرورت نہیں: کوشش کرنے والے کو کوئی کوڈ نہیں ملا اور وہ اس طریقے سے آپ کے اکاؤنٹ تک نہیں پہنچ سکتا۔</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">سائن اِن کریں</a>
+</div>
+<p class="link-fallback">اگر بٹن کام نہ کرے تو یہ لنک اپنے براؤزر میں کاپی کریں:</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>'),
+    ('44000000-0000-0000-0020-000000000007', '43000000-0000-0000-0000-000000000020', N'fa', N'تلاش برای ساخت حساب با آدرس ایمیل شما',
+N'<div class="header">
+    <p class="eyebrow">اطلاعیهٔ حساب</p>
+    <h1>این آدرس برای ساخت حساب جدید قابل استفاده نیست</h1>
+</div>
+<p class="message">سلام،</p>
+<p class="message">کسی — شاید خود شما — هم‌اکنون تلاش کرد با این آدرس ایمیل یک حساب جدید {{ Platform.Name }} بسازد. این آدرس برای ساخت حساب جدید قابل استفاده نیست؛ بنابراین چیزی ساخته نشد و در هیچ حساب موجودی تغییری رخ نداد.</p>
+<div class="notice">
+    <p class="notice-title">زمان</p>
+    <p class="notice-text">{{ AttemptedAt }}</p>
+</div>
+<p class="message">اگر نزد ما حسابی دارید، مانند همیشه وارد شوید. اگر رمز عبور خود را فراموش کرده‌اید، می‌توانید <a href="{{ ResetPasswordLink }}">آن را بازنشانی کنید</a>.</p>
+<p class="message">اگر این تلاش از سوی شما نبوده، اقدامی لازم نیست: کسی که تلاش کرده هیچ کدی دریافت نکرده و از این راه نمی‌تواند به حساب شما دسترسی پیدا کند.</p>
+<div class="button-container">
+    <a class="button" href="{{ SignInLink }}">ورود</a>
+</div>
+<p class="link-fallback">اگر دکمه کار نکرد، این پیوند را در مرورگر خود کپی کنید:</p>
+<div class="link-box"><a href="{{ SignInLink }}">{{ SignInLink }}</a></div>');
+
+    UPDATE [dbo].[NotificationTemplates]
+    SET [PublishedVersionId] = '43000000-0000-0000-0000-000000000020'
+    WHERE [Id] = '42000000-0000-0000-0000-000000000020';
+
+    PRINT 'Created registration-attempt-existing-account template (v1 published, 7 translations)';
+END
+ELSE
+BEGIN
+    PRINT 'registration-attempt-existing-account template already exists';
+END
+GO
