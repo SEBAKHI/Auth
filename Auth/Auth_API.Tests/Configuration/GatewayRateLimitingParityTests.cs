@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Auth.Application.SystemSettings;
 
 namespace Auth_API.Tests.Configuration;
@@ -58,6 +59,49 @@ public class GatewayRateLimitingParityTests
 
         ReadSection("Auth_API", ApiSection).Keys.Should().OnlyContain(key => known.Contains(key));
         ReadSection("API_Gateway", GatewaySection).Keys.Should().OnlyContain(key => known.Contains(key));
+    }
+
+    /// <summary>
+    /// The fourth and fifth homes. Each process passes a literal fallback to
+    /// <c>GetValue</c> for the case where its configuration file lacks the key —
+    /// the ordinary state of a rolling upgrade that adds a limit — so a stale
+    /// fallback is a throttle nobody chose, enforced in production, agreeing
+    /// with no file in the repository. And a registry field with no
+    /// <c>GetValue</c> at all is a limit the console offers and nothing applies.
+    /// </summary>
+    [Fact]
+    public void EveryRegistryField_IsReadByBothProcesses_WithTheRegistryDefaultAsFallback()
+    {
+        var gateway = File.ReadAllText(Path.Combine(SolutionDirectory(), "API_Gateway", "Configuration", "GatewayRuntimeSettings.cs"));
+        var api = File.ReadAllText(Path.Combine(SolutionDirectory(), "Auth_API", "Modules", "Internal", "Controllers", "GatewayRuntimeSettingsController.cs"));
+
+        var disagreements = new List<string>();
+        foreach (var field in RegistryFields())
+        {
+            var expected = Convert.ToInt64(field.DefaultValue);
+
+            var seed = Regex.Match(gateway, $@"GetValue\(""RateLimiting:{field.Path}"",\s*(?<value>\d+)\)");
+            if (!seed.Success)
+            {
+                disagreements.Add($"{field.Path}: the gateway never seeds it from its own file (GatewayRuntimeSettings.cs)");
+            }
+            else if (long.Parse(seed.Groups["value"].Value) != expected)
+            {
+                disagreements.Add($"{field.Path}: the gateway seed falls back to {seed.Groups["value"].Value}, the registry default is {expected}");
+            }
+
+            var pull = Regex.Match(api, $@"GetValue\(""GatewayRateLimiting:{field.Path}"",\s*(?<value>\d+)\)");
+            if (!pull.Success)
+            {
+                disagreements.Add($"{field.Path}: the API never sends it over the settings pull (GatewayRuntimeSettingsController.cs)");
+            }
+            else if (long.Parse(pull.Groups["value"].Value) != expected)
+            {
+                disagreements.Add($"{field.Path}: the settings pull falls back to {pull.Groups["value"].Value}, the registry default is {expected}");
+            }
+        }
+
+        disagreements.Should().BeEmpty();
     }
 
     private static IEnumerable<SettingFieldDefinition> RegistryFields()

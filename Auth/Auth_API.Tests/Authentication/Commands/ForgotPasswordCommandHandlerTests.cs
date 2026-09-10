@@ -81,6 +81,28 @@ public class ForgotPasswordCommandHandlerTests
             .ReturnsAsync((User?)null);
 
     [Fact]
+    public async Task MaskedEmail_IsComputedFromTheNormalizedInput_InEveryBranch()
+    {
+        // The stored address is lower-case; the typed one need not be. Masking
+        // the stored one for a known account and the typed one for an unknown
+        // address let the letter case of the reply say which branch ran.
+        var user = TestHelpers.CreateUser(email: "jane.doe@example.com");
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(" Jane.Doe@Example.COM ", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(user);
+        _passwordResetTokenRepositoryMock
+            .Setup(r => r.HasLiveTokenAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        ArrangeMissingUser(" Nobody.Here@Example.COM ");
+
+        var known = await _handler.Handle(new ForgotPasswordCommand(" Jane.Doe@Example.COM "), CancellationToken.None);
+        var unknown = await _handler.Handle(new ForgotPasswordCommand(" Nobody.Here@Example.COM "), CancellationToken.None);
+
+        known.Value.MaskedEmail.Should().Be("j****e@example.com", "the mask is derived from the trimmed, lower-cased input");
+        unknown.Value.MaskedEmail.Should().Be("n****e@example.com", "the same derivation, for a branch that found nothing");
+    }
+
+    [Fact]
     public async Task Handle_ExistingUser_CreatesTokenAndReturnsResponse()
     {
         // Arrange

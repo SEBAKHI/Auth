@@ -281,6 +281,27 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
+    // The code-check and completion steps of a verify-first sign-up, via
+    // registration-route. The outer half of the follow-up split; the Auth API
+    // holds the inner half under the same name. Separate from "register"
+    // because only the start step sends a message: this bucket is quota hygiene
+    // for two cheap requests per sign-up, not the mail budget, and it must sit
+    // at or above twice the register limit or sign-ups fail at their second
+    // step while the register counter still has room.
+    options.AddPolicy("registration-followup", context =>
+    {
+        var limits = Limits(context);
+
+        return RateLimitPartition.GetFixedWindowLimiter(
+            $"v{SettingsVersion(context)}:{ClientId(context)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = limits.RegistrationFollowupPermitLimit,
+                Window = TimeSpan.FromSeconds(limits.RegistrationFollowupWindowSeconds),
+                QueueLimit = 0
+            });
+    });
+
     options.AddPolicy("api", context =>
     {
         var limits = Limits(context);

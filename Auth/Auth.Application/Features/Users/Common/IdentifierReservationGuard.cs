@@ -31,11 +31,20 @@ public class IdentifierReservationGuard
     /// </summary>
     public async Task<ErrorOr<Success>> EnsureNotReservedAsync(string email, CancellationToken cancellationToken)
     {
-        if (await _tombstoneRepository.ExistsByEmailHashAsync(_identifierHasher.HashEmail(email), cancellationToken))
+        if (await IsReservedAsync(email, cancellationToken))
         {
             return UserErrors.DuplicateEmail(email);
         }
 
         return Result.Success;
     }
+
+    /// <summary>
+    /// Whether the address is permanently reserved by a tombstone. For the
+    /// callers that must not answer differently for a reserved address — a
+    /// registration start classifies with this and then does the same work
+    /// either way — rather than the conflict above.
+    /// </summary>
+    public Task<bool> IsReservedAsync(string email, CancellationToken cancellationToken) =>
+        _tombstoneRepository.ExistsByEmailHashAsync(_identifierHasher.HashEmail(email), cancellationToken);
 }

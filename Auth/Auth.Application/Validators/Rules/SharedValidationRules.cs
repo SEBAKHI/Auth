@@ -14,7 +14,12 @@ public static class SharedValidationRules
         return ruleBuilder
             .NotEmpty().WithMessage("Validation.Email.Required")
             .EmailAddress().WithMessage("Validation.Email.InvalidFormat")
-            .MaximumLength(256).WithMessage("Validation.Email.MaxLength");
+            // 254, the same bound Email.Create applies and one under the
+            // NVARCHAR(255) columns that store addresses. 256 let a 255- or
+            // 256-character address through every validator and into an INSERT
+            // that failed with a truncation error — a 500 on an anonymous
+            // endpoint, repeatable at the registration limit.
+            .MaximumLength(254).WithMessage("Validation.Email.MaxLength");
     }
 
     public static IRuleBuilderOptions<T, string> IsValidFirstName<T>(this IRuleBuilder<T, string> ruleBuilder)

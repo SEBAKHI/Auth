@@ -858,6 +858,28 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // The second and third requests of a verify-first sign-up: the code check
+    // and the completion. Their own budget rather than a wider "register",
+    // because only the start step produces a message. One number for all three
+    // would either triple the mail one address can cause — the start step is
+    // the whole of what the register budget was sized against — or, kept at
+    // the old number, refuse a sign-up at its second step. Sized at twice the
+    // register limit: a sign-up needs exactly one check and one completion. A
+    // wrong code is refused by the code's own five-attempt gate long before
+    // this bucket is, so this is quota hygiene, not the guessing defence.
+    //
+    // The gateway has a matching "registration-followup" policy in front of
+    // this one, on its own route. Both must move together, as for "register".
+    options.AddPolicy("registration-followup", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: $"v{settingsVersion()}:{ClientIpResolver.Resolve(httpContext) ?? "unknown"}",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = builder.Configuration.GetValue("RateLimiting:RegistrationFollowupPermitLimit", 400),
+                Window = TimeSpan.FromSeconds(builder.Configuration.GetValue("RateLimiting:RegistrationFollowupWindowSeconds", 60)),
+                QueueLimit = 0
+            }));
+
     // What the sign-in and sign-up PAGES spend merely by rendering: the list of
     // enabled external providers, and the nonce the Google button must hold before
     // it initialises. Neither carries a credential, neither can be guessed at, and

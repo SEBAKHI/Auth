@@ -109,12 +109,24 @@ public sealed class GatewayRuntimeSettingsPoller : BackgroundService
             // yet) and a truncated response. Neither is a reason to run the
             // edge on zeros — a PermitLimit of 0 rejects every request, which
             // is a worse outage than the stale value it replaced.
+            var limitsUsable = IsUsable(payload.RateLimits);
+            if (!limitsUsable)
+            {
+                // Said out loud, once per pull, because the fallback is silent
+                // by design and the line below still reports the version as
+                // applied. The ordinary cause is a gateway deployed ahead of
+                // the API: the API does not send a pair this build expects.
+                _logger.LogWarning(
+                    "Fetched rate limits were rejected and the current values kept: {Reason}. Is the Auth API older than this gateway?",
+                    DescribeUnusable(payload.RateLimits));
+            }
+
             var settings = new GatewayRuntimeSettings(
                 Version: payload.Version,
                 CorsAllowedOrigins: payload.CorsAllowedOrigins ?? current.CorsAllowedOrigins,
                 CorsAllowCredentials: payload.CorsAllowCredentials,
                 HealthChecksExposeErrorDetails: payload.HealthChecksExposeErrorDetails,
-                RateLimits: IsUsable(payload.RateLimits) ? payload.RateLimits! : current.RateLimits);
+                RateLimits: limitsUsable ? payload.RateLimits! : current.RateLimits);
 
             if (settings.Version != current.Version)
             {
@@ -166,13 +178,32 @@ public sealed class GatewayRuntimeSettingsPoller : BackgroundService
     /// The registration pair is exactly that shape, because a gateway deployed
     /// ahead of the API is the ordinary state of a rolling upgrade.
     /// </remarks>
+    /// <summary>The first field that fails <see cref="IsUsable"/>, for the log line.</summary>
+    private static string DescribeUnusable(GatewayRateLimits? limits)
+    {
+        if (limits is null) return "no RateLimits in the payload";
+
+        var offending = new (string Name, bool Ok)[]
+        {
+            ("GlobalPermitLimit", limits.GlobalPermitLimit > 0), ("GlobalWindowSeconds", limits.GlobalWindowSeconds > 0), ("GlobalQueueLimit", limits.GlobalQueueLimit >= 0),
+            ("AuthPermitLimit", limits.AuthPermitLimit > 0), ("AuthWindowSeconds", limits.AuthWindowSeconds > 0),
+            ("RegisterPermitLimit", limits.RegisterPermitLimit > 0), ("RegisterWindowSeconds", limits.RegisterWindowSeconds > 0),
+            ("ApiPermitLimit", limits.ApiPermitLimit > 0), ("ApiWindowSeconds", limits.ApiWindowSeconds > 0),
+            ("AdminPermitLimit", limits.AdminPermitLimit > 0), ("AdminWindowSeconds", limits.AdminWindowSeconds > 0),
+            ("RegistrationFollowupPermitLimit", limits.RegistrationFollowupPermitLimit > 0), ("RegistrationFollowupWindowSeconds", limits.RegistrationFollowupWindowSeconds > 0),
+        }.FirstOrDefault(field => !field.Ok).Name;
+
+        return offending is null ? "unknown" : $"{offending} is missing or 0";
+    }
+
     private static bool IsUsable(GatewayRateLimits? limits) =>
         limits is not null
         && limits.GlobalPermitLimit > 0 && limits.GlobalWindowSeconds > 0 && limits.GlobalQueueLimit >= 0
         && limits.AuthPermitLimit > 0 && limits.AuthWindowSeconds > 0
         && limits.RegisterPermitLimit > 0 && limits.RegisterWindowSeconds > 0
         && limits.ApiPermitLimit > 0 && limits.ApiWindowSeconds > 0
-        && limits.AdminPermitLimit > 0 && limits.AdminWindowSeconds > 0;
+        && limits.AdminPermitLimit > 0 && limits.AdminWindowSeconds > 0
+        && limits.RegistrationFollowupPermitLimit > 0 && limits.RegistrationFollowupWindowSeconds > 0;
 
     /// <summary>
     /// The wire shape, deliberately separate from <see cref="GatewayRuntimeSettings"/>:

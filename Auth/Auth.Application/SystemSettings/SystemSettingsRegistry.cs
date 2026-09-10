@@ -203,7 +203,18 @@ public static class SystemSettingsRegistry
                 // and nothing stopped all of them from decoding at the same
                 // instant. Size it with ImageStorage:MaxMegapixels: permits x
                 // megapixels x 4 MB is the memory the upload path may hold.
-                new SettingFieldDefinition("ImageUploadConcurrencyLimit", SettingKind.Int, Min: 1, Max: 64, DefaultValue: 2)
+                new SettingFieldDefinition("ImageUploadConcurrencyLimit", SettingKind.Int, Min: 1, Max: 64, DefaultValue: 2),
+                // The second and third requests of a verify-first sign-up — the
+                // code check and the completion — on a budget of their own.
+                // Only the start step produces a message, so widening the
+                // register pair to cover all three would triple the mail one
+                // address can cause, and leaving it alone would refuse a
+                // sign-up at its second step. Default = twice the register
+                // default: one check and one completion per start. Appended
+                // last, not beside the register pair: other work edits this
+                // section in parallel and the end is the one place that merges.
+                new SettingFieldDefinition("RegistrationFollowupPermitLimit", SettingKind.Int, Min: 1, Max: 20000, DefaultValue: 400),
+                new SettingFieldDefinition("RegistrationFollowupWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
             ]),
 
         new SettingSectionDefinition(
@@ -260,7 +271,15 @@ public static class SystemSettingsRegistry
                 // defend /admin/**; a throttle sized for anonymous traffic
                 // only defends it from its own operators.
                 new SettingFieldDefinition("AdminPermitLimit", SettingKind.Int, Min: 1, Max: 100000, DefaultValue: 120),
-                new SettingFieldDefinition("AdminWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
+                new SettingFieldDefinition("AdminWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60),
+                // The edge half of the sign-up follow-up budget (the code check
+                // and the completion), on its own gateway route. As with the
+                // register pair, this one runs first and decides the outcome:
+                // keep it at or above the API's, and at least twice the
+                // register pair above. Appended last for the same reason as its
+                // twin in the RateLimiting section.
+                new SettingFieldDefinition("RegistrationFollowupPermitLimit", SettingKind.Int, Min: 1, Max: 20000, DefaultValue: 400),
+                new SettingFieldDefinition("RegistrationFollowupWindowSeconds", SettingKind.Int, Min: 1, Max: 3600, DefaultValue: 60)
             ]),
 
         new SettingSectionDefinition(

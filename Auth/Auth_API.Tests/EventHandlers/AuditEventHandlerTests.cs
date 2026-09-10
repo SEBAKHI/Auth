@@ -1,4 +1,5 @@
 using Auth_API.Modules.AuditLog.EventHandlers;
+using Auth.Domain.Constants;
 using Auth.Domain.Entities;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
@@ -26,6 +27,89 @@ public class UserCreatedAuditEventHandlerTests
         await _handler.Handle(evt, CancellationToken.None);
 
         _repoMock.Verify(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()), Times.Once());
+    }
+}
+
+public class RegistrationStartedAuditEventHandlerTests
+{
+    private readonly Mock<IAuditLogRepository> _repoMock = new();
+    private readonly RegistrationStartedAuditEventHandler _handler;
+
+    public RegistrationStartedAuditEventHandlerTests()
+    {
+        _handler = new RegistrationStartedAuditEventHandler(
+            _repoMock.Object,
+            new Mock<ILogger<RegistrationStartedAuditEventHandler>>().Object);
+    }
+
+    [Fact]
+    public async Task StartWritesAnAuditRow_WithIpAndUserAgent_AndNoUserId()
+    {
+        // The one row an attempt leaves before an account exists. No user id,
+        // because there is no user; the anonymous actor; the caller's address
+        // and agent, because they are what gets monitored; and the typed
+        // address masked, never in the clear.
+        AuditLog? written = null;
+        _repoMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => written = log)
+            .Returns(Task.CompletedTask);
+        var pendingId = Guid.NewGuid();
+
+        await _handler.Handle(
+            new RegistrationStartedEvent(pendingId, "jane.doe@example.com", "203.0.113.7", "TestAgent/1.0"),
+            CancellationToken.None);
+
+        written.Should().NotBeNull();
+        written!.Action.Should().Be(AuditActions.RegistrationStarted);
+        written.ActionType.Should().Be(AuditActionTypes.Authentication);
+        written.UserId.Should().BeNull("no Users row exists when a registration starts");
+        written.PerformedBy.Should().Be(Guid.Empty, "the actor is an anonymous stranger");
+        written.EntityType.Should().Be("PendingRegistration");
+        written.EntityId.Should().Be(pendingId);
+        written.IpAddress.Should().Be("203.0.113.7");
+        written.UserAgent.Should().Be("TestAgent/1.0");
+        written.AdditionalData.Should().Contain("j****e@example.com");
+        written.AdditionalData.Should().NotContain("jane.doe@example.com",
+            "an audit row is not the place to keep a stranger's typed address in the clear");
+    }
+
+    [Fact]
+    public async Task AOneCharacterLocalPart_IsMaskedToo()
+    {
+        // The shared mask used to pass a@example.com through in the clear.
+        AuditLog? written = null;
+        _repoMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => written = log)
+            .Returns(Task.CompletedTask);
+
+        await _handler.Handle(new RegistrationStartedEvent(Guid.NewGuid(), "a@example.com", null, null), CancellationToken.None);
+
+        written!.AdditionalData.Should().Contain("*@example.com");
+        written.AdditionalData.Should().NotContain("\"a@example.com\"");
+    }
+
+    [Fact]
+    public async Task AnOversizedUserAgent_StillLeavesTheRow()
+    {
+        // The only row an attempt leaves, and the caller controls the User-Agent
+        // header. Unbounded, a 600-character agent made the insert fail on the
+        // 500-character column — and the start handler, which must never fail
+        // a committed start over its audit, swallowed it: a campaign that
+        // audited nothing. The entity bounds the two caller-controlled columns.
+        AuditLog? written = null;
+        _repoMock
+            .Setup(r => r.CreateAsync(It.IsAny<AuditLog>(), It.IsAny<CancellationToken>()))
+            .Callback<AuditLog, CancellationToken>((log, _) => written = log)
+            .Returns(Task.CompletedTask);
+
+        await _handler.Handle(
+            new RegistrationStartedEvent(Guid.NewGuid(), "jane.doe@example.com", new string('9', 80), new string('x', 600)),
+            CancellationToken.None);
+
+        written!.UserAgent.Should().HaveLength(500, "NVARCHAR(500) is the column");
+        written.IpAddress.Should().HaveLength(45, "NVARCHAR(45) is the column");
     }
 }
 

@@ -1,3 +1,4 @@
+using Auth.Domain.Events;
 using Auth.Domain.Primitives;
 using Auth.Domain.ValueObjects;
 
@@ -241,7 +242,15 @@ public class PendingRegistration : AggregateRoot
         PreferredLanguage = preferredLanguage;
     }
 
-    /// <summary>The current code's message reached the outbox.</summary>
+    /// <summary>
+    /// Records that a start was made against this row, for the audit trail.
+    /// Changes no state: the row is the same whether the address was free or
+    /// not, and the event carries the caller, never the classification.
+    /// </summary>
+    public void RecordStart(string? ipAddress, string? userAgent) =>
+        RaiseDomainEvent(new RegistrationStartedEvent(Id, Email.Value, ipAddress, userAgent));
+
+    /// <summary>The message this start produced — the code, or the notice sent in its place — reached the outbox.</summary>
     public void MarkMailed(DateTime nowUtc) => MailedAt ??= nowUtc;
 
     /// <summary>One more wrong code against the current one.</summary>

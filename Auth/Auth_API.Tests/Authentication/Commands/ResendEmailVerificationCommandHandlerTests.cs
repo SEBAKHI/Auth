@@ -112,22 +112,60 @@ public class ResendEmailVerificationCommandHandlerTests
     }
 
     [Fact]
-    public async Task Handle_AlreadyVerifiedEmail_ReturnsError()
+    public async Task ResendForAConfirmedAccount_AnswersExactlyAsAnUnknownAddress()
     {
-        // Arrange
-        var user = TestHelpers.CreateUser(email: "verified@example.com", emailConfirmed: true);
-        var command = new ResendEmailVerificationCommand("verified@example.com");
-
+        // This endpoint is anonymous and reachable twenty times a minute per
+        // client. Until this test, a confirmed account answered "already
+        // verified" and an unknown address answered success — a registered-or-
+        // not oracle that the verify-first registration flow closes everywhere
+        // else. Both must now answer the same generic shape, and neither may
+        // send anything.
+        var confirmed = TestHelpers.CreateUser(email: "verified@example.com", emailConfirmed: true);
         _userRepositoryMock
-            .Setup(r => r.GetByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .Setup(r => r.GetByEmailAsync("verified@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(confirmed);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("unknown@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var forConfirmed = await _handler.Handle(new ResendEmailVerificationCommand("verified@example.com"), CancellationToken.None);
+        var forUnknown = await _handler.Handle(new ResendEmailVerificationCommand("unknown@example.com"), CancellationToken.None);
+
+        forConfirmed.IsError.Should().BeFalse("a confirmed account must not be distinguishable from an unknown address");
+        forUnknown.IsError.Should().BeFalse();
+        forConfirmed.Value.MaskedEmail.Should().Be("v****d@example.com");
+        forUnknown.Value.MaskedEmail.Should().Be("u****n@example.com");
+        forConfirmed.Value.ExpiresAt.Should().BeCloseTo(forUnknown.Value.ExpiresAt, TimeSpan.FromSeconds(5),
+            "both branches quote the same nominal expiry");
+
+        _notificationServiceMock.Verify(
+            s => s.SendAsync(It.IsAny<NotificationRequest>(), It.IsAny<CancellationToken>()), Times.Never);
+        _tokenRepositoryMock.Verify(
+            r => r.CreateAsync(It.IsAny<EmailVerificationToken>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MaskedEmail_IsComputedFromTheNormalizedInput_InEveryBranch()
+    {
+        // The stored address is lower-case; the typed one need not be. Masking
+        // the stored one for a known account and the typed one for an unknown
+        // address let the letter case of the reply say which branch ran.
+        var user = TestHelpers.CreateUser(email: "jane.doe@example.com", emailConfirmed: false);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(" Jane.Doe@Example.COM ", It.IsAny<CancellationToken>()))
             .ReturnsAsync(user);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync(" Nobody.Here@Example.COM ", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+        _tokenRepositoryMock
+            .Setup(r => r.GetValidTokenForUserAsync(user.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(EmailVerificationToken.Create(user.Id, "hash", user.Email, 15));
 
-        // Act
-        var result = await _handler.Handle(command, CancellationToken.None);
+        var known = await _handler.Handle(new ResendEmailVerificationCommand(" Jane.Doe@Example.COM "), CancellationToken.None);
+        var unknown = await _handler.Handle(new ResendEmailVerificationCommand(" Nobody.Here@Example.COM "), CancellationToken.None);
 
-        // Assert
-        result.IsError.Should().BeTrue();
-        result.FirstError.Code.Should().Be(EmailVerificationErrors.EmailAlreadyVerified.Code);
+        known.Value.MaskedEmail.Should().Be("j****e@example.com", "the mask is derived from the trimmed, lower-cased input");
+        unknown.Value.MaskedEmail.Should().Be("n****e@example.com", "the same derivation, for a branch that found nothing");
     }
 
     [Fact]

@@ -290,11 +290,12 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
     },
   ],
 
-  // Ten of these settings are five limit/window pairs, and their labels
+  // All but one of these settings are limit/window pairs, and their labels
   // already pair them - each says which policy it belongs to. What the flat
-  // list hides is the eleventh: an upload concurrency cap that is not a rate
-  // at all, and whose hint has to open by saying so. The two headings name the
-  // two KINDS of limit, which is the distinction no label can carry alone.
+  // list hides is the odd one out: an upload concurrency cap that is not a
+  // rate at all, and whose hint has to open by saying so. The two headings
+  // name the two KINDS of limit, which is the distinction no label can carry
+  // alone.
   RateLimiting: [
     {
       kind: "group",
@@ -310,6 +311,8 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
         "PasswordResetWindowSeconds",
         "ApiKeyValidatePermitLimit",
         "ApiKeyValidateWindowSeconds",
+        "RegistrationFollowupPermitLimit",
+        "RegistrationFollowupWindowSeconds",
       ],
     },
     { kind: "group", key: "concurrency", claims: ["ImageUploadConcurrencyLimit"] },
@@ -317,8 +320,8 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
 
   // Here the split carries a rule rather than a theme. The global ceiling
   // applies ON TOP of every per-route policy, so a global value tighter than
-  // one of them caps that policy silently - and nothing in a flat list of
-  // eleven says the first three rows outrank the other eight.
+  // one of them caps that policy silently - and nothing in a flat list says
+  // the first three rows outrank every row below them.
   GatewayRateLimiting: [
     {
       kind: "group",
@@ -337,6 +340,8 @@ export const SECTION_BLOCKS: Record<string, SectionBlock[]> = {
         "ApiWindowSeconds",
         "AdminPermitLimit",
         "AdminWindowSeconds",
+        "RegistrationFollowupPermitLimit",
+        "RegistrationFollowupWindowSeconds",
       ],
     },
   ],

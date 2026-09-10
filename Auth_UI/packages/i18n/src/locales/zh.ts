@@ -1032,6 +1032,7 @@ export const zh: TranslationResources = {
       systemPrivacyPolicyPublished: "发布隐私政策",
       systemPolicyNotificationSent: "发送隐私政策通知",
       systemRetentionSweep: "运行数据保留清理",
+      registrationStarted: "注册已开始",
     },
   },
   auditCatalog: {
@@ -1712,7 +1713,7 @@ export const zh: TranslationResources = {
         "统计上述次数的时间跨度。窗口是固定的而非滑动的：到期时计数归零，已用尽配额的客户端需等到那时。延长它会同时收紧限制并拉长被拒后的等待时间。",
       registerPermitLimit: "每窗口注册请求数",
       registerPermitLimitHint:
-        "单个客户端 IP 在被以 429 拒绝之前可创建的新账户数。与上方的认证限制分开，因为注册需求是一次事件，而登录需求是一种习惯：一次发布或一场活动会在一小时内产生数千个账户，而只要两者共用一份配额，满足它的唯一办法就是把登录限制也一并放宽。设定方法：把这个数字乘以注册请求所来自的客户端 IP 数量，再除以窗口秒数，即可得到本项允许的每秒账户数——请让它低于服务器能够完成哈希的速率，因为一次拒绝几乎不耗费什么，而一次进行到一半的注册并非如此。调高它并不会增加容量，只是不再远低于容量。",
+        "单个客户端 IP 在被以 429 拒绝之前可创建的新账户数。与上方的认证限制分开，因为注册需求是一次事件，而登录需求是一种习惯：一次发布或一场活动会在一小时内产生数千个账户，而只要两者共用一份配额，满足它的唯一办法就是把登录限制也一并放宽。设定方法：把这个数字乘以注册请求所来自的客户端 IP 数量，再除以窗口秒数，即可得到本项允许的每秒账户数——请让它低于服务器能够完成哈希的速率，因为一次拒绝几乎不耗费什么，而一次进行到一半的注册并非如此。调高它并不会增加容量，只是不再远低于容量。在此保存的值会被存储并在每次部署后保留：之后在配置文件中更改的数字会一直被它遮蔽，直到清除存储的值。",
       registerWindowSeconds: "注册计数窗口（秒）",
       registerWindowSecondsHint:
         "统计上述注册次数的时间跨度，采用同样的固定窗口机制：计数在窗口结束时归零，而不是随时间滑动。两个字段在保存后立即对新的客户端窗口生效，因此活动期间的限制可以当天调高、事后调低，无需重启——而且理应如此，因为宽松的注册配额，自动化调用者花起来和真实人群一样容易。",
@@ -1737,6 +1738,12 @@ export const zh: TranslationResources = {
       imageUploadConcurrencyLimit: "同时解码的上传数",
       imageUploadConcurrencyLimitHint:
         "这不是时间窗口：整个进程在同一时刻最多可解码多少张图片。每张在写出 WebP 之前都占用“百万像素上限 × 4 MB”的内存，因此此数乘以该预算就是上传可占用的内存。接下来的四个请求会稍作等待；再多的将以 429 拒绝并附带简短的重试提示。",
+      registrationFollowupPermitLimit: "每窗口注册后续请求数",
+      registrationFollowupPermitLimitHint:
+        "一个客户端 IP 在一个窗口内可发送多少次验证码校验和注册完成请求，超过即返回 429。这是每次“先验证”注册的第二和第三个请求，与上面的注册请求分开计数，因为只有第一步会发送邮件：两者共用一个数字，要么让一个地址可造成的邮件量增至三倍，要么在第二步扼住注册。请至少保持为注册上限的两倍——每次注册需要一次校验和一次完成——并记住错误的验证码早在此上限之前就会被验证码自身的五次尝试上限拒绝。",
+      registrationFollowupWindowSeconds: "注册后续窗口（秒）",
+      registrationFollowupWindowSecondsHint:
+        "上面后续计数的统计时长，与其他项相同的固定窗口机制：窗口结束时计数器归零。保存后立即对新的客户端窗口生效。",
     },
     gatewayRateLimiting: {
       title: "请求速率限制（网关）",
@@ -1781,6 +1788,12 @@ export const zh: TranslationResources = {
       adminWindowSeconds: "管理控制台窗口（秒）",
       adminWindowSecondsHint:
         "统计管理请求的时间跨度。缩短它可让管理员在被拒后更快拿到新配额；延长它则会让一次拒绝持续更久。",
+      registrationFollowupPermitLimit: "每窗口注册后续请求数",
+      registrationFollowupPermitLimitHint:
+        "在边缘覆盖注册的验证码校验和完成步骤，使用独立路由。它是 API 部分中后续上限的外层孪生项，也是访问者最先遇到的：请保持不低于内层值，且至少为旁边注册上限的两倍，否则注册计数器仍有余量时注册就会在第二步被拒绝。",
+      registrationFollowupWindowSeconds: "注册后续窗口（秒）",
+      registrationFollowupWindowSecondsHint:
+        "边缘统计后续请求的时长，采用相同的固定窗口机制。更改在约 30 秒内到达网关而非即时生效，因为网关自行拉取设置——请在活动开始前提高。",
     },
     externalAuth: {
       requireNonce: "要求由服务器签发的一次性随机值",

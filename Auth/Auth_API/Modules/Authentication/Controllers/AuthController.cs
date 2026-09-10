@@ -23,9 +23,11 @@ using Auth.Application.Features.Authentication.ResendEmailVerification;
 using Auth.Application.Features.Authentication.ResetPassword;
 using Auth.Application.Features.Authentication.RevokeToken;
 using Auth.Application.Features.Authentication.SendEmailVerification;
+using Auth.Application.Features.Authentication.StartRegistration;
 using Auth.Application.Features.Authentication.TerminateAllSessions;
 using Auth.Application.Features.Authentication.TerminateSession;
 using Auth.Application.Features.Authentication.VerifyEmail;
+using Auth.Application.Features.Authentication.VerifyRegistration;
 using Auth_API.Modules.Authentication.Contracts;
 using Auth.Application.Features.Authentication.GetUserSessions;
 using Auth.Application.DTOs;
@@ -127,6 +129,63 @@ public class AuthController : ApiController
 
         return result.Match<IActionResult>(
             response => StatusCode(StatusCodes.Status201Created, response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Step 1 of verify-first self-registration: takes an email address, mails
+    /// a code to it, and creates nothing. Answers the same shape for every
+    /// address, whether it is free, already an account, or reserved.
+    /// </summary>
+    /// <param name="request">The address and, optionally, the site language.</param>
+    /// <returns>The opaque handle for the next steps, the masked address, and when the code expires.</returns>
+    [HttpPost("registration/start")]
+    [AllowAnonymous]
+    // The one request of a sign-up that produces a message, so it stays on the
+    // sign-up budget: one "register" permit per registration, as before.
+    [EnableRateLimiting("register")]
+    // 200, not 201: nothing was created.
+    [ProducesResponseType(typeof(StartRegistrationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    // Registration:AllowSelfRegistration closed — User.SelfRegistrationClosed.
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> StartRegistration([FromBody] StartRegistrationRequest request, CancellationToken cancellationToken)
+    {
+        var command = new StartRegistrationCommand(
+            request.Email,
+            request.PreferredLanguage,
+            GetClientIpAddress(),
+            GetUserAgent());
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response => Ok(response),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Step 2 of verify-first self-registration: checks the code against the
+    /// pending row and consumes nothing. The same code is presented again at
+    /// completion, which is the step that consumes it.
+    /// </summary>
+    /// <param name="request">The handle from step 1 and the six-digit code.</param>
+    [HttpPost("registration/verify")]
+    [AllowAnonymous]
+    // The follow-up budget, not the sign-up one: this step sends no message, and
+    // every sign-up makes two of these (a check and a completion) per start.
+    [EnableRateLimiting("registration-followup")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    // EmailVerification.InvalidOtpFormat | InvalidOrExpiredOtp | TooManyAttempts
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> VerifyRegistration([FromBody] VerifyRegistrationRequest request, CancellationToken cancellationToken)
+    {
+        var result = await _sender.Send(new VerifyRegistrationCommand(request.PendingId, request.Otp), cancellationToken);
+
+        return result.Match<IActionResult>(
+            _ => NoContent(),
             errors => Problem(errors));
     }
 

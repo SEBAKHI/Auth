@@ -51,6 +51,12 @@ public class ResendEmailVerificationCommandHandler
         ResendEmailVerificationCommand request,
         CancellationToken cancellationToken)
     {
+        // The mask the caller sees is derived from the normalized input in every
+        // branch. Masking the raw input for an unknown address and the stored
+        // address for a known one let the letter case of the reply say which
+        // branch ran.
+        var maskedEmail = EmailMasking.Mask(request.Email.Trim().ToLowerInvariant());
+
         // Get the user by email
         var user = await _userRepository.GetByEmailAsync(request.Email, cancellationToken);
 
@@ -60,18 +66,29 @@ public class ResendEmailVerificationCommandHandler
         {
             _logger.LogWarning(
                 "Resend verification attempted for non-existent email: {Email}",
-                EmailMasking.Mask(request.Email));
+                maskedEmail);
 
             // Return fake response to prevent enumeration
             return new ResendEmailVerificationResponse(
                 DateTime.UtcNow.AddMinutes(_emailSettings.OtpExpirationMinutes),
-                EmailMasking.Mask(request.Email));
+                maskedEmail);
         }
 
-        // Check if already verified
+        // An address whose account is already confirmed gets exactly the answer
+        // an unknown address gets. This endpoint is anonymous and reachable
+        // twenty times a minute per client, and until this branch existed it
+        // answered "already verified" for every confirmed account — a
+        // registered-or-not oracle that the verify-first registration flow
+        // closes everywhere else.
         if (user.EmailConfirmed)
         {
-            return EmailVerificationErrors.EmailAlreadyVerified;
+            _logger.LogInformation(
+                "Verification code requested for an already confirmed account {UserId}; nothing sent",
+                user.Id);
+
+            return new ResendEmailVerificationResponse(
+                DateTime.UtcNow.AddMinutes(_emailSettings.OtpExpirationMinutes),
+                maskedEmail);
         }
 
         // One live code per account. A valid code (unused, unexpired, attempts
@@ -91,7 +108,7 @@ public class ResendEmailVerificationCommandHandler
 
             return new ResendEmailVerificationResponse(
                 DateTime.UtcNow.AddMinutes(_emailSettings.OtpExpirationMinutes),
-                EmailMasking.Mask(user.Email));
+                maskedEmail);
         }
 
         // Rate limiting check
@@ -172,6 +189,6 @@ public class ResendEmailVerificationCommandHandler
             "Verification OTP resent to user {UserId} ({Email})",
             user.Id, EmailMasking.Mask(user.Email));
 
-        return new ResendEmailVerificationResponse(token.ExpiresAt, EmailMasking.Mask(user.Email));
+        return new ResendEmailVerificationResponse(token.ExpiresAt, maskedEmail);
     }
 }

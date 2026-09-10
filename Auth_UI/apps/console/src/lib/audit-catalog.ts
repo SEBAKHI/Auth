@@ -36,6 +36,7 @@ export const AUDIT_ACTIONS: readonly AuditActionEntry[] = [
   { code: "user.login", actionType: "Authentication" },
   { code: "user.logout", actionType: "Authentication" },
   { code: "user.logout.all", actionType: "Authentication" },
+  { code: "registration.started", actionType: "Authentication" },
   { code: "permission.granted", actionType: "Authorization" },
   { code: "permission.revoked", actionType: "Authorization" },
   { code: "role.assigned", actionType: "Authorization" },

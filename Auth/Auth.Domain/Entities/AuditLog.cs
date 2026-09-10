@@ -7,6 +7,24 @@ namespace Auth.Domain.Entities;
 /// </summary>
 public class AuditLog : EntityBase
 {
+    /// <summary>The AuditLogs.IpAddress column: NVARCHAR(45), the longest textual IPv6 form.</summary>
+    public const int IpAddressMaxLength = 45;
+
+    /// <summary>The AuditLogs.UserAgent column: NVARCHAR(500).</summary>
+    public const int UserAgentMaxLength = 500;
+
+    /// <summary>
+    /// Bounds a caller-controlled value to its column. The two fields below
+    /// come straight from request headers; unbounded, a User-Agent of 600
+    /// characters made the INSERT fail — and where a handler must not fail
+    /// its own request over its audit row (a registration start that has
+    /// already committed and sent its message), that failure was swallowed,
+    /// which handed the caller a way to leave no row at all. Truncation keeps
+    /// the row; the leading characters are the ones anyone reads.
+    /// </summary>
+    private static string? Bounded(string? value, int maxLength) =>
+        value is { Length: > 0 } && value.Length > maxLength ? value[..maxLength] : value;
+
     /// <summary>
     /// Gets the ID of the user the action HAPPENED TO — the subject.
     /// </summary>
@@ -181,8 +199,8 @@ public class AuditLog : EntityBase
             EntityId = entityId,
             OldValues = oldValues,
             NewValues = newValues,
-            IpAddress = ipAddress,
-            UserAgent = userAgent,
+            IpAddress = Bounded(ipAddress, IpAddressMaxLength),
+            UserAgent = Bounded(userAgent, UserAgentMaxLength),
             AdditionalData = additionalData,
             IsSuccess = true,
             Timestamp = DateTime.UtcNow,
@@ -221,8 +239,8 @@ public class AuditLog : EntityBase
             Action = action,
             EntityType = entityType,
             EntityId = entityId,
-            IpAddress = ipAddress,
-            UserAgent = userAgent,
+            IpAddress = Bounded(ipAddress, IpAddressMaxLength),
+            UserAgent = Bounded(userAgent, UserAgentMaxLength),
             AdditionalData = additionalData,
             IsSuccess = false,
             ErrorMessage = errorMessage,

@@ -436,4 +436,31 @@ public class VerifyEmailCommandHandlerTests
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be(EmailVerificationErrors.InvalidOrExpiredOtp.Code);
     }
+
+    [Fact]
+    public async Task VerifyEmailForAConfirmedAccount_AnswersExactlyAsAnUnknownAddress()
+    {
+        // The anonymous, email-keyed path is reachable twenty times a minute
+        // per client. Until this test a confirmed account answered "already
+        // verified" here while an unknown address answered "invalid code" — a
+        // registered-or-not oracle that needed no code at all. The admin path,
+        // keyed by user id, keeps the real answer (the test above this block).
+        var confirmed = TestHelpers.CreateUser(email: "verified@example.com", emailConfirmed: true);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("verified@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(confirmed);
+        _userRepositoryMock
+            .Setup(r => r.GetByEmailAsync("unknown@example.com", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((User?)null);
+
+        var forConfirmed = await _handler.Handle(new VerifyEmailCommand(null, "123456", "verified@example.com"), CancellationToken.None);
+        var forUnknown = await _handler.Handle(new VerifyEmailCommand(null, "123456", "unknown@example.com"), CancellationToken.None);
+
+        forConfirmed.IsError.Should().BeTrue();
+        forConfirmed.FirstError.Code.Should().Be(forUnknown.FirstError.Code);
+        forConfirmed.FirstError.Code.Should().Be(EmailVerificationErrors.InvalidOrExpiredOtp.Code);
+        _tokenRepositoryMock.Verify(
+            r => r.GetValidTokenForUserAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never,
+            "a confirmed account has no code to check and must not look as if it did");
+    }
 }

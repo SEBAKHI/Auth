@@ -94,6 +94,16 @@ public static class AuditActions
     /// </summary>
     public const string UserLogoutAll = "user.logout.all";
 
+    /// <summary>
+    /// A self-registration was started for an address. Under verify-first
+    /// registration no account exists until the code comes back, so an
+    /// abandoned or abusive attempt would otherwise leave no row at all — and
+    /// those are the attempts worth monitoring. Filed under Authentication,
+    /// beside sign-in: it is a stranger presenting an address, not user
+    /// management, and the subject is a pending row rather than a user.
+    /// </summary>
+    public const string RegistrationStarted = "registration.started";
+
     // Authorization
     public const string PermissionGranted = "permission.granted";
     public const string PermissionRevoked = "permission.revoked";
@@ -177,6 +187,7 @@ public static class AuditActions
             [UserLogin] = AuditActionTypes.Authentication,
             [UserLogout] = AuditActionTypes.Authentication,
             [UserLogoutAll] = AuditActionTypes.Authentication,
+            [RegistrationStarted] = AuditActionTypes.Authentication,
 
             [PermissionGranted] = AuditActionTypes.Authorization,
             [PermissionRevoked] = AuditActionTypes.Authorization,

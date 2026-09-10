@@ -76,6 +76,18 @@ public interface IUserRepository
     Task<bool> ExistsByEmailAsync(string email, CancellationToken cancellationToken);
 
     /// <summary>
+    /// The little a notification to an address's owner needs: who they are and
+    /// what language they read. Deliberately not <see cref="GetByEmailAsync"/>:
+    /// that one hydrates the whole aggregate and decrypts the phone number on
+    /// the way, and it hides soft-deleted rows. This one reads three columns,
+    /// decrypts nothing, and returns soft-deleted rows too — an address whose
+    /// Users row still exists in any state cannot be registered again, so for
+    /// a registration attempt it is "existing" whatever the row's status.
+    /// </summary>
+    /// <returns>The identity, or null when no Users row carries the address.</returns>
+    Task<UserNotificationIdentity?> GetNotificationIdentityByEmailAsync(string email, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Creates a new user.
     /// </summary>
     Task<User> CreateAsync(User user, CancellationToken cancellationToken);
@@ -220,3 +232,17 @@ public interface IUserRepository
 
     #endregion
 }
+
+/// <summary>
+/// What a message to an address's owner needs to know about them, and nothing
+/// else. See <see cref="IUserRepository.GetNotificationIdentityByEmailAsync"/>.
+/// </summary>
+/// <param name="Id">The Users row.</param>
+/// <param name="DisplayName">The stored full name; may be blank.</param>
+/// <param name="PreferredLanguage">The language the owner reads notifications in.</param>
+/// <param name="IsDeleted">Whether the row is soft-deleted. Informational: the caller treats every row as existing.</param>
+public sealed record UserNotificationIdentity(
+    Guid Id,
+    string? DisplayName,
+    string PreferredLanguage,
+    bool IsDeleted);

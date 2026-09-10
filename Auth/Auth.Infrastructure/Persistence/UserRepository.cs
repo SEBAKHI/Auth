@@ -216,6 +216,24 @@ public class UserRepository : IUserRepository
     }
 
     /// <inheritdoc />
+    public async Task<UserNotificationIdentity?> GetNotificationIdentityByEmailAsync(string email, CancellationToken cancellationToken)
+    {
+        using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);
+
+        // Three columns and no IsDeleted predicate, on purpose: the caller
+        // classifies an address for a registration attempt, and a Users row in
+        // any state — active, locked, soft-deleted, in its deletion grace —
+        // means the address cannot become a new account. No phone decryption
+        // and no aggregate hydration: this runs on every registration start,
+        // free address or not, and must cost the same for both.
+        return await connection.QueryFirstOrDefaultAsync<UserNotificationIdentity>(@"
+            SELECT [Id], [FullName] AS [DisplayName], [PreferredLanguage], [IsDeleted]
+            FROM [dbo].[Users]
+            WHERE [NormalizedEmail] = @NormalizedEmail",
+            new { NormalizedEmail = email.Trim().ToUpperInvariant() });
+    }
+
+    /// <inheritdoc />
     public async Task<User> CreateAsync(User user, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

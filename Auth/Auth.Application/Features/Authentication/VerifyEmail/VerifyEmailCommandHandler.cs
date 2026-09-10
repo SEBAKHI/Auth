@@ -85,10 +85,21 @@ public class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailCommand, Err
             }
         }
 
-        // Check if already verified
+        // Already verified. On the admin path that is a real answer. On the
+        // anonymous, email-keyed path it is the same answer an unknown address
+        // gets: this endpoint is reachable twenty times a minute per client,
+        // and "already verified" for every confirmed account was a
+        // registered-or-not oracle — the enumeration channel the verify-first
+        // registration flow closes everywhere else. Known residual, left as
+        // is: an UNCONFIRMED account with a live code still answers
+        // TooManyAttempts after five wrong codes where an unknown address
+        // keeps answering InvalidOrExpiredOtp; that path serves admin-created
+        // accounts and is not this flow's to reshape.
         if (user.EmailConfirmed)
         {
-            return EmailVerificationErrors.EmailAlreadyVerified;
+            return request.UserId.HasValue
+                ? EmailVerificationErrors.EmailAlreadyVerified
+                : EmailVerificationErrors.InvalidOrExpiredOtp;
         }
 
         // Get valid token for user

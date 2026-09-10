@@ -101,7 +101,9 @@ public sealed class GatewayRuntimeSettingsController : ControllerBase
         ApiPermitLimit: _configuration.GetValue("GatewayRateLimiting:ApiPermitLimit", 100),
         ApiWindowSeconds: _configuration.GetValue("GatewayRateLimiting:ApiWindowSeconds", 60),
         AdminPermitLimit: _configuration.GetValue("GatewayRateLimiting:AdminPermitLimit", 120),
-        AdminWindowSeconds: _configuration.GetValue("GatewayRateLimiting:AdminWindowSeconds", 60));
+        AdminWindowSeconds: _configuration.GetValue("GatewayRateLimiting:AdminWindowSeconds", 60),
+        RegistrationFollowupPermitLimit: _configuration.GetValue("GatewayRateLimiting:RegistrationFollowupPermitLimit", 400),
+        RegistrationFollowupWindowSeconds: _configuration.GetValue("GatewayRateLimiting:RegistrationFollowupWindowSeconds", 60));
 
     private bool HasValidGatewayToken()
     {
@@ -159,4 +161,9 @@ public sealed record GatewayRateLimitsResponse(
     int ApiPermitLimit,
     int ApiWindowSeconds,
     int AdminPermitLimit,
-    int AdminWindowSeconds);
+    int AdminWindowSeconds,
+    // Appended, never inserted: an older gateway deserializes by name and
+    // ignores what it does not know, so a new field at the end is harmless to
+    // it while a reordering is not.
+    int RegistrationFollowupPermitLimit,
+    int RegistrationFollowupWindowSeconds);

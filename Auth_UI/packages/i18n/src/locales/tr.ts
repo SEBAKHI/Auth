@@ -1082,6 +1082,7 @@ export const tr: TranslationResources = {
       systemPrivacyPolicyPublished: "Gizlilik politikası yayımlandı",
       systemPolicyNotificationSent: "Gizlilik politikası bildirimi gönderildi",
       systemRetentionSweep: "Veri saklama temizliği çalıştı",
+      registrationStarted: "Kayıt başlatıldı",
     },
   },
   auditCatalog: {
@@ -1818,7 +1819,7 @@ export const tr: TranslationResources = {
         "Yukarıdaki sayımın ölçüldüğü süre. Pencere kayan değil sabittir: süre bittiğinde sayaç sıfırlanır ve hakkını tüketen istemci o ana kadar bekler. Uzatmak hem sınırı sıkılaştırır hem de ret sonrası beklemeyi uzatır.",
       registerPermitLimit: "Pencere başına kayıt isteği",
       registerPermitLimitHint:
-        "Tek bir istemci IP'sinin 429 ile reddedilmeden önce oluşturabileceği yeni hesap sayısı. Yukarıdaki kimlik doğrulama sınırından ayrıdır, çünkü kayıt talebi bir olaydır, oturum açma talebi ise bir alışkanlık: bir lansman ya da kampanya bir saat içinde binlerce hesap ister ve ikisi tek bir hakkı paylaştığı sürece bunu karşılamanın tek yolu oturum açma sınırını da genişletmekti. Boyutlandırmak için: bu sayıyı kayıtların geldiği istemci IP adresi sayısıyla çarpın, pencereye bölün; izin verilen saniye başına hesap sayısını elde edersiniz — bunu sunucunun karma hesaplayabileceğinin altında tutun, çünkü bir ret neredeyse bedavadır, yarım kalmış bir kayıt ise değil. Bunu yükseltmek kapasite eklemez; kapasitenin altında kalmayı bırakır.",
+        "Tek bir istemci IP'sinin 429 ile reddedilmeden önce oluşturabileceği yeni hesap sayısı. Yukarıdaki kimlik doğrulama sınırından ayrıdır, çünkü kayıt talebi bir olaydır, oturum açma talebi ise bir alışkanlık: bir lansman ya da kampanya bir saat içinde binlerce hesap ister ve ikisi tek bir hakkı paylaştığı sürece bunu karşılamanın tek yolu oturum açma sınırını da genişletmekti. Boyutlandırmak için: bu sayıyı kayıtların geldiği istemci IP adresi sayısıyla çarpın, pencereye bölün; izin verilen saniye başına hesap sayısını elde edersiniz — bunu sunucunun karma hesaplayabileceğinin altında tutun, çünkü bir ret neredeyse bedavadır, yarım kalmış bir kayıt ise değil. Bunu yükseltmek kapasite eklemez; kapasitenin altında kalmayı bırakır. Burada kaydedilen değer saklanır ve her dağıtımdan sonra da geçerli kalır: yapılandırma dosyasında sonradan değiştirilen bir sayı, saklanan değer silinene kadar onun gölgesinde kalır.",
       registerWindowSeconds: "Kayıt sayım penceresi (saniye)",
       registerWindowSecondsHint:
         "Yukarıdaki kayıt sayımının ölçüldüğü süre, aynı sabit pencere mekaniğiyle: sayaç kayarak değil, pencere bittiğinde sıfırlanır. Her iki alan da kaydettiğiniz anda yeni istemci pencerelerine uygulanır; böylece bir etkinlik sınırı gün için yükseltilip sonrasında yeniden başlatma olmadan düşürülebilir — ve düşürülmelidir, çünkü geniş bir kayıt hakkını otomatik bir çağıran da gerçek bir kalabalık kadar kolay harcar.",
@@ -1843,6 +1844,12 @@ export const tr: TranslationResources = {
       imageUploadConcurrencyLimit: "Aynı anda çözülen yüklemeler",
       imageUploadConcurrencyLimitHint:
         "Bir pencere değil: tüm süreçte aynı anda kaç görselin çözülebileceği. Her biri WebP yazılana dek En fazla megapiksel × 4 MB bellek tutar; bu sayı çarpı o bütçe, yüklemelerin kaplayabileceği bellektir. Sonraki dördü kısa süre bekler; fazlası 429 ve kısa bir yeniden deneme ipucuyla reddedilir.",
+      registrationFollowupPermitLimit: "Pencere başına kayıt devam istekleri",
+      registrationFollowupPermitLimitHint:
+        "Bir istemci IP'sinin bir pencere içinde 429 ile reddedilmeden önce kaç kod doğrulama ve kayıt tamamlama isteği yapabileceği. Bunlar önce-doğrula kaydının ikinci ve üçüncü istekleridir; yukarıdaki kayıt isteklerinden ayrı sayılırlar, çünkü yalnızca ilk adım bir ileti gönderir: ikisi için tek bir sayı ya bir adresin yol açabileceği postayı üçe katlar ya da kaydı ikinci adımında boğar. En az kayıt sınırının iki katında tutun — her kayıt bir doğrulama ve bir tamamlama ister — ve yanlış bir kodun bu sınırdan çok önce kodun kendi beş deneme sınırıyla reddedildiğini unutmayın.",
+      registrationFollowupWindowSeconds: "Kayıt devam penceresi (saniye)",
+      registrationFollowupWindowSecondsHint:
+        "Yukarıdaki devam sayısının ölçüldüğü süre; diğerleriyle aynı sabit pencere mekaniğiyle: pencere bitince sayaç sıfıra döner. Kaydettiğiniz anda yeni istemci pencerelerine uygulanır.",
     },
     gatewayRateLimiting: {
       title: "İstek hızı sınırlama (Ağ geçidi)",
@@ -1887,6 +1894,12 @@ export const tr: TranslationResources = {
       adminWindowSeconds: "Yönetim konsolu penceresi (saniye)",
       adminWindowSecondsHint:
         "Yönetim isteklerinin sayıldığı süre. Kısaltmak, bir retten sonra yöneticiye yeni hakkı daha çabuk verir; uzatmak ise tek bir retin daha uzun sürmesine yol açar.",
+      registrationFollowupPermitLimit: "Pencere başına kayıt devam istekleri",
+      registrationFollowupPermitLimitHint:
+        "Bir kaydın kod doğrulama ve tamamlama adımlarını uçta, kendi rotalarında kapsar. API bölümündeki devam sınırının dış ikizi ve ziyaretçinin ilk karşılaştığı: içtekinin altına düşürmeyin ve yanındaki kayıt sınırının en az iki katında tutun; yoksa kayıt sayacında yer varken kayıtlar ikinci adımda reddedilir.",
+      registrationFollowupWindowSeconds: "Kayıt devam penceresi (saniye)",
+      registrationFollowupWindowSecondsHint:
+        "Devam isteklerinin uçta sayıldığı süre, aynı sabit pencere mekaniğiyle. Değişiklik ağ geçidine anında değil yaklaşık 30 saniye içinde ulaşır, çünkü ayarlarını kendisi çeker — bir etkinlik başlamadan önce yükseltin.",
     },
     externalAuth: {
       requireNonce: "Sunucunun verdiği nonce zorunlu olsun",
