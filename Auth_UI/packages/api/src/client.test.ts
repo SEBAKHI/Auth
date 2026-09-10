@@ -701,4 +701,40 @@ describe("deciding which requests carry a token", () => {
 
     expect(response.status).toBe(401)
   })
+
+  it.each([
+    "/api/v1/Auth/registration/start",
+    "/api/v1/Auth/registration/verify",
+    "/api/v1/Auth/registration/complete",
+  ])("sends %s anonymously, whatever session the tab holds", async (path) => {
+    // The three steps of a verify-first sign-up. A signed-in visitor can reach
+    // the last one legitimately (a pending authorize request keeps the page
+    // open), and a bearer token on it would sign the new account's request
+    // with someone else's session.
+    storage.set(REFRESH_KEY, "R0")
+    installServer()
+    const tab = await openTab()
+
+    const { response } = await tab.client.api.POST(path as never, {
+      body: {},
+    } as never)
+
+    expect(response.status).toBe(401)
+  })
+
+  it("authenticates a sibling that merely starts with a registration path", async () => {
+    // The whole-path rule from the login-history defect, applied to the new
+    // entries: an entry that matched by prefix would be one that matches
+    // nothing exactly and dies in the list unnoticed.
+    storage.set(REFRESH_KEY, "R0")
+    installServer()
+    const tab = await openTab()
+
+    const { response } = await tab.client.api.GET(
+      "/api/v1/Auth/registration/verify-history" as never,
+      {} as never
+    )
+
+    expect(response.status).toBe(200)
+  })
 })

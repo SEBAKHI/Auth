@@ -203,4 +203,35 @@ describe("PasswordField", () => {
     expect(screen.getByLabelText("Password")).toBeInTheDocument()
     expect(screen.queryByRole("list")).toBeNull()
   })
+
+  it("keeps the label on the input, and the toggle flips its type", () => {
+    usePasswordPolicyMock.mockReturnValue({ policy: STRICT, isPending: false })
+    render(<Harness policy={STRICT} />)
+
+    // The label resolves to the control, not to the button beside it; that is
+    // what a password manager and a screen reader both key on.
+    const input = screen.getByLabelText("Password")
+    expect(input.tagName).toBe("INPUT")
+    expect(input).toHaveAttribute("type", "password")
+    expect(input).toHaveAttribute("autocomplete", "new-password")
+
+    // FormControl is a Slot that stamps its own data-slot; the input group's
+    // focus ring is keyed on this value, so losing it loses keyboard focus.
+    expect(input).toHaveAttribute("data-slot", "input-group-control")
+
+    const toggle = screen.getByRole("button", { name: "Show password" })
+    expect(toggle).toHaveAttribute("type", "button")
+    // A plain action button: the name says what a press does, and no
+    // aria-pressed contradicts it.
+    expect(toggle).not.toHaveAttribute("aria-pressed")
+
+    fireEvent.click(toggle)
+    expect(input).toHaveAttribute("type", "text")
+    expect(screen.getByRole("button", { name: "Hide password" })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: "Hide password" }))
+    expect(input).toHaveAttribute("type", "password")
+    // Still the same control the label points at.
+    expect(screen.getByLabelText("Password")).toBe(input)
+  })
 })

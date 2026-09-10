@@ -1,11 +1,11 @@
 import { useMutation } from "@tanstack/react-query"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
-import { Navigate, useLocation, useNavigate } from "react-router-dom"
+import { Link, Navigate, useLocation } from "react-router-dom"
 import { toast } from "sonner"
 
 import { api } from "@authsystem/api/client"
-import { getErrorCodes, getErrorMessage } from "@authsystem/api/errors"
+import { getErrorMessage } from "@authsystem/api/errors"
 import { useAuth } from "@authsystem/auth/auth-context"
 import { AuthLayout } from "@authsystem/ui/auth-layout"
 import { Spinner } from "@authsystem/ui/spinner"
@@ -38,16 +38,20 @@ interface LocationState {
  * address and signs the user in — there is no separate manual login. A refresh
  * loses the router state and, with it, the email, so the page falls back to the
  * sign-in screen.
+ *
+ * Both requests answer a confirmed account exactly as they answer an unknown
+ * address, so there is no "already verified" branch left to take on this
+ * anonymous path: the code never arrives and the person needs the sign-in
+ * screen, which the footer offers without any request having to fail first.
  */
 export function VerifyEmailPage() {
   const { t } = useTranslation()
   const { completeEmailVerification } = useAuth()
-  const navigate = useNavigate()
   const location = useLocation()
   const state = location.state as LocationState | null
 
   const email = state?.email ?? ""
-  const { complete, challenge, interstitial } = useLoginCompletion({
+  const { returnTo, from, complete, challenge } = useLoginCompletion({
     defaultFrom: "/profile",
   })
 
@@ -78,14 +82,6 @@ export function VerifyEmailPage() {
       setMaskedEmail(data?.maskedEmail ?? null)
     },
     onError: (error) => {
-      // Already verified: nothing left to confirm, so route to a normal login.
-      if (
-        getErrorCodes(error).includes("EmailVerification.EmailAlreadyVerified")
-      ) {
-        toast.success(t("auth.emailVerifiedSuccess"))
-        navigate("/login", { replace: true })
-        return
-      }
       setErrorMessage(getErrorMessage(error))
     },
   })
@@ -119,26 +115,13 @@ export function VerifyEmailPage() {
         toast.success(t("auth.welcomeBack"))
         complete(result)
       } catch (error) {
-        // Already verified: nothing left to confirm, so route to a normal login.
-        if (
-          getErrorCodes(error).includes(
-            "EmailVerification.EmailAlreadyVerified"
-          )
-        ) {
-          toast.success(t("auth.emailVerifiedSuccess"))
-          // Back to sign-in still carrying the pending request: the address is
-          // confirmed, so the only thing left between this user and the relying
-          // party is entering their password.
-          interstitial("/login", undefined, { replace: true })
-          return
-        }
         setErrorMessage(getErrorMessage(error))
         setOtp("")
       } finally {
         setSubmitting(false)
       }
     },
-    [completeEmailVerification, countdown.expired, complete, challenge, interstitial, email, expiresAt, submitting, t]
+    [completeEmailVerification, countdown.expired, complete, challenge, email, expiresAt, submitting, t]
   )
 
   if (!email) {
@@ -151,6 +134,26 @@ export function VerifyEmailPage() {
     <AuthLayout
       title={t("auth.verifyEmailTitle")}
       subtitle={t("auth.verifyEmailDescription", { email: maskedEmail ?? email })}
+      // Always offered, not only after a failure: the person on the wrong
+      // account, or the owner of an already-confirmed address whom the server
+      // answers as it answers a stranger, needs a way to the sign-in screen
+      // that does not depend on an error arriving. The pending authorize
+      // request, when there is one, rides along in the query string, and the
+      // page the person was heading for rides in state, as RequireAuth sent it.
+      footer={
+        <Link
+          to={{
+            pathname: "/login",
+            search: returnTo
+              ? `?returnTo=${encodeURIComponent(returnTo)}`
+              : "",
+          }}
+          state={{ from }}
+          className="underline-offset-4 hover:underline"
+        >
+          {t("auth.backToSignIn")}
+        </Link>
+      }
     >
       <div className="flex flex-col items-center gap-4">
         <InputOTP

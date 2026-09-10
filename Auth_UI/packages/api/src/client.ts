@@ -25,6 +25,11 @@ import type { paths, Schemas } from "./types"
 const REFRESH_PATH = "/api/v1/Auth/refresh"
 const LOGIN_PATH = "/api/v1/Auth/login"
 const TWO_FACTOR_VERIFY_PATH = "/api/v1/auth/2fa/verify"
+// Verify-first sign-up: the three steps of creating an account, the last of
+// which mints the session. All three are made by someone who has none.
+const REGISTRATION_START_PATH = "/api/v1/Auth/registration/start"
+const REGISTRATION_VERIFY_PATH = "/api/v1/Auth/registration/verify"
+const REGISTRATION_COMPLETE_PATH = "/api/v1/Auth/registration/complete"
 
 export { SESSION_EXPIRED_EVENT } from "@authsystem/api/tab-sync"
 
@@ -198,9 +203,14 @@ export async function ensureFreshAccessToken(): Promise<string | null> {
  * substring test the two-factor constant never matched anything at all.
  */
 const ANONYMOUS_PATHS = new Set(
-  [REFRESH_PATH, LOGIN_PATH, TWO_FACTOR_VERIFY_PATH].map((path) =>
-    path.toLowerCase()
-  )
+  [
+    REFRESH_PATH,
+    LOGIN_PATH,
+    TWO_FACTOR_VERIFY_PATH,
+    REGISTRATION_START_PATH,
+    REGISTRATION_VERIFY_PATH,
+    REGISTRATION_COMPLETE_PATH,
+  ].map((path) => path.toLowerCase())
 )
 
 function isAuthFlow(url: string): boolean {

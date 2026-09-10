@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest"
 
+import { RequireAnonymous } from "@authsystem/auth/require-auth"
+
 import { router } from "./routes"
 
 type RouteNode = {
   path?: string
   index?: boolean
+  element?: { type?: unknown }
   lazy?: () => Promise<{ Component: unknown }>
   children?: RouteNode[]
 }
@@ -57,4 +60,31 @@ describe("accounts routes", () => {
     },
     20_000
   )
+
+  /**
+   * Where the three sign-up screens sit relative to the anonymous guard.
+   *
+   * The first two are for visitors without a session and belong behind it.
+   * The last one signs the person in as its outcome, and a guard that bounces
+   * the authenticated would race that very transition — so it stands outside,
+   * guarding itself. Moving any of the three is a one-line change that the
+   * build would not notice.
+   */
+  it("keeps the first two sign-up screens behind the anonymous guard and the last one outside it", () => {
+    const all = walk(router.routes as RouteNode[])
+    const anonymous = all.find(
+      ([, route]) => route.element?.type === RequireAnonymous
+    )?.[1]
+    expect(anonymous, "the RequireAnonymous layout route").toBeDefined()
+
+    const guarded = (anonymous!.children ?? []).map((route) => route.path)
+    expect(guarded).toContain("/register")
+    expect(guarded).toContain("/register/verify")
+    expect(guarded).not.toContain("/register/complete")
+
+    const root = (router.routes as RouteNode[])[0]
+    expect(root.children?.map((route) => route.path)).toContain(
+      "/register/complete"
+    )
+  })
 })
