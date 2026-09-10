@@ -88,6 +88,22 @@ public interface IUserRepository
     Task<UserNotificationIdentity?> GetNotificationIdentityByEmailAsync(string email, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Creates a user whose address was proved by a verify-first registration
+    /// code, in ONE transaction with the proof: the pending row is locked, the
+    /// code is checked against it once more (without charging an attempt —
+    /// the attempt gate ran in the step before), the account row is inserted
+    /// with the same statement every other door uses, and the pending row is
+    /// stamped consumed. A code that no longer matches (the row was rotated
+    /// or consumed under our feet) or a row that is gone or expired refuses
+    /// the whole thing; a unique violation on the account row does the same
+    /// and says so.
+    /// </summary>
+    /// <param name="user">The account to write, already confirmed.</param>
+    /// <param name="pendingRegistrationId">The pending row the code was checked against.</param>
+    /// <param name="otp">The code, presented again by the caller.</param>
+    Task<VerifiedUserCreationOutcome> CreateVerifiedAsync(User user, Guid pendingRegistrationId, string otp, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Creates a new user.
     /// </summary>
     Task<User> CreateAsync(User user, CancellationToken cancellationToken);
@@ -246,3 +262,24 @@ public sealed record UserNotificationIdentity(
     string? DisplayName,
     string PreferredLanguage,
     bool IsDeleted);
+
+/// <summary>
+/// How <see cref="IUserRepository.CreateVerifiedAsync"/> ended.
+/// </summary>
+public enum VerifiedUserCreationOutcome
+{
+    /// <summary>The account row exists and the pending row is consumed.</summary>
+    Created,
+
+    /// <summary>
+    /// No live pending row matched the code under the lock: gone, expired,
+    /// rotated, or consumed since the caller's check. Nothing was written.
+    /// </summary>
+    CodeRejected,
+
+    /// <summary>
+    /// The account row collided with an existing one on the address. Nothing
+    /// was written and the pending row is left as it was.
+    /// </summary>
+    DuplicateEmail
+}

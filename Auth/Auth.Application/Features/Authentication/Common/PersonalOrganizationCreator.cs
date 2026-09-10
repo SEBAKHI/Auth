@@ -30,6 +30,28 @@ public class PersonalOrganizationCreator : IPersonalOrganizationCreator
     /// <inheritdoc />
     public async Task<bool> CreateAsync(User user, CancellationToken cancellationToken)
     {
+        // Every caller runs this AFTER the account row is committed, and none
+        // of them can undo that row if this fails. A throw here therefore used
+        // to turn a created account into a 500 — the caller told "it failed"
+        // while their account existed and their address was taken. The
+        // organization is a convenience; the account is the thing. So the
+        // failure is logged and answered as "not created", which every caller
+        // already handles, and the person signs in to an account without one.
+        try
+        {
+            return await CreateCoreAsync(user, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex,
+                "Personal organization could not be created for user {UserId}; the account exists without one",
+                user.Id);
+            return false;
+        }
+    }
+
+    private async Task<bool> CreateCoreAsync(User user, CancellationToken cancellationToken)
+    {
         // Get the org-owner role (null applicationId for organization-level roles)
         var ownerRole = await _roleRepository.GetByCodeAsync((Guid?)null, OrgOwnerRoleCode, cancellationToken);
         if (ownerRole == null)

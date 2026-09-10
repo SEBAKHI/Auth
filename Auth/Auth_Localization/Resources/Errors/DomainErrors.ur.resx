@@ -875,4 +875,7 @@
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>یہ تصویر منسلک کرنے کے لیے دستیاب نہیں ہے۔ تصویر دوبارہ اپ لوڈ کریں اور دوبارہ کوشش کریں۔</value>
   </data>
+  <data name="User.AccountCreatedSignInRequired" xml:space="preserve">
+    <value>آپ کا اکاؤنٹ بن گیا ہے، لیکن سائن اِن مکمل نہیں ہو سکا۔ براہ کرم اپنے نئے پاس ورڈ سے سائن اِن کریں۔</value>
+  </data>
 </root>

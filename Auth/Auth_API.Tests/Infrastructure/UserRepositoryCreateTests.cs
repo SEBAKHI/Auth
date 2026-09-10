@@ -110,7 +110,8 @@ public class UserRepositoryCreateTests
         Snapshot(new PasswordSettings()),
         Mock.Of<IIdentifierHasher>(),
         Snapshot(new AccountDeletionSettings()),
-        crypto);
+        crypto,
+        Mock.Of<IOtpHasher>());
 
     private static RecordedCommand UsersInsert(RecordingDbConnectionFactory factory)
     {

@@ -877,4 +877,7 @@
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>That image is not available to attach. Upload the image again and retry.</value>
   </data>
+  <data name="User.AccountCreatedSignInRequired" xml:space="preserve">
+    <value>Your account was created, but the sign-in could not be completed. Please sign in with your new password.</value>
+  </data>
 </root>

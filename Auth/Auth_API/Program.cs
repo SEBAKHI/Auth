@@ -683,6 +683,10 @@ builder.Services.AddScoped<ILoginResponseBuilder, LoginResponseBuilder>();
 builder.Services.AddScoped<ITokenClaimsResolver, TokenClaimsResolver>();
 builder.Services.AddScoped<ITwoFactorChallengeService, TwoFactorChallengeService>();
 builder.Services.AddScoped<IPersonalOrganizationCreator, PersonalOrganizationCreator>();
+// Every door that creates a Users row consumes the address's pending
+// verify-first registration through this; the completion step alone
+// consumes inside its own transaction.
+builder.Services.AddScoped<IPendingRegistrationConsumer, Auth.Application.Features.Authentication.Common.PendingRegistrationConsumer>();
 
 // Authorization
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();

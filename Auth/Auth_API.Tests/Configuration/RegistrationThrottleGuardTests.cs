@@ -58,6 +58,7 @@ public class RegistrationThrottleGuardTests
         { "[HttpPost(\"register\")]", RegisterPolicy },
         { "[HttpPost(\"registration/start\")]", RegisterPolicy },
         { "[HttpPost(\"registration/verify\")]", FollowupPolicy },
+        { "[HttpPost(\"registration/complete\")]", FollowupPolicy },
     };
 
     [Theory]
@@ -93,8 +94,8 @@ public class RegistrationThrottleGuardTests
             "the register budget is one permit per sign-up: the legacy endpoint, and the start step that replaces it");
 
         users[FollowupPolicy].Should().BeEquivalentTo(
-            [("AuthController.cs", "VerifyRegistration")],
-            "the follow-up budget is for the steps that send nothing; the completion step joins it when it lands");
+            [("AuthController.cs", "VerifyRegistration"), ("AuthController.cs", "CompleteRegistration")],
+            "the follow-up budget is for the two steps that send nothing: one check and one completion per sign-up");
     }
 
     [Fact]

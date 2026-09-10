@@ -875,4 +875,7 @@
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>Cette image n'est pas disponible pour être jointe. Téléversez-la de nouveau, puis réessayez.</value>
   </data>
+  <data name="User.AccountCreatedSignInRequired" xml:space="preserve">
+    <value>Votre compte a été créé, mais la connexion n'a pas pu être finalisée. Connectez-vous avec votre nouveau mot de passe.</value>
+  </data>
 </root>

@@ -22,6 +22,7 @@ public class RegisterCommandHandlerTests
     private readonly Mock<IUserRepository> _userRepositoryMock;
     private readonly Mock<IPasswordHasher> _passwordHasherMock;
     private readonly Mock<IPersonalOrganizationCreator> _personalOrgCreatorMock;
+    private readonly Mock<IPendingRegistrationConsumer> _pendingRegistrationConsumerMock = new();
     private readonly Mock<IMediator> _mediatorMock;
     private readonly Mock<ILogger<RegisterCommandHandler>> _loggerMock;
     private readonly PasswordValidator _passwordValidator;
@@ -57,6 +58,7 @@ public class RegisterCommandHandlerTests
             TestHelpers.CreatePassingBreachEvaluator(),
             TestHelpers.CreatePassingReservationGuard(),
             _personalOrgCreatorMock.Object,
+            _pendingRegistrationConsumerMock.Object,
             _mediatorMock.Object,
             _eventDispatcherMock.Object,
             TestHelpers.CreateOptions(settings),
@@ -86,6 +88,41 @@ public class RegisterCommandHandlerTests
         _eventDispatcherMock.Verify(
             d => d.DispatchEventsAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()),
             Times.Once());
+    }
+
+    [Fact]
+    public async Task Handle_ConsumesAnyPendingRegistrationForTheAddress_OnceTheRowExists()
+    {
+        // The legacy door still creates the account first. A verify-first row
+        // pending for the same address must not be able to create a second one
+        // afterwards, so the row is consumed in the same request — after the
+        // Users row exists, never before.
+        var command = CreateCommand(email: "Test@Example.com");
+        var order = new List<string>();
+        _userRepositoryMock
+            .Setup(r => r.ExistsByEmailAsync(command.Email, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+        _userRepositoryMock
+            .Setup(r => r.CreateAsync(It.IsAny<User>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("create"))
+            .ReturnsAsync((User u, CancellationToken _) => u);
+        _pendingRegistrationConsumerMock
+            .Setup(c => c.ConsumeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Callback(() => order.Add("consume"))
+            .Returns(Task.CompletedTask);
+        _passwordHasherMock
+            .Setup(h => h.HashPassword(command.Password))
+            .Returns("hashed-password");
+        _mediatorMock
+            .Setup(m => m.Send(It.IsAny<SendEmailVerificationCommand>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SendVerificationResponse(DateTime.UtcNow.AddMinutes(15), "t***t@example.com"));
+
+        await _handler.Handle(command, CancellationToken.None);
+
+        _pendingRegistrationConsumerMock.Verify(
+            c => c.ConsumeAsync("test@example.com", It.IsAny<CancellationToken>()), Times.Once,
+            "the stored, lower-cased address is what the pending row is keyed by");
+        order.Should().Equal("create", "consume");
     }
 
     private static RegisterCommand CreateCommand(

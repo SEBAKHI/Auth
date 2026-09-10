@@ -32,6 +32,7 @@ public class RegisterWithInvitationCommandHandler
     private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IMediator _mediator;
     private readonly IDomainEventDispatcher _eventDispatcher;
+    private readonly IPendingRegistrationConsumer _pendingRegistrationConsumer;
     private readonly IRefreshTokenKeyService _tokenKeyService;
     private readonly RegistrationSettings _registrationSettings;
 
@@ -46,11 +47,13 @@ public class RegisterWithInvitationCommandHandler
         IdentifierReservationGuard reservationGuard,
         IMediator mediator,
         IDomainEventDispatcher eventDispatcher,
+        IPendingRegistrationConsumer pendingRegistrationConsumer,
         IRefreshTokenKeyService tokenKeyService,
         IOptionsSnapshot<RegistrationSettings> registrationSettings,
 
         ILogger<RegisterWithInvitationCommandHandler> logger)
     {
+        _pendingRegistrationConsumer = pendingRegistrationConsumer;
         _tokenKeyService = tokenKeyService;
         _registrationSettings = registrationSettings.Value;
         _userRepository = userRepository;
@@ -176,8 +179,9 @@ public class RegisterWithInvitationCommandHandler
 
         await _userRepository.CreateAsync(user, cancellationToken);
 
-
-
+        // The invitation proved the address; a verify-first row pending for it
+        // is moot now that a Users row exists.
+        await _pendingRegistrationConsumer.ConsumeAsync(user.Email.Value, cancellationToken);
 
         // User.Create raises UserCreatedEvent, and nothing here ever dispatched it, so a
 

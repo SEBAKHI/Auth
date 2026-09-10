@@ -56,5 +56,6 @@ public class UserRepositoryNotificationIdentityTests
         TestHelpers.CreateOptions(new PasswordSettings()),
         Mock.Of<IIdentifierHasher>(),
         TestHelpers.CreateOptions(new AccountDeletionSettings()),
-        Mock.Of<IPerUserCryptoService>());
+        Mock.Of<IPerUserCryptoService>(),
+        Mock.Of<IOtpHasher>());
 }

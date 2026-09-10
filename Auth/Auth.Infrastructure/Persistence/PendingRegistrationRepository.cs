@@ -96,6 +96,13 @@ public sealed class PendingRegistrationRepository : IPendingRegistrationReposito
                 transaction.Rollback();
                 return await StartAsync(request, retryAfterCollision: false, cancellationToken);
             }
+            catch (SqlException ex) when (ex.Number is 1205 && retryAfterCollision)
+            {
+                // Chosen as the deadlock victim against a completion holding
+                // the row through its clustered key (see CheckCodeUnderLockAsync).
+                // The transaction is already gone; start over, once.
+                return await StartAsync(request, retryAfterCollision: false, cancellationToken);
+            }
 
             transaction.Commit();
             return new PendingRegistrationStart(created, PendingRegistrationStartAction.Minted, code);
@@ -144,7 +151,33 @@ public sealed class PendingRegistrationRepository : IPendingRegistrationReposito
     }
 
     /// <inheritdoc />
-    public async Task<PendingRegistrationCodeCheck> CheckCodeUnderLockAsync(
+    public Task<PendingRegistrationCodeCheck> CheckCodeUnderLockAsync(
+        string handle, string code, CancellationToken cancellationToken)
+        => CheckCodeUnderLockAsync(handle, code, retryAfterDeadlock: true, cancellationToken);
+
+    private async Task<PendingRegistrationCodeCheck> CheckCodeUnderLockAsync(
+        string handle, string code, bool retryAfterDeadlock, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await CheckCodeUnderLockOnceAsync(handle, code, cancellationToken);
+        }
+        catch (SqlException ex) when (ex.Number is 1205 && retryAfterDeadlock)
+        {
+            // This read reaches the row through the Handle index and then its
+            // clustered key; the completion step's transaction holds the
+            // clustered key and, when it stamps ConsumedAt, needs this index
+            // too. A check landing on the row in the same few milliseconds as
+            // its completion — a double submit — can deadlock, and SQL Server
+            // kills one side. The victim's transaction is already rolled back
+            // and nothing of ours was written, so it is run once more on a
+            // fresh connection; if the completion won, the re-run finds no
+            // live row and answers NotFound, which is the right answer.
+            return await CheckCodeUnderLockAsync(handle, code, retryAfterDeadlock: false, cancellationToken);
+        }
+    }
+
+    private async Task<PendingRegistrationCodeCheck> CheckCodeUnderLockOnceAsync(
         string handle, string code, CancellationToken cancellationToken)
     {
         using var connection = await _connectionFactory.CreateConnectionAsync(cancellationToken);

@@ -336,6 +336,47 @@ public class PendingRegistrationRepositoryTests
             .Should().BeTrue("the same hasher accepts the code under the row's own scope");
     }
 
+    [Fact]
+    public async Task CheckCode_RunsOnceMore_WhenChosenAsTheDeadlockVictim()
+    {
+        // The completion step holds the row through its clustered key and then
+        // needs the Handle index this read comes in by; a check landing in the
+        // same few milliseconds can be the deadlock victim. Nothing of ours was
+        // written, so the read is run once more on a fresh connection.
+        var reads = 0;
+        var factory = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            rowFor: _ => Row(expiresIn: TimeSpan.FromMinutes(4), mailed: true),
+            throwOn: command => command.CommandText.Contains("SELECT", StringComparison.Ordinal) && ++reads == 1
+                ? SqlExceptions.WithNumber(1205)
+                : null);
+        var hasher = new Mock<IOtpHasher>();
+        hasher.Setup(h => h.Verify($"pending-registration:{RowId}", "123456", "hash-of-123456")).Returns(true);
+
+        var result = await Repository(factory, hasher.Object).CheckCodeUnderLockAsync("handle-1", "123456", CancellationToken.None);
+
+        result.Outcome.Should().Be(PendingRegistrationCodeOutcome.Match);
+        factory.Transactions.Should().HaveCount(2, "the second attempt is its own connection and transaction");
+        factory.Transactions[1].Committed.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Start_RunsOnceMore_WhenChosenAsTheDeadlockVictim()
+    {
+        var inserts = 0;
+        var factory = new RecordingDbConnectionFactory(
+            affectedRows: 1,
+            throwOn: command => command.CommandText.Contains("INSERT", StringComparison.Ordinal) && ++inserts == 1
+                ? SqlExceptions.WithNumber(1205)
+                : null);
+
+        var result = await Repository(factory).StartAsync(Request, CancellationToken.None);
+
+        result.Action.Should().Be(PendingRegistrationStartAction.Minted);
+        factory.Transactions.Should().HaveCount(2);
+        factory.Transactions[1].Committed.Should().BeTrue();
+    }
+
     // ── The rest ────────────────────────────────────────────────────────────
 
     [Fact]
@@ -412,10 +453,22 @@ public class PendingRegistrationRepositoryTests
     }
 
     [Fact]
-    public void OnlyConsumeByEmail_WritesConsumedAt()
+    public void OnlyTwoStatementsInTheApplication_WriteConsumedAt()
     {
+        // ConsumedAt means one thing: a Users row now exists for the address.
+        // Two places can say so — the by-address consumer every other door
+        // runs after its insert, and the verified creation that inserts and
+        // consumes in one transaction. Starting, checking and rotating never do.
         Regex.Matches(RepositorySource(), @"SET \[ConsumedAt\]").Count.Should().Be(1,
-            "only ConsumeByEmailAsync consumes; starting, checking and rotating never do");
+            "in this repository only ConsumeByEmailAsync consumes");
+
+        var persistence = Path.Combine(SolutionDirectory(), "Auth.Infrastructure", "Persistence");
+        var writers = Directory.GetFiles(persistence, "*.cs", SearchOption.AllDirectories)
+            .SelectMany(file => Regex.Matches(File.ReadAllText(file), @"SET \[ConsumedAt\]").Select(_ => Path.GetFileName(file)))
+            .ToList();
+
+        writers.Should().BeEquivalentTo(["PendingRegistrationRepository.cs", "UserRepository.cs"],
+            "the other writer is UserRepository.CreateVerifiedAsync, in the same transaction as the account row");
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

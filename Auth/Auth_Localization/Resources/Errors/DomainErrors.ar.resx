@@ -877,4 +877,7 @@
   <data name="Image.NotAvailable" xml:space="preserve">
     <value>هذه الصورة غير متاحة للإرفاق. ارفع الصورة من جديد ثم أعد المحاولة.</value>
   </data>
+  <data name="User.AccountCreatedSignInRequired" xml:space="preserve">
+    <value>أُنشئ حسابك، لكن تعذّر إكمال تسجيل الدخول. سجّل الدخول بكلمة المرور الجديدة.</value>
+  </data>
 </root>

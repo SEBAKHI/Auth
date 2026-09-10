@@ -4,6 +4,7 @@ using Auth.Application.Configuration;
 using Auth.Application.Features.Authentication.Authorize;
 using Auth.Application.Features.Authentication.EndSession;
 using Auth.Application.Features.Authentication.ChangePassword;
+using Auth.Application.Features.Authentication.CompleteRegistration;
 using Auth.Application.Features.AccountDeletion.ConfirmPublicDeletion;
 using Auth.Application.Features.AccountDeletion.PublicRequestDeletion;
 using Auth.Application.Features.AccountDeletion.RecoverAccount;
@@ -186,6 +187,48 @@ public class AuthController : ApiController
 
         return result.Match<IActionResult>(
             _ => NoContent(),
+            errors => Problem(errors));
+    }
+
+    /// <summary>
+    /// Step 3 of verify-first self-registration: creates the account for the
+    /// address the code proved, consumes the code, and signs the new owner in.
+    /// </summary>
+    /// <param name="request">The handle, the code once more, the password and the name.</param>
+    /// <returns>The same session a sign-in issues.</returns>
+    [HttpPost("registration/complete")]
+    [AllowAnonymous]
+    [EnableRateLimiting("registration-followup")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    // Password policy, or EmailVerification.InvalidOtpFormat | InvalidOrExpiredOtp | TooManyAttempts.
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    // Registration:AllowSelfRegistration closed — User.SelfRegistrationClosed.
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status403Forbidden)]
+    // User.DuplicateEmail: another door created the account first, or the address is reserved.
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests)]
+    public async Task<IActionResult> CompleteRegistration([FromBody] CompleteRegistrationRequest request, CancellationToken cancellationToken)
+    {
+        var command = new CompleteRegistrationCommand(
+            request.PendingId,
+            request.Otp,
+            request.Password,
+            request.FirstName,
+            request.LastName,
+            request.TimeZone,
+            request.CreateOrganization,
+            GetDeviceId(request.DeviceId),
+            GetClientIpAddress(),
+            GetUserAgent());
+
+        var result = await _sender.Send(command, cancellationToken);
+
+        return result.Match<IActionResult>(
+            response =>
+            {
+                IdpSessionCookie.Apply(Response, response, _idpSettings);
+                return Ok(response);
+            },
             errors => Problem(errors));
     }
 

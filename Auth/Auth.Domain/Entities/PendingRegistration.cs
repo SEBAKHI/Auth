@@ -83,7 +83,14 @@ public class PendingRegistration : AggregateRoot
     /// Deliberately not the address: an address is caller-typed input inside a
     /// keyed message and would force a normalization decision forever.
     /// </summary>
-    public string OtpScope => $"pending-registration:{Id}";
+    public string OtpScope => OtpScopeFor(Id);
+
+    /// <summary>
+    /// The scope a pending row's code is hashed under, derivable from the id
+    /// alone so the completion step can re-check a code under the row's lock
+    /// without hydrating the row.
+    /// </summary>
+    public static string OtpScopeFor(Guid id) => $"pending-registration:{id}";
 
     /// <summary>A Users row exists for this address.</summary>
     public bool IsConsumed => ConsumedAt.HasValue;

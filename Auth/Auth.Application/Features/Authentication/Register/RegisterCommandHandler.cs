@@ -28,6 +28,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
     private readonly IPasswordBreachEvaluator _breachEvaluator;
     private readonly IdentifierReservationGuard _reservationGuard;
     private readonly IPersonalOrganizationCreator _personalOrganizationCreator;
+    private readonly IPendingRegistrationConsumer _pendingRegistrationConsumer;
     private readonly IMediator _mediator;
     private readonly IDomainEventDispatcher _eventDispatcher;
     private readonly RegistrationSettings _registrationSettings;
@@ -41,6 +42,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         IPasswordBreachEvaluator breachEvaluator,
         IdentifierReservationGuard reservationGuard,
         IPersonalOrganizationCreator personalOrganizationCreator,
+        IPendingRegistrationConsumer pendingRegistrationConsumer,
         IMediator mediator,
         IDomainEventDispatcher eventDispatcher,
         IOptionsSnapshot<RegistrationSettings> registrationSettings,
@@ -53,6 +55,7 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
         _breachEvaluator = breachEvaluator;
         _reservationGuard = reservationGuard;
         _personalOrganizationCreator = personalOrganizationCreator;
+        _pendingRegistrationConsumer = pendingRegistrationConsumer;
         _mediator = mediator;
         _eventDispatcher = eventDispatcher;
         _registrationSettings = registrationSettings.Value;
@@ -130,6 +133,10 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, ErrorOr<R
             timeZone: request.TimeZone ?? "UTC");
 
         await _userRepository.CreateAsync(user, cancellationToken);
+
+        // A Users row exists for the address now, so any verify-first row
+        // pending for it is moot: its code must not create a second account.
+        await _pendingRegistrationConsumer.ConsumeAsync(user.Email.Value, cancellationToken);
 
 
 
