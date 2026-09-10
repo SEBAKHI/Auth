@@ -262,8 +262,9 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
-    // POST /auth/register only, via register-route. The outer half of the
-    // registration split; the Auth API holds the inner half under the same name.
+    // POST /auth/registration/start only, via registration-start-route: the one
+    // request of a sign-up that sends mail. The outer half of the registration
+    // split; the Auth API holds the inner half under the same name.
     // Every request passes this limiter before the API's, so whichever of the two
     // is lower is the one a client actually meets — which is why the API's limit
     // cannot be raised alone and why the parity between the two files matters.

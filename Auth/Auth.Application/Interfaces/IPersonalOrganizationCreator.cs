@@ -4,7 +4,7 @@ namespace Auth.Application.Interfaces;
 
 /// <summary>
 /// Shared service that creates a personal organization for a user.
-/// Used by both RegisterCommandHandler and ExternalLoginCommandHandler.
+/// Used by both CompleteRegistrationCommandHandler and ExternalLoginCommandHandler.
 /// </summary>
 public interface IPersonalOrganizationCreator
 {

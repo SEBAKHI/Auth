@@ -119,8 +119,8 @@ public class PendingRegistrationConsumerTests
         }
 
         doors.Should().BeEquivalentTo(
-            ["RegisterCommandHandler.cs", "ExternalLoginCommandHandler.cs", "RegisterWithInvitationCommandHandler.cs", "CreateUserCommandHandler.cs"],
-            "these are the four doors; a fifth must be added here deliberately, with its consumer");
+            ["ExternalLoginCommandHandler.cs", "RegisterWithInvitationCommandHandler.cs", "CreateUserCommandHandler.cs"],
+            "these are the three doors beside the verify-first completion; a fourth must be added here deliberately, with its consumer");
         offenders.Should().BeEmpty();
     }
 

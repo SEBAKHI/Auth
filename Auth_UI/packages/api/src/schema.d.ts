@@ -7575,83 +7575,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/Auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["RegisterRequest"];
-                    "text/json": components["schemas"]["RegisterRequest"];
-                    "application/*+json": components["schemas"]["RegisterRequest"];
-                };
-            };
-            responses: {
-                /** @description Created */
-                201: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["RegisterResponse"];
-                    };
-                };
-                /** @description Bad Request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description Forbidden */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description Conflict */
-                409: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-                /** @description Too Many Requests */
-                429: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ProblemDetails"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/Auth/registration/start": {
         parameters: {
             query?: never;
@@ -14405,26 +14328,6 @@ export interface components {
         };
         RefreshTokenRequest: {
             refreshToken: string;
-        };
-        RegisterRequest: {
-            email: string;
-            password: string;
-            firstName: string;
-            lastName: string;
-            phoneNumber?: null | string;
-            preferredLanguage?: null | string;
-            timeZone?: null | string;
-            createOrganization?: boolean;
-        };
-        RegisterResponse: {
-            /** Format: uuid */
-            userId: string;
-            maskedEmail: string;
-            message: string;
-            /** @default false */
-            organizationCreated: boolean;
-            /** Format: date-time */
-            verificationCodeExpiresAt?: null | string;
         };
         RegisterWithInvitationRequest: {
             password: string;

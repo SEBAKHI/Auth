@@ -112,6 +112,11 @@
 			"type": "string"
 		},
 		{
+			"key": "registrationPendingId",
+			"value": "",
+			"type": "string"
+		},
+		{
 			"key": "registeredUserId",
 			"value": "",
 			"type": "string"
@@ -155,7 +160,7 @@
 					"",
 					"    // Skip for auth endpoints (login, register, refresh) to avoid loops",
 					"    const url = pm.request.url.toString();",
-					"    if (url.includes('/auth/login') || url.includes('/auth/register') || url.includes('/auth/refresh') || url.includes('/auth/external-login')) return;",
+					"    if (url.includes('/auth/login') || url.includes('/auth/registration/') || url.includes('/auth/refresh') || url.includes('/auth/external-login')) return;",
 					"",
 					"    try {",
 					"        // Decode JWT payload (base64url)",
@@ -333,44 +338,100 @@
 						"description": "Authenticates a user and returns JWT access and refresh tokens."
 					}
 				},
-			{
-				"name": "Register",
-				"event": [
-					{
-						"listen": "test",
-						"script": {
-							"exec": [
-								"if (pm.response.code === 201) {",
-								"    const json = pm.response.json();",
-								"    pm.collectionVariables.set('registeredUserId', json.userId || '');",
-								"    pm.test('Registration successful', function() {",
-								"        pm.expect(json.userId).to.not.be.empty;",
-								"        pm.expect(json.maskedEmail).to.not.be.empty;",
-								"        pm.expect(json.organizationCreated).to.be.a('boolean');",
-								"        pm.expect(json.message).to.include('verify');",
-								"    });",
-								"}"
-							],
-							"type": "text/javascript"
+				{
+					"name": "Registration - 1. Start",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('registrationPendingId', json.pendingId || '');",
+									"    pm.test('Sign-up started', function() {",
+									"        pm.expect(json.pendingId).to.not.be.empty;",
+									"        pm.expect(json.maskedEmail).to.not.be.empty;",
+									"        pm.expect(json.expiresAt).to.not.be.empty;",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
 						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"preferredLanguage\": \"en\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/registration/start",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "registration", "start"]
+						},
+						"description": "Step 1 of verify-first sign-up. Takes an email address, mails a six-digit code to it, and creates nothing. Answers 200 with the same shape for every address - free, already registered, or reserved - so nothing about who is registered here leaks: pendingId (the opaque handle for the next two steps), maskedEmail, and expiresAt for the code. Rate limited by the 'register' policy, one permit per sign-up. In Development with Email:Enabled=false the code is written to the API log instead of being mailed."
 					}
-				],
-				"request": {
-					"auth": { "type": "noauth" },
-					"method": "POST",
-					"header": [{ "key": "Content-Type", "value": "application/json" }],
-					"body": {
-						"mode": "raw",
-						"raw": "{\n    \"email\": \"newuser@example.com\",\n    \"password\": \"MyStr0ng!Pass#2024\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"displayName\": \"John Doe\",\n    \"preferredLanguage\": \"en\",\n    \"timeZone\": \"UTC\",\n    \"createOrganization\": false\n}"
-					},
-					"url": {
-						"raw": "{{baseUrl}}/api/v1/auth/register",
-						"host": ["{{baseUrl}}"],
-						"path": ["api", "v1", "auth", "register"]
-					},
-					"description": "Registers a new user account with email and password. Optionally creates a personal organization when createOrganization is set to true (default: false). Sends a verification email - user must verify before they can login.\n\nReturns: userId, maskedEmail, organizationCreated, and a message about next steps."
-				}
-			},
+				},
+				{
+					"name": "Registration - 2. Verify",
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"pendingId\": \"{{registrationPendingId}}\",\n    \"otp\": \"123456\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/registration/verify",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "registration", "verify"]
+						},
+						"description": "Step 2 of verify-first sign-up. Checks the mailed code against the handle from step 1 and answers 204 with nothing else; a wrong code is 400 EmailVerification.InvalidOrExpiredOtp, and five wrong tries spend the code (EmailVerification.TooManyAttempts) - call step 1 again for a fresh one. Optional for an API client: step 3 presents the code again. Rate limited by the 'registration-followup' policy."
+					}
+				},
+				{
+					"name": "Registration - 3. Complete",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const json = pm.response.json();",
+									"    pm.collectionVariables.set('accessToken', json.token.accessToken || '');",
+									"    pm.collectionVariables.set('refreshToken', json.token.refreshToken || '');",
+									"    pm.collectionVariables.set('userId', json.user.id || '');",
+									"    pm.collectionVariables.set('registeredUserId', json.user.id || '');",
+									"    pm.test('Account created and signed in', function() {",
+									"        pm.expect(json.token.accessToken).to.not.be.empty;",
+									"        pm.expect(json.user.email).to.not.be.empty;",
+									"    });",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": { "type": "noauth" },
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"pendingId\": \"{{registrationPendingId}}\",\n    \"otp\": \"123456\",\n    \"password\": \"MyStr0ng!Pass#2024\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"timeZone\": \"UTC\",\n    \"createOrganization\": false\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/registration/complete",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "registration", "complete"]
+						},
+						"description": "Step 3 of verify-first sign-up, and the only step that creates anything. Takes the handle, the code once more, the password and the name - never the email address, which the handle already proves - and answers 200 with the same body as login: tokens and the user, address already confirmed, plus the browser sign-in cookie. Errors: 400 for the password policy or a wrong/expired/spent code, 403 User.SelfRegistrationClosed when sign-up is closed, 409 User.DuplicateEmail when the address gained an account meanwhile (sign in instead). Rate limited by the 'registration-followup' policy."
+					}
+				},
 				{
 					"name": "Get External Providers",
 					"request": {

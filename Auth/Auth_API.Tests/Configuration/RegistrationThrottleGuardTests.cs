@@ -12,13 +12,13 @@ namespace Auth_API.Tests.Configuration;
 ///
 /// <para>
 /// A verify-first sign-up is three requests. The first, <c>registration/start</c>,
-/// is the one that produces a message, so it counts against the same "register"
-/// budget as the legacy <c>POST /auth/register</c> — one permit per sign-up,
-/// exactly as before. The two that follow (<c>verify</c>, and <c>complete</c>
-/// once it exists) send nothing and there are two of them per start, so they
-/// count against a budget of their own, "registration-followup", which must
-/// hold at least twice the register limit or sign-ups fail at their second step
-/// while the register counter still has room.
+/// is the one that produces a message, so it spends the "register" budget the
+/// retired <c>POST /auth/register</c> used to spend — one permit per sign-up,
+/// exactly as before. The two that follow (<c>verify</c> and <c>complete</c>)
+/// send nothing and there are two of them per start, so they count against a
+/// budget of their own, "registration-followup", which must hold at least
+/// twice the register limit or sign-ups fail at their second step while the
+/// register counter still has room.
 /// </para>
 ///
 /// <para>
@@ -39,7 +39,6 @@ namespace Auth_API.Tests.Configuration;
 public class RegistrationThrottleGuardTests
 {
     private const string AuthCatchAllPath = "/api/v{version:int}/auth/{**catch-all}";
-    private const string RegisterPath = "/api/v{version:int}/auth/register";
     private const string StartPath = "/api/v{version:int}/auth/registration/start";
     private const string FollowupPath = "/api/v{version:int}/auth/registration/{**catch-all}";
 
@@ -55,7 +54,6 @@ public class RegistrationThrottleGuardTests
     /// </summary>
     public static TheoryData<string, string> ActionPolicies => new()
     {
-        { "[HttpPost(\"register\")]", RegisterPolicy },
         { "[HttpPost(\"registration/start\")]", RegisterPolicy },
         { "[HttpPost(\"registration/verify\")]", FollowupPolicy },
         { "[HttpPost(\"registration/complete\")]", FollowupPolicy },
@@ -90,8 +88,8 @@ public class RegistrationThrottleGuardTests
         var users = ControllerActionsByPolicy();
 
         users[RegisterPolicy].Should().BeEquivalentTo(
-            [("AuthController.cs", "Register"), ("AuthController.cs", "StartRegistration")],
-            "the register budget is one permit per sign-up: the legacy endpoint, and the start step that replaces it");
+            [("AuthController.cs", "StartRegistration")],
+            "the register budget is one permit per sign-up, and the start step is the one request of a sign-up that sends mail");
 
         users[FollowupPolicy].Should().BeEquivalentTo(
             [("AuthController.cs", "VerifyRegistration"), ("AuthController.cs", "CompleteRegistration")],
@@ -103,9 +101,9 @@ public class RegistrationThrottleGuardTests
     {
         // The start step is the only one of the three that produces a message,
         // and it spends the SAME register budget at the SAME default as the
-        // legacy endpoint. So one client IP can cause exactly as much mail per
-        // window as it could yesterday — the number was raised to 200 on a
-        // measurement (1633176c) and this commit neither raises nor lowers it.
+        // retired endpoint did. So one client IP can cause exactly as much mail
+        // per window as it could before — the number was raised to 200 on a
+        // measurement (1633176c) and nothing since has raised or lowered it.
         var program = ReadSource("Auth_API", "Program.cs");
         var registry = SystemSettingsRegistry.TryGet("RateLimiting")!;
 
@@ -147,7 +145,6 @@ public class RegistrationThrottleGuardTests
 
     public static TheoryData<string, string> RoutePolicies => new()
     {
-        { RegisterPath, RegisterPolicy },
         { StartPath, RegisterPolicy },
         { FollowupPath, FollowupPolicy },
     };
@@ -176,7 +173,6 @@ public class RegistrationThrottleGuardTests
     {
         var routes = GatewayRoutes();
 
-        var register = routes.Single(route => route.Path == RegisterPath);
         var start = routes.Single(route => route.Path == StartPath);
         var followup = routes.Single(route => route.Path == FollowupPath);
         var catchAll = routes.Single(route => route.Path == AuthCatchAllPath);
@@ -186,7 +182,6 @@ public class RegistrationThrottleGuardTests
         // braces, deliberately. The alternative is a pair of throttles whose
         // correctness rests on the next person to touch these routes
         // remembering two YARP precedence rules.
-        register.Order.Should().BeLessThan(catchAll.Order);
         followup.Order.Should().BeLessThan(catchAll.Order,
             "the follow-up route must win the match against the auth catch-all it sits inside");
         start.Order.Should().BeLessThan(followup.Order,

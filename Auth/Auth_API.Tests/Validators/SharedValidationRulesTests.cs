@@ -1,4 +1,4 @@
-using Auth.Application.Features.Authentication.Register;
+using Auth.Application.Features.Authentication.CompleteRegistration;
 using Auth.Application.Features.Authentication.ResetPassword;
 using Auth.Application.Features.Users.UpdateProfile;
 using Auth.Domain.Constants;
@@ -103,8 +103,8 @@ public class SharedValidationRulesTests
     [Fact]
     public void Password_AtTheCeiling_IsAccepted()
     {
-        var result = new RegisterCommandValidator().Validate(
-            new RegisterCommand("john@example.com", new string('a', PasswordLimits.MaxLength), "John", "Doe"));
+        var result = new CompleteRegistrationCommandValidator().Validate(
+            CompleteWith(new string('a', PasswordLimits.MaxLength)));
 
         result.Errors.Should().NotContain(e => e.ErrorMessage == "Validation.Password.MaxLength");
     }
@@ -114,11 +114,14 @@ public class SharedValidationRulesTests
     {
         var oversized = new string('a', PasswordLimits.MaxLength + 1);
 
-        new RegisterCommandValidator()
-            .Validate(new RegisterCommand("john@example.com", oversized, "John", "Doe"))
+        new CompleteRegistrationCommandValidator()
+            .Validate(CompleteWith(oversized))
             .Errors.Should().Contain(e => e.ErrorMessage == "Validation.Password.MaxLength");
         new ResetPasswordCommandValidator()
             .Validate(new ResetPasswordCommand("token", oversized))
             .Errors.Should().Contain(e => e.ErrorMessage == "Validation.Password.MaxLength");
     }
+    /// <summary>The sign-up completion with a given password; the other fields are valid and beside the point.</summary>
+    private static CompleteRegistrationCommand CompleteWith(string password)
+        => new("handle", "123456", password, "John", "Doe", TimeZone: null, CreateOrganization: false, DeviceId: null, IpAddress: null, UserAgent: null);
 }

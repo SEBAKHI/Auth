@@ -7,7 +7,7 @@ namespace Auth.Application.Features.Authentication.Common;
 
 /// <summary>
 /// Shared service that creates a personal organization for a user.
-/// Extracted from RegisterCommandHandler for reuse across registration flows.
+/// Shared by every registration flow that may create a personal organization.
 /// </summary>
 public class PersonalOrganizationCreator : IPersonalOrganizationCreator
 {
