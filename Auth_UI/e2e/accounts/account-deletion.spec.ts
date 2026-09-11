@@ -79,7 +79,12 @@ function logOffset(): number {
 async function waitForLogMatch(
   pattern: RegExp,
   since = 0,
-  timeoutMs = 15_000
+  // Template emails go through the outbox, whose dispatcher wakes on an
+  // in-process signal but falls back to a 30-second poll when the signal is
+  // missed (Notifications:PollIntervalSeconds). A wait shorter than one poll
+  // fails on timing alone, and the miss is real: it happened on the second
+  // of two emails enqueued 350 ms apart.
+  timeoutMs = 45_000
 ): Promise<string> {
   const deadline = Date.now() + timeoutMs
   for (;;) {
@@ -109,10 +114,14 @@ function deletionOtpPattern(email: string): RegExp {
   )
 }
 
-/** "Would have sent" line for a template email, matched by EN subject. */
+/**
+ * "Would have sent" line for a template email, matched by EN subject. The
+ * channel masks the recipient in that line, as every other log line does
+ * (2ab6a099), so the pattern matches the masked form.
+ */
 function sentEmailPattern(email: string, subject: string): RegExp {
   return new RegExp(
-    `Would have sent to "?${escapeRegExp(email)}"? \\["?en"?\\]: "?${escapeRegExp(subject)}"?`
+    `Would have sent to "?${escapeRegExp(maskEmail(email))}"? \\["?en"?\\]: "?${escapeRegExp(subject)}"?`
   )
 }
 
