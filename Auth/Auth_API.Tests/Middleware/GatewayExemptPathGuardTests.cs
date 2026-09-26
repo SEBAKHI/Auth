@@ -1,4 +1,6 @@
 using Auth.Application.Configuration;
+using Auth.Domain.Errors;
+using Auth.Shared.Http.ErrorContract;
 using Auth_API.Common.Middleware;
 using Auth_API.Tests.Helpers;
 using Microsoft.AspNetCore.Http;
@@ -90,19 +92,16 @@ public class GatewayExemptPathGuardTests
     }
 
     [Fact]
-    public async Task InvokeAsync_RejectedRequest_WritesProblemJson403()
+    public async Task InvokeAsync_RejectedRequest_Records403WithInvalidGatewayTokenAndWritesNoBody()
     {
         var middleware = CreateMiddleware(_ => Task.CompletedTask);
         var context = CreateContext("/api/v1/anything");
 
         await middleware.InvokeAsync(context, Settings(""));
 
+        // The status-code pages write the problem from what is recorded here (ADR 0001).
         context.Response.StatusCode.Should().Be(403);
-        context.Response.ContentType.Should().Be("application/problem+json");
-
-        context.Response.Body.Seek(0, SeekOrigin.Begin);
-        var body = await new StreamReader(context.Response.Body).ReadToEndAsync();
-        body.Should().Contain("403");
-        body.Should().Contain("/api/v1/anything");
+        context.Items[ProblemItems.Code].Should().Be(AuthErrors.InvalidGatewayToken.Code);
+        context.Response.Body.Length.Should().Be(0);
     }
 }

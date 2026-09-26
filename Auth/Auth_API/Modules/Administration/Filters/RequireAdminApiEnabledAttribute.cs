@@ -1,13 +1,15 @@
 using Auth.Application.Configuration;
-using Microsoft.AspNetCore.Mvc;
+using Auth.Domain.Errors;
+using Auth_API.Common.Errors;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.Extensions.Options;
 
 namespace Auth_API.Modules.Administration.Filters;
 
 /// <summary>
 /// Action filter that ensures the Admin API is enabled before executing the action.
-/// Returns 403 Forbidden if SecretManagement:EnableAdminApi is false.
+/// Returns 403 Forbidden with Secret.AdminApiDisabled if SecretManagement:EnableAdminApi is false.
 /// Apply at controller or action level to enforce this requirement.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
@@ -27,15 +29,11 @@ public class RequireAdminApiEnabledAttribute : Attribute, IAsyncActionFilter
 
         if (!settings.EnableAdminApi)
         {
-            context.Result = new ObjectResult(new ProblemDetails
-            {
-                Title = "Admin API Disabled",
-                Detail = "Secret management admin API is disabled.",
-                Status = StatusCodes.Status403Forbidden
-            })
-            {
-                StatusCode = StatusCodes.Status403Forbidden
-            };
+            context.Result = ProblemMapping.ToProblem(
+                context.HttpContext,
+                context.HttpContext.RequestServices.GetRequiredService<ProblemDetailsFactory>(),
+                [SecretErrors.AdminApiDisabled],
+                bodyType: null);
             return;
         }
 

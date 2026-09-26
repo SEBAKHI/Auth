@@ -1,9 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
-using Auth_Localization.Resources.Middleware;
 using Auth.Application.Configuration;
-using Microsoft.Extensions.Localization;
+using Auth.Domain.Errors;
+using Auth_API.Common.Errors;
 using Microsoft.Extensions.Options;
 
 namespace Auth_API.Common.Middleware;
@@ -44,8 +43,6 @@ public class GatewayTokenValidationMiddleware
             return;
         }
 
-        var localizer = context.RequestServices?.GetService<IStringLocalizer<MiddlewareMessages>>();
-
         // Validate gateway token
         if (!context.Request.Headers.TryGetValue(gatewaySettings.TokenHeaderName, out var tokenHeader))
         {
@@ -54,8 +51,7 @@ public class GatewayTokenValidationMiddleware
                 path,
                 context.Connection.RemoteIpAddress);
 
-            await WriteUnauthorizedResponse(context, localizer, "Middleware.Gateway.MissingToken",
-                "Direct API access is not allowed. Please use the API Gateway.");
+            ProblemMapping.Reject(context, AuthErrors.InvalidGatewayToken);
             return;
         }
 
@@ -76,8 +72,7 @@ public class GatewayTokenValidationMiddleware
                 path,
                 context.Connection.RemoteIpAddress);
 
-            await WriteUnauthorizedResponse(context, localizer, "Middleware.Gateway.InvalidToken",
-                "Invalid gateway token.");
+            ProblemMapping.Reject(context, AuthErrors.InvalidGatewayToken);
             return;
         }
 
@@ -112,40 +107,5 @@ public class GatewayTokenValidationMiddleware
         }
 
         return false;
-    }
-
-    private static async Task WriteUnauthorizedResponse(
-        HttpContext context,
-        IStringLocalizer<MiddlewareMessages>? localizer,
-        string key,
-        string fallback)
-    {
-        var titleKey = "Middleware.Gateway.Forbidden.Title";
-        var title = localizer is not null && !localizer[titleKey].ResourceNotFound
-            ? localizer[titleKey].Value
-            : "Forbidden";
-
-        var detail = localizer is not null && !localizer[key].ResourceNotFound
-            ? localizer[key].Value
-            : fallback;
-
-        context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        context.Response.ContentType = "application/problem+json";
-
-        var response = new
-        {
-            type = "https://httpstatuses.com/403",
-            title,
-            status = 403,
-            detail,
-            instance = context.Request.Path.Value
-        };
-
-        var json = JsonSerializer.Serialize(response, new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-        });
-
-        await context.Response.WriteAsync(json);
     }
 }

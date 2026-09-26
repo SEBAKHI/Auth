@@ -69,6 +69,22 @@ public static class ProblemMapping
         };
     }
 
+    /// <summary>
+    /// Refuses a request with a catalog error before any action runs, from middleware or a
+    /// filter: sets the status from <see cref="ErrorStatusMap"/> and records the code, and writes
+    /// no body. The status-code pages write the problem.
+    /// </summary>
+    public static void Reject(HttpContext httpContext, Error error)
+    {
+        httpContext.Items[ProblemItems.Code] = error.Code;
+        if (error.Metadata?.GetValueOrDefault(ErrorMetadataKeys.Args) is object[] args)
+        {
+            httpContext.Items[ProblemItems.Args] = args;
+        }
+
+        httpContext.Response.StatusCode = ErrorStatusMap.ToStatusCode(error);
+    }
+
     private static string? PointerFor(Error error, Type? bodyType, JsonSerializerOptions json) =>
         bodyType is not null
         && error.Metadata?.GetValueOrDefault(ErrorMetadataKeys.Property) is string { Length: > 0 } property

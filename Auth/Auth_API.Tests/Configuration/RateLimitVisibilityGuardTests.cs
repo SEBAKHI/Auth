@@ -116,13 +116,20 @@ public class RateLimitVisibilityGuardTests
     #region A refused user is told to wait, not to call support
 
     [Fact]
-    public void AuthApiRejectionBody_CarriesTheStatusTheClientClassifiesOn()
+    public void AuthApiRejection_LeavesTheBodyToTheErrorContract()
     {
         var handler = RejectionHandler(ReadSource("Auth_API", "Program.cs"));
 
-        handler.Should().Contain("status = StatusCodes.Status429TooManyRequests",
-            "the SPA reads the kind of an error from the body's status field and from nothing else; "
-            + "without it a throttled user is told to contact support");
+        // The status-code pages write the problem (ADR 0001), which carries the status and
+        // Http.RateLimited: a body written here would be a second shape for the same refusal.
+        handler.Should().NotContain("WriteAsJsonAsync",
+            "the refusal's body is the error contract's, identical to every other 429");
+        handler.Should().NotContain("Response.WriteAsync",
+            "the refusal's body is the error contract's, identical to every other 429");
+        handler.Should().Contain("Response.Headers.RetryAfter",
+            "the wait travels in Retry-After, the only place a client reads it");
+        handler.Should().Contain("Math.Ceiling(",
+            "a truncated wait tells the client to retry before the window reopens");
     }
 
     [Fact]

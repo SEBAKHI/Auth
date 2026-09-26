@@ -3,11 +3,13 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Asp.Versioning;
+using Auth.Application.Configuration;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using Auth.Shared.Http.ErrorContract;
 using Auth_API.Common;
 using Auth_API.Common.Errors;
+using Auth_API.Modules.Administration.Filters;
 using Auth_API.Tests.Helpers;
 using Auth_Localization.Extensions;
 using ErrorOr;
@@ -43,6 +45,7 @@ public sealed class ApiErrorContractTests : IAsyncLifetime
                 {
                     services.AddRouting();
                     services.AddAuthLocalization();
+                    services.Configure<SecretManagementSettings>(settings => settings.EnableAdminApi = false);
                     services.AddControllers()
                         .AddJsonOptions(options => options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase)
                         .AddApiErrorContract()
@@ -152,6 +155,15 @@ public sealed class ApiErrorContractTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AdminAction_WithAdminApiDisabled_Returns403WithAdminApiDisabled()
+    {
+        var problem = await GetAsync("/api/v1/probe/admin");
+
+        problem.AssertContract(HttpStatusCode.Forbidden, SecretErrors.AdminApiDisabled.Code);
+        Assert.Equal("Secret management admin API is disabled.", problem.OptionalString("detail"));
+    }
+
+    [Fact]
     public async Task Route_WithUnsupportedApiVersionInThePath_Returns404WithNotFound()
     {
         var problem = await GetAsync("/api/v9/probe/conflict");
@@ -209,6 +221,10 @@ public sealed class ApiErrorContractTests : IAsyncLifetime
 
         [HttpGet("missing")]
         public IActionResult Missing() => NotFound();
+
+        [HttpGet("admin")]
+        [RequireAdminApiEnabled]
+        public IActionResult Admin() => Ok();
 
         [HttpGet("delete-referenced")]
         public IActionResult DeleteReferenced() => throw SqlExceptions.WithNumber(547, ProblemResponse.SecretExceptionText);

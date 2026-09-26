@@ -1,7 +1,9 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using Auth.Shared.Http;
+using Auth.Shared.Http.ErrorContract;
 using Auth_API.Common.Middleware;
 using Auth_API.Tests.Helpers;
 using Microsoft.AspNetCore.Http;
@@ -174,6 +176,8 @@ public class GatewayTokenValidationMiddlewareTests
         await middleware.InvokeAsync(context, CreateSettings());
 
         context.Response.StatusCode.Should().Be(403);
+        context.Items[ProblemItems.Code].Should().Be(AuthErrors.InvalidGatewayToken.Code);
+        context.Response.Body.Length.Should().Be(0);
     }
 
     [Fact]
@@ -188,6 +192,8 @@ public class GatewayTokenValidationMiddlewareTests
         await middleware.InvokeAsync(context, CreateSettings(expectedToken: "secret-token"));
 
         context.Response.StatusCode.Should().Be(403);
+        context.Items[ProblemItems.Code].Should().Be(AuthErrors.InvalidGatewayToken.Code);
+        context.Response.Body.Length.Should().Be(0);
     }
 
     [Fact]
@@ -202,6 +208,8 @@ public class GatewayTokenValidationMiddlewareTests
         await middleware.InvokeAsync(context, CreateSettings());
 
         context.Response.StatusCode.Should().Be(403);
+        context.Items[ProblemItems.Code].Should().Be(AuthErrors.InvalidGatewayToken.Code);
+        context.Response.Body.Length.Should().Be(0);
     }
 
     [Fact]
@@ -302,6 +310,25 @@ public class JwtBlacklistValidationMiddlewareTests
         await middleware.InvokeAsync(context, _blacklistMock.Object);
 
         context.Response.StatusCode.Should().Be(401);
+        context.Items[ProblemItems.Code].Should().Be(ChallengeReasonCodes.TokenRevoked);
+        context.Response.Headers.WWWAuthenticate.ToString().Should().Be("Bearer error=\"invalid_token\"");
+        context.Response.Body.Length.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_TokensRevokedForTheUser_Returns401WithTokenRevoked()
+    {
+        var middleware = CreateMiddleware(_ => Task.CompletedTask);
+        var context = new DefaultHttpContext();
+        var userId = Guid.NewGuid();
+        context.Request.Headers.Authorization = $"Bearer {CreateMinimalJwt(Guid.NewGuid().ToString(), userId)}";
+
+        _blacklistMock.Setup(b => b.AreUserTokensBlacklisted(userId, It.IsAny<DateTime>())).Returns(true);
+
+        await middleware.InvokeAsync(context, _blacklistMock.Object);
+
+        context.Response.StatusCode.Should().Be(401);
+        context.Items[ProblemItems.Code].Should().Be(ChallengeReasonCodes.TokenRevoked);
     }
 
     [Fact]

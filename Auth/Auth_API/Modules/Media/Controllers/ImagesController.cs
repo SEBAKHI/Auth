@@ -1,9 +1,10 @@
+using Auth.Domain.Errors;
 using Auth.Domain.Interfaces.Repositories;
 using Asp.Versioning;
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using Auth_API.Common;
 using Auth_API.Modules.Media.Filters;
-using ErrorOr;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
@@ -21,7 +22,7 @@ namespace Auth_API.Modules.Media.Controllers;
 [ApiVersion("1.0")]
 [Route("api/v{version:apiVersion}/[controller]")]
 [Authorize]
-public class ImagesController : ControllerBase
+public class ImagesController : ApiController
 {
     private readonly IImageStorageService _storage;
     private readonly IImageUrlComposer _urlComposer;
@@ -40,17 +41,6 @@ public class ImagesController : ControllerBase
         _settings = settings.Value;
     }
 
-    /// <summary>
-    /// The caller, as the uploads ledger records them.
-    /// </summary>
-    /// <remarks>
-    /// Same claim <c>ApiController.GetCurrentUserId</c> reads. Duplicated rather
-    /// than inherited because this controller extends ControllerBase directly
-    /// and changing its base would change its error-shaping too.
-    /// </remarks>
-    private Guid GetCurrentUserId()
-        => Guid.TryParse(User.FindFirst("sub")?.Value, out var userId) ? userId : Guid.Empty;
-
     /// <summary>Uploads and processes an image; returns its storage key and public URL.</summary>
     [HttpPost]
     [Consumes("multipart/form-data")]
@@ -61,18 +51,18 @@ public class ImagesController : ControllerBase
     // ImageStorage:MaxMegapixels x 4 MB per in-flight request. See the policy.
     [EnableRateLimiting("image-upload")]
     [ProducesResponseType(typeof(UploadImageResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest, "application/problem+json")]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status429TooManyRequests, "application/problem+json")]
     public async Task<IActionResult> Upload(IFormFile file, CancellationToken cancellationToken)
     {
         if (file is null || file.Length == 0)
         {
-            return BadRequest(new { error = "No file provided." });
+            return Problem([ImageErrors.FileRequired]);
         }
 
         if (file.Length > _settings.MaxSizeBytes)
         {
-            return BadRequest(new { error = $"File exceeds the maximum size of {_settings.MaxSizeBytes} bytes." });
+            return Problem([ImageErrors.FileTooLarge(_settings.MaxSizeBytes)]);
         }
 
         // The per-file limit above bounds one request; nothing bounded the sum of
@@ -83,11 +73,7 @@ public class ImagesController : ControllerBase
         var usedBytes = await _uploadedImages.GetUsedBytesAsync(uploaderId, cancellationToken);
         if (usedBytes + file.Length > _settings.MaxBytesPerUser)
         {
-            return BadRequest(new
-            {
-                error = $"Storage quota reached: {usedBytes} of {_settings.MaxBytesPerUser} bytes used. "
-                    + "Remove an image you no longer need, or ask an administrator to raise the quota."
-            });
+            return Problem([ImageErrors.QuotaExceeded(usedBytes, _settings.MaxBytesPerUser)]);
         }
 
         await using var stream = file.OpenReadStream();
@@ -103,11 +89,9 @@ public class ImagesController : ControllerBase
 
                 return Ok(new UploadImageResponse(key, _urlComposer.Compose(key)!));
             },
-            errors => Task.FromResult<IActionResult>(errors[0].Type == ErrorType.Unexpected
-                // Storage/environment fault (e.g. the uploads directory is not writable) — a
-                // server fault, not a problem with the uploaded file.
-                ? StatusCode(StatusCodes.Status500InternalServerError, new { error = errors[0].Description })
-                : BadRequest(new { error = errors[0].Description })));
+            // A storage fault (Image.StorageUnavailable, Unexpected) maps to 500, a rejected
+            // file to 400: the status map decides, as for every handler error.
+            errors => Task.FromResult(Problem(errors)));
     }
 }
 

@@ -1015,14 +1015,8 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    options.OnRejected = async (context, token) =>
+    options.OnRejected = (context, _) =>
     {
-        var localizer = context.HttpContext.RequestServices
-            .GetService<Microsoft.Extensions.Localization.IStringLocalizer<Auth_Localization.Resources.Middleware.MiddlewareMessages>>();
-        var message = localizer is not null && !localizer["Middleware.TooManyRequests"].ResourceNotFound
-            ? localizer["Middleware.TooManyRequests"].Value
-            : "Too many requests. Please try again later.";
-
         // Window policies attach RetryAfter; the image-upload and public-surface
         // concurrency policies cannot (a slot frees when work finishes, not on a
         // clock), so their rejections land on the fallback. A few seconds is the
@@ -1048,24 +1042,13 @@ builder.Services.AddRateLimiter(options =>
             ClientIpResolver.Resolve(context.HttpContext),
             retryAfterSeconds);
 
+        // No body of its own (ADR 0001): the status-code pages write the problem, with
+        // Http.RateLimited and the status, like the gateway's refusal of the same request.
+        // The wait travels only in Retry-After, rounded up so a client never retries early.
         context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
         context.HttpContext.Response.Headers.RetryAfter =
-            ((int)retryAfterSeconds).ToString(System.Globalization.CultureInfo.InvariantCulture);
-
-        await context.HttpContext.Response.WriteAsJsonAsync(new
-        {
-            // Not decoration. The SPA derives an error's KIND from this field and
-            // from nothing else — getErrorStatus reads the body, never the
-            // transport status — so while this body omitted it, a refusal here
-            // was classified "unknown" and the user was told to contact support
-            // instead of to wait a moment. The gateway's own 429 carries the
-            // field and said the right thing, which is why the defect survived:
-            // the two hosts refuse the same request for the same reason, and
-            // whichever one gets there first has to say so identically.
-            status = StatusCodes.Status429TooManyRequests,
-            error = message,
-            retryAfter = retryAfterSeconds
-        }, token);
+            ((int)Math.Ceiling(retryAfterSeconds)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return ValueTask.CompletedTask;
     };
 });
 
