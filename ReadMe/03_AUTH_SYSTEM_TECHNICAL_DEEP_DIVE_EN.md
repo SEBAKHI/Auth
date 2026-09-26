@@ -138,9 +138,11 @@ The dispatch path is the same for every endpoint:
    *In code:* `Auth/Auth.Application/Behaviors/ValidationBehavior.cs` lines 34-49.
 5. **The handler runs** and returns `ErrorOr<T>` — either the value or a list of errors. Business rule
    violations are returned as errors, never thrown as exceptions.
-6. **The controller converts the result to HTTP.** One shared base class maps error types to status codes
-   and builds the `ProblemDetails` body. Section 18 gives the exact shape.
-   *In code:* `Auth/Auth_API/Common/ApiController.cs` lines 32-57.
+6. **The controller converts the result to HTTP.** The shared base class hands the errors to one mapper,
+   which takes the status from the first error and builds the `application/problem+json` body. Section 18
+   gives the exact shape.
+   *In code:* `Auth/Auth_API/Common/ApiController.cs` lines 25-26 and
+   `Auth/Auth_API/Common/Errors/ProblemMapping.cs`.
 
 **Those two behaviors are the only ones registered, in that order.** There is no transaction behavior, no
 caching behavior, no authorization behavior and no performance behavior.
@@ -174,7 +176,9 @@ request or rejects it.
 3. **`SecurityHeadersMiddleware`** — writes the response security headers listed in section 3.
 4. **`UseSerilogRequestLogging`** — one structured log line per request.
 5. **`UseAuthLocalization`** — picks the response language.
-6. **`ExceptionHandlingMiddleware`** — converts unhandled exceptions into `application/problem+json`.
+6. **`UseErrorContract`** — `UseExceptionHandler`, then `UseStatusCodePages`: turns an unhandled exception
+   or an empty 4xx/5xx into `application/problem+json` with its `code`. It sits ahead of the gateway check,
+   authentication and the rate limiter so it can write the body of the empty 403, 401 and 429 they produce.
 7. **`GatewayTokenValidationMiddleware`** — rejects with **403** any request that did not arrive through
    the gateway. Section 2 explains the handshake and its exemptions.
 8. **`MapOpenApi`** — serves the OpenAPI document. **Development only.**
@@ -298,7 +302,8 @@ reachable only by addressing that process directly. They are not reachable throu
 
 **The API rejects any request that does not carry the expected gateway token.** The comparison is
 constant-time on the raw bytes, after a length check, so it does not leak the token through timing. A
-mismatch produces **403** with an `application/problem+json` body.
+mismatch produces **403** with an `application/problem+json` body whose `code` is
+`Auth.InvalidGatewayToken`, the same for a missing header and a wrong one.
 
 Three things soften that rule, all configured:
 
@@ -311,8 +316,9 @@ Three things soften that rule, all configured:
 
 A blank entry in `ExemptPaths` would prefix-match every request and silently disable enforcement
 API-wide. Blank entries are therefore ignored, and a dedicated test locks that behaviour down.
-*In code:* `Auth/Auth_API/Common/Middleware/GatewayTokenValidationMiddleware.cs` lines 65-70, 87-115,
-132-149; `Auth/Auth_API.Tests/Middleware/GatewayExemptPathGuardTests.cs`.
+*In code:* `Auth/Auth_API/Common/Middleware/GatewayTokenValidationMiddleware.cs` lines 60-66 and 82-110,
+with the 403 recorded through `ProblemMapping.Reject` at lines 54 and 75;
+`Auth/Auth_API.Tests/Middleware/GatewayExemptPathGuardTests.cs`.
 
 ### The settings pull
 
@@ -436,8 +442,8 @@ not.
 length and the four character-class switches anonymously, so the sign-up, invitation, reset and
 change-password forms show a live checklist while the person types instead of learning the rules one
 refusal at a time. Nothing else in this table or the lockout table below is disclosed; the banned
-substrings, the breach check and the history check are judged only on submit, and every reason comes
-back in the response's `errors` array.
+substrings, the breach check and the history check are judged only on submit. Each failed rule has its
+own code: the first is the response's `code`, and when two or more fail, the `errors` array lists them all.
 
 **Password history blocks four values, not three.** The check compares a candidate against the stored
 history hashes *and* against the current password, so with `HistoryCount` at 3 a user cannot reuse any of
@@ -609,28 +615,26 @@ Those numbers live in **three** places that must agree — the settings registry
 build if they drift, because drift is invisible at runtime: the console would display one limit while the
 gateway enforced another.
 
-#### The two hosts return different 429 bodies
+#### Both hosts return the same 429
 
-This is a real interoperability trap for client authors.
-
-**Gateway rejection** — sets a `Retry-After` response header *and* returns:
-
-```json
-{ "type": "...", "title": "...", "status": 429, "detail": "...", "retryAfter": 60 }
-```
-
-`retryAfter` is an integer.
-
-**API rejection** — sets **no** `Retry-After` header, and returns:
+**Gateway and API rejections are the same problem.** Both set the status and a `Retry-After` header in
+whole seconds, rounded up, and write no body of their own; the status-code pages write this one:
 
 ```json
-{ "error": "...", "retryAfter": 60.0 }
+{
+  "title": "Too Many Requests",
+  "status": 429,
+  "detail": "Too many requests. Please try again later.",
+  "instance": "/api/v1/auth/login",
+  "code": "Http.RateLimited",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
+}
 ```
 
-`retryAfter` is a floating-point number of seconds.
-
-**A client that reads only the `Retry-After` header gets nothing back from the API** and must read the
-JSON field instead.
+A 429 has a `title` and no `type`. There is no `retryAfter` member: **read the wait from the `Retry-After`
+header.** When the limiter supplies no wait, the API sends 5 seconds and the gateway sends 60.
+*In code:* the `OnRejected` callbacks, `Auth/Auth_API/Program.cs` lines 1018-1052 and
+`Auth/API_Gateway/Program.cs` lines 334-374.
 
 ### Security headers
 
@@ -1870,33 +1874,50 @@ endpoint. **Page size is capped between 1 and 100; anything larger returns 400.*
 
 ### The error contract
 
-Handler and domain errors return `ProblemDetails`, and the field meanings are not the conventional ones:
+**Every error from the API and from the gateway is `application/problem+json`, and `code` is always
+present.** The decision is [ADR 0001](../docs/adr/0001-error-contract.md); every code a client can receive
+is published in [`docs/api/error-codes.json`](../docs/api/error-codes.json).
 
 ```json
 {
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.5",
+  "title": "Not Found",
   "status": 404,
-  "title": "User.NotFound",
-  "detail": "The requested user was not found.",
-  "instance": "/api/v1/users/3f2a..."
+  "detail": "User with ID '3f2a8c1e-5b7d-4e0a-9c6f-1d2e3f4a5b6c' was not found.",
+  "instance": "/api/v1/users/3f2a8c1e-5b7d-4e0a-9c6f-1d2e3f4a5b6c",
+  "code": "User.NotFound",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
 }
 ```
 
-- **`title` is the error code**, not a human-readable title. Program against it.
-- **`detail` is the localized human message**, translated according to the request's language.
-- **`extensions.errors`** appears **only when there is more than one error**, as an array of
-  `{ code, description }`.
+- **`code` is the error code.** Program against it, and against nothing else. A handler error keeps its
+  catalog code; an error the framework produces carries a transport code such as `Http.NotFound` or
+  `Http.Unauthenticated`; a 401 may carry a reason instead: `Http.TokenExpired`, `Http.TokenRevoked` or
+  `Http.SessionRevoked`.
+- **`type` and `title` are the framework's defaults** for the status (an RFC 9110 link and the reason
+  phrase; a 429 has no `type`). They never carry the code.
+- **`detail` is the published sentence for `code`**, translated according to the request's language. It is
+  never exception text.
+- **`errors`** appears **only on a validation result with two or more failures**, as an array of
+  `{ code, pointer }`: `pointer` is the RFC 6901 pointer of the request-body member (`#/newPassword`), left
+  out when the failure is not about one. A validation code names the rule (`Password.TooLong`), never the
+  field.
+- **`traceId`** is added by the framework. There is no `correlationId` and no `retryAfter` member;
+  `Retry-After` is a header on 429 and 503.
 
-Status-code mapping: validation → 400, not found → 404, conflict → 409, forbidden → 403, unauthorized →
-401, anything else → 500.
+Status-code mapping: validation → 400, unauthorized → 401, forbidden → 403, not found → 404, conflict →
+409, failure and unexpected → 500. Exceptions never reach the body: a dependency outage is 503
+`Http.Unavailable` with `Retry-After`, a foreign-key violation (SQL error 547) is 409
+`Persistence.ReferenceConflict`, and anything else is 500 `Http.Unexpected`.
 
-Four responses deliberately do **not** follow this shape, and a client author needs all four:
+The responses that used to have a shape of their own now follow it:
 
-| Case | Shape |
+| Case | `code` |
 |---|---|
-| Rate-limit rejection (429) | `{ "error": "...", "retryAfter": 60.0 }` — see section 3 |
-| Gateway-token rejection (403) | `application/problem+json` with `type`, `title`, `status`, `detail`, `instance` |
-| Blacklisted token (401) | `application/problem+json`, title `Unauthorized` |
-| Image upload failure | `{ "error": "..." }` — the images controller does not derive from the shared base |
+| Rate-limit rejection (429), from either host | `Http.RateLimited`, with a `Retry-After` header — see section 3 |
+| Gateway-token rejection (403) | `Auth.InvalidGatewayToken` |
+| Blacklisted token (401) | `Http.TokenRevoked` or `Http.SessionRevoked` |
+| Image upload failure | An `Image.*` code, such as `Image.FileTooLarge` (400) or `Image.StorageUnavailable` (500) |
 
 ### The OpenAPI document
 

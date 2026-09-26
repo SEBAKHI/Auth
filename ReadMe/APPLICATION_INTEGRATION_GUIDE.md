@@ -62,13 +62,13 @@ secret in an `X-Gateway-Token` header. The SDK adds that header twice: once when
 HTTP client, and again every time it hands that client to a caller. HTTP joins repeated header values with
 a comma, so the API receives `secret, secret` where it expects `secret`. The API compares the header's
 whole string value against the expected token, first by byte length and then in constant time, so a
-two-value header can never match, and the request comes back as HTTP 403 with a
-`application/problem+json` body.
+two-value header can never match, and the request comes back as HTTP 403 with an
+`application/problem+json` body whose `code` is `Auth.InvalidGatewayToken`.
 *In code:* the first addition is in the named-client registration at
 `Auth/Auth.Sdk/Extensions/ServiceCollectionExtensions.cs:50-52`; the second is inside
 `AuthSystemClient.CreateClient()` at `Auth/Auth.Sdk/AuthSystemClient.cs:221`; the comparison is
-`Auth/Auth_API/Common/Middleware/GatewayTokenValidationMiddleware.cs:62,66-70` and the 403 is written at
-`:132-133`.
+`Auth/Auth_API/Common/Middleware/GatewayTokenValidationMiddleware.cs:61-66` and the 403 is recorded at
+`:75`.
 **Which calls this breaks:** all four network methods on `AuthSystemClient` — `ValidateApiKeyAsync`,
 `ValidateWebhookKeyAsync`, `IntrospectTokenAsync` and `LoginAsync`. Automatic token refresh is *not*
 affected, because it builds its own HTTP client and adds the header once
@@ -1248,39 +1248,102 @@ id_tokens, and the document deliberately omits what it does not implement.
 
 ## Error responses you will see
 
-Three different shapes come back from AuthSystem, and telling them apart saves an afternoon.
+One shape comes back from AuthSystem, from the API and from the gateway alike: every error is
+`application/problem+json` (RFC 9457), and its `code` member is always present. **Branch on `code` and on
+nothing else.** Every code you can receive is published in
+[`docs/api/error-codes.json`](../docs/api/error-codes.json), with its status, and a published code is
+never renamed, removed or reused. The decision is recorded in
+[ADR 0001](../docs/adr/0001-error-contract.md).
 
-**A gateway-token rejection is HTTP 403 with `Content-Type: application/problem+json`:**
+| Member | What it holds |
+|---|---|
+| `code` | Always present, always a published code |
+| `type`, `title` | The framework's defaults for the status: an RFC 9110 link and the standard reason phrase. A 429 has no `type`. Never the code |
+| `status` | The same number as the status line |
+| `detail` | The published sentence for `code`, in the request's language, with a `Content-Language` header. Never exception text |
+| `instance` | The request path |
+| `traceId` | Identifies the request; quote it when you report a fault |
+| `errors` | Only on a validation failure with two or more rules broken: `[{ "code", "pointer" }]`, where `pointer` is the RFC 6901 pointer of the request-body member, such as `#/newPassword`, and is left out when the failure is not about one |
+
+**A business-rule failure carries the handler's own code.** Revoking an API key that is already revoked:
 
 ```json
 {
-  "type": "https://httpstatuses.com/403",
-  "title": "Forbidden",
-  "status": 403,
-  "detail": "Invalid gateway token.",
-  "instance": "/api/v1/apikeys/validate"
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.10",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "The API key has already been revoked.",
+  "instance": "/api/v1/apikeys/4b8d0f3e-2a61-4c7e-9f15-6d3a2e1b7c90/revoke",
+  "code": "ApiKey.AlreadyRevoked",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
 }
 ```
 
-The `detail` is `"Direct API access is not allowed. Please use the API Gateway."` when the header is
-missing entirely, and `"Invalid gateway token."` when it is present but does not match — which is exactly
-what limitation 1 produces. Both are localized, so the wording follows the request's language.
-*In code:* `Auth/Auth_API/Common/Middleware/GatewayTokenValidationMiddleware.cs:57-58,79-80,132-142`.
-
-**A business-rule failure is a standard ASP.NET Core `ProblemDetails` document** — every controller
-converts handler errors through `Problem(errors)`.
-
-**A rate-limit rejection from the API is HTTP 429 with a different shape entirely:**
+**A gateway-token rejection is HTTP 403 with the code `Auth.InvalidGatewayToken`**, whether the header is
+missing or does not match — which is exactly what limitation 1 produces:
 
 ```json
-{ "error": "Too many requests. Please try again later.", "retryAfter": 60 }
+{
+  "type": "https://tools.ietf.org/html/rfc9110#section-15.5.4",
+  "title": "Forbidden",
+  "status": 403,
+  "detail": "Invalid or missing gateway token. Direct API access is not allowed.",
+  "instance": "/api/v1/apikeys/validate",
+  "code": "Auth.InvalidGatewayToken",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
+}
 ```
 
-`retryAfter` is seconds expressed as a **decimal number**, not an integer, and the API sets **no**
-`Retry-After` header. The gateway, if you are going through it, answers 429 differently again: a
-`type`/`title`/`status`/`detail`/`retryAfter` body with an integer `retryAfter`, plus a real `Retry-After`
-header. If you write retry logic, handle both.
-*In code:* `Auth/Auth_API/Program.cs:823-839`; `Auth/API_Gateway/Program.cs:263-272`.
+*In code:* `Auth/Auth_API/Common/Middleware/GatewayTokenValidationMiddleware.cs:54,75`.
+
+**Errors the framework produces carry a transport code.** `Http.BadRequest` (400, including a body that
+is not valid JSON), `Http.Unauthenticated` (401), `Http.Forbidden` (403), `Http.NotFound` (404),
+`Http.MethodNotAllowed` (405), `Http.ContentTooLarge` (413), `Http.UnsupportedMediaType` (415),
+`Http.RateLimited` (429), `Http.Unavailable` (502, 503, 504) and `Http.Unexpected` (500). A 401 for an
+expired access token has the code `Http.TokenExpired` and still carries the `Token-Expired: true` header;
+a revoked token or session is `Http.TokenRevoked` or `Http.SessionRevoked`.
+
+**A rate-limit rejection is HTTP 429 with the same shape from the API and from the gateway.** The wait is
+the `Retry-After` header, in whole seconds, rounded up; there is no `retryAfter` member in the body:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Content-Type: application/problem+json
+Retry-After: 43
+```
+
+```json
+{
+  "title": "Too Many Requests",
+  "status": 429,
+  "detail": "Too many requests. Please try again later.",
+  "instance": "/api/v1/auth/token",
+  "code": "Http.RateLimited",
+  "traceId": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-00"
+}
+```
+
+*In code:* the 429 is set in `Auth/Auth_API/Program.cs:1018-1052` and `Auth/API_Gateway/Program.cs:334-374`.
+A 503 `Http.Unavailable` — the database or another dependency is unreachable — carries `Retry-After` too.
+
+### Error contract (breaking change)
+
+If your integration was written against an earlier AuthSystem, it read errors in shapes that no longer
+exist. There is no version that sends both formats. Switch to `code`:
+
+| What you read before | What you read now |
+|---|---|
+| The error code in `title` (for example `"title": "User.InvalidCredentials"`) | `code`. `title` is now the reason phrase, such as `Bad Request` |
+| `errors[].description`, or `errors[].field` and `message` on an exception body | Nothing: an entry is `{ "code", "pointer" }`. Use `code`, and `detail` for the first failure's sentence |
+| The `{ "field": ["message", …] }` dictionary for a body that did not bind | `Http.BadRequest` with no `errors`; a missing or invalid member gets its validation rule's code, with a `pointer` in `errors` when two or more rules fail |
+| The `retryAfter` member of a 429 body | The `Retry-After` header, on both hosts |
+| An empty body on a 401, 403, 404, 405 or 502 | A problem with a transport code (`Http.Unauthenticated`, `Http.Forbidden`, `Http.NotFound`, `Http.MethodNotAllowed`, `Http.Unavailable`) |
+| 404 for an unhandled `KeyNotFoundException`, 400 for `InvalidOperationException` or `ArgumentException`, 409 for a SQL unique-key violation | 500 `Http.Unexpected` |
+| `correlationId` on an exception body | `traceId` |
+
+A validation code now names the rule, never the field: `Password.TooLong`, `Email.Required`,
+`Paging.PageSizeOutOfRange`. Take the list of codes to branch on from `docs/api/error-codes.json`, not
+from the text of `detail`, which changes with the language.
 
 ---
 
@@ -1384,8 +1447,8 @@ Do these three in order. Each one isolates a different failure.
 - **401 from your own application** — the token was missing, expired, signed by a different key, or its
   `iss`/`aud` did not match your settings. Check `Issuer` and `Audience` first; the audience rule catches
   most people.
-- **403 with a `application/problem+json` body naming a gateway token** — this is limitation 1. Your call
-  never reached the endpoint.
+- **403 whose `code` is `Auth.InvalidGatewayToken`** — this is limitation 1. Your call never reached the
+  endpoint.
 - **403 from your own application after a successful authentication** — a permission check denied it. Look
   in your application's log for the SDK's warning line, which prints every permission the caller actually
   held next to the one you required.

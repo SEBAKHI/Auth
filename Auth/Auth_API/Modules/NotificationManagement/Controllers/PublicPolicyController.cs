@@ -92,8 +92,8 @@ public class PublicPolicyController : ControllerBase
         var result = await _sender.Send(query, cancellationToken);
         if (result.IsError)
         {
-            // A plain 404, not a problem+json envelope: the caller here is a
-            // browser showing a page to a person, not a client parsing errors.
+            // No catalog code to report: [ApiController] turns this empty 404
+            // into the error contract's problem, with Http.NotFound (ADR 0001).
             return NotFound();
         }
 
