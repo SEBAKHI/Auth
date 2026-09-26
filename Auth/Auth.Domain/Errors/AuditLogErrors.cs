@@ -37,4 +37,39 @@ public static class AuditLogErrors
     public static Error NoLogsFound => Error.NotFound(
         code: "AuditLog.NoLogsFound",
         description: "No audit logs found matching the specified criteria.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error DateRangeInvalid = Error.Validation(
+        code: "AuditLog.DateRangeInvalid",
+        description: "To date must be after from date.");
+
+    public static readonly Error EntityTypeRequired = Error.Validation(
+        code: "AuditLog.EntityTypeRequired",
+        description: "Entity type is required.");
+
+    public static readonly Error EntityTypeTooLong = Error.Validation(
+        code: "AuditLog.EntityTypeTooLong",
+        description: "Entity type must not exceed 100 characters.");
+
+    public static readonly Error ExportFormatInvalid = Error.Validation(
+        code: "AuditLog.ExportFormatInvalid",
+        description: "Format must be 'csv', 'json', or 'excel'.");
+
+    public static readonly Error ExportFormatRequired = Error.Validation(
+        code: "AuditLog.ExportFormatRequired",
+        description: "Export format is required.");
+
+    public static readonly Error ExportMaxRecordsOutOfRange = Error.Validation(
+        code: "AuditLog.ExportMaxRecordsOutOfRange",
+        description: "Max records must be between 1 and 10,000.");
+
+    public static readonly Error ParticipantIdRequired = Error.Validation(
+        code: "AuditLog.ParticipantIdRequired",
+        description: "A participant role needs the person it applies to.");
+
+    public static readonly Error ParticipantRoleRequired = Error.Validation(
+        code: "AuditLog.ParticipantRoleRequired",
+        description: "A participant filter needs a role: subject, actor, or either.");
 }

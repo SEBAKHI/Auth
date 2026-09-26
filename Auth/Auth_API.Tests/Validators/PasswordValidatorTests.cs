@@ -32,7 +32,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator();
 
-        var result = validator.Validate("StrongP@ss1234");
+        var result = validator.Validate("StrongP@ss1234", "Password");
 
         result.IsError.Should().BeFalse();
     }
@@ -42,7 +42,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator();
 
-        var result = validator.Validate("");
+        var result = validator.Validate("", "Password");
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Password.Required");
@@ -53,7 +53,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator();
 
-        var result = validator.Validate(null!);
+        var result = validator.Validate(null!, "Password");
 
         result.IsError.Should().BeTrue();
         result.FirstError.Code.Should().Be("Password.Required");
@@ -64,7 +64,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator(minimumLength: 12);
 
-        var result = validator.Validate("Short1@a");
+        var result = validator.Validate("Short1@a", "Password");
 
         result.IsError.Should().BeTrue();
         result.Errors.Should().Contain(e => e.Code == "Password.TooShort");
@@ -75,7 +75,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator(minimumLength: 8);
 
-        var result = validator.Validate("Str0ng@!");
+        var result = validator.Validate("Str0ng@!", "Password");
 
         result.IsError.Should().BeFalse();
     }
@@ -85,7 +85,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator(minimumLength: 8);
 
-        var result = validator.Validate("lowercase1@!");
+        var result = validator.Validate("lowercase1@!", "Password");
 
         result.IsError.Should().BeTrue();
         result.Errors.Should().Contain(e => e.Code == "Password.RequiresUppercase");
@@ -96,7 +96,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator(minimumLength: 8);
 
-        var result = validator.Validate("UPPERCASE1@!");
+        var result = validator.Validate("UPPERCASE1@!", "Password");
 
         result.IsError.Should().BeTrue();
         result.Errors.Should().Contain(e => e.Code == "Password.RequiresLowercase");
@@ -107,7 +107,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator(minimumLength: 8);
 
-        var result = validator.Validate("NoDigits@!");
+        var result = validator.Validate("NoDigits@!", "Password");
 
         result.IsError.Should().BeTrue();
         result.Errors.Should().Contain(e => e.Code == "Password.RequiresDigit");
@@ -118,7 +118,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator(minimumLength: 8);
 
-        var result = validator.Validate("NoSpecial1Aa");
+        var result = validator.Validate("NoSpecial1Aa", "Password");
 
         result.IsError.Should().BeTrue();
         result.Errors.Should().Contain(e => e.Code == "Password.RequiresSpecialCharacter");
@@ -129,7 +129,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator(minimumLength: 8);
 
-        var result = validator.Validate("Password1@!");
+        var result = validator.Validate("Password1@!", "Password");
 
         result.IsError.Should().BeTrue();
         result.Errors.Should().Contain(e => e.Code == "Password.CommonPattern");
@@ -140,7 +140,7 @@ public class PasswordValidatorTests
     {
         var validator = CreateValidator(minimumLength: 8);
 
-        var result = validator.Validate("Qwerty1@!x");
+        var result = validator.Validate("Qwerty1@!x", "Password");
 
         result.IsError.Should().BeTrue();
         result.Errors.Should().Contain(e => e.Code == "Password.CommonPattern");
@@ -152,7 +152,7 @@ public class PasswordValidatorTests
         var validator = CreateValidator(minimumLength: 20);
 
         // "abc" is too short, no uppercase, no digit, no special char
-        var result = validator.Validate("abc");
+        var result = validator.Validate("abc", "Password");
 
         result.IsError.Should().BeTrue();
         result.Errors.Should().Contain(e => e.Code == "Password.TooShort");
@@ -171,7 +171,7 @@ public class PasswordValidatorTests
             requireDigit: false,
             requireSpecialCharacter: false);
 
-        var result = validator.Validate("a");
+        var result = validator.Validate("a", "Password");
 
         result.IsError.Should().BeFalse();
     }

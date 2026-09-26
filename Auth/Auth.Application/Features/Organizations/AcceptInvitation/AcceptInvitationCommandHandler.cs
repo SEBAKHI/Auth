@@ -72,7 +72,7 @@ public class AcceptInvitationCommandHandler : IRequestHandler<AcceptInvitationCo
         var user = await _userRepository.GetByIdAsync(request.AcceptedBy, cancellationToken);
         if (user == null)
         {
-            return Error.NotFound(code: "User.NotFound", description: "User not found.");
+            return UserErrors.NotFound(request.AcceptedBy);
         }
 
         // Verify email matches (both are normalized lowercase by Email value object)

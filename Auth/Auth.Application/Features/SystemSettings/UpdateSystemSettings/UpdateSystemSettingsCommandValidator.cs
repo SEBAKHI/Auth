@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.SystemSettings.UpdateSystemSettings;
@@ -12,7 +13,7 @@ public class UpdateSystemSettingsCommandValidator : AbstractValidator<UpdateSyst
     public UpdateSystemSettingsCommandValidator()
     {
         RuleFor(x => x.SectionKey)
-            .NotEmpty().WithMessage("Validation.SectionKey.Required")
-            .MaximumLength(64).WithMessage("Validation.SectionKey.MaxLength");
+            .NotEmpty().WithErrorCode(SystemSettingsErrors.SectionKeyRequired.Code)
+            .MaximumLength(64).WithErrorCode(SystemSettingsErrors.SectionKeyTooLong.Code);
     }
 }

@@ -1,4 +1,5 @@
 using Auth.Domain.Enums;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Secrets.RequestSecretOperationChallenge;
@@ -14,12 +15,12 @@ public class RequestSecretOperationChallengeCommandValidator
     public RequestSecretOperationChallengeCommandValidator()
     {
         RuleFor(x => x.Operation)
-            .IsInEnum().WithMessage("Validation.SecretOperation.Invalid");
+            .IsInEnum().WithErrorCode(SecretErrors.OperationInvalid.Code);
 
         // The import operations bind the confirmation to the material being
         // imported, so it has to be present at confirmation time, not later.
         RuleFor(x => x.Value)
-            .NotEmpty().WithMessage("Validation.SecretOperation.ValueRequired")
+            .NotEmpty().WithErrorCode(SecretErrors.OperationValueRequired.Code)
             .When(x => x.Operation is SecretOperation.ImportRsaKey
                 or SecretOperation.ImportHmacKey
                 or SecretOperation.ImportGatewayToken);

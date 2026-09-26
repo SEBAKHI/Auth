@@ -1,103 +1,119 @@
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
+using ErrorOr;
 using FluentValidation;
 
 namespace Auth.Application.Validators.Rules;
 
 /// <summary>
 /// Reusable FluentValidation rule extensions for common field types.
-/// Message values are resource keys resolved by the localization layer at the API edge.
+/// Every rule declares a catalog code with WithErrorCode (ADR 0001); the API localizes by that code.
 /// </summary>
 public static class SharedValidationRules
 {
     public static IRuleBuilderOptions<T, string> IsValidEmail<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Validation.Email.Required")
-            .EmailAddress().WithMessage("Validation.Email.InvalidFormat")
+            .NotEmpty().WithErrorCode(EmailErrors.Required.Code)
+            .EmailAddress().WithErrorCode(EmailErrors.InvalidFormat.Code)
             // 254, the same bound Email.Create applies and one under the
             // NVARCHAR(255) columns that store addresses. 256 let a 255- or
             // 256-character address through every validator and into an INSERT
             // that failed with a truncation error — a 500 on an anonymous
             // endpoint, repeatable at the registration limit.
-            .MaximumLength(254).WithMessage("Validation.Email.MaxLength");
+            .MaximumLength(254).WithErrorCode(EmailErrors.TooLong.Code);
+    }
+
+    /// <summary>
+    /// The contact address of an organization or an application. Its own codes,
+    /// because a code names one request member (ADR 0001) and this one is
+    /// <c>contactEmail</c>, not <c>email</c>. 254 for the same reason as
+    /// <see cref="IsValidEmail{T}"/>; the columns are NVARCHAR(255).
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> IsValidContactEmail<T>(this IRuleBuilder<T, string> ruleBuilder)
+    {
+        return ruleBuilder
+            .NotEmpty().WithErrorCode(ContactEmailErrors.Required.Code)
+            .EmailAddress().WithErrorCode(ContactEmailErrors.InvalidFormat.Code)
+            .MaximumLength(254).WithErrorCode(ContactEmailErrors.TooLong.Code);
     }
 
     public static IRuleBuilderOptions<T, string> IsValidFirstName<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Validation.FirstName.Required")
-            .MaximumLength(100).WithMessage("Validation.FirstName.MaxLength");
+            .NotEmpty().WithErrorCode(UserErrors.FirstNameRequired.Code)
+            .MaximumLength(100).WithErrorCode(UserErrors.FirstNameTooLong.Code);
     }
 
     public static IRuleBuilderOptions<T, string> IsValidLastName<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Validation.LastName.Required")
-            .MaximumLength(100).WithMessage("Validation.LastName.MaxLength");
+            .NotEmpty().WithErrorCode(UserErrors.LastNameRequired.Code)
+            .MaximumLength(100).WithErrorCode(UserErrors.LastNameTooLong.Code);
     }
 
     public static IRuleBuilderOptions<T, string?> IsValidPhoneNumber<T>(this IRuleBuilder<T, string?> ruleBuilder)
     {
         return ruleBuilder
-            .MaximumLength(20).WithMessage("Validation.PhoneNumber.MaxLength");
+            .MaximumLength(20).WithErrorCode(PhoneNumberErrors.TooLong.Code);
     }
 
     public static IRuleBuilderOptions<T, string> IsRequiredPassword<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Validation.Password.Required")
+            .NotEmpty().WithErrorCode(PasswordErrors.Required.Code)
             // A ceiling, not policy: PasswordValidator owns complexity and the
             // minimum. Without one this field accepted a request-body-sized
             // string, and every byte of it was regex-scanned and then fed to
             // Argon2id on an anonymous endpoint.
-            .MaximumLength(PasswordLimits.MaxLength).WithMessage("Validation.Password.MaxLength");
+            .MaximumLength(PasswordLimits.MaxLength).WithErrorCode(PasswordErrors.TooLong.Code);
     }
 
     public static IRuleBuilderOptions<T, string> IsValidCode<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Validation.Code.Required")
-            .MaximumLength(100).WithMessage("Validation.Code.MaxLength100")
-            .Matches("^[a-zA-Z0-9._-]+$").WithMessage("Validation.Code.InvalidFormat");
+            .NotEmpty().WithErrorCode(CodeErrors.Required.Code)
+            .MaximumLength(100).WithErrorCode(CodeErrors.TooLong.Code)
+            .Matches("^[a-zA-Z0-9._-]+$").WithErrorCode(CodeErrors.InvalidFormat.Code);
     }
 
     public static IRuleBuilderOptions<T, string> IsValidPermissionCode<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Validation.Code.Required")
-            .MaximumLength(200).WithMessage("Validation.PermissionCode.MaxLength")
-            .Matches(@"^[a-z0-9:*_\-]+$").WithMessage("Validation.PermissionCode.InvalidFormat");
+            .NotEmpty().WithErrorCode(PermissionCodeErrors.Required.Code)
+            .MaximumLength(200).WithErrorCode(PermissionCodeErrors.TooLong.Code)
+            .Matches(@"^[a-z0-9:*_\-]+$").WithErrorCode(PermissionCodeErrors.InvalidFormat.Code);
     }
 
     public static IRuleBuilderOptions<T, string> IsValidName<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Validation.Name.Required")
-            .MaximumLength(200).WithMessage("Validation.Name.MaxLength");
+            .NotEmpty().WithErrorCode(NameErrors.Required.Code)
+            .MaximumLength(200).WithErrorCode(NameErrors.TooLong.Code);
     }
 
     public static IRuleBuilderOptions<T, string?> IsValidDescription<T>(this IRuleBuilder<T, string?> ruleBuilder)
     {
         return ruleBuilder
-            .MaximumLength(500).WithMessage("Validation.Description.MaxLength");
+            .MaximumLength(500).WithErrorCode(DescriptionErrors.TooLong.Code);
     }
 
     public static IRuleBuilderOptions<T, int> IsValidPageNumber<T>(this IRuleBuilder<T, int> ruleBuilder)
     {
         return ruleBuilder
-            .GreaterThanOrEqualTo(1).WithMessage("Validation.PageNumber.Min");
+            .GreaterThanOrEqualTo(1).WithErrorCode(PagingErrors.PageNumberOutOfRange.Code);
     }
 
     public static IRuleBuilderOptions<T, int> IsValidPageSize<T>(this IRuleBuilder<T, int> ruleBuilder)
     {
         return ruleBuilder
-            .InclusiveBetween(1, 100).WithMessage("Validation.PageSize.Range");
+            .InclusiveBetween(1, 100).WithErrorCode(PagingErrors.PageSizeOutOfRange.Code);
     }
 
     public static IRuleBuilderOptions<T, int> IsValidTrailingWindowDays<T>(this IRuleBuilder<T, int> ruleBuilder)
     {
         return ruleBuilder
-            .InclusiveBetween(1, 90).WithMessage("Validation.Days.Range");
+            .InclusiveBetween(1, 90).WithErrorCode(DashboardErrors.DaysOutOfRange.Code);
     }
 
     /// <summary>
@@ -112,7 +128,7 @@ public static class SharedValidationRules
     {
         return ruleBuilder
             .Must(minutes => minutes is null || (minutes >= 1 && minutes <= 10080))
-            .WithMessage("Validation.ReauthenticationMaxAge.Range");
+            .WithErrorCode(ApplicationErrors.ReauthenticationMaxAgeOutOfRange.Code);
     }
 
     /// <summary>
@@ -127,7 +143,7 @@ public static class SharedValidationRules
     {
         return ruleBuilder
             .Must(uris => uris.Count <= MaxRedirectUris)
-            .WithMessage("Validation.RedirectUri.TooMany");
+            .WithErrorCode(ApplicationErrors.RedirectUrisTooMany.Code);
     }
 
     /// <summary>
@@ -140,7 +156,7 @@ public static class SharedValidationRules
     {
         return ruleBuilder
             .Must(BeAValidRedirectUri)
-            .WithMessage("Validation.RedirectUri.Invalid");
+            .WithErrorCode(ApplicationErrors.RedirectUriInvalid.Code);
     }
 
     private static bool BeAValidRedirectUri(string uri)
@@ -175,27 +191,38 @@ public static class SharedValidationRules
         return ruleBuilder
             .Must(field => field is null ||
                 allowedFields.Contains(field, StringComparer.OrdinalIgnoreCase))
-            .WithMessage("Validation.SortBy.NotAllowed");
+            .WithErrorCode(SortingErrors.SortByNotAllowed.Code);
     }
 
-    public static IRuleBuilderOptions<T, string?> IsValidUrl<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    /// <param name="required">The code of the token's own concept, since several endpoints take a <c>token</c>.</param>
+    public static IRuleBuilderOptions<T, string> IsRequiredToken<T>(this IRuleBuilder<T, string> ruleBuilder, Error required)
     {
         return ruleBuilder
-            .MaximumLength(2048).WithMessage("Validation.Url.MaxLength");
+            .NotEmpty().WithErrorCode(required.Code);
     }
 
-    public static IRuleBuilderOptions<T, string> IsRequiredToken<T>(this IRuleBuilder<T, string> ruleBuilder)
+    /// <summary>
+    /// A six-digit authenticator code on the two-factor endpoints (<c>code</c>).
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> IsValidTwoFactorCode<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Validation.Token.Required");
+            .NotEmpty().WithErrorCode(TwoFactorErrors.CodeRequired.Code)
+            .Matches(SixDigitCodePattern).WithErrorCode(TwoFactorErrors.CodeInvalidFormat.Code);
     }
 
-    public static IRuleBuilderOptions<T, string> IsValidTotpCode<T>(this IRuleBuilder<T, string> ruleBuilder)
+    /// <summary>
+    /// The six-digit code sent to an address during registration and email
+    /// verification (<c>otp</c>).
+    /// </summary>
+    public static IRuleBuilderOptions<T, string> IsValidEmailOtp<T>(this IRuleBuilder<T, string> ruleBuilder)
     {
         return ruleBuilder
-            .NotEmpty().WithMessage("Validation.TotpCode.Required")
-            .Matches("^[0-9]{6}$").WithMessage("Validation.TotpCode.InvalidFormat");
+            .NotEmpty().WithErrorCode(EmailVerificationErrors.OtpRequired.Code)
+            .Matches(SixDigitCodePattern).WithErrorCode(EmailVerificationErrors.InvalidOtpFormat.Code);
     }
+
+    private const string SixDigitCodePattern = "^[0-9]{6}$";
 
     /// <summary>
     /// Languages a user may store as a preferred language. Mirrors the culture
@@ -209,7 +236,7 @@ public static class SharedValidationRules
         return ruleBuilder
             .Must(language => language is null ||
                 SupportedPreferredLanguages.Contains(language, StringComparer.OrdinalIgnoreCase))
-            .WithMessage("Validation.PreferredLanguage.NotSupported");
+            .WithErrorCode(UserErrors.PreferredLanguageNotSupported.Code);
     }
 
     /// <summary>
@@ -222,18 +249,22 @@ public static class SharedValidationRules
         return ruleBuilder
             .Must(theme => theme is null ||
                 SupportedThemes.Contains(theme, StringComparer.OrdinalIgnoreCase))
-            .WithMessage("Validation.Theme.NotSupported");
+            .WithErrorCode(UserErrors.ThemeNotSupported.Code);
     }
 
     /// <summary>
     /// The time zone must be an IANA identifier (e.g. "Asia/Riyadh") or "UTC".
     /// Windows ids are rejected so stored values stay portable across clients.
     /// </summary>
-    public static IRuleBuilderOptions<T, string?> IsValidTimeZone<T>(this IRuleBuilder<T, string?> ruleBuilder)
+    /// <param name="invalid">
+    /// The code for the caller's member: a user's stored preference and a
+    /// statistics query parameter are different members (ADR 0001).
+    /// </param>
+    public static IRuleBuilderOptions<T, string?> IsValidTimeZone<T>(this IRuleBuilder<T, string?> ruleBuilder, Error invalid)
     {
         return ruleBuilder
             .Must(timeZone => timeZone is null || IsIanaTimeZone(timeZone))
-            .WithMessage("Validation.TimeZone.Invalid");
+            .WithErrorCode(invalid.Code);
     }
 
     private static bool IsIanaTimeZone(string id)

@@ -1,5 +1,6 @@
 using Auth.Application.Features.Notifications.CreateNotificationLayout;
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Notifications.PreviewNotificationLayout;
@@ -14,15 +15,15 @@ public class PreviewNotificationLayoutCommandValidator : AbstractValidator<Previ
     public PreviewNotificationLayoutCommandValidator()
     {
         RuleFor(x => x.LayoutContent)
-            .NotEmpty().WithMessage("Validation.NotificationLayoutContent.Required")
-            .MaximumLength(MaxContentLength).WithMessage("Validation.NotificationLayoutContent.MaxLength");
+            .NotEmpty().WithErrorCode(NotificationErrors.PreviewLayoutContentRequired.Code)
+            .MaximumLength(MaxContentLength).WithErrorCode(NotificationErrors.PreviewLayoutContentTooLong.Code);
 
         RuleFor(x => x.LayoutStringsJson)
             .Must(CreateNotificationLayoutCommandValidator.BeValidJsonObject)
-            .WithMessage("Validation.NotificationLayoutStrings.InvalidJson");
+            .WithErrorCode(NotificationErrors.PreviewLayoutStringsInvalidJson.Code);
 
         RuleFor(x => x.LanguageCode)
-            .NotEmpty().WithMessage("Validation.NotificationLanguage.Required")
-            .Must(Languages.IsSupported).WithMessage("Validation.NotificationLanguage.NotSupported");
+            .NotEmpty().WithErrorCode(NotificationErrors.LanguageCodeRequired.Code)
+            .Must(Languages.IsSupported).WithErrorCode(NotificationErrors.LanguageCodeNotSupported.Code);
     }
 }

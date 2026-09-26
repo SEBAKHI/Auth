@@ -115,7 +115,7 @@ public class SortFieldValidationTests
         var result = _validator.Validate(new GetUsersQuery(SortBy: sortBy));
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(e => e.ErrorMessage == "Validation.SortBy.NotAllowed");
+        result.Errors.Should().Contain(e => e.ErrorCode == "Sorting.SortByNotAllowed");
     }
 
     [Fact]

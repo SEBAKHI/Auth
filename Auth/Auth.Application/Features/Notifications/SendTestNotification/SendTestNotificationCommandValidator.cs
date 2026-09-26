@@ -1,4 +1,5 @@
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Notifications.SendTestNotification;
@@ -11,11 +12,11 @@ public class SendTestNotificationCommandValidator : AbstractValidator<SendTestNo
     public SendTestNotificationCommandValidator()
     {
         RuleFor(x => x.LanguageCode)
-            .NotEmpty().WithMessage("Validation.NotificationLanguage.Required")
-            .Must(Languages.IsSupported).WithMessage("Validation.NotificationLanguage.NotSupported");
+            .NotEmpty().WithErrorCode(NotificationErrors.LanguageCodeRequired.Code)
+            .Must(Languages.IsSupported).WithErrorCode(NotificationErrors.LanguageCodeNotSupported.Code);
 
         RuleFor(x => x.RecipientEmail)
-            .NotEmpty().WithMessage("Validation.NotificationRecipientEmail.Required")
-            .EmailAddress().WithMessage("Validation.NotificationRecipientEmail.InvalidFormat");
+            .NotEmpty().WithErrorCode(NotificationErrors.RecipientEmailRequired.Code)
+            .EmailAddress().WithErrorCode(NotificationErrors.RecipientEmailInvalidFormat.Code);
     }
 }

@@ -276,15 +276,6 @@
   <data name="Application.DuplicateCode" xml:space="preserve">
     <value>代码为'{0}'的应用程序已存在。</value>
   </data>
-  <data name="Application.CannotDeleteSystem" xml:space="preserve">
-    <value>系统应用程序不能被删除。</value>
-  </data>
-  <data name="Application.CannotModifySystem" xml:space="preserve">
-    <value>系统应用程序不能被修改。</value>
-  </data>
-  <data name="Application.HasActiveApiKeys" xml:space="preserve">
-    <value>无法删除具有活跃API密钥的应用程序，请先撤销所有API密钥。</value>
-  </data>
   <data name="Application.HasActiveUsers" xml:space="preserve">
     <value>无法删除具有活跃用户分配的应用程序。</value>
   </data>
@@ -877,5 +868,539 @@
   </data>
   <data name="User.AccountCreatedSignInRequired" xml:space="preserve">
     <value>您的账户已创建，但登录未能完成。请使用新密码登录。</value>
+  </data>
+  <data name="AccountDeletion.OtpCodeInvalidFormat" xml:space="preserve">
+    <value>验证码必须为 6 位数字。</value>
+  </data>
+  <data name="AccountDeletion.OtpCodeRequired" xml:space="preserve">
+    <value>验证码为必填项。</value>
+  </data>
+  <data name="ApiKey.InvalidPrefix" xml:space="preserve">
+    <value>API密钥必须以有效前缀（ak_）开头。</value>
+  </data>
+  <data name="ApiKey.RateLimitPerDayNotPositive" xml:space="preserve">
+    <value>每日速率限制必须大于0。</value>
+  </data>
+  <data name="ApiKey.RateLimitPerMinuteNotPositive" xml:space="preserve">
+    <value>每分钟速率限制必须大于0。</value>
+  </data>
+  <data name="ApiKey.Required" xml:space="preserve">
+    <value>API密钥为必填项。</value>
+  </data>
+  <data name="Application.AccessModeInvalid" xml:space="preserve">
+    <value>无法识别访问模式。</value>
+  </data>
+  <data name="Application.AccessNoteTooLong" xml:space="preserve">
+    <value>备注不能超过500个字符。</value>
+  </data>
+  <data name="Application.BaseUrlTooLong" xml:space="preserve">
+    <value>URL长度不能超过500个字符。</value>
+  </data>
+  <data name="Application.IdRequired" xml:space="preserve">
+    <value>应用程序ID为必填项。</value>
+  </data>
+  <data name="Application.LogoUrlTooLong" xml:space="preserve">
+    <value>URL长度不能超过500个字符。</value>
+  </data>
+  <data name="Application.MaxConcurrentSessionsNotPositive" xml:space="preserve">
+    <value>最大并发会话数必须大于0。</value>
+  </data>
+  <data name="Application.ReauthenticationMaxAgeOutOfRange" xml:space="preserve">
+    <value>重新认证的最长时限必须介于1到10080分钟之间。</value>
+  </data>
+  <data name="Application.RedirectUriInvalid" xml:space="preserve">
+    <value>每个重定向 URI 必须是绝对的 https 地址（仅 localhost 允许 http），不含片段（fragment），最多 500 个字符。</value>
+  </data>
+  <data name="Application.RedirectUrisTooMany" xml:space="preserve">
+    <value>最多允许 20 个重定向 URI。</value>
+  </data>
+  <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
+    <value>会话超时时间必须大于0。</value>
+  </data>
+  <data name="AuditLog.DateRangeInvalid" xml:space="preserve">
+    <value>结束日期必须晚于起始日期。</value>
+  </data>
+  <data name="AuditLog.EntityTypeRequired" xml:space="preserve">
+    <value>实体类型为必填项。</value>
+  </data>
+  <data name="AuditLog.EntityTypeTooLong" xml:space="preserve">
+    <value>实体类型长度不能超过100个字符。</value>
+  </data>
+  <data name="AuditLog.ExportFormatInvalid" xml:space="preserve">
+    <value>格式必须为'csv'、'json'或'excel'。</value>
+  </data>
+  <data name="AuditLog.ExportFormatRequired" xml:space="preserve">
+    <value>导出格式为必填项。</value>
+  </data>
+  <data name="AuditLog.ExportMaxRecordsOutOfRange" xml:space="preserve">
+    <value>最大记录数必须在1到10,000之间。</value>
+  </data>
+  <data name="AuditLog.ParticipantIdRequired" xml:space="preserve">
+    <value>参与者角色需要指定其适用的人员。</value>
+  </data>
+  <data name="AuditLog.ParticipantRoleRequired" xml:space="preserve">
+    <value>参与者筛选需要指定角色：对象、操作者或两者。</value>
+  </data>
+  <data name="Auth.RefreshTokenRequired" xml:space="preserve">
+    <value>刷新令牌为必填项。</value>
+  </data>
+  <data name="Auth.TokenRequired" xml:space="preserve">
+    <value>令牌为必填项。</value>
+  </data>
+  <data name="Code.InvalidFormat" xml:space="preserve">
+    <value>代码只能包含字母、数字、点、连字符和下划线。</value>
+  </data>
+  <data name="Code.Required" xml:space="preserve">
+    <value>代码为必填项。</value>
+  </data>
+  <data name="Code.TooLong" xml:space="preserve">
+    <value>代码长度不能超过100个字符。</value>
+  </data>
+  <data name="ContactEmail.InvalidFormat" xml:space="preserve">
+    <value>需要有效的联系邮箱地址。</value>
+  </data>
+  <data name="ContactEmail.Required" xml:space="preserve">
+    <value>联系邮箱为必填项。</value>
+  </data>
+  <data name="ContactEmail.TooLong" xml:space="preserve">
+    <value>联系邮箱长度不能超过254个字符。</value>
+  </data>
+  <data name="Dashboard.DaysOutOfRange" xml:space="preserve">
+    <value>天数必须在1到90之间。</value>
+  </data>
+  <data name="Dashboard.HorizonDaysOutOfRange" xml:space="preserve">
+    <value>时间范围必须在1到365天之间。</value>
+  </data>
+  <data name="Dashboard.TimeZoneInvalid" xml:space="preserve">
+    <value>时区必须是有效的 IANA 标识符（例如 Asia/Riyadh）。</value>
+  </data>
+  <data name="Dashboard.TimeZoneRequired" xml:space="preserve">
+    <value>时区为必填项。</value>
+  </data>
+  <data name="Description.TooLong" xml:space="preserve">
+    <value>描述长度不能超过500个字符。</value>
+  </data>
+  <data name="Email.InvalidFormat" xml:space="preserve">
+    <value>需要有效的邮箱地址。</value>
+  </data>
+  <data name="Email.Required" xml:space="preserve">
+    <value>邮箱为必填项。</value>
+  </data>
+  <data name="Email.TooLong" xml:space="preserve">
+    <value>邮箱长度不能超过254个字符。</value>
+  </data>
+  <data name="EmailVerification.OtpRequired" xml:space="preserve">
+    <value>验证码为必填项。</value>
+  </data>
+  <data name="EmailVerification.TargetRequired" xml:space="preserve">
+    <value>必须提供用户ID或电子邮件地址。</value>
+  </data>
+  <data name="Environment.Required" xml:space="preserve">
+    <value>环境为必填项。</value>
+  </data>
+  <data name="Environment.TooLong" xml:space="preserve">
+    <value>环境名称不能超过50个字符。</value>
+  </data>
+  <data name="Expiry.NotInFuture" xml:space="preserve">
+    <value>过期日期必须在未来。</value>
+  </data>
+  <data name="ExternalAuth.IdTokenRequired" xml:space="preserve">
+    <value>ID令牌为必填项。</value>
+  </data>
+  <data name="ExternalAuth.ProviderRequired" xml:space="preserve">
+    <value>提供商为必填项。</value>
+  </data>
+  <data name="ExternalAuth.ProviderTooLong" xml:space="preserve">
+    <value>提供方名称过长。</value>
+  </data>
+  <data name="Image.DimensionsTooLarge" xml:space="preserve">
+    <value>图片尺寸超过了{0}百万像素的上限。</value>
+  </data>
+  <data name="Image.FileRequired" xml:space="preserve">
+    <value>未提供文件。</value>
+  </data>
+  <data name="Image.FileTooLarge" xml:space="preserve">
+    <value>文件超过了{0}字节的最大限制。</value>
+  </data>
+  <data name="Image.Invalid" xml:space="preserve">
+    <value>该文件不是有效的图片。</value>
+  </data>
+  <data name="Image.QuotaExceeded" xml:space="preserve">
+    <value>已达到存储配额：已使用{0}/{1}字节。请删除不再需要的图片，或请管理员提高配额。</value>
+  </data>
+  <data name="Image.StorageUnavailable" xml:space="preserve">
+    <value>图片存储不可用。</value>
+  </data>
+  <data name="Image.UnsupportedType" xml:space="preserve">
+    <value>不支持此图片类型。</value>
+  </data>
+  <data name="KeyRotation.GracePeriodNegative" xml:space="preserve">
+    <value>宽限期必须为0或更大。</value>
+  </data>
+  <data name="Name.Required" xml:space="preserve">
+    <value>名称为必填项。</value>
+  </data>
+  <data name="Name.TooLong" xml:space="preserve">
+    <value>名称长度不能超过200个字符。</value>
+  </data>
+  <data name="Notification.BodyHtmlRequired" xml:space="preserve">
+    <value>正文为必填项。</value>
+  </data>
+  <data name="Notification.BodyHtmlTooLong" xml:space="preserve">
+    <value>正文过大。</value>
+  </data>
+  <data name="Notification.BodyTextTooLong" xml:space="preserve">
+    <value>正文过大。</value>
+  </data>
+  <data name="Notification.ChangeNoteTooLong" xml:space="preserve">
+    <value>变更备注不得超过 500 个字符。</value>
+  </data>
+  <data name="Notification.ChannelInvalid" xml:space="preserve">
+    <value>通知渠道无效。</value>
+  </data>
+  <data name="Notification.DefaultLanguageNotSupported" xml:space="preserve">
+    <value>不支持该语言。</value>
+  </data>
+  <data name="Notification.DefaultLanguageRequired" xml:space="preserve">
+    <value>语言为必填项。</value>
+  </data>
+  <data name="Notification.LanguageCodeNotSupported" xml:space="preserve">
+    <value>不支持该语言。</value>
+  </data>
+  <data name="Notification.LanguageCodeRequired" xml:space="preserve">
+    <value>语言为必填项。</value>
+  </data>
+  <data name="Notification.LayoutContentTooLong" xml:space="preserve">
+    <value>布局内容过大。</value>
+  </data>
+  <data name="Notification.LayoutNameRequired" xml:space="preserve">
+    <value>布局名称为必填项。</value>
+  </data>
+  <data name="Notification.LayoutNameTooLong" xml:space="preserve">
+    <value>布局名称不得超过 200 个字符。</value>
+  </data>
+  <data name="Notification.LayoutStringsInvalidJson" xml:space="preserve">
+    <value>布局文本必须是有效的 JSON 对象。</value>
+  </data>
+  <data name="Notification.PreviewLayoutContentRequired" xml:space="preserve">
+    <value>布局内容为必填项。</value>
+  </data>
+  <data name="Notification.PreviewLayoutContentTooLong" xml:space="preserve">
+    <value>布局内容过大。</value>
+  </data>
+  <data name="Notification.PreviewLayoutStringsInvalidJson" xml:space="preserve">
+    <value>布局文本必须是有效的 JSON 对象。</value>
+  </data>
+  <data name="Notification.RecipientEmailInvalidFormat" xml:space="preserve">
+    <value>收件人邮箱格式无效。</value>
+  </data>
+  <data name="Notification.RecipientEmailRequired" xml:space="preserve">
+    <value>收件人邮箱为必填项。</value>
+  </data>
+  <data name="Notification.RemovedLanguageNotSupported" xml:space="preserve">
+    <value>不支持该语言。</value>
+  </data>
+  <data name="Notification.SampleDataInvalidJson" xml:space="preserve">
+    <value>示例数据必须是有效的 JSON 对象。</value>
+  </data>
+  <data name="Notification.SubjectRequired" xml:space="preserve">
+    <value>主题为必填项。</value>
+  </data>
+  <data name="Notification.SubjectTooLong" xml:space="preserve">
+    <value>主题不得超过 500 个字符。</value>
+  </data>
+  <data name="Notification.TranslationLanguageNotSupported" xml:space="preserve">
+    <value>不支持该语言。</value>
+  </data>
+  <data name="Notification.TranslationLanguageRequired" xml:space="preserve">
+    <value>语言为必填项。</value>
+  </data>
+  <data name="Notification.TypeDescriptionTooLong" xml:space="preserve">
+    <value>类型描述不得超过 500 个字符。</value>
+  </data>
+  <data name="Notification.TypeIdRequired" xml:space="preserve">
+    <value>通知类型为必填项。</value>
+  </data>
+  <data name="Notification.TypeNameRequired" xml:space="preserve">
+    <value>类型名称为必填项。</value>
+  </data>
+  <data name="Notification.TypeNameTooLong" xml:space="preserve">
+    <value>类型名称不得超过 200 个字符。</value>
+  </data>
+  <data name="Notification.VariablesInvalidJson" xml:space="preserve">
+    <value>变量目录必须是有效的 JSON 数组。</value>
+  </data>
+  <data name="Organization.CodeInvalidFormat" xml:space="preserve">
+    <value>组织代码只能包含字母、数字、连字符和下划线。</value>
+  </data>
+  <data name="Organization.CodeRequired" xml:space="preserve">
+    <value>组织代码为必填项。</value>
+  </data>
+  <data name="Organization.CodeTooLong" xml:space="preserve">
+    <value>组织代码长度不能超过50个字符。</value>
+  </data>
+  <data name="Organization.DescriptionTooLong" xml:space="preserve">
+    <value>描述长度不能超过1000个字符。</value>
+  </data>
+  <data name="Organization.IdRequired" xml:space="preserve">
+    <value>组织ID为必填项。</value>
+  </data>
+  <data name="Organization.InvitationCannotBeAccepted" xml:space="preserve">
+    <value>无法接受此邀请。</value>
+  </data>
+  <data name="Organization.InvitationIdRequired" xml:space="preserve">
+    <value>邀请ID为必填项。</value>
+  </data>
+  <data name="Organization.InvitationNotPending" xml:space="preserve">
+    <value>只能更改待处理的邀请。</value>
+  </data>
+  <data name="Organization.InvitationTokenRequired" xml:space="preserve">
+    <value>令牌为必填项。</value>
+  </data>
+  <data name="Organization.LogoUrlTooLong" xml:space="preserve">
+    <value>URL长度不能超过500个字符。</value>
+  </data>
+  <data name="Organization.NameRequired" xml:space="preserve">
+    <value>组织名称为必填项。</value>
+  </data>
+  <data name="Organization.NameTooLong" xml:space="preserve">
+    <value>组织名称长度不能超过200个字符。</value>
+  </data>
+  <data name="Organization.NewOwnerIdRequired" xml:space="preserve">
+    <value>必须指定新所有者。</value>
+  </data>
+  <data name="Organization.SubscriptionTierTooLong" xml:space="preserve">
+    <value>订阅级别不能超过50个字符。</value>
+  </data>
+  <data name="Organization.TransferCodeInvalidFormat" xml:space="preserve">
+    <value>确认码必须为 6 位数字。</value>
+  </data>
+  <data name="Organization.WebsiteTooLong" xml:space="preserve">
+    <value>网站URL长度不能超过500个字符。</value>
+  </data>
+  <data name="Paging.PageNumberOutOfRange" xml:space="preserve">
+    <value>页码最小值为1。</value>
+  </data>
+  <data name="Paging.PageSizeOutOfRange" xml:space="preserve">
+    <value>每页条数必须在1到100之间。</value>
+  </data>
+  <data name="Paging.TakeOutOfRange" xml:space="preserve">
+    <value>条目数量必须介于1到100之间。</value>
+  </data>
+  <data name="Password.CommonPattern" xml:space="preserve">
+    <value>密码包含容易被猜到的常见模式。</value>
+  </data>
+  <data name="Password.CurrentRequired" xml:space="preserve">
+    <value>当前密码为必填项。</value>
+  </data>
+  <data name="Password.CurrentTooLong" xml:space="preserve">
+    <value>密码长度不能超过128个字符。</value>
+  </data>
+  <data name="Password.NewMustDiffer" xml:space="preserve">
+    <value>新密码必须与当前密码不同。</value>
+  </data>
+  <data name="Password.NewRequired" xml:space="preserve">
+    <value>新密码为必填项。</value>
+  </data>
+  <data name="Password.NewTooLong" xml:space="preserve">
+    <value>密码长度不能超过128个字符。</value>
+  </data>
+  <data name="Password.Required" xml:space="preserve">
+    <value>密码为必填项。</value>
+  </data>
+  <data name="Password.RequiresDigit" xml:space="preserve">
+    <value>密码必须包含至少一个数字。</value>
+  </data>
+  <data name="Password.RequiresLowercase" xml:space="preserve">
+    <value>密码必须包含至少一个小写字母。</value>
+  </data>
+  <data name="Password.RequiresSpecialCharacter" xml:space="preserve">
+    <value>密码必须包含至少一个特殊字符（!@#$%^&amp;*()-_=+[]{}|;:'",. &lt;&gt;?/）。</value>
+  </data>
+  <data name="Password.RequiresUppercase" xml:space="preserve">
+    <value>密码必须包含至少一个大写字母。</value>
+  </data>
+  <data name="Password.TooLong" xml:space="preserve">
+    <value>密码长度不能超过128个字符。</value>
+  </data>
+  <data name="Password.TooShort" xml:space="preserve">
+    <value>密码长度不能少于{0}个字符。</value>
+  </data>
+  <data name="PasswordReset.TokenRequired" xml:space="preserve">
+    <value>重置令牌为必填项。</value>
+  </data>
+  <data name="PermissionCode.InvalidFormat" xml:space="preserve">
+    <value>权限代码只能包含小写字母、数字、冒号、连字符、下划线和星号。</value>
+  </data>
+  <data name="PermissionCode.Required" xml:space="preserve">
+    <value>权限代码为必填项。</value>
+  </data>
+  <data name="PermissionCode.TooLong" xml:space="preserve">
+    <value>代码长度不能超过200个字符。</value>
+  </data>
+  <data name="Persistence.ReferenceConflict" xml:space="preserve">
+    <value>操作无法完成，因为存在引用此资源的关联记录。</value>
+  </data>
+  <data name="PhoneNumber.InvalidFormat" xml:space="preserve">
+    <value>电话号码格式无效。</value>
+  </data>
+  <data name="PhoneNumber.Required" xml:space="preserve">
+    <value>电话号码为必填项。</value>
+  </data>
+  <data name="PhoneNumber.TooFewDigits" xml:space="preserve">
+    <value>电话号码至少需要包含7位数字。</value>
+  </data>
+  <data name="PhoneNumber.TooLong" xml:space="preserve">
+    <value>电话号码长度不能超过20个字符。</value>
+  </data>
+  <data name="PrivacyPolicy.VersionInvalidFormat" xml:space="preserve">
+    <value>政策版本必须采用 YYYY.MM 格式。</value>
+  </data>
+  <data name="PrivacyPolicy.VersionRequired" xml:space="preserve">
+    <value>必须提供政策版本。</value>
+  </data>
+  <data name="Search.TermTooLong" xml:space="preserve">
+    <value>搜索词长度不能超过200个字符。</value>
+  </data>
+  <data name="Secret.AdminApiDisabled" xml:space="preserve">
+    <value>密钥管理的管理员API已禁用。</value>
+  </data>
+  <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
+    <value>验证码必须为 6 位数字。</value>
+  </data>
+  <data name="Secret.ChallengeCodeRequired" xml:space="preserve">
+    <value>验证码为必填项。</value>
+  </data>
+  <data name="Secret.ChallengeIdRequired" xml:space="preserve">
+    <value>此操作需要已验证的确认。</value>
+  </data>
+  <data name="Secret.GatewayTokenRequired" xml:space="preserve">
+    <value>网关令牌为必填项。</value>
+  </data>
+  <data name="Secret.GatewayTokenTooShort" xml:space="preserve">
+    <value>网关令牌不得少于16个字符。</value>
+  </data>
+  <data name="Secret.HmacKeyRequired" xml:space="preserve">
+    <value>HMAC密钥为必填项。</value>
+  </data>
+  <data name="Secret.KeyInvalidFormat" xml:space="preserve">
+    <value>密钥名称只能包含字母、数字、下划线或点。</value>
+  </data>
+  <data name="Secret.KeyRequired" xml:space="preserve">
+    <value>密钥名称为必填项。</value>
+  </data>
+  <data name="Secret.KeyTooLong" xml:space="preserve">
+    <value>密钥名称长度不能超过100个字符。</value>
+  </data>
+  <data name="Secret.OperationInvalid" xml:space="preserve">
+    <value>无法识别该密钥操作。</value>
+  </data>
+  <data name="Secret.OperationValueRequired" xml:space="preserve">
+    <value>导入操作需要提供密钥材料。</value>
+  </data>
+  <data name="Secret.RsaPrivateKeyRequired" xml:space="preserve">
+    <value>RSA私钥为必填项。</value>
+  </data>
+  <data name="Secret.ValueRequired" xml:space="preserve">
+    <value>密钥值为必填项。</value>
+  </data>
+  <data name="Secret.ValueTooLong" xml:space="preserve">
+    <value>密钥值超过了此机密允许的长度。</value>
+  </data>
+  <data name="Sorting.SortByNotAllowed" xml:space="preserve">
+    <value>此列表不允许使用该排序字段。</value>
+  </data>
+  <data name="SystemSettings.FaviconUrlTooLong" xml:space="preserve">
+    <value>URL长度不能超过500个字符。</value>
+  </data>
+  <data name="SystemSettings.LogoUrlDarkTooLong" xml:space="preserve">
+    <value>URL长度不能超过500个字符。</value>
+  </data>
+  <data name="SystemSettings.LogoUrlTooLong" xml:space="preserve">
+    <value>URL长度不能超过500个字符。</value>
+  </data>
+  <data name="SystemSettings.PlatformNameRequired" xml:space="preserve">
+    <value>名称为必填项。</value>
+  </data>
+  <data name="SystemSettings.PlatformNameTooLong" xml:space="preserve">
+    <value>名称长度不能超过200个字符。</value>
+  </data>
+  <data name="SystemSettings.SectionKeyRequired" xml:space="preserve">
+    <value>分区键为必填项。</value>
+  </data>
+  <data name="SystemSettings.SectionKeyTooLong" xml:space="preserve">
+    <value>分区键不得超过 64 个字符。</value>
+  </data>
+  <data name="TwoFactor.ChallengeTokenRequired" xml:space="preserve">
+    <value>双因素验证质询令牌为必填项。</value>
+  </data>
+  <data name="TwoFactor.CodeInvalidFormat" xml:space="preserve">
+    <value>验证码必须为6位数字。</value>
+  </data>
+  <data name="TwoFactor.CodeRequired" xml:space="preserve">
+    <value>验证码为必填项。</value>
+  </data>
+  <data name="TwoFactor.RecoveryCodeRequired" xml:space="preserve">
+    <value>恢复代码为必填项。</value>
+  </data>
+  <data name="UiPreference.KeyInvalidFormat" xml:space="preserve">
+    <value>偏好键格式无效。</value>
+  </data>
+  <data name="UiPreference.KeyRequired" xml:space="preserve">
+    <value>偏好键为必填项。</value>
+  </data>
+  <data name="UiPreference.KeyTooLong" xml:space="preserve">
+    <value>偏好键过长。</value>
+  </data>
+  <data name="UiPreference.ValueRequired" xml:space="preserve">
+    <value>偏好值为必填项。</value>
+  </data>
+  <data name="UiPreference.ValueTooLong" xml:space="preserve">
+    <value>偏好值过长。</value>
+  </data>
+  <data name="User.FirstNameRequired" xml:space="preserve">
+    <value>名字为必填项。</value>
+  </data>
+  <data name="User.FirstNameTooLong" xml:space="preserve">
+    <value>名字长度不能超过100个字符。</value>
+  </data>
+  <data name="User.IdRequired" xml:space="preserve">
+    <value>用户ID为必填项。</value>
+  </data>
+  <data name="User.LastNameRequired" xml:space="preserve">
+    <value>姓氏为必填项。</value>
+  </data>
+  <data name="User.LastNameTooLong" xml:space="preserve">
+    <value>姓氏长度不能超过100个字符。</value>
+  </data>
+  <data name="User.LockDurationNotPositive" xml:space="preserve">
+    <value>锁定时长必须大于0。</value>
+  </data>
+  <data name="User.LockReasonRequired" xml:space="preserve">
+    <value>原因为必填项。</value>
+  </data>
+  <data name="User.LockReasonTooLong" xml:space="preserve">
+    <value>原因长度不能超过500个字符。</value>
+  </data>
+  <data name="User.PreferredLanguageNotSupported" xml:space="preserve">
+    <value>不支持所选的首选语言。</value>
+  </data>
+  <data name="User.ThemeNotSupported" xml:space="preserve">
+    <value>主题必须是以下之一：light、dark、system。</value>
+  </data>
+  <data name="User.TimeZoneInvalid" xml:space="preserve">
+    <value>时区必须是有效的 IANA 标识符（例如 Asia/Riyadh）。</value>
+  </data>
+  <data name="WebhookKey.IdRequired" xml:space="preserve">
+    <value>Webhook密钥ID为必填项。</value>
+  </data>
+  <data name="WebhookKey.InvalidPrefix" xml:space="preserve">
+    <value>Webhook密钥必须以有效前缀（wk_）开头。</value>
+  </data>
+  <data name="WebhookKey.Required" xml:space="preserve">
+    <value>Webhook密钥为必填项。</value>
+  </data>
+  <data name="WebhookKey.TargetUrlTooLong" xml:space="preserve">
+    <value>URL长度不能超过2000个字符。</value>
   </data>
 </root>

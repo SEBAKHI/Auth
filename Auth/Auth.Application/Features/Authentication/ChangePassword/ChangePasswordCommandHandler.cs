@@ -77,7 +77,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         }
 
         // Validate password strength
-        var passwordValidation = _passwordValidator.Validate(request.NewPassword);
+        var passwordValidation = _passwordValidator.Validate(request.NewPassword, nameof(request.NewPassword));
         if (passwordValidation.IsError)
         {
             return passwordValidation.Errors;

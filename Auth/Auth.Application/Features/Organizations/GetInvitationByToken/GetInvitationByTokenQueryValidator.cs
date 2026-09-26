@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Organizations.GetInvitationByToken;
@@ -9,6 +10,6 @@ public class GetInvitationByTokenQueryValidator : AbstractValidator<GetInvitatio
 {
     public GetInvitationByTokenQueryValidator()
     {
-        RuleFor(x => x.Token).NotEmpty();
+        RuleFor(x => x.Token).NotEmpty().WithErrorCode(OrganizationErrors.InvitationTokenRequired.Code);
     }
 }

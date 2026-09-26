@@ -1,4 +1,5 @@
 using Auth.Application.Validators.Rules;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.WebhookKeys.CreateWebhookKey;
@@ -12,12 +13,14 @@ public class CreateWebhookKeyCommandValidator : AbstractValidator<CreateWebhookK
     {
         RuleFor(x => x.Name).IsValidName();
         RuleFor(x => x.Description).IsValidDescription().When(x => x.Description is not null);
-        RuleFor(x => x.TargetUrl).IsValidUrl();
+        // NVARCHAR(2000): a longer URL passed the old 2048 ceiling and then failed the INSERT.
+        RuleFor(x => x.TargetUrl)
+            .MaximumLength(2000).WithErrorCode(WebhookKeyErrors.TargetUrlTooLong.Code);
         RuleFor(x => x.Environment)
-            .NotEmpty().WithMessage("Validation.Environment.Required")
-            .MaximumLength(50);
+            .NotEmpty().WithErrorCode(EnvironmentErrors.Required.Code)
+            .MaximumLength(50).WithErrorCode(EnvironmentErrors.TooLong.Code);
         RuleFor(x => x.ExpiresAt)
-            .GreaterThan(DateTime.UtcNow).WithMessage("Validation.ExpirationDate.Future")
+            .GreaterThan(DateTime.UtcNow).WithErrorCode(ExpiryErrors.NotInFuture.Code)
             .When(x => x.ExpiresAt.HasValue);
     }
 }

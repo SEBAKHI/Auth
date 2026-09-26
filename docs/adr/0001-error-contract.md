@@ -138,7 +138,7 @@ Rejected for the reason in §5.
 
 Before this change a validation failure carried the **property name** as its code; the resource key below was only used to translate `detail`. Each rule now carries the code in the second column.
 
-Limit fixes: `ContactEmail` 256 → 254 (column `NVARCHAR(255)`); organization `Website` on update and `BaseUrl`/`LogoUrl`/`LogoUrlDark`/`FaviconUrl` 2048 → 500 (columns `NVARCHAR(500)`); webhook `TargetUrl` 2048 → 2000 (column `NVARCHAR(2000)`).
+Limit fixes: `ContactEmail` 256 → 254 (column `NVARCHAR(255)`); organization `Website` on update and `BaseUrl`/`LogoUrl`/`LogoUrlDark`/`FaviconUrl` 2048 → 500 (columns `NVARCHAR(500)`); webhook `TargetUrl` 2048 → 2000 (column `NVARCHAR(2000)`); organization `Description` on update 500 → 1000 (column `NVARCHAR(1000)`, as on create).
 
 | Old resource key (was only in `detail`) | New code | `pointer` | Note |
 |---|---|---|---|
@@ -180,7 +180,7 @@ Limit fixes: `ContactEmail` 256 → 254 (column `NVARCHAR(255)`); organization `
 | `Validation.Code.InvalidFormat` | `Code.InvalidFormat` | `#/code` |  |
 | `Validation.PermissionCode.MaxLength` | `PermissionCode.TooLong` | `#/code` |  |
 | `Validation.PermissionCode.InvalidFormat` | `PermissionCode.InvalidFormat` | `#/code` |  |
-| `Validation.Name.Required` | `Name.Required` | `#/name` | api keys, applications, permissions, roles, webhook keys, organization update |
+| `Validation.Name.Required` | `Name.Required` | `#/name` | api keys, applications, permissions, roles, webhook keys |
 | `Validation.Name.MaxLength` | `Name.TooLong` | `#/name` |  |
 | `Validation.Name.Required` | `SystemSettings.PlatformNameRequired` | `#/platformName` | SPLIT by field |
 | `Validation.Name.MaxLength` | `SystemSettings.PlatformNameTooLong` | `#/platformName` | SPLIT by field |
@@ -195,9 +195,9 @@ Limit fixes: `ContactEmail` 256 → 254 (column `NVARCHAR(255)`); organization `
 | `Validation.OrganizationCode.Required` | `Organization.CodeRequired` | `#/code` |  |
 | `Validation.OrganizationCode.MaxLength` | `Organization.CodeTooLong` | `#/code` |  |
 | `Validation.OrganizationCode.InvalidFormat` | `Organization.CodeInvalidFormat` | `#/code` |  |
-| `Validation.OrganizationName.Required` | `Organization.NameRequired` | `#/name` |  |
+| `Validation.OrganizationName.Required` | `Organization.NameRequired` | `#/name` | create and update (update used Name.*) |
 | `Validation.OrganizationName.MaxLength` | `Organization.NameTooLong` | `#/name` |  |
-| `Validation.Description.MaxLength1000` | `Organization.DescriptionTooLong` | `#/description` | create only; update uses Description.TooLong (500) |
+| `Validation.Description.MaxLength1000` | `Organization.DescriptionTooLong` | `#/description` | create and update; LIMIT FIX: update capped at 500, column is NVARCHAR(1000) |
 | `Validation.WebsiteUrl.MaxLength` | `Organization.WebsiteTooLong` | `#/website` | LIMIT FIX: update allowed 2048, column is NVARCHAR(500) |
 | `Validation.Url.MaxLength` | `Organization.LogoUrlTooLong` | `#/logoUrl` | SPLIT + LIMIT FIX (2048 -> 500, column NVARCHAR(500)) |
 | `Validation.OrganizationId.Required` | `Organization.IdRequired` | — |  |

@@ -1,4 +1,5 @@
 using Auth.Application.Validators.Rules;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.VerifyRegistration;
@@ -13,6 +14,6 @@ public class VerifyRegistrationCommandValidator : AbstractValidator<VerifyRegist
 {
     public VerifyRegistrationCommandValidator()
     {
-        RuleFor(x => x.Otp).IsValidTotpCode();
+        RuleFor(x => x.Otp).IsValidEmailOtp();
     }
 }

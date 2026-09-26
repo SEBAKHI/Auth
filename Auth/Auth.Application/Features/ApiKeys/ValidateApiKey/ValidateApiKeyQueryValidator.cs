@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.ApiKeys.ValidateApiKey;
@@ -10,8 +11,8 @@ public class ValidateApiKeyQueryValidator : AbstractValidator<ValidateApiKeyQuer
     public ValidateApiKeyQueryValidator()
     {
         RuleFor(x => x.RawApiKey)
-            .NotEmpty().WithMessage("Validation.ApiKey.Required")
+            .NotEmpty().WithErrorCode(ApiKeyErrors.Required.Code)
             .Must(key => key.StartsWith("ak_"))
-            .WithMessage("Validation.ApiKey.InvalidPrefix");
+            .WithErrorCode(ApiKeyErrors.InvalidPrefix.Code);
     }
 }

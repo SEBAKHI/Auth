@@ -1,4 +1,5 @@
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Notifications.PreviewNotificationTemplate;
@@ -14,19 +15,19 @@ public class PreviewNotificationTemplateCommandValidator
     public PreviewNotificationTemplateCommandValidator()
     {
         RuleFor(x => x.NotificationTypeId)
-            .NotEmpty().WithMessage("Validation.NotificationTypeId.Required");
+            .NotEmpty().WithErrorCode(NotificationErrors.TypeIdRequired.Code);
 
         RuleFor(x => x.LanguageCode)
-            .NotEmpty().WithMessage("Validation.NotificationLanguage.Required")
-            .Must(Languages.IsSupported).WithMessage("Validation.NotificationLanguage.NotSupported");
+            .NotEmpty().WithErrorCode(NotificationErrors.LanguageCodeRequired.Code)
+            .Must(Languages.IsSupported).WithErrorCode(NotificationErrors.LanguageCodeNotSupported.Code);
 
         RuleFor(x => x.Subject)
-            .MaximumLength(500).WithMessage("Validation.NotificationSubject.MaxLength");
+            .MaximumLength(500).WithErrorCode(NotificationErrors.SubjectTooLong.Code);
 
         RuleFor(x => x.BodyHtml)
-            .MaximumLength(MaxBodyLength).WithMessage("Validation.NotificationBody.MaxLength");
+            .MaximumLength(MaxBodyLength).WithErrorCode(NotificationErrors.BodyHtmlTooLong.Code);
 
         RuleFor(x => x.BodyText)
-            .MaximumLength(MaxBodyLength).WithMessage("Validation.NotificationBody.MaxLength");
+            .MaximumLength(MaxBodyLength).WithErrorCode(NotificationErrors.BodyTextTooLong.Code);
     }
 }

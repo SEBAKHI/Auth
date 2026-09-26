@@ -45,4 +45,8 @@ public static class RoleErrors
     public static Error CannotRemoveLastAdminRole => Error.Forbidden(
         code: "Role.CannotRemoveLastAdmin",
         description: "Cannot remove the last admin role. At least one admin must remain.");
+
+    public static readonly Error CannotUpdateSystemRole = Error.Forbidden(
+        code: "Role.CannotUpdateSystemRole",
+        description: "System roles cannot be modified.");
 }

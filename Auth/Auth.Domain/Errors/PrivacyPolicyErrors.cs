@@ -47,4 +47,15 @@ public static class PrivacyPolicyErrors
         description:
             "The policy cannot be published until the data-controller details are filled in " +
             $"(System Settings -> Data controller). Missing or placeholder: {fields}.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error VersionInvalidFormat = Error.Validation(
+        code: "PrivacyPolicy.VersionInvalidFormat",
+        description: "The policy version must use the YYYY.MM format.");
+
+    public static readonly Error VersionRequired = Error.Validation(
+        code: "PrivacyPolicy.VersionRequired",
+        description: "The policy version is required.");
 }

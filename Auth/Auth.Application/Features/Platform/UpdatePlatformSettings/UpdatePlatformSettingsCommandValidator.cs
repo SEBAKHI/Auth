@@ -1,4 +1,5 @@
 using Auth.Application.Validators.Rules;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Platform.UpdatePlatformSettings;
@@ -10,9 +11,17 @@ public class UpdatePlatformSettingsCommandValidator : AbstractValidator<UpdatePl
 {
     public UpdatePlatformSettingsCommandValidator()
     {
-        RuleFor(x => x.PlatformName).IsValidName();
-        RuleFor(x => x.LogoUrl).IsValidUrl().When(x => x.LogoUrl is not null);
-        RuleFor(x => x.LogoUrlDark).IsValidUrl().When(x => x.LogoUrlDark is not null);
-        RuleFor(x => x.FaviconUrl).IsValidUrl().When(x => x.FaviconUrl is not null);
+        RuleFor(x => x.PlatformName)
+            .NotEmpty().WithErrorCode(SystemSettingsErrors.PlatformNameRequired.Code)
+            .MaximumLength(200).WithErrorCode(SystemSettingsErrors.PlatformNameTooLong.Code);
+        RuleFor(x => x.LogoUrl)
+            .MaximumLength(500).WithErrorCode(SystemSettingsErrors.LogoUrlTooLong.Code)
+            .When(x => x.LogoUrl is not null);
+        RuleFor(x => x.LogoUrlDark)
+            .MaximumLength(500).WithErrorCode(SystemSettingsErrors.LogoUrlDarkTooLong.Code)
+            .When(x => x.LogoUrlDark is not null);
+        RuleFor(x => x.FaviconUrl)
+            .MaximumLength(500).WithErrorCode(SystemSettingsErrors.FaviconUrlTooLong.Code)
+            .When(x => x.FaviconUrl is not null);
     }
 }

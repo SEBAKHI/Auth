@@ -128,7 +128,7 @@ public class CompleteRegistrationCommandHandler : IRequestHandler<CompleteRegist
 
         // 4. The password. Policy first, then the breach check (an external call,
         // and the reason none of this sits under a lock).
-        var passwordValidation = _passwordValidator.Validate(request.Password);
+        var passwordValidation = _passwordValidator.Validate(request.Password, nameof(request.Password));
         if (passwordValidation.IsError)
         {
             return passwordValidation.Errors;

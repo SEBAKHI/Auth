@@ -74,9 +74,7 @@ public class CreateOrganizationCommandHandler : IRequestHandler<CreateOrganizati
         if (ownerRole == null)
         {
             _logger.LogError("Organization owner role '{RoleCode}' not found in database", OrganizationRoleCodes.Owner);
-            return Error.Unexpected(
-                code: "Organization.OwnerRoleNotFound",
-                description: "System configuration error: Organization owner role not found.");
+            return OrganizationErrors.OwnerRoleNotFound;
         }
 
         // Get the user to include their name in response

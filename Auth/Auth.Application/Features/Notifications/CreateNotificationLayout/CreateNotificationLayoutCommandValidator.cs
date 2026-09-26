@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using System.Text.Json;
 using FluentValidation;
 
@@ -13,18 +14,18 @@ public class CreateNotificationLayoutCommandValidator : AbstractValidator<Create
     public CreateNotificationLayoutCommandValidator()
     {
         RuleFor(x => x.Channel)
-            .IsInEnum().WithMessage("Validation.NotificationChannel.Invalid");
+            .IsInEnum().WithErrorCode(NotificationErrors.ChannelInvalid.Code);
 
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Validation.NotificationLayoutName.Required")
-            .MaximumLength(200).WithMessage("Validation.NotificationLayoutName.MaxLength");
+            .NotEmpty().WithErrorCode(NotificationErrors.LayoutNameRequired.Code)
+            .MaximumLength(200).WithErrorCode(NotificationErrors.LayoutNameTooLong.Code);
 
         RuleFor(x => x.DraftContent)
-            .NotEmpty().WithMessage("Validation.NotificationLayoutContent.Required")
-            .MaximumLength(MaxContentLength).WithMessage("Validation.NotificationLayoutContent.MaxLength");
+            .NotEmpty().WithErrorCode(NotificationErrors.LayoutContentRequired.Code)
+            .MaximumLength(MaxContentLength).WithErrorCode(NotificationErrors.LayoutContentTooLong.Code);
 
         RuleFor(x => x.DraftStringsJson)
-            .Must(BeValidJsonObject).WithMessage("Validation.NotificationLayoutStrings.InvalidJson");
+            .Must(BeValidJsonObject).WithErrorCode(NotificationErrors.LayoutStringsInvalidJson.Code);
     }
 
     internal static bool BeValidJsonObject(string? json)

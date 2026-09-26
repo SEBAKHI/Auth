@@ -1,4 +1,5 @@
 using Auth.Application.Validators.Rules;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.EnableTwoFactor;
@@ -10,6 +11,6 @@ public class EnableTwoFactorCommandValidator : AbstractValidator<EnableTwoFactor
 {
     public EnableTwoFactorCommandValidator()
     {
-        RuleFor(x => x.Code).IsValidTotpCode();
+        RuleFor(x => x.Code).IsValidTwoFactorCode();
     }
 }

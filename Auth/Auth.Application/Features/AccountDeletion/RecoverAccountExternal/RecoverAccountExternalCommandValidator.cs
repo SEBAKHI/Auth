@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.AccountDeletion.RecoverAccountExternal;
@@ -10,10 +11,10 @@ public class RecoverAccountExternalCommandValidator : AbstractValidator<RecoverA
     public RecoverAccountExternalCommandValidator()
     {
         RuleFor(x => x.Provider)
-            .NotEmpty().WithMessage("Validation.Provider.Required")
-            .MaximumLength(50).WithMessage("Validation.Provider.TooLong");
+            .NotEmpty().WithErrorCode(ExternalAuthErrors.ProviderRequired.Code)
+            .MaximumLength(50).WithErrorCode(ExternalAuthErrors.ProviderTooLong.Code);
 
         RuleFor(x => x.IdToken)
-            .NotEmpty().WithMessage("Validation.IdToken.Required");
+            .NotEmpty().WithErrorCode(ExternalAuthErrors.IdTokenRequired.Code);
     }
 }

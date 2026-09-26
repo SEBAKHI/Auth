@@ -276,15 +276,6 @@
   <data name="Application.DuplicateCode" xml:space="preserve">
     <value>'{0}' kodlu bir uygulama zaten mevcut.</value>
   </data>
-  <data name="Application.CannotDeleteSystem" xml:space="preserve">
-    <value>Sistem uygulamaları silinemez.</value>
-  </data>
-  <data name="Application.CannotModifySystem" xml:space="preserve">
-    <value>Sistem uygulamaları değiştirilemez.</value>
-  </data>
-  <data name="Application.HasActiveApiKeys" xml:space="preserve">
-    <value>Etkin API anahtarlarına sahip uygulama silinemez. Önce tüm API anahtarlarını iptal edin.</value>
-  </data>
   <data name="Application.HasActiveUsers" xml:space="preserve">
     <value>Etkin kullanıcı atamaları olan uygulama silinemez.</value>
   </data>
@@ -877,5 +868,539 @@
   </data>
   <data name="User.AccountCreatedSignInRequired" xml:space="preserve">
     <value>Hesabınız oluşturuldu ancak oturum açma tamamlanamadı. Lütfen yeni parolanızla giriş yapın.</value>
+  </data>
+  <data name="AccountDeletion.OtpCodeInvalidFormat" xml:space="preserve">
+    <value>Doğrulama kodu 6 haneli olmalıdır.</value>
+  </data>
+  <data name="AccountDeletion.OtpCodeRequired" xml:space="preserve">
+    <value>Doğrulama kodu gereklidir.</value>
+  </data>
+  <data name="ApiKey.InvalidPrefix" xml:space="preserve">
+    <value>API anahtarı geçerli bir ön ek ile başlamalıdır (ak_).</value>
+  </data>
+  <data name="ApiKey.RateLimitPerDayNotPositive" xml:space="preserve">
+    <value>Gün başına istek limiti 0'dan büyük olmalıdır.</value>
+  </data>
+  <data name="ApiKey.RateLimitPerMinuteNotPositive" xml:space="preserve">
+    <value>Dakika başına istek limiti 0'dan büyük olmalıdır.</value>
+  </data>
+  <data name="ApiKey.Required" xml:space="preserve">
+    <value>API anahtarı gereklidir.</value>
+  </data>
+  <data name="Application.AccessModeInvalid" xml:space="preserve">
+    <value>Erişim modu tanınmıyor.</value>
+  </data>
+  <data name="Application.AccessNoteTooLong" xml:space="preserve">
+    <value>Not 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Application.BaseUrlTooLong" xml:space="preserve">
+    <value>URL 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Application.IdRequired" xml:space="preserve">
+    <value>Uygulama kimliği gereklidir.</value>
+  </data>
+  <data name="Application.LogoUrlTooLong" xml:space="preserve">
+    <value>URL 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Application.MaxConcurrentSessionsNotPositive" xml:space="preserve">
+    <value>Eşzamanlı oturum üst sınırı 0'dan büyük olmalıdır.</value>
+  </data>
+  <data name="Application.ReauthenticationMaxAgeOutOfRange" xml:space="preserve">
+    <value>Yeniden kimlik doğrulama azami süresi 1 ile 10080 dakika arasında olmalıdır.</value>
+  </data>
+  <data name="Application.RedirectUriInvalid" xml:space="preserve">
+    <value>Her yönlendirme URI'si, parça (fragment) içermeyen, en fazla 500 karakterlik mutlak bir https URL'si olmalıdır (http yalnızca localhost için).</value>
+  </data>
+  <data name="Application.RedirectUrisTooMany" xml:space="preserve">
+    <value>En fazla 20 yönlendirme URI'sine izin verilir.</value>
+  </data>
+  <data name="Application.SessionTimeoutNotPositive" xml:space="preserve">
+    <value>Oturum zaman aşımı 0'dan büyük olmalıdır.</value>
+  </data>
+  <data name="AuditLog.DateRangeInvalid" xml:space="preserve">
+    <value>Bitiş tarihi başlangıç tarihinden sonra olmalıdır.</value>
+  </data>
+  <data name="AuditLog.EntityTypeRequired" xml:space="preserve">
+    <value>Varlık türü gereklidir.</value>
+  </data>
+  <data name="AuditLog.EntityTypeTooLong" xml:space="preserve">
+    <value>Varlık türü 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="AuditLog.ExportFormatInvalid" xml:space="preserve">
+    <value>Biçim 'csv', 'json' veya 'excel' olmalıdır.</value>
+  </data>
+  <data name="AuditLog.ExportFormatRequired" xml:space="preserve">
+    <value>Dışa aktarma biçimi gereklidir.</value>
+  </data>
+  <data name="AuditLog.ExportMaxRecordsOutOfRange" xml:space="preserve">
+    <value>Maksimum kayıt sayısı 1 ile 10.000 arasında olmalıdır.</value>
+  </data>
+  <data name="AuditLog.ParticipantIdRequired" xml:space="preserve">
+    <value>Katılımcı rolü, uygulandığı kişiyi gerektirir.</value>
+  </data>
+  <data name="AuditLog.ParticipantRoleRequired" xml:space="preserve">
+    <value>Katılımcı filtresi bir rol gerektirir: etkilenen, yapan veya her ikisi.</value>
+  </data>
+  <data name="Auth.RefreshTokenRequired" xml:space="preserve">
+    <value>Yenileme belirteci gereklidir.</value>
+  </data>
+  <data name="Auth.TokenRequired" xml:space="preserve">
+    <value>Belirteç gereklidir.</value>
+  </data>
+  <data name="Code.InvalidFormat" xml:space="preserve">
+    <value>Kod yalnızca alfanümerik karakterler, noktalar, tireler ve alt çizgiler içermelidir.</value>
+  </data>
+  <data name="Code.Required" xml:space="preserve">
+    <value>Kod gereklidir.</value>
+  </data>
+  <data name="Code.TooLong" xml:space="preserve">
+    <value>Kod 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="ContactEmail.InvalidFormat" xml:space="preserve">
+    <value>Geçerli bir iletişim e-posta adresi gereklidir.</value>
+  </data>
+  <data name="ContactEmail.Required" xml:space="preserve">
+    <value>İletişim e-postası gereklidir.</value>
+  </data>
+  <data name="ContactEmail.TooLong" xml:space="preserve">
+    <value>İletişim e-postası 254 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Dashboard.DaysOutOfRange" xml:space="preserve">
+    <value>Gün sayısı 1 ile 90 arasında olmalıdır.</value>
+  </data>
+  <data name="Dashboard.HorizonDaysOutOfRange" xml:space="preserve">
+    <value>Ufuk 1 ile 365 gün arasında olmalıdır.</value>
+  </data>
+  <data name="Dashboard.TimeZoneInvalid" xml:space="preserve">
+    <value>Saat dilimi geçerli bir IANA tanımlayıcısı olmalıdır (örn. Asia/Riyadh).</value>
+  </data>
+  <data name="Dashboard.TimeZoneRequired" xml:space="preserve">
+    <value>Saat dilimi zorunludur.</value>
+  </data>
+  <data name="Description.TooLong" xml:space="preserve">
+    <value>Açıklama 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Email.InvalidFormat" xml:space="preserve">
+    <value>Geçerli bir e-posta adresi gereklidir.</value>
+  </data>
+  <data name="Email.Required" xml:space="preserve">
+    <value>E-posta gereklidir.</value>
+  </data>
+  <data name="Email.TooLong" xml:space="preserve">
+    <value>E-posta 254 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="EmailVerification.OtpRequired" xml:space="preserve">
+    <value>Doğrulama kodu gereklidir.</value>
+  </data>
+  <data name="EmailVerification.TargetRequired" xml:space="preserve">
+    <value>Kullanıcı kimliği veya e-posta adresi gereklidir.</value>
+  </data>
+  <data name="Environment.Required" xml:space="preserve">
+    <value>Ortam gereklidir.</value>
+  </data>
+  <data name="Environment.TooLong" xml:space="preserve">
+    <value>Ortam 50 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Expiry.NotInFuture" xml:space="preserve">
+    <value>Son kullanma tarihi gelecekte olmalıdır.</value>
+  </data>
+  <data name="ExternalAuth.IdTokenRequired" xml:space="preserve">
+    <value>Kimlik belirteci gereklidir.</value>
+  </data>
+  <data name="ExternalAuth.ProviderRequired" xml:space="preserve">
+    <value>Sağlayıcı gereklidir.</value>
+  </data>
+  <data name="ExternalAuth.ProviderTooLong" xml:space="preserve">
+    <value>Sağlayıcı adı çok uzun.</value>
+  </data>
+  <data name="Image.DimensionsTooLarge" xml:space="preserve">
+    <value>Görsel boyutları azami {0} megapikseli aşıyor.</value>
+  </data>
+  <data name="Image.FileRequired" xml:space="preserve">
+    <value>Dosya sağlanmadı.</value>
+  </data>
+  <data name="Image.FileTooLarge" xml:space="preserve">
+    <value>Dosya {0} baytlık azami boyutu aşıyor.</value>
+  </data>
+  <data name="Image.Invalid" xml:space="preserve">
+    <value>Dosya geçerli bir görsel değil.</value>
+  </data>
+  <data name="Image.QuotaExceeded" xml:space="preserve">
+    <value>Depolama kotasına ulaşıldı: {1} baytın {0} baytı kullanıldı. Artık gerekmeyen bir görseli kaldırın veya bir yöneticiden kotayı artırmasını isteyin.</value>
+  </data>
+  <data name="Image.StorageUnavailable" xml:space="preserve">
+    <value>Görsel depolama kullanılamıyor.</value>
+  </data>
+  <data name="Image.UnsupportedType" xml:space="preserve">
+    <value>Bu görsel türü desteklenmiyor.</value>
+  </data>
+  <data name="KeyRotation.GracePeriodNegative" xml:space="preserve">
+    <value>Ek süre 0 veya daha büyük olmalıdır.</value>
+  </data>
+  <data name="Name.Required" xml:space="preserve">
+    <value>Ad gereklidir.</value>
+  </data>
+  <data name="Name.TooLong" xml:space="preserve">
+    <value>Ad 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Notification.BodyHtmlRequired" xml:space="preserve">
+    <value>Gövde gereklidir.</value>
+  </data>
+  <data name="Notification.BodyHtmlTooLong" xml:space="preserve">
+    <value>Gövde çok büyük.</value>
+  </data>
+  <data name="Notification.BodyTextTooLong" xml:space="preserve">
+    <value>Gövde çok büyük.</value>
+  </data>
+  <data name="Notification.ChangeNoteTooLong" xml:space="preserve">
+    <value>Değişiklik notu 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Notification.ChannelInvalid" xml:space="preserve">
+    <value>Bildirim kanalı geçersiz.</value>
+  </data>
+  <data name="Notification.DefaultLanguageNotSupported" xml:space="preserve">
+    <value>Bu dil desteklenmiyor.</value>
+  </data>
+  <data name="Notification.DefaultLanguageRequired" xml:space="preserve">
+    <value>Dil gereklidir.</value>
+  </data>
+  <data name="Notification.LanguageCodeNotSupported" xml:space="preserve">
+    <value>Bu dil desteklenmiyor.</value>
+  </data>
+  <data name="Notification.LanguageCodeRequired" xml:space="preserve">
+    <value>Dil gereklidir.</value>
+  </data>
+  <data name="Notification.LayoutContentTooLong" xml:space="preserve">
+    <value>Düzen içeriği çok büyük.</value>
+  </data>
+  <data name="Notification.LayoutNameRequired" xml:space="preserve">
+    <value>Düzen adı gereklidir.</value>
+  </data>
+  <data name="Notification.LayoutNameTooLong" xml:space="preserve">
+    <value>Düzen adı 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Notification.LayoutStringsInvalidJson" xml:space="preserve">
+    <value>Düzen metinleri geçerli bir JSON nesnesi olmalıdır.</value>
+  </data>
+  <data name="Notification.PreviewLayoutContentRequired" xml:space="preserve">
+    <value>Düzen içeriği gereklidir.</value>
+  </data>
+  <data name="Notification.PreviewLayoutContentTooLong" xml:space="preserve">
+    <value>Düzen içeriği çok büyük.</value>
+  </data>
+  <data name="Notification.PreviewLayoutStringsInvalidJson" xml:space="preserve">
+    <value>Düzen metinleri geçerli bir JSON nesnesi olmalıdır.</value>
+  </data>
+  <data name="Notification.RecipientEmailInvalidFormat" xml:space="preserve">
+    <value>Alıcı e-posta biçimi geçersiz.</value>
+  </data>
+  <data name="Notification.RecipientEmailRequired" xml:space="preserve">
+    <value>Alıcı e-postası gereklidir.</value>
+  </data>
+  <data name="Notification.RemovedLanguageNotSupported" xml:space="preserve">
+    <value>Bu dil desteklenmiyor.</value>
+  </data>
+  <data name="Notification.SampleDataInvalidJson" xml:space="preserve">
+    <value>Örnek veriler geçerli bir JSON nesnesi olmalıdır.</value>
+  </data>
+  <data name="Notification.SubjectRequired" xml:space="preserve">
+    <value>Konu gereklidir.</value>
+  </data>
+  <data name="Notification.SubjectTooLong" xml:space="preserve">
+    <value>Konu 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Notification.TranslationLanguageNotSupported" xml:space="preserve">
+    <value>Bu dil desteklenmiyor.</value>
+  </data>
+  <data name="Notification.TranslationLanguageRequired" xml:space="preserve">
+    <value>Dil gereklidir.</value>
+  </data>
+  <data name="Notification.TypeDescriptionTooLong" xml:space="preserve">
+    <value>Tür açıklaması 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Notification.TypeIdRequired" xml:space="preserve">
+    <value>Bildirim türü gereklidir.</value>
+  </data>
+  <data name="Notification.TypeNameRequired" xml:space="preserve">
+    <value>Tür adı gereklidir.</value>
+  </data>
+  <data name="Notification.TypeNameTooLong" xml:space="preserve">
+    <value>Tür adı 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Notification.VariablesInvalidJson" xml:space="preserve">
+    <value>Değişken kataloğu geçerli bir JSON dizisi olmalıdır.</value>
+  </data>
+  <data name="Organization.CodeInvalidFormat" xml:space="preserve">
+    <value>Kuruluş kodu yalnızca harfler, rakamlar, tireler ve alt çizgiler içermelidir.</value>
+  </data>
+  <data name="Organization.CodeRequired" xml:space="preserve">
+    <value>Kuruluş kodu gereklidir.</value>
+  </data>
+  <data name="Organization.CodeTooLong" xml:space="preserve">
+    <value>Kuruluş kodu 50 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Organization.DescriptionTooLong" xml:space="preserve">
+    <value>Açıklama 1000 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Organization.IdRequired" xml:space="preserve">
+    <value>Kuruluş kimliği gereklidir.</value>
+  </data>
+  <data name="Organization.InvitationCannotBeAccepted" xml:space="preserve">
+    <value>Bu davet kabul edilemez.</value>
+  </data>
+  <data name="Organization.InvitationIdRequired" xml:space="preserve">
+    <value>Davet kimliği gereklidir.</value>
+  </data>
+  <data name="Organization.InvitationNotPending" xml:space="preserve">
+    <value>Yalnızca bekleyen bir davet değiştirilebilir.</value>
+  </data>
+  <data name="Organization.InvitationTokenRequired" xml:space="preserve">
+    <value>Belirteç gereklidir.</value>
+  </data>
+  <data name="Organization.LogoUrlTooLong" xml:space="preserve">
+    <value>URL 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Organization.NameRequired" xml:space="preserve">
+    <value>Kuruluş adı gereklidir.</value>
+  </data>
+  <data name="Organization.NameTooLong" xml:space="preserve">
+    <value>Kuruluş adı 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Organization.NewOwnerIdRequired" xml:space="preserve">
+    <value>Yeni sahip gereklidir.</value>
+  </data>
+  <data name="Organization.SubscriptionTierTooLong" xml:space="preserve">
+    <value>Abonelik düzeyi 50 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Organization.TransferCodeInvalidFormat" xml:space="preserve">
+    <value>Onay kodu 6 haneli olmalıdır.</value>
+  </data>
+  <data name="Organization.WebsiteTooLong" xml:space="preserve">
+    <value>Web sitesi URL'si 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Paging.PageNumberOutOfRange" xml:space="preserve">
+    <value>Sayfa numarası en az 1 olmalıdır.</value>
+  </data>
+  <data name="Paging.PageSizeOutOfRange" xml:space="preserve">
+    <value>Sayfa boyutu 1 ile 100 arasında olmalıdır.</value>
+  </data>
+  <data name="Paging.TakeOutOfRange" xml:space="preserve">
+    <value>Kayıt sayısı 1 ile 100 arasında olmalıdır.</value>
+  </data>
+  <data name="Password.CommonPattern" xml:space="preserve">
+    <value>Parola, tahmin edilmesi kolay yaygın bir desen içeriyor.</value>
+  </data>
+  <data name="Password.CurrentRequired" xml:space="preserve">
+    <value>Mevcut parola gereklidir.</value>
+  </data>
+  <data name="Password.CurrentTooLong" xml:space="preserve">
+    <value>Parola 128 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Password.NewMustDiffer" xml:space="preserve">
+    <value>Yeni parola mevcut paroladan farklı olmalıdır.</value>
+  </data>
+  <data name="Password.NewRequired" xml:space="preserve">
+    <value>Yeni parola gereklidir.</value>
+  </data>
+  <data name="Password.NewTooLong" xml:space="preserve">
+    <value>Parola 128 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Password.Required" xml:space="preserve">
+    <value>Parola gereklidir.</value>
+  </data>
+  <data name="Password.RequiresDigit" xml:space="preserve">
+    <value>Parola en az bir rakam içermelidir.</value>
+  </data>
+  <data name="Password.RequiresLowercase" xml:space="preserve">
+    <value>Parola en az bir küçük harf içermelidir.</value>
+  </data>
+  <data name="Password.RequiresSpecialCharacter" xml:space="preserve">
+    <value>Parola en az bir özel karakter içermelidir (!@#$%^&amp;*()-_=+[]{}|;:'",. &lt;&gt;?/).</value>
+  </data>
+  <data name="Password.RequiresUppercase" xml:space="preserve">
+    <value>Parola en az bir büyük harf içermelidir.</value>
+  </data>
+  <data name="Password.TooLong" xml:space="preserve">
+    <value>Parola 128 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Password.TooShort" xml:space="preserve">
+    <value>Parola en az {0} karakter uzunluğunda olmalıdır.</value>
+  </data>
+  <data name="PasswordReset.TokenRequired" xml:space="preserve">
+    <value>Sıfırlama belirteci gereklidir.</value>
+  </data>
+  <data name="PermissionCode.InvalidFormat" xml:space="preserve">
+    <value>İzin kodu yalnızca küçük harfler, rakamlar, iki nokta üst üste, tireler, alt çizgiler ve yıldız işaretleri içermelidir.</value>
+  </data>
+  <data name="PermissionCode.Required" xml:space="preserve">
+    <value>İzin kodu zorunludur.</value>
+  </data>
+  <data name="PermissionCode.TooLong" xml:space="preserve">
+    <value>Kod 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Persistence.ReferenceConflict" xml:space="preserve">
+    <value>İlişkili kayıtlar bu kaynağa başvurduğu için işlem tamamlanamadı.</value>
+  </data>
+  <data name="PhoneNumber.InvalidFormat" xml:space="preserve">
+    <value>Telefon numarası biçimi geçersiz.</value>
+  </data>
+  <data name="PhoneNumber.Required" xml:space="preserve">
+    <value>Telefon numarası zorunludur.</value>
+  </data>
+  <data name="PhoneNumber.TooFewDigits" xml:space="preserve">
+    <value>Telefon numarası en az 7 rakam içermelidir.</value>
+  </data>
+  <data name="PhoneNumber.TooLong" xml:space="preserve">
+    <value>Telefon numarası 20 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="PrivacyPolicy.VersionInvalidFormat" xml:space="preserve">
+    <value>Politika sürümü YYYY.MM biçiminde olmalıdır.</value>
+  </data>
+  <data name="PrivacyPolicy.VersionRequired" xml:space="preserve">
+    <value>Politika sürümü zorunludur.</value>
+  </data>
+  <data name="Search.TermTooLong" xml:space="preserve">
+    <value>Arama terimi 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Secret.AdminApiDisabled" xml:space="preserve">
+    <value>Gizli bilgi yönetimi yönetici API'si devre dışı.</value>
+  </data>
+  <data name="Secret.ChallengeCodeInvalidFormat" xml:space="preserve">
+    <value>Doğrulama kodu 6 haneli olmalıdır.</value>
+  </data>
+  <data name="Secret.ChallengeCodeRequired" xml:space="preserve">
+    <value>Doğrulama kodu gereklidir.</value>
+  </data>
+  <data name="Secret.ChallengeIdRequired" xml:space="preserve">
+    <value>Bu işlem için doğrulanmış bir onay gereklidir.</value>
+  </data>
+  <data name="Secret.GatewayTokenRequired" xml:space="preserve">
+    <value>Ağ geçidi belirteci gereklidir.</value>
+  </data>
+  <data name="Secret.GatewayTokenTooShort" xml:space="preserve">
+    <value>Ağ geçidi belirteci en az 16 karakter olmalıdır.</value>
+  </data>
+  <data name="Secret.HmacKeyRequired" xml:space="preserve">
+    <value>HMAC anahtarı gereklidir.</value>
+  </data>
+  <data name="Secret.KeyInvalidFormat" xml:space="preserve">
+    <value>Gizli anahtar yalnızca alfanümerik karakterler, alt çizgiler veya noktalar içermelidir.</value>
+  </data>
+  <data name="Secret.KeyRequired" xml:space="preserve">
+    <value>Gizli anahtar gereklidir.</value>
+  </data>
+  <data name="Secret.KeyTooLong" xml:space="preserve">
+    <value>Gizli anahtar 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Secret.OperationInvalid" xml:space="preserve">
+    <value>Gizli anahtar işlemi tanınmıyor.</value>
+  </data>
+  <data name="Secret.OperationValueRequired" xml:space="preserve">
+    <value>İçe aktarma işlemi için anahtar malzemesi gereklidir.</value>
+  </data>
+  <data name="Secret.RsaPrivateKeyRequired" xml:space="preserve">
+    <value>RSA özel anahtarı gereklidir.</value>
+  </data>
+  <data name="Secret.ValueRequired" xml:space="preserve">
+    <value>Gizli değer gereklidir.</value>
+  </data>
+  <data name="Secret.ValueTooLong" xml:space="preserve">
+    <value>Gizli değer, bu sır için izin verilen uzunluğu aşıyor.</value>
+  </data>
+  <data name="Sorting.SortByNotAllowed" xml:space="preserve">
+    <value>Sıralama alanına bu liste için izin verilmiyor.</value>
+  </data>
+  <data name="SystemSettings.FaviconUrlTooLong" xml:space="preserve">
+    <value>URL 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="SystemSettings.LogoUrlDarkTooLong" xml:space="preserve">
+    <value>URL 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="SystemSettings.LogoUrlTooLong" xml:space="preserve">
+    <value>URL 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="SystemSettings.PlatformNameRequired" xml:space="preserve">
+    <value>Ad gereklidir.</value>
+  </data>
+  <data name="SystemSettings.PlatformNameTooLong" xml:space="preserve">
+    <value>Ad 200 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="SystemSettings.SectionKeyRequired" xml:space="preserve">
+    <value>Bölüm anahtarı zorunludur.</value>
+  </data>
+  <data name="SystemSettings.SectionKeyTooLong" xml:space="preserve">
+    <value>Bölüm anahtarı 64 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="TwoFactor.ChallengeTokenRequired" xml:space="preserve">
+    <value>İki aşamalı doğrulama sınama belirteci gereklidir.</value>
+  </data>
+  <data name="TwoFactor.CodeInvalidFormat" xml:space="preserve">
+    <value>Doğrulama kodu 6 haneli bir sayı olmalıdır.</value>
+  </data>
+  <data name="TwoFactor.CodeRequired" xml:space="preserve">
+    <value>Doğrulama kodu gereklidir.</value>
+  </data>
+  <data name="TwoFactor.RecoveryCodeRequired" xml:space="preserve">
+    <value>Kurtarma kodu gereklidir.</value>
+  </data>
+  <data name="UiPreference.KeyInvalidFormat" xml:space="preserve">
+    <value>Tercih anahtarının biçimi geçersiz.</value>
+  </data>
+  <data name="UiPreference.KeyRequired" xml:space="preserve">
+    <value>Tercih anahtarı zorunludur.</value>
+  </data>
+  <data name="UiPreference.KeyTooLong" xml:space="preserve">
+    <value>Tercih anahtarı çok uzun.</value>
+  </data>
+  <data name="UiPreference.ValueRequired" xml:space="preserve">
+    <value>Tercih değeri zorunludur.</value>
+  </data>
+  <data name="UiPreference.ValueTooLong" xml:space="preserve">
+    <value>Tercih değeri çok uzun.</value>
+  </data>
+  <data name="User.FirstNameRequired" xml:space="preserve">
+    <value>Ad gereklidir.</value>
+  </data>
+  <data name="User.FirstNameTooLong" xml:space="preserve">
+    <value>Ad 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="User.IdRequired" xml:space="preserve">
+    <value>Kullanıcı kimliği gereklidir.</value>
+  </data>
+  <data name="User.LastNameRequired" xml:space="preserve">
+    <value>Soyad gereklidir.</value>
+  </data>
+  <data name="User.LastNameTooLong" xml:space="preserve">
+    <value>Soyad 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="User.LockDurationNotPositive" xml:space="preserve">
+    <value>Kilitleme süresi 0'dan büyük olmalıdır.</value>
+  </data>
+  <data name="User.LockReasonRequired" xml:space="preserve">
+    <value>Sebep gereklidir.</value>
+  </data>
+  <data name="User.LockReasonTooLong" xml:space="preserve">
+    <value>Sebep 500 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="User.PreferredLanguageNotSupported" xml:space="preserve">
+    <value>Tercih edilen dil desteklenmiyor.</value>
+  </data>
+  <data name="User.ThemeNotSupported" xml:space="preserve">
+    <value>Tema şunlardan biri olmalıdır: light, dark, system.</value>
+  </data>
+  <data name="User.TimeZoneInvalid" xml:space="preserve">
+    <value>Saat dilimi geçerli bir IANA tanımlayıcısı olmalıdır (örn. Asia/Riyadh).</value>
+  </data>
+  <data name="WebhookKey.IdRequired" xml:space="preserve">
+    <value>Webhook anahtarı kimliği gereklidir.</value>
+  </data>
+  <data name="WebhookKey.InvalidPrefix" xml:space="preserve">
+    <value>Webhook anahtarı geçerli bir ön ek ile başlamalıdır (wk_).</value>
+  </data>
+  <data name="WebhookKey.Required" xml:space="preserve">
+    <value>Webhook anahtarı gereklidir.</value>
+  </data>
+  <data name="WebhookKey.TargetUrlTooLong" xml:space="preserve">
+    <value>URL 2000 karakteri aşmamalıdır.</value>
   </data>
 </root>

@@ -1,4 +1,5 @@
 using Auth.Application.Features.Notifications.CreateNotificationLayout;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Notifications.UpdateNotificationType;
@@ -11,20 +12,20 @@ public class UpdateNotificationTypeCommandValidator : AbstractValidator<UpdateNo
     public UpdateNotificationTypeCommandValidator()
     {
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Validation.NotificationTypeName.Required")
-            .MaximumLength(200).WithMessage("Validation.NotificationTypeName.MaxLength");
+            .NotEmpty().WithErrorCode(NotificationErrors.TypeNameRequired.Code)
+            .MaximumLength(200).WithErrorCode(NotificationErrors.TypeNameTooLong.Code);
 
         RuleFor(x => x.Description)
-            .MaximumLength(500).WithMessage("Validation.NotificationTypeDescription.MaxLength");
+            .MaximumLength(500).WithErrorCode(NotificationErrors.TypeDescriptionTooLong.Code);
 
         RuleFor(x => x.VariablesJson)
-            .NotEmpty().WithMessage("Validation.NotificationVariables.InvalidJson")
+            .NotEmpty().WithErrorCode(NotificationErrors.VariablesInvalidJson.Code)
             .Must(CreateNotificationLayoutCommandValidator.BeValidJsonArray)
-            .WithMessage("Validation.NotificationVariables.InvalidJson");
+            .WithErrorCode(NotificationErrors.VariablesInvalidJson.Code);
 
         RuleFor(x => x.SampleDataJson)
-            .NotEmpty().WithMessage("Validation.NotificationSampleData.InvalidJson")
+            .NotEmpty().WithErrorCode(NotificationErrors.SampleDataInvalidJson.Code)
             .Must(CreateNotificationLayoutCommandValidator.BeValidJsonObject)
-            .WithMessage("Validation.NotificationSampleData.InvalidJson");
+            .WithErrorCode(NotificationErrors.SampleDataInvalidJson.Code);
     }
 }

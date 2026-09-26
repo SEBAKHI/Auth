@@ -1,4 +1,5 @@
 using Auth.Application.Validators.Rules;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.RevokeToken;
@@ -10,6 +11,6 @@ public class RevokeTokenCommandValidator : AbstractValidator<RevokeTokenCommand>
 {
     public RevokeTokenCommandValidator()
     {
-        RuleFor(x => x.Token).IsRequiredToken();
+        RuleFor(x => x.Token).IsRequiredToken(AuthErrors.TokenRequired);
     }
 }

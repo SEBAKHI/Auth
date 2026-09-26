@@ -1,4 +1,5 @@
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Notifications.CreateNotificationTemplate;
@@ -11,13 +12,13 @@ public class CreateNotificationTemplateCommandValidator : AbstractValidator<Crea
     public CreateNotificationTemplateCommandValidator()
     {
         RuleFor(x => x.NotificationTypeId)
-            .NotEmpty().WithMessage("Validation.NotificationTypeId.Required");
+            .NotEmpty().WithErrorCode(NotificationErrors.TypeIdRequired.Code);
 
         RuleFor(x => x.Channel)
-            .IsInEnum().WithMessage("Validation.NotificationChannel.Invalid");
+            .IsInEnum().WithErrorCode(NotificationErrors.ChannelInvalid.Code);
 
         RuleFor(x => x.DefaultLanguage)
-            .NotEmpty().WithMessage("Validation.NotificationLanguage.Required")
-            .Must(Languages.IsSupported).WithMessage("Validation.NotificationLanguage.NotSupported");
+            .NotEmpty().WithErrorCode(NotificationErrors.DefaultLanguageRequired.Code)
+            .Must(Languages.IsSupported).WithErrorCode(NotificationErrors.DefaultLanguageNotSupported.Code);
     }
 }

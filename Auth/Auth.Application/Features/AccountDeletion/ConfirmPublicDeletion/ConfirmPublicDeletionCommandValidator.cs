@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.AccountDeletion.ConfirmPublicDeletion;
@@ -10,11 +11,11 @@ public class ConfirmPublicDeletionCommandValidator : AbstractValidator<ConfirmPu
     public ConfirmPublicDeletionCommandValidator()
     {
         RuleFor(x => x.Email)
-            .NotEmpty().WithMessage("Validation.Email.Required")
-            .EmailAddress().WithMessage("Validation.Email.InvalidFormat");
+            .NotEmpty().WithErrorCode(EmailErrors.Required.Code)
+            .EmailAddress().WithErrorCode(EmailErrors.InvalidFormat.Code);
 
         RuleFor(x => x.OtpCode)
-            .NotEmpty().WithMessage("Validation.OtpCode.Required")
-            .Length(6).WithMessage("Validation.OtpCode.InvalidFormat");
+            .NotEmpty().WithErrorCode(AccountDeletionErrors.OtpCodeRequired.Code)
+            .Length(6).WithErrorCode(AccountDeletionErrors.OtpCodeInvalidFormat.Code);
     }
 }

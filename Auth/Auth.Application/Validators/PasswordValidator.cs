@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Auth.Application.Configuration;
+using Auth.Domain.Errors;
 using ErrorOr;
 using Microsoft.Extensions.Options;
 
@@ -21,59 +22,50 @@ public partial class PasswordValidator
     /// Validates a password against the configured requirements.
     /// </summary>
     /// <param name="password">The password to validate.</param>
+    /// <param name="property">
+    /// The request property the password came from (<c>Password</c>, <c>NewPassword</c>),
+    /// carried on each error so the API can point at the field that broke the rule.
+    /// </param>
     /// <returns>Success or a list of validation errors.</returns>
-    public ErrorOr<Success> Validate(string password)
+    public ErrorOr<Success> Validate(string password, string property)
     {
         var errors = new List<Error>();
 
         if (string.IsNullOrEmpty(password))
         {
-            errors.Add(Error.Validation("Password.Required", "Validation.Password.Required"));
+            errors.Add(PasswordErrors.Required);
             return errors;
         }
 
         if (password.Length < _settings.MinimumLength)
         {
-            errors.Add(Error.Validation(
-                "Password.TooShort",
-                "Validation.Password.TooShort",
-                metadata: new() { ["args"] = new object[] { _settings.MinimumLength } }));
+            errors.Add(PasswordErrors.TooShort(_settings.MinimumLength, property));
         }
 
         if (_settings.RequireUppercase && !UppercaseRegex().IsMatch(password))
         {
-            errors.Add(Error.Validation(
-                "Password.RequiresUppercase",
-                "Validation.Password.RequiresUppercase"));
+            errors.Add(PasswordErrors.RequiresUppercase(property));
         }
 
         if (_settings.RequireLowercase && !LowercaseRegex().IsMatch(password))
         {
-            errors.Add(Error.Validation(
-                "Password.RequiresLowercase",
-                "Validation.Password.RequiresLowercase"));
+            errors.Add(PasswordErrors.RequiresLowercase(property));
         }
 
         if (_settings.RequireDigit && !DigitRegex().IsMatch(password))
         {
-            errors.Add(Error.Validation(
-                "Password.RequiresDigit",
-                "Validation.Password.RequiresDigit"));
+            errors.Add(PasswordErrors.RequiresDigit(property));
         }
 
         if (_settings.RequireSpecialCharacter && !SpecialCharRegex().IsMatch(password))
         {
-            errors.Add(Error.Validation(
-                "Password.RequiresSpecialCharacter",
-                "Validation.Password.RequiresSpecialCharacter"));
+            errors.Add(PasswordErrors.RequiresSpecialCharacter(property));
         }
 
         // Check for common weak patterns
         if (CommonPatternsRegex().IsMatch(password))
         {
-            errors.Add(Error.Validation(
-                "Password.CommonPattern",
-                "Validation.Password.CommonPattern"));
+            errors.Add(PasswordErrors.CommonPattern(property));
         }
 
         return errors.Count > 0 ? errors : Result.Success;

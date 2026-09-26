@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.ExternalLogin;
@@ -10,9 +11,9 @@ public class ExternalLoginCommandValidator : AbstractValidator<ExternalLoginComm
     public ExternalLoginCommandValidator()
     {
         RuleFor(x => x.Provider)
-            .NotEmpty().WithMessage("Validation.Provider.Required");
+            .NotEmpty().WithErrorCode(ExternalAuthErrors.ProviderRequired.Code);
 
         RuleFor(x => x.IdToken)
-            .NotEmpty().WithMessage("Validation.IdToken.Required");
+            .NotEmpty().WithErrorCode(ExternalAuthErrors.IdTokenRequired.Code);
     }
 }

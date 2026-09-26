@@ -3,7 +3,6 @@ using Auth.Domain.Constants;
 using Auth_API.Authorization;
 using Auth_Localization.Resources;
 using Auth_Localization.Resources.Errors;
-using Auth_Localization.Resources.Validation;
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
@@ -22,8 +21,6 @@ public abstract class ApiController : ControllerBase
     {
         var domainLocalizer = HttpContext.RequestServices
             .GetService<IStringLocalizer<DomainErrors>>();
-        var validationLocalizer = HttpContext.RequestServices
-            .GetService<IStringLocalizer<ValidationMessages>>();
         var logger = HttpContext.RequestServices
             .GetService<ILogger<ApiController>>();
 
@@ -43,7 +40,7 @@ public abstract class ApiController : ControllerBase
         {
             Status = statusCode,
             Title = firstError.Code,
-            Detail = LocalizeError(firstError, domainLocalizer, validationLocalizer, logger),
+            Detail = LocalizeError(firstError, domainLocalizer, logger),
             Instance = Request.Path
         };
 
@@ -52,7 +49,7 @@ public abstract class ApiController : ControllerBase
             problemDetails.Extensions["errors"] = errors.Select(e => new
             {
                 code = e.Code,
-                description = LocalizeError(e, domainLocalizer, validationLocalizer, logger)
+                description = LocalizeError(e, domainLocalizer, logger)
             });
         }
 
@@ -187,10 +184,9 @@ public abstract class ApiController : ControllerBase
     private static string LocalizeError(
         Error error,
         IStringLocalizer<DomainErrors>? domainLocalizer,
-        IStringLocalizer<ValidationMessages>? validationLocalizer,
         ILogger? logger)
     {
-        // 1. Try domain errors (keyed by error code, e.g., "User.InvalidCredentials")
+        // 1. The catalog sentence, keyed by the error code (validation codes included)
         if (domainLocalizer is not null)
         {
             var localized = domainLocalizer[error.Code];
@@ -206,26 +202,7 @@ public abstract class ApiController : ControllerBase
             }
         }
 
-        // 2. Try validation messages (keyed by error description as resource key).
-        // Placeholders are filled here too: several validation messages quote a
-        // configured limit (e.g. the password minimum length), and skipping the
-        // format left users reading a literal "{0}" instead of the policy value.
-        if (validationLocalizer is not null)
-        {
-            var localized = validationLocalizer[error.Description];
-            if (!localized.ResourceNotFound)
-            {
-                if (error.Metadata?.TryGetValue("args", out var argsObj) == true
-                    && argsObj is object[] args)
-                {
-                    return SafeFormat(localized.Value, args, error.Description, logger);
-                }
-
-                return localized.Value;
-            }
-        }
-
-        // 3. Fallback to original English description
+        // 2. Fallback to original English description
         return error.Description;
     }
 }

@@ -1,5 +1,6 @@
 using Auth.Application.Validators.Rules;
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.AuditLogs.GetAuditLogs;
@@ -14,7 +15,7 @@ public class GetAuditLogsQueryValidator : AbstractValidator<GetAuditLogsQuery>
         RuleFor(x => x.PageNumber).IsValidPageNumber();
         RuleFor(x => x.PageSize).IsValidPageSize();
         RuleFor(x => x.ToDate)
-            .GreaterThan(x => x.FromDate).WithMessage("Validation.DateRange.Invalid")
+            .GreaterThan(x => x.FromDate).WithErrorCode(AuditLogErrors.DateRangeInvalid.Code)
             .When(x => x.FromDate.HasValue && x.ToDate.HasValue);
         RuleFor(x => x.SortBy).IsValidSortField(SortFields.AuditLogs.Allowed);
 
@@ -26,10 +27,10 @@ public class GetAuditLogsQueryValidator : AbstractValidator<GetAuditLogsQuery>
         // like it does — the "accepted, then quietly ignored" failure this
         // endpoint has already shipped twice.
         RuleFor(x => x.ParticipantRole)
-            .NotNull().WithMessage("Validation.AuditParticipant.RoleRequired")
+            .NotNull().WithErrorCode(AuditLogErrors.ParticipantRoleRequired.Code)
             .When(x => x.ParticipantId.HasValue);
         RuleFor(x => x.ParticipantId)
-            .NotNull().WithMessage("Validation.AuditParticipant.IdRequired")
+            .NotNull().WithErrorCode(AuditLogErrors.ParticipantIdRequired.Code)
             .When(x => x.ParticipantRole.HasValue);
     }
 }

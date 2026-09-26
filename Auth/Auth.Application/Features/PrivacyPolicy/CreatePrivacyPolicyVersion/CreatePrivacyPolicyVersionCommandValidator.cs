@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.PrivacyPolicy.CreatePrivacyPolicyVersion;
@@ -11,7 +12,7 @@ public class CreatePrivacyPolicyVersionCommandValidator
     public CreatePrivacyPolicyVersionCommandValidator()
     {
         RuleFor(x => x.Version)
-            .NotEmpty().WithMessage("Validation.PolicyVersion.Required")
-            .Matches(@"^\d{4}\.\d{2}$").WithMessage("Validation.PolicyVersion.InvalidFormat");
+            .NotEmpty().WithErrorCode(PrivacyPolicyErrors.VersionRequired.Code)
+            .Matches(@"^\d{4}\.\d{2}$").WithErrorCode(PrivacyPolicyErrors.VersionInvalidFormat.Code);
     }
 }

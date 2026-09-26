@@ -82,7 +82,7 @@ public class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordCommand,
         }
 
         // Validate password strength
-        var passwordValidation = _passwordValidator.Validate(request.NewPassword);
+        var passwordValidation = _passwordValidator.Validate(request.NewPassword, nameof(request.NewPassword));
         if (passwordValidation.IsError)
         {
             return passwordValidation.Errors;

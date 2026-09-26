@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
 using Auth.Domain.Interfaces.Repositories;
@@ -34,16 +35,12 @@ public class RotateApiKeyCommandHandler : IRequestHandler<RotateApiKeyCommand, E
 
         if (existingKey == null)
         {
-            return Error.NotFound(
-                code: "ApiKey.NotFound",
-                description: "The specified API key was not found.");
+            return ApiKeyErrors.NotFound;
         }
 
         if (existingKey.IsRevoked)
         {
-            return Error.Validation(
-                code: "ApiKey.AlreadyRevoked",
-                description: "Cannot rotate a revoked API key.");
+            return ApiKeyErrors.AlreadyRevoked;
         }
 
         // Generate new API key

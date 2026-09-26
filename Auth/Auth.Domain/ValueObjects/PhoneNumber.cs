@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Auth.Domain.Errors;
 using ErrorOr;
 
 namespace Auth.Domain.ValueObjects;
@@ -22,20 +23,19 @@ public sealed partial class PhoneNumber : IEquatable<PhoneNumber>
     public static ErrorOr<PhoneNumber> Create(string phoneNumber)
     {
         if (string.IsNullOrWhiteSpace(phoneNumber))
-            return Error.Validation("PhoneNumber.Empty", "Phone number cannot be empty.");
+            return PhoneNumberErrors.Required;
 
         phoneNumber = phoneNumber.Trim();
 
         if (phoneNumber.Length > 20)
-            return Error.Validation("PhoneNumber.TooLong", "Phone number cannot exceed 20 characters.");
+            return PhoneNumberErrors.TooLong;
 
         if (!PhoneRegex().IsMatch(phoneNumber))
-            return Error.Validation("PhoneNumber.InvalidFormat",
-                "Phone number format is invalid. Use digits, +, -, spaces, or parentheses.");
+            return PhoneNumberErrors.InvalidFormat;
 
         var digitCount = phoneNumber.Count(char.IsDigit);
         if (digitCount < 7)
-            return Error.Validation("PhoneNumber.TooFewDigits", "Phone number must contain at least 7 digits.");
+            return PhoneNumberErrors.TooFewDigits;
 
         return new PhoneNumber(phoneNumber);
     }

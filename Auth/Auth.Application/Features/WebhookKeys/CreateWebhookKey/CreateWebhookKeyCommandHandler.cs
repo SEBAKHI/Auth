@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using Auth.Application.DTOs;
 using Auth.Application.Interfaces;
 using Auth.Domain.Entities;
@@ -41,9 +42,7 @@ public class CreateWebhookKeyCommandHandler : IRequestHandler<CreateWebhookKeyCo
         var application = await _applicationRepository.GetByIdAsync(request.ApplicationId, cancellationToken);
         if (application is null)
         {
-            return Error.NotFound(
-                code: "Application.NotFound",
-                description: "The specified application was not found.");
+            return ApplicationErrors.NotFound(request.ApplicationId);
         }
 
         var (webhookKeyValue, keyPrefix, keyHash) = _webhookKeyGenerator.Generate(request.Environment);

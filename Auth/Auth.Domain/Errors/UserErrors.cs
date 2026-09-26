@@ -1,3 +1,4 @@
+using Auth.Domain.Constants;
 using ErrorOr;
 
 namespace Auth.Domain.Errors;
@@ -188,4 +189,56 @@ public static class UserErrors
     public static Error RecoveryWindowExpired => Error.Forbidden(
         code: "User.RecoveryWindowExpired",
         description: "The recovery period for this account has ended. Deletion is being finalized.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error FirstNameRequired = Error.Validation(
+        code: "User.FirstNameRequired",
+        description: "First name is required.");
+
+    public static readonly Error FirstNameTooLong = Error.Validation(
+        code: "User.FirstNameTooLong",
+        description: "First name must not exceed 100 characters.");
+
+    public static readonly Error IdRequired = Error.Validation(
+        code: "User.IdRequired",
+        description: "User ID is required.");
+
+    public static readonly Error LastNameRequired = Error.Validation(
+        code: "User.LastNameRequired",
+        description: "Last name is required.");
+
+    public static readonly Error LastNameTooLong = Error.Validation(
+        code: "User.LastNameTooLong",
+        description: "Last name must not exceed 100 characters.");
+
+    public static readonly Error LockDurationNotPositive = Error.Validation(
+        code: "User.LockDurationNotPositive",
+        description: "Lock duration must be greater than 0.");
+
+    public static readonly Error LockReasonRequired = Error.Validation(
+        code: "User.LockReasonRequired",
+        description: "Reason is required.");
+
+    public static readonly Error LockReasonTooLong = Error.Validation(
+        code: "User.LockReasonTooLong",
+        description: "Reason must not exceed 500 characters.");
+
+    public static readonly Error PreferredLanguageNotSupported = Error.Validation(
+        code: "User.PreferredLanguageNotSupported",
+        description: "Preferred language is not supported.");
+
+    public static readonly Error ThemeNotSupported = Error.Validation(
+        code: "User.ThemeNotSupported",
+        description: "Theme must be one of: light, dark, system.");
+
+    public static readonly Error TimeZoneInvalid = Error.Validation(
+        code: "User.TimeZoneInvalid",
+        description: "Time zone must be a valid IANA identifier (e.g. Asia/Riyadh).");
+
+    public static Error RoleAlreadyAssigned(string roleName) => Error.Conflict(
+        code: "User.RoleAlreadyAssigned",
+        description: $"User already has role '{roleName}'.",
+        metadata: new() { [ErrorMetadataKeys.Args] = new object[] { roleName } });
 }

@@ -1,4 +1,5 @@
 using Auth.Application.Features.Notifications.CreateNotificationLayout;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Notifications.UpdateNotificationLayoutDraft;
@@ -14,15 +15,15 @@ public class UpdateNotificationLayoutDraftCommandValidator
     public UpdateNotificationLayoutDraftCommandValidator()
     {
         RuleFor(x => x.Name)
-            .NotEmpty().WithMessage("Validation.NotificationLayoutName.Required")
-            .MaximumLength(200).WithMessage("Validation.NotificationLayoutName.MaxLength");
+            .NotEmpty().WithErrorCode(NotificationErrors.LayoutNameRequired.Code)
+            .MaximumLength(200).WithErrorCode(NotificationErrors.LayoutNameTooLong.Code);
 
         RuleFor(x => x.DraftContent)
-            .NotEmpty().WithMessage("Validation.NotificationLayoutContent.Required")
-            .MaximumLength(MaxContentLength).WithMessage("Validation.NotificationLayoutContent.MaxLength");
+            .NotEmpty().WithErrorCode(NotificationErrors.LayoutContentRequired.Code)
+            .MaximumLength(MaxContentLength).WithErrorCode(NotificationErrors.LayoutContentTooLong.Code);
 
         RuleFor(x => x.DraftStringsJson)
             .Must(CreateNotificationLayoutCommandValidator.BeValidJsonObject)
-            .WithMessage("Validation.NotificationLayoutStrings.InvalidJson");
+            .WithErrorCode(NotificationErrors.LayoutStringsInvalidJson.Code);
     }
 }

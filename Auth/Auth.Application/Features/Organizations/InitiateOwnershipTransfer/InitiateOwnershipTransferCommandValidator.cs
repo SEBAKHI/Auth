@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Organizations.InitiateOwnershipTransfer;
@@ -10,6 +11,6 @@ public class InitiateOwnershipTransferCommandValidator : AbstractValidator<Initi
     public InitiateOwnershipTransferCommandValidator()
     {
         RuleFor(x => x.NewOwnerId)
-            .NotEmpty().WithMessage("Validation.NewOwnerId.Required");
+            .NotEmpty().WithErrorCode(OrganizationErrors.NewOwnerIdRequired.Code);
     }
 }

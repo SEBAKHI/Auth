@@ -30,7 +30,7 @@ public class StartRegistrationCommandValidatorTests
         var result = _start.Validate(new StartRegistrationCommand(Address(length), "en", null, null));
 
         result.IsValid.Should().BeFalse();
-        result.Errors.Select(e => e.ErrorMessage).Should().Contain("Validation.Email.MaxLength",
+        result.Errors.Select(e => e.ErrorCode).Should().Contain("Email.TooLong",
             "the address columns are NVARCHAR(255); past that the INSERT fails, not the validator");
     }
 

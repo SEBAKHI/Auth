@@ -1,5 +1,6 @@
 using Auth.Application.Configuration;
 using Auth.Application.Interfaces;
+using Auth.Domain.Errors;
 using ErrorOr;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -38,7 +39,7 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         var settings = _settings.CurrentValue;
         if (!settings.AllowedContentTypes.Contains(contentType, StringComparer.OrdinalIgnoreCase))
         {
-            return Error.Validation("Image.UnsupportedType", $"Unsupported image type '{contentType}'.");
+            return ImageErrors.UnsupportedType;
         }
 
         // Buffer to memory so the (possibly non-seekable) request stream can be decoded.
@@ -55,23 +56,21 @@ public sealed class FileSystemImageStorageService : IImageStorageService
         {
             if (codec is null)
             {
-                return Error.Validation("Image.Invalid", "The uploaded file is not a valid image.");
+                return ImageErrors.Invalid;
             }
 
             var megapixels = (long)codec.Info.Width * codec.Info.Height;
             var limit = (long)settings.MaxMegapixels * 1_000_000;
             if (limit > 0 && megapixels > limit)
             {
-                return Error.Validation(
-                    "Image.DimensionsTooLarge",
-                    $"Image dimensions exceed the maximum of {settings.MaxMegapixels} megapixels.");
+                return ImageErrors.DimensionsTooLarge(settings.MaxMegapixels);
             }
         }
 
         using var original = SKBitmap.Decode(imageData);
         if (original is null)
         {
-            return Error.Validation("Image.Invalid", "The uploaded file is not a valid image.");
+            return ImageErrors.Invalid;
         }
 
         var max = settings.MaxEdgePx;
@@ -100,7 +99,7 @@ public sealed class FileSystemImageStorageService : IImageStorageService
             using var data = image.Encode(SKEncodedImageFormat.Webp, settings.WebpQuality);
             if (data is null)
             {
-                return Error.Validation("Image.Invalid", "The image could not be processed.");
+                return ImageErrors.Invalid;
             }
 
             var root = ResolvedRoot(settings);
@@ -120,9 +119,7 @@ public sealed class FileSystemImageStorageService : IImageStorageService
                 _logger.LogError(ex,
                     "Image storage write failed for path {Path}. Verify the process identity has " +
                     "write permission on ImageStorage:PhysicalPath ({Root}).", fullPath, root);
-                return Error.Unexpected(
-                    "Image.StorageUnavailable",
-                    "Image storage is not writable on the server. Contact the administrator.");
+                return ImageErrors.StorageUnavailable;
             }
 
             return key;

@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Secrets.SetConnectionString;
@@ -15,7 +16,7 @@ public class SetConnectionStringCommandValidator : AbstractValidator<SetConnecti
     public SetConnectionStringCommandValidator()
     {
         RuleFor(x => x.Value)
-            .NotEmpty().WithMessage("Validation.SecretValue.Required")
-            .MaximumLength(2048).WithMessage("Validation.SecretValue.MaxLength");
+            .NotEmpty().WithErrorCode(SecretErrors.ValueRequired.Code)
+            .MaximumLength(2048).WithErrorCode(SecretErrors.ValueTooLong.Code);
     }
 }

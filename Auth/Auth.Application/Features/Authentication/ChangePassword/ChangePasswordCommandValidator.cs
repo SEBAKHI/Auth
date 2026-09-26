@@ -1,4 +1,5 @@
 using Auth.Domain.Constants;
+using Auth.Domain.Errors;
 using FluentValidation;
 
 namespace Auth.Application.Features.Authentication.ChangePassword;
@@ -11,19 +12,19 @@ public class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCo
     public ChangePasswordCommandValidator()
     {
         RuleFor(x => x.UserId)
-            .NotEmpty().WithMessage("Validation.UserId.Required");
+            .NotEmpty().WithErrorCode(UserErrors.IdRequired.Code);
 
         RuleFor(x => x.CurrentPassword)
-            .NotEmpty().WithMessage("Validation.CurrentPassword.Required")
-            .MaximumLength(PasswordLimits.MaxLength).WithMessage("Validation.Password.MaxLength");
+            .NotEmpty().WithErrorCode(PasswordErrors.CurrentRequired.Code)
+            .MaximumLength(PasswordLimits.MaxLength).WithErrorCode(PasswordErrors.CurrentTooLong.Code);
 
         RuleFor(x => x.NewPassword)
-            .NotEmpty().WithMessage("Validation.NewPassword.Required")
-            .MaximumLength(PasswordLimits.MaxLength).WithMessage("Validation.Password.MaxLength");
+            .NotEmpty().WithErrorCode(PasswordErrors.NewRequired.Code)
+            .MaximumLength(PasswordLimits.MaxLength).WithErrorCode(PasswordErrors.NewTooLong.Code);
 
         RuleFor(x => x.NewPassword)
             .NotEqual(x => x.CurrentPassword)
-            .WithMessage("Validation.NewPassword.MustDiffer")
+            .WithErrorCode(PasswordErrors.NewMustDiffer.Code)
             .When(x => !string.IsNullOrEmpty(x.CurrentPassword) && !string.IsNullOrEmpty(x.NewPassword));
     }
 }

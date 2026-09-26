@@ -40,9 +40,7 @@ public class UpdateRoleCommandHandler : IRequestHandler<UpdateRoleCommand, Error
         // Cannot update system roles
         if (role.IsSystem)
         {
-            return Error.Forbidden(
-                code: "Role.CannotUpdateSystemRole",
-                description: "System roles cannot be modified.");
+            return RoleErrors.CannotUpdateSystemRole;
         }
 
         // Read before writing. Update mutates the entity in place, so after the

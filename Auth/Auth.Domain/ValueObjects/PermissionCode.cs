@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Auth.Domain.Errors;
 using ErrorOr;
 
 namespace Auth.Domain.ValueObjects;
@@ -38,16 +39,15 @@ public sealed partial class PermissionCode : IEquatable<PermissionCode>
     public static ErrorOr<PermissionCode> Create(string code)
     {
         if (string.IsNullOrWhiteSpace(code))
-            return Error.Validation("PermissionCode.Empty", "Permission code cannot be empty.");
+            return PermissionCodeErrors.Required;
 
         code = code.Trim().ToLowerInvariant();
 
         if (code.Length > 200)
-            return Error.Validation("PermissionCode.TooLong", "Permission code cannot exceed 200 characters.");
+            return PermissionCodeErrors.TooLong;
 
         if (!CodeRegex().IsMatch(code))
-            return Error.Validation("PermissionCode.InvalidFormat",
-                "Permission code must contain only lowercase letters, digits, colons, and asterisks.");
+            return PermissionCodeErrors.InvalidFormat;
 
         return new PermissionCode(code);
     }

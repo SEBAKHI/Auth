@@ -37,4 +37,19 @@ public static class ExternalAuthErrors
     public static Error NonceRequired => Error.Validation(
         code: "ExternalAuth.NonceRequired",
         description: "The sign-in could not be verified. Please try again.");
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error IdTokenRequired = Error.Validation(
+        code: "ExternalAuth.IdTokenRequired",
+        description: "ID token is required.");
+
+    public static readonly Error ProviderRequired = Error.Validation(
+        code: "ExternalAuth.ProviderRequired",
+        description: "Provider is required.");
+
+    public static readonly Error ProviderTooLong = Error.Validation(
+        code: "ExternalAuth.ProviderTooLong",
+        description: "Provider name is too long.");
 }

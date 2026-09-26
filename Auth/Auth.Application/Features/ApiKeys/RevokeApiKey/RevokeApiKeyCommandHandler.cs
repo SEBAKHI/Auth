@@ -1,3 +1,4 @@
+using Auth.Domain.Errors;
 using Auth.Domain.Events;
 using Auth.Domain.Interfaces.Repositories;
 using ErrorOr;
@@ -29,16 +30,12 @@ public class RevokeApiKeyCommandHandler : IRequestHandler<RevokeApiKeyCommand, E
         var apiKey = await _apiKeyRepository.GetByIdAsync(request.Id, cancellationToken);
         if (apiKey == null)
         {
-            return Error.NotFound(
-                code: "ApiKey.NotFound",
-                description: "API key not found.");
+            return ApiKeyErrors.NotFound;
         }
 
         if (apiKey.IsRevoked)
         {
-            return Error.Conflict(
-                code: "ApiKey.AlreadyRevoked",
-                description: "API key is already revoked.");
+            return ApiKeyErrors.AlreadyRevoked;
         }
 
         apiKey.Revoke(request.RevokedBy, request.Reason);

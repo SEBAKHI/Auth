@@ -460,7 +460,7 @@ public class RotateApiKeyCommandHandlerTests
 
         // Assert
         result.IsError.Should().BeTrue();
-        result.FirstError.Type.Should().Be(ErrorType.Validation);
+        result.FirstError.Type.Should().Be(ErrorType.Conflict);
         result.FirstError.Code.Should().Be("ApiKey.AlreadyRevoked");
 
         _apiKeyRepositoryMock.Verify(

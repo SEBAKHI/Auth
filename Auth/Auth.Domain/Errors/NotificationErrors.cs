@@ -169,4 +169,123 @@ public static class NotificationErrors
         description: "Only failed (Retry or Dead) messages can be requeued.");
 
     #endregion
+
+    // Request-validation rules (ADR 0001): validators declare these with
+    // WithErrorCode, and the validation behavior carries the offending property.
+
+    public static readonly Error BodyHtmlRequired = Error.Validation(
+        code: "Notification.BodyHtmlRequired",
+        description: "Body is required.");
+
+    public static readonly Error BodyHtmlTooLong = Error.Validation(
+        code: "Notification.BodyHtmlTooLong",
+        description: "Body is too large.");
+
+    public static readonly Error BodyTextTooLong = Error.Validation(
+        code: "Notification.BodyTextTooLong",
+        description: "Body is too large.");
+
+    public static readonly Error ChangeNoteTooLong = Error.Validation(
+        code: "Notification.ChangeNoteTooLong",
+        description: "Change note must not exceed 500 characters.");
+
+    public static readonly Error ChannelInvalid = Error.Validation(
+        code: "Notification.ChannelInvalid",
+        description: "The notification channel is invalid.");
+
+    public static readonly Error DefaultLanguageNotSupported = Error.Validation(
+        code: "Notification.DefaultLanguageNotSupported",
+        description: "This language is not supported.");
+
+    public static readonly Error DefaultLanguageRequired = Error.Validation(
+        code: "Notification.DefaultLanguageRequired",
+        description: "Language is required.");
+
+    public static readonly Error LanguageCodeNotSupported = Error.Validation(
+        code: "Notification.LanguageCodeNotSupported",
+        description: "This language is not supported.");
+
+    public static readonly Error LanguageCodeRequired = Error.Validation(
+        code: "Notification.LanguageCodeRequired",
+        description: "Language is required.");
+
+    public static readonly Error LayoutContentTooLong = Error.Validation(
+        code: "Notification.LayoutContentTooLong",
+        description: "Layout content is too large.");
+
+    public static readonly Error LayoutNameRequired = Error.Validation(
+        code: "Notification.LayoutNameRequired",
+        description: "Layout name is required.");
+
+    public static readonly Error LayoutNameTooLong = Error.Validation(
+        code: "Notification.LayoutNameTooLong",
+        description: "Layout name must not exceed 200 characters.");
+
+    public static readonly Error LayoutStringsInvalidJson = Error.Validation(
+        code: "Notification.LayoutStringsInvalidJson",
+        description: "Layout strings must be a valid JSON object.");
+
+    public static readonly Error PreviewLayoutContentRequired = Error.Validation(
+        code: "Notification.PreviewLayoutContentRequired",
+        description: "Layout content is required.");
+
+    public static readonly Error PreviewLayoutContentTooLong = Error.Validation(
+        code: "Notification.PreviewLayoutContentTooLong",
+        description: "Layout content is too large.");
+
+    public static readonly Error PreviewLayoutStringsInvalidJson = Error.Validation(
+        code: "Notification.PreviewLayoutStringsInvalidJson",
+        description: "Layout strings must be a valid JSON object.");
+
+    public static readonly Error RecipientEmailInvalidFormat = Error.Validation(
+        code: "Notification.RecipientEmailInvalidFormat",
+        description: "Recipient email format is invalid.");
+
+    public static readonly Error RecipientEmailRequired = Error.Validation(
+        code: "Notification.RecipientEmailRequired",
+        description: "Recipient email is required.");
+
+    public static readonly Error RemovedLanguageNotSupported = Error.Validation(
+        code: "Notification.RemovedLanguageNotSupported",
+        description: "This language is not supported.");
+
+    public static readonly Error SampleDataInvalidJson = Error.Validation(
+        code: "Notification.SampleDataInvalidJson",
+        description: "Sample data must be a valid JSON object.");
+
+    public static readonly Error SubjectRequired = Error.Validation(
+        code: "Notification.SubjectRequired",
+        description: "Subject is required.");
+
+    public static readonly Error SubjectTooLong = Error.Validation(
+        code: "Notification.SubjectTooLong",
+        description: "Subject must not exceed 500 characters.");
+
+    public static readonly Error TranslationLanguageNotSupported = Error.Validation(
+        code: "Notification.TranslationLanguageNotSupported",
+        description: "This language is not supported.");
+
+    public static readonly Error TranslationLanguageRequired = Error.Validation(
+        code: "Notification.TranslationLanguageRequired",
+        description: "Language is required.");
+
+    public static readonly Error TypeDescriptionTooLong = Error.Validation(
+        code: "Notification.TypeDescriptionTooLong",
+        description: "Type description must not exceed 500 characters.");
+
+    public static readonly Error TypeIdRequired = Error.Validation(
+        code: "Notification.TypeIdRequired",
+        description: "Notification type is required.");
+
+    public static readonly Error TypeNameRequired = Error.Validation(
+        code: "Notification.TypeNameRequired",
+        description: "Type name is required.");
+
+    public static readonly Error TypeNameTooLong = Error.Validation(
+        code: "Notification.TypeNameTooLong",
+        description: "Type name must not exceed 200 characters.");
+
+    public static readonly Error VariablesInvalidJson = Error.Validation(
+        code: "Notification.VariablesInvalidJson",
+        description: "The variable catalog must be a valid JSON array.");
 }
