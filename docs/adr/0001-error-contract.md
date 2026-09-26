@@ -92,6 +92,15 @@ A result carries errors of one ErrorType; the status comes from the first error.
 
 One cut, no version in which the API emits two formats. `Auth_UI` moves in the same change: it reads `code` only, takes the status from the transport, and places field errors from `errors[].pointer` or, for a single failure, from the published pointer of its code. External integrators that branched on `title` must switch to `code` (see the table in `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`).
 
+Members that disappear from error bodies:
+
+- `title` no longer carries the code; it is the framework's reason phrase.
+- `errors[].description` and `errors[].field`/`message` (exception bodies): entries are `{ code, pointer? }`.
+- `correlationId` (an echo of `X-Correlation-ID` on exception bodies) and the Development-only `exception` member: `traceId` identifies the request, and exception data never reaches a body.
+- The `{ error }` body of the image upload and the ad-hoc 429 bodies, with their `retryAfter` member: `Retry-After` is a header.
+
+The `Token-Expired: true` header on a 401 for an expired token stays, beside the code `Http.TokenExpired`.
+
 ## Consequences
 
 ### Positive
