@@ -1,3 +1,7 @@
+import { readFileSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
@@ -336,4 +340,19 @@ describe("readProblem", () => {
   ])("answers with the status alone for %s", async (_, body) => {
     expect(await readProblem(new Response(body, { status: 502 }))).toEqual({ status: 502 })
   })
+})
+
+describe("the error readers", () => {
+  // The code is `code` (ADR 0001). `title` is the framework's reason phrase, and
+  // a reader that consults it again is the defect this contract removed: it
+  // broke on "Forbidden" and on titles in languages without spaces.
+  it.each(["errors.ts", "client.ts", "upload.ts", "helpers.ts"])(
+    "%s never reads a title off a response",
+    (file) => {
+      const source = readFileSync(join(dirname(fileURLToPath(import.meta.url)), file), "utf8")
+
+      expect(source).not.toMatch(/(?:\b(?!feedback\b)[A-Za-z_$][\w$]*|\))\??\.title\b/)
+      expect(source).not.toMatch(/\[["']title["']\]/)
+    }
+  )
 })

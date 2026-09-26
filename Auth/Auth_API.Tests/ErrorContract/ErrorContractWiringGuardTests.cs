@@ -47,6 +47,35 @@ public class ErrorContractWiringGuardTests
         Assert.DoesNotContain("ExceptionHandlingMiddleware", source, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The patterns every hand-written error body in these hosts used (ADR 0001 removed them
+    /// all): a ProblemDetails built by hand, an anonymous <c>{ error }</c> object, a JSON body
+    /// written straight to the response, MVC's dictionary-shaped validation problem, and an
+    /// exception middleware of its own. Anything that refuses a request sets a status and
+    /// records its code; the pipeline writes the body.
+    /// </summary>
+    [Theory]
+    [InlineData("new ProblemDetails")]
+    [InlineData("new ValidationProblemDetails")]
+    [InlineData("new HttpValidationProblemDetails")]
+    [InlineData("new { error")]
+    [InlineData("WriteAsJsonAsync(new")]
+    [InlineData("ValidationProblem(")]
+    [InlineData("ExceptionMiddleware")]
+    public void NoHostSource_BuildsAnErrorBodyByHand(string pattern)
+    {
+        var offenders = new[] { "Auth_API", "API_Gateway" }
+            .SelectMany(host => Directory.EnumerateFiles(
+                Path.Combine(SolutionDirectory(), host), "*.cs", SearchOption.AllDirectories))
+            .Where(file => !file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}")
+                && !file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .Where(file => File.ReadAllText(file).Contains(pattern, StringComparison.Ordinal))
+            .Select(file => Path.GetRelativePath(SolutionDirectory(), file))
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
     private static string Program(string host) =>
         File.ReadAllText(Path.Combine(SolutionDirectory(), host, "Program.cs"));
 
