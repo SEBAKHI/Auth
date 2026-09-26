@@ -1,0 +1,2591 @@
+{
+  "$comment": "The published error-code list of the Auth API (ADR 0001). Every code the API emits is listed here before it is emitted; a listed code is never renamed, removed or reused. 'pointer' (Validation codes only) is the RFC 6901 pointer of the request-body member the code concerns, or null when it concerns none or more than one. Transport and challenge codes are produced by the HTTP pipeline, not by handlers.",
+  "codes": [
+    {
+      "code": "AccountDeletion.ExecutionFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "AccountDeletion.GraceNotElapsed",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "AccountDeletion.InvalidOtp",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "AccountDeletion.NotPendingGrace",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "AccountDeletion.NotProcessing",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "AccountDeletion.OtpCodeInvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/otpCode"
+    },
+    {
+      "code": "AccountDeletion.OtpCodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/otpCode"
+    },
+    {
+      "code": "AccountDeletion.TooManyRequests",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "ApiKey.AlreadyRevoked",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "ApiKey.Expired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "ApiKey.Invalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "ApiKey.InvalidPrefix",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "ApiKey.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "ApiKey.RateLimitPerDayNotPositive",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/rateLimitPerDay"
+    },
+    {
+      "code": "ApiKey.RateLimitPerMinuteNotPositive",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/rateLimitPerMinute"
+    },
+    {
+      "code": "ApiKey.Required",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "ApiKey.Revoked",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.AccessDenied",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.AccessModeInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/accessMode"
+    },
+    {
+      "code": "Application.AccessNoteTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/note"
+    },
+    {
+      "code": "Application.AlreadyEnabledForOrganization",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.BaseUrlTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/baseUrl"
+    },
+    {
+      "code": "Application.CannotRestrictWithActiveOrganizations",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.CodeTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Application.CodeTooShort",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Application.DuplicateCode",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.HasActiveOrganizations",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.HasActiveUsers",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.IdRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Application.Inactive",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.InvalidCode",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Application.InvalidMaxConcurrentSessions",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Application.InvalidSessionTimeout",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Application.LogoUrlTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/logoUrl"
+    },
+    {
+      "code": "Application.MaxConcurrentSessionsNotPositive",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/maxConcurrentSessions"
+    },
+    {
+      "code": "Application.NotEnabledForOrganization",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.NotFoundByCode",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.ReauthenticationMaxAgeOutOfRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/reauthenticationMaxAgeMinutes"
+    },
+    {
+      "code": "Application.RedirectUriInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/redirectUris"
+    },
+    {
+      "code": "Application.RedirectUrisTooMany",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/redirectUris"
+    },
+    {
+      "code": "Application.RestrictedCannotBeEnabledForOrganization",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Application.SessionTimeoutNotPositive",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/sessionTimeoutMinutes"
+    },
+    {
+      "code": "Application.UserAccessAlreadyGranted",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Application.UserAccessNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "AuditLog.DateRangeInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/toDate"
+    },
+    {
+      "code": "AuditLog.DateRangeTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "AuditLog.EntityTypeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "AuditLog.EntityTypeTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "AuditLog.ExportFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "AuditLog.ExportFormatInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/format"
+    },
+    {
+      "code": "AuditLog.ExportFormatRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/format"
+    },
+    {
+      "code": "AuditLog.ExportMaxRecordsOutOfRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/maxRecords"
+    },
+    {
+      "code": "AuditLog.ExportTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "AuditLog.InvalidDateRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "AuditLog.InvalidExportFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "AuditLog.NoLogsFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "AuditLog.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "AuditLog.ParticipantIdRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/participantId"
+    },
+    {
+      "code": "AuditLog.ParticipantRoleRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/participantRole"
+    },
+    {
+      "code": "Auth.ApplicationInactive",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.ApplicationNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.AuthorizationCodeInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.ConcurrentLoginDetected",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.InvalidClient",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.InvalidGatewayToken",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.InvalidRedirectUri",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.InvalidSigningKey",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.InvalidToken",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.KeyGenerationFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.MissingCodeChallenge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.PermissionDenied",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.PkceVerificationFailed",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.RefreshTokenExpired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.RefreshTokenNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.RefreshTokenRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/refreshToken"
+    },
+    {
+      "code": "Auth.RefreshTokenRevoked",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.SessionExpired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.SessionNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.SessionTerminated",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.TokenExpired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.TokenGenerationFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.TokenRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/token"
+    },
+    {
+      "code": "Auth.TokenRevoked",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.Unauthorized",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Auth.UnsupportedCodeChallengeMethod",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.UnsupportedGrantType",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Auth.UnsupportedResponseType",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Code.InvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "Code.Required",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "Code.TooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "ContactEmail.InvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/contactEmail"
+    },
+    {
+      "code": "ContactEmail.Required",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/contactEmail"
+    },
+    {
+      "code": "ContactEmail.TooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/contactEmail"
+    },
+    {
+      "code": "Dashboard.DaysOutOfRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Dashboard.HorizonDaysOutOfRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Dashboard.TimeZoneInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Dashboard.TimeZoneRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Description.TooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/description"
+    },
+    {
+      "code": "Device.CannotForgetCurrent",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Device.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Email.InvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/email"
+    },
+    {
+      "code": "Email.Required",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/email"
+    },
+    {
+      "code": "Email.TooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/email"
+    },
+    {
+      "code": "EmailVerification.EmailAlreadyVerified",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "EmailVerification.EmailSendFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "EmailVerification.InvalidOrExpiredOtp",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "EmailVerification.InvalidOtpFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/otp"
+    },
+    {
+      "code": "EmailVerification.NoActiveToken",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "EmailVerification.OtpAlreadyUsed",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "EmailVerification.OtpRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/otp"
+    },
+    {
+      "code": "EmailVerification.TargetRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "EmailVerification.TooManyAttempts",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "EmailVerification.TooManyRequests",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "EmailVerification.UserNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Environment.Required",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/environment"
+    },
+    {
+      "code": "Environment.TooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/environment"
+    },
+    {
+      "code": "Expiry.NotInFuture",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/expiresAt"
+    },
+    {
+      "code": "ExternalAuth.AccountLinkConflict",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "ExternalAuth.EmailNotVerified",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "ExternalAuth.IdTokenRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/idToken"
+    },
+    {
+      "code": "ExternalAuth.NonceRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "ExternalAuth.ProviderNotConfigured",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "ExternalAuth.ProviderNotSupported",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "ExternalAuth.ProviderRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/provider"
+    },
+    {
+      "code": "ExternalAuth.ProviderTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/provider"
+    },
+    {
+      "code": "ExternalAuth.TokenVerificationFailed",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Http.BadRequest",
+      "status": 400,
+      "source": "transport"
+    },
+    {
+      "code": "Http.ContentTooLarge",
+      "status": 413,
+      "source": "transport"
+    },
+    {
+      "code": "Http.Forbidden",
+      "status": 403,
+      "source": "transport"
+    },
+    {
+      "code": "Http.MethodNotAllowed",
+      "status": 405,
+      "source": "transport"
+    },
+    {
+      "code": "Http.NotFound",
+      "status": 404,
+      "source": "transport"
+    },
+    {
+      "code": "Http.RateLimited",
+      "status": 429,
+      "source": "transport"
+    },
+    {
+      "code": "Http.SessionRevoked",
+      "status": 401,
+      "source": "challenge"
+    },
+    {
+      "code": "Http.TokenExpired",
+      "status": 401,
+      "source": "challenge"
+    },
+    {
+      "code": "Http.TokenRevoked",
+      "status": 401,
+      "source": "challenge"
+    },
+    {
+      "code": "Http.Unauthenticated",
+      "status": 401,
+      "source": "transport"
+    },
+    {
+      "code": "Http.Unavailable",
+      "status": 503,
+      "source": "transport"
+    },
+    {
+      "code": "Http.Unexpected",
+      "status": 500,
+      "source": "transport"
+    },
+    {
+      "code": "Http.UnsupportedMediaType",
+      "status": 415,
+      "source": "transport"
+    },
+    {
+      "code": "Image.DimensionsTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Image.FileRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Image.FileTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Image.Invalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Image.NotAvailable",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Image.QuotaExceeded",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Image.StorageUnavailable",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Image.UnsupportedType",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "KeyRotation.GracePeriodNegative",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/gracePeriodMinutes"
+    },
+    {
+      "code": "Name.Required",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "Name.TooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "Notification.BodyHtmlRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.BodyHtmlTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.BodyTextTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.CannotDeleteSystemGlobalTemplate",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.CannotRemoveDefaultLanguageTranslation",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.CannotUnpublishSystemTemplate",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.ChangeNoteTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/changeNote"
+    },
+    {
+      "code": "Notification.ChannelInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/channel"
+    },
+    {
+      "code": "Notification.ChannelNotSupported",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.ConcurrencyConflict",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.DefaultLanguageNotSupported",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/defaultLanguage"
+    },
+    {
+      "code": "Notification.DefaultLanguageRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/defaultLanguage"
+    },
+    {
+      "code": "Notification.DefaultLanguageTranslationRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.DraftAlreadyExists",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.DuplicateLayout",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.DuplicateTemplate",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.InvalidTemplateSyntax",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.LanguageCodeNotSupported",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/languageCode"
+    },
+    {
+      "code": "Notification.LanguageCodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/languageCode"
+    },
+    {
+      "code": "Notification.LayoutContentRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/draftContent"
+    },
+    {
+      "code": "Notification.LayoutContentSlotMissing",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.LayoutContentTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/draftContent"
+    },
+    {
+      "code": "Notification.LayoutNameRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "Notification.LayoutNameTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "Notification.LayoutNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.LayoutNotPublished",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.LayoutPublishTargetChanged",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.LayoutStringsInvalidJson",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/draftStringsJson"
+    },
+    {
+      "code": "Notification.NoDraftToDiscard",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.NoDraftToPublish",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.NotPublished",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.OutboxMessageNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.OutboxMessageNotRetryable",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.PreviewLayoutContentRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/layoutContent"
+    },
+    {
+      "code": "Notification.PreviewLayoutContentTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/layoutContent"
+    },
+    {
+      "code": "Notification.PreviewLayoutStringsInvalidJson",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/layoutStringsJson"
+    },
+    {
+      "code": "Notification.PublishTargetChanged",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.RecipientEmailInvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/recipientEmail"
+    },
+    {
+      "code": "Notification.RecipientEmailRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/recipientEmail"
+    },
+    {
+      "code": "Notification.RemovedLanguageNotSupported",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/removeLanguages"
+    },
+    {
+      "code": "Notification.RenderFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.SampleDataInvalidJson",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/sampleDataJson"
+    },
+    {
+      "code": "Notification.SendFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.SubjectRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.SubjectTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.TemplateNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.TemplateNotPublished",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.TranslationLanguageNotSupported",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/translations"
+    },
+    {
+      "code": "Notification.TranslationLanguageRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/translations"
+    },
+    {
+      "code": "Notification.TranslationNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.TypeDescriptionTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/description"
+    },
+    {
+      "code": "Notification.TypeIdRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/notificationTypeId"
+    },
+    {
+      "code": "Notification.TypeNameRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "Notification.TypeNameTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "Notification.TypeNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.TypeNotFoundByCode",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.UnknownVariables",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.UnpublishTargetChanged",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Notification.UnsupportedLanguage",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Notification.VariablesInvalidJson",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/variablesJson"
+    },
+    {
+      "code": "Notification.VersionNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.AdminRoleNotFound",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.AlreadyMember",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.AppRoleAlreadyAssigned",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.AppRoleNotAssigned",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.ApplicationAlreadyEnabled",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.ApplicationNotEnabled",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.ApplicationNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.CannotAssignOwnerRole",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.CannotChangeOwnRole",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.CannotChangeOwnerRole",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.CannotDeleteWithMembers",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.CannotInviteSelf",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.CannotRemoveOwner",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.CannotTransferOwnership",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.CannotTransferPersonalOrganization",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.CannotTransferToSelf",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.CodeInvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "Organization.CodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "Organization.CodeTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "Organization.ConcurrentTransferConflict",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.DescriptionTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/description"
+    },
+    {
+      "code": "Organization.DuplicateCode",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.IdRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.Inactive",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.InsufficientPermissions",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.InvalidMembershipRole",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.InvalidOrExpiredTransferCode",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.InvitationAlreadyAccepted",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.InvitationAlreadyCancelled",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.InvitationAlreadyDeclined",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.InvitationCannotBeAccepted",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.InvitationEmailMismatch",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.InvitationExpired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.InvitationIdRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.InvitationNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.InvitationNotFoundByToken",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.InvitationNotPending",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.InvitationTokenRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/token"
+    },
+    {
+      "code": "Organization.LogoUrlTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/logoUrl"
+    },
+    {
+      "code": "Organization.MembershipExpired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.NameRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "Organization.NameTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/name"
+    },
+    {
+      "code": "Organization.NewOwnerIdRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/newOwnerId"
+    },
+    {
+      "code": "Organization.NotAMember",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.NotFoundByCode",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.NotMember",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.NotOwner",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.OwnerRoleNotFound",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.PendingInvitationExists",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.PermissionAlreadyGranted",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.PermissionNotForApplication",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.PermissionNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.PermissionNotGranted",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.RoleNotForApplication",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.RoleNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.SelfServiceCreationClosed",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.SubscriptionExpired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.SubscriptionTierTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/subscriptionTier"
+    },
+    {
+      "code": "Organization.TooManyTransferRequests",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.TransferCodeEmailFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.TransferCodeInvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "Organization.TransferCodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.TransferCodeTooManyAttempts",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Organization.TransferTargetNotEligible",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Organization.WebsiteTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/website"
+    },
+    {
+      "code": "Paging.PageNumberOutOfRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Paging.PageSizeOutOfRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Paging.TakeOutOfRange",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Password.CommonPattern",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Password.CurrentRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/currentPassword"
+    },
+    {
+      "code": "Password.CurrentTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/currentPassword"
+    },
+    {
+      "code": "Password.NewMustDiffer",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/newPassword"
+    },
+    {
+      "code": "Password.NewRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/newPassword"
+    },
+    {
+      "code": "Password.NewTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/newPassword"
+    },
+    {
+      "code": "Password.Required",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/password"
+    },
+    {
+      "code": "Password.RequiresDigit",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Password.RequiresLowercase",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Password.RequiresSpecialCharacter",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Password.RequiresUppercase",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Password.TooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/password"
+    },
+    {
+      "code": "Password.TooShort",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "PasswordReset.InvalidOrExpiredToken",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "PasswordReset.TokenAlreadyUsed",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "PasswordReset.TokenRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/token"
+    },
+    {
+      "code": "PasswordReset.TooManyRequests",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Permission.AlreadyGranted",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Permission.CannotDeleteSystemPermission",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Permission.CannotGrantHigher",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Permission.CannotModifySystemPermission",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Permission.CircularImplication",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Permission.DuplicateCode",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Permission.Inactive",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Permission.InvalidCode",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Permission.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Permission.NotFoundByCode",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Permission.NotGranted",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "PermissionCode.InvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "PermissionCode.Required",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "PermissionCode.TooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "Persistence.ReferenceConflict",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "PhoneNumber.InvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "PhoneNumber.Required",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "PhoneNumber.TooFewDigits",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "PhoneNumber.TooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/phoneNumber"
+    },
+    {
+      "code": "PrivacyPolicy.ControllerDetailsIncomplete",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "PrivacyPolicy.DuplicateVersion",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "PrivacyPolicy.InvalidContent",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "PrivacyPolicy.NoPublishedVersion",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "PrivacyPolicy.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "PrivacyPolicy.PublicationStorageUnavailable",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "PrivacyPolicy.UnsupportedLanguage",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "PrivacyPolicy.VersionInvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/version"
+    },
+    {
+      "code": "PrivacyPolicy.VersionLocked",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "PrivacyPolicy.VersionRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/version"
+    },
+    {
+      "code": "Role.AlreadyAssigned",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Role.CannotDeleteSystemRole",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Role.CannotModifySystemRole",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Role.CannotRemoveLastAdmin",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Role.CannotUpdateSystemRole",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Role.DuplicateCode",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Role.Inactive",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Role.NotAssigned",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Role.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Role.NotFoundByCode",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Search.TermTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.AdminApiDisabled",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.ChallengeCodeInvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "Secret.ChallengeCodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "Secret.ChallengeEmailFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.ChallengeIdRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/challengeId"
+    },
+    {
+      "code": "Secret.ChallengeNotApproved",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.ChallengeRecipientUnavailable",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.ConnectionStringMalformed",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.ConnectionStringUnreachable",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.DecryptionFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.FileAccessFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.GatewayTokenRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.GatewayTokenTooShort",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.HmacKeyRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.ImportNotSupportedInPlainText",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.InvalidChallengeCode",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.InvalidKey",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.InvalidKeyMaterial",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.KeyGenerationFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.KeyInvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.KeyRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.KeyTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.OperationInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/operation"
+    },
+    {
+      "code": "Secret.OperationValueRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/value"
+    },
+    {
+      "code": "Secret.RsaPrivateKeyRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.SetNotSupportedInPlainText",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.TooManyChallengeRequests",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "Secret.UnknownKey",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Secret.ValueRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/value"
+    },
+    {
+      "code": "Secret.ValueTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/value"
+    },
+    {
+      "code": "Session.AlreadyTerminated",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Session.Expired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Session.MaxSessionsReached",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Session.MaxSessionsReachedUntil",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "Session.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "Sorting.SortByNotAllowed",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.ConcurrencyConflict",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "SystemSettings.EmailSendingDisabled",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.FaviconUrlTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/faviconUrl"
+    },
+    {
+      "code": "SystemSettings.InvalidFieldValue",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.LogoUrlDarkTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/logoUrlDark"
+    },
+    {
+      "code": "SystemSettings.LogoUrlTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/logoUrl"
+    },
+    {
+      "code": "SystemSettings.PlatformNameRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/platformName"
+    },
+    {
+      "code": "SystemSettings.PlatformNameTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/platformName"
+    },
+    {
+      "code": "SystemSettings.SecretManagedField",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.SectionKeyRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.SectionKeyTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.SectionNotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "SystemSettings.SectionReadOnly",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "SystemSettings.TestEmailFailed",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "SystemSettings.UnknownField",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "TwoFactor.ChallengeInvalid",
+      "status": 401,
+      "source": "catalog"
+    },
+    {
+      "code": "TwoFactor.ChallengeTokenRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/challengeToken"
+    },
+    {
+      "code": "TwoFactor.CodeInvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "TwoFactor.CodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "TwoFactor.InvalidRecoveryCode",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "TwoFactor.LockedOut",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "TwoFactor.NoRecoveryCodesAvailable",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "TwoFactor.RecoveryCodeRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/code"
+    },
+    {
+      "code": "TwoFactor.SetupRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "TwoFactor.VerificationRequired",
+      "status": 401,
+      "source": "catalog"
+    },
+    {
+      "code": "UiPreference.InvalidKey",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "UiPreference.KeyInvalidFormat",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/key"
+    },
+    {
+      "code": "UiPreference.KeyRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/key"
+    },
+    {
+      "code": "UiPreference.KeyTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/key"
+    },
+    {
+      "code": "UiPreference.TooManyKeys",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "UiPreference.ValueNotJson",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "UiPreference.ValueRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/value"
+    },
+    {
+      "code": "UiPreference.ValueTooLarge",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "UiPreference.ValueTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/value"
+    },
+    {
+      "code": "User.AccountCreatedSignInRequired",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.AccountInactive",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.AccountLocked",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.AccountLockedUntil",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.AccountPending",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.AccountPendingDeletion",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.CannotDeleteOrganizationOwner",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.CannotDeletePersonalOrganizationWithMembers",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.CannotDeleteSystemUser",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.CannotModifySystemUser",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.DeletedUsersViewNotAllowed",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.DeletionAlreadyRequested",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.DuplicateEmail",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.EmailNotConfirmed",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.ExternalRegistrationClosed",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.FirstNameRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/firstName"
+    },
+    {
+      "code": "User.FirstNameTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/firstName"
+    },
+    {
+      "code": "User.IdRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "User.InvalidCredentials",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "User.InvalidCurrentPassword",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "User.InvalidTwoFactorCode",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "User.InvitationRegistrationClosed",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.LastNameRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/lastName"
+    },
+    {
+      "code": "User.LastNameTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/lastName"
+    },
+    {
+      "code": "User.LockDurationNotPositive",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/lockDurationMinutes"
+    },
+    {
+      "code": "User.LockReasonRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/reason"
+    },
+    {
+      "code": "User.LockReasonTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/reason"
+    },
+    {
+      "code": "User.MustChangePassword",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "User.NotFoundByEmail",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "User.NotSoftDeleted",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.PasswordAlreadySet",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.PasswordBreachCheckUnavailable",
+      "status": 500,
+      "source": "catalog"
+    },
+    {
+      "code": "User.PasswordBreached",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "User.PasswordExpired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.PasswordRecentlyUsed",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "User.PasswordTooWeak",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "User.PreferredLanguageNotSupported",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/preferredLanguage"
+    },
+    {
+      "code": "User.RecoveryWindowExpired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.RoleAlreadyAssigned",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.SelfRegistrationClosed",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "User.ThemeNotSupported",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/theme"
+    },
+    {
+      "code": "User.TimeZoneInvalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/timeZone"
+    },
+    {
+      "code": "User.TwoFactorAlreadyEnabled",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "User.TwoFactorNotEnabled",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "User.TwoFactorRequired",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "WebhookKey.AlreadyRevoked",
+      "status": 409,
+      "source": "catalog"
+    },
+    {
+      "code": "WebhookKey.Expired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "WebhookKey.IdRequired",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "WebhookKey.Invalid",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "WebhookKey.InvalidPrefix",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "WebhookKey.NotFound",
+      "status": 404,
+      "source": "catalog"
+    },
+    {
+      "code": "WebhookKey.Required",
+      "status": 400,
+      "source": "catalog",
+      "pointer": null
+    },
+    {
+      "code": "WebhookKey.Revoked",
+      "status": 403,
+      "source": "catalog"
+    },
+    {
+      "code": "WebhookKey.TargetUrlTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/targetUrl"
+    }
+  ]
+}
