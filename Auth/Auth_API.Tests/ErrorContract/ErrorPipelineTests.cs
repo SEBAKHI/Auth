@@ -26,6 +26,7 @@ namespace Auth_API.Tests.ErrorContract;
 public sealed class ErrorPipelineTests : IAsyncLifetime
 {
     private const string ExceptionText = ProblemResponse.SecretExceptionText;
+    private const string ConsoleOrigin = "https://console.example";
 
     private IHost _host = null!;
     private HttpClient _client = null!;
@@ -46,11 +47,13 @@ public sealed class ErrorPipelineTests : IAsyncLifetime
                     services.AddAuthentication(TestAuthentication.SchemeName)
                         .AddScheme<AuthenticationSchemeOptions, TestAuthentication>(TestAuthentication.SchemeName, null);
                     services.AddAuthorization();
+                    services.AddCors(cors => cors.AddDefaultPolicy(policy => policy.WithOrigins(ConsoleOrigin)));
                 })
                 .Configure(app =>
                 {
                     app.UseAuthLocalization();
                     app.UseErrorContract();
+                    app.UseCors();
                     app.UseRouting();
                     app.UseAuthentication();
                     app.UseAuthorization();
@@ -300,6 +303,23 @@ public sealed class ErrorPipelineTests : IAsyncLifetime
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
         Assert.NotEqual("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Theory]
+    [InlineData("/throw/http")]              // written by the exception handler, which clears headers
+    [InlineData("/throw/invalid-operation")]
+    [InlineData("/nowhere")]                 // written by the status-code pages
+    public async Task CrossOriginRequest_ThatFails_KeepsItsCorsHeaders(string path)
+    {
+        // Without them the browser hides the problem from the console, which then reports
+        // a network failure instead of what happened.
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Add("Origin", ConsoleOrigin);
+
+        var problem = await SendAsync(request);
+
+        Assert.Equal(ConsoleOrigin, problem.Response.Headers.GetValues("Access-Control-Allow-Origin").Single());
+        Assert.Equal("application/problem+json", problem.Response.Content.Headers.ContentType?.MediaType);
     }
 
     [Fact]

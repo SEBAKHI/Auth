@@ -46,11 +46,7 @@ public static class ProblemMapping
         }
 
         var primary = errors[0];
-        httpContext.Items[ProblemItems.Code] = primary.Code;
-        if (primary.Metadata?.GetValueOrDefault(ErrorMetadataKeys.Args) is object[] args)
-        {
-            httpContext.Items[ProblemItems.Args] = args;
-        }
+        Record(httpContext, primary);
 
         var problem = factory.CreateProblemDetails(httpContext, ErrorStatusMap.ToStatusCode(primary));
 
@@ -76,13 +72,21 @@ public static class ProblemMapping
     /// </summary>
     public static void Reject(HttpContext httpContext, Error error)
     {
+        Record(httpContext, error);
+        httpContext.Response.StatusCode = ErrorStatusMap.ToStatusCode(error);
+    }
+
+    /// <summary>
+    /// Tells the problem-details customization which code, and which placeholder values, to
+    /// write for this response: it is the only author of <c>code</c> and <c>detail</c>.
+    /// </summary>
+    private static void Record(HttpContext httpContext, Error error)
+    {
         httpContext.Items[ProblemItems.Code] = error.Code;
         if (error.Metadata?.GetValueOrDefault(ErrorMetadataKeys.Args) is object[] args)
         {
             httpContext.Items[ProblemItems.Args] = args;
         }
-
-        httpContext.Response.StatusCode = ErrorStatusMap.ToStatusCode(error);
     }
 
     private static string? PointerFor(Error error, Type? bodyType, JsonSerializerOptions json) =>
