@@ -15,11 +15,13 @@ namespace Auth_API.Tests.Configuration;
 ///
 /// <para>
 /// The second half is the same absence facing the other way. The API's 429 body
-/// omitted the <c>status</c> field, and the SPA derives an error's kind from
+/// omitted the <c>status</c> field, and the SPA derived an error's kind from
 /// that field alone — so a refusal from this host was classified "unknown" and
 /// the user was told to contact support, while the identical refusal from the
-/// gateway, whose body carries the field, correctly told them to wait a moment.
-/// Two hosts refusing one request for one reason must say so identically.
+/// gateway, whose body carried the field, correctly told them to wait a moment.
+/// Two hosts refusing one request for one reason must say so identically, which
+/// they now do by writing no body at all: the error contract (ADR 0001) writes the
+/// same problem, with <c>Http.RateLimited</c>, for both.
 /// </para>
 ///
 /// <para>
@@ -133,12 +135,20 @@ public class RateLimitVisibilityGuardTests
     }
 
     [Fact]
-    public void GatewayRejectionBody_CarriesTheSameField()
+    public void GatewayRejection_LeavesTheBodyToTheErrorContract()
     {
         var handler = RejectionHandler(ReadSource("API_Gateway", "Program.cs"));
 
-        handler.Should().Contain("status = 429",
-            "the two hosts refuse the same request for the same reason and must answer identically");
+        // The two hosts refuse the same request for the same reason and answer identically,
+        // because neither writes the body: the error contract does, for both.
+        handler.Should().NotContain("WriteAsJsonAsync",
+            "the refusal's body is the error contract's, identical to the API's");
+        handler.Should().NotContain("Response.WriteAsync",
+            "the refusal's body is the error contract's, identical to the API's");
+        handler.Should().Contain("Response.Headers.RetryAfter",
+            "the wait travels in Retry-After, the only place a client reads it");
+        handler.Should().Contain("Math.Ceiling(",
+            "a truncated wait tells the client to retry before the window reopens");
     }
 
     /// <summary>

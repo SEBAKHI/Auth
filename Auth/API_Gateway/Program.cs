@@ -1,11 +1,11 @@
 using System.Threading.RateLimiting;
 using API_Gateway.Configuration;
-using API_Gateway.Middleware;
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Auth_Localization.Extensions;
 using Auth.Shared.Configuration;
 using Auth.Shared.Diagnostics;
 using Auth.Shared.Http;
+using Auth.Shared.Http.ErrorContract;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
@@ -331,26 +331,11 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 
-    options.OnRejected = async (context, token) =>
+    options.OnRejected = (context, _) =>
     {
-        var localizer = context.HttpContext.RequestServices
-            .GetService<Microsoft.Extensions.Localization.IStringLocalizer<Auth_Localization.Resources.Middleware.MiddlewareMessages>>();
-
-        string Localize(string key, string fallback)
-        {
-            if (localizer is null) return fallback;
-            var localized = localizer[key];
-            return localized.ResourceNotFound ? fallback : localized.Value;
-        }
-
-        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
-        context.HttpContext.Response.ContentType = "application/json";
-
         var retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retry)
-            ? (int)retry.TotalSeconds
+            ? (int)Math.Ceiling(retry.TotalSeconds)
             : 60;
-
-        context.HttpContext.Response.Headers.RetryAfter = retryAfter.ToString();
 
         // Name the allowance that ran out.
         //
@@ -379,19 +364,22 @@ builder.Services.AddRateLimiter(options =>
             ClientId(context.HttpContext),
             retryAfter);
 
-        await context.HttpContext.Response.WriteAsJsonAsync(new
-        {
-            type = "https://httpstatuses.com/429",
-            title = Localize("Middleware.TooManyRequests.Title", "Too Many Requests"),
-            status = 429,
-            detail = Localize("Middleware.TooManyRequests", "Rate limit exceeded. Please try again later."),
-            retryAfter
-        }, token);
+        // No body of its own (ADR 0001): the status-code pages write the problem with
+        // Http.RateLimited, the same body the API writes when it refuses the same request.
+        // The wait travels only in Retry-After, rounded up so a client never retries early.
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        context.HttpContext.Response.Headers.RetryAfter =
+            retryAfter.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return ValueTask.CompletedTask;
     };
 });
 
 // Localization
 builder.Services.AddAuthLocalization();
+
+// Every error the edge itself produces is one problem+json shape (ADR 0001): the rate
+// limiter's 429, YARP's empty 502/504, exceptions, and unmatched routes.
+builder.Services.AddErrorContract();
 
 // Health Checks
 //   /health -> liveness  (tag "live") : is the gateway process up? No upstream call.
@@ -470,8 +458,10 @@ app.UseSerilogRequestLogging(options =>
 // Localization middleware
 app.UseAuthLocalization();
 
-// Exception handling
-app.UseMiddleware<GatewayExceptionMiddleware>();
+// The error contract (ADR 0001): the exception handler, then the status-code pages that write
+// a problem for every empty 4xx/5xx, ahead of the rate limiter and the proxy. A response the
+// proxy relays from upstream has a body already and is left alone.
+app.UseErrorContract();
 
 // Security headers
 app.UseMiddleware<SecurityHeadersMiddleware>();
