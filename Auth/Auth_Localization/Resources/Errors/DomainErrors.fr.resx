@@ -1403,4 +1403,43 @@
   <data name="WebhookKey.TargetUrlTooLong" xml:space="preserve">
     <value>L'URL ne doit pas dépasser 2000 caractères.</value>
   </data>
+  <data name="Http.BadRequest" xml:space="preserve">
+    <value>La requête est mal formée et n'a pas pu être traitée.</value>
+  </data>
+  <data name="Http.ContentTooLarge" xml:space="preserve">
+    <value>Le corps de la requête est trop volumineux.</value>
+  </data>
+  <data name="Http.Forbidden" xml:space="preserve">
+    <value>Vous n'avez pas l'autorisation d'effectuer cette action.</value>
+  </data>
+  <data name="Http.MethodNotAllowed" xml:space="preserve">
+    <value>Cette méthode n'est pas autorisée sur la ressource demandée.</value>
+  </data>
+  <data name="Http.NotFound" xml:space="preserve">
+    <value>La ressource demandée est introuvable.</value>
+  </data>
+  <data name="Http.RateLimited" xml:space="preserve">
+    <value>Trop de requêtes. Veuillez réessayer plus tard.</value>
+  </data>
+  <data name="Http.SessionRevoked" xml:space="preserve">
+    <value>Cette session a été fermée. Veuillez vous reconnecter.</value>
+  </data>
+  <data name="Http.TokenExpired" xml:space="preserve">
+    <value>Votre connexion a expiré. Veuillez vous reconnecter.</value>
+  </data>
+  <data name="Http.TokenRevoked" xml:space="preserve">
+    <value>Votre connexion n'est plus valide. Veuillez vous reconnecter.</value>
+  </data>
+  <data name="Http.Unauthenticated" xml:space="preserve">
+    <value>Connectez-vous pour continuer.</value>
+  </data>
+  <data name="Http.Unavailable" xml:space="preserve">
+    <value>Le service est temporairement indisponible. Veuillez réessayer plus tard.</value>
+  </data>
+  <data name="Http.Unexpected" xml:space="preserve">
+    <value>Une erreur inattendue s'est produite.</value>
+  </data>
+  <data name="Http.UnsupportedMediaType" xml:space="preserve">
+    <value>Le type de contenu de la requête n'est pas pris en charge.</value>
+  </data>
 </root>

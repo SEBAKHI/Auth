@@ -1405,4 +1405,43 @@
   <data name="WebhookKey.TargetUrlTooLong" xml:space="preserve">
     <value>يجب ألا يتجاوز الرابط 2000 حرفًا.</value>
   </data>
+  <data name="Http.BadRequest" xml:space="preserve">
+    <value>الطلب غير سليم التنسيق ولا يمكن معالجته.</value>
+  </data>
+  <data name="Http.ContentTooLarge" xml:space="preserve">
+    <value>محتوى الطلب أكبر من المسموح.</value>
+  </data>
+  <data name="Http.Forbidden" xml:space="preserve">
+    <value>ليست لديك صلاحية لتنفيذ هذا الإجراء.</value>
+  </data>
+  <data name="Http.MethodNotAllowed" xml:space="preserve">
+    <value>هذه الطريقة غير مسموح بها على المورد المطلوب.</value>
+  </data>
+  <data name="Http.NotFound" xml:space="preserve">
+    <value>لم يتم العثور على المورد المطلوب.</value>
+  </data>
+  <data name="Http.RateLimited" xml:space="preserve">
+    <value>طلبات كثيرة جدًا. يرجى المحاولة لاحقًا.</value>
+  </data>
+  <data name="Http.SessionRevoked" xml:space="preserve">
+    <value>أُنهيت هذه الجلسة. يرجى تسجيل الدخول مجددًا.</value>
+  </data>
+  <data name="Http.TokenExpired" xml:space="preserve">
+    <value>انتهت صلاحية تسجيل دخولك. يرجى تسجيل الدخول مجددًا.</value>
+  </data>
+  <data name="Http.TokenRevoked" xml:space="preserve">
+    <value>لم يعد تسجيل دخولك صالحًا. يرجى تسجيل الدخول مجددًا.</value>
+  </data>
+  <data name="Http.Unauthenticated" xml:space="preserve">
+    <value>سجّل الدخول للمتابعة.</value>
+  </data>
+  <data name="Http.Unavailable" xml:space="preserve">
+    <value>الخدمة غير متاحة مؤقتًا. يرجى المحاولة لاحقًا.</value>
+  </data>
+  <data name="Http.Unexpected" xml:space="preserve">
+    <value>حدث خطأ غير متوقع.</value>
+  </data>
+  <data name="Http.UnsupportedMediaType" xml:space="preserve">
+    <value>نوع محتوى الطلب غير مدعوم.</value>
+  </data>
 </root>

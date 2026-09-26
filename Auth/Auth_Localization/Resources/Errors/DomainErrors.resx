@@ -1405,4 +1405,43 @@
   <data name="WebhookKey.TargetUrlTooLong" xml:space="preserve">
     <value>URL must not exceed 2000 characters.</value>
   </data>
+  <data name="Http.BadRequest" xml:space="preserve">
+    <value>The request is malformed and could not be processed.</value>
+  </data>
+  <data name="Http.ContentTooLarge" xml:space="preserve">
+    <value>The request body is too large.</value>
+  </data>
+  <data name="Http.Forbidden" xml:space="preserve">
+    <value>You do not have permission to perform this action.</value>
+  </data>
+  <data name="Http.MethodNotAllowed" xml:space="preserve">
+    <value>This method is not allowed on the requested resource.</value>
+  </data>
+  <data name="Http.NotFound" xml:space="preserve">
+    <value>The requested resource was not found.</value>
+  </data>
+  <data name="Http.RateLimited" xml:space="preserve">
+    <value>Too many requests. Please try again later.</value>
+  </data>
+  <data name="Http.SessionRevoked" xml:space="preserve">
+    <value>This session has been ended. Please sign in again.</value>
+  </data>
+  <data name="Http.TokenExpired" xml:space="preserve">
+    <value>Your sign-in has expired. Please sign in again.</value>
+  </data>
+  <data name="Http.TokenRevoked" xml:space="preserve">
+    <value>Your sign-in is no longer valid. Please sign in again.</value>
+  </data>
+  <data name="Http.Unauthenticated" xml:space="preserve">
+    <value>Sign in to continue.</value>
+  </data>
+  <data name="Http.Unavailable" xml:space="preserve">
+    <value>The service is temporarily unavailable. Please try again later.</value>
+  </data>
+  <data name="Http.Unexpected" xml:space="preserve">
+    <value>An unexpected error occurred.</value>
+  </data>
+  <data name="Http.UnsupportedMediaType" xml:space="preserve">
+    <value>The content type of the request is not supported.</value>
+  </data>
 </root>

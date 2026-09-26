@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Globalization;
 using System.Resources;
 using Auth_API.Tests.ErrorContract;
@@ -7,26 +8,26 @@ using Xunit;
 namespace Auth_API.Tests.Localization;
 
 /// <summary>
-/// Guards that every code of the error catalog has an entry in DomainErrors.resx, so no
-/// error falls back to its hardcoded English description on localized requests. Every code
-/// lives in the catalog (ADR 0001), so the catalog walk is the whole list.
+/// DomainErrors.resx holds exactly one sentence per published error code (ADR 0001): none
+/// missing, so no problem goes out without a translatable <c>detail</c>, and none left over
+/// from a code that no longer exists. That every other culture has the same keys and
+/// placeholders is <see cref="BaselineCoverageTests"/>'s job.
 /// </summary>
 public class DomainErrorResourceCoverageTests
 {
     [Fact]
-    public void EveryDomainErrorCode_HasDomainErrorsResourceEntry()
+    public void DomainErrorsSentences_AreExactlyThePublishedCodes()
     {
-        var resourceManager = new ResourceManager(
-            typeof(DomainErrors).FullName!,
-            typeof(DomainErrors).Assembly);
+        var keys = new ResourceManager(typeof(DomainErrors).FullName!, typeof(DomainErrors).Assembly)
+            .GetResourceSet(CultureInfo.InvariantCulture, createIfNotExists: true, tryParents: false)!
+            .Cast<DictionaryEntry>()
+            .Select(entry => (string)entry.Key)
+            .ToHashSet(StringComparer.Ordinal);
 
-        var missing = ErrorCatalog.Members()
-            .Select(member => member.Error.Code)
-            .Distinct()
-            .Where(code => resourceManager.GetString(code, CultureInfo.InvariantCulture) is null)
-            .OrderBy(code => code)
-            .ToList();
+        var missing = PublishedErrorCodes.All.Keys.Where(code => !keys.Contains(code)).Order(StringComparer.Ordinal);
+        var orphaned = keys.Where(key => !PublishedErrorCodes.Contains(key)).Order(StringComparer.Ordinal);
 
         Assert.Empty(missing);
+        Assert.Empty(orphaned);
     }
 }

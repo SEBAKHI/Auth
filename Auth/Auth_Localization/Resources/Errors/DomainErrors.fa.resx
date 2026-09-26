@@ -1403,4 +1403,43 @@
   <data name="WebhookKey.TargetUrlTooLong" xml:space="preserve">
     <value>آدرس URL نباید بیش از ۲۰۰۰ کاراکتر باشد.</value>
   </data>
+  <data name="Http.BadRequest" xml:space="preserve">
+    <value>قالب درخواست نادرست است و پردازش آن ممکن نیست.</value>
+  </data>
+  <data name="Http.ContentTooLarge" xml:space="preserve">
+    <value>محتوای درخواست بیش از حد بزرگ است.</value>
+  </data>
+  <data name="Http.Forbidden" xml:space="preserve">
+    <value>شما اجازه انجام این کار را ندارید.</value>
+  </data>
+  <data name="Http.MethodNotAllowed" xml:space="preserve">
+    <value>این متد برای منبع درخواست شده مجاز نیست.</value>
+  </data>
+  <data name="Http.NotFound" xml:space="preserve">
+    <value>منبع درخواست شده یافت نشد.</value>
+  </data>
+  <data name="Http.RateLimited" xml:space="preserve">
+    <value>درخواست‌های بیش از حد مجاز. لطفاً بعداً دوباره تلاش کنید.</value>
+  </data>
+  <data name="Http.SessionRevoked" xml:space="preserve">
+    <value>این نشست پایان یافته است. لطفاً دوباره وارد شوید.</value>
+  </data>
+  <data name="Http.TokenExpired" xml:space="preserve">
+    <value>اعتبار ورود شما به پایان رسیده است. لطفاً دوباره وارد شوید.</value>
+  </data>
+  <data name="Http.TokenRevoked" xml:space="preserve">
+    <value>ورود شما دیگر معتبر نیست. لطفاً دوباره وارد شوید.</value>
+  </data>
+  <data name="Http.Unauthenticated" xml:space="preserve">
+    <value>برای ادامه وارد شوید.</value>
+  </data>
+  <data name="Http.Unavailable" xml:space="preserve">
+    <value>سرویس موقتاً در دسترس نیست. لطفاً بعداً دوباره تلاش کنید.</value>
+  </data>
+  <data name="Http.Unexpected" xml:space="preserve">
+    <value>یک خطای غیرمنتظره رخ داده است.</value>
+  </data>
+  <data name="Http.UnsupportedMediaType" xml:space="preserve">
+    <value>نوع محتوای درخواست پشتیبانی نمی‌شود.</value>
+  </data>
 </root>

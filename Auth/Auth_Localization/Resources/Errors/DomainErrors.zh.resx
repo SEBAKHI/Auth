@@ -1403,4 +1403,43 @@
   <data name="WebhookKey.TargetUrlTooLong" xml:space="preserve">
     <value>URL长度不能超过2000个字符。</value>
   </data>
+  <data name="Http.BadRequest" xml:space="preserve">
+    <value>请求格式不正确，无法处理。</value>
+  </data>
+  <data name="Http.ContentTooLarge" xml:space="preserve">
+    <value>请求正文过大。</value>
+  </data>
+  <data name="Http.Forbidden" xml:space="preserve">
+    <value>您无权执行此操作。</value>
+  </data>
+  <data name="Http.MethodNotAllowed" xml:space="preserve">
+    <value>请求的资源不允许使用此方法。</value>
+  </data>
+  <data name="Http.NotFound" xml:space="preserve">
+    <value>未找到请求的资源。</value>
+  </data>
+  <data name="Http.RateLimited" xml:space="preserve">
+    <value>请求过多，请稍后再试。</value>
+  </data>
+  <data name="Http.SessionRevoked" xml:space="preserve">
+    <value>此会话已结束，请重新登录。</value>
+  </data>
+  <data name="Http.TokenExpired" xml:space="preserve">
+    <value>您的登录已过期，请重新登录。</value>
+  </data>
+  <data name="Http.TokenRevoked" xml:space="preserve">
+    <value>您的登录已失效，请重新登录。</value>
+  </data>
+  <data name="Http.Unauthenticated" xml:space="preserve">
+    <value>请登录以继续。</value>
+  </data>
+  <data name="Http.Unavailable" xml:space="preserve">
+    <value>服务暂时不可用，请稍后再试。</value>
+  </data>
+  <data name="Http.Unexpected" xml:space="preserve">
+    <value>发生意外错误。</value>
+  </data>
+  <data name="Http.UnsupportedMediaType" xml:space="preserve">
+    <value>不支持请求的内容类型。</value>
+  </data>
 </root>

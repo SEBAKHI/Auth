@@ -1403,4 +1403,43 @@
   <data name="WebhookKey.TargetUrlTooLong" xml:space="preserve">
     <value>URL ۲۰۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
   </data>
+  <data name="Http.BadRequest" xml:space="preserve">
+    <value>درخواست کی ساخت درست نہیں اور اس پر کارروائی نہیں ہو سکی۔</value>
+  </data>
+  <data name="Http.ContentTooLarge" xml:space="preserve">
+    <value>درخواست کا مواد بہت بڑا ہے۔</value>
+  </data>
+  <data name="Http.Forbidden" xml:space="preserve">
+    <value>آپ کو یہ کارروائی کرنے کی اجازت نہیں ہے۔</value>
+  </data>
+  <data name="Http.MethodNotAllowed" xml:space="preserve">
+    <value>مطلوبہ وسیلے پر اس طریقے کی اجازت نہیں ہے۔</value>
+  </data>
+  <data name="Http.NotFound" xml:space="preserve">
+    <value>مطلوبہ وسیلہ نہیں ملا۔</value>
+  </data>
+  <data name="Http.RateLimited" xml:space="preserve">
+    <value>بہت زیادہ درخواستیں۔ براہ کرم بعد میں دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="Http.SessionRevoked" xml:space="preserve">
+    <value>یہ سیشن ختم کر دیا گیا ہے۔ براہ کرم دوبارہ سائن ان کریں۔</value>
+  </data>
+  <data name="Http.TokenExpired" xml:space="preserve">
+    <value>آپ کے سائن ان کی مدت ختم ہو گئی ہے۔ براہ کرم دوبارہ سائن ان کریں۔</value>
+  </data>
+  <data name="Http.TokenRevoked" xml:space="preserve">
+    <value>آپ کا سائن ان اب درست نہیں رہا۔ براہ کرم دوبارہ سائن ان کریں۔</value>
+  </data>
+  <data name="Http.Unauthenticated" xml:space="preserve">
+    <value>جاری رکھنے کے لیے سائن ان کریں۔</value>
+  </data>
+  <data name="Http.Unavailable" xml:space="preserve">
+    <value>سروس عارضی طور پر دستیاب نہیں ہے۔ براہ کرم بعد میں دوبارہ کوشش کریں۔</value>
+  </data>
+  <data name="Http.Unexpected" xml:space="preserve">
+    <value>ایک غیر متوقع خرابی پیش آئی۔</value>
+  </data>
+  <data name="Http.UnsupportedMediaType" xml:space="preserve">
+    <value>درخواست کے مواد کی قسم تعاون یافتہ نہیں ہے۔</value>
+  </data>
 </root>

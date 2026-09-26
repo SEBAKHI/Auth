@@ -1,9 +1,6 @@
-using System.Globalization;
-using System.Resources;
 using Auth.Application.Behaviors;
 using Auth.Application.Features.Notifications.UpdateNotificationTemplateDraft;
 using Auth.Domain.Errors;
-using Auth_Localization.Resources.Errors;
 using ErrorOr;
 using FluentValidation;
 using FluentValidation.Validators;
@@ -88,21 +85,6 @@ public class ErrorCatalogContractTests
             .ToList();
 
         Assert.Empty(shared);
-    }
-
-    [Fact]
-    public void EveryDomainErrorsResourceKey_IsAPublishedCode()
-    {
-        var resources = new ResourceManager(typeof(DomainErrors).FullName!, typeof(DomainErrors).Assembly)
-            .GetResourceSet(CultureInfo.InvariantCulture, createIfNotExists: true, tryParents: false)!;
-
-        var orphans = resources.Cast<System.Collections.DictionaryEntry>()
-            .Select(entry => (string)entry.Key)
-            .Where(key => !PublishedErrorCodes.Contains(key))
-            .OrderBy(key => key, StringComparer.Ordinal)
-            .ToList();
-
-        Assert.Empty(orphans);
     }
 
     [Fact]

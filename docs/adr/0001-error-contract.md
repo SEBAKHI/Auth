@@ -33,8 +33,12 @@ Every error response is `application/problem+json` (RFC 9457):
 
 ### 2. One writer
 
-- `AddProblemDetails` with **one** `CustomizeProblemDetails` (shared by both hosts, `Auth.Shared/Http/ErrorContract`): sets `instance`, adds `code` when absent (the reason the request recorded, else the transport code for the status), adds `detail` when absent, adds `Retry-After` to a 503 that has none. It never touches `type` or `title`.
-- `UseExceptionHandler` with **one** `IExceptionHandler`. `ExceptionHandlingMiddleware` and `GatewayExceptionMiddleware` are removed.
+- `AddProblemDetails` with **one** `CustomizeProblemDetails` (shared by both hosts, `Auth.Shared/Http/ErrorContract`, wired by `AddErrorContract`/`UseErrorContract`). It sets `instance`, and it is the only author of `code` and `detail`:
+  - `code` is the code the request recorded in `HttpContext.Items` (a handler's first error, a middleware's reason, an exception translation), else the transport code for the status. A `code` that a library wrote itself (for example Asp.Versioning's) is replaced.
+  - `detail` is that code's sentence from `DomainErrors`, which holds one sentence per published code, transport codes included, in the request's culture (`ProblemText`), with `Content-Language`.
+  - A 503 without `Retry-After` gets `ErrorContract:Outage:RetryAfterSeconds` (default 30).
+  - It never touches `type` or `title`, and replaces a minimal-API validation problem with a plain one, so there is no dictionary-shaped `errors`.
+- `UseExceptionHandler` with **one** `IExceptionHandler` (`ErrorContractExceptionHandler`). A host translates a driver exception through an `IExceptionProblemTranslator` keyed by the exception type (the SQL translator lives in `Auth_API`, since `Auth.Shared` references no driver). `ExceptionHandlingMiddleware` and `GatewayExceptionMiddleware` are removed.
 - `UseStatusCodePages` writes every empty 4xx/5xx body: authentication challenges, authorization denials, unmatched routes, wrong methods and media types, the rate limiter's 429 and YARP's 502/504.
 - The rate limiters, `JwtBlacklistValidationMiddleware`, `GatewayTokenValidationMiddleware` and `RequireAdminApiEnabledAttribute` set a status (and, where it adds meaning, a reason code) and write no body of their own.
 - Handler results reach HTTP through one mapper (`ProblemMapping`) and one status map (`ErrorStatusMap`); MVC's model-state 400 goes through `ProblemDetailsFactory` with `Http.BadRequest` and no `errors`.
@@ -68,6 +72,7 @@ This API **publishes field-level validation**:
 
 - **547 stays a 409:** the hard-delete paths (roles, permissions, notification templates) may not check references first, and an administrator needs "in use elsewhere", not "unexpected error".
 - **2601/2627 are 500:** the races that are expected are already translated where they occur (for example `UserRepository` → `DuplicateEmail`). A blanket 409 hid a deterministic defect before (the `UQ_Users_Username` local-part collision), so any new unique violation must surface as a fault.
+- **No Polly entry:** the skill's default outage list includes Polly's `ExecutionRejectedException`; no project here references Polly, so the classifier leaves it out until one does.
 - **The other three were 404/400:** they are programming errors; only `FluidTemplateRenderer` throws `KeyNotFoundException`, and `InvalidOperationException` is thrown by entity guards. A 4xx blamed the client and hid the fault from error monitoring.
 
 ### 6. Status map

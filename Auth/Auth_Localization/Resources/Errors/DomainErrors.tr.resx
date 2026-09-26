@@ -1403,4 +1403,43 @@
   <data name="WebhookKey.TargetUrlTooLong" xml:space="preserve">
     <value>URL 2000 karakteri aşmamalıdır.</value>
   </data>
+  <data name="Http.BadRequest" xml:space="preserve">
+    <value>İstek hatalı biçimlendirilmiş ve işlenemedi.</value>
+  </data>
+  <data name="Http.ContentTooLarge" xml:space="preserve">
+    <value>İstek gövdesi çok büyük.</value>
+  </data>
+  <data name="Http.Forbidden" xml:space="preserve">
+    <value>Bu işlemi gerçekleştirme izniniz yok.</value>
+  </data>
+  <data name="Http.MethodNotAllowed" xml:space="preserve">
+    <value>Bu yönteme istenen kaynakta izin verilmiyor.</value>
+  </data>
+  <data name="Http.NotFound" xml:space="preserve">
+    <value>İstenen kaynak bulunamadı.</value>
+  </data>
+  <data name="Http.RateLimited" xml:space="preserve">
+    <value>Çok fazla istek. Lütfen daha sonra tekrar deneyin.</value>
+  </data>
+  <data name="Http.SessionRevoked" xml:space="preserve">
+    <value>Bu oturum sonlandırıldı. Lütfen yeniden oturum açın.</value>
+  </data>
+  <data name="Http.TokenExpired" xml:space="preserve">
+    <value>Oturumunuzun süresi doldu. Lütfen yeniden oturum açın.</value>
+  </data>
+  <data name="Http.TokenRevoked" xml:space="preserve">
+    <value>Oturum açma bilginiz artık geçerli değil. Lütfen yeniden oturum açın.</value>
+  </data>
+  <data name="Http.Unauthenticated" xml:space="preserve">
+    <value>Devam etmek için oturum açın.</value>
+  </data>
+  <data name="Http.Unavailable" xml:space="preserve">
+    <value>Hizmet geçici olarak kullanılamıyor. Lütfen daha sonra tekrar deneyin.</value>
+  </data>
+  <data name="Http.Unexpected" xml:space="preserve">
+    <value>Beklenmeyen bir hata oluştu.</value>
+  </data>
+  <data name="Http.UnsupportedMediaType" xml:space="preserve">
+    <value>İsteğin içerik türü desteklenmiyor.</value>
+  </data>
 </root>

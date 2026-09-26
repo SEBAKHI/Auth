@@ -14,4 +14,9 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- The error contract's detail sentences (ADR 0001), keyed by code. -->
+    <ProjectReference Include="..\Auth_Localization\Auth_Localization.csproj" />
+  </ItemGroup>
+
 </Project>
