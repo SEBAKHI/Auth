@@ -1265,6 +1265,11 @@ never renamed, removed or reused. The decision is recorded in
 | `traceId` | Identifies the request; quote it when you report a fault |
 | `errors` | Only on a validation failure with two or more rules broken: `[{ "code", "pointer" }]`, where `pointer` is the RFC 6901 pointer of the request-body member, such as `#/newPassword`, and is left out when the failure is not about one |
 
+**A validation code names the rule, not the field:** `Password.TooLong`, `Email.Required`,
+`Paging.PageSizeOutOfRange`. A missing body member reaches the validators and gets its rule's code, such
+as `Email.Required`; a body that does not parse or bind, such as text where a number belongs, is
+`Http.BadRequest` with no `errors`.
+
 **A business-rule failure carries the handler's own code.** Revoking an API key that is already revoked:
 
 ```json
@@ -1325,25 +1330,6 @@ Retry-After: 43
 
 *In code:* the 429 is set in `Auth/Auth_API/Program.cs:1018-1052` and `Auth/API_Gateway/Program.cs:334-374`.
 A 503 `Http.Unavailable` — the database or another dependency is unreachable — carries `Retry-After` too.
-
-### Error contract (breaking change)
-
-If your integration was written against an earlier AuthSystem, it read errors in shapes that no longer
-exist. There is no version that sends both formats. Switch to `code`:
-
-| What you read before | What you read now |
-|---|---|
-| The error code in `title` (for example `"title": "User.InvalidCredentials"`) | `code`. `title` is now the reason phrase, such as `Bad Request` |
-| `errors[].description`, or `errors[].field` and `message` on an exception body | Nothing: an entry is `{ "code", "pointer" }`. Use `code`, and `detail` for the first failure's sentence |
-| The `{ "field": ["message", …] }` dictionary for a body that did not bind | `Http.BadRequest` with no `errors`; a missing or invalid member gets its validation rule's code, with a `pointer` in `errors` when two or more rules fail |
-| The `retryAfter` member of a 429 body | The `Retry-After` header, on both hosts |
-| An empty body on a 401, 403, 404, 405 or 502 | A problem with a transport code (`Http.Unauthenticated`, `Http.Forbidden`, `Http.NotFound`, `Http.MethodNotAllowed`, `Http.Unavailable`) |
-| 404 for an unhandled `KeyNotFoundException`, 400 for `InvalidOperationException` or `ArgumentException`, 409 for a SQL unique-key violation | 500 `Http.Unexpected` |
-| `correlationId` on an exception body | `traceId` |
-
-A validation code now names the rule, never the field: `Password.TooLong`, `Email.Required`,
-`Paging.PageSizeOutOfRange`. Take the list of codes to branch on from `docs/api/error-codes.json`, not
-from the text of `detail`, which changes with the language.
 
 ---
 

@@ -2,13 +2,13 @@
 
 ## Status
 
-Accepted — 2026-09-26. Supersedes the error format described in `ReadMe/DEVELOPER_GUIDE.md` §4.3 before this date. **Breaking change** for every client that read the error code from `title`.
+Accepted — 2026-09-26. Supersedes the error format described in `ReadMe/DEVELOPER_GUIDE.md` §4.3 before this date. Incompatible with the previous format, which had no consumer outside this repository (§7).
 
 ## Context
 
 Before this decision the two hosts (`Auth_API`, `API_Gateway`) wrote errors in eleven shapes:
 
-- `ApiController.Problem` put the ErrorOr code in `title` (a human-readable member under RFC 9457 §3.1.3) and added `errors[{code, description}]` only when a request failed two or more rules, so a single error had no stable machine member at all. Clients guessed the code from `title` ("a title with no space is a code"), which breaks on one-word titles such as `Forbidden` and on languages that do not separate words with spaces.
+- `ApiController.Problem` put the ErrorOr code in `title` (a human-readable member under RFC 9457 §3.1.3) and added `errors[{code, description}]` only when a request failed two or more rules, so a single error had no stable machine member at all. `Auth_UI` guessed the code from `title` ("a title with no space is a code"), which breaks on one-word titles such as `Forbidden` and on languages that do not separate words with spaces.
 - FluentValidation failures used the **property name** as the code (`Password`), so one code meant different rules on different operations (a length ceiling on sign-in, the new account's password on registration).
 - Two different 429 bodies (`{status, error, retryAfter}` from the API, `{type, title, status, detail, retryAfter}` from the gateway), `{error}` from image upload, `ValidationProblemDetails` with an `errors` dictionary from model binding, `{field, message}` entries from the exception middleware, and **empty bodies** for 401, 403, 404, 405, 415 and the gateway's 502/504. The SPA reads the status from the body, so an empty body lost the error's kind.
 
@@ -95,7 +95,7 @@ A result carries errors of one ErrorType; the status comes from the first error.
 
 ### 7. Migration
 
-One cut, no version in which the API emits two formats. `Auth_UI` moves in the same change: it reads `code` only, takes the status from the transport, and places field errors from `errors[].pointer` or, for a single failure, from the published pointer of its code. External integrators that branched on `title` must switch to `code` (see the table in `ReadMe/APPLICATION_INTEGRATION_GUIDE.md`).
+One cut, no version in which the API emits two formats. `Auth_UI` moves in the same change: it reads `code` only, takes the status from the transport, and places field errors from `errors[].pointer` or, for a single failure, from the published pointer of its code. No client outside this repository consumed the previous format, so nothing else has to move; that is why one cut, rather than a transition period, is safe.
 
 Members that disappear from error bodies:
 
@@ -119,7 +119,6 @@ The `Token-Expired: true` header on a 401 for an expired token stays, beside the
 
 ### Negative
 
-- Breaking for integrators that read `title` or the `{error}` upload body.
 - The published pointer of a code is static; a code whose member path varies has `null`, and its single failure is shown at form level.
 - More codes (one per member where members differ).
 
