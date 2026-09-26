@@ -1444,4 +1444,16 @@
   <data name="Http.UnsupportedMediaType" xml:space="preserve">
     <value>The content type of the request is not supported.</value>
   </data>
+  <data name="ExternalAuth.AuthorizationCodeTooLong" xml:space="preserve">
+    <value>Authorization code must not exceed 2000 characters.</value>
+  </data>
+  <data name="ExternalAuth.FamilyNameTooLong" xml:space="preserve">
+    <value>Last name must not exceed 100 characters.</value>
+  </data>
+  <data name="ExternalAuth.GivenNameTooLong" xml:space="preserve">
+    <value>First name must not exceed 100 characters.</value>
+  </data>
+  <data name="Password.ConfirmationMismatch" xml:space="preserve">
+    <value>The password confirmation does not match the new password.</value>
+  </data>
 </root>

@@ -1442,4 +1442,16 @@
   <data name="Http.UnsupportedMediaType" xml:space="preserve">
     <value>İsteğin içerik türü desteklenmiyor.</value>
   </data>
+  <data name="ExternalAuth.AuthorizationCodeTooLong" xml:space="preserve">
+    <value>Yetkilendirme kodu 2000 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="ExternalAuth.FamilyNameTooLong" xml:space="preserve">
+    <value>Soyadı 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="ExternalAuth.GivenNameTooLong" xml:space="preserve">
+    <value>Ad 100 karakteri aşmamalıdır.</value>
+  </data>
+  <data name="Password.ConfirmationMismatch" xml:space="preserve">
+    <value>Parola onayı yeni parolayla eşleşmiyor.</value>
+  </data>
 </root>

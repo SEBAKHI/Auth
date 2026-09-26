@@ -1442,4 +1442,16 @@
   <data name="Http.UnsupportedMediaType" xml:space="preserve">
     <value>Le type de contenu de la requête n'est pas pris en charge.</value>
   </data>
+  <data name="ExternalAuth.AuthorizationCodeTooLong" xml:space="preserve">
+    <value>Le code d'autorisation ne doit pas dépasser 2000 caractères.</value>
+  </data>
+  <data name="ExternalAuth.FamilyNameTooLong" xml:space="preserve">
+    <value>Le nom de famille ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="ExternalAuth.GivenNameTooLong" xml:space="preserve">
+    <value>Le prénom ne doit pas dépasser 100 caractères.</value>
+  </data>
+  <data name="Password.ConfirmationMismatch" xml:space="preserve">
+    <value>La confirmation ne correspond pas au nouveau mot de passe.</value>
+  </data>
 </root>

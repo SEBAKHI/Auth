@@ -1442,4 +1442,16 @@
   <data name="Http.UnsupportedMediaType" xml:space="preserve">
     <value>نوع محتوای درخواست پشتیبانی نمی‌شود.</value>
   </data>
+  <data name="ExternalAuth.AuthorizationCodeTooLong" xml:space="preserve">
+    <value>کد مجوز نباید بیش از ۲۰۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="ExternalAuth.FamilyNameTooLong" xml:space="preserve">
+    <value>نام خانوادگی نباید بیش از ۱۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="ExternalAuth.GivenNameTooLong" xml:space="preserve">
+    <value>نام نباید بیش از ۱۰۰ کاراکتر باشد.</value>
+  </data>
+  <data name="Password.ConfirmationMismatch" xml:space="preserve">
+    <value>تکرار رمز عبور با رمز عبور جدید مطابقت ندارد.</value>
+  </data>
 </root>

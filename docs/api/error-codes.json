@@ -676,9 +676,27 @@
       "source": "catalog"
     },
     {
+      "code": "ExternalAuth.AuthorizationCodeTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/authorizationCode"
+    },
+    {
       "code": "ExternalAuth.EmailNotVerified",
       "status": 403,
       "source": "catalog"
+    },
+    {
+      "code": "ExternalAuth.FamilyNameTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/familyName"
+    },
+    {
+      "code": "ExternalAuth.GivenNameTooLong",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/givenName"
     },
     {
       "code": "ExternalAuth.IdTokenRequired",
@@ -1569,6 +1587,12 @@
       "status": 400,
       "source": "catalog",
       "pointer": null
+    },
+    {
+      "code": "Password.ConfirmationMismatch",
+      "status": 400,
+      "source": "catalog",
+      "pointer": "#/confirmNewPassword"
     },
     {
       "code": "Password.CurrentRequired",

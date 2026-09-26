@@ -8,13 +8,13 @@ public record TwoFactorLoginVerifyRequest
     /// <summary>
     /// The opaque challenge token returned by the login endpoint.
     /// </summary>
-    public required string ChallengeToken { get; init; }
+    public string ChallengeToken { get; init; } = string.Empty;
 
     /// <summary>
     /// The 6-digit TOTP code from the authenticator app, or a recovery code
     /// when <see cref="UseRecoveryCode"/> is true.
     /// </summary>
-    public required string Code { get; init; }
+    public string Code { get; init; } = string.Empty;
 
     /// <summary>
     /// Whether <see cref="Code"/> is a recovery code instead of a TOTP code.

@@ -59,6 +59,11 @@ This API **publishes field-level validation**:
 - `errors[].pointer` is computed per request from the offending property path, and only when the action's `[FromBody]` type has that member; otherwise the entry has no pointer.
 - Rules that had no resource key (FluentValidation defaults, plain English) now have codes and translated sentences.
 - Localization is looked up by code: `ValidationMessages` is merged into `DomainErrors`, keyed by code.
+- **No DataAnnotations and no C# `required` on requests.** An attribute fails in model binding and a `required` member fails in the JSON reader, and both answer `Http.BadRequest` with no rule code. MVC's implicit `[Required]` on non-nullable members is switched off for the same reason. The 17 authentication request contracts lost their attributes; every constraint they expressed is a validator rule, and a test keeps attributes from returning:
+  - rules that already existed kept their codes;
+  - new rules with existing codes: `Provider` ≤ 50 on external sign-in (`ExternalAuth.ProviderTooLong`), and the address rules (`Email.*`, ≤ 254) on the public deletion and account-recovery requests;
+  - new codes: `Password.ConfirmationMismatch` (the `[Compare]` on `confirmNewPassword`, now carried into the change- and reset-password commands), and `ExternalAuth.GivenNameTooLong`, `ExternalAuth.FamilyNameTooLong` (stored in `NVARCHAR(100)` columns) and `ExternalAuth.AuthorizationCodeTooLong` (forwarded to the provider);
+  - deliberately without a rule: `pendingId` (an empty or unknown handle already gets the merged `EmailVerification.InvalidOrExpiredOtp`, by design against enumeration, and is never stored), `deviceId` (bounded to 64 by `ApiController.GetDeviceId`), and `nonce` and `twoFactorCode` on external sign-in and recovery (compared, never stored).
 
 **Why `errors` only for two or more failures:** this is the text of the skill. Moving later to "`errors` on every Validation result" is additive and non-breaking (one condition in the mapper, one assertion, one skill paragraph); the reverse would remove a member clients rely on. The conditional form keeps that option open.
 

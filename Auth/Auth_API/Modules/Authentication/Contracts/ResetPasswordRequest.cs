@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -11,8 +9,7 @@ public record ResetPasswordRequest
     /// Gets the password reset token received via email.
     /// Identifies the user on its own; no email address is required.
     /// </summary>
-    [Required]
-    public required string Token { get; init; }
+    public string Token { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the new password to set. Length and complexity are the configured
@@ -20,15 +17,12 @@ public record ResetPasswordRequest
     /// length attribute here would be a second, hardcoded floor that silently
     /// overrode Password:MinimumLength whenever an operator lowered it.
     /// </summary>
-    [Required]
-    public required string NewPassword { get; init; }
+    public string NewPassword { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the new password confirmation (must match NewPassword).
     /// </summary>
-    [Required]
-    [Compare(nameof(NewPassword))]
-    public required string ConfirmNewPassword { get; init; }
+    public string ConfirmNewPassword { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets whether to terminate all sessions after resetting the password.

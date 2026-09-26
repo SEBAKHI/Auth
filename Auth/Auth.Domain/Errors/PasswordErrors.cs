@@ -8,6 +8,10 @@ namespace Auth.Domain.Errors;
 /// </summary>
 public static class PasswordErrors
 {
+    public static readonly Error ConfirmationMismatch = Error.Validation(
+        code: "Password.ConfirmationMismatch",
+        description: "The password confirmation does not match the new password.");
+
     public static readonly Error CurrentRequired = Error.Validation(
         code: "Password.CurrentRequired",
         description: "Current password is required.");

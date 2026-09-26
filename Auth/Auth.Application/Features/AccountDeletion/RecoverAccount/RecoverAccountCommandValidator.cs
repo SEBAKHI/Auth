@@ -1,3 +1,4 @@
+using Auth.Application.Validators.Rules;
 using Auth.Domain.Constants;
 using Auth.Domain.Errors;
 using FluentValidation;
@@ -11,9 +12,7 @@ public class RecoverAccountCommandValidator : AbstractValidator<RecoverAccountCo
 {
     public RecoverAccountCommandValidator()
     {
-        RuleFor(x => x.Email)
-            .NotEmpty().WithErrorCode(EmailErrors.Required.Code)
-            .EmailAddress().WithErrorCode(EmailErrors.InvalidFormat.Code);
+        RuleFor(x => x.Email).IsValidEmail();
 
         RuleFor(x => x.Password)
             .NotEmpty().WithErrorCode(PasswordErrors.Required.Code)

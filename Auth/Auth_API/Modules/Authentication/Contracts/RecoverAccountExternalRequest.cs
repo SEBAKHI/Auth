@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -11,25 +9,20 @@ public record RecoverAccountExternalRequest
     /// <summary>
     /// Gets the external provider code (e.g., "google").
     /// </summary>
-    [Required]
-    [StringLength(50)]
-    public required string Provider { get; init; }
+    public string Provider { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the ID token from the external provider.
     /// </summary>
-    [Required]
-    public required string IdToken { get; init; }
+    public string IdToken { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the optional nonce for token replay prevention.
     /// </summary>
-    [StringLength(256)]
     public string? Nonce { get; init; }
 
     /// <summary>
     /// Gets the TOTP code (accounts with 2FA enabled).
     /// </summary>
-    [StringLength(8)]
     public string? TwoFactorCode { get; init; }
 }

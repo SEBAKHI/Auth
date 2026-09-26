@@ -17,5 +17,9 @@ public class ResetPasswordCommandValidator : AbstractValidator<ResetPasswordComm
         RuleFor(x => x.NewPassword)
             .NotEmpty().WithErrorCode(PasswordErrors.NewRequired.Code)
             .MaximumLength(PasswordLimits.MaxLength).WithErrorCode(PasswordErrors.NewTooLong.Code);
+
+        RuleFor(x => x.ConfirmNewPassword)
+            .Equal(x => x.NewPassword).WithErrorCode(PasswordErrors.ConfirmationMismatch.Code)
+            .When(x => x.ConfirmNewPassword is not null);
     }
 }

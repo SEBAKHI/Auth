@@ -1442,4 +1442,16 @@
   <data name="Http.UnsupportedMediaType" xml:space="preserve">
     <value>不支持请求的内容类型。</value>
   </data>
+  <data name="ExternalAuth.AuthorizationCodeTooLong" xml:space="preserve">
+    <value>授权码不得超过 2000 个字符。</value>
+  </data>
+  <data name="ExternalAuth.FamilyNameTooLong" xml:space="preserve">
+    <value>姓氏不得超过 100 个字符。</value>
+  </data>
+  <data name="ExternalAuth.GivenNameTooLong" xml:space="preserve">
+    <value>名字不得超过 100 个字符。</value>
+  </data>
+  <data name="Password.ConfirmationMismatch" xml:space="preserve">
+    <value>确认密码与新密码不一致。</value>
+  </data>
 </root>

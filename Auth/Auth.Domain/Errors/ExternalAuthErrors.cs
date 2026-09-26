@@ -41,6 +41,18 @@ public static class ExternalAuthErrors
     // Request-validation rules (ADR 0001): validators declare these with
     // WithErrorCode, and the validation behavior carries the offending property.
 
+    public static readonly Error AuthorizationCodeTooLong = Error.Validation(
+        code: "ExternalAuth.AuthorizationCodeTooLong",
+        description: "Authorization code must not exceed 2000 characters.");
+
+    public static readonly Error FamilyNameTooLong = Error.Validation(
+        code: "ExternalAuth.FamilyNameTooLong",
+        description: "Last name must not exceed 100 characters.");
+
+    public static readonly Error GivenNameTooLong = Error.Validation(
+        code: "ExternalAuth.GivenNameTooLong",
+        description: "First name must not exceed 100 characters.");
+
     public static readonly Error IdTokenRequired = Error.Validation(
         code: "ExternalAuth.IdTokenRequired",
         description: "ID token is required.");

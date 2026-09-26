@@ -1444,4 +1444,16 @@
   <data name="Http.UnsupportedMediaType" xml:space="preserve">
     <value>نوع محتوى الطلب غير مدعوم.</value>
   </data>
+  <data name="ExternalAuth.AuthorizationCodeTooLong" xml:space="preserve">
+    <value>يجب ألا يتجاوز رمز التفويض 2000 حرف.</value>
+  </data>
+  <data name="ExternalAuth.FamilyNameTooLong" xml:space="preserve">
+    <value>يجب ألا يتجاوز اسم العائلة 100 حرف.</value>
+  </data>
+  <data name="ExternalAuth.GivenNameTooLong" xml:space="preserve">
+    <value>يجب ألا يتجاوز الاسم الأول 100 حرف.</value>
+  </data>
+  <data name="Password.ConfirmationMismatch" xml:space="preserve">
+    <value>تأكيد كلمة المرور لا يطابق كلمة المرور الجديدة.</value>
+  </data>
 </root>

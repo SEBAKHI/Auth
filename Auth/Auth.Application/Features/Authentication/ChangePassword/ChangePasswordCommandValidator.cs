@@ -26,5 +26,9 @@ public class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCo
             .NotEqual(x => x.CurrentPassword)
             .WithErrorCode(PasswordErrors.NewMustDiffer.Code)
             .When(x => !string.IsNullOrEmpty(x.CurrentPassword) && !string.IsNullOrEmpty(x.NewPassword));
+
+        RuleFor(x => x.ConfirmNewPassword)
+            .Equal(x => x.NewPassword).WithErrorCode(PasswordErrors.ConfirmationMismatch.Code)
+            .When(x => x.ConfirmNewPassword is not null);
     }
 }

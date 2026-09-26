@@ -566,7 +566,8 @@ public class AuthController : ApiController
             request.NewPassword,
             request.TerminateSessions,
             GetCurrentSessionId(),
-            IdpSessionCookie.Read(Request, _idpSettings));
+            IdpSessionCookie.Read(Request, _idpSettings),
+            request.ConfirmNewPassword);
 
         var result = await _sender.Send(command, cancellationToken);
 
@@ -612,7 +613,8 @@ public class AuthController : ApiController
         var command = new ResetPasswordCommand(
             request.Token,
             request.NewPassword,
-            request.TerminateSessions);
+            request.TerminateSessions,
+            request.ConfirmNewPassword);
 
         var result = await _sender.Send(command, cancellationToken);
 

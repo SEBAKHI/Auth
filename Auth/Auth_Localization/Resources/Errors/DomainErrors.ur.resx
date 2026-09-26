@@ -1442,4 +1442,16 @@
   <data name="Http.UnsupportedMediaType" xml:space="preserve">
     <value>درخواست کے مواد کی قسم تعاون یافتہ نہیں ہے۔</value>
   </data>
+  <data name="ExternalAuth.AuthorizationCodeTooLong" xml:space="preserve">
+    <value>اجازت کا کوڈ ۲۰۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="ExternalAuth.FamilyNameTooLong" xml:space="preserve">
+    <value>آخری نام ۱۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="ExternalAuth.GivenNameTooLong" xml:space="preserve">
+    <value>پہلا نام ۱۰۰ حروف سے زیادہ نہیں ہونا چاہیے۔</value>
+  </data>
+  <data name="Password.ConfirmationMismatch" xml:space="preserve">
+    <value>پاس ورڈ کی تصدیق نئے پاس ورڈ سے مطابقت نہیں رکھتی۔</value>
+  </data>
 </root>

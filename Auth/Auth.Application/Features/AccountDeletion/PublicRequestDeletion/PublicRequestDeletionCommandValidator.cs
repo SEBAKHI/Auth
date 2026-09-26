@@ -1,4 +1,4 @@
-using Auth.Domain.Errors;
+using Auth.Application.Validators.Rules;
 using FluentValidation;
 
 namespace Auth.Application.Features.AccountDeletion.PublicRequestDeletion;
@@ -10,8 +10,6 @@ public class PublicRequestDeletionCommandValidator : AbstractValidator<PublicReq
 {
     public PublicRequestDeletionCommandValidator()
     {
-        RuleFor(x => x.Email)
-            .NotEmpty().WithErrorCode(EmailErrors.Required.Code)
-            .EmailAddress().WithErrorCode(EmailErrors.InvalidFormat.Code);
+        RuleFor(x => x.Email).IsValidEmail();
     }
 }

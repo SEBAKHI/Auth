@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace Auth_API.Modules.Authentication.Contracts;
 
 /// <summary>
@@ -11,15 +9,10 @@ public record ConfirmPublicDeletionRequest
     /// <summary>
     /// Gets the email address of the account to delete.
     /// </summary>
-    [Required]
-    [EmailAddress]
-    [StringLength(255)]
-    public required string Email { get; init; }
+    public string Email { get; init; } = string.Empty;
 
     /// <summary>
     /// Gets the 6-digit verification code.
     /// </summary>
-    [Required]
-    [StringLength(6)]
-    public required string OtpCode { get; init; }
+    public string OtpCode { get; init; } = string.Empty;
 }
